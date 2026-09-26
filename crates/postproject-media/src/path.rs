@@ -74,8 +74,13 @@ mod tests {
         let uri = canonical_file_uri(&path).expect("convert path");
         assert!(uri.starts_with("file:"));
         assert!(uri.ends_with("clip%20with%20spaces.mov"));
+        // Windows canonical paths carry a verbatim `\\?\` prefix that a file
+        // URI cannot express, so compare the canonical forms of both paths.
         assert_eq!(
-            local_file_path(&uri).expect("decode file URI"),
+            local_file_path(&uri)
+                .expect("decode file URI")
+                .canonicalize()
+                .expect("canonical decoded path"),
             path.canonicalize().expect("canonical path")
         );
     }
