@@ -389,6 +389,8 @@ typedef uint32_t pp_evidence_kind_t;
 #define PP_EVIDENCE_DISCOVERY_ERROR UINT32_C(10)
 #define PP_EVIDENCE_MEDIA_ROOT_UNMAPPED UINT32_C(11)
 #define PP_EVIDENCE_MEDIA_ROOT_UNAVAILABLE UINT32_C(12)
+#define PP_EVIDENCE_FINGERPRINT_MISMATCH UINT32_C(13)
+#define PP_EVIDENCE_FINGERPRINT_NOT_VERIFIED UINT32_C(14)
 
 /* Inputs are borrowed UTF-8 without embedded NUL. A NULL display name is
  * absent. On success, *out_production is caller-owned and *out_error is NULL. On

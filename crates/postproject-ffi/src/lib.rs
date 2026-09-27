@@ -111,6 +111,8 @@ const PP_EVIDENCE_CONFLICTING_CANDIDATE: u32 = 9;
 const PP_EVIDENCE_DISCOVERY_ERROR: u32 = 10;
 const PP_EVIDENCE_MEDIA_ROOT_UNMAPPED: u32 = 11;
 const PP_EVIDENCE_MEDIA_ROOT_UNAVAILABLE: u32 = 12;
+const PP_EVIDENCE_FINGERPRINT_MISMATCH: u32 = 13;
+const PP_EVIDENCE_FINGERPRINT_NOT_VERIFIED: u32 = 14;
 
 const PP_OBJECT_PRODUCTION: u32 = 1;
 const PP_OBJECT_ASSET: u32 = 2;
@@ -152,7 +154,7 @@ const PP_REVISION_JOB_FAILED: u32 = 25;
 const PP_REVISION_JOB_CANCELLED: u32 = 26;
 
 /// Current pre-1.0 ABI version.
-pub const ABI_VERSION: u32 = 27;
+pub const ABI_VERSION: u32 = 28;
 
 /// Fixed-layout UUID-compatible public identifier.
 #[repr(C)]
@@ -7160,6 +7162,8 @@ const fn evidence_kind(kind: EvidenceKind) -> u32 {
         EvidenceKind::DiscoveryError => PP_EVIDENCE_DISCOVERY_ERROR,
         EvidenceKind::MediaRootUnmapped => PP_EVIDENCE_MEDIA_ROOT_UNMAPPED,
         EvidenceKind::MediaRootUnavailable => PP_EVIDENCE_MEDIA_ROOT_UNAVAILABLE,
+        EvidenceKind::FingerprintMismatch => PP_EVIDENCE_FINGERPRINT_MISMATCH,
+        EvidenceKind::FingerprintNotVerified => PP_EVIDENCE_FINGERPRINT_NOT_VERIFIED,
         _ => 0,
     }
 }

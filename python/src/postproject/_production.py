@@ -4370,6 +4370,10 @@ def _evidence_kind(value: int) -> EvidenceKind:
         _abi.PP_EVIDENCE_MEDIA_ROOT_UNAVAILABLE: EvidenceKind.MEDIA_ROOT_UNAVAILABLE,
         _abi.PP_EVIDENCE_CONFLICTING_CANDIDATE: EvidenceKind.CONFLICTING_CANDIDATE,
         _abi.PP_EVIDENCE_DISCOVERY_ERROR: EvidenceKind.DISCOVERY_ERROR,
+        _abi.PP_EVIDENCE_FINGERPRINT_MISMATCH: EvidenceKind.FINGERPRINT_MISMATCH,
+        _abi.PP_EVIDENCE_FINGERPRINT_NOT_VERIFIED: (
+            EvidenceKind.FINGERPRINT_NOT_VERIFIED
+        ),
     }.get(value)
     if result is None:
         raise RuntimeError("resolution has an unknown evidence kind")

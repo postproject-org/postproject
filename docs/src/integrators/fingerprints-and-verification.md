@@ -29,7 +29,36 @@ as pending rather than current.
 Recording an identical value is a no-op and creates no revision, so a host may
 safely record after every verification.
 
-## Verify content during resolution
+## Keep a host's own content hashes
+
+Many hosts already hash their media, for example an editor's head-and-tail
+digest, a MAM checksum, or a camera's clip hash. Record such a value as a
+resource fingerprint in its own domain, and PostProject keeps it byte for byte:
+
+- **Name the algorithm after your application.** The algorithm identifier is
+  1–64 ASCII letters, digits, `-`, or `_`, for example
+  `example-editor-md5-head-tail`. Do not reuse a generic name such as `md5`
+  unless the value is exactly that digest of every byte.
+- **Increment the version whenever the computation changes.** Values from
+  different versions are never compared with each other.
+- **Keep PostProject's own fingerprint as well.** Importing a file records it.
+  PostProject can only verify domains it computes itself; every other domain is
+  *foreign* to it (ADR 0028).
+
+Foreign fingerprints never prevent resolution. When a resource has no
+fingerprint that PostProject can compute, the resolver works as it does for a
+resource without fingerprints:
+
+- It proposes files with the recorded name, and ranks them by size, parent path,
+  and technical inspection.
+- It never reports such a candidate as exact.
+- It attaches `FingerprintNotVerified` evidence, whose detail lists the
+  unchecked domains as `<algorithm> version <n>`.
+
+The host should hash each such candidate with its own algorithm and confirm the
+locator only when the values agree. Resolution never commits a candidate by
+itself, so this check fits the normal confirmation step.
+
 
 By default resolution trusts known locators whose files exist. Verification
 additionally recomputes the fingerprints of content found at known locators and
@@ -57,6 +86,12 @@ adapter.
 
 A verification mismatch is a report. Record the new observation, as shown
 above, only after the integration has decided the new bytes are correct.
+
+`FingerprintMismatch` means that PostProject compared the content in one of its
+own domains and the content differs. If a resource only has foreign
+fingerprints, verification reports the known locator as online with
+`FingerprintNotVerified` evidence, because nothing was compared. The host's own
+check decides that case.
 
 ## Inventory storage
 

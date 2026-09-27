@@ -591,6 +591,8 @@ class EvidenceKind(Enum):
     MEDIA_ROOT_UNAVAILABLE = "media_root_unavailable"
     CONFLICTING_CANDIDATE = "conflicting_candidate"
     DISCOVERY_ERROR = "discovery_error"
+    FINGERPRINT_MISMATCH = "fingerprint_mismatch"
+    FINGERPRINT_NOT_VERIFIED = "fingerprint_not_verified"
 
 
 @dataclass(frozen=True, slots=True)

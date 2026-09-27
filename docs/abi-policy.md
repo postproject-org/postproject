@@ -1,6 +1,6 @@
 # ABI policy
 
-ABI version 27 is pre-release and may change during the 0.x series, with every
+ABI version 28 is pre-release and may change during the 0.x series, with every
 change recorded in the changelog and ABI tests. `pp_abi_version()` reports the
 implemented version. Exported symbol names are unversioned until the first stable
 release, but removals or signature changes require an explicit ABI-version bump.
@@ -184,6 +184,11 @@ ABI version 27 adds point reads. `pp_production_asset`,
 asset, representation, or job set and report an absent identity as
 `PP_ERROR_NOT_FOUND`. `pp_production_representations_using_resource` pages the
 representations that use a resource, because a resource may be shared.
+
+ABI version 28 adds the evidence kinds `PP_EVIDENCE_FINGERPRINT_MISMATCH` and
+`PP_EVIDENCE_FINGERPRINT_NOT_VERIFIED`. The second marks a candidate or known
+locator whose stored fingerprints all lie in domains PostProject cannot
+compute; its detail lists those domains for the caller to check (ADR 0028).
 
 ## External identifiers
 

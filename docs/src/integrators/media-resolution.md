@@ -66,6 +66,12 @@ directory. The CLI `media resolve --confirm` does the same automatically.
 Never confirm one of several candidates automatically. Present them, with
 their confidence and evidence, and let the user choose.
 
+A candidate with `fingerprint_not_verified` evidence was matched by name and
+size only. The resource's recorded fingerprints were ones PostProject cannot
+compute, such as a hash the host application recorded. Check the candidate with
+the host's own algorithm before confirming it. See
+[host content hashes](fingerprints-and-verification.md#keep-a-hosts-own-content-hashes).
+
 ## Read availability issues
 
 A representation can be partially available: a sequence with missing frames, a

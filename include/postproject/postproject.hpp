@@ -708,6 +708,8 @@ enum class EvidenceKind : std::uint32_t {
   discovery_error = PP_EVIDENCE_DISCOVERY_ERROR,
   media_root_unmapped = PP_EVIDENCE_MEDIA_ROOT_UNMAPPED,
   media_root_unavailable = PP_EVIDENCE_MEDIA_ROOT_UNAVAILABLE,
+  fingerprint_mismatch = PP_EVIDENCE_FINGERPRINT_MISMATCH,
+  fingerprint_not_verified = PP_EVIDENCE_FINGERPRINT_NOT_VERIFIED,
 };
 
 struct Evidence final {
