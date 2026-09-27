@@ -63,6 +63,9 @@ pub enum EvidenceKind {
     MediaRootUnavailable,
     /// Present content does not match its stored fingerprint evidence.
     FingerprintMismatch,
+    /// Stored fingerprint evidence exists only in domains the resolver cannot
+    /// compute, so content identity was not checked.
+    FingerprintNotVerified,
     /// Another candidate has equivalent credible evidence.
     ConflictingCandidate,
     /// Candidate discovery or verification could not complete safely.

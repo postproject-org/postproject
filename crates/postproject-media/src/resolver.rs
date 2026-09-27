@@ -18,7 +18,8 @@ use walkdir::WalkDir;
 
 use crate::{
     FULL_FINGERPRINT_ALGORITHM, InspectionOutcome, MediaInspector, SEQUENCE_FINGERPRINT_ALGORITHM,
-    TechnicalMetadata, canonical_file_uri, fingerprint_file, fingerprint_image_sequence,
+    TechnicalMetadata, canonical_file_uri, fingerprint::is_file_fingerprint_domain,
+    fingerprint_file, fingerprint_image_sequence,
 };
 
 /// One machine's directory mapping for a production-portable root name.
@@ -332,11 +333,12 @@ impl MediaResolver {
             .iter()
             .find_map(|locator| file_uri_to_path(locator.uri()).ok());
         let original_name = original_path.as_deref().and_then(Path::file_name);
-        let discovered = match self.discover(
+        let fingerprints = FileFingerprints::classify(resource.fingerprints());
+        let mut discovered = match self.discover(
             media_roots,
             root_mappings,
             resource.file_facts(),
-            !resource.fingerprints().is_empty(),
+            !fingerprints.comparable.is_empty(),
             original_name,
             original_path.as_deref(),
         ) {
@@ -352,23 +354,20 @@ impl MediaResolver {
                     format!("discovered URI cannot be converted back to a path: {error}"),
                 )
             })?;
-            let technical_match = resource.fingerprints().is_empty()
+            let technical_match = fingerprints.comparable.is_empty()
                 && technical_evidence.is_some_and(|(expected, inspector)| {
                     matches!(
                         inspector.inspect(&path),
                         Ok(InspectionOutcome::Inspected(actual)) if actual == *expected
                     )
                 });
-            match verify_candidate(
-                &path,
-                &uri,
-                cheap_evidence,
-                resource.fingerprints(),
-                technical_match,
-            ) {
+            match verify_candidate(&path, &uri, cheap_evidence, &fingerprints, technical_match) {
                 Ok(Some(candidate)) => candidates.push(candidate),
                 Ok(None) => {}
-                Err(detail) => return error_resolution(resource.id(), detail),
+                Err(detail) => discovered.diagnostics.push(ResolutionEvidence::new(
+                    EvidenceKind::DiscoveryError,
+                    Some(format!("{uri}: {detail}")),
+                )),
             }
         }
 
@@ -478,54 +477,16 @@ impl MediaResolver {
         roots: &[MediaRoot],
         mappings: &[MediaRootMapping],
         facts: Option<FileFacts>,
-        has_fingerprint: bool,
+        has_comparable_fingerprint: bool,
         original_name: Option<&OsStr>,
         original_path: Option<&Path>,
     ) -> std::result::Result<Discovery, String> {
+        let search = searchable_roots(roots, mappings)?;
         let mut discovered = BTreeMap::new();
-        let mut diagnostics = Vec::new();
+        let mut diagnostics = search.diagnostics;
         let mut entries_seen = 0_usize;
-        let mut mappings_by_name = BTreeMap::new();
-        for mapping in mappings {
-            if mappings_by_name
-                .insert(mapping.name(), mapping.directory())
-                .is_some()
-            {
-                return Err(format!(
-                    "media root {} has more than one machine mapping",
-                    mapping.name()
-                ));
-            }
-        }
-        let mut roots: Vec<_> = roots.iter().filter(|root| root.is_enabled()).collect();
-        roots.sort_by_key(|root| (root.priority(), root.id()));
-        for root in roots {
-            let legacy_path = root
-                .legacy_uri()
-                .map(file_uri_to_path)
-                .transpose()
-                .map_err(|error| {
-                    format!("legacy media root {} is invalid: {error}", root.name())
-                })?;
-            let Some(root_path) = mappings_by_name
-                .get(root.name())
-                .copied()
-                .or(legacy_path.as_deref())
-            else {
-                diagnostics.push(ResolutionEvidence::new(
-                    EvidenceKind::MediaRootUnmapped,
-                    Some(root.name().to_owned()),
-                ));
-                continue;
-            };
-            if !root_path.is_dir() {
-                diagnostics.push(ResolutionEvidence::new(
-                    EvidenceKind::MediaRootUnavailable,
-                    Some(format!("{}: {}", root.name(), root_path.display())),
-                ));
-                continue;
-            }
-            for entry in WalkDir::new(root_path)
+        for (root_name, root_path) in search.directories {
+            for entry in WalkDir::new(&root_path)
                 .follow_links(false)
                 .max_depth(self.options.max_depth)
                 .sort_by_file_name()
@@ -542,7 +503,7 @@ impl MediaResolver {
                     Err(error) => {
                         diagnostics.push(ResolutionEvidence::new(
                             EvidenceKind::MediaRootUnavailable,
-                            Some(format!("{}: {error}", root.name())),
+                            Some(format!("{root_name}: {error}")),
                         ));
                         continue;
                     }
@@ -550,20 +511,31 @@ impl MediaResolver {
                 if !entry.file_type().is_file() {
                     continue;
                 }
-                let metadata = entry
-                    .metadata()
-                    .map_err(|error| format!("inspect {}: {error}", entry.path().display()))?;
+                let Some(metadata) = ok_or_discovery_error(
+                    &mut diagnostics,
+                    entry
+                        .metadata()
+                        .map_err(|error| format!("inspect {}: {error}", entry.path().display())),
+                ) else {
+                    continue;
+                };
                 if facts.is_some_and(|facts| metadata.len() != facts.size_bytes()) {
                     continue;
                 }
                 let filename_matches = original_name.is_some_and(|name| entry.file_name() == name);
-                if (!has_fingerprint || facts.is_none()) && !filename_matches {
+                if (!has_comparable_fingerprint || facts.is_none()) && !filename_matches {
                     continue;
                 }
-                let uri = canonical_file_uri(entry.path()).map_err(|error| error.to_string())?;
+                let Some(uri) = ok_or_discovery_error(
+                    &mut diagnostics,
+                    canonical_file_uri(entry.path())
+                        .map_err(|error| format!("{}: {error}", entry.path().display())),
+                ) else {
+                    continue;
+                };
                 let mut evidence = vec![ResolutionEvidence::new(
                     EvidenceKind::MediaRootRelation,
-                    Some(root.name().to_owned()),
+                    Some(root_name.clone()),
                 )];
                 if facts.is_some() {
                     evidence.push(ResolutionEvidence::new(EvidenceKind::FileSizeMatch, None));
@@ -580,6 +552,21 @@ impl MediaResolver {
             diagnostics,
         })
     }
+}
+
+/// Records a failure to examine one discovered entry without abandoning the scan.
+fn ok_or_discovery_error<T>(
+    diagnostics: &mut Vec<ResolutionEvidence>,
+    result: std::result::Result<T, String>,
+) -> Option<T> {
+    result
+        .map_err(|detail| {
+            diagnostics.push(ResolutionEvidence::new(
+                EvidenceKind::DiscoveryError,
+                Some(detail),
+            ));
+        })
+        .ok()
 }
 
 fn validate_resolution_inputs(
@@ -698,6 +685,9 @@ fn verify_sequence_directory(
         ));
         Confidence::from_basis_points(9_500).map_err(|error| error.to_string())?
     } else {
+        if let Some(evidence_item) = not_verified_evidence(fingerprints) {
+            evidence.push(evidence_item);
+        }
         Confidence::from_basis_points(7_000).map_err(|error| error.to_string())?
     };
     let uri = canonical_file_uri(directory).map_err(|error| error.to_string())?;
@@ -713,8 +703,9 @@ fn verify_known_file(
     resource: &Resource,
     presence_candidate: &ResolutionCandidate,
 ) -> Result<ResourceResolution> {
-    if resource.fingerprints().is_empty() {
-        return verification_failure(resource.id(), "resource has no stored fingerprint");
+    let fingerprints = FileFingerprints::classify(resource.fingerprints());
+    if fingerprints.comparable.is_empty() {
+        return unverified_known_resolution(resource, presence_candidate);
     }
     let path = file_uri_to_path(presence_candidate.uri())?;
     let evidence = vec![ResolutionEvidence::new(
@@ -725,7 +716,7 @@ fn verify_known_file(
         &path,
         presence_candidate.uri(),
         evidence,
-        resource.fingerprints(),
+        &fingerprints,
         false,
     ) {
         Ok(Some(candidate)) => ResourceResolution::new(
@@ -751,10 +742,14 @@ fn verify_known_sequence(
         fingerprint.algorithm() == SEQUENCE_FINGERPRINT_ALGORITHM
             && fingerprint.version() == crate::SEQUENCE_FINGERPRINT_VERSION
     }) else {
-        return verification_failure(
-            resource.id(),
-            "sequence has no stored collection fingerprint",
-        );
+        let Some(candidate) = presence.candidates().first() else {
+            return verification_failure(
+                resource.id(),
+                "sequence presence result has no candidate",
+            );
+        };
+        return unverified_known_resolution(resource, candidate)?
+            .with_missing_frames(presence.missing_frames().to_vec());
     };
     let Some(candidate) = presence.candidates().first() else {
         return verification_failure(resource.id(), "sequence presence result has no candidate");
@@ -792,6 +787,82 @@ fn verify_known_sequence(
         Vec::new(),
     )?
     .with_missing_frames(presence.missing_frames().to_vec())
+}
+
+/// Reports a present known locator whose content could not be checked because
+/// no stored fingerprint lies in a domain the resolver can compute. This is not
+/// a mismatch: nothing contradicts the stored evidence.
+fn unverified_known_resolution(
+    resource: &Resource,
+    presence_candidate: &ResolutionCandidate,
+) -> Result<ResourceResolution> {
+    let mut evidence = vec![ResolutionEvidence::new(
+        EvidenceKind::KnownLocatorAvailable,
+        None,
+    )];
+    evidence.push(
+        not_verified_evidence(resource.fingerprints()).unwrap_or_else(|| {
+            ResolutionEvidence::new(
+                EvidenceKind::FingerprintNotVerified,
+                Some("resource has no stored fingerprint".to_owned()),
+            )
+        }),
+    );
+    let candidate = ResolutionCandidate::new(
+        presence_candidate.uri(),
+        presence_candidate.confidence(),
+        evidence,
+    )?;
+    ResourceResolution::new(
+        resource.id(),
+        ResourceResolutionState::OnlineAtKnownLocator,
+        vec![candidate],
+        Vec::new(),
+    )
+}
+
+/// Describes stored fingerprint domains that were retained but not checked.
+fn not_verified_evidence(foreign: &[ResourceFingerprint]) -> Option<ResolutionEvidence> {
+    if foreign.is_empty() {
+        return None;
+    }
+    let domains = foreign
+        .iter()
+        .map(|fingerprint| {
+            format!(
+                "{} version {}",
+                fingerprint.algorithm(),
+                fingerprint.version()
+            )
+        })
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect::<Vec<_>>()
+        .join(", ");
+    Some(ResolutionEvidence::new(
+        EvidenceKind::FingerprintNotVerified,
+        Some(domains),
+    ))
+}
+
+/// A resource's stored file fingerprints split by whether the resolver can
+/// compute their algorithm/version domain.
+struct FileFingerprints {
+    comparable: Vec<ResourceFingerprint>,
+    foreign: Vec<ResourceFingerprint>,
+}
+
+impl FileFingerprints {
+    fn classify(fingerprints: &[ResourceFingerprint]) -> Self {
+        let (comparable, foreign) = fingerprints
+            .iter()
+            .cloned()
+            .partition(is_file_fingerprint_domain);
+        Self {
+            comparable,
+            foreign,
+        }
+    }
 }
 
 fn verification_failure(
@@ -933,12 +1004,12 @@ fn verify_candidate(
     path: &Path,
     uri: &str,
     mut evidence: Vec<ResolutionEvidence>,
-    expected: &[ResourceFingerprint],
+    fingerprints: &FileFingerprints,
     technical_match: bool,
 ) -> std::result::Result<Option<ResolutionCandidate>, String> {
-    if !expected.is_empty() {
+    if !fingerprints.comparable.is_empty() {
         let report = fingerprint_file(path).map_err(|error| error.to_string())?;
-        let Some(expected) = expected.iter().find(|expected| {
+        let Some(expected) = fingerprints.comparable.iter().find(|expected| {
             expected.algorithm() == report.fingerprint().algorithm()
                 && expected.version() == report.fingerprint().version()
         }) else {
@@ -981,6 +1052,9 @@ fn verify_candidate(
         .any(|item| item.kind() == EvidenceKind::FileNameMatch);
     if !filename_match {
         return Ok(None);
+    }
+    if let Some(item) = not_verified_evidence(&fingerprints.foreign) {
+        evidence.push(item);
     }
     if technical_match {
         evidence.push(ResolutionEvidence::new(
@@ -1302,6 +1376,98 @@ mod tests {
                 .iter()
                 .any(|evidence| evidence.kind() == EvidenceKind::FullHashMatch)
         );
+    }
+
+    fn with_only_foreign_fingerprint(resource: &Resource) -> Resource {
+        Resource::new(
+            resource.id(),
+            vec![
+                ResourceFingerprint::new("example-host-md5", 1, vec![0xab; 16])
+                    .expect("foreign fingerprint"),
+            ],
+            resource.file_facts(),
+        )
+    }
+
+    fn has_evidence(candidate: &ResolutionCandidate, kind: EvidenceKind) -> bool {
+        candidate
+            .evidence()
+            .iter()
+            .any(|evidence| evidence.kind() == kind)
+    }
+
+    #[test]
+    fn foreign_fingerprint_does_not_block_filename_discovery() {
+        let directory = tempfile::tempdir().expect("create directory");
+        let old_directory = directory.path().join("old");
+        let new_directory = directory.path().join("new");
+        fs::create_dir(&old_directory).expect("create old directory");
+        fs::create_dir(&new_directory).expect("create new directory");
+        let old_path = old_directory.join("clip.mov");
+        fs::write(&old_path, b"media").expect("write media");
+        let prepared = prepare_original_media(&old_path, None, None).expect("prepare import");
+        fs::rename(&old_path, new_directory.join("clip.mov")).expect("move media");
+        fs::write(new_directory.join("other.mov"), b"media").expect("write same-size file");
+        let root = prepare_media_root(&new_directory, None, 0).expect("prepare root");
+        let resource = with_only_foreign_fingerprint(&prepared.resources()[0]);
+
+        let resolution = MediaResolver::default()
+            .resolve_resource(
+                &resource,
+                prepared.representation().content_structure(),
+                prepared.locators(),
+                &[root],
+                &[],
+            )
+            .expect("resolve moved media");
+
+        assert_eq!(
+            resolution.state(),
+            ResourceResolutionState::ResolvedProbable
+        );
+        assert_eq!(resolution.candidates().len(), 1);
+        let candidate = &resolution.candidates()[0];
+        assert!(candidate.uri().ends_with("/new/clip.mov"));
+        assert!(candidate.confidence() < Confidence::CERTAIN);
+        assert!(has_evidence(candidate, EvidenceKind::FileNameMatch));
+        let not_verified = candidate
+            .evidence()
+            .iter()
+            .find(|evidence| evidence.kind() == EvidenceKind::FingerprintNotVerified)
+            .expect("not-verified evidence");
+        assert_eq!(not_verified.detail(), Some("example-host-md5 version 1"));
+    }
+
+    #[test]
+    fn content_verification_does_not_report_foreign_fingerprint_as_mismatch() {
+        let directory = tempfile::tempdir().expect("create directory");
+        let path = directory.path().join("clip.mov");
+        fs::write(&path, b"media").expect("write media");
+        let prepared = prepare_original_media(&path, None, None).expect("prepare import");
+        let resource = with_only_foreign_fingerprint(&prepared.resources()[0]);
+
+        let verified = MediaResolver::default()
+            .resolve_resource_with_verification(
+                &resource,
+                prepared.representation().content_structure(),
+                prepared.locators(),
+                &[],
+                &[],
+                VerificationMode::Content,
+            )
+            .expect("verify known locator");
+
+        assert_eq!(
+            verified.state(),
+            ResourceResolutionState::OnlineAtKnownLocator
+        );
+        let candidate = &verified.candidates()[0];
+        assert!(has_evidence(candidate, EvidenceKind::KnownLocatorAvailable));
+        assert!(has_evidence(
+            candidate,
+            EvidenceKind::FingerprintNotVerified
+        ));
+        assert!(!has_evidence(candidate, EvidenceKind::FingerprintMismatch));
     }
 
     #[test]

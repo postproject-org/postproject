@@ -148,6 +148,8 @@ Development version: `0.4.0-alpha.1`.
 
 ### Fixed
 
+- Resolution no longer ignores resources whose only fingerprints are foreign to
+  PostProject; it reports them as not verified (ADR 0028).
 - `postproject revisions events` now prints locator-retirement, media-root
   enablement, and media-root removal events instead of failing on them.
 

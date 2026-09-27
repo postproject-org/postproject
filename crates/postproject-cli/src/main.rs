@@ -5649,6 +5649,7 @@ const fn evidence_kind(kind: EvidenceKind) -> &'static str {
         EvidenceKind::ConflictingCandidate => "conflicting_candidate",
         EvidenceKind::DiscoveryError => "discovery_error",
         EvidenceKind::FingerprintMismatch => "fingerprint_mismatch",
+        EvidenceKind::FingerprintNotVerified => "fingerprint_not_verified",
         _ => "unknown",
     }
 }

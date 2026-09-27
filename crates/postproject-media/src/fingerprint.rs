@@ -21,6 +21,16 @@ pub const FULL_FINGERPRINT_ALGORITHM: &str = "pp-blake3-full-file";
 /// Algorithm identifier for deterministic three-region BLAKE3 fingerprints.
 pub const SAMPLED_FINGERPRINT_ALGORITHM: &str = "pp-blake3-sampled-regions";
 const ALGORITHM_VERSION: u16 = 1;
+
+/// Returns whether [`fingerprint_file`] can produce a value in this
+/// fingerprint's algorithm/version domain.
+pub(crate) fn is_file_fingerprint_domain(fingerprint: &ResourceFingerprint) -> bool {
+    fingerprint.version() == ALGORITHM_VERSION
+        && matches!(
+            fingerprint.algorithm(),
+            FULL_FINGERPRINT_ALGORITHM | SAMPLED_FINGERPRINT_ALGORITHM
+        )
+}
 const SAMPLED_CONTEXT: &[u8] = b"PostProject sampled file fingerprint v1\0";
 
 /// How much of a file contributed to a fingerprint.

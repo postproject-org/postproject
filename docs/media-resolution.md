@@ -30,7 +30,10 @@ resolution checks that a known locator and its declared members exist. Callers
 may opt into content verification per call; that tier recomputes the stored file
 or sampled sequence fingerprint. Present content that differs from its recorded
 identity produces an error result with `FingerprintMismatch` evidence. It is
-never silently accepted as a new version.
+never silently accepted as a new version. A resource whose stored fingerprints
+all lie in domains the resolver cannot compute is reported online with
+`FingerprintNotVerified` evidence instead, because nothing was compared (ADR
+0028).
 
 Productions identify roots by logical name. Each machine maps those names to
 local directories when resolving; migrated pre-schema-6 roots retain their old
@@ -40,8 +43,12 @@ results remain visible together with the configuration diagnostic.
 
 Discovery, cheap file-size filtering, and fingerprint verification are separate
 stages. Full hashes produce exact resolution; sampled fingerprints produce
-probable resolution. If no fingerprint exists, a matching filename is required
-and file size strengthens the evidence. Equally credible candidates produce
+probable resolution. Only fingerprints in a domain the resolver can compute
+widen discovery beyond filename matches. If no such fingerprint exists, a
+matching filename is required and file size strengthens the evidence; stored
+foreign fingerprints are listed as `FingerprintNotVerified` evidence on each
+candidate for the caller to check. A candidate that cannot be read adds
+`DiscoveryError` evidence and is dropped without hiding other candidates. Equally credible candidates produce
 `Ambiguous` and require explicit confirmation. Confirmation adds a new locator
 for the selected resource inside a production transaction; the resolver itself
 never mutates production state.
