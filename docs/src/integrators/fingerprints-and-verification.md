@@ -76,6 +76,12 @@ resource fingerprint in its own domain, and PostProject keeps it byte for byte:
 - **Keep PostProject's own fingerprint as well.** Importing a file records it.
   PostProject can only verify domains it computes itself; every other domain is
   *foreign* to it (ADR 0028).
+- **Observe the content in the same transaction.** A representation fingerprint
+  covers every fingerprint of its resources, including yours, so recording a
+  host hash leaves each owning representation pending recomputation. Observing
+  the resource's content in the same transaction recomputes them. After this
+  step no representation is left pending, and artifact evaluation treats the
+  knowledge as current.
 
 Foreign fingerprints never prevent resolution. When a resource has no
 fingerprint that PostProject can compute, the resolver works as it does for a
