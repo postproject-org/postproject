@@ -112,6 +112,7 @@ Development version: `0.4.0-alpha.1`.
 
 ### Changed
 
+- Downstream integration runs now include the OpenAssetIO Manager suite.
 - Bumped the pre-release C ABI to version 26 with event-kind-filtered revision
   pages and revision waiters: `pp_revision_waiter_create`,
   `pp_revision_waiter_wait`, a thread-safe `pp_revision_waiter_cancel`, and

@@ -15,6 +15,11 @@ jobs:
     with:
       postproject_ref: ${{ github.sha }}
 
+  openassetio-publishing:
+    uses: postproject-org/postproject-openassetio-manager/.github/workflows/ci.yml@main
+    with:
+      postproject_ref: ${{ github.sha }}
+
   otio-openassetio:
     uses: postproject-org/postproject-otio-openassetio/.github/workflows/ci.yml@main
     with:
