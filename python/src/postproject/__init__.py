@@ -41,6 +41,7 @@ from ._model import (
     AvailabilityIssue,
     AvailabilityIssueKind,
     ContentStructureKind,
+    ContentVerification,
     Dependency,
     DependencyMatch,
     DependencySet,
@@ -135,7 +136,13 @@ from ._model import (
     TransactionId,
 )
 from ._native import ABI_VERSION, NativeLibrary
-from ._production import Production, RevisionObserver, RevisionWaiter, Transaction
+from ._production import (
+    Production,
+    RevisionObserver,
+    RevisionWaiter,
+    Transaction,
+    fingerprint_file,
+)
 
 __all__ = [
     "ABI_VERSION",
@@ -168,6 +175,7 @@ __all__ = [
     "AvailabilityIssueKind",
     "ConflictError",
     "ContentStructureKind",
+    "ContentVerification",
     "Dependency",
     "DependencyMatch",
     "DependencySet",
@@ -274,4 +282,5 @@ __all__ = [
     "Transaction",
     "TransactionId",
     "UnsupportedError",
+    "fingerprint_file",
 ]

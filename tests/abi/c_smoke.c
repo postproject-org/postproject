@@ -30,7 +30,7 @@ int main(int argc, char **argv) {
     return 64;
   }
   (void)remove(argv[1]);
-  if (pp_abi_version() != UINT32_C(28)) {
+  if (pp_abi_version() != UINT32_C(29)) {
     return 1;
   }
   pp_error_code_t status =
@@ -565,6 +565,71 @@ int main(int argc, char **argv) {
     return 28;
   }
   pp_metadata_set_release(metadata);
+
+  pp_fingerprint_t *computed = NULL;
+  const char *computed_algorithm = NULL;
+  uint16_t computed_version = 0;
+  const uint8_t *computed_value = NULL;
+  uint64_t computed_length = 0;
+  status = pp_fingerprint_file(media_path, &computed, &error);
+  if (status != PP_OK ||
+      pp_fingerprint_get(computed, &computed_algorithm, &computed_version,
+                         &computed_value, &computed_length, &error) != PP_OK ||
+      strcmp(computed_algorithm, "pp-blake3-full-file") != 0 ||
+      computed_version != 1 || computed_length != UINT64_C(32) ||
+      computed_value == NULL) {
+    pp_fingerprint_release(computed);
+    pp_production_release(production);
+    pp_error_release(error);
+    return 115;
+  }
+  pp_fingerprint_release(computed);
+
+  pp_content_verification_t verification = 0;
+  status = pp_production_verify_resource(production, &resource_id, media_path,
+                                         &verification, &error);
+  if (status != PP_OK || verification != PP_CONTENT_MATCHES) {
+    pp_production_release(production);
+    pp_error_release(error);
+    return 116;
+  }
+  char other_media_path[4096];
+  int other_path_length = snprintf(other_media_path, sizeof(other_media_path),
+                                   "%s.other", argv[1]);
+  FILE *other_media = NULL;
+  if (other_path_length < 0 ||
+      (size_t)other_path_length >= sizeof(other_media_path) ||
+      (other_media = fopen(other_media_path, "wb")) == NULL) {
+    pp_production_release(production);
+    return 116;
+  }
+  fputs("different content", other_media);
+  fclose(other_media);
+  status = pp_production_verify_resource(production, &resource_id,
+                                         other_media_path, &verification,
+                                         &error);
+  remove(other_media_path);
+  if (status != PP_OK || verification != PP_CONTENT_DIFFERS) {
+    pp_production_release(production);
+    pp_error_release(error);
+    return 117;
+  }
+
+  pp_transaction_t *observation = NULL;
+  status = pp_production_begin_transaction(production, &observation, &error);
+  if (status == PP_OK) {
+    status = pp_transaction_observe_resource_content(observation, &resource_id,
+                                                     media_path, &error);
+  }
+  if (status == PP_OK) {
+    status = pp_transaction_commit(observation, &error);
+  }
+  pp_transaction_release(observation);
+  if (status != PP_OK) {
+    pp_production_release(production);
+    pp_error_release(error);
+    return 118;
+  }
 
   int moved_path_length =
       snprintf(moved_media_path, sizeof(moved_media_path), "%s.moved", argv[1]);

@@ -174,25 +174,30 @@ std::vector<postproject::ResourceLocator> move_resource(
 }
 // [/retire-locator]
 
+// [content-fingerprint]
+void print_file_fingerprint(const std::string &path) {
+  // The same value import records; computing it records nothing.
+  const postproject::Fingerprint fingerprint = postproject::fingerprintFile(path);
+  std::cout << fingerprint.algorithm << " v" << fingerprint.version << ": "
+            << fingerprint.value.size() << " bytes\n";
+}
+// [/content-fingerprint]
+
 // [fingerprint-observation]
 std::vector<postproject::RevisionEvent>
-record_new_content(postproject::Production &production,
-                   const postproject::Representation &original,
-                   const std::vector<std::uint8_t> &resource_digest,
-                   const std::vector<std::uint8_t> &representation_digest) {
-  const auto &resource = original.resources.front();
-  const auto &resource_stored = resource.fingerprints.front();
-  const auto &representation_stored = original.fingerprints.front();
+observe_new_content(postproject::Production &production,
+                    const postproject::Uuid &resource_id,
+                    const std::string &path) {
+  // Verification only reads: it compares the file with the stored value.
+  if (production.verifyResource(resource_id, path) !=
+      postproject::ContentVerification::differs) {
+    throw std::runtime_error("content is unchanged");
+  }
 
-  // The host hashes the changed file with the recorded algorithm and version;
-  // PostProject records the observation and keeps the old value as history.
+  // Stages the new resource fingerprint and every representation fingerprint
+  // recomputed from it; commit records both in one revision.
   auto transaction = production.beginTransaction();
-  transaction.recordResourceFingerprint(
-      resource.id,
-      {resource_stored.algorithm, resource_stored.version, resource_digest});
-  transaction.recordRepresentationFingerprint(
-      original.id, {representation_stored.algorithm,
-                    representation_stored.version, representation_digest});
+  transaction.observeResourceContent(resource_id, path);
   transaction.commit();
 
   const auto events =
@@ -360,13 +365,9 @@ int main(int argc, char **argv) {
 
     write_file(media, "re-exported camera original");
     const auto &original = find(representations, original_id);
-    // Stand-ins for the digests the host's hasher computes for the new bytes.
-    const std::vector<std::uint8_t> resource_digest(
-        original.resources.front().fingerprints.front().value.size(), 0x55);
-    const std::vector<std::uint8_t> representation_digest(
-        original.fingerprints.front().value.size(), 0x66);
-    const auto events = record_new_content(
-        production, original, resource_digest, representation_digest);
+    print_file_fingerprint(media);
+    const auto events =
+        observe_new_content(production, original.resources.front().id, media);
     require(production.latestRevision()->sequence == events_before + 1,
             "one observation revision");
     require(events.size() == 2 &&
@@ -378,9 +379,12 @@ int main(int argc, char **argv) {
                     events[1].payload),
             "fingerprint events");
     const auto observed = production.representations(asset_id);
-    require(find(observed, original_id).fingerprints.front().value ==
-                representation_digest,
-            "recorded representation fingerprint");
+    require(find(observed, original_id).fingerprints.front().value !=
+                original.fingerprints.front().value,
+            "recomputed representation fingerprint");
+    require(production.verifyResource(original.resources.front().id, media) ==
+                postproject::ContentVerification::matches,
+            "observed content verifies");
 
     const auto issues = report_issues(production, asset_id);
     require(

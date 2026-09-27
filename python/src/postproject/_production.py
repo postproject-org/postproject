@@ -50,6 +50,7 @@ from ._abi import (
 from ._abi import (
     FileResourceInput as NativeFileResourceInput,
 )
+from ._abi import Fingerprint as NativeFingerprint
 from ._abi import Job as NativeJob
 from ._abi import (
     MediaRootMapping as NativeMediaRootMapping,
@@ -91,6 +92,7 @@ from ._model import (
     AvailabilityIssue,
     AvailabilityIssueKind,
     ContentStructureKind,
+    ContentVerification,
     Dependency,
     DependencyMatch,
     DependencySet,
@@ -593,6 +595,29 @@ class Production:
 
         self._require_open()
         return _Resolutions(self)
+
+    def verify_resource(
+        self, resource_id: ResourceId, path: str | os.PathLike[str]
+    ) -> ContentVerification:
+        """Compare the content at path with the resource's stored fingerprints.
+
+        Only fingerprint domains PostProject computes are compared; a resource
+        with only foreign fingerprints is ``NOT_COMPARABLE``.
+        """
+
+        self._require_open()
+        native_id = _native_uuid(resource_id.value)
+        verification = ctypes.c_uint32()
+        error = ctypes.POINTER(Error)()
+        status = self._native.lib.pp_production_verify_resource(
+            self._handle,
+            ctypes.byref(native_id),
+            _path_bytes(path),
+            ctypes.byref(verification),
+            ctypes.byref(error),
+        )
+        self._native.check(status, error)
+        return _CONTENT_VERIFICATIONS[verification.value]
 
     def resolve(
         self,
@@ -2111,6 +2136,26 @@ class Transaction:
         )
         self._native.check(status, error)
 
+    def observe_resource_content(
+        self, resource_id: ResourceId, path: str | os.PathLike[str]
+    ) -> None:
+        """Stage the content at path as the resource's new observation.
+
+        Every representation using the resource is recomputed and staged too,
+        so commit leaves no representation pending recomputation.
+        """
+
+        self._require_open()
+        native_id = _native_uuid(resource_id.value)
+        error = ctypes.POINTER(Error)()
+        status = self._native.lib.pp_transaction_observe_resource_content(
+            self._handle,
+            ctypes.byref(native_id),
+            _path_bytes(path),
+            ctypes.byref(error),
+        )
+        self._native.check(status, error)
+
     def record_representation_fingerprint(
         self, representation_id: RepresentationId, fingerprint: Fingerprint
     ) -> None:
@@ -2536,6 +2581,51 @@ class Transaction:
             raise RuntimeError("transaction is closed")
         if self._finished:
             raise RuntimeError("transaction is already finished")
+
+
+def fingerprint_file(
+    path: str | os.PathLike[str],
+    *,
+    library_path: str | os.PathLike[str] | None = None,
+) -> Fingerprint:
+    """Compute the fingerprint import records for a regular file."""
+
+    native = NativeLibrary(library_path)
+    handle = ctypes.POINTER(NativeFingerprint)()
+    error = ctypes.POINTER(Error)()
+    status = native.lib.pp_fingerprint_file(
+        _path_bytes(path), ctypes.byref(handle), ctypes.byref(error)
+    )
+    native.check(status, error)
+    try:
+        algorithm = ctypes.c_char_p()
+        version = ctypes.c_uint16()
+        value = ctypes.POINTER(ctypes.c_uint8)()
+        length = ctypes.c_uint64()
+        error = ctypes.POINTER(Error)()
+        status = native.lib.pp_fingerprint_get(
+            handle,
+            ctypes.byref(algorithm),
+            ctypes.byref(version),
+            ctypes.byref(value),
+            ctypes.byref(length),
+            ctypes.byref(error),
+        )
+        native.check(status, error)
+        return Fingerprint(
+            _decode_required(algorithm.value, "fingerprint algorithm"),
+            version.value,
+            ctypes.string_at(value, length.value),
+        )
+    finally:
+        native.lib.pp_fingerprint_release(handle)
+
+
+_CONTENT_VERIFICATIONS = {
+    _abi.PP_CONTENT_MATCHES: ContentVerification.MATCHES,
+    _abi.PP_CONTENT_DIFFERS: ContentVerification.DIFFERS,
+    _abi.PP_CONTENT_NOT_COMPARABLE: ContentVerification.NOT_COMPARABLE,
+}
 
 
 def _path_bytes(path: str | os.PathLike[str]) -> bytes:

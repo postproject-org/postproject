@@ -11,23 +11,55 @@ production by itself. A check reports; only an explicit transaction records.
 
 ## Record a new fingerprint observation
 
-A fingerprint is the current observation of an object's content, not a
-write-once attribute. When a host knows that a file was replaced in place — a
-re-rendered plate, a re-conformed audio file — it records a new observation for
-the resource. The previous value moves to history, and the change is one
-revision event.
+A fingerprint records what an object's content currently is. It can change over
+time. When a host knows that a file was replaced in place, for example a
+re-rendered plate or a re-conformed audio file, it *observes* the resource's
+content again:
 
-A representation fingerprint is derived from its resources' fingerprints. A new
-resource observation therefore marks each owning representation for
-recomputation until its recomputed fingerprint is recorded too; until then,
-[artifact evaluation](artifacts-and-staleness.md) treats the affected knowledge
-as pending rather than current.
+- The observation fingerprints the file, or the image-sequence directory, at
+  the given path.
+- It recomputes the fingerprint of every representation that uses the resource.
+- It stages both in the transaction, and commit records them in one revision.
+- The previous values move to history.
+
+Hashing happens when the observation is staged, not while the production is
+locked. The host never computes a representation fingerprint itself.
 
 ```{code-variants} fingerprint-observation
 ```
 
 Recording an identical value is a no-op and creates no revision, so a host may
-safely record after every verification.
+safely observe after every render or copy. A job worker that produces or
+replaces media observes the new content before completing, so
+[artifact evaluation](artifacts-and-staleness.md) sees current evidence.
+
+A representation fingerprint is derived from its resources' fingerprints. A
+resource fingerprint recorded without an observation, for example a value
+computed elsewhere, marks each owning representation for recomputation. Until
+its recomputed fingerprint is recorded as well, artifact evaluation treats the
+affected knowledge as pending rather than current.
+
+## Compute and compare content without recording
+
+Computing a file's fingerprint needs no production. It returns exactly the
+value that import records, which is useful for caching, for handing the value to
+another process, or for checking a file before importing it:
+
+```{code-variants} content-fingerprint
+:::{no-variant} cli
+The CLI has no command that only computes a fingerprint. `postproject media
+verify-content` compares a file with a stored resource.
+:::
+```
+
+Verifying compares the content at a path with a resource's stored fingerprints,
+and never records anything. The fingerprint-observation example above verifies
+before it observes. The result is one of three values:
+
+- *matches*: the content is unchanged;
+- *differs*: the content changed;
+- *not comparable*: the resource has only fingerprints that PostProject cannot
+  compute (see below), so nothing was compared.
 
 ## Keep a host's own content hashes
 

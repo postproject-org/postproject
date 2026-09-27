@@ -712,6 +712,12 @@ enum class EvidenceKind : std::uint32_t {
   fingerprint_not_verified = PP_EVIDENCE_FINGERPRINT_NOT_VERIFIED,
 };
 
+enum class ContentVerification : std::uint32_t {
+  matches = PP_CONTENT_MATCHES,
+  differs = PP_CONTENT_DIFFERS,
+  not_comparable = PP_CONTENT_NOT_COMPARABLE,
+};
+
 struct Evidence final {
   EvidenceKind kind;
   std::optional<std::string> detail;
@@ -2298,6 +2304,18 @@ public:
     detail::throw_if_error(status, error);
   }
 
+  // Fingerprints the content at path as the resource's present content and
+  // stages it together with every representation recomputed from it.
+  void observeResourceContent(const Uuid &resource_id,
+                              std::string_view path) {
+    const pp_uuid_t id = detail::native_uuid(resource_id);
+    const std::string native_path = detail::checked_string(path, "path");
+    pp_error_t *error = nullptr;
+    const pp_error_code_t status = pp_transaction_observe_resource_content(
+        transaction_, &id, native_path.c_str(), &error);
+    detail::throw_if_error(status, error);
+  }
+
   void recordDependencySet(const Uuid &representation_id,
                            const std::vector<Dependency> &dependencies) {
     std::vector<std::string> kinds;
@@ -3199,6 +3217,19 @@ public:
                                cursor);
   }
 
+  // Compares the content at path with the resource's stored fingerprints.
+  [[nodiscard]] ContentVerification
+  verifyResource(const Uuid &resource_id, std::string_view path) const {
+    const pp_uuid_t id = detail::native_uuid(resource_id);
+    const std::string native_path = detail::checked_string(path, "path");
+    pp_content_verification_t verification = 0;
+    pp_error_t *error = nullptr;
+    const pp_error_code_t status = pp_production_verify_resource(
+        production_, &id, native_path.c_str(), &verification, &error);
+    detail::throw_if_error(status, error);
+    return static_cast<ContentVerification>(verification);
+  }
+
   [[nodiscard]] std::vector<RepresentationResolution>
   resolveAsset(const Uuid &asset_id,
                const std::vector<MediaRootMapping> &root_mappings = {}) const {
@@ -4095,6 +4126,27 @@ private:
 
 [[nodiscard]] inline std::uint32_t abi_version() noexcept {
   return pp_abi_version();
+}
+
+// Computes the fingerprint import records for a regular file.
+[[nodiscard]] inline Fingerprint fingerprintFile(std::string_view path) {
+  const std::string native_path = detail::checked_string(path, "path");
+  pp_fingerprint_t *raw = nullptr;
+  pp_error_t *error = nullptr;
+  detail::throw_if_error(pp_fingerprint_file(native_path.c_str(), &raw, &error),
+                         error);
+  const std::unique_ptr<pp_fingerprint_t, void (*)(pp_fingerprint_t *)>
+      fingerprint(raw, pp_fingerprint_release);
+  const char *algorithm = nullptr;
+  std::uint16_t version = 0;
+  const std::uint8_t *value = nullptr;
+  std::uint64_t length = 0;
+  detail::throw_if_error(pp_fingerprint_get(fingerprint.get(), &algorithm,
+                                            &version, &value, &length, &error),
+                         error);
+  return {algorithm, version,
+          std::vector<std::uint8_t>(
+              value, value + static_cast<std::size_t>(length))};
 }
 
 } // namespace postproject

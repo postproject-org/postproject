@@ -576,6 +576,14 @@ class AvailabilityIssueKind(Enum):
     MISSING_FRAMES = "missing_frames"
 
 
+class ContentVerification(Enum):
+    """Result of comparing present content with stored fingerprints."""
+
+    MATCHES = "matches"
+    DIFFERS = "differs"
+    NOT_COMPARABLE = "not_comparable"
+
+
 class EvidenceKind(Enum):
     """Machine-readable reason supporting or opposing a candidate."""
 

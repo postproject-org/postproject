@@ -1,6 +1,6 @@
 # ABI policy
 
-ABI version 28 is pre-release and may change during the 0.x series, with every
+ABI version 29 is pre-release and may change during the 0.x series, with every
 change recorded in the changelog and ABI tests. `pp_abi_version()` reports the
 implemented version. Exported symbol names are unversioned until the first stable
 release, but removals or signature changes require an explicit ABI-version bump.
@@ -189,6 +189,16 @@ ABI version 28 adds the evidence kinds `PP_EVIDENCE_FINGERPRINT_MISMATCH` and
 `PP_EVIDENCE_FINGERPRINT_NOT_VERIFIED`. The second marks a candidate or known
 locator whose stored fingerprints all lie in domains PostProject cannot
 compute; its detail lists those domains for the caller to check (ADR 0028).
+
+ABI version 29 adds content fingerprints and observation (ADR 0029).
+`pp_fingerprint_file` returns an owned `pp_fingerprint_t` holding the value
+import records for a file; `pp_fingerprint_get` borrows its algorithm and bytes
+until `pp_fingerprint_release`. `pp_production_verify_resource` compares
+present content with stored fingerprints and reports
+`PP_CONTENT_MATCHES`, `PP_CONTENT_DIFFERS`, or `PP_CONTENT_NOT_COMPARABLE`.
+`pp_transaction_observe_resource_content` fingerprints present content when it
+is called, outside the production lock, and stages the resource value with
+every representation value recomputed from it.
 
 ## External identifiers
 

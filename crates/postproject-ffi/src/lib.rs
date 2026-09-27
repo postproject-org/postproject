@@ -5,6 +5,7 @@
 //! shipped `postproject.h` rather than depending on Rust declarations.
 
 mod artifact;
+mod content;
 mod dependency;
 mod jobs;
 mod metadata;
@@ -56,6 +57,7 @@ pub use artifact::{
     PpArtifactDependencyPathSegment, PpArtifactEvaluation, PpArtifactReason,
     PpArtifactReproducibility, PpArtifactReproducibilityIssue,
 };
+pub use content::PpFingerprint;
 pub use dependency::{PpDependency, PpDependencyMatch, PpDependencyQuerySet, PpDependencySet};
 pub use jobs::{PpJob, PpJobSet, PpRegenerationPlanSet};
 use metadata::AbiMetadataValue;
@@ -154,7 +156,7 @@ const PP_REVISION_JOB_FAILED: u32 = 25;
 const PP_REVISION_JOB_CANCELLED: u32 = 26;
 
 /// Current pre-1.0 ABI version.
-pub const ABI_VERSION: u32 = 28;
+pub const ABI_VERSION: u32 = 29;
 
 /// Fixed-layout UUID-compatible public identifier.
 #[repr(C)]

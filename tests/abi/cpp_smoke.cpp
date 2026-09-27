@@ -28,7 +28,7 @@ int main(int argc, char **argv) {
   std::remove(path.c_str());
 
   try {
-    if (postproject::abi_version() != 28) {
+    if (postproject::abi_version() != 29) {
       return 3;
     }
 
@@ -173,6 +173,19 @@ int main(int argc, char **argv) {
         observed_representations[0].resources[0].fingerprints.size() != 2) {
       return 26;
     }
+    const auto computed = postproject::fingerprintFile(media_path);
+    const auto &stored = representations[0].resources[0].fingerprints[0];
+    if (computed.algorithm != stored.algorithm ||
+        computed.version != stored.version || computed.value != stored.value ||
+        production.verifyResource(representations[0].resources[0].id,
+                                  media_path) !=
+            postproject::ContentVerification::matches) {
+      return 61;
+    }
+    auto content_observation = production.beginTransaction();
+    content_observation.observeResourceContent(
+        representations[0].resources[0].id, media_path);
+    content_observation.commit();
     const auto identifiers = production.externalIdentifiers(asset_ref);
     const auto found =
         production.findByExternalIdentifier("com.example.asset", "asset-42");

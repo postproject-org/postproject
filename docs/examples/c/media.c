@@ -23,31 +23,6 @@
 #define make_directory(path) mkdir(path, 0777)
 #endif
 
-/* Caller-owned fingerprint algorithm computed by this host (see below). */
-#define HOST_RESOURCE_ALGORITHM "example-fnv1a-64"
-#define HOST_REPRESENTATION_ALGORITHM "example-fnv1a-64-representation"
-
-/* A host-defined content hash: 64-bit FNV-1a over the file bytes. Hosts
- * usually use a stronger digest; the ABI accepts any caller-owned algorithm. */
-static int host_fingerprint(const char *path, uint8_t out_value[8]) {
-  FILE *file = fopen(path, "rb");
-  if (file == NULL) {
-    return 0;
-  }
-  uint64_t hash = UINT64_C(14695981039346656037);
-  int byte;
-  while ((byte = fgetc(file)) != EOF) {
-    hash ^= (uint64_t)(unsigned char)byte;
-    hash *= UINT64_C(1099511628211);
-  }
-  const int ok = ferror(file) == 0;
-  fclose(file);
-  for (int i = 0; i < 8; ++i) {
-    out_value[i] = (uint8_t)(hash >> (56 - 8 * i));
-  }
-  return ok;
-}
-
 /* [add-representation] */
 static pp_error_code_t add_proxy(pp_production_t *production,
                                  const pp_uuid_t *asset_id,
@@ -352,34 +327,52 @@ static pp_error_code_t cycle_media_root(pp_production_t *production,
 }
 /* [/media-root-lifecycle] */
 
+/* [content-fingerprint] */
+static pp_error_code_t print_file_fingerprint(const char *path,
+                                              pp_error_t **error) {
+  pp_fingerprint_t *fingerprint = NULL;
+  pp_error_code_t status = pp_fingerprint_file(path, &fingerprint, error);
+  const char *algorithm = NULL;
+  uint16_t version = 0;
+  const uint8_t *value = NULL;
+  uint64_t length = 0;
+  if (status == PP_OK) {
+    status = pp_fingerprint_get(fingerprint, &algorithm, &version, &value,
+                                &length, error);
+  }
+  if (status == PP_OK) {
+    printf("%s v%u: %llu bytes, first %02x\n", algorithm, version,
+           (unsigned long long)length, value[0]);
+  }
+  pp_fingerprint_release(fingerprint);
+  return status;
+}
+/* [/content-fingerprint] */
+
 /* [fingerprint-observation] */
 static pp_error_code_t observe_changed_file(pp_production_t *production,
                                             const pp_uuid_t *resource_id,
-                                            const pp_uuid_t *representation_id,
                                             const char *path,
                                             pp_error_t **error) {
   pp_transaction_t *transaction = NULL;
   pp_revision_set_t *latest = NULL;
   pp_revision_event_set_t *events = NULL;
-  uint8_t value[8];
-  if (!host_fingerprint(path, value)) {
-    return PP_ERROR_IO;
-  }
+  pp_content_verification_t verification = 0;
 
-  pp_error_code_t status =
-      pp_production_begin_transaction(production, &transaction, error);
-  if (status == PP_OK) {
-    /* A new resource value marks its representations for recomputation... */
-    status = pp_transaction_record_resource_fingerprint(
-        transaction, resource_id, HOST_RESOURCE_ALGORITHM, 1, value,
-        sizeof value, error);
+  /* Verification only reads: it compares the file with the stored value. */
+  pp_error_code_t status = pp_production_verify_resource(
+      production, resource_id, path, &verification, error);
+  if (status == PP_OK && verification != PP_CONTENT_DIFFERS) {
+    status = PP_ERROR_INTERNAL;
   }
   if (status == PP_OK) {
-    /* ...until the recomputed representation fingerprint is recorded. For a
-     * single file this host defines it as the member's hash. */
-    status = pp_transaction_record_representation_fingerprint(
-        transaction, representation_id, HOST_REPRESENTATION_ALGORITHM, 1, value,
-        sizeof value, error);
+    status = pp_production_begin_transaction(production, &transaction, error);
+  }
+  if (status == PP_OK) {
+    /* Stages the new resource fingerprint and every representation
+     * fingerprint recomputed from it; commit records both in one revision. */
+    status = pp_transaction_observe_resource_content(transaction, resource_id,
+                                                     path, error);
   }
   if (status == PP_OK) {
     status = pp_transaction_commit(transaction, error);
@@ -837,8 +830,10 @@ int main(int argc, char **argv) {
     status = PP_ERROR_IO;
   }
   if (status == PP_OK) {
-    status = observe_changed_file(production, &resource_id, &original_id, media,
-                                  &error);
+    status = print_file_fingerprint(media, &error);
+  }
+  if (status == PP_OK) {
+    status = observe_changed_file(production, &resource_id, media, &error);
   }
   if (status == PP_OK) {
     uint64_t resource_events = 0;

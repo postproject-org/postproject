@@ -10,7 +10,6 @@ The work directory is prepared by ``prepare-workdir.cmake``.
 
 from __future__ import annotations
 
-import hashlib
 import sys
 from pathlib import Path
 
@@ -19,6 +18,7 @@ from postproject import (
     AvailabilityIssue,
     AvailabilityIssueKind,
     ContentStructureKind,
+    ContentVerification,
     EvidenceKind,
     FileResourceInput,
     Fingerprint,
@@ -35,6 +35,7 @@ from postproject import (
     ResourceFingerprintObservedEvent,
     ResourceId,
     RevisionEvent,
+    fingerprint_file,
 )
 
 
@@ -174,26 +175,28 @@ def retire_superseded_locator(
 # [/retire-locator]
 
 
+# [content-fingerprint]
+def print_file_fingerprint(path: Path) -> Fingerprint:
+    # The same value import records; computing it records nothing.
+    fingerprint = fingerprint_file(path)
+    print(f"{fingerprint.algorithm} v{fingerprint.version}: {fingerprint.value.hex()}")
+    return fingerprint
+
+
+# [/content-fingerprint]
+
+
 # [fingerprint-observation]
 def observe_fingerprints(
     production: Production, representation: Representation, path: Path
 ) -> tuple[RevisionEvent, ...]:
-    # The caller computes fingerprints in its own algorithm domain; PostProject
-    # records each observation without reading the file.
-    digest = hashlib.sha256(path.read_bytes()).digest()
     (resource,) = representation.resources
+    # Verification only reads: it compares the file with the stored value.
+    assert production.verify_resource(resource.id, path) is ContentVerification.DIFFERS
     with production.transaction() as transaction:
-        transaction.record_resource_fingerprint(
-            resource.id, Fingerprint("example-sha256", 1, digest)
-        )
-        # Then record the representation fingerprint recomputed from its
-        # resources, which clears the pending recomputation.
-        transaction.record_representation_fingerprint(
-            representation.id,
-            Fingerprint(
-                "example-sha256-representation", 1, hashlib.sha256(digest).digest()
-            ),
-        )
+        # Stages the new resource fingerprint and every representation
+        # fingerprint recomputed from it; commit records both in one revision.
+        transaction.observe_resource_content(resource.id, path)
 
     latest = production.latest_revision
     assert latest is not None
@@ -360,10 +363,8 @@ def main() -> None:
             for item in production.representations[asset_id]
             if item.id == original.id
         )
-        assert any(
-            item.algorithm == "example-sha256-representation"
-            for item in observed.fingerprints
-        )
+        assert observed.fingerprints != original.fingerprints
+        assert observed.resources[0].fingerprints == (print_file_fingerprint(media),)
 
         superseded_uri = proxy.resolve().as_uri()
         moved = work / "moved"

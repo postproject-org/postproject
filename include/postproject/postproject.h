@@ -42,6 +42,7 @@ typedef struct pp_artifact_reproducibility pp_artifact_reproducibility_t;
 typedef struct pp_revision_set pp_revision_set_t;
 typedef struct pp_revision_event_set pp_revision_event_set_t;
 typedef struct pp_revision_waiter pp_revision_waiter_t;
+typedef struct pp_fingerprint pp_fingerprint_t;
 typedef struct pp_error pp_error_t;
 
 /* Production handles may be moved between threads and called concurrently;
@@ -391,6 +392,12 @@ typedef uint32_t pp_evidence_kind_t;
 #define PP_EVIDENCE_MEDIA_ROOT_UNAVAILABLE UINT32_C(12)
 #define PP_EVIDENCE_FINGERPRINT_MISMATCH UINT32_C(13)
 #define PP_EVIDENCE_FINGERPRINT_NOT_VERIFIED UINT32_C(14)
+
+typedef uint32_t pp_content_verification_t;
+
+#define PP_CONTENT_MATCHES UINT32_C(1)
+#define PP_CONTENT_DIFFERS UINT32_C(2)
+#define PP_CONTENT_NOT_COMPARABLE UINT32_C(3)
 
 /* Inputs are borrowed UTF-8 without embedded NUL. A NULL display name is
  * absent. On success, *out_production is caller-owned and *out_error is NULL. On
@@ -953,6 +960,26 @@ PP_API pp_error_code_t pp_revision_waiter_wait(
 PP_API void pp_revision_waiter_cancel(pp_revision_waiter_t *waiter);
 /* No thread may be waiting on the waiter during release. */
 PP_API void pp_revision_waiter_release(pp_revision_waiter_t *waiter);
+/* Computes the fingerprint import records for a regular file. Reads the file,
+ * needs no production, and records nothing. *out_fingerprint is caller-owned. */
+PP_API pp_error_code_t pp_fingerprint_file(const char *path,
+                                           pp_fingerprint_t **out_fingerprint,
+                                           pp_error_t **out_error);
+/* The algorithm and value borrow the fingerprint until its release. */
+PP_API pp_error_code_t pp_fingerprint_get(const pp_fingerprint_t *fingerprint,
+                                          const char **out_algorithm,
+                                          uint16_t *out_version,
+                                          const uint8_t **out_value,
+                                          uint64_t *out_value_length,
+                                          pp_error_t **out_error);
+PP_API void pp_fingerprint_release(pp_fingerprint_t *fingerprint);
+/* Compares the content at path with the resource's stored fingerprints in the
+ * domains PostProject computes. Read-only. PP_CONTENT_NOT_COMPARABLE means only
+ * foreign fingerprints are stored, so nothing was compared. */
+PP_API pp_error_code_t pp_production_verify_resource(
+    const pp_production_t *production, const pp_uuid_t *resource_id,
+    const char *path, pp_content_verification_t *out_verification,
+    pp_error_t **out_error);
 /* Resolution is read-only. Borrowed candidate URI and evidence-detail strings
  * remain valid until pp_resolution_set_release(). */
 PP_API pp_error_code_t pp_production_resolve_asset(
@@ -1071,6 +1098,13 @@ PP_API pp_error_code_t pp_transaction_record_representation_fingerprint(
     pp_transaction_t *transaction, const pp_uuid_t *representation_id,
     const char *algorithm, uint16_t version, const uint8_t *value,
     uint64_t value_length, pp_error_t **out_error);
+/* Fingerprints the file or image-sequence directory at path as the present
+ * content of the resource, and recomputes every representation using it. Both
+ * are staged now, outside the production lock, and recorded on commit.
+ * Observations staged earlier in the same transaction are taken into account. */
+PP_API pp_error_code_t pp_transaction_observe_resource_content(
+    pp_transaction_t *transaction, const pp_uuid_t *resource_id,
+    const char *path, pp_error_t **out_error);
 /* Replaces the complete ordered dependency observation. The array and strings
  * are borrowed for this call and copied into the transaction. */
 PP_API pp_error_code_t pp_transaction_record_dependency_set(

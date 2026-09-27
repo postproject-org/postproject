@@ -97,6 +97,10 @@ class RevisionWaiter(ctypes.Structure):
     pass
 
 
+class Fingerprint(ctypes.Structure):
+    pass
+
+
 class Error(ctypes.Structure):
     pass
 
@@ -169,6 +173,7 @@ RepresentationAvailability = ctypes.c_uint32
 ResourceResolutionState = ctypes.c_uint32
 AvailabilityIssueKind = ctypes.c_uint32
 EvidenceKind = ctypes.c_uint32
+ContentVerification = ctypes.c_uint32
 
 
 PP_OBJECT_PRODUCTION = 1
@@ -311,6 +316,9 @@ PP_EVIDENCE_MEDIA_ROOT_UNMAPPED = 11
 PP_EVIDENCE_MEDIA_ROOT_UNAVAILABLE = 12
 PP_EVIDENCE_FINGERPRINT_MISMATCH = 13
 PP_EVIDENCE_FINGERPRINT_NOT_VERIFIED = 14
+PP_CONTENT_MATCHES = 1
+PP_CONTENT_DIFFERS = 2
+PP_CONTENT_NOT_COMPARABLE = 3
 
 
 Uuid._fields_ = [
@@ -496,6 +504,9 @@ EXPORTED_SYMBOLS = (
     "pp_external_identifier_set_count",
     "pp_external_identifier_set_get",
     "pp_external_identifier_set_release",
+    "pp_fingerprint_file",
+    "pp_fingerprint_get",
+    "pp_fingerprint_release",
     "pp_host_binding_format",
     "pp_host_binding_parse",
     "pp_host_binding_release",
@@ -600,6 +611,7 @@ EXPORTED_SYMBOLS = (
     "pp_production_revision_events",
     "pp_production_stale_artifacts",
     "pp_production_unresolved_media",
+    "pp_production_verify_resource",
     "pp_regeneration_plan_set_count",
     "pp_regeneration_plan_set_get",
     "pp_regeneration_plan_set_release",
@@ -649,6 +661,7 @@ EXPORTED_SYMBOLS = (
     "pp_transaction_create_activity",
     "pp_transaction_fail_job",
     "pp_transaction_import_media",
+    "pp_transaction_observe_resource_content",
     "pp_transaction_record_dependency_set",
     "pp_transaction_record_representation_fingerprint",
     "pp_transaction_record_resource_fingerprint",
@@ -987,6 +1000,14 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_revision_waiter_cancel.restype = None
     lib.pp_revision_waiter_release.argtypes = [ctypes.POINTER(RevisionWaiter)]
     lib.pp_revision_waiter_release.restype = None
+    lib.pp_fingerprint_file.argtypes = [ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(Fingerprint)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_fingerprint_file.restype = ErrorCode
+    lib.pp_fingerprint_get.argtypes = [ctypes.POINTER(Fingerprint), ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.c_uint16), ctypes.POINTER(ctypes.POINTER(ctypes.c_uint8)), ctypes.POINTER(ctypes.c_uint64), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_fingerprint_get.restype = ErrorCode
+    lib.pp_fingerprint_release.argtypes = [ctypes.POINTER(Fingerprint)]
+    lib.pp_fingerprint_release.restype = None
+    lib.pp_production_verify_resource.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(Uuid), ctypes.c_char_p, ctypes.POINTER(ContentVerification), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_production_verify_resource.restype = ErrorCode
     lib.pp_production_resolve_asset.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(Uuid), ctypes.POINTER(MediaRootMapping), ctypes.c_uint64, ctypes.POINTER(ctypes.POINTER(ResolutionSet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_production_resolve_asset.restype = ErrorCode
     lib.pp_resolution_set_representation_count.argtypes = [ctypes.POINTER(ResolutionSet)]
@@ -1039,6 +1060,8 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_transaction_record_resource_fingerprint.restype = ErrorCode
     lib.pp_transaction_record_representation_fingerprint.argtypes = [ctypes.POINTER(Transaction), ctypes.POINTER(Uuid), ctypes.c_char_p, ctypes.c_uint16, ctypes.POINTER(ctypes.c_uint8), ctypes.c_uint64, ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_transaction_record_representation_fingerprint.restype = ErrorCode
+    lib.pp_transaction_observe_resource_content.argtypes = [ctypes.POINTER(Transaction), ctypes.POINTER(Uuid), ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_transaction_observe_resource_content.restype = ErrorCode
     lib.pp_transaction_record_dependency_set.argtypes = [ctypes.POINTER(Transaction), ctypes.POINTER(Uuid), ctypes.POINTER(Dependency), ctypes.c_uint64, ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_transaction_record_dependency_set.restype = ErrorCode
     lib.pp_transaction_add_external_identifier.argtypes = [ctypes.POINTER(Transaction), ctypes.POINTER(ObjectRef), ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(Error))]

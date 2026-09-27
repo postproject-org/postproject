@@ -9,8 +9,8 @@ Development version: `0.4.0-alpha.1`.
 
 ### Added
 
-- Added content verification and observation that recomputes every
-  representation using a resource (ADR 0029).
+- Added content fingerprinting, verification, and observation that recomputes
+  every representation using a resource, on every surface (ADR 0029, C ABI 29).
 - Added a tested Flatpak module that builds PostProject offline from the release
   source archive, published with its Cargo sources on each release.
 - Documented publishing media through the OpenAssetIO Manager (ADR 0010).

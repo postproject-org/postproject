@@ -22,6 +22,7 @@ from postproject import (
     AssetImportedEvent,
     AvailabilityIssueKind,
     ContentStructureKind,
+    ContentVerification,
     Dependency,
     DependencySetRecordedEvent,
     DependencySetStatus,
@@ -85,6 +86,7 @@ from postproject import (
     RevisionContext,
     RevisionId,
     ToolIdentity,
+    fingerprint_file,
 )
 
 LIBRARY_PATH = os.environ.get("POSTPROJECT_LIBRARY")
@@ -427,6 +429,41 @@ class ProductionTests(unittest.TestCase):
                     resource_id, resource_fingerprint
                 )
             self.assertEqual(production.latest_revision, revision)
+
+    def test_content_is_computed_verified_and_observed(self) -> None:
+        with Production.create(
+            self.production_path, library_path=LIBRARY_PATH
+        ) as production:
+            with production.transaction() as transaction:
+                asset_id = transaction.import_media(self.media_path)
+            representation = production.representations[asset_id][0]
+            resource = representation.resources[0]
+
+            computed = fingerprint_file(self.media_path, library_path=LIBRARY_PATH)
+            self.assertEqual(resource.fingerprints, (computed,))
+            self.assertIs(
+                production.verify_resource(resource.id, self.media_path),
+                ContentVerification.MATCHES,
+            )
+
+            Path(self.media_path).write_bytes(b"replaced content")
+            self.assertIs(
+                production.verify_resource(resource.id, self.media_path),
+                ContentVerification.DIFFERS,
+            )
+            with production.transaction() as transaction:
+                transaction.observe_resource_content(resource.id, self.media_path)
+
+            observed = production.representations[asset_id][0]
+            self.assertEqual(
+                observed.resources[0].fingerprints,
+                (fingerprint_file(self.media_path, library_path=LIBRARY_PATH),),
+            )
+            self.assertNotEqual(observed.fingerprints, representation.fingerprints)
+            self.assertIs(
+                production.verify_resource(resource.id, self.media_path),
+                ContentVerification.MATCHES,
+            )
 
     def test_media_roots_and_locators_have_a_complete_lifecycle(self) -> None:
         with Production.create(
