@@ -528,7 +528,7 @@ int main(int argc, char **argv) {
     require(!wait_for_changes(production, 0).empty(), "revision wait");
     {
       std::mutex mutex;
-      std::condition_variable changed;
+      std::condition_variable observed;
       bool delivered = false;
       auto observer = watch_new_media(
           production, 0,
@@ -536,11 +536,11 @@ int main(int argc, char **argv) {
               const std::vector<postproject::RevisionEvent> &) {
             const std::lock_guard<std::mutex> lock(mutex);
             delivered = true;
-            changed.notify_all();
+            observed.notify_all();
           });
       std::unique_lock<std::mutex> lock(mutex);
-      require(changed.wait_for(lock, std::chrono::seconds(60),
-                               [&] { return delivered; }),
+      require(observed.wait_for(lock, std::chrono::seconds(60),
+                                [&] { return delivered; }),
               "observed revision");
       lock.unlock();
       observer->stop();

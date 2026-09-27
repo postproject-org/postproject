@@ -121,8 +121,9 @@ static pp_error_code_t print_activity(const pp_activity_set_t *set, uint64_t a,
   uint8_t has_started = 0, has_finished = 0;
   int64_t started = 0, finished = 0;
   uint64_t input_count = 0, output_count = 0;
-  const char *tool, *tool_version, *tool_uri;
-  const char *agent, *agent_scheme, *agent_value, *agent_qualifier;
+  const char *tool = NULL, *tool_version = NULL, *tool_uri = NULL;
+  const char *agent = NULL, *agent_scheme = NULL, *agent_value = NULL;
+  const char *agent_qualifier = NULL;
   pp_error_code_t status = pp_activity_set_get(
       set, a, &id, &kind, &has_started, &started, &has_finished, &finished,
       &input_count, &output_count, error);

@@ -411,7 +411,7 @@ static pp_error_code_t inspect_artifact(const pp_production_t *production,
   pp_artifact_evaluation_t *evaluation = NULL;
   pp_artifact_reproducibility_t *report = NULL;
   pp_uuid_t evaluated_id;
-  pp_artifact_knowledge_state_t state;
+  pp_artifact_knowledge_state_t state = 0;
   uint32_t visited = 0;
   uint8_t truncated = 0;
   uint64_t reason_count = 0;
@@ -1037,7 +1037,7 @@ int main(int argc, char **argv) {
   pp_uuid_t asset_id;
   pp_uuid_t production_id;
   pp_uuid_t original_id;
-  pp_uuid_t sequence_id;
+  pp_uuid_t sequence_id = {{0}};
   uint64_t cursor = 0;
   uint64_t before_render = 0;
   uint64_t count = 0;

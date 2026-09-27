@@ -203,7 +203,7 @@ complete_proxy(pp_production_t *production, const pp_uuid_t *job_id,
   const int64_t finished = NOW + 12 * MINUTE;
   pp_transaction_t *transaction = NULL;
   pp_uuid_t claim_id;
-  pp_uuid_t activity_id;
+  pp_uuid_t activity_id = {{0}};
   pp_error_code_t status =
       pp_production_begin_transaction(production, &transaction, error);
   if (status == PP_OK) {
