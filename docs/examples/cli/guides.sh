@@ -124,10 +124,11 @@ postproject dependency dependents production.pproj asset "$ASSET_ID" \
 # [/dependency-queries]
 
 # [job-query-pages]
-for _ in 1 2; do
-  postproject job request production.pproj org.example:generate-proxy \
-    "$ASSET_ID" proxy --input "$ORIGINAL_ID"
-done
+JOB_ID=$(postproject --json job request production.pproj \
+  org.example:generate-proxy "$ASSET_ID" proxy --input "$ORIGINAL_ID" | jq -r .id)
+postproject job request production.pproj org.example:generate-proxy \
+  "$ASSET_ID" proxy --input "$ORIGINAL_ID"
+postproject --json job show production.pproj "$JOB_ID" | jq -r .state
 CURSOR=
 while :; do
   ARGS=(--json job list production.pproj --state requested \
@@ -168,6 +169,20 @@ postproject media unresolved production.pproj --limit 100
 postproject --json media under-root production.pproj rushes --limit 100 |
   jq -r '.items[].id'
 # [/knowledge-only-media]
+
+# [point-reads]
+# A host reference names one object; read it without scanning the production.
+postproject media show production.pproj "$ASSET_ID"
+postproject --json representation show production.pproj "$ORIGINAL_ID" |
+  jq -r .kind
+RESOURCE_ID=$(postproject --json representation resources production.pproj \
+  "$ORIGINAL_ID" --limit 1 | jq -r '.items[0].id')
+postproject --json representation using-resource production.pproj \
+  "$RESOURCE_ID" --limit 100 | jq -r '.items[].id'
+# [/point-reads]
+
+test "$(postproject --json representation using-resource production.pproj \
+  "$RESOURCE_ID" | jq -r '[.items[].id] | join(" ")')" = "$ORIGINAL_ID"
 
 test "$(postproject --json media under-root production.pproj rushes |
   jq -r '[.items[].id] | join(" ")')" = "$ORIGINAL_ID"

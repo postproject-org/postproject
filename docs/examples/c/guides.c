@@ -518,17 +518,29 @@ static pp_error_code_t request_and_page_jobs(pp_production_t *production,
                                              pp_error_t **error) {
   const char *kind = "org.example:generate-proxy";
   pp_transaction_t *transaction = NULL;
-  pp_uuid_t job_id;
+  pp_uuid_t job_ids[2];
   pp_error_code_t status =
       pp_production_begin_transaction(production, &transaction, error);
   for (uint32_t i = 0; status == PP_OK && i < UINT32_C(2); ++i) {
     status = pp_transaction_request_job(
         transaction, kind, input_id, UINT64_C(1), output_asset_id,
-        PP_REPRESENTATION_PROXY, NULL, &job_id, error);
+        PP_REPRESENTATION_PROXY, NULL, &job_ids[i], error);
   }
   if (status == PP_OK) {
     status = pp_transaction_commit(transaction, error);
   }
+  pp_job_set_t *first_job = NULL;
+  pp_job_t job;
+  if (status == PP_OK) {
+    status = pp_production_job(production, &job_ids[0], &first_job, error);
+  }
+  if (status == PP_OK) {
+    status = pp_job_set_get(first_job, UINT64_C(0), &job, error);
+  }
+  if (status == PP_OK && job.state != PP_JOB_REQUESTED) {
+    status = PP_ERROR_INTERNAL;
+  }
+  pp_job_set_release(first_job);
 
   char cursor_storage[2049] = {0};
   const char *cursor = NULL;
@@ -695,6 +707,54 @@ static pp_error_code_t list_media_knowledge(const pp_production_t *production,
   return status;
 }
 /* [/knowledge-only-media] */
+
+/* [point-reads] */
+static pp_error_code_t read_known_objects(const pp_production_t *production,
+                                          const pp_uuid_t *asset_id,
+                                          const pp_uuid_t *representation_id,
+                                          pp_error_t **error) {
+  /* A host reference names one object; read it without scanning the
+   * production. Point reads return one-element sets. */
+  pp_asset_set_t *asset = NULL;
+  pp_representation_set_t *representation = NULL;
+  pp_representation_set_t *users = NULL;
+  pp_uuid_t id;
+  int64_t created_at = 0;
+  const char *name = NULL;
+  const char *source = NULL;
+  pp_uuid_t resource_id;
+  const char *role = NULL;
+  uint8_t required = 0;
+  pp_error_code_t status =
+      pp_production_asset(production, asset_id, &asset, error);
+  if (status == PP_OK) {
+    status = pp_asset_set_get(asset, UINT64_C(0), &id, &created_at, &name,
+                              &source, error);
+  }
+  if (status == PP_OK) {
+    printf("asset: %s\n", name != NULL ? name : "unnamed");
+    status = pp_production_representation(production, representation_id,
+                                          &representation, error);
+  }
+  if (status == PP_OK) {
+    status = pp_representation_set_get_member(representation, UINT64_C(0),
+                                              UINT64_C(0), &resource_id, &role,
+                                              &required, error);
+  }
+  if (status == PP_OK) {
+    status = pp_production_representations_using_resource(
+        production, &resource_id, UINT32_C(100), NULL, &users, error);
+  }
+  if (status == PP_OK) {
+    printf("representations using the resource: %llu\n",
+           (unsigned long long)pp_representation_set_count(users));
+  }
+  pp_representation_set_release(users);
+  pp_representation_set_release(representation);
+  pp_asset_set_release(asset);
+  return status;
+}
+/* [/point-reads] */
 
 /* [metadata-query-pages] */
 static pp_error_code_t find_interview_titles(const pp_production_t *production,
@@ -1096,6 +1156,9 @@ int main(int argc, char **argv) {
   }
   if (status == PP_OK && count != UINT64_C(1)) {
     status = PP_ERROR_INTERNAL;
+  }
+  if (status == PP_OK) {
+    status = read_known_objects(production, &asset_id, &original_id, &error);
   }
   if (status == PP_OK) {
     status = find_interview_titles(production, &count, &error);

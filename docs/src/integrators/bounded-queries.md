@@ -42,6 +42,28 @@ grows with the production, so prefer the paginated query in new code. The CLI
 `media list` returns the complete asset list unless `--limit` or `--cursor` is
 given; its other query commands always return one page.
 
+## Read one object by identity
+
+An integration that already holds an identity, for example from a
+[host-object binding](host-object-bindings.md) or an OpenAssetIO entity
+reference, reads that object directly instead of searching a page. Reading an
+asset, a representation, or a job returns the one object or reports *not
+found*. A resource is not owned by exactly one representation — the compound
+model allows several representations to share it — so the representations
+using a resource are a bounded page like any other query. These reads are
+available on all five surfaces as of C ABI version 27; the C ABI returns a point
+read as a one-element result set of the usual kind.
+
+```{code-variants} point-reads
+```
+
+| Read | C | C++ | Python | Rust | CLI |
+|---|---|---|---|---|---|
+| One asset | `pp_production_asset` | `asset` | `asset` | `asset` | `media show` |
+| One representation | `pp_production_representation` | `representation` | `representation` | `representation` | `representation show` |
+| One job | `pp_production_job` | `job` | `job` | `job` | `job show` |
+| Representations using a resource | `pp_production_representations_using_resource` | `representationsUsingResource` | `representations_using_resource` | `representations_using_resource` | `representation using-resource` |
+
 ## Page media structure
 
 Asset pages follow creation time and asset ID. Representation pages list one

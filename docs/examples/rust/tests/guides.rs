@@ -328,18 +328,18 @@ fn request_and_page_jobs(
 ) -> Result<()> {
     let kind = JobKind::new("org.example:generate-proxy")?;
     let output = RequestedJobOutput::new(output_asset_id, RepresentationKind::Proxy, None)?;
+    let requested = [
+        Job::new(JobId::new(), kind.clone(), vec![input_id], output.clone())?,
+        Job::new(JobId::new(), kind.clone(), vec![input_id], output)?,
+    ];
     {
         let mut transaction = production.begin_transaction()?;
-        for _ in 0..2 {
-            transaction.request_job(&Job::new(
-                JobId::new(),
-                kind.clone(),
-                vec![input_id],
-                output.clone(),
-            )?)?;
+        for job in &requested {
+            transaction.request_job(job)?;
         }
         transaction.commit()?;
     }
+    assert_eq!(production.job(requested[0].id())?, requested[0]);
 
     let query = JobQuery::new(Some(JobStateKind::Requested), Some(kind));
     let mut cursor = None;
@@ -407,6 +407,36 @@ fn list_media_knowledge(production: &SqliteProduction) -> Result<Vec<Representat
         .collect())
 }
 // [/knowledge-only-media]
+
+// [point-reads]
+fn read_known_objects(
+    production: &SqliteProduction,
+    asset_id: AssetId,
+    representation_id: RepresentationId,
+) -> Result<()> {
+    // A host reference names one object; read it without scanning the production.
+    let asset = production.asset(asset_id)?;
+    let representation = production.representation(representation_id)?;
+    println!(
+        "{}: {:?}",
+        asset.display_name().unwrap_or("unnamed"),
+        representation.kind()
+    );
+    let first_resource =
+        production.resources_page(representation_id, &QueryPageRequest::new(1, None)?)?;
+    let users = production.representations_using_resource(
+        first_resource.items()[0].id(),
+        &QueryPageRequest::new(100, None)?,
+    )?;
+    assert!(
+        users
+            .items()
+            .iter()
+            .any(|item| item.id() == representation_id)
+    );
+    Ok(())
+}
+// [/point-reads]
 
 // [metadata-query-pages]
 fn find_interview_titles(production: &SqliteProduction) -> Result<Vec<ObjectRef>> {
@@ -666,6 +696,7 @@ fn guide_examples_run_in_order() -> Result<()> {
 
     print_recorded_locators(&production)?;
     assert_eq!(list_media_knowledge(&production)?, vec![original_id]);
+    read_known_objects(&production, asset_id, original_id)?;
     assert_eq!(
         find_interview_titles(&production)?,
         vec![ObjectRef::Asset(asset_id)]

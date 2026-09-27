@@ -253,9 +253,11 @@ void request_and_page_jobs(postproject::Production &production,
       "org.example:generate-proxy", {input_id}, output_asset_id,
       postproject::RepresentationKind::proxy, std::nullopt};
   auto transaction = production.beginTransaction();
-  transaction.requestJob(request);
+  const auto job_id = transaction.requestJob(request);
   transaction.requestJob(request);
   transaction.commit();
+  require(production.job(job_id).state == postproject::JobState::requested,
+          "requested job read back by identity");
 
   std::optional<std::string> cursor;
   std::size_t count = 0;
@@ -310,6 +312,26 @@ list_media_knowledge(const postproject::Production &production) {
   return under_rushes;
 }
 // [/knowledge-only-media]
+
+// [point-reads]
+void read_known_objects(const postproject::Production &production,
+                        const postproject::Uuid &asset_id,
+                        const postproject::Uuid &representation_id) {
+  // A host reference names one object; read it without scanning the
+  // production.
+  const auto asset = production.asset(asset_id);
+  const auto representation = production.representation(representation_id);
+  std::cout << asset.display_name.value_or("unnamed") << ": "
+            << representation.resources.size() << " resource(s)\n";
+  const auto users = production.representationsUsingResource(
+      representation.resources[0].id, 100);
+  require(std::any_of(users.items.begin(), users.items.end(),
+                      [&](const postproject::Representation &item) {
+                        return item.id == representation_id;
+                      }),
+          "representation uses its resource");
+}
+// [/point-reads]
 
 // [metadata-query-pages]
 std::vector<postproject::ObjectRef>
@@ -507,6 +529,7 @@ int main(int argc, char **argv) {
     print_recorded_locators(production);
     require(list_media_knowledge(production) == std::vector{original_id},
             "representation under the rushes root");
+    read_known_objects(production, asset_id, original_id);
     const postproject::ObjectRef asset{postproject::ObjectKind::asset,
                                        asset_id};
     require(find_interview_titles(production) == std::vector{asset},

@@ -87,6 +87,7 @@ example `postproject job run` — as soon as it commits.
 |---|---|---|---|---|---|
 | request | `request_job` | `pp_transaction_request_job` | `requestJob` | `request_job` | `job request` |
 | list | `jobs` | `pp_production_jobs` | `jobs` | `jobs` | `job list` |
+| read one | `job` | `pp_production_job` | `job` | `job` | `job show` |
 | claim | `claim_job` | `pp_transaction_claim_job` | `claimJob` | `claim_job` | `job claim` |
 | renew | `renew_job_claim` | `pp_transaction_renew_job_claim` | `renewJobClaim` | `renew_job_claim` | `job renew` |
 | release | `release_job_claim` | `pp_transaction_release_job_claim` | `releaseJobClaim` | `release_job_claim` | `job release` |
@@ -95,7 +96,8 @@ example `postproject job run` — as soon as it commits.
 | cancel | `cancel_job` | `pp_transaction_cancel_job` | `cancelJob` | `cancel_job` | `job cancel` |
 | plan regeneration | `plan_regeneration` | `pp_production_plan_regeneration` | `planRegeneration` | `plan_regeneration` | `job plan` |
 
-The C ABI returns owned job and regeneration-plan sets. A job page's optional
+The C ABI returns owned job and regeneration-plan sets; reading one job returns
+a one-element job set. A job page's optional
 cursor borrows the job set and must be copied before release. Release every
 returned set with its matching release function. The C++ and Python bindings
 copy result values and cursors into their native immutable types. The CLI

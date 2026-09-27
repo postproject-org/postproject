@@ -283,8 +283,9 @@ def request_and_page_jobs(
         RepresentationKind.PROXY,
     )
     with production.transaction() as transaction:
+        job_id = transaction.request_job(request)
         transaction.request_job(request)
-        transaction.request_job(request)
+    assert production.job(job_id).state is JobState.REQUESTED
 
     cursor = None
     count = 0
@@ -340,6 +341,22 @@ def list_media_knowledge(production: Production) -> tuple[RepresentationId, ...]
 
 
 # [/knowledge-only-media]
+
+
+# [point-reads]
+def read_known_objects(
+    production: Production, asset_id: AssetId, representation_id: RepresentationId
+) -> None:
+    # A host reference names one object; read it without scanning the production.
+    asset = production.asset(asset_id)
+    representation = production.representation(representation_id)
+    print(f"{asset.display_name}: {representation.kind.value}")
+    resource_id = representation.resources[0].id
+    users = production.representations_using_resource(resource_id, limit=100)
+    assert representation_id in {item.id for item in users.items}
+
+
+# [/point-reads]
 
 
 # [metadata-query-pages]
@@ -540,6 +557,7 @@ def main() -> None:
 
         print_recorded_locators(production)
         assert list_media_knowledge(production) == (original_id,)
+        read_known_objects(production, asset_id, original_id)
         assert find_interview_titles(production) == (asset_id,)
         query_render_lineage(production, original_id, sequence_id)
         assert stale_descendants(production, original_id) == []
