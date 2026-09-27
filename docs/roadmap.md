@@ -36,7 +36,13 @@ the CLI with named proxy and thumbnail profiles, lease heartbeats, atomic job
 completion, and bounded failure cleanup. PostProject still never starts work
 implicitly. Bounded domain queries and change delivery — event-kind-filtered
 revision pages and a cross-process revision wait with C++ and Python observers —
-are delivered on every surface.
+are delivered on every surface. The maintained OpenAssetIO Manager publishes
+rendered media through the job protocol. The
+[Kdenlive pilot](https://github.com/postproject-org/postproject-kdenlive), a
+patch series on Kdenlive `v26.08.1`, relinks renamed clips by content through a
+sidecar production. A tested Flatpak module builds PostProject for it on the
+KDE SDK. What the pilot taught is recorded in the
+[integration findings](release-0.4-integration-findings.md).
 
 ## Explicitly later
 

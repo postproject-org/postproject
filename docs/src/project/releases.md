@@ -10,6 +10,7 @@ These pages describe what each release delivered, how it was verified, and which
 
 ## Release records
 
+- {doc}`/release-0.4-integration-findings` — what the Kdenlive pilot taught during release 0.4.
 - {doc}`/release-0.3-report` — release 0.3 acceptance report.
 - {doc}`/release-0.3-integration-findings` — what the release 0.3 integrations taught.
 - {doc}`/standards-impact-0.3` — release 0.3 standards-impact check.
@@ -22,6 +23,7 @@ These pages describe what each release delivered, how it was verified, and which
 /abi-policy
 /releasing
 /roadmap
+/release-0.4-integration-findings
 /release-0.3-report
 /release-0.3-integration-findings
 /standards-impact-0.3
