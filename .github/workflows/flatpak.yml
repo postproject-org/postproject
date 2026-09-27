@@ -1,0 +1,55 @@
+name: Flatpak module
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packaging/flatpak/**"
+      - "tools/flatpak_module.py"
+      - "Cargo.lock"
+      - "CMakeLists.txt"
+      - "cmake/**"
+      - "tests/abi/**"
+      - ".github/workflows/flatpak.yml"
+  pull_request:
+    paths:
+      - "packaging/flatpak/**"
+      - "tools/flatpak_module.py"
+      - "Cargo.lock"
+      - "CMakeLists.txt"
+      - "cmake/**"
+      - "tests/abi/**"
+      - ".github/workflows/flatpak.yml"
+  schedule:
+    - cron: "17 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  kde-sdk:
+    name: Module on the KDE 6.10 SDK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install flatpak-builder
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder
+          flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+      - name: Render the module for a source archive of this revision
+        run: |
+          version="$(sed -n 's/^version = "\([^"]*\)"/\1/p' Cargo.toml | head -n 1)"
+          mkdir -p target/flatpak
+          git archive --format=tar.gz --prefix="postproject-$version/" \
+            --output="target/flatpak/postproject-$version-source.tar.gz" HEAD
+          python3 tools/flatpak_module.py render --version "$version" \
+            --archive "target/flatpak/postproject-$version-source.tar.gz" \
+            --output target/flatpak
+      - name: Build the module and test the installed package
+        run: |
+          flatpak-builder --user --install-deps-from=flathub --force-clean \
+            --disable-rofiles-fuse target/flatpak/app \
+            target/flatpak/org.postproject.FlatpakCheck.json
+          flatpak build target/flatpak/app postproject-cpp-smoke target/flatpak/smoke.pproj

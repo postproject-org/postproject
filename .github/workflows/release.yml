@@ -38,6 +38,13 @@ jobs:
             HEAD
           cd dist
           cmake -E sha256sum "$archive" > "$archive.sha256"
+      - name: Render the Flatpak module for the source archive
+        shell: bash
+        run: |
+          version="${{ steps.version.outputs.value }}"
+          python3 tools/flatpak_module.py render --version "$version" \
+            --sha256 "$(cut -d ' ' -f 1 "dist/postproject-$version-source.tar.gz.sha256")" \
+            --output dist
       - uses: actions/upload-artifact@v4
         with:
           name: release-source

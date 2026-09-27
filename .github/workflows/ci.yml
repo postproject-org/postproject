@@ -54,9 +54,11 @@ jobs:
       - run: ty check --project python python/src python/tests examples/python docs/examples/python
       - run: python tools/check_versions.py
       - run: python tools/check_example_coverage.py
-      - run: ruff check tools/check_versions.py tools/check_example_coverage.py tools/check_docs_coverage.py tools/test_check_docs_coverage.py tools/normalize_doxygen_xml.py tools/test_normalize_doxygen_xml.py
-      - run: ruff format --check tools/check_versions.py tools/check_example_coverage.py tools/check_docs_coverage.py tools/test_check_docs_coverage.py tools/normalize_doxygen_xml.py tools/test_normalize_doxygen_xml.py
-      - run: ty check tools/check_versions.py tools/check_example_coverage.py tools/check_docs_coverage.py tools/test_check_docs_coverage.py tools/normalize_doxygen_xml.py tools/test_normalize_doxygen_xml.py
+      - run: python tools/flatpak_module.py check
+      - run: python -m unittest tools/test_flatpak_module.py
+      - run: ruff check tools/check_versions.py tools/check_example_coverage.py tools/check_docs_coverage.py tools/test_check_docs_coverage.py tools/normalize_doxygen_xml.py tools/test_normalize_doxygen_xml.py tools/flatpak_module.py tools/test_flatpak_module.py
+      - run: ruff format --check tools/check_versions.py tools/check_example_coverage.py tools/check_docs_coverage.py tools/test_check_docs_coverage.py tools/normalize_doxygen_xml.py tools/test_normalize_doxygen_xml.py tools/flatpak_module.py tools/test_flatpak_module.py
+      - run: ty check tools/check_versions.py tools/check_example_coverage.py tools/check_docs_coverage.py tools/test_check_docs_coverage.py tools/normalize_doxygen_xml.py tools/test_normalize_doxygen_xml.py tools/flatpak_module.py tools/test_flatpak_module.py
       - run: cargo fmt --check
       - run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
       - run: cargo doc --workspace --all-features --no-deps --locked

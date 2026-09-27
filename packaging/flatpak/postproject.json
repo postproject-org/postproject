@@ -1,0 +1,23 @@
+{
+    "name": "postproject",
+    "buildsystem": "simple",
+    "build-options": {
+        "append-path": "/usr/lib/sdk/rust-stable/bin",
+        "env": {
+            "CARGO_HOME": "/run/build/postproject/cargo"
+        }
+    },
+    "build-commands": [
+        "cargo --offline build --release --locked -p postproject-ffi",
+        "cmake -S . -B target/package -DPOSTPROJECT_LIBRARY=\"$PWD/target/release/libpostproject.so\" -DCMAKE_INSTALL_PREFIX=\"$FLATPAK_DEST\"",
+        "cmake --install target/package"
+    ],
+    "sources": [
+        {
+            "type": "archive",
+            "url": "https://github.com/postproject-org/postproject/releases/download/v@VERSION@/postproject-@VERSION@-source.tar.gz",
+            "sha256": "@SHA256@"
+        },
+        "postproject-@VERSION@-cargo-sources.json"
+    ]
+}
