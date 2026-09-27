@@ -18,6 +18,7 @@ from postproject import (
     ArtifactEdgeKind,
     ArtifactKnowledgeState,
     ArtifactReasonKind,
+    AssetId,
     AssetImportedEvent,
     AvailabilityIssueKind,
     ContentStructureKind,
@@ -38,6 +39,7 @@ from postproject import (
     JobClaimReleasedEvent,
     JobClaimRenewedEvent,
     JobFailedEvent,
+    JobId,
     JobRequest,
     JobRequestedEvent,
     JobState,
@@ -73,10 +75,12 @@ from postproject import (
     RepresentationAddedEvent,
     RepresentationAvailability,
     RepresentationFingerprintObservedEvent,
+    RepresentationId,
     RepresentationKind,
     RepresentationResourceAddedEvent,
     ResourceAddedEvent,
     ResourceFingerprintObservedEvent,
+    ResourceId,
     ResourceResolutionState,
     RevisionContext,
     RevisionId,
@@ -132,6 +136,33 @@ class ProductionTests(unittest.TestCase):
             self.assertEqual(reopened.id, production_id)
             self.assertIn(asset_id, reopened.assets)
 
+    def test_point_reads_return_one_object_or_raise_not_found(self) -> None:
+        with Production.create(
+            self.production_path, library_path=LIBRARY_PATH
+        ) as production:
+            with production.transaction() as transaction:
+                asset_id = transaction.import_media(self.media_path, "Camera A")
+            representation = production.representations[asset_id][0]
+            resource_id = representation.resources[0].id
+
+            self.assertEqual(production.asset(asset_id).display_name, "Camera A")
+            self.assertEqual(
+                production.representation(representation.id), representation
+            )
+            users = production.representations_using_resource(resource_id, limit=10)
+            self.assertEqual(users.items, (representation,))
+            self.assertIsNone(users.next_cursor)
+
+            absent = UUID(int=1)
+            with self.assertRaises(NotFoundError):
+                production.asset(AssetId(absent))
+            with self.assertRaises(NotFoundError):
+                production.representation(RepresentationId(absent))
+            with self.assertRaises(NotFoundError):
+                production.representations_using_resource(ResourceId(absent), limit=1)
+            with self.assertRaises(NotFoundError):
+                production.job(JobId(absent))
+
     def test_job_requests_roundtrip_as_typed_values(self) -> None:
         with Production.create(
             self.production_path, library_path=LIBRARY_PATH
@@ -165,6 +196,7 @@ class ProductionTests(unittest.TestCase):
             self.assertIsNone(jobs[0].claim)
             self.assertIsNone(jobs[0].completion)
             self.assertIsNone(jobs[0].failure_diagnostic)
+            self.assertEqual(production.job(job_id), jobs[0])
 
             worker = ToolIdentity("Python worker", "1.0")
             agent = AgentIdentity(

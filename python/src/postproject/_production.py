@@ -433,6 +433,29 @@ class Production:
             self._native.lib.pp_production_activities, self._handle
         )
 
+    def job(self, job_id: JobId) -> Job:
+        """Return one durable job, raising ``NotFoundError`` when absent."""
+
+        self._require_open()
+        native_id = _native_uuid(job_id.value)
+        handle = ctypes.POINTER(JobSet)()
+        error = ctypes.POINTER(Error)()
+        status = self._native.lib.pp_production_job(
+            self._handle,
+            ctypes.byref(native_id),
+            ctypes.byref(handle),
+            ctypes.byref(error),
+        )
+        self._native.check(status, error)
+        if not handle:
+            raise RuntimeError("native job read returned no result set")
+        try:
+            if self._native.lib.pp_job_set_count(handle) != 1:
+                raise RuntimeError("native job read returned no single job")
+            return _job_at(self._native, handle, 0)
+        finally:
+            self._native.lib.pp_job_set_release(handle)
+
     def jobs(
         self,
         *,
@@ -753,6 +776,60 @@ class Production:
             return _dependency_query_page(self._native, handle)
         finally:
             self._native.lib.pp_dependency_query_set_release(handle)
+
+    def asset(self, asset_id: AssetId) -> Asset:
+        """Return one asset, raising ``NotFoundError`` when it is absent."""
+
+        self._require_open()
+        native_id = _native_uuid(asset_id.value)
+        handle = ctypes.POINTER(AssetSet)()
+        error = ctypes.POINTER(Error)()
+        status = self._native.lib.pp_production_asset(
+            self._handle,
+            ctypes.byref(native_id),
+            ctypes.byref(handle),
+            ctypes.byref(error),
+        )
+        self._native.check(status, error)
+        if not handle:
+            raise RuntimeError("native asset read returned no result set")
+        try:
+            if self._native.lib.pp_asset_set_count(handle) != 1:
+                raise RuntimeError("native asset read returned no single asset")
+            return _asset_at(self._native, handle, 0)
+        finally:
+            self._native.lib.pp_asset_set_release(handle)
+
+    def representation(self, representation_id: RepresentationId) -> Representation:
+        """Return one representation, raising ``NotFoundError`` when absent."""
+
+        self._require_open()
+        native_id = _native_uuid(representation_id.value)
+        page = self._representation_page(
+            self._native.lib.pp_production_representation,
+            self._handle,
+            ctypes.byref(native_id),
+        )
+        if len(page.items) != 1:
+            raise RuntimeError(
+                "native representation read returned no single representation"
+            )
+        return page.items[0]
+
+    def representations_using_resource(
+        self, resource_id: ResourceId, *, limit: int, cursor: str | None = None
+    ) -> QueryPage[Representation]:
+        """Return one bounded page of representations that use a resource."""
+
+        self._require_open()
+        native_id = _native_uuid(resource_id.value)
+        return self._representation_page(
+            self._native.lib.pp_production_representations_using_resource,
+            self._handle,
+            ctypes.byref(native_id),
+            limit,
+            _optional_text(cursor),
+        )
 
     def assets_page(self, *, limit: int, cursor: str | None = None) -> QueryPage[Asset]:
         """Return one bounded asset page in creation and identity order."""

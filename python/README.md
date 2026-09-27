@@ -62,6 +62,9 @@ with Production.create("production.pproj", "Documentary") as production:
         if cursor is None:
             break
 
+    # Point reads raise NotFoundError for an absent identity.
+    print(production.asset(asset_id).display_name)
+
     unresolved = production.unresolved_media(limit=100)
     changed = production.objects_changed_since(0, limit=100)
     print(len(unresolved.items), len(changed.items))
