@@ -156,7 +156,7 @@ const PP_REVISION_JOB_FAILED: u32 = 25;
 const PP_REVISION_JOB_CANCELLED: u32 = 26;
 
 /// Current pre-1.0 ABI version.
-pub const ABI_VERSION: u32 = 29;
+pub const ABI_VERSION: u32 = 30;
 
 /// Fixed-layout UUID-compatible public identifier.
 #[repr(C)]
@@ -1066,18 +1066,20 @@ pub unsafe extern "C" fn pp_production_external_identifiers(
     }
 }
 
-/// Finds objects carrying an exact external identifier scheme and value.
+/// Finds objects carrying an exact external identifier scheme and value,
+/// restricted to an exact qualifier unless `qualifier` is null.
 ///
 /// # Safety
 ///
 /// `production` must be live; `scheme` and `value` must be borrowed NUL-terminated
-/// UTF-8 strings; `out_objects` must be writable; and `out_error` may be null or
-/// writable.
+/// UTF-8 strings; `qualifier` must be null or such a string; `out_objects` must be
+/// writable; and `out_error` may be null or writable.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn pp_production_find_by_external_identifier(
     production: *const PpProduction,
     scheme: *const c_char,
     value: *const c_char,
+    qualifier: *const c_char,
     out_objects: *mut *mut PpObjectRefSet,
     out_error: *mut *mut PpError,
 ) -> u32 {
@@ -1093,9 +1095,10 @@ pub unsafe extern "C" fn pp_production_find_by_external_identifier(
             }
             let scheme = IdentifierScheme::new(required_utf8(scheme, "scheme")?)?;
             let value = required_utf8(value, "value")?;
+            let qualifier = optional_utf8(qualifier, "qualifier")?;
             let inner = lock_production(&production.state);
             let objects = inner
-                .find_by_external_identifier(&scheme, value)?
+                .find_by_external_identifier(&scheme, value, qualifier)?
                 .into_iter()
                 .map(object_ref_to_abi)
                 .collect::<Result<Vec<_>, _>>()?;

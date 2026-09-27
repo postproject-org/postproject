@@ -441,7 +441,8 @@ enum IdentifierCommand {
     Remove(IdentifierMutationArgs),
     /// List external identifiers attached to an object.
     List(IdentifierTargetArgs),
-    /// Find objects carrying an exact scheme and value.
+    /// Find objects carrying an exact scheme and value, optionally with an
+    /// exact qualifier.
     Find(IdentifierFindArgs),
 }
 
@@ -475,6 +476,9 @@ struct IdentifierFindArgs {
     production: PathBuf,
     scheme: String,
     value: String,
+    /// Match only identifiers with exactly this qualifier.
+    #[arg(long)]
+    qualifier: Option<String>,
 }
 
 #[derive(Debug, Args)]
@@ -2666,7 +2670,7 @@ fn identifier_find(args: IdentifierFindArgs, json: bool) -> Result<()> {
     let scheme = IdentifierScheme::new(args.scheme).context("validate identifier scheme")?;
     let production = SqliteProduction::open(&args.production).context("open production")?;
     let views: Vec<_> = production
-        .find_by_external_identifier(&scheme, &args.value)
+        .find_by_external_identifier(&scheme, &args.value, args.qualifier.as_deref())
         .context("find external identifier")?
         .into_iter()
         .map(object_ref_view)

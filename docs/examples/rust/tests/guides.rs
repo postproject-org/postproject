@@ -69,8 +69,11 @@ fn tag_camera_serial(production: &mut SqliteProduction, asset_id: AssetId) -> Re
     }
 
     let attached = production.external_identifiers(target)?;
-    let matches =
-        production.find_by_external_identifier(identifier.scheme(), identifier.value())?;
+    let matches = production.find_by_external_identifier(
+        identifier.scheme(),
+        identifier.value(),
+        identifier.qualifier(),
+    )?;
     assert_eq!(attached, vec![identifier]);
     assert_eq!(matches, vec![target]);
     Ok(())

@@ -803,6 +803,18 @@ class ProductionTests(unittest.TestCase):
                 ],
                 (asset_id,),
             )
+            self.assertEqual(
+                production.objects_by_external_identifier[
+                    camera_id.scheme, camera_id.value, "primary"
+                ],
+                (asset_id,),
+            )
+            self.assertEqual(
+                production.objects_by_external_identifier[
+                    camera_id.scheme, camera_id.value, "secondary"
+                ],
+                (),
+            )
             revision = production.latest_revision
             assert revision is not None
             added = production.revision_events[revision.id]

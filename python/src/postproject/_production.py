@@ -241,9 +241,16 @@ class _ObjectsByExternalIdentifier:
     def __init__(self, production: Production) -> None:
         self._production = production
 
-    def __getitem__(self, key: tuple[str, str]) -> tuple[ObjectReference, ...]:
+    def __getitem__(
+        self, key: tuple[str, str] | tuple[str, str, str]
+    ) -> tuple[ObjectReference, ...]:
+        if len(key) == 3:
+            scheme, value, qualifier = key
+            return self._production._find_by_external_identifier(
+                scheme, value, qualifier
+            )
         scheme, value = key
-        return self._production._find_by_external_identifier(scheme, value)
+        return self._production._find_by_external_identifier(scheme, value, None)
 
 
 class _Metadata:
@@ -563,7 +570,11 @@ class Production:
 
     @property
     def objects_by_external_identifier(self) -> _ObjectsByExternalIdentifier:
-        """Return object matches keyed by ``(scheme, value)``."""
+        """Return object matches keyed by ``(scheme, value)``.
+
+        A ``(scheme, value, qualifier)`` key matches only identifiers with
+        exactly that qualifier; a two-element key matches any qualifier.
+        """
 
         self._require_open()
         return _ObjectsByExternalIdentifier(self)
@@ -1325,9 +1336,9 @@ class Production:
             self._native.lib.pp_external_identifier_set_release(handle)
 
     def _find_by_external_identifier(
-        self, scheme: str, value: str
+        self, scheme: str, value: str, qualifier: str | None
     ) -> tuple[ObjectReference, ...]:
-        """Find objects carrying an exact external scheme and value."""
+        """Find objects carrying an exact external scheme, value, and qualifier."""
 
         self._require_open()
         handle = ctypes.POINTER(ObjectRefSet)()
@@ -1336,6 +1347,7 @@ class Production:
             self._handle,
             _utf8(scheme, "identifier scheme"),
             _utf8(value, "identifier value"),
+            None if qualifier is None else _utf8(qualifier, "identifier qualifier"),
             ctypes.byref(handle),
             ctypes.byref(error),
         )

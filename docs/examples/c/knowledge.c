@@ -56,7 +56,7 @@ static pp_error_code_t replace_identifiers(pp_production_t *production,
   }
   if (status == PP_OK) {
     status = pp_production_find_by_external_identifier(
-        production, "com.example.mam.id", "MAM-42", &matches, error);
+        production, "com.example.mam.id", "MAM-42", "staging", &matches, error);
   }
   for (uint64_t i = 0; status == PP_OK && i < pp_object_ref_set_count(matches);
        ++i) {

@@ -25,6 +25,9 @@ postproject identifier add knowledge.pproj asset "$ASSET_ID" \
   com.example.tape B-0112 --qualifier reel
 postproject identifier list knowledge.pproj asset "$ASSET_ID"
 postproject identifier find knowledge.pproj com.example.camera.serial A-0007
+# A qualifier restricts the lookup to identifiers with exactly that qualifier.
+postproject identifier find knowledge.pproj com.example.tape B-0112 \
+  --qualifier reel
 # Removal matches the exact scheme, value, and qualifier.
 postproject identifier remove knowledge.pproj asset "$ASSET_ID" \
   com.example.tape B-0112 --qualifier reel

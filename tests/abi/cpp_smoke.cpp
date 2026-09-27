@@ -28,7 +28,7 @@ int main(int argc, char **argv) {
   std::remove(path.c_str());
 
   try {
-    if (postproject::abi_version() != 29) {
+    if (postproject::abi_version() != 30) {
       return 3;
     }
 
@@ -188,7 +188,8 @@ int main(int argc, char **argv) {
     content_observation.commit();
     const auto identifiers = production.externalIdentifiers(asset_ref);
     const auto found =
-        production.findByExternalIdentifier("com.example.asset", "asset-42");
+        production.findByExternalIdentifier("com.example.asset", "asset-42",
+                                            external_id.qualifier);
     if (identifiers.size() != 1 ||
         identifiers[0].scheme != external_id.scheme ||
         identifiers[0].value != external_id.value ||

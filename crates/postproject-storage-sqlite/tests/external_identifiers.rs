@@ -87,16 +87,36 @@ fn multiple_external_identifiers_round_trip_and_support_exact_lookup() {
     );
     assert_eq!(
         reopened
-            .find_by_external_identifier(&vendor_scheme, vendor_id.value())
+            .find_by_external_identifier(&vendor_scheme, vendor_id.value(), None)
             .expect("look up exact vendor ID"),
         [representation]
     );
     assert!(
         reopened
-            .find_by_external_identifier(&vendor_scheme, "Camera A / 0007")
+            .find_by_external_identifier(&vendor_scheme, "Camera A / 0007", None)
             .expect("look up normalized-looking value")
             .is_empty(),
         "lookup must not trim or normalize opaque values"
+    );
+    assert_eq!(
+        reopened
+            .find_by_external_identifier(&vendor_scheme, storage_id.value(), Some("resource"))
+            .expect("look up with the exact qualifier"),
+        [resource]
+    );
+    assert!(
+        reopened
+            .find_by_external_identifier(&vendor_scheme, storage_id.value(), Some("asset"))
+            .expect("look up with another qualifier")
+            .is_empty(),
+        "a qualifier restricts matches to exactly that qualifier"
+    );
+    assert!(
+        reopened
+            .find_by_external_identifier(&vendor_scheme, vendor_id.value(), Some("resource"))
+            .expect("look up an unqualified identifier by qualifier")
+            .is_empty(),
+        "an unqualified identifier does not match a qualified lookup"
     );
 }
 

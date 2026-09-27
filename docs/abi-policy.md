@@ -1,6 +1,6 @@
 # ABI policy
 
-ABI version 29 is pre-release and may change during the 0.x series, with every
+ABI version 30 is pre-release and may change during the 0.x series, with every
 change recorded in the changelog and ABI tests. `pp_abi_version()` reports the
 implemented version. Exported symbol names are unversioned until the first stable
 release, but removals or signature changes require an explicit ABI-version bump.
@@ -199,6 +199,10 @@ present content with stored fingerprints and reports
 `pp_transaction_observe_resource_content` fingerprints present content when it
 is called, outside the production lock, and stages the resource value with
 every representation value recomputed from it.
+
+ABI version 30 adds a nullable `qualifier` to
+`pp_production_find_by_external_identifier`. NULL matches any qualifier; a
+string matches only identifiers with exactly that qualifier (ADR 0002).
 
 ## External identifiers
 

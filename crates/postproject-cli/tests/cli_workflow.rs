@@ -390,6 +390,16 @@ fn exercise_identifiers(production: &str, asset_id: &str) {
     assert_eq!(found.as_array().expect("object array").len(), 1);
     assert_eq!(found[0]["kind"], "asset");
     assert_eq!(found[0]["id"], asset_id);
+    let other_qualifier = run_json(&[
+        "identifier",
+        "find",
+        production,
+        "com.example.asset",
+        "asset-42",
+        "--qualifier",
+        "secondary",
+    ]);
+    assert_eq!(other_qualifier.as_array().expect("object array").len(), 0);
 }
 
 fn exercise_metadata(production_path: &str, asset_id: &str) {

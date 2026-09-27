@@ -158,14 +158,18 @@ pub trait ProductionRead {
 
     /// Finds objects carrying the exact external scheme and value.
     ///
+    /// A `qualifier` restricts matches to identifiers with exactly that
+    /// qualifier; `None` matches any qualifier, including none.
+    ///
     /// # Errors
     ///
-    /// Returns a domain error when the lookup value is invalid or persisted
-    /// data cannot be decoded safely.
+    /// Returns a domain error when the lookup value or qualifier is invalid
+    /// or persisted data cannot be decoded safely.
     fn find_by_external_identifier(
         &self,
         scheme: &IdentifierScheme,
         value: &str,
+        qualifier: Option<&str>,
     ) -> Result<Vec<ObjectRef>>;
 
     /// Loads all metadata assertions attached to `target` in deterministic order.

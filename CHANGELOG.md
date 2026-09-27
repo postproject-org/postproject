@@ -116,6 +116,8 @@ Development version: `0.4.0-alpha.1`.
 
 ### Changed
 
+- External-identifier lookup can require an exact qualifier on every surface
+  (ADR 0002, C ABI 30).
 - `postproject media fingerprint` takes only a resource and a path, and a new
   `postproject media verify-content` command compares content with it.
 - Downstream integration runs now include the OpenAssetIO Manager suite.

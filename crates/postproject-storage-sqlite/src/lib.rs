@@ -1069,29 +1069,32 @@ impl SqliteProduction {
 
     /// Finds objects carrying an exact external identifier scheme and value.
     ///
-    /// Multiple qualifiers on one object produce that object only once.
+    /// A `qualifier` restricts matches to that exact qualifier; `None` matches
+    /// any. Multiple qualifiers on one object produce that object only once.
     ///
     /// # Errors
     ///
     /// Returns [`ErrorKind::InvalidArgument`] for an invalid lookup value or
-    /// [`ErrorKind::Storage`] for query failures and malformed target data.
+    /// qualifier, or [`ErrorKind::Storage`] for query failures and malformed
+    /// target data.
     pub fn find_by_external_identifier(
         &self,
         scheme: &IdentifierScheme,
         value: &str,
+        qualifier: Option<&str>,
     ) -> Result<Vec<ObjectRef>> {
-        ExternalIdentifier::new(scheme.clone(), value, None)?;
+        ExternalIdentifier::new(scheme.clone(), value, qualifier.map(str::to_owned))?;
         let mut statement = self
             .connection
             .prepare(
                 "SELECT DISTINCT target_kind, target_id
                  FROM external_identifiers
-                 WHERE scheme = ?1 AND value = ?2
+                 WHERE scheme = ?1 AND value = ?2 AND (?3 IS NULL OR qualifier = ?3)
                  ORDER BY target_kind, target_id",
             )
             .map_err(sqlite_error("prepare external-identifier lookup"))?;
         let rows = statement
-            .query_map(params![scheme.as_str(), value], |row| {
+            .query_map(params![scheme.as_str(), value, qualifier], |row| {
                 Ok((row.get::<_, i64>(0)?, row.get::<_, Vec<u8>>(1)?))
             })
             .map_err(sqlite_error("look up external identifier"))?;
@@ -3284,8 +3287,9 @@ impl ProductionRead for SqliteProduction {
         &self,
         scheme: &IdentifierScheme,
         value: &str,
+        qualifier: Option<&str>,
     ) -> Result<Vec<ObjectRef>> {
-        SqliteProduction::find_by_external_identifier(self, scheme, value)
+        SqliteProduction::find_by_external_identifier(self, scheme, value, qualifier)
     }
 
     fn metadata(&self, target: ObjectRef) -> Result<Vec<MetadataAssertion>> {

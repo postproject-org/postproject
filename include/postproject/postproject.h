@@ -541,9 +541,12 @@ PP_API void pp_representation_set_release(
 PP_API pp_error_code_t pp_production_external_identifiers(
     const pp_production_t *production, const pp_object_ref_t *target,
     pp_external_identifier_set_t **out_identifiers, pp_error_t **out_error);
+/* A NULL qualifier matches any qualifier, including none; otherwise only
+ * identifiers with exactly that qualifier match. */
 PP_API pp_error_code_t pp_production_find_by_external_identifier(
     const pp_production_t *production, const char *scheme, const char *value,
-    pp_object_ref_set_t **out_objects, pp_error_t **out_error);
+    const char *qualifier, pp_object_ref_set_t **out_objects,
+    pp_error_t **out_error);
 PP_API uint64_t pp_external_identifier_set_count(
     const pp_external_identifier_set_t *identifiers);
 PP_API pp_error_code_t pp_external_identifier_set_get(

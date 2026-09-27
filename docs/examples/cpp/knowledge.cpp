@@ -41,7 +41,8 @@ replace_reel_name(postproject::Production &production,
     std::cout << identifier.scheme << " = " << identifier.value << '\n';
   }
   for (const auto &match :
-       production.findByExternalIdentifier(reel.scheme, reel.value)) {
+       production.findByExternalIdentifier(reel.scheme, reel.value,
+                                           reel.qualifier)) {
     std::cout << "reel A001 names object kind "
               << static_cast<std::uint32_t>(match.kind) << '\n';
   }
@@ -146,8 +147,9 @@ int main(int argc, char **argv) {
         production.findByExternalIdentifier("com.example.reel", "A001").empty(),
         "removed identifier no longer matches");
     require(production.findByExternalIdentifier("com.example.camera.serial",
-                                                "A-0007") == std::vector{asset},
-            "serial still matches");
+                                                "A-0007", "body") ==
+                std::vector{asset},
+            "serial still matches its qualifier");
 
     add_editorial_metadata(production, asset_id, representation_id);
     const std::vector<std::string> properties{"title",

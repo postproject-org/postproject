@@ -55,7 +55,9 @@ def replace_tape_identifier(
         print(
             f"{identifier.scheme}: {identifier.value} ({identifier.qualifier or '-'})"
         )
-    for target in production.objects_by_external_identifier[tape.scheme, tape.value]:
+    # A qualifier restricts the lookup to identifiers with exactly that qualifier.
+    key = (tape.scheme, tape.value, "reel")
+    for target in production.objects_by_external_identifier[key]:
         print(f"tape {tape.value} identifies {target}")
 
     # Removal matches the exact scheme, value, and qualifier.

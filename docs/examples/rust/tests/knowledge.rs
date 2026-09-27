@@ -38,7 +38,9 @@ fn replace_reel_identifier(production: &mut SqliteProduction, asset_id: AssetId)
             identifier.qualifier()
         );
     }
-    for object in production.find_by_external_identifier(reel.scheme(), reel.value())? {
+    for object in
+        production.find_by_external_identifier(reel.scheme(), reel.value(), reel.qualifier())?
+    {
         println!("tagged with reel R-12: {object:?}");
     }
 
@@ -217,7 +219,7 @@ fn knowledge_examples_run_in_order() -> Result<()> {
     let reel = IdentifierScheme::new("com.example.reel")?;
     assert!(
         production
-            .find_by_external_identifier(&reel, "R-12")?
+            .find_by_external_identifier(&reel, "R-12", None)?
             .is_empty()
     );
 

@@ -29,7 +29,17 @@ qualifier; other attachments stay in place:
 
 A scheme is not a namespace prefix, values are compared
 byte-for-byte, and a lookup may return several objects because an external
-system can reuse a value. Treat the result as candidates for the integration to
+system can reuse a value. A lookup can also require an exact qualifier:
+
+- **Pass the qualifier whenever you know it.** Under a shared scheme such as the
+  application scheme `https://postproject.org/id/application`, the qualifier is
+  what separates one application's identifiers from another's. Use a qualifier
+  rooted in a domain you control, for example `org.example.editor:clip_uuid`.
+- **Omit it to match any qualifier.** The lookup then also returns objects
+  whose identifier has no qualifier.
+- A qualified lookup never matches an unqualified identifier.
+
+Treat the result as candidates for the integration to
 interpret, not as proof of identity.
 
 To refer from a host document *to* a PostProject object, persist a

@@ -67,7 +67,7 @@ fn assert_activity_identifier(
     );
     assert_eq!(
         production
-            .find_by_external_identifier(identifier.scheme(), identifier.value())
+            .find_by_external_identifier(identifier.scheme(), identifier.value(), None)
             .expect("look up activity identifier"),
         [target]
     );

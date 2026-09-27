@@ -754,7 +754,7 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_representation_set_release.restype = None
     lib.pp_production_external_identifiers.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(ObjectRef), ctypes.POINTER(ctypes.POINTER(ExternalIdentifierSet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_production_external_identifiers.restype = ErrorCode
-    lib.pp_production_find_by_external_identifier.argtypes = [ctypes.POINTER(Production), ctypes.c_char_p, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(ObjectRefSet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_production_find_by_external_identifier.argtypes = [ctypes.POINTER(Production), ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(ObjectRefSet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_production_find_by_external_identifier.restype = ErrorCode
     lib.pp_external_identifier_set_count.argtypes = [ctypes.POINTER(ExternalIdentifierSet)]
     lib.pp_external_identifier_set_count.restype = ctypes.c_uint64

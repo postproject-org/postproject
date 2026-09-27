@@ -3173,17 +3173,24 @@ public:
     return result;
   }
 
-  [[nodiscard]] std::vector<ObjectRef>
-  findByExternalIdentifier(std::string_view scheme,
-                           std::string_view value) const {
+  // A qualifier restricts matches to identifiers with exactly that qualifier.
+  [[nodiscard]] std::vector<ObjectRef> findByExternalIdentifier(
+      std::string_view scheme, std::string_view value,
+      std::optional<std::string_view> qualifier = std::nullopt) const {
     const std::string native_scheme =
         detail::checked_string(scheme, "scheme");
     const std::string native_value = detail::checked_string(value, "value");
+    const std::optional<std::string> native_qualifier =
+        qualifier.has_value()
+            ? std::optional<std::string>(
+                  detail::checked_string(*qualifier, "qualifier"))
+            : std::nullopt;
     pp_object_ref_set_t *raw_objects = nullptr;
     pp_error_t *error = nullptr;
     const pp_error_code_t status = pp_production_find_by_external_identifier(
-        production_, native_scheme.c_str(), native_value.c_str(), &raw_objects,
-        &error);
+        production_, native_scheme.c_str(), native_value.c_str(),
+        native_qualifier.has_value() ? native_qualifier->c_str() : nullptr,
+        &raw_objects, &error);
     detail::throw_if_error(status, error);
     detail::ObjectRefSetHandle objects(raw_objects);
 

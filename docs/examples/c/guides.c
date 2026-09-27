@@ -80,7 +80,8 @@ static pp_error_code_t tag_camera_serial(pp_production_t *production,
   }
   if (status == PP_OK) {
     status = pp_production_find_by_external_identifier(
-        production, "com.example.camera.serial", "A-0007", &matches, error);
+        production, "com.example.camera.serial", "A-0007", NULL, &matches,
+        error);
   }
   if (status == PP_OK) {
     printf("identifiers: %llu, matching objects: %llu\n",

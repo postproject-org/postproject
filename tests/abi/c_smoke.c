@@ -30,7 +30,7 @@ int main(int argc, char **argv) {
     return 64;
   }
   (void)remove(argv[1]);
-  if (pp_abi_version() != UINT32_C(29)) {
+  if (pp_abi_version() != UINT32_C(30)) {
     return 1;
   }
   pp_error_code_t status =
@@ -501,7 +501,18 @@ int main(int argc, char **argv) {
   pp_object_ref_set_t *objects = NULL;
   pp_object_ref_t found_object = {0, {{0}}};
   status = pp_production_find_by_external_identifier(
-      production, "com.example.asset", "asset-42", &objects, &error);
+      production, "com.example.asset", "asset-42", "other", &objects, &error);
+  if (status != PP_OK || objects == NULL ||
+      pp_object_ref_set_count(objects) != 0) {
+    pp_object_ref_set_release(objects);
+    pp_production_release(production);
+    pp_error_release(error);
+    return 119;
+  }
+  pp_object_ref_set_release(objects);
+  objects = NULL;
+  status = pp_production_find_by_external_identifier(
+      production, "com.example.asset", "asset-42", "primary", &objects, &error);
   if (status != PP_OK || objects == NULL ||
       pp_object_ref_set_count(objects) != UINT64_C(1) ||
       pp_object_ref_set_get(objects, 0, &found_object, &error) != PP_OK ||
