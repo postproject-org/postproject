@@ -3394,6 +3394,9 @@ fn reserve_new_file(path: &Path) -> Result<()> {
         })
 }
 
+/// Longest a production connection blocks on another writer before failing.
+const BUSY_TIMEOUT: Duration = Duration::from_secs(5);
+
 fn open_connection(path: &Path) -> Result<Connection> {
     let connection = Connection::open_with_flags(
         path,
@@ -3402,7 +3405,7 @@ fn open_connection(path: &Path) -> Result<Connection> {
     .map_err(sqlite_error("open production database"))?;
     configure_length_limit(&connection, MAX_SQLITE_VALUE_BYTES)?;
     connection
-        .busy_timeout(Duration::from_secs(5))
+        .busy_timeout(BUSY_TIMEOUT)
         .map_err(sqlite_error("configure SQLite busy timeout"))?;
     connection
         .execute_batch("PRAGMA foreign_keys = ON; PRAGMA trusted_schema = OFF;")

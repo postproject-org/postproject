@@ -22,7 +22,7 @@ use postproject_core::{
 use rusqlite::{Connection, ErrorCode, OpenFlags, OptionalExtension, params};
 
 use crate::{
-    MAX_SQLITE_VALUE_BYTES, configure_length_limit, decode_revision, sqlite_error,
+    BUSY_TIMEOUT, MAX_SQLITE_VALUE_BYTES, configure_length_limit, decode_revision, sqlite_error,
     stored_revision_row,
 };
 
@@ -110,8 +110,11 @@ impl SqliteRevisionWaiter {
         )
         .map_err(sqlite_error("open revision waiter connection"))?;
         configure_length_limit(&connection, MAX_SQLITE_VALUE_BYTES)?;
+        // The identity check is not retried, so it waits for a concurrent
+        // writer like any other production open; only polls use the short
+        // timeout below.
         connection
-            .busy_timeout(WAITER_BUSY_TIMEOUT)
+            .busy_timeout(BUSY_TIMEOUT)
             .map_err(sqlite_error("configure revision waiter busy timeout"))?;
         connection
             .execute_batch("PRAGMA trusted_schema = OFF; PRAGMA query_only = ON;")
@@ -133,6 +136,9 @@ impl SqliteRevisionWaiter {
                 ),
             ));
         }
+        connection
+            .busy_timeout(WAITER_BUSY_TIMEOUT)
+            .map_err(sqlite_error("configure revision waiter busy timeout"))?;
         Ok(Self {
             connection,
             signal,
