@@ -25,7 +25,7 @@ surfaces.
 ```
 
 A formatted C string is caller-owned and must be released exactly once with
-`pp_host_binding_release`; parsed UUID and object-reference values are copied
+`pp_string_release`; parsed UUID and object-reference values are copied
 into caller-owned output structs. The other surfaces return ordinary values.
 
 Parsing is deliberately strict: versions and object kinds must be known, UUIDs

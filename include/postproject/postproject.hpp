@@ -918,13 +918,11 @@ struct RevisionEventSetDeleter final {
 using RevisionEventSetHandle =
     std::unique_ptr<pp_revision_event_set_t, RevisionEventSetDeleter>;
 
-struct HostBindingDeleter final {
-  void operator()(char *binding) const noexcept {
-    pp_host_binding_release(binding);
-  }
+struct StringDeleter final {
+  void operator()(char *value) const noexcept { pp_string_release(value); }
 };
 
-using HostBindingHandle = std::unique_ptr<char, HostBindingDeleter>;
+using StringHandle = std::unique_ptr<char, StringDeleter>;
 
 inline void throw_if_error(pp_error_code_t status, pp_error_t *raw_error) {
   ErrorHandle error(raw_error);
@@ -1709,7 +1707,7 @@ inline std::string HostObjectBinding::toString() const {
   const pp_error_code_t status = pp_host_binding_format(
       &native_production_id, &native_object, &binding, &error);
   detail::throw_if_error(status, error);
-  detail::HostBindingHandle owned(binding);
+  detail::StringHandle owned(binding);
   return owned != nullptr ? std::string(owned.get()) : std::string();
 }
 
@@ -4133,6 +4131,38 @@ private:
 
 [[nodiscard]] inline std::uint32_t abi_version() noexcept {
   return pp_abi_version();
+}
+
+namespace detail {
+
+inline std::string owned_string(pp_error_code_t status, char *raw,
+                                pp_error_t *error) {
+  StringHandle value(raw);
+  throw_if_error(status, error);
+  return std::string(value.get());
+}
+
+} // namespace detail
+
+// Returns the canonical file: locator URI import records for an existing
+// path. Compare locators only through URIs from PostProject.
+[[nodiscard]] inline std::string fileLocator(std::string_view path) {
+  const std::string native_path = detail::checked_string(path, "path");
+  char *uri = nullptr;
+  pp_error_t *error = nullptr;
+  const pp_error_code_t status =
+      pp_file_path_to_locator(native_path.c_str(), &uri, &error);
+  return detail::owned_string(status, uri, error);
+}
+
+// Converts a local file: locator URI to a native path, which need not exist.
+[[nodiscard]] inline std::string locatorFilePath(std::string_view uri) {
+  const std::string native_uri = detail::checked_string(uri, "uri");
+  char *path = nullptr;
+  pp_error_t *error = nullptr;
+  const pp_error_code_t status =
+      pp_locator_to_file_path(native_uri.c_str(), &path, &error);
+  return detail::owned_string(status, path, error);
 }
 
 // Computes the fingerprint import records for a regular file.

@@ -9,6 +9,8 @@ Development version: `0.4.0-alpha.1`.
 
 ### Added
 
+- Added conversion between paths and canonical locator URIs on every surface
+  (ADR 0030, C ABI 31).
 - Added content fingerprinting, verification, and observation that recomputes
   every representation using a resource, on every surface (ADR 0029, C ABI 29).
 - Added a tested Flatpak module that builds PostProject offline from the release
@@ -116,6 +118,8 @@ Development version: `0.4.0-alpha.1`.
 
 ### Changed
 
+- `pp_string_release` releases every owned string, replacing
+  `pp_host_binding_release`.
 - External-identifier lookup can require an exact qualifier on every surface
   (ADR 0002, C ABI 30).
 - `postproject media fingerprint` takes only a resource and a path, and a new

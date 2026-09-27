@@ -312,7 +312,7 @@ class _HostBindings:
         try:
             return _decode_required(binding.value, "host binding")
         finally:
-            self._production._native.lib.pp_host_binding_release(binding)
+            self._production._native.lib.pp_string_release(binding)
 
     def parse(self, value: str) -> HostObjectBinding:
         production_id = Uuid()
@@ -2631,6 +2631,47 @@ def fingerprint_file(
         )
     finally:
         native.lib.pp_fingerprint_release(handle)
+
+
+def file_locator(
+    path: str | os.PathLike[str],
+    *,
+    library_path: str | os.PathLike[str] | None = None,
+) -> str:
+    """Return the canonical ``file:`` locator URI import records for a path.
+
+    Compare locators only through URIs returned here or read from a production.
+    """
+
+    native = NativeLibrary(library_path)
+    uri = ctypes.c_char_p()
+    error = ctypes.POINTER(Error)()
+    status = native.lib.pp_file_path_to_locator(
+        _path_bytes(path), ctypes.byref(uri), ctypes.byref(error)
+    )
+    native.check(status, error)
+    try:
+        return _decode_required(uri.value, "locator URI")
+    finally:
+        native.lib.pp_string_release(uri)
+
+
+def locator_file_path(
+    uri: str, *, library_path: str | os.PathLike[str] | None = None
+) -> Path:
+    """Convert a local ``file:`` locator URI to a path, which need not exist."""
+
+    native = NativeLibrary(library_path)
+    path = ctypes.c_char_p()
+    error = ctypes.POINTER(Error)()
+    status = native.lib.pp_locator_to_file_path(
+        _utf8(uri, "locator URI"), ctypes.byref(path), ctypes.byref(error)
+    )
+    native.check(status, error)
+    try:
+        return Path(_decode_required(path.value, "locator path"))
+    finally:
+        native.lib.pp_string_release(path)
 
 
 _CONTENT_VERIFICATIONS = {

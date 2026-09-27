@@ -86,7 +86,9 @@ from postproject import (
     RevisionContext,
     RevisionId,
     ToolIdentity,
+    file_locator,
     fingerprint_file,
+    locator_file_path,
 )
 
 LIBRARY_PATH = os.environ.get("POSTPROJECT_LIBRARY")
@@ -438,6 +440,15 @@ class ProductionTests(unittest.TestCase):
                 asset_id = transaction.import_media(self.media_path)
             representation = production.representations[asset_id][0]
             resource = representation.resources[0]
+
+            (locator,) = resource.locators
+            self.assertEqual(
+                file_locator(self.media_path, library_path=LIBRARY_PATH), locator.uri
+            )
+            self.assertEqual(
+                locator_file_path(locator.uri, library_path=LIBRARY_PATH),
+                Path(self.media_path).resolve(),
+            )
 
             computed = fingerprint_file(self.media_path, library_path=LIBRARY_PATH)
             self.assertEqual(resource.fingerprints, (computed,))

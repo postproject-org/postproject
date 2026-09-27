@@ -141,7 +141,9 @@ from ._production import (
     RevisionObserver,
     RevisionWaiter,
     Transaction,
+    file_locator,
     fingerprint_file,
+    locator_file_path,
 )
 
 __all__ = [
@@ -282,5 +284,7 @@ __all__ = [
     "Transaction",
     "TransactionId",
     "UnsupportedError",
+    "file_locator",
     "fingerprint_file",
+    "locator_file_path",
 ]

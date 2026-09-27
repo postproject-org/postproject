@@ -28,7 +28,7 @@ int main(int argc, char **argv) {
   std::remove(path.c_str());
 
   try {
-    if (postproject::abi_version() != 30) {
+    if (postproject::abi_version() != 31) {
       return 3;
     }
 
@@ -181,6 +181,13 @@ int main(int argc, char **argv) {
                                   media_path) !=
             postproject::ContentVerification::matches) {
       return 61;
+    }
+    const auto &locator_uri =
+        representations[0].resources[0].locators[0].uri;
+    if (postproject::fileLocator(media_path) != locator_uri ||
+        postproject::fileLocator(postproject::locatorFilePath(locator_uri)) !=
+            locator_uri) {
+      return 62;
     }
     auto content_observation = production.beginTransaction();
     content_observation.observeResourceContent(

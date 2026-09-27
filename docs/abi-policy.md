@@ -1,6 +1,6 @@
 # ABI policy
 
-ABI version 30 is pre-release and may change during the 0.x series, with every
+ABI version 31 is pre-release and may change during the 0.x series, with every
 change recorded in the changelog and ABI tests. `pp_abi_version()` reports the
 implemented version. Exported symbol names are unversioned until the first stable
 release, but removals or signature changes require an explicit ABI-version bump.
@@ -203,6 +203,11 @@ every representation value recomputed from it.
 ABI version 30 adds a nullable `qualifier` to
 `pp_production_find_by_external_identifier`. NULL matches any qualifier; a
 string matches only identifiers with exactly that qualifier (ADR 0002).
+
+ABI version 31 adds `pp_file_path_to_locator` and `pp_locator_to_file_path`
+(ADR 0030). Owned strings returned through `char **` outputs, including host
+bindings, are released with `pp_string_release`, which replaces
+`pp_host_binding_release`.
 
 ## External identifiers
 

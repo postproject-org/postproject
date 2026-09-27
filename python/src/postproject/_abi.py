@@ -504,12 +504,12 @@ EXPORTED_SYMBOLS = (
     "pp_external_identifier_set_count",
     "pp_external_identifier_set_get",
     "pp_external_identifier_set_release",
+    "pp_file_path_to_locator",
     "pp_fingerprint_file",
     "pp_fingerprint_get",
     "pp_fingerprint_release",
     "pp_host_binding_format",
     "pp_host_binding_parse",
-    "pp_host_binding_release",
     "pp_job_set_count",
     "pp_job_set_get",
     "pp_job_set_get_input",
@@ -519,6 +519,7 @@ EXPORTED_SYMBOLS = (
     "pp_locator_query_set_get",
     "pp_locator_query_set_next_cursor",
     "pp_locator_query_set_release",
+    "pp_locator_to_file_path",
     "pp_media_root_set_count",
     "pp_media_root_set_get",
     "pp_media_root_set_release",
@@ -645,6 +646,7 @@ EXPORTED_SYMBOLS = (
     "pp_revision_waiter_create",
     "pp_revision_waiter_release",
     "pp_revision_waiter_wait",
+    "pp_string_release",
     "pp_transaction_add_external_identifier",
     "pp_transaction_add_image_sequence_representation",
     "pp_transaction_add_media_root",
@@ -688,8 +690,12 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_host_binding_format.restype = ErrorCode
     lib.pp_host_binding_parse.argtypes = [ctypes.c_char_p, ctypes.POINTER(Uuid), ctypes.POINTER(ObjectRef), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_host_binding_parse.restype = ErrorCode
-    lib.pp_host_binding_release.argtypes = [ctypes.c_char_p]
-    lib.pp_host_binding_release.restype = None
+    lib.pp_file_path_to_locator.argtypes = [ctypes.c_char_p, ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_file_path_to_locator.restype = ErrorCode
+    lib.pp_locator_to_file_path.argtypes = [ctypes.c_char_p, ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_locator_to_file_path.restype = ErrorCode
+    lib.pp_string_release.argtypes = [ctypes.c_char_p]
+    lib.pp_string_release.restype = None
     lib.pp_production_create.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(Production)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_production_create.restype = ErrorCode
     lib.pp_production_open.argtypes = [ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(Production)), ctypes.POINTER(ctypes.POINTER(Error))]

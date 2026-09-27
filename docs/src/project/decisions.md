@@ -15,6 +15,7 @@ Read the relevant ADR before changing an invariant, a boundary, or a public cont
 - {doc}`ADR 0015 — Availability semantics and collection fingerprints </adr/0015-availability-and-collection-fingerprints>`
 - {doc}`ADR 0017 — Portable root identity </adr/0017-portable-root-identity>`
 - {doc}`ADR 0028 — Comparable and foreign fingerprint domains in resolution </adr/0028-comparable-and-foreign-fingerprint-domains>`
+- {doc}`ADR 0030 — Canonical locator spelling for hosts </adr/0030-canonical-locator-spelling>`
 
 ## Knowledge, history, and change
 
@@ -78,4 +79,5 @@ Read the relevant ADR before changing an invariant, a boundary, or a public cont
 /adr/0027-change-delivery
 /adr/0028-comparable-and-foreign-fingerprint-domains
 /adr/0029-host-content-observation
+/adr/0030-canonical-locator-spelling
 ```

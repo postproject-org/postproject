@@ -46,8 +46,8 @@ use postproject_core::{
     Timestamp, ToolIdentity, TransactionLifecycle, VocabularyId,
 };
 use postproject_media::{
-    FileResourceSource, ImageSequenceSource, MediaResolver, MediaRootMapping,
-    prepare_confirmed_locator, prepare_confirmed_locator_under_root,
+    FileResourceSource, ImageSequenceSource, MediaResolver, MediaRootMapping, canonical_file_uri,
+    local_file_path, prepare_confirmed_locator, prepare_confirmed_locator_under_root,
     prepare_image_sequence_representation, prepare_ordered_parts_representation,
     prepare_original_media, prepare_package_representation, prepare_single_file_representation,
 };
@@ -156,7 +156,7 @@ const PP_REVISION_JOB_FAILED: u32 = 25;
 const PP_REVISION_JOB_CANCELLED: u32 = 26;
 
 /// Current pre-1.0 ABI version.
-pub const ABI_VERSION: u32 = 30;
+pub const ABI_VERSION: u32 = 31;
 
 /// Fixed-layout UUID-compatible public identifier.
 #[repr(C)]
@@ -477,7 +477,7 @@ pub extern "C" fn pp_abi_version() -> u32 {
 ///
 /// `production_id` and `object` must be readable. `out_binding` must be
 /// writable and receives a string that must be released exactly once with
-/// [`pp_host_binding_release`]. `out_error` may be null or writable.
+/// [`pp_string_release`]. `out_error` may be null or writable.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn pp_host_binding_format(
     production_id: *const PpUuid,
@@ -535,18 +535,73 @@ pub unsafe extern "C" fn pp_host_binding_parse(
     }
 }
 
-/// Releases a string returned by [`pp_host_binding_format`].
+/// Returns the canonical `file:` locator URI import records for an existing
+/// path.
 ///
 /// # Safety
 ///
-/// `binding` must be null or a live pointer returned by
-/// [`pp_host_binding_format`] that has not already been released.
+/// `path` must be NUL-terminated UTF-8. `out_uri` must be writable and receives
+/// a string that must be released exactly once with [`pp_string_release`].
+/// `out_error` may be null or writable.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn pp_host_binding_release(binding: *mut c_char) {
-    if !binding.is_null() {
+pub unsafe extern "C" fn pp_file_path_to_locator(
+    path: *const c_char,
+    out_uri: *mut *mut c_char,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: Outputs are initialized and inputs checked before dereference.
+    unsafe {
+        initialize_output(out_uri);
+        ffi_call(out_error, || {
+            require_output(out_uri, "out_uri")?;
+            let uri = canonical_file_uri(Path::new(required_utf8(path, "path")?))?;
+            out_uri.write(exact_cstring(&uri, "locator URI")?.into_raw());
+            Ok(())
+        })
+    }
+}
+
+/// Converts a local `file:` locator URI to a native path. The path need not
+/// exist.
+///
+/// # Safety
+///
+/// `uri` must be NUL-terminated UTF-8. `out_path` must be writable and receives
+/// a string that must be released exactly once with [`pp_string_release`].
+/// `out_error` may be null or writable.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn pp_locator_to_file_path(
+    uri: *const c_char,
+    out_path: *mut *mut c_char,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: Outputs are initialized and inputs checked before dereference.
+    unsafe {
+        initialize_output(out_path);
+        ffi_call(out_error, || {
+            require_output(out_path, "out_path")?;
+            let path = local_file_path(required_utf8(uri, "uri")?)?;
+            let path = path
+                .to_str()
+                .ok_or_else(|| invalid_argument("locator path cannot be represented as UTF-8"))?;
+            out_path.write(exact_cstring(path, "locator path")?.into_raw());
+            Ok(())
+        })
+    }
+}
+
+/// Releases a string returned by this library. Null is a no-op.
+///
+/// # Safety
+///
+/// `value` must be null or a live string returned through an owned `char **`
+/// output of this library that has not already been released.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn pp_string_release(value: *mut c_char) {
+    if !value.is_null() {
         // SAFETY: The caller contract requires the exact pointer and ownership
-        // originating from `CString::into_raw` above.
-        drop(unsafe { CString::from_raw(binding) });
+        // originating from `CString::into_raw`.
+        drop(unsafe { CString::from_raw(value) });
     }
 }
 

@@ -35,7 +35,9 @@ from postproject import (
     ResourceFingerprintObservedEvent,
     ResourceId,
     RevisionEvent,
+    file_locator,
     fingerprint_file,
+    locator_file_path,
 )
 
 
@@ -173,6 +175,17 @@ def retire_superseded_locator(
 
 
 # [/retire-locator]
+
+
+# [locator-uri]
+def is_recorded_locator(path: Path, recorded_uri: str) -> bool:
+    # Spell the path as PostProject spells locators instead of building a URI
+    # with pathlib or urllib, then compare the strings exactly.
+    print(f"recorded locator {recorded_uri} is {locator_file_path(recorded_uri)}")
+    return file_locator(path) == recorded_uri
+
+
+# [/locator-uri]
 
 
 # [content-fingerprint]
@@ -353,6 +366,7 @@ def main() -> None:
         assert production.media_roots == ()
 
         media.write_bytes(b"re-encoded camera original\n")
+        assert is_recorded_locator(media, original.resources[0].locators[0].uri)
         events = observe_fingerprints(production, original, media)
         assert [type(event.payload) for event in events] == [
             ResourceFingerprintObservedEvent,

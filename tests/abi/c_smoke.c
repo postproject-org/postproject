@@ -30,7 +30,7 @@ int main(int argc, char **argv) {
     return 64;
   }
   (void)remove(argv[1]);
-  if (pp_abi_version() != UINT32_C(30)) {
+  if (pp_abi_version() != UINT32_C(31)) {
     return 1;
   }
   pp_error_code_t status =
@@ -126,13 +126,13 @@ int main(int argc, char **argv) {
       bound_object.kind != PP_OBJECT_ASSET ||
       memcmp(bound_object.id.bytes, asset_id.bytes, sizeof(asset_id.bytes)) !=
           0) {
-    pp_host_binding_release(host_binding);
+    pp_string_release(host_binding);
     pp_transaction_release(transaction);
     pp_production_release(production);
     pp_error_release(error);
     return 65;
   }
-  pp_host_binding_release(host_binding);
+  pp_string_release(host_binding);
   status = pp_transaction_add_external_identifier(
       transaction, &asset_ref, "com.example.asset", "asset-42", "primary",
       &error);
@@ -477,6 +477,24 @@ int main(int argc, char **argv) {
     pp_production_release(production);
     pp_error_release(error);
     return 46;
+  }
+  char *media_locator = NULL;
+  char *media_locator_path = NULL;
+  status = pp_file_path_to_locator(media_path, &media_locator, &error);
+  if (status == PP_OK) {
+    status = pp_locator_to_file_path(media_locator, &media_locator_path,
+                                     &error);
+  }
+  const int locator_matches =
+      status == PP_OK && strcmp(media_locator, locator_uri) == 0 &&
+      media_locator_path != NULL && media_locator_path[0] != '\0';
+  pp_string_release(media_locator_path);
+  pp_string_release(media_locator);
+  if (!locator_matches) {
+    pp_representation_set_release(representations);
+    pp_production_release(production);
+    pp_error_release(error);
+    return 120;
   }
   pp_representation_set_release(representations);
   pp_external_identifier_set_t *identifiers = NULL;

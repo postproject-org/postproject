@@ -35,12 +35,12 @@ pp_error_release
 pp_external_identifier_set_count
 pp_external_identifier_set_get
 pp_external_identifier_set_release
+pp_file_path_to_locator
 pp_fingerprint_file
 pp_fingerprint_get
 pp_fingerprint_release
 pp_host_binding_format
 pp_host_binding_parse
-pp_host_binding_release
 pp_job_set_count
 pp_job_set_get
 pp_job_set_get_input
@@ -50,6 +50,7 @@ pp_locator_query_set_count
 pp_locator_query_set_get
 pp_locator_query_set_next_cursor
 pp_locator_query_set_release
+pp_locator_to_file_path
 pp_media_root_set_count
 pp_media_root_set_get
 pp_media_root_set_release
@@ -176,6 +177,7 @@ pp_revision_waiter_cancel
 pp_revision_waiter_create
 pp_revision_waiter_release
 pp_revision_waiter_wait
+pp_string_release
 pp_transaction_add_external_identifier
 pp_transaction_add_image_sequence_representation
 pp_transaction_add_media_root

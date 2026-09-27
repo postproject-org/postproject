@@ -327,6 +327,28 @@ static pp_error_code_t cycle_media_root(pp_production_t *production,
 }
 /* [/media-root-lifecycle] */
 
+/* [locator-uri] */
+static pp_error_code_t is_recorded_locator(const char *path,
+                                           const char *recorded_uri,
+                                           int *out_same, pp_error_t **error) {
+  /* Spell the path as PostProject spells locators instead of building a URI
+   * with the host's own URL type, then compare the strings exactly. */
+  char *uri = NULL;
+  char *native_path = NULL;
+  pp_error_code_t status = pp_file_path_to_locator(path, &uri, error);
+  if (status == PP_OK) {
+    *out_same = strcmp(uri, recorded_uri) == 0;
+    status = pp_locator_to_file_path(recorded_uri, &native_path, error);
+  }
+  if (status == PP_OK) {
+    printf("recorded locator %s is %s\n", recorded_uri, native_path);
+  }
+  pp_string_release(native_path);
+  pp_string_release(uri);
+  return status;
+}
+/* [/locator-uri] */
+
 /* [content-fingerprint] */
 static pp_error_code_t print_file_fingerprint(const char *path,
                                               pp_error_t **error) {
@@ -824,6 +846,13 @@ int main(int argc, char **argv) {
     status =
         original_resource(production, &asset_id, &original_id, &resource_id,
                           &old_locator_id, old_uri, sizeof old_uri, &error);
+  }
+  if (status == PP_OK) {
+    int same = 0;
+    status = is_recorded_locator(media, old_uri, &same, &error);
+    if (status == PP_OK && !same) {
+      status = PP_ERROR_INTERNAL;
+    }
   }
   /* The camera original is re-rendered in place with new bytes. */
   if (status == PP_OK && !write_file(media, "re-rendered camera original\n")) {

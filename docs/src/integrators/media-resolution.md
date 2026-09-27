@@ -72,6 +72,30 @@ compute, such as a hash the host application recorded. Check the candidate with
 the host's own algorithm before confirming it. See
 [host content hashes](fingerprints-and-verification.md#keep-a-hosts-own-content-hashes).
 
+## Compare locators with host paths
+
+A locator is a URI, and several spellings of a URI can name the same file. Each
+URL library chooses its own percent-encoding, case, and treatment of symbolic
+links. Qt's `QUrl`, Foundation's `NSURL`, Python's `pathlib`, and Rust's `url`
+crate can therefore produce different strings for one path. Never compare a URI
+you built yourself with a locator from the production. Instead:
+
+- Ask PostProject for the locator of a path. It is exactly what import and
+  confirmation record, and it can be compared as a plain string.
+- Convert a recorded locator back to a native path when the host needs to open
+  the file.
+
+```{code-variants} locator-uri
+:::{no-variant} cli
+The CLI prints recorded locators with `postproject locator list`, and records
+the locators of paths you pass it, but has no separate conversion command.
+:::
+```
+
+Resolving a path's locator also resolves symbolic links and relative
+components, so the path must exist. The reverse conversion does not touch the
+filesystem.
+
 ## Read availability issues
 
 A representation can be partially available: a sequence with missing frames, a

@@ -1044,7 +1044,7 @@ static pp_error_code_t bind_representation(const pp_uuid_t *production_id,
     status = PP_ERROR_INTERNAL;
   }
 
-  pp_host_binding_release(stored);
+  pp_string_release(stored);
   return status;
 }
 /* [/host-binding] */

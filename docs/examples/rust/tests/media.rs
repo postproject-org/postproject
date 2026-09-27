@@ -16,7 +16,7 @@ use postproject_media::{
     ContentVerification, FileResourceSource, ImageSequenceSource, InventoryCategory, InventoryItem,
     InventoryScanner, MediaRecognizer, MediaResolver, MediaRootMapping, PRIMARY_ESSENCE_ROLE,
     RecognizedMedia, SIDECAR_ROLE, SPAN_PART_ROLE, VerificationMode, canonical_file_uri,
-    fingerprint_file, observe_resource_content, prepare_confirmed_locator,
+    fingerprint_file, local_file_path, observe_resource_content, prepare_confirmed_locator,
     prepare_image_sequence_representation, prepare_ordered_parts_representation,
     prepare_original_media, prepare_package_representation, prepare_recognized_original_media,
     prepare_single_file_representation, resource_usage, verify_resource_content,
@@ -212,6 +212,18 @@ fn move_to_archive(
     }
 }
 // [/retire-locator]
+
+// [locator-uri]
+fn is_recorded_locator(path: &Path, recorded_uri: &str) -> Result<bool> {
+    // Spell the path as PostProject spells locators instead of building a URI
+    // by hand, then compare the strings exactly.
+    println!(
+        "recorded locator {recorded_uri} is {}",
+        local_file_path(recorded_uri)?.display()
+    );
+    Ok(canonical_file_uri(path)? == recorded_uri)
+}
+// [/locator-uri]
 
 // [content-fingerprint]
 fn print_file_fingerprint(path: &Path) -> Result<()> {
@@ -587,6 +599,8 @@ fn media_examples_run_in_order() -> Result<()> {
 
     write(&original_path, "re-exported camera original");
     let before = production_sequence(&production)?;
+    let recorded = production.locators(production.resources(original_id)?[0].id())?;
+    assert!(is_recorded_locator(&original_path, recorded[0].uri())?);
     print_file_fingerprint(&original_path)?;
     observe_changed_original(&mut production, original_id, &original_path)?;
     assert_eq!(production_sequence(&production)?, before + 1);

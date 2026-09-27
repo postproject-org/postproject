@@ -406,7 +406,7 @@ typedef uint32_t pp_content_verification_t;
 PP_API uint32_t pp_abi_version(void);
 /* Host bindings are pure value operations and perform no network access.
  * Inputs are borrowed. On success, *out_binding is caller-owned and must be
- * released exactly once with pp_host_binding_release(). */
+ * released exactly once with pp_string_release(). */
 PP_API pp_error_code_t pp_host_binding_format(
     const pp_uuid_t *production_id, const pp_object_ref_t *object,
     char **out_binding, pp_error_t **out_error);
@@ -415,8 +415,21 @@ PP_API pp_error_code_t pp_host_binding_format(
 PP_API pp_error_code_t pp_host_binding_parse(
     const char *binding, pp_uuid_t *out_production_id,
     pp_object_ref_t *out_object, pp_error_t **out_error);
-/* Accepts NULL. No pointer returned by another function may be passed here. */
-PP_API void pp_host_binding_release(char *binding);
+/* Returns the canonical file: locator URI import records for an existing path:
+ * symbolic links and relative components are resolved, and the URI is spelled
+ * as PostProject spells it. Compare locators only through URIs returned here or
+ * read from a production. *out_uri is released with pp_string_release(). */
+PP_API pp_error_code_t pp_file_path_to_locator(const char *path,
+                                               char **out_uri,
+                                               pp_error_t **out_error);
+/* Converts a local file: URI to a native path, which need not exist.
+ * *out_path is released with pp_string_release(). */
+PP_API pp_error_code_t pp_locator_to_file_path(const char *uri,
+                                               char **out_path,
+                                               pp_error_t **out_error);
+/* Releases a string returned through an owned char ** output. Accepts NULL.
+ * Strings borrowed from result sets must never be passed here. */
+PP_API void pp_string_release(char *value);
 PP_API pp_error_code_t pp_production_create(const char *path,
                                          const char *display_name,
                                          pp_production_t **out_production,

@@ -174,6 +174,17 @@ std::vector<postproject::ResourceLocator> move_resource(
 }
 // [/retire-locator]
 
+// [locator-uri]
+bool is_recorded_locator(const std::string &path,
+                         const std::string &recorded_uri) {
+  // Spell the path as PostProject spells locators instead of building a URI
+  // with the host's own URL type, then compare the strings exactly.
+  std::cout << "recorded locator " << recorded_uri << " is "
+            << postproject::locatorFilePath(recorded_uri) << '\n';
+  return postproject::fileLocator(path) == recorded_uri;
+}
+// [/locator-uri]
+
 // [content-fingerprint]
 void print_file_fingerprint(const std::string &path) {
   // The same value import records; computing it records nothing.
@@ -365,6 +376,9 @@ int main(int argc, char **argv) {
 
     write_file(media, "re-exported camera original");
     const auto &original = find(representations, original_id);
+    require(is_recorded_locator(
+                media, original.resources.front().locators.front().uri),
+            "recorded locator matches the path");
     print_file_fingerprint(media);
     const auto events =
         observe_new_content(production, original.resources.front().id, media);
