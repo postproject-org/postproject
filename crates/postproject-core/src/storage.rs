@@ -3,7 +3,7 @@
 use crate::{
     Activity, ActivityOutputQuery, AgentIdentity, ArtifactEvaluation, ArtifactEvaluationLimits,
     ArtifactReproducibilityReport, Asset, AssetId, Dependency, DependencyQueryLimits,
-    DependencyQueryMatch, DependencySet, DependencyTarget, ExternalIdentifier,
+    DependencyQueryMatch, DependencySet, DependencyTarget, ExternalIdentifier, FileFacts,
     FilteredRevisionPage, IdentifierScheme, Job, JobClaim, JobClaimId, JobFailure, JobId, JobQuery,
     Locator, MediaRoot, MetadataAssertion, MetadataMatch, MetadataProperty, MetadataQuery,
     MetadataValue, ObjectRef, OriginalMediaImport, Production, ProvenanceQueryLimits,
@@ -649,6 +649,21 @@ pub trait ProductionStoreTransaction {
         &mut self,
         resource_id: ResourceId,
         fingerprint: &ResourceFingerprint,
+    ) -> Result<bool>;
+
+    /// Records a resource's current size and modification time as part of a
+    /// content observation. Facts have no history and no event of their own.
+    ///
+    /// Returns `true` when state changed and `false` for identical facts.
+    ///
+    /// # Errors
+    ///
+    /// Returns a domain error when the transaction is closed, the resource is
+    /// absent, or persistence fails.
+    fn record_resource_file_facts(
+        &mut self,
+        resource_id: ResourceId,
+        facts: FileFacts,
     ) -> Result<bool>;
 
     /// Records a representation fingerprint as the current observation.

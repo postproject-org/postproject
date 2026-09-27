@@ -218,6 +218,11 @@ pub unsafe extern "C" fn pp_transaction_observe_resource_content(
                     resource_id,
                     observation.resource().clone(),
                 ));
+            if let Some(facts) = observation.file_facts() {
+                transaction
+                    .mutations
+                    .push(StagedMutation::RecordResourceFileFacts(resource_id, facts));
+            }
             for (representation_id, fingerprint) in observation.representations() {
                 transaction
                     .mutations

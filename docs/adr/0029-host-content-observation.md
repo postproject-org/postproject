@@ -48,6 +48,10 @@ backed by one media-crate implementation.
    - It fingerprints the present content of a file or image-sequence resource,
      then recomputes every representation that uses the resource, with the new
      value in place of the stored one in that domain.
+   - For a file, it also stages the file's size and modification time.
+     Discovery filters candidates by the stored size, so stale facts would
+     hide content whose size changed. Facts are discovery filters, not
+     identity evidence, so they have no history or event of their own.
    - The transaction stages the resource and representation values. Commit
      records them in one revision, so no representation is left pending.
    - Hashing happens when the operation is staged, outside the production lock.

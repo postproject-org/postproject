@@ -161,6 +161,8 @@ Development version: `0.4.0-alpha.1`.
 
 ### Fixed
 
+- Observing content records the resource's size and modification time too, so
+  resolution still finds content whose size changed.
 - Resolution no longer ignores resources whose only fingerprints are foreign to
   PostProject; it reports them as not verified on every surface (ADR 0028,
   C ABI 28).

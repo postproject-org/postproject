@@ -2,8 +2,8 @@
 
 use postproject_core::{
     Activity, AgentIdentity, ContentStructure, ContentStructureKind, Dependency,
-    DependencySetStatus, DependencyTarget, Error, ErrorKind, ExternalIdentifier, Job, JobClaim,
-    JobClaimId, JobFailure, JobId, JobState, Locator, LocatorAvailability, LocatorId,
+    DependencySetStatus, DependencyTarget, Error, ErrorKind, ExternalIdentifier, FileFacts, Job,
+    JobClaim, JobClaimId, JobFailure, JobId, JobState, Locator, LocatorAvailability, LocatorId,
     MAX_DEPENDENCIES_PER_SET, MediaRoot, MediaRootId, MetadataProperty, MetadataValue, ObjectRef,
     OriginalMediaImport, Production, ProductionStoreTransaction, Representation,
     RepresentationFingerprint, RepresentationId, RepresentationImport, RepresentationKind,
@@ -1049,6 +1049,41 @@ impl<'production> SqliteTransaction<'production> {
         Ok(())
     }
 
+    /// Records a resource's current size and modification time as part of a
+    /// content observation.
+    ///
+    /// Facts are cheap discovery filters, not identity evidence, so they have
+    /// no history and emit no event of their own; the accompanying
+    /// fingerprint observation carries the revision.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ErrorKind::NotFound`] for an absent resource or a transaction/
+    /// storage error. Identical facts are a successful no-op.
+    pub fn record_resource_file_facts(
+        &mut self,
+        resource_id: ResourceId,
+        facts: FileFacts,
+    ) -> Result<bool> {
+        self.lifecycle.ensure_open()?;
+        let transaction = self.open_transaction()?;
+        let size = i64::try_from(facts.size_bytes())
+            .map_err(|_| Error::new(ErrorKind::InvalidArgument, "file size is too large"))?;
+        let modified = facts.modified_at().map(Timestamp::as_unix_micros);
+        let changed = transaction
+            .execute(
+                "UPDATE resources SET file_size_bytes = ?2, modified_at_micros = ?3
+                 WHERE id = ?1
+                   AND (file_size_bytes IS NOT ?2 OR modified_at_micros IS NOT ?3)",
+                params![resource_id.as_bytes().as_slice(), size, modified],
+            )
+            .map_err(mutation_error("update resource file facts"))?;
+        if changed == 0 && !resource_exists(transaction, resource_id)? {
+            return Err(Error::new(ErrorKind::NotFound, "resource does not exist"));
+        }
+        Ok(changed != 0)
+    }
+
     /// Records a resource fingerprint observation and marks aggregate owners dirty.
     ///
     /// # Errors
@@ -1931,6 +1966,14 @@ impl ProductionStoreTransaction for SqliteTransaction<'_> {
         fingerprint: &ResourceFingerprint,
     ) -> Result<bool> {
         SqliteTransaction::record_resource_fingerprint(self, resource_id, fingerprint)
+    }
+
+    fn record_resource_file_facts(
+        &mut self,
+        resource_id: ResourceId,
+        facts: FileFacts,
+    ) -> Result<bool> {
+        SqliteTransaction::record_resource_file_facts(self, resource_id, facts)
     }
 
     fn record_representation_fingerprint(

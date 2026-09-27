@@ -356,6 +356,7 @@ enum StagedMutation {
     Locator(Locator),
     RetireLocator(postproject_core::LocatorId),
     RecordResourceFingerprint(ResourceId, ResourceFingerprint),
+    RecordResourceFileFacts(ResourceId, postproject_core::FileFacts),
     RecordRepresentationFingerprint(RepresentationId, RepresentationFingerprint),
     RecordDependencySet(RepresentationId, Vec<Dependency>),
     AddExternalIdentifier(ObjectRef, ExternalIdentifier),
@@ -7228,6 +7229,94 @@ const fn evidence_kind(kind: EvidenceKind) -> u32 {
     }
 }
 
+fn apply_staged_mutation(
+    transaction: &mut postproject_storage_sqlite::SqliteTransaction<'_>,
+    mutation: &StagedMutation,
+) -> Result<(), Error> {
+    match mutation {
+        StagedMutation::Import(import) => transaction.import_original(import)?,
+        StagedMutation::Representation(import) => {
+            transaction.add_representation(import)?;
+        }
+        StagedMutation::MediaRoot(root) => transaction.add_media_root(root.clone())?,
+        StagedMutation::SetMediaRootEnabled(root_id, enabled) => {
+            transaction.set_media_root_enabled(*root_id, *enabled)?;
+        }
+        StagedMutation::RemoveMediaRoot(root_id) => {
+            transaction.remove_media_root(*root_id)?;
+        }
+        StagedMutation::Locator(locator) => transaction.add_locator(locator)?,
+        StagedMutation::RetireLocator(locator_id) => {
+            transaction.retire_locator(*locator_id)?;
+        }
+        StagedMutation::RecordResourceFingerprint(resource_id, fingerprint) => {
+            transaction.record_resource_fingerprint(*resource_id, fingerprint)?;
+        }
+        StagedMutation::RecordResourceFileFacts(resource_id, facts) => {
+            transaction.record_resource_file_facts(*resource_id, *facts)?;
+        }
+        StagedMutation::RecordRepresentationFingerprint(representation_id, fingerprint) => {
+            transaction.record_representation_fingerprint(*representation_id, fingerprint)?;
+        }
+        StagedMutation::RecordDependencySet(representation_id, dependencies) => {
+            transaction.record_dependency_set(*representation_id, dependencies)?;
+        }
+        StagedMutation::AddExternalIdentifier(target, identifier) => {
+            transaction.add_external_identifier(*target, identifier)?;
+        }
+        StagedMutation::RemoveExternalIdentifier(target, identifier) => {
+            transaction.remove_external_identifier(*target, identifier)?;
+        }
+        StagedMutation::AddMetadataValue(target, property, value) => {
+            transaction.add_metadata_value(*target, property, value)?;
+        }
+        StagedMutation::RemoveMetadataProperty(target, property) => {
+            transaction.remove_metadata_property(*target, property)?;
+        }
+        StagedMutation::Activity(activity) => {
+            transaction.create_activity(activity)?;
+        }
+        StagedMutation::RequestJob(job) => transaction.request_job(job)?,
+        StagedMutation::ClaimJob {
+            job_id,
+            claim_id,
+            tool,
+            agent,
+            now,
+            expires_at,
+        } => {
+            transaction.claim_job_with_id(
+                *job_id,
+                *claim_id,
+                tool,
+                agent.as_ref(),
+                *now,
+                *expires_at,
+            )?;
+        }
+        StagedMutation::RenewJobClaim(job_id, claim_id, now, expires_at) => {
+            transaction.renew_job_claim(*job_id, *claim_id, *now, *expires_at)?;
+        }
+        StagedMutation::ReleaseJobClaim(job_id, claim_id) => {
+            transaction.release_job_claim(*job_id, *claim_id)?;
+        }
+        StagedMutation::CompleteJob {
+            job_id,
+            claim_id,
+            now,
+            output,
+            activity,
+        } => {
+            transaction.complete_job(*job_id, *claim_id, *now, output, activity)?;
+        }
+        StagedMutation::FailJob(job_id, claim_id, now, failure) => {
+            transaction.fail_job(*job_id, *claim_id, *now, failure)?;
+        }
+        StagedMutation::CancelJob(job_id) => transaction.cancel_job(*job_id)?,
+    }
+    Ok(())
+}
+
 impl PpTransaction {
     fn commit(&mut self) -> Result<(), Error> {
         self.lifecycle.ensure_open()?;
@@ -7236,88 +7325,7 @@ impl PpTransaction {
             let mut transaction = production.begin_transaction()?;
             transaction.set_revision_context(self.revision_context.clone())?;
             for mutation in &self.mutations {
-                match mutation {
-                    StagedMutation::Import(import) => transaction.import_original(import)?,
-                    StagedMutation::Representation(import) => {
-                        transaction.add_representation(import)?;
-                    }
-                    StagedMutation::MediaRoot(root) => transaction.add_media_root(root.clone())?,
-                    StagedMutation::SetMediaRootEnabled(root_id, enabled) => {
-                        transaction.set_media_root_enabled(*root_id, *enabled)?;
-                    }
-                    StagedMutation::RemoveMediaRoot(root_id) => {
-                        transaction.remove_media_root(*root_id)?;
-                    }
-                    StagedMutation::Locator(locator) => transaction.add_locator(locator)?,
-                    StagedMutation::RetireLocator(locator_id) => {
-                        transaction.retire_locator(*locator_id)?;
-                    }
-                    StagedMutation::RecordResourceFingerprint(resource_id, fingerprint) => {
-                        transaction.record_resource_fingerprint(*resource_id, fingerprint)?;
-                    }
-                    StagedMutation::RecordRepresentationFingerprint(
-                        representation_id,
-                        fingerprint,
-                    ) => {
-                        transaction
-                            .record_representation_fingerprint(*representation_id, fingerprint)?;
-                    }
-                    StagedMutation::RecordDependencySet(representation_id, dependencies) => {
-                        transaction.record_dependency_set(*representation_id, dependencies)?;
-                    }
-                    StagedMutation::AddExternalIdentifier(target, identifier) => {
-                        transaction.add_external_identifier(*target, identifier)?;
-                    }
-                    StagedMutation::RemoveExternalIdentifier(target, identifier) => {
-                        transaction.remove_external_identifier(*target, identifier)?;
-                    }
-                    StagedMutation::AddMetadataValue(target, property, value) => {
-                        transaction.add_metadata_value(*target, property, value)?;
-                    }
-                    StagedMutation::RemoveMetadataProperty(target, property) => {
-                        transaction.remove_metadata_property(*target, property)?;
-                    }
-                    StagedMutation::Activity(activity) => {
-                        transaction.create_activity(activity)?;
-                    }
-                    StagedMutation::RequestJob(job) => transaction.request_job(job)?,
-                    StagedMutation::ClaimJob {
-                        job_id,
-                        claim_id,
-                        tool,
-                        agent,
-                        now,
-                        expires_at,
-                    } => {
-                        transaction.claim_job_with_id(
-                            *job_id,
-                            *claim_id,
-                            tool,
-                            agent.as_ref(),
-                            *now,
-                            *expires_at,
-                        )?;
-                    }
-                    StagedMutation::RenewJobClaim(job_id, claim_id, now, expires_at) => {
-                        transaction.renew_job_claim(*job_id, *claim_id, *now, *expires_at)?;
-                    }
-                    StagedMutation::ReleaseJobClaim(job_id, claim_id) => {
-                        transaction.release_job_claim(*job_id, *claim_id)?;
-                    }
-                    StagedMutation::CompleteJob {
-                        job_id,
-                        claim_id,
-                        now,
-                        output,
-                        activity,
-                    } => {
-                        transaction.complete_job(*job_id, *claim_id, *now, output, activity)?;
-                    }
-                    StagedMutation::FailJob(job_id, claim_id, now, failure) => {
-                        transaction.fail_job(*job_id, *claim_id, *now, failure)?;
-                    }
-                    StagedMutation::CancelJob(job_id) => transaction.cancel_job(*job_id)?,
-                }
+                apply_staged_mutation(&mut transaction, mutation)?;
             }
             transaction.commit()
         })();

@@ -271,6 +271,9 @@ fn observe_changed_original(
     {
         let mut transaction = production.begin_transaction()?;
         transaction.record_resource_fingerprint(resource_id, observation.resource())?;
+        if let Some(facts) = observation.file_facts() {
+            transaction.record_resource_file_facts(resource_id, facts)?;
+        }
         for (representation_id, fingerprint) in observation.representations() {
             transaction.record_representation_fingerprint(*representation_id, fingerprint)?;
         }

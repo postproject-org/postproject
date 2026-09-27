@@ -3,9 +3,9 @@
 use std::path::Path;
 
 use postproject_core::{
-    ContentStructure, Error, ErrorKind, MAX_QUERY_PAGE_SIZE, ProductionRead, QueryPageRequest,
-    Representation, RepresentationFingerprint, RepresentationId, Resource, ResourceFingerprint,
-    ResourceId, Result,
+    ContentStructure, Error, ErrorKind, FileFacts, MAX_QUERY_PAGE_SIZE, ProductionRead,
+    QueryPageRequest, Representation, RepresentationFingerprint, RepresentationId, Resource,
+    ResourceFingerprint, ResourceId, Result,
 };
 
 use crate::{
@@ -31,6 +31,7 @@ pub enum ContentVerification {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ContentObservation {
     resource: ResourceFingerprint,
+    file_facts: Option<FileFacts>,
     representations: Vec<(RepresentationId, RepresentationFingerprint)>,
 }
 
@@ -39,6 +40,13 @@ impl ContentObservation {
     #[must_use]
     pub const fn resource(&self) -> &ResourceFingerprint {
         &self.resource
+    }
+
+    /// Returns the file's size and modification time when the resource is a
+    /// file. Recording them keeps size-filtered discovery current.
+    #[must_use]
+    pub const fn file_facts(&self) -> Option<FileFacts> {
+        self.file_facts
     }
 
     /// Returns the recomputed fingerprint of each representation using the
@@ -97,21 +105,29 @@ pub fn fingerprint_resource_content(
     structure: &ContentStructure,
     path: impl AsRef<Path>,
 ) -> Result<ResourceFingerprint> {
+    observe_content(resource_id, structure, path).map(|(fingerprint, _)| fingerprint)
+}
+
+fn observe_content(
+    resource_id: ResourceId,
+    structure: &ContentStructure,
+    path: impl AsRef<Path>,
+) -> Result<(ResourceFingerprint, Option<FileFacts>)> {
     if !structure.resource_ids().contains(&resource_id) {
         return Err(Error::new(
             ErrorKind::InvalidArgument,
             "resource does not belong to the supplied content structure",
         ));
     }
-    match structure
+    if let Some(descriptor) = structure
         .image_sequence_descriptor()
         .filter(|descriptor| descriptor.resource_id() == resource_id)
     {
-        Some(descriptor) => Ok(fingerprint_image_sequence(path, descriptor)?
-            .fingerprint()
-            .clone()),
-        None => Ok(fingerprint_file(path)?.fingerprint().clone()),
+        let report = fingerprint_image_sequence(path, descriptor)?;
+        return Ok((report.fingerprint().clone(), None));
     }
+    let report = fingerprint_file(path)?;
+    Ok((report.fingerprint().clone(), Some(report.facts())))
 }
 
 /// Compares present content with a resource's stored fingerprints.
@@ -179,7 +195,7 @@ pub fn observe_resource_content(
             "resource is not used by any representation",
         ));
     };
-    let resource = fingerprint_resource_content(resource_id, first.content_structure(), path)?;
+    let (resource, file_facts) = observe_content(resource_id, first.content_structure(), path)?;
     let representations = representations
         .iter()
         .map(|(representation, resources)| {
@@ -200,6 +216,7 @@ pub fn observe_resource_content(
         .collect::<Result<Vec<_>>>()?;
     Ok(ContentObservation {
         resource,
+        file_facts,
         representations,
     })
 }
@@ -259,6 +276,7 @@ mod tests {
 
         let expected_resource = fingerprint_file(&path).expect("fingerprint");
         assert_eq!(observation.resource(), expected_resource.fingerprint());
+        assert_eq!(observation.file_facts(), Some(expected_resource.facts()));
         let updated = prepared.resources()[0].with_observed_fingerprint(observation.resource());
         let expected_representation =
             fingerprint_representation(representation.content_structure(), &[updated])

@@ -2,9 +2,9 @@
 
 use postproject_core::{
     Activity, ActivityId, ActivityInput, ActivityKind, ActivityOutput, Asset, AssetId,
-    ContentStructure, Locator, LocatorAvailability, LocatorId, OriginalMediaImport, Representation,
-    RepresentationFingerprint, RepresentationId, RepresentationKind, Resource, ResourceFingerprint,
-    ResourceId, RevisionEventKind, Timestamp,
+    ContentStructure, FileFacts, Locator, LocatorAvailability, LocatorId, OriginalMediaImport,
+    Representation, RepresentationFingerprint, RepresentationId, RepresentationKind, Resource,
+    ResourceFingerprint, ResourceId, RevisionEventKind, Timestamp,
 };
 use postproject_storage_sqlite::SqliteProduction;
 use rusqlite::Connection;
@@ -156,4 +156,42 @@ fn observations_are_journaled_and_activity_edges_snapshot_storage_state() {
         )
         .expect("count recomputation markers");
     assert_eq!(dirty_count, 1);
+}
+
+#[test]
+fn file_facts_are_recorded_with_an_observation() {
+    let directory = tempdir().expect("temporary directory");
+    let path = directory.path().join("facts.pproj");
+    let import = media(7, RepresentationKind::Original);
+    let resource_id = import.resources()[0].id();
+    let mut production = SqliteProduction::create(&path, None).expect("create production");
+    {
+        let mut transaction = production.begin_transaction().expect("begin import");
+        transaction.import_original(&import).expect("stage import");
+        transaction.commit().expect("commit import");
+    }
+    let facts = FileFacts::new(1_234, Some(Timestamp::from_unix_micros(5)));
+    {
+        let mut transaction = production.begin_transaction().expect("begin observation");
+        assert!(
+            transaction
+                .record_resource_file_facts(resource_id, facts)
+                .expect("record facts")
+        );
+        assert!(
+            !transaction
+                .record_resource_file_facts(resource_id, facts)
+                .expect("record identical facts")
+        );
+        assert!(
+            transaction
+                .record_resource_file_facts(ResourceId::from_bytes([9; 16]), facts)
+                .is_err()
+        );
+        transaction.commit().expect("commit observation");
+    }
+    let stored = production
+        .resources(RepresentationId::from_bytes([7; 16]))
+        .expect("load resources");
+    assert_eq!(stored[0].file_facts(), Some(facts));
 }
