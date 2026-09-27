@@ -61,7 +61,7 @@ fn fake_ffmpeg(directory: &Path, fail: bool) -> PathBuf {
     let behavior = if fail {
         ">\"%last%\" echo partial output\r\n>&2 echo synthetic crash\r\nexit /b 7"
     } else {
-        ">\"%last%\" echo encoded media\r\nexit /b 0"
+        "<nul >\"%last%\" set /p \"=encoded media\"\r\nexit /b 0"
     };
     let script = format!(
         "@echo off\r\nif \"%~1\"==\"-version\" (\r\n  echo ffmpeg version fake-1.2.3\r\n  exit /b 0\r\n)\r\nset \"last=\"\r\n:args\r\nif \"%~1\"==\"\" goto run\r\nset \"last=%~1\"\r\nshift\r\ngoto args\r\n:run\r\n{behavior}\r\n"
