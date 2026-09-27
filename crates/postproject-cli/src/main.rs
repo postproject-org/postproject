@@ -237,6 +237,24 @@ enum RepresentationCommand {
     List(RepresentationListArgs),
     /// Query one page of a representation's resources in structural order.
     Resources(RepresentationResourcesArgs),
+    /// Show one representation by identity.
+    Show(RepresentationShowArgs),
+    /// Query one page of the representations that use a resource.
+    UsingResource(RepresentationUsingResourceArgs),
+}
+
+#[derive(Debug, Args)]
+struct RepresentationShowArgs {
+    production: PathBuf,
+    representation_id: String,
+}
+
+#[derive(Debug, Args)]
+struct RepresentationUsingResourceArgs {
+    production: PathBuf,
+    resource_id: String,
+    #[command(flatten)]
+    page: QueryPageArgs,
 }
 
 #[derive(Debug, Args)]
@@ -804,6 +822,8 @@ enum JobCommand {
     Fail(JobFailArgs),
     /// Administratively cancel requested or claimed work.
     Cancel(JobIdArgs),
+    /// Show one durable job by identity.
+    Show(JobIdArgs),
     /// List durable jobs in stable identity order.
     List(JobListArgs),
     /// Derive non-persisted jobs that would regenerate artifacts.
@@ -1759,6 +1779,10 @@ fn execute(cli: Cli) -> Result<()> {
             RepresentationCommand::Add(args) => representation_add(&args, cli.json),
             RepresentationCommand::List(args) => representation_list(&args, cli.json),
             RepresentationCommand::Resources(args) => representation_resources(&args, cli.json),
+            RepresentationCommand::Show(args) => representation_show(&args, cli.json),
+            RepresentationCommand::UsingResource(args) => {
+                representation_using_resource(&args, cli.json)
+            }
         },
         Command::Root(args) => match args.command {
             RootCommand::Add(args) => root_add(args, cli.json),
@@ -1820,6 +1844,7 @@ fn execute(cli: Cli) -> Result<()> {
             JobCommand::Complete(args) => job_complete(&args, cli.json),
             JobCommand::Fail(args) => job_fail(args, cli.json),
             JobCommand::Cancel(args) => job_cancel(&args, cli.json),
+            JobCommand::Show(args) => job_show(&args, cli.json),
             JobCommand::List(args) => job_list(&args, cli.json),
             JobCommand::Plan(args) => job_plan(&args, cli.json),
             JobCommand::Run(args) => job_run(&args, cli.json),
@@ -2235,6 +2260,33 @@ fn representation_resources(args: &RepresentationResourcesArgs, json: bool) -> R
             item.fingerprints.len()
         );
     })
+}
+
+fn representation_show(args: &RepresentationShowArgs, json: bool) -> Result<()> {
+    let representation_id = parse_representation_id(&args.representation_id)?;
+    let production = SqliteProduction::open(&args.production).context("open production")?;
+    let representation = production
+        .representation(representation_id)
+        .context("load representation")?;
+    let view = representation_summary_view(&representation);
+    if json {
+        print_json(&view)
+    } else {
+        print_representation_summary(&view);
+        Ok(())
+    }
+}
+
+fn representation_using_resource(args: &RepresentationUsingResourceArgs, json: bool) -> Result<()> {
+    let resource_id = ResourceId::from_str(&args.resource_id).context("parse resource ID")?;
+    let production = SqliteProduction::open(&args.production).context("open production")?;
+    let page = production
+        .representations_using_resource(resource_id, &query_page_request(&args.page)?)
+        .context("query representations using resource")?;
+    let view = query_page_view(&page, |representation| {
+        Ok(representation_summary_view(representation))
+    })?;
+    print_query_page(&view, json, false, print_representation_summary)
 }
 
 fn locator_list(args: &LocatorListArgs, json: bool) -> Result<()> {
@@ -3371,6 +3423,18 @@ fn print_job_result(
         print_json(&view)
     } else {
         println!("{action} job {}", view.id);
+        Ok(())
+    }
+}
+
+fn job_show(args: &JobIdArgs, json: bool) -> Result<()> {
+    let job_id = parse_job_id(&args.job_id)?;
+    let production = SqliteProduction::open(&args.production).context("open production")?;
+    let view = job_view(&production.job(job_id).context("load job")?);
+    if json {
+        print_json(&view)
+    } else {
+        println!("{}\t{}\t{}", view.id, view.state, view.kind);
         Ok(())
     }
 }
@@ -5290,11 +5354,8 @@ fn metadata_field_view(field: &MetadataField) -> Result<MetadataFieldView> {
 
 fn find_asset(production: &SqliteProduction, asset_id: AssetId) -> Result<Asset> {
     production
-        .assets()
-        .context("load assets")?
-        .into_iter()
-        .find(|asset| asset.id() == asset_id)
-        .with_context(|| format!("asset does not exist: {asset_id}"))
+        .asset(asset_id)
+        .with_context(|| format!("load asset {asset_id}"))
 }
 
 fn asset_view(production: &SqliteProduction, asset: &Asset) -> Result<AssetView> {

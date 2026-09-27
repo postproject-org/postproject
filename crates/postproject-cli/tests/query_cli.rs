@@ -114,6 +114,17 @@ fn pages_media_structure() {
     let resource_id = items(&resources)[0]["id"].as_str().expect("resource ID");
     assert!(items(&resources)[0].get("locators").is_none());
 
+    let shown = run_json(&["representation", "show", production, representation_id]);
+    assert_eq!(&shown, representation);
+    let users = run_json(&["representation", "using-resource", production, resource_id]);
+    assert_eq!(items(&users), &vec![representation.clone()]);
+    assert!(users["next_cursor"].is_null());
+    let absent = "00000000-0000-0000-0000-000000000001";
+    let error = run_failure(&["representation", "show", production, absent]);
+    assert!(error.contains("does not exist"), "{error}");
+    let error = run_failure(&["media", "show", production, absent]);
+    assert!(error.contains("does not exist"), "{error}");
+
     let locators = run_json(&["locator", "list", production, resource_id]);
     assert_eq!(items(&locators).len(), 1);
     assert_eq!(items(&locators)[0]["id"], first["locator_id"]);

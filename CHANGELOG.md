@@ -10,7 +10,7 @@ Development version: `0.4.0-alpha.1`.
 ### Added
 
 - Added point reads for assets, representations, and jobs, and a page of the
-  representations using a resource, on Rust, C (ABI 27), C++, Python.
+  representations using a resource, on every surface (C ABI 27).
 - Added tested documentation examples for every public operation. Every C
   function, C++ member function, and Python method, every CLI command, and the
   Rust storage and media services now appear in a program that CI runs, shown

@@ -58,6 +58,10 @@ fn exercise_job_claim_lifecycle(
     asset_id: &str,
     representation_id: &str,
 ) {
+    let shown = run_json(&["job", "show", production, job_id]);
+    assert_eq!(shown["id"], job_id);
+    assert_eq!(shown["state"], "requested");
+
     let claimed = run_json(&[
         "job",
         "claim",
