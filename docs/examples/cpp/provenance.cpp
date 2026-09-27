@@ -60,12 +60,12 @@ postproject::Uuid record_transcode(postproject::Production &production,
       "render-node-04", postproject::ExternalIdentifier{"com.example.farm.node",
                                                         "04", std::nullopt}};
 
-  auto transaction = production.beginTransaction();
-  const auto activity_id = transaction.createActivity(spec);
-  transaction.commit();
+  auto transaction = production.beginTransaction().value();
+  const auto activity_id = transaction.createActivity(spec).value();
+  transaction.commit().value();
 
   // Every edge carries the fingerprints its representation had at creation.
-  for (const auto &activity : production.activities()) {
+  for (const auto &activity : production.activities().value()) {
     std::cout << activity.kind << " by "
               << (activity.tool ? activity.tool->name : "unknown tool")
               << " on "
@@ -79,11 +79,11 @@ postproject::Uuid record_transcode(postproject::Production &production,
     }
   }
 
-  const auto consumers = production.activitiesConsuming(original_id);
+  const auto consumers = production.activitiesConsuming(original_id).value();
   std::cout << "activities reading the original: " << consumers.size() << '\n';
   // Whole-set traversal, then the bounded paged form of the same query.
-  const auto derived = production.descendants(original_id);
-  const auto page = production.descendants(original_id, 8, 1000, 100);
+  const auto derived = production.descendants(original_id).value();
+  const auto page = production.descendants(original_id, 8, 1000, 100).value();
   std::cout << derived.size() << " descendant(s), first page "
             << page.items.size() << '\n';
   return activity_id;
@@ -98,14 +98,14 @@ postproject::ArtifactEvaluation evaluate_after_change(
     const postproject::Fingerprint &new_representation_fingerprint,
     const postproject::Uuid &proxy_id) {
   // Record what the host observed after the original was re-exported.
-  auto transaction = production.beginTransaction();
+  auto transaction = production.beginTransaction().value();
   transaction.recordResourceFingerprint(original.resources.front().id,
-                                        new_resource_fingerprint);
+                                        new_resource_fingerprint).value();
   transaction.recordRepresentationFingerprint(original.id,
-                                              new_representation_fingerprint);
-  transaction.commit();
+                                              new_representation_fingerprint).value();
+  transaction.commit().value();
 
-  const auto evaluation = production.evaluateArtifact(proxy_id);
+  const auto evaluation = production.evaluateArtifact(proxy_id).value();
   if (evaluation.state == postproject::ArtifactKnowledgeState::stale) {
     for (const auto &reason : evaluation.reasons) {
       std::cout << "stale because " << static_cast<std::uint32_t>(reason.kind)
@@ -114,7 +114,7 @@ postproject::ArtifactEvaluation evaluate_after_change(
   }
 
   // Reproducibility says whether the recorded activity suffices to redo it.
-  const auto reproducibility = production.artifactReproducibility(proxy_id);
+  const auto reproducibility = production.artifactReproducibility(proxy_id).value();
   for (const auto &issue : reproducibility.issues) {
     std::cout << "cannot reproduce: " << static_cast<std::uint32_t>(issue.kind)
               << '\n';
@@ -128,11 +128,11 @@ std::vector<postproject::DependencyMatch> record_scene_dependencies(
     postproject::Production &production, const postproject::Uuid &scene_id,
     const std::vector<postproject::Dependency> &observed) {
   // A dependency set replaces the complete previous observation.
-  auto transaction = production.beginTransaction();
-  transaction.recordDependencySet(scene_id, observed);
-  transaction.commit();
+  auto transaction = production.beginTransaction().value();
+  transaction.recordDependencySet(scene_id, observed).value();
+  transaction.commit().value();
 
-  if (const auto set = production.dependencySet(scene_id)) {
+  if (const auto set = production.dependencySet(scene_id).value()) {
     std::cout << set->dependencies.size() << " dependencies, "
               << (set->status == postproject::DependencySetStatus::current
                       ? "current"
@@ -143,7 +143,7 @@ std::vector<postproject::DependencyMatch> record_scene_dependencies(
   std::vector<postproject::DependencyMatch> matches;
   std::optional<std::string> cursor;
   do {
-    const auto page = production.dependencies(scene_id, 4, 1000, 1, cursor);
+    const auto page = production.dependencies(scene_id, 4, 1000, 1, cursor).value();
     matches.insert(matches.end(), page.items.begin(), page.items.end());
     cursor = page.next_cursor;
   } while (cursor.has_value());
@@ -154,7 +154,7 @@ std::vector<postproject::DependencyMatch> record_scene_dependencies(
 postproject::Representation find(const postproject::Production &production,
                                  const postproject::Uuid &asset_id,
                                  const postproject::Uuid &id) {
-  for (auto &representation : production.representations(asset_id)) {
+  for (auto &representation : production.representations(asset_id).value()) {
     if (representation.id == id) {
       return representation;
     }
@@ -185,26 +185,26 @@ int main(int argc, char **argv) {
     write_file(work / "scenes" / "harbour.usd", "#usda 1.0 scene");
 
     auto production = postproject::Production::create(
-        (work / "provenance.pproj").string(), "Provenance");
-    auto setup = production.beginTransaction();
-    const auto asset_id = setup.importMedia(media, "Camera A");
+        (work / "provenance.pproj").string(), "Provenance").value();
+    auto setup = production.beginTransaction().value();
+    const auto asset_id = setup.importMedia(media, "Camera A").value();
     const auto lead_asset_id =
-        setup.importMedia((work / "characters" / "lead.usd").string());
+        setup.importMedia((work / "characters" / "lead.usd").string()).value();
     const auto scene_asset_id =
-        setup.importMedia((work / "scenes" / "harbour.usd").string());
-    setup.commit();
-    const auto original_id = production.representations(asset_id).front().id;
-    const auto lead_id = production.representations(lead_asset_id).front().id;
-    const auto scene_id = production.representations(scene_asset_id).front().id;
-    auto proxy_setup = production.beginTransaction();
+        setup.importMedia((work / "scenes" / "harbour.usd").string()).value();
+    setup.commit().value();
+    const auto original_id = production.representations(asset_id).value().front().id;
+    const auto lead_id = production.representations(lead_asset_id).value().front().id;
+    const auto scene_id = production.representations(scene_asset_id).value().front().id;
+    auto proxy_setup = production.beginTransaction().value();
     const auto proxy_id = proxy_setup.addSingleFileRepresentation(
         asset_id, postproject::RepresentationKind::proxy,
-        (work / "proxies" / "A001_proxy.mov").string());
-    proxy_setup.commit();
+        (work / "proxies" / "A001_proxy.mov").string()).value();
+    proxy_setup.commit().value();
 
     const auto activity_id =
         record_transcode(production, original_id, proxy_id);
-    const auto activities = production.activities();
+    const auto activities = production.activities().value();
     require(activities.size() == 1 && activities.front().id == activity_id,
             "one activity");
     const auto &activity = activities.front();
@@ -219,16 +219,16 @@ int main(int argc, char **argv) {
             "input snapshot");
     require(activity.outputs.size() == 1 && activity.outputs.front().snapshot,
             "output snapshot");
-    require(production.activitiesConsuming(original_id).size() == 1,
+    require(production.activitiesConsuming(original_id).value().size() == 1,
             "consuming activity");
-    require(production.descendants(original_id) == std::vector{proxy_id},
+    require(production.descendants(original_id).value() == std::vector{proxy_id},
             "whole-set descendants");
-    const auto page = production.descendants(original_id, 8, 1000, 100);
+    const auto page = production.descendants(original_id, 8, 1000, 100).value();
     require(page.items.size() == 1 &&
                 page.items.front().object.id == proxy_id &&
                 page.items.front().depth == 1,
             "paged descendants");
-    require(production.evaluateArtifact(proxy_id).state ==
+    require(production.evaluateArtifact(proxy_id).value().state ==
                 postproject::ArtifactKnowledgeState::current,
             "proxy current before the change");
 
@@ -247,7 +247,7 @@ int main(int argc, char **argv) {
                          postproject::ArtifactReasonKind::fingerprint_changed;
                 }),
             "fingerprint changed reason");
-    const auto reproducibility = production.artifactReproducibility(proxy_id);
+    const auto reproducibility = production.artifactReproducibility(proxy_id).value();
     require(!reproducibility.reproducible &&
                 std::any_of(
                     reproducibility.issues.begin(),
@@ -276,7 +276,7 @@ int main(int argc, char **argv) {
     const auto matches =
         record_scene_dependencies(production, scene_id, observed);
     require(matches.size() == 2, "two dependencies paged");
-    const auto current = production.dependencySet(scene_id);
+    const auto current = production.dependencySet(scene_id).value();
     require(current &&
                 current->status == postproject::DependencySetStatus::current &&
                 current->dependencies.size() == 2 &&
@@ -284,12 +284,12 @@ int main(int argc, char **argv) {
                     "characters/lead.usd",
             "current dependency set");
 
-    auto observation = production.beginTransaction();
+    auto observation = production.beginTransaction().value();
     const auto scene = find(production, scene_asset_id, scene_id);
     observation.recordRepresentationFingerprint(
-        scene_id, changed(scene.fingerprints.front(), 0x77));
-    observation.commit();
-    const auto after = production.dependencySet(scene_id);
+        scene_id, changed(scene.fingerprints.front(), 0x77)).value();
+    observation.commit().value();
+    const auto after = production.dependencySet(scene_id).value();
     require(after && after->status ==
                          postproject::DependencySetStatus::needs_extraction,
             "dependency set needs extraction");

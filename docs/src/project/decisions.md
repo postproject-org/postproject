@@ -44,6 +44,7 @@ Read the relevant ADR before changing an invariant, a boundary, or a public cont
 - {doc}`ADR 0009 — Explicit SQL without an ORM </adr/0009-explicit-sql-no-orm>`
 - {doc}`ADR 0010 — OpenAssetIO boundary </adr/0010-openassetio-boundary>`
 - {doc}`ADR 0014 — Native concurrency contract </adr/0014-native-concurrency-contract>`
+- {doc}`ADR 0032 — C++ error reporting without exceptions </adr/0032-cpp-error-reporting>`
 - {doc}`ADR 0016 — Documentation site generator </adr/0016-documentation-site-generator>`
 - {doc}`ADR 0020 — Integration-preview compatibility tier </adr/0020-integration-preview-compatibility>`
 - {doc}`ADR 0026 — Domain query cursors </adr/0026-domain-query-cursors>`
@@ -82,4 +83,5 @@ Read the relevant ADR before changing an invariant, a boundary, or a public cont
 /adr/0029-host-content-observation
 /adr/0030-canonical-locator-spelling
 /adr/0031-resolution-scope-and-batches
+/adr/0032-cpp-error-reporting
 ```

@@ -23,10 +23,10 @@ void require(bool condition, const char *message) {
 
 postproject::Uuid create_with_asset(const std::string &path,
                                     const std::string &media) {
-  auto production = postproject::Production::create(path, "Documentary");
-  auto transaction = production.beginTransaction();
-  const auto asset_id = transaction.importMedia(media, "Camera A");
-  transaction.commit();
+  auto production = postproject::Production::create(path, "Documentary").value();
+  auto transaction = production.beginTransaction().value();
+  const auto asset_id = transaction.importMedia(media, "Camera A").value();
+  transaction.commit().value();
   return asset_id;
 }
 
@@ -44,18 +44,18 @@ std::string format_uuid(const postproject::Uuid &id) {
 
 postproject::Production open_production(const std::string &path,
                                         const postproject::Uuid &asset_id) {
-  auto production = postproject::Production::open(path);
-  std::cout << "production " << format_uuid(production.id()) << '\n';
+  auto production = postproject::Production::open(path).value();
+  std::cout << "production " << format_uuid(production.id().value()) << '\n';
 
-  if (production.containsAsset(asset_id)) {
+  if (production.containsAsset(asset_id).value()) {
     std::cout << "asset " << format_uuid(asset_id) << " is present\n";
   }
   // assets() reads the whole set; use the paged overload for large productions.
-  for (const auto &asset : production.assets()) {
+  for (const auto &asset : production.assets().value()) {
     std::cout << "asset: " << asset.display_name.value_or("(unnamed)") << '\n';
   }
 
-  if (const auto latest = production.latestRevision()) {
+  if (const auto latest = production.latestRevision().value()) {
     std::cout << "latest revision: " << latest->sequence << '\n';
   }
   return production;
@@ -64,34 +64,38 @@ postproject::Production open_production(const std::string &path,
 
 // [transaction-lifecycle]
 void commit_then_roll_back(postproject::Production &production) {
-  auto transaction = production.beginTransaction();
+  auto transaction = production.beginTransaction().value();
   transaction.setRevisionContext(
       {postproject::OriginIdentity{"com.example.editor", "0.4.0", std::nullopt},
-       "Add the rushes root"});
-  transaction.addMediaRoot("rushes", "Camera originals");
-  transaction.commit(); // one durable revision
+       "Add the rushes root"}).value();
+  transaction.addMediaRoot("rushes", "Camera originals").value();
+  transaction.commit().value(); // one durable revision
 
-  auto abandoned = production.beginTransaction();
-  abandoned.addMediaRoot("renders", "Discarded root");
+  auto abandoned = production.beginTransaction().value();
+  abandoned.addMediaRoot("renders", "Discarded root").value();
   // Rolling back discards every staged change; no revision is written.
-  abandoned.rollback();
+  abandoned.rollback().value();
 }
 // [/transaction-lifecycle]
 
 // [error-handling]
 std::optional<postproject::ErrorCode>
 try_open(const std::string &missing_path) {
-  try {
-    auto production = postproject::Production::open(missing_path);
-  } catch (const postproject::Error &error) {
-    // code() is stable to branch on; what() is a diagnostic for people.
-    if (error.code() == postproject::ErrorCode::not_found) {
-      std::cerr << "no production at " << missing_path << ": " << error.what()
-                << '\n';
-    }
-    return error.code();
+  // Every fallible operation returns a Result instead of throwing, so this
+  // works in code built with -fno-exceptions.
+  const auto production = postproject::Production::open(missing_path);
+  if (production.ok()) {
+    return std::nullopt;
   }
-  return std::nullopt;
+  // code() is stable to branch on; message() is a diagnostic for people.
+  const postproject::Error &error = production.error();
+  if (error.code() == postproject::ErrorCode::not_found) {
+    std::cerr << "no production at " << missing_path << ": "
+              << error.message() << '\n';
+  }
+  // With exceptions enabled, value() on a failed Result throws
+  // postproject::Exception instead; without them it aborts.
+  return error.code();
 }
 // [/error-handling]
 
@@ -110,20 +114,20 @@ int main(int argc, char **argv) {
     const auto asset_id = create_with_asset(path, media);
 
     auto production = open_production(path, asset_id);
-    require(production.containsAsset(asset_id), "imported asset exists");
-    const auto assets = production.assets();
+    require(production.containsAsset(asset_id).value(), "imported asset exists");
+    const auto assets = production.assets().value();
     require(assets.size() == 1 && assets.front().id == asset_id,
             "one asset listed");
-    const auto before = production.latestRevision();
+    const auto before = production.latestRevision().value();
     require(before.has_value() && before->sequence == 1, "import revision");
 
     commit_then_roll_back(production);
-    const auto after = production.latestRevision();
+    const auto after = production.latestRevision().value();
     require(after.has_value() && after->sequence == before->sequence + 1,
             "only the committed transaction wrote a revision");
     require(after->message == std::optional<std::string>("Add the rushes root"),
             "revision context");
-    const auto roots = production.mediaRoots();
+    const auto roots = production.mediaRoots().value();
     require(roots.size() == 1 && roots.front().name == "rushes",
             "only the committed media root exists");
 

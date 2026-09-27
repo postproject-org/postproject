@@ -38,7 +38,7 @@ postproject::Job load_job(const postproject::Production &production,
                           const postproject::Uuid &job_id) {
   std::optional<std::string> cursor;
   do {
-    const auto page = production.jobs(100, cursor);
+    const auto page = production.jobs(100, cursor).value();
     for (const auto &job : page.items) {
       if (job.id == job_id) {
         return job;
@@ -61,21 +61,21 @@ postproject::Uuid request_proxy(postproject::Production &production,
                                         postproject::RepresentationKind::proxy,
                                         std::string("proxies")};
 
-  auto transaction = production.beginTransaction();
-  const auto job_id = transaction.requestJob(request);
+  auto transaction = production.beginTransaction().value();
+  const auto job_id = transaction.requestJob(request).value();
   // Typed job parameters are metadata on the job itself.
   const postproject::ObjectRef job{postproject::ObjectKind::job, job_id};
   transaction.addMetadataValue(
       job, transcode, "profile",
-      postproject::MetadataInput::plainString("editing-proxy"));
+      postproject::MetadataInput::plainString("editing-proxy")).value();
   transaction.addMetadataValue(
       job, transcode, "max-width",
-      postproject::MetadataInput::unsignedInteger(1920));
-  transaction.commit();
+      postproject::MetadataInput::unsignedInteger(1920)).value();
+  transaction.commit().value();
 
   const auto requested =
       production.jobs(100, std::nullopt, postproject::JobState::requested,
-                      std::string_view("org.postproject:generate-proxy"));
+                      std::string_view("org.postproject:generate-proxy")).value();
   for (const auto &item : requested.items) {
     std::cout << item.kind << " with " << item.inputs.size()
               << " input(s) into root " << item.target_root.value_or("-")
@@ -88,19 +88,19 @@ postproject::Uuid request_proxy(postproject::Production &production,
 // [claim-job]
 void claim_renew_release(postproject::Production &production,
                          const postproject::Uuid &job_id) {
-  auto claim = production.beginTransaction();
+  auto claim = production.beginTransaction().value();
   const auto claim_id =
-      claim.claimJob(job_id, encoder, worker, t0, t0 + one_minute);
-  claim.commit();
+      claim.claimJob(job_id, encoder, worker, t0, t0 + one_minute).value();
+  claim.commit().value();
 
   // Renewing and releasing need the claim token returned by claimJob.
-  auto renew = production.beginTransaction();
-  renew.renewJobClaim(job_id, claim_id, t0 + 30'000'000, t0 + 2 * one_minute);
-  renew.commit();
+  auto renew = production.beginTransaction().value();
+  renew.renewJobClaim(job_id, claim_id, t0 + 30'000'000, t0 + 2 * one_minute).value();
+  renew.commit().value();
 
-  auto release = production.beginTransaction();
-  release.releaseJobClaim(job_id, claim_id); // back to requested
-  release.commit();
+  auto release = production.beginTransaction().value();
+  release.releaseJobClaim(job_id, claim_id).value(); // back to requested
+  release.commit().value();
 }
 // [/claim-job]
 
@@ -109,17 +109,17 @@ postproject::Uuid complete_proxy(postproject::Production &production,
                                  const postproject::Job &job,
                                  const std::string &output_path) {
   const std::int64_t now = t0 + 3 * one_minute;
-  auto claim = production.beginTransaction();
+  auto claim = production.beginTransaction().value();
   const auto claim_id =
-      claim.claimJob(job.id, encoder, worker, now, now + 10 * one_minute);
-  claim.commit();
+      claim.claimJob(job.id, encoder, worker, now, now + 10 * one_minute).value();
+  claim.commit().value();
 
   std::ofstream(output_path, std::ios::binary) << "encoded proxy";
 
   // Output, provenance, and the job transition commit together or not at all.
-  auto transaction = production.beginTransaction();
+  auto transaction = production.beginTransaction().value();
   const auto proxy_id = transaction.addSingleFileRepresentation(
-      job.output_asset_id, job.output_representation_kind, output_path);
+      job.output_asset_id, job.output_representation_kind, output_path).value();
   postproject::ActivitySpec activity{};
   activity.kind = job.kind;
   for (const auto &input : job.inputs) {
@@ -128,14 +128,14 @@ postproject::Uuid complete_proxy(postproject::Production &production,
   activity.outputs = {{proxy_id, std::nullopt}};
   activity.tool = encoder;
   activity.agent = worker;
-  const auto activity_id = transaction.createActivity(activity);
+  const auto activity_id = transaction.createActivity(activity).value();
   // Parameters on the activity let the artifact be regenerated later.
   transaction.addMetadataValue(
       {postproject::ObjectKind::activity, activity_id}, transcode, "profile",
-      postproject::MetadataInput::plainString("editing-proxy"));
+      postproject::MetadataInput::plainString("editing-proxy")).value();
   transaction.completeJob(job.id, claim_id, now + one_minute, proxy_id,
-                          activity_id);
-  transaction.commit();
+                          activity_id).value();
+  transaction.commit().value();
   return proxy_id;
 }
 // [/complete-job]
@@ -144,24 +144,24 @@ postproject::Uuid complete_proxy(postproject::Production &production,
 void fail_proxy(postproject::Production &production,
                 const postproject::Uuid &job_id) {
   const std::int64_t now = t0 + 5 * one_minute;
-  auto claim = production.beginTransaction();
+  auto claim = production.beginTransaction().value();
   const auto claim_id =
-      claim.claimJob(job_id, encoder, worker, now, now + one_minute);
-  claim.commit();
+      claim.claimJob(job_id, encoder, worker, now, now + one_minute).value();
+  claim.commit().value();
 
-  auto transaction = production.beginTransaction();
+  auto transaction = production.beginTransaction().value();
   transaction.failJob(job_id, claim_id, now + 1'000'000,
-                      "encoder exited with status 1");
-  transaction.commit();
+                      "encoder exited with status 1").value();
+  transaction.commit().value();
 }
 // [/fail-job]
 
 // [cancel-job]
 void cancel(postproject::Production &production,
             const postproject::Uuid &job_id) {
-  auto transaction = production.beginTransaction();
-  transaction.cancelJob(job_id); // no claim is needed to cancel
-  transaction.commit();
+  auto transaction = production.beginTransaction().value();
+  transaction.cancelJob(job_id).value(); // no claim is needed to cancel
+  transaction.commit().value();
 }
 // [/cancel-job]
 
@@ -170,23 +170,23 @@ std::vector<postproject::Uuid>
 regenerate(postproject::Production &production,
            const postproject::Uuid &artifact_id) {
   // Planning is read-only: it derives requests from the producing activity.
-  const auto plans = production.planRegeneration({artifact_id});
+  const auto plans = production.planRegeneration({artifact_id}).value();
 
   std::vector<postproject::Uuid> job_ids;
-  auto transaction = production.beginTransaction();
+  auto transaction = production.beginTransaction().value();
   for (const auto &plan : plans) {
     const postproject::JobRequest request{
         plan.job.kind, plan.job.inputs, plan.job.output_asset_id,
         plan.job.output_representation_kind, plan.job.target_root};
-    const auto job_id = transaction.requestJob(request);
+    const auto job_id = transaction.requestJob(request).value();
     for (const auto &parameter : plan.parameters) {
       transaction.addMetadataValue({postproject::ObjectKind::job, job_id},
                                    parameter.vocabulary, parameter.property,
-                                   parameter.value);
+                                   parameter.value).value();
     }
     job_ids.push_back(job_id);
   }
-  transaction.commit();
+  transaction.commit().value();
   return job_ids;
 }
 // [/plan-regeneration]
@@ -203,13 +203,13 @@ int main(int argc, char **argv) {
   try {
     std::filesystem::create_directories(work / "proxies");
     auto production =
-        postproject::Production::create((work / "jobs.pproj").string(), "Jobs");
-    auto setup = production.beginTransaction();
+        postproject::Production::create((work / "jobs.pproj").string(), "Jobs").value();
+    auto setup = production.beginTransaction().value();
     const auto asset_id =
-        setup.importMedia((work / "rushes" / "A001.mov").string(), "Camera A");
-    setup.addMediaRoot("proxies", "Generated proxies");
-    setup.commit();
-    const auto original_id = production.representations(asset_id).front().id;
+        setup.importMedia((work / "rushes" / "A001.mov").string(), "Camera A").value();
+    setup.addMediaRoot("proxies", "Generated proxies").value();
+    setup.commit().value();
+    const auto original_id = production.representations(asset_id).value().front().id;
 
     const auto job_id = request_proxy(production, original_id, asset_id);
     auto requested = load_job(production, job_id);
@@ -221,7 +221,7 @@ int main(int argc, char **argv) {
     require(production
                     .queryMetadata(
                         transcode, "max-width",
-                        postproject::MetadataInput::unsignedInteger(1920), 10)
+                        postproject::MetadataInput::unsignedInteger(1920), 10).value()
                     .items.front()
                     .target ==
                 postproject::ObjectRef{postproject::ObjectKind::job, job_id},
@@ -240,31 +240,31 @@ int main(int argc, char **argv) {
                 completed.completion.has_value() &&
                 completed.completion->representation_id == proxy_id,
             "succeeded job");
-    const auto producers = production.activitiesProducing(proxy_id);
+    const auto producers = production.activitiesProducing(proxy_id).value();
     require(producers.size() == 1 &&
                 producers.front().id == completed.completion->activity_id,
             "job references its activity");
 
-    auto more = production.beginTransaction();
+    auto more = production.beginTransaction().value();
     const postproject::JobRequest thumbnail{
         "org.postproject:generate-thumbnail",
         {original_id},
         asset_id,
         postproject::RepresentationKind::derived,
         std::nullopt};
-    const auto failing_id = more.requestJob(thumbnail);
-    const auto cancelled_id = more.requestJob(thumbnail);
-    more.commit();
+    const auto failing_id = more.requestJob(thumbnail).value();
+    const auto cancelled_id = more.requestJob(thumbnail).value();
+    more.commit().value();
 
     const auto representations_before =
-        production.representations(asset_id).size();
+        production.representations(asset_id).value().size();
     fail_proxy(production, failing_id);
     const auto failed = load_job(production, failing_id);
     require(failed.state == postproject::JobState::failed &&
                 failed.failure_diagnostic ==
                     std::optional<std::string>("encoder exited with status 1"),
             "failed job");
-    require(production.representations(asset_id).size() ==
+    require(production.representations(asset_id).value().size() ==
                 representations_before,
             "failure adds no representation");
 
@@ -273,9 +273,9 @@ int main(int argc, char **argv) {
                 postproject::JobState::cancelled,
             "cancelled job");
 
-    const auto before_plan = production.latestRevision()->sequence;
-    const auto plans = production.planRegeneration({proxy_id});
-    require(production.latestRevision()->sequence == before_plan,
+    const auto before_plan = production.latestRevision().value()->sequence;
+    const auto plans = production.planRegeneration({proxy_id}).value();
+    require(production.latestRevision().value()->sequence == before_plan,
             "planning is read-only");
     require(plans.size() == 1 &&
                 plans.front().artifact_representation_id == proxy_id &&
@@ -292,7 +292,7 @@ int main(int argc, char **argv) {
                     .queryMetadata(transcode, "profile",
                                    postproject::MetadataInput::plainString(
                                        "editing-proxy"),
-                                   10)
+                                   10).value()
                     .items.size() == 3,
             "profile on job, activity, and regeneration job");
   } catch (const std::exception &error) {

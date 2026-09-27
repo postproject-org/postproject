@@ -66,12 +66,17 @@ types, allocation APIs, and standard-library layouts never cross the ABI.
 ## C++ wrapper
 
 `postproject.hpp` is a header-only C++17 wrapper over the authoritative C API.
-It owns production and transaction handles with RAII, makes both wrappers move-only,
-and converts failed status codes to `postproject::Error`. Destruction of an open
-transaction invokes the C release behavior and therefore discards staged work.
-The exception retains the stable `ErrorCode` and copies diagnostic text before
-releasing the C error object. No exception crosses the C ABI. Inputs containing
-embedded NUL bytes are rejected before calling C.
+It owns production and transaction handles with RAII and makes both wrappers
+move-only. Destruction of an open transaction invokes the C release behavior
+and therefore discards staged work.
+
+Every fallible operation returns `postproject::Result<T>`, holding the value or
+a `postproject::Error` value. The error keeps the stable `ErrorCode` and copies
+the diagnostic text before the C error object is released. The header contains
+no `throw` outside `Result::value()`, and that throw is compiled only when
+exceptions are enabled. Without exceptions, `value()` on an error aborts. The
+header therefore compiles with `-fno-exceptions` (ADR 0032). Inputs containing
+embedded NUL bytes return `ErrorCode::invalid_argument` before C is called.
 
 ## Resolution results
 

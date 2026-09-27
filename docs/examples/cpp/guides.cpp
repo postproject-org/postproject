@@ -32,17 +32,17 @@ void require(bool condition, const char *message) {
 // [create-production]
 std::pair<postproject::Production, postproject::Uuid>
 create_production(const std::string &path, const std::string &media) {
-  auto production = postproject::Production::create(path, "Documentary");
+  auto production = postproject::Production::create(path, "Documentary").value();
 
-  auto transaction = production.beginTransaction();
+  auto transaction = production.beginTransaction().value();
   transaction.setRevisionContext(
       {postproject::OriginIdentity{"com.example.editor", "0.4.0", std::nullopt},
-       "Import camera original"});
-  const auto asset_id = transaction.importMedia(media, "Camera A");
-  transaction.commit();
+       "Import camera original"}).value();
+  const auto asset_id = transaction.importMedia(media, "Camera A").value();
+  transaction.commit().value();
 
   std::cout << "representations: "
-            << production.representations(asset_id).size() << '\n';
+            << production.representations(asset_id).value().size() << '\n';
   return {std::move(production), asset_id};
 }
 // [/create-production]
@@ -54,13 +54,13 @@ void tag_camera_serial(postproject::Production &production,
   const postproject::ExternalIdentifier identifier{
       "com.example.camera.serial", "A-0007", std::nullopt};
 
-  auto transaction = production.beginTransaction();
-  transaction.addExternalIdentifier(target, identifier);
-  transaction.commit();
+  auto transaction = production.beginTransaction().value();
+  transaction.addExternalIdentifier(target, identifier).value();
+  transaction.commit().value();
 
-  const auto attached = production.externalIdentifiers(target);
+  const auto attached = production.externalIdentifiers(target).value();
   const auto matches =
-      production.findByExternalIdentifier(identifier.scheme, identifier.value);
+      production.findByExternalIdentifier(identifier.scheme, identifier.value).value();
   require(attached.size() == 1 && matches == std::vector{target},
           "identifier lookup");
 }
@@ -71,22 +71,22 @@ void add_title(postproject::Production &production,
                const postproject::Uuid &asset_id) {
   const postproject::ObjectRef target{postproject::ObjectKind::asset, asset_id};
 
-  auto transaction = production.beginTransaction();
+  auto transaction = production.beginTransaction().value();
   transaction.addMetadataValue(
       target,
       "https://iptc.org/std/videometadatahub/recommendation/"
       "iptc-vmhub-1.7-schema.json",
-      "title", postproject::MetadataInput::languageString("Interview", "en-US"));
-  transaction.commit();
+      "title", postproject::MetadataInput::languageString("Interview", "en-US")).value();
+  transaction.commit().value();
   // Read one target's assertions with the C function pp_production_metadata().
 }
 // [/metadata]
 
 // [media-root]
 void add_rushes_root(postproject::Production &production) {
-  auto transaction = production.beginTransaction();
-  transaction.addMediaRoot("rushes", "Camera originals");
-  transaction.commit();
+  auto transaction = production.beginTransaction().value();
+  transaction.addMediaRoot("rushes", "Camera originals").value();
+  transaction.commit().value();
 }
 // [/media-root]
 
@@ -98,7 +98,7 @@ resolve_asset(const postproject::Production &production,
   // The mapping locates the logical root on this machine for this call only.
   postproject::ResolutionOptions options;
   options.addRootMapping("rushes", rushes_directory);
-  const auto resolutions = production.resolveAsset(asset_id, options);
+  const auto resolutions = production.resolveAsset(asset_id, options).value();
   for (const auto &representation : resolutions) {
     std::cout << "availability: "
               << static_cast<std::uint32_t>(representation.availability)
@@ -118,7 +118,7 @@ resolve_asset(const postproject::Production &production,
 void confirm_unique_candidates(
     postproject::Production &production,
     const std::vector<postproject::RepresentationResolution> &resolutions) {
-  auto transaction = production.beginTransaction();
+  auto transaction = production.beginTransaction().value();
   for (const auto &representation : resolutions) {
     for (const auto &resource : representation.resources) {
       // Several candidates need a person to choose; never pick one here.
@@ -129,13 +129,13 @@ void confirm_unique_candidates(
       if (candidate.media_root.has_value()) {
         // Record the logical root the candidate was found under.
         transaction.confirmLocatorUnderRoot(resource.resource_id, candidate.uri,
-                                            *candidate.media_root);
+                                            *candidate.media_root).value();
       } else {
-        transaction.confirmLocator(resource.resource_id, candidate.uri);
+        transaction.confirmLocator(resource.resource_id, candidate.uri).value();
       }
     }
   }
-  transaction.commit();
+  transaction.commit().value();
 }
 // [/confirm-locator]
 
@@ -155,12 +155,12 @@ postproject::Uuid add_render_sequence(postproject::Production &production,
   sequence.rate_denominator = 1001;
   sequence.missing_frames = {1003};
 
-  auto transaction = production.beginTransaction();
+  auto transaction = production.beginTransaction().value();
   const auto sequence_id = transaction.addImageSequenceRepresentation(
-      asset_id, postproject::RepresentationKind::derived, sequence);
-  transaction.commit();
+      asset_id, postproject::RepresentationKind::derived, sequence).value();
+  transaction.commit().value();
 
-  for (const auto &representation : production.representations(asset_id)) {
+  for (const auto &representation : production.representations(asset_id).value()) {
     if (representation.id == sequence_id && representation.image_sequence) {
       const auto &stored = *representation.image_sequence;
       std::cout << stored.prefix << '#' << stored.suffix << " frames "
@@ -183,16 +183,16 @@ void record_render(postproject::Production &production,
   activity.tool = postproject::ToolIdentity{
       "Example Renderer", "2.1", "https://example.com/renderer"};
 
-  auto transaction = production.beginTransaction();
-  const auto activity_id = transaction.createActivity(activity);
-  transaction.commit();
+  auto transaction = production.beginTransaction().value();
+  const auto activity_id = transaction.createActivity(activity).value();
+  transaction.commit().value();
 
-  const auto producers = production.activitiesProducing(render_id);
+  const auto producers = production.activitiesProducing(render_id).value();
   require(producers.size() == 1 && producers.front().id == activity_id,
           "producing activity");
-  require(production.ancestors(render_id) == std::vector{source_id},
+  require(production.ancestors(render_id).value() == std::vector{source_id},
           "provenance ancestors");
-  require(production.descendants(source_id) == std::vector{render_id},
+  require(production.descendants(source_id).value() == std::vector{render_id},
           "provenance descendants");
 }
 // [/provenance]
@@ -200,14 +200,14 @@ void record_render(postproject::Production &production,
 // [artifact-knowledge]
 void inspect_artifact(const postproject::Production &production,
                       const postproject::Uuid &artifact_id) {
-  const auto evaluation = production.evaluateArtifact(artifact_id, 64, 1000);
+  const auto evaluation = production.evaluateArtifact(artifact_id, 64, 1000).value();
   std::cout << "artifact state: " << static_cast<std::uint32_t>(evaluation.state)
             << '\n';
   for (const auto &reason : evaluation.reasons) {
     std::cout << "reason: " << static_cast<std::uint32_t>(reason.kind) << '\n';
   }
 
-  const auto reproducibility = production.artifactReproducibility(artifact_id);
+  const auto reproducibility = production.artifactReproducibility(artifact_id).value();
   std::cout << "reproducible: " << reproducibility.reproducible
             << ", missing conditions: " << reproducibility.issues.size()
             << '\n';
@@ -224,17 +224,17 @@ void record_and_query_dependencies(postproject::Production &production,
   const postproject::Dependency dependency{
       std::nullopt, "org.example:character-reference", target, resolved_id,
       true, "characters/lead.usd"};
-  auto transaction = production.beginTransaction();
-  transaction.recordDependencySet(source_id, {dependency});
-  transaction.commit();
+  auto transaction = production.beginTransaction().value();
+  transaction.recordDependencySet(source_id, {dependency}).value();
+  transaction.commit().value();
 
-  const auto dependencies = production.dependencies(source_id, 4, 1000, 100);
+  const auto dependencies = production.dependencies(source_id, 4, 1000, 100).value();
   for (const auto &match : dependencies.items) {
     std::cout << "dependency at depth " << match.depth << '\n';
   }
   require(!dependencies.traversal_truncated, "complete dependency traversal");
 
-  const auto dependents = production.dependents(target, 4, 1000, 100);
+  const auto dependents = production.dependents(target, 4, 1000, 100).value();
   require(dependents.items.size() == 1 &&
               dependents.items.front().target.id == source_id,
           "reverse dependency query");
@@ -248,11 +248,11 @@ void request_and_page_jobs(postproject::Production &production,
   const postproject::JobRequest request{
       "org.example:generate-proxy", {input_id}, output_asset_id,
       postproject::RepresentationKind::proxy, std::nullopt};
-  auto transaction = production.beginTransaction();
-  const auto job_id = transaction.requestJob(request);
-  transaction.requestJob(request);
-  transaction.commit();
-  require(production.job(job_id).state == postproject::JobState::requested,
+  auto transaction = production.beginTransaction().value();
+  const auto job_id = transaction.requestJob(request).value();
+  transaction.requestJob(request).value();
+  transaction.commit().value();
+  require(production.job(job_id).value().state == postproject::JobState::requested,
           "requested job read back by identity");
 
   std::optional<std::string> cursor;
@@ -260,7 +260,7 @@ void request_and_page_jobs(postproject::Production &production,
   do {
     const auto page = production.jobs(
         1, cursor, postproject::JobState::requested,
-        std::string_view("org.example:generate-proxy"));
+        std::string_view("org.example:generate-proxy")).value();
     count += page.items.size();
     cursor = page.next_cursor;
   } while (cursor.has_value());
@@ -272,14 +272,14 @@ void request_and_page_jobs(postproject::Production &production,
 void print_recorded_locators(const postproject::Production &production) {
   std::optional<std::string> cursor;
   do {
-    const auto assets = production.assets(100, cursor);
+    const auto assets = production.assets(100, cursor).value();
     for (const auto &asset : assets.items) {
       // Follow each nested next_cursor the same way in large productions.
       for (const auto &representation :
-           production.representations(asset.id, 100).items) {
+           production.representations(asset.id, 100).value().items) {
         for (const auto &resource_id :
-             production.resources(representation.id, 100).items) {
-          const auto locators = production.locators(resource_id, 100);
+             production.resources(representation.id, 100).value().items) {
+          const auto locators = production.locators(resource_id, 100).value();
           for (const auto &match : locators.items) {
             std::cout << match.locator.uri
                       << " (root: " << match.media_root.value_or("-") << ")\n";
@@ -296,13 +296,13 @@ void print_recorded_locators(const postproject::Production &production) {
 std::vector<postproject::Uuid>
 list_media_knowledge(const postproject::Production &production) {
   // Both queries read recorded knowledge; neither touches the filesystem.
-  const auto unresolved = production.unresolvedMedia(100);
+  const auto unresolved = production.unresolvedMedia(100).value();
   std::cout << "representations without a recorded locator: "
             << unresolved.items.size() << '\n';
 
   std::vector<postproject::Uuid> under_rushes;
   for (const auto &representation :
-       production.representationsUnderMediaRoot("rushes", 100).items) {
+       production.representationsUnderMediaRoot("rushes", 100).value().items) {
     under_rushes.push_back(representation.id);
   }
   return under_rushes;
@@ -315,12 +315,12 @@ void read_known_objects(const postproject::Production &production,
                         const postproject::Uuid &representation_id) {
   // A host reference names one object; read it without scanning the
   // production.
-  const auto asset = production.asset(asset_id);
-  const auto representation = production.representation(representation_id);
+  const auto asset = production.asset(asset_id).value();
+  const auto representation = production.representation(representation_id).value();
   std::cout << asset.display_name.value_or("unnamed") << ": "
             << representation.resources.size() << " resource(s)\n";
   const auto users = production.representationsUsingResource(
-      representation.resources[0].id, 100);
+      representation.resources[0].id, 100).value();
   require(std::any_of(users.items.begin(), users.items.end(),
                       [&](const postproject::Representation &item) {
                         return item.id == representation_id;
@@ -336,7 +336,7 @@ find_interview_titles(const postproject::Production &production) {
       "https://iptc.org/std/videometadatahub/recommendation/"
       "iptc-vmhub-1.7-schema.json",
       "title", postproject::MetadataInput::languageString("Interview", "en-US"),
-      100);
+      100).value();
   std::cout << "exact title matches: " << page.items.size() << '\n';
   std::vector<postproject::ObjectRef> targets;
   for (const auto &assertion : page.items) {
@@ -350,27 +350,27 @@ find_interview_titles(const postproject::Production &production) {
 void query_render_lineage(const postproject::Production &production,
                           const postproject::Uuid &source_id,
                           const postproject::Uuid &render_id) {
-  const auto producing = production.activitiesProducing(render_id, 100);
-  const auto consuming = production.activitiesConsuming(source_id, 100);
+  const auto producing = production.activitiesProducing(render_id, 100).value();
+  const auto consuming = production.activitiesConsuming(source_id, 100).value();
   require(producing.items.size() == 1 && consuming.items.size() == 1 &&
               producing.items.front().id == consuming.items.front().id,
           "render activity");
 
   const auto by_kind =
-      production.outputsByActivityKind("org.postproject:render", 100);
+      production.outputsByActivityKind("org.postproject:render", 100).value();
   const auto by_tool = production.outputsByTool(
-      {"Example Renderer", "2.1", "https://example.com/renderer"}, 100);
+      {"Example Renderer", "2.1", "https://example.com/renderer"}, 100).value();
   require(by_kind.items == std::vector{render_id} &&
               by_tool.items == std::vector{render_id},
           "render outputs");
 
-  const auto ancestors = production.ancestors(render_id, 8, 1000, 100);
+  const auto ancestors = production.ancestors(render_id, 8, 1000, 100).value();
   for (const auto &match : ancestors.items) {
     std::cout << "ancestor at depth " << match.depth << '\n';
   }
   require(!ancestors.traversal_truncated, "complete ancestor traversal");
 
-  const auto descendants = production.descendants(source_id, 8, 1000, 100);
+  const auto descendants = production.descendants(source_id, 8, 1000, 100).value();
   require(descendants.items.front().object.id == render_id,
           "render descends from its source");
 }
@@ -384,7 +384,7 @@ stale_descendants(const postproject::Production &production,
   std::optional<std::string> cursor;
   do {
     const auto page =
-        production.staleArtifacts(64, 1000, 100, cursor, source_id);
+        production.staleArtifacts(64, 1000, 100, cursor, source_id).value();
     // A page bounds the candidates examined, so it may hold fewer stale
     // results, or none, and still carry a continuation.
     stale.insert(stale.end(), page.items.begin(), page.items.end());
@@ -401,7 +401,7 @@ objects_changed_after(const postproject::Production &production,
   std::vector<postproject::ObjectRef> changed;
   std::optional<std::string> cursor;
   do {
-    const auto page = production.objectsChangedSince(sequence, 100, cursor);
+    const auto page = production.objectsChangedSince(sequence, 100, cursor).value();
     changed.insert(changed.end(), page.items.begin(), page.items.end());
     cursor = page.next_cursor;
   } while (cursor.has_value());
@@ -419,9 +419,9 @@ std::uint64_t process_changes(const postproject::Production &production,
                               std::uint64_t cursor) {
   constexpr std::uint32_t limit = 100;
   for (;;) {
-    const auto page = production.changesSince(cursor, limit);
+    const auto page = production.changesSince(cursor, limit).value();
     for (const auto &revision : page) {
-      for (const auto &event : production.revisionEvents(revision.id)) {
+      for (const auto &event : production.revisionEvents(revision.id).value()) {
         // Dispatch with std::visit on event.payload.
         handle_event(event);
       }
@@ -441,7 +441,7 @@ new_media_revisions(const postproject::Production &production,
                     std::uint64_t cursor) {
   const auto page = production.changesSinceFiltered(
       cursor, {postproject::RevisionEventKind::representation_added,
-               postproject::RevisionEventKind::job_succeeded});
+               postproject::RevisionEventKind::job_succeeded}).value();
   std::vector<postproject::Uuid> revisions;
   for (const auto &revision : page.revisions) {
     revisions.push_back(revision.id);
@@ -455,9 +455,9 @@ new_media_revisions(const postproject::Production &production,
 std::vector<postproject::Revision>
 wait_for_changes(const postproject::Production &production,
                  std::uint64_t cursor) {
-  auto waiter = production.revisionWaiter();
+  auto waiter = production.revisionWaiter().value();
   // Another thread may call waiter.cancel() to stop the wait.
-  auto wait = waiter.wait(cursor, 100, std::chrono::seconds(5));
+  auto wait = waiter.wait(cursor, 100, std::chrono::seconds(5)).value();
   return std::move(wait.revisions); // empty unless result is revisions
 }
 
@@ -477,11 +477,11 @@ watch_new_media(const postproject::Production &production,
 std::string bind_representation(const postproject::Production &production,
                                 const postproject::Uuid &representation_id) {
   const postproject::HostObjectBinding binding{
-      production.id(), {postproject::ObjectKind::representation,
+      production.id().value(), {postproject::ObjectKind::representation,
                         representation_id}};
-  const std::string stored = binding.toString();
+  const std::string stored = binding.toString().value();
 
-  const auto reopened = postproject::HostObjectBinding::fromString(stored);
+  const auto reopened = postproject::HostObjectBinding::fromString(stored).value();
   require(reopened == binding, "binding round trip");
   return stored;
 }
@@ -501,7 +501,7 @@ int main(int argc, char **argv) {
   try {
     auto [production, asset_id] =
         create_production(work + "/production.pproj", media);
-    const auto original_id = production.representations(asset_id).front().id;
+    const auto original_id = production.representations(asset_id).value().front().id;
     tag_camera_serial(production, asset_id);
     add_title(production, asset_id);
 
@@ -513,7 +513,7 @@ int main(int argc, char **argv) {
             "unique candidate");
     confirm_unique_candidates(production, resolutions);
 
-    const auto before_render = production.latestRevision()->sequence;
+    const auto before_render = production.latestRevision().value()->sequence;
     const auto sequence_id = add_render_sequence(
         production, asset_id, work + "/renders/shot010");
     record_render(production, original_id, sequence_id);
@@ -541,7 +541,7 @@ int main(int argc, char **argv) {
             "changed render sequence");
 
     const auto cursor = process_changes(production, 0);
-    require(cursor == production.latestRevision()->sequence, "feed cursor");
+    require(cursor == production.latestRevision().value()->sequence, "feed cursor");
     const auto [media_revisions, through] = new_media_revisions(production, 0);
     require(!media_revisions.empty() && through == cursor, "filtered feed");
     require(!wait_for_changes(production, 0).empty(), "revision wait");
@@ -563,7 +563,7 @@ int main(int argc, char **argv) {
               "observed revision");
       lock.unlock();
       observer->stop();
-      require(observer->error() == nullptr, "observer error");
+      require(!observer->error().has_value(), "observer error");
     }
     std::cout << "binding: " << bind_representation(production, sequence_id)
               << '\n';

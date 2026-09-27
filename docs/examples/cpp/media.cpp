@@ -37,10 +37,10 @@ void write_file(const std::filesystem::path &path, const std::string &bytes) {
 postproject::Uuid add_proxy(postproject::Production &production,
                             const postproject::Uuid &asset_id,
                             const std::string &proxy_path) {
-  auto transaction = production.beginTransaction();
+  auto transaction = production.beginTransaction().value();
   const auto proxy_id = transaction.addSingleFileRepresentation(
-      asset_id, postproject::RepresentationKind::proxy, proxy_path);
-  transaction.commit();
+      asset_id, postproject::RepresentationKind::proxy, proxy_path).value();
+  transaction.commit().value();
   return proxy_id;
 }
 // [/add-representation]
@@ -54,10 +54,10 @@ postproject::Uuid add_spanned_clip(postproject::Production &production,
       {directory + "/CLIP0001.MTS", "org.postproject:essence", true},
       {directory + "/CLIP0002.MTS", "org.postproject:span-part", true},
   };
-  auto transaction = production.beginTransaction();
+  auto transaction = production.beginTransaction().value();
   const auto clip_id = transaction.addOrderedPartsRepresentation(
-      asset_id, postproject::RepresentationKind::original, parts);
-  transaction.commit();
+      asset_id, postproject::RepresentationKind::original, parts).value();
+  transaction.commit().value();
   return clip_id;
 }
 // [/ordered-parts]
@@ -71,10 +71,10 @@ postproject::Uuid add_package(postproject::Production &production,
       {directory + "/clip.mxf", "org.postproject:essence", true},
       {directory + "/clip.xml", "org.postproject:sidecar", false},
   };
-  auto transaction = production.beginTransaction();
+  auto transaction = production.beginTransaction().value();
   const auto package_id = transaction.addPackageRepresentation(
-      asset_id, postproject::RepresentationKind::original, members);
-  transaction.commit();
+      asset_id, postproject::RepresentationKind::original, members).value();
+  transaction.commit().value();
   return package_id;
 }
 // [/package-representation]
@@ -86,7 +86,7 @@ print_structure(const postproject::Production &production,
   std::vector<postproject::Representation> all;
   std::optional<std::string> cursor;
   do {
-    const auto page = production.representations(asset_id, 2, cursor);
+    const auto page = production.representations(asset_id, 2, cursor).value();
     for (const auto &representation : page.items) {
       std::cout << "representation kind "
                 << static_cast<std::uint32_t>(representation.kind)
@@ -127,7 +127,7 @@ print_structure(const postproject::Production &production,
 void cycle_media_root(postproject::Production &production,
                       const std::string &name) {
   std::optional<postproject::Uuid> root_id;
-  for (const auto &root : production.mediaRoots()) {
+  for (const auto &root : production.mediaRoots().value()) {
     std::cout << "root " << root.name << " priority " << root.priority
               << (root.enabled ? " enabled" : " disabled") << '\n';
     if (root.name == name) {
@@ -138,18 +138,18 @@ void cycle_media_root(postproject::Production &production,
     return;
   }
 
-  auto disable = production.beginTransaction();
+  auto disable = production.beginTransaction().value();
   // A disabled root is kept but skipped during resolution.
-  disable.setMediaRootEnabled(*root_id, false);
-  disable.commit();
+  disable.setMediaRootEnabled(*root_id, false).value();
+  disable.commit().value();
 
-  auto enable = production.beginTransaction();
-  enable.setMediaRootEnabled(*root_id, true);
-  enable.commit();
+  auto enable = production.beginTransaction().value();
+  enable.setMediaRootEnabled(*root_id, true).value();
+  enable.commit().value();
 
-  auto remove = production.beginTransaction();
-  remove.removeMediaRoot(*root_id);
-  remove.commit();
+  auto remove = production.beginTransaction().value();
+  remove.removeMediaRoot(*root_id).value();
+  remove.commit().value();
 }
 // [/media-root-lifecycle]
 
@@ -162,7 +162,7 @@ std::size_t verify_contents(const postproject::Production &production,
   options.setVerification(postproject::VerificationMode::content);
   std::size_t verified = 0;
   for (const auto &representation :
-       production.resolveAsset(asset_id, options)) {
+       production.resolveAsset(asset_id, options).value()) {
     for (const auto &resource : representation.resources) {
       if (resource.state ==
           postproject::ResourceResolutionState::online_at_known_locator) {
@@ -180,7 +180,7 @@ std::size_t verify_contents(const postproject::Production &production,
 // [/verify-resolution]
 
 // [resolve-scope]
-std::optional<std::string>
+postproject::Result<std::optional<std::string>>
 find_nearby(const postproject::Production &production,
             const std::vector<postproject::Uuid> &asset_ids,
             const std::string &directory,
@@ -193,9 +193,13 @@ find_nearby(const postproject::Production &production,
       .setVerification(postproject::VerificationMode::presence)
       .setLimits(16, 50000)
       .setCancelToken(cancel_token);
-  // All assets are resolved together; each directory is scanned once.
-  for (const auto &representation :
-       production.resolveAssets(asset_ids, options)) {
+  // All assets are resolved together; each directory is scanned once. A
+  // cancelled token yields ErrorCode::cancelled.
+  auto resolutions = production.resolveAssets(asset_ids, options);
+  if (!resolutions.ok()) {
+    return resolutions.error();
+  }
+  for (const auto &representation : *resolutions) {
     for (const auto &resource : representation.resources) {
       const bool discovered =
           resource.state == postproject::ResourceResolutionState::resolved_exact ||
@@ -204,11 +208,11 @@ find_nearby(const postproject::Production &production,
       // A candidate from a search directory has no media root.
       if (discovered && resource.candidates.size() == 1 &&
           !resource.candidates.front().media_root.has_value()) {
-        return resource.candidates.front().uri;
+        return std::optional<std::string>(resource.candidates.front().uri);
       }
     }
   }
-  return std::nullopt;
+  return std::optional<std::string>();
 }
 // [/resolve-scope]
 
@@ -216,16 +220,16 @@ find_nearby(const postproject::Production &production,
 std::vector<postproject::ResourceLocator> move_resource(
     postproject::Production &production, const postproject::Uuid &resource_id,
     const postproject::Uuid &old_locator_id, const std::string &new_uri) {
-  auto transaction = production.beginTransaction();
-  transaction.confirmLocator(resource_id, new_uri);
+  auto transaction = production.beginTransaction().value();
+  transaction.confirmLocator(resource_id, new_uri).value();
   // Retiring keeps the old locator as history instead of deleting it.
-  transaction.retireLocator(old_locator_id);
-  transaction.commit();
+  transaction.retireLocator(old_locator_id).value();
+  transaction.commit().value();
 
   std::vector<postproject::ResourceLocator> locators;
   std::optional<std::string> cursor;
   do {
-    const auto page = production.locators(resource_id, 1, cursor);
+    const auto page = production.locators(resource_id, 1, cursor).value();
     locators.insert(locators.end(), page.items.begin(), page.items.end());
     cursor = page.next_cursor;
   } while (cursor.has_value());
@@ -239,15 +243,15 @@ bool is_recorded_locator(const std::string &path,
   // Spell the path as PostProject spells locators instead of building a URI
   // with the host's own URL type, then compare the strings exactly.
   std::cout << "recorded locator " << recorded_uri << " is "
-            << postproject::locatorFilePath(recorded_uri) << '\n';
-  return postproject::fileLocator(path) == recorded_uri;
+            << postproject::locatorFilePath(recorded_uri).value() << '\n';
+  return postproject::fileLocator(path).value() == recorded_uri;
 }
 // [/locator-uri]
 
 // [content-fingerprint]
 void print_file_fingerprint(const std::string &path) {
   // The same value import records; computing it records nothing.
-  const postproject::Fingerprint fingerprint = postproject::fingerprintFile(path);
+  const postproject::Fingerprint fingerprint = postproject::fingerprintFile(path).value();
   std::cout << fingerprint.algorithm << " v" << fingerprint.version << ": "
             << fingerprint.value.size() << " bytes\n";
 }
@@ -259,19 +263,19 @@ observe_new_content(postproject::Production &production,
                     const postproject::Uuid &resource_id,
                     const std::string &path) {
   // Verification only reads: it compares the file with the stored value.
-  if (production.verifyResource(resource_id, path) !=
+  if (production.verifyResource(resource_id, path).value() !=
       postproject::ContentVerification::differs) {
     throw std::runtime_error("content is unchanged");
   }
 
   // Stages the new resource fingerprint and every representation fingerprint
   // recomputed from it; commit records both in one revision.
-  auto transaction = production.beginTransaction();
-  transaction.observeResourceContent(resource_id, path);
-  transaction.commit();
+  auto transaction = production.beginTransaction().value();
+  transaction.observeResourceContent(resource_id, path).value();
+  transaction.commit().value();
 
   const auto events =
-      production.revisionEvents(production.latestRevision()->id);
+      production.revisionEvents(production.latestRevision().value()->id).value();
   for (const auto &event : events) {
     std::visit(
         [](const auto &payload) {
@@ -300,7 +304,7 @@ std::vector<postproject::AvailabilityIssue>
 report_issues(const postproject::Production &production,
               const postproject::Uuid &asset_id) {
   std::vector<postproject::AvailabilityIssue> all;
-  for (const auto &representation : production.resolveAsset(asset_id)) {
+  for (const auto &representation : production.resolveAsset(asset_id).value()) {
     for (const auto &issue : representation.issues) {
       std::cout << "issue " << static_cast<std::uint32_t>(issue.kind)
                 << (issue.required ? " (required)" : "") << ", frames:";
@@ -337,10 +341,10 @@ postproject::Uuid add_sequence(postproject::Production &production,
   sequence.rate_numerator = 24;
   sequence.rate_denominator = 1;
   sequence.missing_frames = {1003};
-  auto transaction = production.beginTransaction();
+  auto transaction = production.beginTransaction().value();
   const auto id = transaction.addImageSequenceRepresentation(
-      asset_id, postproject::RepresentationKind::derived, sequence);
-  transaction.commit();
+      asset_id, postproject::RepresentationKind::derived, sequence).value();
+  transaction.commit().value();
   return id;
 }
 
@@ -373,13 +377,13 @@ int main(int argc, char **argv) {
     write_file(work / "package" / "clip.xml", "<clip/>");
 
     auto production = postproject::Production::create(
-        (work / "media.pproj").string(), "Media");
-    auto setup = production.beginTransaction();
-    const auto asset_id = setup.importMedia(media, "Camera A");
-    setup.addMediaRoot("rushes", "Camera originals", 10);
-    setup.addMediaRoot("archive", 0);
-    setup.commit();
-    const auto original_id = production.representations(asset_id).front().id;
+        (work / "media.pproj").string(), "Media").value();
+    auto setup = production.beginTransaction().value();
+    const auto asset_id = setup.importMedia(media, "Camera A").value();
+    setup.addMediaRoot("rushes", "Camera originals", 10).value();
+    setup.addMediaRoot("archive", 0).value();
+    setup.commit().value();
+    const auto original_id = production.representations(asset_id).value().front().id;
 
     const auto proxy_id = add_proxy(
         production, asset_id, (work / "proxies" / "A001_proxy.mov").string());
@@ -413,7 +417,7 @@ int main(int argc, char **argv) {
             "sequence descriptor");
 
     cycle_media_root(production, "archive");
-    const auto roots = production.mediaRoots();
+    const auto roots = production.mediaRoots().value();
     require(roots.size() == 1 && roots.front().name == "rushes" &&
                 roots.front().enabled,
             "archive root removed");
@@ -427,18 +431,17 @@ int main(int argc, char **argv) {
     postproject::CancelToken cancel_token;
     const auto found = find_nearby(production, {asset_id},
                                    (work / "proxies" / "moved").string(),
-                                   cancel_token);
+                                   cancel_token)
+                           .value();
     require(found.has_value(), "moved proxy found in the search directory");
     const std::string new_uri = *found;
     cancel_token.cancel();
-    try {
-      (void)find_nearby(production, {asset_id},
-                        (work / "proxies" / "moved").string(), cancel_token);
-      require(false, "cancelled resolution throws");
-    } catch (const postproject::Error &error) {
-      require(error.code() == postproject::ErrorCode::cancelled,
-              "cancelled resolution reports cancelled");
-    }
+    const auto cancelled = find_nearby(
+        production, {asset_id}, (work / "proxies" / "moved").string(),
+        cancel_token);
+    require(!cancelled.ok() &&
+                cancelled.error().code() == postproject::ErrorCode::cancelled,
+            "cancelled resolution reports cancelled");
     const auto locators =
         move_resource(production, proxy_resource.id, old_locator.id, new_uri);
     require(std::any_of(locators.begin(), locators.end(),
@@ -446,7 +449,7 @@ int main(int argc, char **argv) {
                           return match.locator.uri == new_uri;
                         }),
             "new locator listed");
-    const auto events_before = production.latestRevision()->sequence;
+    const auto events_before = production.latestRevision().value()->sequence;
 
     write_file(media, "re-exported camera original");
     const auto &original = find(representations, original_id);
@@ -456,7 +459,7 @@ int main(int argc, char **argv) {
     print_file_fingerprint(media);
     const auto events =
         observe_new_content(production, original.resources.front().id, media);
-    require(production.latestRevision()->sequence == events_before + 1,
+    require(production.latestRevision().value()->sequence == events_before + 1,
             "one observation revision");
     require(events.size() == 2 &&
                 std::holds_alternative<
@@ -466,11 +469,11 @@ int main(int argc, char **argv) {
                     postproject::RepresentationFingerprintObservedEvent>(
                     events[1].payload),
             "fingerprint events");
-    const auto observed = production.representations(asset_id);
+    const auto observed = production.representations(asset_id).value();
     require(find(observed, original_id).fingerprints.front().value !=
                 original.fingerprints.front().value,
             "recomputed representation fingerprint");
-    require(production.verifyResource(original.resources.front().id, media) ==
+    require(production.verifyResource(original.resources.front().id, media).value() ==
                 postproject::ContentVerification::matches,
             "observed content verifies");
 

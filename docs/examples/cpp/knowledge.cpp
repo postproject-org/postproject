@@ -32,26 +32,26 @@ replace_reel_name(postproject::Production &production,
   const postproject::ExternalIdentifier serial{"com.example.camera.serial",
                                                "A-0007", std::string("body")};
 
-  auto attach = production.beginTransaction();
-  attach.addExternalIdentifier(target, reel);
-  attach.addExternalIdentifier(target, serial);
-  attach.commit();
+  auto attach = production.beginTransaction().value();
+  attach.addExternalIdentifier(target, reel).value();
+  attach.addExternalIdentifier(target, serial).value();
+  attach.commit().value();
 
-  for (const auto &identifier : production.externalIdentifiers(target)) {
+  for (const auto &identifier : production.externalIdentifiers(target).value()) {
     std::cout << identifier.scheme << " = " << identifier.value << '\n';
   }
   for (const auto &match :
        production.findByExternalIdentifier(reel.scheme, reel.value,
-                                           reel.qualifier)) {
+                                           reel.qualifier).value()) {
     std::cout << "reel A001 names object kind "
               << static_cast<std::uint32_t>(match.kind) << '\n';
   }
 
   // Removal needs the exact scheme, value, and qualifier that were attached.
-  auto detach = production.beginTransaction();
-  detach.removeExternalIdentifier(target, reel);
-  detach.commit();
-  return production.externalIdentifiers(target);
+  auto detach = production.beginTransaction().value();
+  detach.removeExternalIdentifier(target, reel).value();
+  detach.commit().value();
+  return production.externalIdentifiers(target).value();
 }
 // [/remove-identifier]
 
@@ -71,9 +71,9 @@ void add_editorial_metadata(postproject::Production &production,
   slate.push_back({"scene", MetadataInput::plainString("12A")});
   slate.push_back({"take", MetadataInput::unsignedInteger(3)});
 
-  auto transaction = production.beginTransaction();
+  auto transaction = production.beginTransaction().value();
   const auto add = [&](const char *property, const MetadataInput &value) {
-    transaction.addMetadataValue(asset, editorial, property, value);
+    transaction.addMetadataValue(asset, editorial, property, value).value();
   };
   add("title", MetadataInput::plainString("Harbour interview"));
   add("caption", MetadataInput::languageString("Am Hafen", "de-DE"));
@@ -90,7 +90,7 @@ void add_editorial_metadata(postproject::Production &production,
   add("preferred-representation",
       MetadataInput::reference(
           {postproject::ObjectKind::representation, representation_id}));
-  transaction.commit();
+  transaction.commit().value();
 }
 
 std::map<std::string, std::size_t>
@@ -102,7 +102,7 @@ count_editorial_values(const postproject::Production &production,
     std::optional<std::string> cursor;
     do {
       const auto page =
-          production.queryMetadata(editorial, property, 1, cursor);
+          production.queryMetadata(editorial, property, 1, cursor).value();
       counts[property] += page.items.size();
       cursor = page.next_cursor;
     } while (cursor.has_value());
@@ -111,7 +111,7 @@ count_editorial_values(const postproject::Production &production,
   // exact-value query, or copy it onto another target.
   const auto frame_rate = production.queryMetadata(
       editorial, "frame-rate",
-      postproject::MetadataInput::rational(24000, 1001), 10);
+      postproject::MetadataInput::rational(24000, 1001), 10).value();
   std::cout << "assets shot at 23.976 fps: " << frame_rate.items.size() << '\n';
   return counts;
 }
@@ -128,12 +128,12 @@ int main(int argc, char **argv) {
 
   try {
     auto production =
-        postproject::Production::create(work + "/knowledge.pproj", "Knowledge");
-    auto setup = production.beginTransaction();
-    const auto asset_id = setup.importMedia(work + "/rushes/A001.mov");
-    setup.commit();
+        postproject::Production::create(work + "/knowledge.pproj", "Knowledge").value();
+    auto setup = production.beginTransaction().value();
+    const auto asset_id = setup.importMedia(work + "/rushes/A001.mov").value();
+    setup.commit().value();
     const auto representation_id =
-        production.representations(asset_id).front().id;
+        production.representations(asset_id).value().front().id;
     const postproject::ObjectRef asset{postproject::ObjectKind::asset,
                                        asset_id};
 
@@ -144,10 +144,10 @@ int main(int argc, char **argv) {
                     std::optional<std::string>("body"),
             "one identifier left");
     require(
-        production.findByExternalIdentifier("com.example.reel", "A001").empty(),
+        production.findByExternalIdentifier("com.example.reel", "A001").value().empty(),
         "removed identifier no longer matches");
     require(production.findByExternalIdentifier("com.example.camera.serial",
-                                                "A-0007", "body") ==
+                                                "A-0007", "body").value() ==
                 std::vector{asset},
             "serial still matches its qualifier");
 
@@ -173,7 +173,7 @@ int main(int argc, char **argv) {
     using postproject::MetadataInput;
     const auto exact = [&](const char *property, const MetadataInput &value) {
       const auto page =
-          production.queryMetadata(editorial, property, value, 10);
+          production.queryMetadata(editorial, property, value, 10).value();
       return page.items.size() == 1 && page.items.front().target == asset;
     };
     require(exact("title", MetadataInput::plainString("Harbour interview")),
