@@ -2809,6 +2809,21 @@ public:
     return {std::move(items), detail::optional_string(next_cursor), false};
   }
 
+  // Reads one asset; an absent asset throws ErrorCode::not_found.
+  [[nodiscard]] Asset asset(const Uuid &asset_id) const {
+    const pp_uuid_t native_asset_id = detail::native_uuid(asset_id);
+    pp_asset_set_t *raw_assets = nullptr;
+    pp_error_t *error = nullptr;
+    const pp_error_code_t status =
+        pp_production_asset(production_, &native_asset_id, &raw_assets, &error);
+    detail::throw_if_error(status, error);
+    detail::AssetSetHandle assets(raw_assets);
+    if (pp_asset_set_count(assets.get()) != 1) {
+      throw Error(ErrorCode::internal, "asset read returned no single asset");
+    }
+    return detail::asset(assets.get(), 0);
+  }
+
   [[nodiscard]] std::vector<MediaRoot> mediaRoots() const {
     pp_media_root_set_t *raw_roots = nullptr;
     pp_error_t *error = nullptr;
@@ -2878,6 +2893,42 @@ public:
     const pp_error_code_t status = pp_production_representations_page(
         production_, &native_asset_id, limit,
         detail::optional_c_str(checked_cursor), &raw_representations, &error);
+    detail::throw_if_error(status, error);
+    return detail::representation_page(
+        detail::RepresentationSetHandle(raw_representations));
+  }
+
+  // Reads one representation; an absent one throws ErrorCode::not_found.
+  [[nodiscard]] Representation
+  representation(const Uuid &representation_id) const {
+    const pp_uuid_t native_id = detail::native_uuid(representation_id);
+    pp_representation_set_t *raw_representations = nullptr;
+    pp_error_t *error = nullptr;
+    const pp_error_code_t status = pp_production_representation(
+        production_, &native_id, &raw_representations, &error);
+    detail::throw_if_error(status, error);
+    detail::RepresentationSetHandle representations(raw_representations);
+    if (pp_representation_set_count(representations.get()) != 1) {
+      throw Error(ErrorCode::internal,
+                  "representation read returned no single representation");
+    }
+    return detail::representation(representations.get(), 0);
+  }
+
+  // Representations that use a resource, in identity order.
+  [[nodiscard]] QueryPage<Representation> representationsUsingResource(
+      const Uuid &resource_id, std::uint32_t limit,
+      std::optional<std::string_view> cursor = std::nullopt) const {
+    const pp_uuid_t native_id = detail::native_uuid(resource_id);
+    const std::optional<std::string> checked_cursor =
+        detail::checked_cursor(cursor);
+    pp_representation_set_t *raw_representations = nullptr;
+    pp_error_t *error = nullptr;
+    const pp_error_code_t status =
+        pp_production_representations_using_resource(
+            production_, &native_id, limit,
+            detail::optional_c_str(checked_cursor), &raw_representations,
+            &error);
     detail::throw_if_error(status, error);
     return detail::representation_page(
         detail::RepresentationSetHandle(raw_representations));
@@ -3293,6 +3344,21 @@ public:
       result.push_back(detail::activity(activities.get(), index));
     }
     return result;
+  }
+
+  // Reads one job; an absent job throws ErrorCode::not_found.
+  [[nodiscard]] Job job(const Uuid &job_id) const {
+    const pp_uuid_t native_id = detail::native_uuid(job_id);
+    pp_job_set_t *raw_jobs = nullptr;
+    pp_error_t *error = nullptr;
+    const pp_error_code_t status =
+        pp_production_job(production_, &native_id, &raw_jobs, &error);
+    detail::throw_if_error(status, error);
+    detail::JobSetHandle jobs(raw_jobs);
+    if (pp_job_set_count(jobs.get()) != 1) {
+      throw Error(ErrorCode::internal, "job read returned no single job");
+    }
+    return detail::job(jobs.get(), 0);
   }
 
   [[nodiscard]] QueryPage<Job>

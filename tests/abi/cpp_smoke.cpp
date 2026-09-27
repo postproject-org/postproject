@@ -405,6 +405,28 @@ int main(int argc, char **argv) {
         return 47;
       }
     }
+    const auto point_asset = production.asset(asset_id);
+    const auto point_representation =
+        production.representation(resolutions[0].representation_id);
+    const auto resource_users = production.representationsUsingResource(
+        resolutions[0].resources[0].resource_id, 10);
+    if (point_asset.id != asset_id ||
+        point_representation.id != resolutions[0].representation_id ||
+        point_representation.asset_id != asset_id ||
+        resource_users.items.size() != 1 ||
+        resource_users.items[0].id != resolutions[0].representation_id ||
+        resource_users.next_cursor.has_value()) {
+      return 58;
+    }
+    try {
+      static_cast<void>(
+          production.representation(postproject::Uuid(postproject::Uuid::Bytes{})));
+      return 59;
+    } catch (const postproject::Error &error) {
+      if (error.code() != postproject::ErrorCode::not_found) {
+        return 59;
+      }
+    }
     const auto disabled_roots = production.mediaRoots();
     if (disabled_roots.size() != 1 || disabled_roots[0].enabled) {
       return 26;
@@ -559,6 +581,11 @@ int main(int argc, char **argv) {
         jobs.items[0].failure_diagnostic.has_value() ||
         jobs.next_cursor.has_value()) {
       return 33;
+    }
+    const auto point_job = reopened.job(job_id);
+    if (point_job.id != job_id ||
+        point_job.state != postproject::JobState::requested) {
+      return 60;
     }
 
     auto claim = reopened.beginTransaction();
