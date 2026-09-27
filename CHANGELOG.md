@@ -9,6 +9,7 @@ Development version: `0.4.0-alpha.1`.
 
 ### Added
 
+- Documented publishing media through the OpenAssetIO Manager (ADR 0010).
 - Added point reads for assets, representations, and jobs, and a page of the
   representations using a resource, on every surface (C ABI 27).
 - Added tested documentation examples for every public operation. Every C

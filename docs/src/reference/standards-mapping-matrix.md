@@ -10,10 +10,11 @@ This matrix states design intent, not normative compliance.
 | W3C PROV Activity | Activity with input and output edges | Strong conceptual mapping | Export adapter deferred |
 | W3C PROV specialization | Stable representation plus a revision/fingerprint edge snapshot | Conceptual; export must mint a specialized Entity | Export adapter deferred |
 | W3C PROV relations | No live-dependency counterpart; dependencies remain separate from activity provenance and collection membership | Deliberate non-mapping | Export adapter must not invent a PROV relation |
-| OpenAssetIO Entity Reference | Versioned host-object binding | Manager boundary | Read-only Manager implemented |
-| OpenAssetIO locatable content | Representation, resource, and locator resolution | Strong conceptual mapping | Read-only Manager implemented |
+| OpenAssetIO Entity Reference | Versioned host-object binding | Manager boundary | Manager implemented |
+| OpenAssetIO locatable content | Representation, resource, and locator resolution | Strong conceptual mapping | Resolution and publishing implemented |
+| OpenAssetIO preflight and register | Requested job completed atomically with representation, trait metadata, and producing activity | Manager boundary | Publishing implemented |
 | OpenAssetIO relationship query | Typed dependency edge and forward/reverse traversal | Conceptual; traits remain at the adapter boundary | Relationship translation deferred |
-| OpenAssetIO-MediaCreation image collection | Image-sequence content structure and frame range | Conceptual; evolving traits require versioned adapter review | Image and frame-range traits implemented |
+| OpenAssetIO-MediaCreation image collection | Image-sequence content structure and frame range | Conceptual; evolving traits require versioned adapter review | Templated sequence location, image-collection, and frame-range traits implemented for resolution and publishing |
 | OpenUSD composition arc and resolved asset path | Typed dependency with exact authored reference and optional resolved representation | Conceptual; not a USD composition model or resolver | Extraction adapter deferred |
 | DCMI `requires` / `references` | Required dependency / broader typed dependency | Conceptual; kind retains the narrower application meaning | Vocabulary mapping deferred |
 | MovieLabs OMC directional asset relationship | Directed open-world dependency kind | Conceptual; OMC classes and vocabulary are not imported | Adapter deferred |

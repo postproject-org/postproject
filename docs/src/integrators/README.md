@@ -45,7 +45,8 @@ Use the pieces that solve real host problems:
 - {doc}`jobs-and-workers` when the host coordinates durable production work;
 - {doc}`reference-executor` as an example of the execution boundary, not as a requirement;
 - {doc}`bounded-queries` for scalable enumeration and traversal;
-- {doc}`revision-feed` for reacting to changes, including changes made by other processes.
+- {doc}`revision-feed` for reacting to changes, including changes made by other processes;
+- {doc}`openassetio-publishing` when an OpenAssetIO host publishes rendered media through the PostProject Manager.
 
 ## Every guide shows every surface
 
@@ -123,4 +124,5 @@ jobs-and-workers
 reference-executor
 bounded-queries
 revision-feed
+openassetio-publishing
 ```
