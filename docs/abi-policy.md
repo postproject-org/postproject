@@ -1,6 +1,6 @@
 # ABI policy
 
-ABI version 26 is pre-release and may change during the 0.x series, with every
+ABI version 27 is pre-release and may change during the 0.x series, with every
 change recorded in the changelog and ABI tests. `pp_abi_version()` reports the
 implemented version. Exported symbol names are unversioned until the first stable
 release, but removals or signature changes require an explicit ABI-version bump.
@@ -178,6 +178,12 @@ through sequence that is the next cursor. Revision waiters block for at most
 60 seconds until revisions after a sequence exist, observing commits from the
 same production immediately and from other processes by polling, and report
 timed-out, closed, and cancelled outcomes explicitly.
+
+ABI version 27 adds point reads. `pp_production_asset`,
+`pp_production_representation`, and `pp_production_job` return a one-element
+asset, representation, or job set and report an absent identity as
+`PP_ERROR_NOT_FOUND`. `pp_production_representations_using_resource` pages the
+representations that use a resource, because a resource may be shared.
 
 ## External identifiers
 

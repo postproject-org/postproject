@@ -555,6 +555,7 @@ EXPORTED_SYMBOLS = (
     "pp_production_activities_producing",
     "pp_production_activities_producing_page",
     "pp_production_artifact_reproducibility",
+    "pp_production_asset",
     "pp_production_asset_exists",
     "pp_production_assets",
     "pp_production_assets_page",
@@ -570,6 +571,7 @@ EXPORTED_SYMBOLS = (
     "pp_production_find_by_external_identifier",
     "pp_production_find_metadata",
     "pp_production_id",
+    "pp_production_job",
     "pp_production_jobs",
     "pp_production_latest_revision",
     "pp_production_locators_page",
@@ -586,9 +588,11 @@ EXPORTED_SYMBOLS = (
     "pp_production_provenance_descendants_page",
     "pp_production_query_metadata",
     "pp_production_release",
+    "pp_production_representation",
     "pp_production_representations",
     "pp_production_representations_page",
     "pp_production_representations_under_media_root",
+    "pp_production_representations_using_resource",
     "pp_production_resolve_asset",
     "pp_production_resources_page",
     "pp_production_revision_events",
@@ -683,6 +687,8 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_production_assets.restype = ErrorCode
     lib.pp_production_assets_page.argtypes = [ctypes.POINTER(Production), ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(AssetSet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_production_assets_page.restype = ErrorCode
+    lib.pp_production_asset.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.POINTER(AssetSet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_production_asset.restype = ErrorCode
     lib.pp_asset_set_count.argtypes = [ctypes.POINTER(AssetSet)]
     lib.pp_asset_set_count.restype = ctypes.c_uint64
     lib.pp_asset_set_next_cursor.argtypes = [ctypes.POINTER(AssetSet)]
@@ -705,6 +711,10 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_production_representations_page.restype = ErrorCode
     lib.pp_production_representations_under_media_root.argtypes = [ctypes.POINTER(Production), ctypes.c_char_p, ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(RepresentationSet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_production_representations_under_media_root.restype = ErrorCode
+    lib.pp_production_representation.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.POINTER(RepresentationSet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_production_representation.restype = ErrorCode
+    lib.pp_production_representations_using_resource.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(Uuid), ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(RepresentationSet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_production_representations_using_resource.restype = ErrorCode
     lib.pp_representation_set_count.argtypes = [ctypes.POINTER(RepresentationSet)]
     lib.pp_representation_set_count.restype = ctypes.c_uint64
     lib.pp_representation_set_next_cursor.argtypes = [ctypes.POINTER(RepresentationSet)]
@@ -927,6 +937,8 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_activity_set_release.restype = None
     lib.pp_production_jobs.argtypes = [ctypes.POINTER(Production), JobState, ctypes.c_char_p, ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(JobSet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_production_jobs.restype = ErrorCode
+    lib.pp_production_job.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.POINTER(JobSet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_production_job.restype = ErrorCode
     lib.pp_job_set_count.argtypes = [ctypes.POINTER(JobSet)]
     lib.pp_job_set_count.restype = ctypes.c_uint64
     lib.pp_job_set_next_cursor.argtypes = [ctypes.POINTER(JobSet)]

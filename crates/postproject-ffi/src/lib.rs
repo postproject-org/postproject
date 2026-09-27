@@ -152,7 +152,7 @@ const PP_REVISION_JOB_FAILED: u32 = 25;
 const PP_REVISION_JOB_CANCELLED: u32 = 26;
 
 /// Current pre-1.0 ABI version.
-pub const ABI_VERSION: u32 = 26;
+pub const ABI_VERSION: u32 = 27;
 
 /// Fixed-layout UUID-compatible public identifier.
 #[repr(C)]
@@ -710,6 +710,41 @@ pub unsafe extern "C" fn pp_production_assets(
                 .collect::<Result<Vec<_>, Error>>()?;
             out_assets.write(Box::into_raw(Box::new(PpAssetSet {
                 assets,
+                next_cursor: None,
+            })));
+            Ok(())
+        })
+    }
+}
+
+/// Reads one asset by identity as a one-element asset set.
+///
+/// # Safety
+///
+/// `production` and `asset_id` must be live, `out_assets` must be writable, and
+/// `out_error` may be null or writable. The returned set is caller-owned.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn pp_production_asset(
+    production: *const PpProduction,
+    asset_id: *const PpUuid,
+    out_assets: *mut *mut PpAssetSet,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: Outputs are initialized and pointers checked before use.
+    unsafe {
+        initialize_output(out_assets);
+        ffi_call(out_error, || {
+            let production = production
+                .as_ref()
+                .ok_or_else(|| invalid_argument("production must not be null"))?;
+            let asset_id = asset_id
+                .as_ref()
+                .ok_or_else(|| invalid_argument("asset_id must not be null"))?;
+            require_output(out_assets, "out_assets")?;
+            let asset =
+                lock_production(&production.state).asset(AssetId::from_bytes(asset_id.bytes))?;
+            out_assets.write(Box::into_raw(Box::new(PpAssetSet {
+                assets: vec![AbiAsset::try_from(&asset)?],
                 next_cursor: None,
             })));
             Ok(())
@@ -3193,6 +3228,37 @@ pub unsafe extern "C" fn pp_activity_set_release(activities: *mut PpActivitySet)
         // SAFETY: Ownership is transferred back exactly once by contract.
         drop(unsafe { Box::from_raw(activities) });
     }));
+}
+
+/// Reads one durable job by identity as a one-element job set.
+///
+/// # Safety
+///
+/// `production` and `job_id` must be live, `out_jobs` must be writable, and
+/// `out_error` may be null or writable. The returned set is caller-owned.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn pp_production_job(
+    production: *const PpProduction,
+    job_id: *const PpUuid,
+    out_jobs: *mut *mut PpJobSet,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: Inputs are checked before use and output ownership is explicit.
+    unsafe {
+        initialize_output(out_jobs);
+        ffi_call(out_error, || {
+            let production = production
+                .as_ref()
+                .ok_or_else(|| invalid_argument("production must not be null"))?;
+            let job_id = job_id
+                .as_ref()
+                .ok_or_else(|| invalid_argument("job_id must not be null"))?;
+            require_output(out_jobs, "out_jobs")?;
+            let job = lock_production(&production.state).job(JobId::from_bytes(job_id.bytes))?;
+            out_jobs.write(Box::into_raw(Box::new(PpJobSet::new_page(&[job], None)?)));
+            Ok(())
+        })
+    }
 }
 
 /// Queries one page of durable jobs in stable identity order.

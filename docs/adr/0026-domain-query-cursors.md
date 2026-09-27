@@ -91,6 +91,16 @@ journal suffix after the supplied sequence, so their cost grows with the number
 of events after that cursor, not with the production; callers keep that suffix
 short by advancing their cursor.
 
+A caller that already holds an identity, such as an adapter translating a
+host-object reference, reads the object directly rather than searching a page.
+Point reads load one asset, representation, or job by identity and report an
+absent identity as not found. Because the compound-media model allows several
+representations to share a resource, a resource does not name one owner: the
+representations using a resource are a bounded page in representation-identity
+order, backed by the existing resource-to-representation membership index. The
+C ABI returns a point read as a one-element result set of the same kind a page
+returns, so no new result type or accessor family is needed.
+
 Every native surface projects a page the same way. In C a query returns one
 owned result-set handle, released once, that exposes the item count and items,
 a nullable next-cursor string borrowed from that handle, and, for traversals, a

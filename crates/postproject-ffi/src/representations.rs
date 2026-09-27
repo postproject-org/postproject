@@ -109,9 +109,7 @@ pub unsafe extern "C" fn pp_production_representations(
             require_output(out_representations, "out_representations")?;
             let asset_id = AssetId::from_bytes(asset_id.bytes);
             let inner = lock_production(&production.state);
-            if !inner.assets()?.iter().any(|asset| asset.id() == asset_id) {
-                return Err(Error::new(ErrorKind::NotFound, "asset does not exist"));
-            }
+            inner.asset(asset_id)?;
             let mut representations = Vec::new();
             for representation in inner.representations(asset_id)? {
                 let mut resources = Vec::new();
@@ -159,6 +157,83 @@ pub unsafe extern "C" fn pp_production_representations_page(
             let inner = lock_production(&production.state);
             let page =
                 inner.representations_page(AssetId::from_bytes(asset_id.bytes), &page_request)?;
+            out_representations.write(Box::into_raw(Box::new(PpRepresentationSet::new_page(
+                &inner,
+                page.items(),
+                page.next_cursor(),
+            )?)));
+            Ok(())
+        })
+    }
+}
+
+/// Reads one representation by identity as a one-element representation set.
+///
+/// # Safety
+///
+/// `production` and `representation_id` must be live, `out_representations`
+/// must be writable, and `out_error` may be null or writable.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn pp_production_representation(
+    production: *const PpProduction,
+    representation_id: *const PpUuid,
+    out_representations: *mut *mut PpRepresentationSet,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    unsafe {
+        initialize_output(out_representations);
+        ffi_call(out_error, || {
+            let production = production
+                .as_ref()
+                .ok_or_else(|| invalid_argument("production must not be null"))?;
+            let representation_id = representation_id
+                .as_ref()
+                .ok_or_else(|| invalid_argument("representation_id must not be null"))?;
+            require_output(out_representations, "out_representations")?;
+            let inner = lock_production(&production.state);
+            let representation =
+                inner.representation(RepresentationId::from_bytes(representation_id.bytes))?;
+            out_representations.write(Box::into_raw(Box::new(PpRepresentationSet::new_page(
+                &inner,
+                &[representation],
+                None,
+            )?)));
+            Ok(())
+        })
+    }
+}
+
+/// Queries one bounded page of representations that use a resource.
+///
+/// # Safety
+///
+/// Pointer rules match [`pp_production_representations_page`]; `resource_id`
+/// must be live.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn pp_production_representations_using_resource(
+    production: *const PpProduction,
+    resource_id: *const PpUuid,
+    limit: u32,
+    cursor: *const c_char,
+    out_representations: *mut *mut PpRepresentationSet,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    unsafe {
+        initialize_output(out_representations);
+        ffi_call(out_error, || {
+            let production = production
+                .as_ref()
+                .ok_or_else(|| invalid_argument("production must not be null"))?;
+            let resource_id = resource_id
+                .as_ref()
+                .ok_or_else(|| invalid_argument("resource_id must not be null"))?;
+            require_output(out_representations, "out_representations")?;
+            let page_request = query_page_request(limit, cursor)?;
+            let inner = lock_production(&production.state);
+            let page = inner.representations_using_resource(
+                ResourceId::from_bytes(resource_id.bytes),
+                &page_request,
+            )?;
             out_representations.write(Box::into_raw(Box::new(PpRepresentationSet::new_page(
                 &inner,
                 page.items(),

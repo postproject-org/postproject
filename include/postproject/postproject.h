@@ -428,6 +428,11 @@ PP_API pp_error_code_t pp_production_assets(
 PP_API pp_error_code_t pp_production_assets_page(
     const pp_production_t *production, uint32_t limit, const char *cursor,
     pp_asset_set_t **out_assets, pp_error_t **out_error);
+/* Reads one asset as a one-element set. An absent asset is
+ * PP_ERROR_NOT_FOUND. */
+PP_API pp_error_code_t pp_production_asset(
+    const pp_production_t *production, const pp_uuid_t *asset_id,
+    pp_asset_set_t **out_assets, pp_error_t **out_error);
 PP_API uint64_t pp_asset_set_count(const pp_asset_set_t *assets);
 PP_API const char *pp_asset_set_next_cursor(const pp_asset_set_t *assets);
 PP_API pp_error_code_t pp_asset_set_get(
@@ -457,6 +462,16 @@ PP_API pp_error_code_t pp_production_representations_page(
     pp_representation_set_t **out_representations, pp_error_t **out_error);
 PP_API pp_error_code_t pp_production_representations_under_media_root(
     const pp_production_t *production, const char *root_name,
+    uint32_t limit, const char *cursor,
+    pp_representation_set_t **out_representations, pp_error_t **out_error);
+/* Reads one representation as a one-element set. An absent representation is
+ * PP_ERROR_NOT_FOUND. */
+PP_API pp_error_code_t pp_production_representation(
+    const pp_production_t *production, const pp_uuid_t *representation_id,
+    pp_representation_set_t **out_representations, pp_error_t **out_error);
+/* Pages the representations that use a resource, in identity order. */
+PP_API pp_error_code_t pp_production_representations_using_resource(
+    const pp_production_t *production, const pp_uuid_t *resource_id,
     uint32_t limit, const char *cursor,
     pp_representation_set_t **out_representations, pp_error_t **out_error);
 PP_API uint64_t pp_representation_set_count(
@@ -850,6 +865,10 @@ PP_API pp_error_code_t pp_production_jobs(
     const pp_production_t *production, pp_job_state_t state, const char *kind,
     uint32_t limit, const char *cursor, pp_job_set_t **out_jobs,
     pp_error_t **out_error);
+/* Reads one job as a one-element set. An absent job is PP_ERROR_NOT_FOUND. */
+PP_API pp_error_code_t pp_production_job(
+    const pp_production_t *production, const pp_uuid_t *job_id,
+    pp_job_set_t **out_jobs, pp_error_t **out_error);
 PP_API uint64_t pp_job_set_count(const pp_job_set_t *jobs);
 PP_API const char *pp_job_set_next_cursor(const pp_job_set_t *jobs);
 PP_API pp_error_code_t pp_job_set_get(

@@ -30,7 +30,7 @@ int main(int argc, char **argv) {
     return 64;
   }
   (void)remove(argv[1]);
-  if (pp_abi_version() != UINT32_C(26)) {
+  if (pp_abi_version() != UINT32_C(27)) {
     return 1;
   }
   pp_error_code_t status =
@@ -699,6 +699,94 @@ int main(int argc, char **argv) {
     return 84;
   }
   pp_object_query_set_release(resource_page);
+
+  pp_asset_set_t *point_asset = NULL;
+  pp_uuid_t point_asset_id = {{0}};
+  int64_t point_asset_created_at = 0;
+  const char *point_asset_name = NULL;
+  const char *point_asset_source = NULL;
+  status = pp_production_asset(production, &asset_id, &point_asset, &error);
+  if (status != PP_OK || point_asset == NULL ||
+      pp_asset_set_count(point_asset) != UINT64_C(1) ||
+      pp_asset_set_get(point_asset, UINT64_C(0), &point_asset_id,
+                       &point_asset_created_at, &point_asset_name,
+                       &point_asset_source, &error) != PP_OK ||
+      memcmp(point_asset_id.bytes, asset_id.bytes, sizeof(asset_id.bytes)) !=
+          0 ||
+      pp_asset_set_next_cursor(point_asset) != NULL) {
+    pp_asset_set_release(point_asset);
+    pp_resolution_set_release(resolutions);
+    pp_production_release(production);
+    pp_error_release(error);
+    return 110;
+  }
+  pp_asset_set_release(point_asset);
+
+  pp_representation_set_t *point_representation = NULL;
+  pp_uuid_t point_representation_id = {{0}};
+  pp_uuid_t point_representation_asset_id = {{0}};
+  pp_representation_kind_t point_kind = 0;
+  pp_content_structure_kind_t point_structure = 0;
+  uint64_t point_members = 0;
+  uint64_t point_resources = 0;
+  uint64_t point_fingerprints = 0;
+  status = pp_production_representation(production, &representation_id,
+                                        &point_representation, &error);
+  if (status != PP_OK || point_representation == NULL ||
+      pp_representation_set_count(point_representation) != UINT64_C(1) ||
+      pp_representation_set_get(
+          point_representation, UINT64_C(0), &point_representation_id,
+          &point_representation_asset_id, &point_kind, &point_structure,
+          &point_members, &point_resources, &point_fingerprints,
+          &error) != PP_OK ||
+      memcmp(point_representation_id.bytes, representation_id.bytes,
+             sizeof(representation_id.bytes)) != 0 ||
+      memcmp(point_representation_asset_id.bytes, asset_id.bytes,
+             sizeof(asset_id.bytes)) != 0) {
+    pp_representation_set_release(point_representation);
+    pp_resolution_set_release(resolutions);
+    pp_production_release(production);
+    pp_error_release(error);
+    return 111;
+  }
+  pp_representation_set_release(point_representation);
+  point_representation = NULL;
+
+  status = pp_production_representations_using_resource(
+      production, &resource_id, UINT32_C(10), NULL, &point_representation,
+      &error);
+  if (status != PP_OK || point_representation == NULL ||
+      pp_representation_set_count(point_representation) != UINT64_C(1) ||
+      pp_representation_set_get(
+          point_representation, UINT64_C(0), &point_representation_id,
+          &point_representation_asset_id, &point_kind, &point_structure,
+          &point_members, &point_resources, &point_fingerprints,
+          &error) != PP_OK ||
+      memcmp(point_representation_id.bytes, representation_id.bytes,
+             sizeof(representation_id.bytes)) != 0 ||
+      pp_representation_set_next_cursor(point_representation) != NULL) {
+    pp_representation_set_release(point_representation);
+    pp_resolution_set_release(resolutions);
+    pp_production_release(production);
+    pp_error_release(error);
+    return 112;
+  }
+  pp_representation_set_release(point_representation);
+  point_representation = NULL;
+
+  pp_uuid_t absent_id = {{0}};
+  absent_id.bytes[0] = 0xff;
+  status = pp_production_representation(production, &absent_id,
+                                        &point_representation, &error);
+  if (status != PP_ERROR_NOT_FOUND || point_representation != NULL) {
+    pp_representation_set_release(point_representation);
+    pp_resolution_set_release(resolutions);
+    pp_production_release(production);
+    pp_error_release(error);
+    return 113;
+  }
+  pp_error_release(error);
+  error = NULL;
 
   pp_locator_query_set_t *locator_page = NULL;
   status = pp_production_locators_page(
@@ -1369,6 +1457,20 @@ int main(int argc, char **argv) {
     pp_production_release(production);
     pp_error_release(error);
     return 83;
+  }
+  pp_job_set_release(jobs);
+  jobs = NULL;
+
+  status = pp_production_job(production, &job_id, &jobs, &error);
+  if (status != PP_OK || jobs == NULL ||
+      pp_job_set_count(jobs) != UINT64_C(1) ||
+      pp_job_set_get(jobs, UINT64_C(0), &job, &error) != PP_OK ||
+      memcmp(job.id.bytes, job_id.bytes, sizeof(job_id.bytes)) != 0 ||
+      job.state != PP_JOB_REQUESTED || pp_job_set_next_cursor(jobs) != NULL) {
+    pp_job_set_release(jobs);
+    pp_production_release(production);
+    pp_error_release(error);
+    return 114;
   }
   pp_job_set_release(jobs);
 
