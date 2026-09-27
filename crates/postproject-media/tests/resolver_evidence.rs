@@ -8,8 +8,9 @@ use postproject_core::{
     ResourceId, ResourceResolutionState, VocabularyId,
 };
 use postproject_media::{
-    InspectionOutcome, MediaInspector, MediaResolver, TECHNICAL_INSPECTION_PROPERTY,
-    TECHNICAL_METADATA_VOCABULARY, TechnicalMetadata, canonical_file_uri, prepare_media_root,
+    InspectionOutcome, MediaInspector, MediaResolver, ResolutionItem, SearchScope,
+    TECHNICAL_INSPECTION_PROPERTY, TECHNICAL_METADATA_VOCABULARY, TechnicalMetadata,
+    canonical_file_uri, prepare_media_root,
 };
 
 fn technical_metadata(label: &str) -> TechnicalMetadata {
@@ -79,16 +80,13 @@ fn technical_evidence_orders_a_misleading_filename_match() {
     };
     let root = prepare_media_root(&root_directory, None, 0).expect("root");
 
+    let locators = [locator];
+    let item = ResolutionItem::new(&resource, &structure, &locators)
+        .with_technical_evidence(&expected, &inspector);
     let resolution = MediaResolver::default()
-        .resolve_resource_with_technical_evidence(
-            &resource,
-            &structure,
-            &[locator],
-            &[root],
-            &[],
-            (&expected, &inspector),
-        )
-        .expect("resolve candidates");
+        .resolve(&[item], &SearchScope::new(vec![root], Vec::new()))
+        .expect("resolve candidates")
+        .remove(0);
 
     assert_eq!(resolution.state(), ResourceResolutionState::Ambiguous);
     assert!(resolution.candidates()[0].uri().contains("z_match"));

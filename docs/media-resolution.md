@@ -20,10 +20,14 @@ separate domain and may use different strategies.
 
 ## Resolution policy
 
-Resource resolution checks known locators first and scans configured roots only
-when necessary. Traversal is deterministic, does not follow symlinks, defaults
-to a depth limit of 64 and an entry limit of 100,000, and reports a structured
-error result when a bound or filesystem operation prevents a safe answer.
+Resource resolution checks known locators first and scans only when necessary.
+One call resolves many resources. It walks each mapped root and each unnamed
+search directory at most once, into an index shared by every resource in the
+call (ADR 0031). Traversal is deterministic and does not follow symlinks. Each
+directory has its own depth limit, 64 by default, and entry limit, 100,000 by
+default. A directory that exceeds its entry limit is searched partially and
+reported with `SearchTruncated` evidence, and the other directories and the
+candidates found so far are still used. A cancellation token stops the call.
 
 Presence and verification remain separate as required by ADR 0015. Normal
 resolution checks that a known locator and its declared members exist. Callers

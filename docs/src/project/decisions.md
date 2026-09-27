@@ -34,6 +34,7 @@ Read the relevant ADR before changing an invariant, a boundary, or a public cont
 
 - {doc}`ADR 0018 — Discovery index location </adr/0018-discovery-index-location>`
 - {doc}`ADR 0019 — Media inspection boundary </adr/0019-media-inspection-boundary>`
+- {doc}`ADR 0031 — Resolution scope, budgets, batches, and cancellation </adr/0031-resolution-scope-and-batches>`
 - {doc}`ADR 0023 — Job model and execution boundary </adr/0023-job-model-and-execution-boundary>`
 - {doc}`ADR 0025 — Reference local executor </adr/0025-reference-local-executor>`
 
@@ -80,4 +81,5 @@ Read the relevant ADR before changing an invariant, a boundary, or a public cont
 /adr/0028-comparable-and-foreign-fingerprint-domains
 /adr/0029-host-content-observation
 /adr/0030-canonical-locator-spelling
+/adr/0031-resolution-scope-and-batches
 ```

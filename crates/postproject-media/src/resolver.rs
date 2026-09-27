@@ -8,7 +8,7 @@ use std::{
 };
 
 use postproject_core::{
-    Confidence, ContentStructure, Error, ErrorKind, EvidenceKind, FileFacts,
+    CancellationToken, Confidence, ContentStructure, Error, ErrorKind, EvidenceKind, FileFacts,
     ImageSequenceDescriptor, Locator, MAX_SEQUENCE_EXCEPTIONS, MediaRoot, ResolutionCandidate,
     ResolutionEvidence, Resource, ResourceFingerprint, ResourceResolution, ResourceResolutionState,
     Result,
@@ -76,34 +76,118 @@ impl MediaRootMapping {
     }
 }
 
-struct Discovery {
-    candidates: BTreeMap<String, Vec<ResolutionEvidence>>,
-    diagnostics: Vec<ResolutionEvidence>,
-}
-
 struct SequenceCandidate {
     candidate: ResolutionCandidate,
     missing_frames: Vec<i64>,
 }
 
-struct SearchableRoots {
-    directories: Vec<(String, PathBuf)>,
-    diagnostics: Vec<ResolutionEvidence>,
+/// Where discovery searches when a resource is not at a known locator.
+///
+/// Logical media roots are production knowledge and are located through this
+/// machine's mappings (ADR 0017). Search directories are unnamed,
+/// machine-local places, such as a project folder or a former location, that
+/// are never recorded in the production.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct SearchScope {
+    media_roots: Vec<MediaRoot>,
+    root_mappings: Vec<MediaRootMapping>,
+    search_directories: Vec<PathBuf>,
 }
 
+impl SearchScope {
+    /// Creates a scope over the production's roots and this machine's mappings.
+    #[must_use]
+    pub fn new(media_roots: Vec<MediaRoot>, root_mappings: Vec<MediaRootMapping>) -> Self {
+        Self {
+            media_roots,
+            root_mappings,
+            search_directories: Vec::new(),
+        }
+    }
+
+    /// Adds an unnamed directory searched after the mapped roots.
+    ///
+    /// A directory that is unavailable when searched is reported as
+    /// discovery evidence rather than failing resolution.
+    #[must_use]
+    pub fn with_search_directory(mut self, directory: impl Into<PathBuf>) -> Self {
+        self.search_directories.push(directory.into());
+        self
+    }
+
+    /// Returns the production's media roots.
+    #[must_use]
+    pub fn media_roots(&self) -> &[MediaRoot] {
+        &self.media_roots
+    }
+
+    /// Returns this machine's root mappings.
+    #[must_use]
+    pub fn root_mappings(&self) -> &[MediaRootMapping] {
+        &self.root_mappings
+    }
+
+    /// Returns the unnamed search directories in search order.
+    #[must_use]
+    pub fn search_directories(&self) -> &[PathBuf] {
+        &self.search_directories
+    }
+}
+
+/// One resource to resolve, with the knowledge resolution needs about it.
 #[derive(Clone, Copy)]
-struct ResolutionContext<'a> {
-    verification: VerificationMode,
+pub struct ResolutionItem<'a> {
+    resource: &'a Resource,
+    structure: &'a ContentStructure,
+    known_locators: &'a [Locator],
     technical_evidence: Option<(&'a TechnicalMetadata, &'a dyn MediaInspector)>,
 }
 
-/// Resource limits applied to one resolver operation.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+impl<'a> ResolutionItem<'a> {
+    /// Describes a resource of `structure` and its recorded locators.
+    #[must_use]
+    pub const fn new(
+        resource: &'a Resource,
+        structure: &'a ContentStructure,
+        known_locators: &'a [Locator],
+    ) -> Self {
+        Self {
+            resource,
+            structure,
+            known_locators,
+            technical_evidence: None,
+        }
+    }
+
+    /// Scores discovered candidates against an inspection persisted at import.
+    ///
+    /// Technical matches are partial identity evidence only. They can order
+    /// candidates but never turn an ambiguous result into an automatic choice.
+    /// Missing or failed inspection degrades to the other available evidence.
+    #[must_use]
+    pub fn with_technical_evidence(
+        mut self,
+        expected: &'a TechnicalMetadata,
+        inspector: &'a dyn MediaInspector,
+    ) -> Self {
+        self.technical_evidence = Some((expected, inspector));
+        self
+    }
+}
+
+/// Resource limits and cancellation applied to one resolver operation.
+#[derive(Clone, Debug)]
 pub struct ResolverOptions {
-    /// Maximum directory depth, where the root itself has depth zero.
+    /// Maximum directory depth, where a searched directory itself has depth zero.
     pub max_depth: usize,
-    /// Maximum number of directory entries visited across all roots.
-    pub max_entries: usize,
+    /// Maximum number of entries visited below each searched directory. A
+    /// directory with more entries is searched partially and reported with
+    /// [`EvidenceKind::SearchTruncated`].
+    pub max_entries_per_directory: usize,
+    /// Cost tier for resources found at a known locator.
+    pub verification: VerificationMode,
+    /// Token polled while scanning and hashing.
+    pub cancellation: Option<CancellationToken>,
 }
 
 /// Cost tier requested for one resolution call.
@@ -121,13 +205,15 @@ impl Default for ResolverOptions {
     fn default() -> Self {
         Self {
             max_depth: 64,
-            max_entries: 100_000,
+            max_entries_per_directory: 100_000,
+            verification: VerificationMode::Presence,
+            cancellation: None,
         }
     }
 }
 
 /// Resolves unavailable representations under configured filesystem roots.
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default)]
 pub struct MediaResolver {
     options: ResolverOptions,
 }
@@ -139,7 +225,7 @@ impl MediaResolver {
     ///
     /// Returns [`ErrorKind::InvalidArgument`] if either limit is zero.
     pub fn new(options: ResolverOptions) -> Result<Self> {
-        if options.max_depth == 0 || options.max_entries == 0 {
+        if options.max_depth == 0 || options.max_entries_per_directory == 0 {
             return Err(Error::new(
                 ErrorKind::InvalidArgument,
                 "resolver depth and entry limits must be greater than zero",
@@ -148,19 +234,43 @@ impl MediaResolver {
         Ok(Self { options })
     }
 
-    /// Resolves one resource without mutating production state.
+    /// Resolves resources without mutating production state.
     ///
-    /// Known locators are checked before roots. Root traversal does not follow
-    /// symlinks, is ordered by filename, stops at configured bounds, filters by
+    /// Known locators are checked first. Every directory in `scope` is then
+    /// walked at most once for the whole call, and the resulting index is
+    /// shared by every resource that needs discovery, so resolving many
+    /// offline resources together costs one scan. Traversal does not follow
+    /// symlinks, is ordered by filename, is bounded per directory, filters by
     /// stored size before hashing, and returns all equally credible matches.
+    /// Results are in item order.
     ///
     /// # Errors
     ///
     /// Returns [`ErrorKind::InvalidArgument`] if a known locator belongs to a
-    /// different resource, and otherwise only when a result value cannot
-    /// be constructed.
-    /// Filesystem discovery failures are represented as
-    /// [`ResourceResolutionState::Error`] with [`EvidenceKind::DiscoveryError`].
+    /// different resource or a resource is not part of its structure,
+    /// [`ErrorKind::Cancelled`] when the options' token is cancelled, and
+    /// otherwise only when a result value cannot be constructed. Filesystem
+    /// discovery failures are represented as evidence in the results.
+    pub fn resolve(
+        &self,
+        items: &[ResolutionItem<'_>],
+        scope: &SearchScope,
+    ) -> Result<Vec<ResourceResolution>> {
+        let mut index = LazyIndex::default();
+        items
+            .iter()
+            .map(|item| {
+                self.check_cancelled()?;
+                self.resolve_item(item, scope, &mut index)
+            })
+            .collect()
+    }
+
+    /// Resolves one resource under roots and mappings at the presence tier.
+    ///
+    /// # Errors
+    ///
+    /// Returns the errors of [`Self::resolve`].
     pub fn resolve_resource(
         &self,
         resource: &Resource,
@@ -169,126 +279,55 @@ impl MediaResolver {
         media_roots: &[MediaRoot],
         root_mappings: &[MediaRootMapping],
     ) -> Result<ResourceResolution> {
-        self.resolve_resource_with_verification(
-            resource,
-            structure,
-            known_locators,
-            media_roots,
-            root_mappings,
-            VerificationMode::Presence,
-        )
+        let scope = SearchScope::new(media_roots.to_vec(), root_mappings.to_vec());
+        self.resolve(
+            &[ResolutionItem::new(resource, structure, known_locators)],
+            &scope,
+        )?
+        .pop()
+        .ok_or_else(|| Error::new(ErrorKind::Internal, "resolution returned no result"))
     }
 
-    /// Resolves one resource at an explicit presence or content-verification tier.
-    ///
-    /// # Errors
-    ///
-    /// Returns the same argument and result-construction errors as
-    /// [`Self::resolve_resource`]. Verification failures are represented in the
-    /// returned result rather than failing the call.
-    pub fn resolve_resource_with_verification(
-        &self,
-        resource: &Resource,
-        structure: &ContentStructure,
-        known_locators: &[Locator],
-        media_roots: &[MediaRoot],
-        root_mappings: &[MediaRootMapping],
-        verification: VerificationMode,
-    ) -> Result<ResourceResolution> {
-        self.resolve_resource_with_context(
-            resource,
-            structure,
-            known_locators,
-            media_roots,
-            root_mappings,
-            ResolutionContext {
-                verification,
-                technical_evidence: None,
-            },
-        )
+    fn check_cancelled(&self) -> Result<()> {
+        self.options
+            .cancellation
+            .as_ref()
+            .map_or(Ok(()), CancellationToken::check)
     }
 
-    /// Resolves one resource and optionally scores candidates using an
-    /// inspection result persisted at import time.
-    ///
-    /// Technical matches are partial identity evidence only. They can order
-    /// candidates but never turn an ambiguous result into an automatic choice.
-    /// Missing or failed inspection degrades to the other available evidence.
-    ///
-    /// # Errors
-    ///
-    /// Returns the same errors as [`Self::resolve_resource_with_verification`].
-    pub fn resolve_resource_with_technical_evidence(
+    fn resolve_item(
         &self,
-        resource: &Resource,
-        structure: &ContentStructure,
-        known_locators: &[Locator],
-        media_roots: &[MediaRoot],
-        root_mappings: &[MediaRootMapping],
-        technical_evidence: (&TechnicalMetadata, &dyn MediaInspector),
+        item: &ResolutionItem<'_>,
+        scope: &SearchScope,
+        index: &mut LazyIndex,
     ) -> Result<ResourceResolution> {
-        self.resolve_resource_with_context(
-            resource,
-            structure,
-            known_locators,
-            media_roots,
-            root_mappings,
-            ResolutionContext {
-                verification: VerificationMode::Content,
-                technical_evidence: Some(technical_evidence),
-            },
-        )
-    }
-
-    fn resolve_resource_with_context(
-        &self,
-        resource: &Resource,
-        structure: &ContentStructure,
-        known_locators: &[Locator],
-        media_roots: &[MediaRoot],
-        root_mappings: &[MediaRootMapping],
-        context: ResolutionContext<'_>,
-    ) -> Result<ResourceResolution> {
-        validate_resolution_inputs(resource, structure, known_locators)?;
-        if let Some(resolution) = self.resolve_known_resource(
-            resource,
-            structure,
-            known_locators,
-            media_roots,
-            root_mappings,
-            context,
-        )? {
+        validate_resolution_inputs(item.resource, item.structure, item.known_locators)?;
+        if let Some(resolution) = self.resolve_known_resource(item, scope, index)? {
             return Ok(resolution);
         }
-
-        self.resolve_discovered_file(
-            resource,
-            known_locators,
-            media_roots,
-            root_mappings,
-            context.technical_evidence,
-        )
+        let index = index.get(self, scope)?;
+        self.resolve_discovered_file(item, index)
     }
 
     fn resolve_known_resource(
         &self,
-        resource: &Resource,
-        structure: &ContentStructure,
-        known_locators: &[Locator],
-        media_roots: &[MediaRoot],
-        root_mappings: &[MediaRootMapping],
-        context: ResolutionContext<'_>,
+        item: &ResolutionItem<'_>,
+        scope: &SearchScope,
+        index: &mut LazyIndex,
     ) -> Result<Option<ResourceResolution>> {
-        if let Some(sequence) = structure
+        let resource = item.resource;
+        if let Some(sequence) = item
+            .structure
             .image_sequence_descriptor()
             .filter(|sequence| sequence.resource_id() == resource.id())
         {
             let (candidate, missing_frames) =
-                match online_sequence_candidate(known_locators, sequence) {
+                match online_sequence_candidate(item.known_locators, sequence) {
                     Ok(Some(result)) => result,
                     Ok(None) => {
+                        let index = index.get(self, scope)?;
                         return self
-                            .resolve_moved_sequence(resource, sequence, media_roots, root_mappings)
+                            .resolve_moved_sequence(resource, sequence, index)
                             .map(Some);
                     }
                     Err(detail) => return error_resolution(resource.id(), detail).map(Some),
@@ -300,13 +339,15 @@ impl MediaResolver {
                 Vec::new(),
             )?
             .with_missing_frames(missing_frames)?;
-            if context.verification == VerificationMode::Content {
+            if self.options.verification == VerificationMode::Content {
+                self.check_cancelled()?;
                 return verify_known_sequence(resource, sequence, &resolution).map(Some);
             }
             return Ok(Some(resolution));
         }
-        if let Some(candidate) = online_known_candidate(known_locators)? {
-            if context.verification == VerificationMode::Content {
+        if let Some(candidate) = online_known_candidate(item.known_locators)? {
+            if self.options.verification == VerificationMode::Content {
+                self.check_cancelled()?;
                 return verify_known_file(resource, &candidate).map(Some);
             }
             return ResourceResolution::new(
@@ -322,31 +363,30 @@ impl MediaResolver {
 
     fn resolve_discovered_file(
         &self,
-        resource: &Resource,
-        known_locators: &[Locator],
-        media_roots: &[MediaRoot],
-        root_mappings: &[MediaRootMapping],
-        technical_evidence: Option<(&TechnicalMetadata, &dyn MediaInspector)>,
+        item: &ResolutionItem<'_>,
+        index: &IndexState,
     ) -> Result<ResourceResolution> {
-        let original_path = known_locators
+        let resource = item.resource;
+        let index = match index {
+            IndexState::Ready(index) => index,
+            IndexState::Failed(detail) => return error_resolution(resource.id(), detail.clone()),
+        };
+        let original_path = item
+            .known_locators
             .iter()
             .find_map(|locator| local_file_path(locator.uri()).ok());
         let original_name = original_path.as_deref().and_then(Path::file_name);
         let fingerprints = FileFingerprints::classify(resource.fingerprints());
-        let mut discovered = match self.discover(
-            media_roots,
-            root_mappings,
+        let mut discovered = index.discover(
             resource.file_facts(),
             !fingerprints.comparable.is_empty(),
             original_name,
             original_path.as_deref(),
-        ) {
-            Ok(discovered) => discovered,
-            Err(detail) => return error_resolution(resource.id(), detail),
-        };
+        );
 
         let mut candidates = Vec::new();
-        for (uri, cheap_evidence) in discovered.candidates {
+        for (uri, (root, cheap_evidence)) in discovered.candidates {
+            self.check_cancelled()?;
             let path = local_file_path(&uri).map_err(|error| {
                 Error::new(
                     ErrorKind::Internal,
@@ -354,14 +394,19 @@ impl MediaResolver {
                 )
             })?;
             let technical_match = fingerprints.comparable.is_empty()
-                && technical_evidence.is_some_and(|(expected, inspector)| {
-                    matches!(
-                        inspector.inspect(&path),
-                        Ok(InspectionOutcome::Inspected(actual)) if actual == *expected
-                    )
-                });
+                && item
+                    .technical_evidence
+                    .is_some_and(|(expected, inspector)| {
+                        matches!(
+                            inspector.inspect(&path),
+                            Ok(InspectionOutcome::Inspected(actual)) if actual == *expected
+                        )
+                    });
             match verify_candidate(&path, &uri, cheap_evidence, &fingerprints, technical_match) {
-                Ok(Some(candidate)) => candidates.push(candidate),
+                Ok(Some(candidate)) => candidates.push(match root {
+                    Some(root) => candidate.with_media_root(root)?,
+                    None => candidate,
+                }),
                 Ok(None) => {}
                 Err(detail) => discovered.diagnostics.push(ResolutionEvidence::new(
                     EvidenceKind::DiscoveryError,
@@ -396,14 +441,35 @@ impl MediaResolver {
         &self,
         resource: &Resource,
         descriptor: &ImageSequenceDescriptor,
-        roots: &[MediaRoot],
-        mappings: &[MediaRootMapping],
+        index: &IndexState,
     ) -> Result<ResourceResolution> {
-        let (found, mut diagnostics) =
-            match self.discover_sequences(roots, mappings, descriptor, resource.fingerprints()) {
-                Ok(found) => found,
-                Err(detail) => return error_resolution(resource.id(), detail),
-            };
+        let index = match index {
+            IndexState::Ready(index) => index,
+            IndexState::Failed(detail) => return error_resolution(resource.id(), detail.clone()),
+        };
+        let mut diagnostics = index.diagnostics.clone();
+        let mut found = BTreeMap::new();
+        for (root, directory) in index.sequence_directories(descriptor) {
+            self.check_cancelled()?;
+            match verify_sequence_directory(
+                directory,
+                root.as_deref(),
+                descriptor,
+                resource.fingerprints(),
+            ) {
+                Ok(Some(candidate)) => {
+                    found
+                        .entry(candidate.candidate.uri().to_owned())
+                        .or_insert(candidate);
+                }
+                Ok(None) => {}
+                Err(detail) => diagnostics.push(ResolutionEvidence::new(
+                    EvidenceKind::DiscoveryError,
+                    Some(format!("{}: {detail}", directory.display())),
+                )),
+            }
+        }
+        let found = found.into_values().collect::<Vec<_>>();
         let state = match found.len() {
             0 if !diagnostics.is_empty() => ResourceResolutionState::Error,
             0 => ResourceResolutionState::Offline,
@@ -429,127 +495,186 @@ impl MediaResolver {
         )?
         .with_missing_frames(missing_frames)
     }
+}
 
-    fn discover_sequences(
-        &self,
-        roots: &[MediaRoot],
-        mappings: &[MediaRootMapping],
-        descriptor: &ImageSequenceDescriptor,
-        fingerprints: &[ResourceFingerprint],
-    ) -> std::result::Result<(Vec<SequenceCandidate>, Vec<ResolutionEvidence>), String> {
-        let search = searchable_roots(roots, mappings)?;
-        let mut found = BTreeMap::new();
-        let mut entries_seen = 0_usize;
-        for (root_name, root_path) in search.directories {
-            for entry in WalkDir::new(&root_path)
-                .follow_links(false)
-                .max_depth(self.options.max_depth)
-                .sort_by_file_name()
-            {
-                entries_seen = entries_seen.saturating_add(1);
-                if entries_seen > self.options.max_entries {
-                    return Err(format!(
-                        "resolver entry limit {} exceeded",
-                        self.options.max_entries
-                    ));
-                }
-                let entry =
-                    entry.map_err(|error| format!("scan {}: {error}", root_path.display()))?;
-                if !entry.file_type().is_dir() {
-                    continue;
-                }
-                let Some(candidate) =
-                    verify_sequence_directory(entry.path(), &root_name, descriptor, fingerprints)?
-                else {
-                    continue;
-                };
-                found
-                    .entry(candidate.candidate.uri().to_owned())
-                    .or_insert(candidate);
-            }
+/// The directory index of one resolution call, built on first use.
+#[derive(Default)]
+struct LazyIndex(Option<IndexState>);
+
+impl LazyIndex {
+    fn get(&mut self, resolver: &MediaResolver, scope: &SearchScope) -> Result<&IndexState> {
+        if self.0.is_none() {
+            self.0 = Some(DirectoryIndex::build(resolver, scope)?);
         }
-        Ok((found.into_values().collect(), search.diagnostics))
+        self.0
+            .as_ref()
+            .ok_or_else(|| Error::new(ErrorKind::Internal, "directory index was not built"))
+    }
+}
+
+enum IndexState {
+    Ready(DirectoryIndex),
+    /// The scope itself is unusable, for example a root mapped twice.
+    Failed(String),
+}
+
+/// Every regular file below the searched directories, in search order.
+struct DirectoryIndex {
+    files: Vec<IndexedFile>,
+    diagnostics: Vec<ResolutionEvidence>,
+}
+
+struct IndexedFile {
+    root: Option<String>,
+    path: PathBuf,
+    size: u64,
+}
+
+struct Discovery {
+    candidates: BTreeMap<String, (Option<String>, Vec<ResolutionEvidence>)>,
+    diagnostics: Vec<ResolutionEvidence>,
+}
+
+impl DirectoryIndex {
+    fn build(resolver: &MediaResolver, scope: &SearchScope) -> Result<IndexState> {
+        let search = match searchable_directories(scope) {
+            Ok(search) => search,
+            Err(detail) => return Ok(IndexState::Failed(detail)),
+        };
+        let mut index = Self {
+            files: Vec::new(),
+            diagnostics: search.diagnostics,
+        };
+        for directory in search.directories {
+            index.scan(resolver, &directory)?;
+        }
+        Ok(IndexState::Ready(index))
+    }
+
+    fn scan(&mut self, resolver: &MediaResolver, directory: &SearchDirectory) -> Result<()> {
+        let options = &resolver.options;
+        let mut entries_seen = 0_usize;
+        for entry in WalkDir::new(&directory.path)
+            .follow_links(false)
+            .max_depth(options.max_depth)
+            .sort_by_file_name()
+        {
+            resolver.check_cancelled()?;
+            entries_seen = entries_seen.saturating_add(1);
+            if entries_seen > options.max_entries_per_directory {
+                self.diagnostics.push(ResolutionEvidence::new(
+                    EvidenceKind::SearchTruncated,
+                    Some(format!(
+                        "{}: entry limit {} reached",
+                        directory.label, options.max_entries_per_directory
+                    )),
+                ));
+                break;
+            }
+            let entry = match entry {
+                Ok(entry) => entry,
+                Err(error) => {
+                    self.diagnostics.push(ResolutionEvidence::new(
+                        if directory.root.is_some() {
+                            EvidenceKind::MediaRootUnavailable
+                        } else {
+                            EvidenceKind::DiscoveryError
+                        },
+                        Some(format!("{}: {error}", directory.label)),
+                    ));
+                    continue;
+                }
+            };
+            if !entry.file_type().is_file() {
+                continue;
+            }
+            let Some(metadata) = ok_or_discovery_error(
+                &mut self.diagnostics,
+                entry
+                    .metadata()
+                    .map_err(|error| format!("inspect {}: {error}", entry.path().display())),
+            ) else {
+                continue;
+            };
+            self.files.push(IndexedFile {
+                root: directory.root.clone(),
+                path: entry.into_path(),
+                size: metadata.len(),
+            });
+        }
+        Ok(())
     }
 
     fn discover(
         &self,
-        roots: &[MediaRoot],
-        mappings: &[MediaRootMapping],
         facts: Option<FileFacts>,
         has_comparable_fingerprint: bool,
         original_name: Option<&OsStr>,
         original_path: Option<&Path>,
-    ) -> std::result::Result<Discovery, String> {
-        let search = searchable_roots(roots, mappings)?;
+    ) -> Discovery {
         let mut discovered = BTreeMap::new();
-        let mut diagnostics = search.diagnostics;
-        let mut entries_seen = 0_usize;
-        for (root_name, root_path) in search.directories {
-            for entry in WalkDir::new(&root_path)
-                .follow_links(false)
-                .max_depth(self.options.max_depth)
-                .sort_by_file_name()
-            {
-                entries_seen = entries_seen.saturating_add(1);
-                if entries_seen > self.options.max_entries {
-                    return Err(format!(
-                        "resolver entry limit {} exceeded",
-                        self.options.max_entries
-                    ));
-                }
-                let entry = match entry {
-                    Ok(entry) => entry,
-                    Err(error) => {
-                        diagnostics.push(ResolutionEvidence::new(
-                            EvidenceKind::MediaRootUnavailable,
-                            Some(format!("{root_name}: {error}")),
-                        ));
-                        continue;
-                    }
-                };
-                if !entry.file_type().is_file() {
-                    continue;
-                }
-                let Some(metadata) = ok_or_discovery_error(
-                    &mut diagnostics,
-                    entry
-                        .metadata()
-                        .map_err(|error| format!("inspect {}: {error}", entry.path().display())),
-                ) else {
-                    continue;
-                };
-                if facts.is_some_and(|facts| metadata.len() != facts.size_bytes()) {
-                    continue;
-                }
-                let filename_matches = original_name.is_some_and(|name| entry.file_name() == name);
-                if (!has_comparable_fingerprint || facts.is_none()) && !filename_matches {
-                    continue;
-                }
-                let Some(uri) = ok_or_discovery_error(
-                    &mut diagnostics,
-                    canonical_file_uri(entry.path())
-                        .map_err(|error| format!("{}: {error}", entry.path().display())),
-                ) else {
-                    continue;
-                };
-                let mut evidence = vec![ResolutionEvidence::new(
-                    EvidenceKind::MediaRootRelation,
-                    Some(root_name.clone()),
-                )];
-                if facts.is_some() {
-                    evidence.push(ResolutionEvidence::new(EvidenceKind::FileSizeMatch, None));
-                }
-                if filename_matches {
-                    evidence.push(ResolutionEvidence::new(EvidenceKind::FileNameMatch, None));
-                }
-                add_relative_path_evidence(&mut evidence, original_path, entry.path());
-                discovered.entry(uri).or_insert(evidence);
+        let mut diagnostics = self.diagnostics.clone();
+        for file in &self.files {
+            if facts.is_some_and(|facts| file.size != facts.size_bytes()) {
+                continue;
             }
+            let filename_matches =
+                original_name.is_some_and(|name| file.path.file_name() == Some(name));
+            if (!has_comparable_fingerprint || facts.is_none()) && !filename_matches {
+                continue;
+            }
+            let Some(uri) = ok_or_discovery_error(
+                &mut diagnostics,
+                canonical_file_uri(&file.path)
+                    .map_err(|error| format!("{}: {error}", file.path.display())),
+            ) else {
+                continue;
+            };
+            let mut evidence = Vec::new();
+            if let Some(root) = &file.root {
+                evidence.push(ResolutionEvidence::new(
+                    EvidenceKind::MediaRootRelation,
+                    Some(root.clone()),
+                ));
+            }
+            if facts.is_some() {
+                evidence.push(ResolutionEvidence::new(EvidenceKind::FileSizeMatch, None));
+            }
+            if filename_matches {
+                evidence.push(ResolutionEvidence::new(EvidenceKind::FileNameMatch, None));
+            }
+            add_relative_path_evidence(&mut evidence, original_path, &file.path);
+            discovered
+                .entry(uri)
+                .or_insert((file.root.clone(), evidence));
         }
-        Ok(Discovery {
+        Discovery {
             candidates: discovered,
             diagnostics,
-        })
+        }
+    }
+
+    /// Returns directories holding the sequence's first expected frame, each
+    /// once, with the root it was found under.
+    fn sequence_directories(
+        &self,
+        descriptor: &ImageSequenceDescriptor,
+    ) -> Vec<(&Option<String>, &Path)> {
+        let frames = descriptor.frames();
+        let mut frame = frames.start();
+        while descriptor.is_known_missing(frame) && frame != frames.end() {
+            frame += i64::from(frames.step());
+        }
+        let first = descriptor.pattern().filename(frame);
+        let mut seen = BTreeSet::new();
+        self.files
+            .iter()
+            .filter(|file| file.path.file_name() == Some(OsStr::new(&first)))
+            .filter_map(|file| {
+                let parent = file.path.parent()?;
+                seen.insert(parent).then_some((&file.root, parent))
+            })
+            .collect()
     }
 }
 
@@ -591,12 +716,24 @@ fn validate_resolution_inputs(
     Ok(())
 }
 
-fn searchable_roots(
-    roots: &[MediaRoot],
-    mappings: &[MediaRootMapping],
-) -> std::result::Result<SearchableRoots, String> {
+struct SearchDirectory {
+    root: Option<String>,
+    label: String,
+    path: PathBuf,
+}
+
+struct SearchableDirectories {
+    directories: Vec<SearchDirectory>,
+    diagnostics: Vec<ResolutionEvidence>,
+}
+
+/// Orders enabled mapped roots by priority, then the unnamed search
+/// directories, reporting unmapped and unavailable ones as evidence.
+fn searchable_directories(
+    scope: &SearchScope,
+) -> std::result::Result<SearchableDirectories, String> {
     let mut by_name = BTreeMap::new();
-    for mapping in mappings {
+    for mapping in scope.root_mappings() {
         if by_name
             .insert(mapping.name(), mapping.directory())
             .is_some()
@@ -607,12 +744,13 @@ fn searchable_roots(
             ));
         }
     }
-    let mut ordered = roots
+    let mut ordered = scope
+        .media_roots()
         .iter()
         .filter(|root| root.is_enabled())
         .collect::<Vec<_>>();
     ordered.sort_by_key(|root| (root.priority(), root.id()));
-    let mut searchable = Vec::new();
+    let mut directories = Vec::new();
     let mut diagnostics = Vec::new();
     for root in ordered {
         let legacy = root
@@ -628,7 +766,11 @@ fn searchable_roots(
             continue;
         };
         if path.is_dir() {
-            searchable.push((root.name().to_owned(), path.to_path_buf()));
+            directories.push(SearchDirectory {
+                root: Some(root.name().to_owned()),
+                label: root.name().to_owned(),
+                path: path.to_path_buf(),
+            });
         } else {
             diagnostics.push(ResolutionEvidence::new(
                 EvidenceKind::MediaRootUnavailable,
@@ -636,15 +778,32 @@ fn searchable_roots(
             ));
         }
     }
-    Ok(SearchableRoots {
-        directories: searchable,
+    for path in scope.search_directories() {
+        if path.is_dir() {
+            directories.push(SearchDirectory {
+                root: None,
+                label: path.display().to_string(),
+                path: path.clone(),
+            });
+        } else {
+            diagnostics.push(ResolutionEvidence::new(
+                EvidenceKind::DiscoveryError,
+                Some(format!(
+                    "search directory is unavailable: {}",
+                    path.display()
+                )),
+            ));
+        }
+    }
+    Ok(SearchableDirectories {
+        directories,
         diagnostics,
     })
 }
 
 fn verify_sequence_directory(
     directory: &Path,
-    root_name: &str,
+    root_name: Option<&str>,
     descriptor: &ImageSequenceDescriptor,
     fingerprints: &[ResourceFingerprint],
 ) -> std::result::Result<Option<SequenceCandidate>, String> {
@@ -656,18 +815,19 @@ fn verify_sequence_directory(
         fingerprint.algorithm() == SEQUENCE_FINGERPRINT_ALGORITHM
             && fingerprint.version() == crate::SEQUENCE_FINGERPRINT_VERSION
     });
-    let mut evidence = vec![
-        ResolutionEvidence::new(EvidenceKind::MediaRootRelation, Some(root_name.to_owned())),
-        ResolutionEvidence::new(
-            EvidenceKind::FileNameMatch,
-            Some(format!(
-                "{}%0{}d{}",
-                descriptor.pattern().prefix(),
-                descriptor.pattern().padding(),
-                descriptor.pattern().suffix()
-            )),
-        ),
-    ];
+    let mut evidence = root_name
+        .map(|root| ResolutionEvidence::new(EvidenceKind::MediaRootRelation, Some(root.to_owned())))
+        .into_iter()
+        .collect::<Vec<_>>();
+    evidence.push(ResolutionEvidence::new(
+        EvidenceKind::FileNameMatch,
+        Some(format!(
+            "{}%0{}d{}",
+            descriptor.pattern().prefix(),
+            descriptor.pattern().padding(),
+            descriptor.pattern().suffix()
+        )),
+    ));
     let confidence = if let Some(expected) = expected {
         let report =
             fingerprint_image_sequence(directory, descriptor).map_err(|error| error.to_string())?;
@@ -690,8 +850,13 @@ fn verify_sequence_directory(
         Confidence::from_basis_points(7_000).map_err(|error| error.to_string())?
     };
     let uri = canonical_file_uri(directory).map_err(|error| error.to_string())?;
-    let candidate =
+    let mut candidate =
         ResolutionCandidate::new(uri, confidence, evidence).map_err(|error| error.to_string())?;
+    if let Some(root) = root_name {
+        candidate = candidate
+            .with_media_root(root)
+            .map_err(|error| error.to_string())?;
+    }
     Ok(Some(SequenceCandidate {
         candidate,
         missing_frames,
@@ -1167,14 +1332,13 @@ mod tests {
             ResourceResolutionState::OnlineAtKnownLocator
         );
 
-        let verified = MediaResolver::default()
-            .resolve_resource_with_verification(
+        let verified = content_resolver()
+            .resolve_resource(
                 &prepared.resources()[0],
                 prepared.representation().content_structure(),
                 prepared.locators(),
                 &[],
                 &[],
-                VerificationMode::Content,
             )
             .expect("verification result");
         assert_eq!(verified.state(), ResourceResolutionState::Error);
@@ -1362,6 +1526,14 @@ mod tests {
         );
     }
 
+    fn content_resolver() -> MediaResolver {
+        MediaResolver::new(ResolverOptions {
+            verification: VerificationMode::Content,
+            ..ResolverOptions::default()
+        })
+        .expect("valid options")
+    }
+
     fn with_only_foreign_fingerprint(resource: &Resource) -> Resource {
         Resource::new(
             resource.id(),
@@ -1430,14 +1602,13 @@ mod tests {
         let prepared = prepare_original_media(&path, None, None).expect("prepare import");
         let resource = with_only_foreign_fingerprint(&prepared.resources()[0]);
 
-        let verified = MediaResolver::default()
-            .resolve_resource_with_verification(
+        let verified = content_resolver()
+            .resolve_resource(
                 &resource,
                 prepared.representation().content_structure(),
                 prepared.locators(),
                 &[],
                 &[],
-                VerificationMode::Content,
             )
             .expect("verify known locator");
 
@@ -1489,6 +1660,10 @@ mod tests {
 
         assert_eq!(resolution.state(), ResourceResolutionState::ResolvedExact);
         assert_eq!(resolution.candidates().len(), 1);
+        assert_eq!(
+            resolution.candidates()[0].media_root(),
+            Some("camera-originals")
+        );
     }
 
     #[test]
@@ -1621,34 +1796,103 @@ mod tests {
     }
 
     #[test]
-    fn scan_limit_is_an_explainable_error_result() {
+    fn oversized_directory_is_searched_partially_without_hiding_other_directories() {
         let directory = tempfile::tempdir().expect("create directory");
-        let old_path = directory.path().join("old.mov");
+        let old_path = directory.path().join("old").join("clip.mov");
+        fs::create_dir(directory.path().join("old")).expect("create old directory");
         fs::write(&old_path, b"media").expect("write original");
         let prepared = prepare_original_media(&old_path, None, None).expect("prepare import");
         fs::remove_file(&old_path).expect("remove old locator target");
-        fs::write(directory.path().join("candidate.mov"), b"media").expect("write candidate");
-        let root = prepare_media_root(directory.path(), None, 0).expect("prepare root");
+        let crowded = directory.path().join("crowded");
+        fs::create_dir(&crowded).expect("create crowded directory");
+        for index in 0..4 {
+            fs::write(crowded.join(format!("other-{index}.mov")), b"other")
+                .expect("write unrelated file");
+        }
+        let nearby = directory.path().join("nearby");
+        fs::create_dir(&nearby).expect("create nearby directory");
+        fs::write(nearby.join("clip.mov"), b"media").expect("write candidate");
         let resolver = MediaResolver::new(ResolverOptions {
             max_depth: 4,
-            max_entries: 1,
+            max_entries_per_directory: 3,
+            ..ResolverOptions::default()
         })
         .expect("valid limits");
+        let scope = SearchScope::default()
+            .with_search_directory(&crowded)
+            .with_search_directory(&nearby);
 
-        let resolution = resolver
-            .resolve_resource(
-                &prepared.resources()[0],
-                prepared.representation().content_structure(),
-                prepared.locators(),
-                &[root],
-                &[],
+        let resolutions = resolver
+            .resolve(
+                &[ResolutionItem::new(
+                    &prepared.resources()[0],
+                    prepared.representation().content_structure(),
+                    prepared.locators(),
+                )],
+                &scope,
             )
-            .expect("create error result");
+            .expect("resolve");
 
-        assert_eq!(resolution.state(), ResourceResolutionState::Error);
-        assert_eq!(
-            resolution.evidence()[0].kind(),
-            EvidenceKind::DiscoveryError
+        let resolution = &resolutions[0];
+        assert_eq!(resolution.state(), ResourceResolutionState::ResolvedExact);
+        assert!(
+            resolution.candidates()[0]
+                .uri()
+                .ends_with("/nearby/clip.mov")
         );
+        assert_eq!(resolution.candidates()[0].media_root(), None);
+        assert!(
+            resolution
+                .evidence()
+                .iter()
+                .any(|evidence| evidence.kind() == EvidenceKind::SearchTruncated)
+        );
+    }
+
+    #[test]
+    fn one_scan_serves_every_resource_and_cancellation_stops_resolution() {
+        let directory = tempfile::tempdir().expect("create directory");
+        let mut imports = Vec::new();
+        for name in ["a.mov", "b.mov"] {
+            let path = directory.path().join(name);
+            fs::write(&path, name.as_bytes()).expect("write original");
+            imports.push(prepare_original_media(&path, None, None).expect("prepare import"));
+        }
+        let moved = directory.path().join("moved");
+        fs::create_dir(&moved).expect("create moved directory");
+        for name in ["a.mov", "b.mov"] {
+            fs::rename(directory.path().join(name), moved.join(name)).expect("move media");
+        }
+        let items = imports
+            .iter()
+            .map(|import| {
+                ResolutionItem::new(
+                    &import.resources()[0],
+                    import.representation().content_structure(),
+                    import.locators(),
+                )
+            })
+            .collect::<Vec<_>>();
+        let scope = SearchScope::default().with_search_directory(&moved);
+
+        let resolutions = MediaResolver::default()
+            .resolve(&items, &scope)
+            .expect("resolve batch");
+        assert_eq!(resolutions.len(), 2);
+        for (resolution, name) in resolutions.iter().zip(["a.mov", "b.mov"]) {
+            assert_eq!(resolution.state(), ResourceResolutionState::ResolvedExact);
+            assert!(resolution.candidates()[0].uri().ends_with(name));
+        }
+
+        let cancellation = CancellationToken::new();
+        cancellation.cancel();
+        let cancelled = MediaResolver::new(ResolverOptions {
+            cancellation: Some(cancellation),
+            ..ResolverOptions::default()
+        })
+        .expect("valid options")
+        .resolve(&items, &scope)
+        .expect_err("cancelled");
+        assert_eq!(cancelled.kind(), ErrorKind::Cancelled);
     }
 }

@@ -31,7 +31,8 @@ An enabled root can be in one of three operational states:
 
 The resolver reports these states independently and continues through every
 usable root. One unreadable or unmapped root cannot prevent discovery beneath a
-different root.
+different root. ADR 0031 extends this to scan limits and adds unnamed,
+machine-local search directories for hosts that have no roots.
 
 Schema migration preserves an existing absolute root URI as a legacy fallback
 mapping. New roots have only a logical name. The fallback prevents data loss and

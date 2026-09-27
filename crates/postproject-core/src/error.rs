@@ -24,6 +24,8 @@ pub enum ErrorKind {
     Fingerprint,
     /// The requested operation is not supported.
     Unsupported,
+    /// The caller cancelled the operation before it completed.
+    Cancelled,
     /// An internal domain invariant was violated.
     Internal,
 }

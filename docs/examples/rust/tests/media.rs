@@ -15,11 +15,12 @@ use postproject_core::{
 use postproject_media::{
     ContentVerification, FileResourceSource, ImageSequenceSource, InventoryCategory, InventoryItem,
     InventoryScanner, MediaRecognizer, MediaResolver, MediaRootMapping, PRIMARY_ESSENCE_ROLE,
-    RecognizedMedia, SIDECAR_ROLE, SPAN_PART_ROLE, VerificationMode, canonical_file_uri,
-    fingerprint_file, local_file_path, observe_resource_content, prepare_confirmed_locator,
-    prepare_image_sequence_representation, prepare_ordered_parts_representation,
-    prepare_original_media, prepare_package_representation, prepare_recognized_original_media,
-    prepare_single_file_representation, resource_usage, verify_resource_content,
+    RecognizedMedia, ResolutionItem, ResolverOptions, SIDECAR_ROLE, SPAN_PART_ROLE, SearchScope,
+    VerificationMode, canonical_file_uri, fingerprint_file, local_file_path,
+    observe_resource_content, prepare_confirmed_locator, prepare_image_sequence_representation,
+    prepare_ordered_parts_representation, prepare_original_media, prepare_package_representation,
+    prepare_recognized_original_media, prepare_single_file_representation, resource_usage,
+    verify_resource_content,
 };
 use postproject_storage_sqlite::SqliteProduction;
 
@@ -371,26 +372,32 @@ fn verify_contents(
     production: &SqliteProduction,
     asset_id: AssetId,
 ) -> Result<Vec<(ResourceId, ResourceResolutionState)>> {
-    let resolver = MediaResolver::default();
-    let roots = production.production().media_roots();
-    let mut states = Vec::new();
+    // Content mode re-fingerprints files at known locators instead of trusting
+    // their presence.
+    let resolver = MediaResolver::new(ResolverOptions {
+        verification: VerificationMode::Content,
+        ..ResolverOptions::default()
+    })?;
+    let mut inputs = Vec::new();
     for representation in production.representations(asset_id)? {
         for resource in production.resources(representation.id())? {
             let locators = production.locators(resource.id())?;
-            // Content mode re-fingerprints the file instead of trusting its presence.
-            let resolution = resolver.resolve_resource_with_verification(
-                &resource,
-                representation.content_structure(),
-                &locators,
-                roots,
-                &[],
-                VerificationMode::Content,
-            )?;
-            for evidence in resolution.evidence() {
-                println!("{}: {:?}", resource.id(), evidence.kind());
-            }
-            states.push((resource.id(), resolution.state()));
+            inputs.push((representation.clone(), resource, locators));
         }
+    }
+    let items = inputs
+        .iter()
+        .map(|(representation, resource, locators)| {
+            ResolutionItem::new(resource, representation.content_structure(), locators)
+        })
+        .collect::<Vec<_>>();
+    let scope = SearchScope::new(production.production().media_roots().to_vec(), Vec::new());
+    let mut states = Vec::new();
+    for resolution in resolver.resolve(&items, &scope)? {
+        for evidence in resolution.evidence() {
+            println!("{}: {:?}", resolution.resource_id(), evidence.kind());
+        }
+        states.push((resolution.resource_id(), resolution.state()));
     }
     Ok(states)
 }

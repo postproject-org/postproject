@@ -3,8 +3,8 @@
 use std::cmp::Reverse;
 
 use crate::{
-    ContentStructure, Error, ErrorKind, MAX_SEQUENCE_EXCEPTIONS, RepresentationId, ResourceId,
-    Result, uri::normalize_uri,
+    ContentStructure, Error, ErrorKind, MAX_SEQUENCE_EXCEPTIONS, MediaRoot, RepresentationId,
+    ResourceId, Result, uri::normalize_uri,
 };
 
 /// A deterministic confidence value in basis points from 0 through 10,000.
@@ -66,6 +66,9 @@ pub enum EvidenceKind {
     /// Stored fingerprint evidence exists only in domains the resolver cannot
     /// compute, so content identity was not checked.
     FingerprintNotVerified,
+    /// A searched directory held more entries than the per-directory budget,
+    /// so part of it was not searched.
+    SearchTruncated,
     /// Another candidate has equivalent credible evidence.
     ConflictingCandidate,
     /// Candidate discovery or verification could not complete safely.
@@ -105,6 +108,7 @@ pub struct ResolutionCandidate {
     uri: String,
     confidence: Confidence,
     evidence: Vec<ResolutionEvidence>,
+    media_root: Option<String>,
 }
 
 impl ResolutionCandidate {
@@ -130,7 +134,28 @@ impl ResolutionCandidate {
             uri,
             confidence,
             evidence,
+            media_root: None,
         })
+    }
+
+    /// Associates the candidate with the logical media root it was found
+    /// under, so confirmation can record the portable root name.
+    ///
+    /// # Errors
+    ///
+    /// Returns an invalid-argument error for an invalid logical root name.
+    pub fn with_media_root(mut self, name: impl Into<String>) -> Result<Self> {
+        let name = name.into();
+        MediaRoot::validate_name(&name)?;
+        self.media_root = Some(name);
+        Ok(self)
+    }
+
+    /// Returns the logical media root the candidate was found under, if any.
+    /// A candidate found in an unnamed search directory has none.
+    #[must_use]
+    pub fn media_root(&self) -> Option<&str> {
+        self.media_root.as_deref()
     }
 
     /// Returns the candidate URI.

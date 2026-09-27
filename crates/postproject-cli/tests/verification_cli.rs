@@ -89,3 +89,42 @@ fn verification_detects_content_replaced_at_an_online_locator() {
         "online_at_known_locator"
     );
 }
+
+#[test]
+fn search_directory_finds_moved_media_without_a_root() {
+    let temporary = tempfile::tempdir().expect("create temporary directory");
+    let production = temporary.path().join("search.pproj");
+    let media = temporary.path().join("clip.mov");
+    fs::write(&media, b"original").expect("write original");
+    let production = production.to_str().expect("UTF-8 production path");
+    run_json(&["init", production]);
+    let imported = run_json(&[
+        "media",
+        "add",
+        production,
+        media.to_str().expect("UTF-8 media path"),
+    ]);
+    let asset_id = imported["asset_id"].as_str().expect("asset ID");
+    let nearby = temporary.path().join("nearby");
+    fs::create_dir(&nearby).expect("create search directory");
+    fs::rename(&media, nearby.join("clip.mov")).expect("move media");
+
+    let resolved = run_json(&[
+        "media",
+        "resolve",
+        production,
+        asset_id,
+        "--search-dir",
+        nearby.to_str().expect("UTF-8 search directory"),
+    ]);
+    let resource = &resolved["resolutions"][0]["resources"][0];
+    assert_eq!(resource["state"], "resolved_exact");
+    let candidate = &resource["candidates"][0];
+    assert!(
+        candidate["uri"]
+            .as_str()
+            .expect("candidate URI")
+            .ends_with("/nearby/clip.mov")
+    );
+    assert!(candidate["media_root"].is_null());
+}

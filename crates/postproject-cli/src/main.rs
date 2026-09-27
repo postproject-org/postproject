@@ -36,12 +36,12 @@ use postproject_media::{
     ExecutionOutcome, ExecutionRequest, Executor, ExecutorCapability, FfmpegExecutor,
     FfprobeInspector, FileResourceSource, ImageSequenceSource, InspectionOutcome,
     InventoryCategory, InventoryReport, InventoryScanner, MediaInspector, MediaRecognizer,
-    MediaResolver, MediaRootMapping, RecognizedMedia, TechnicalMetadata, VerificationMode,
-    local_file_path, observe_resource_content, prepare_confirmed_locator,
-    prepare_confirmed_locator_under_root, prepare_image_sequence_representation,
-    prepare_ordered_parts_representation, prepare_original_media, prepare_package_representation,
-    prepare_recognized_original_media, prepare_single_file_representation, resource_usage,
-    verify_resource_content,
+    MediaResolver, MediaRootMapping, RecognizedMedia, ResolutionItem, ResolverOptions, SearchScope,
+    TechnicalMetadata, VerificationMode, local_file_path, observe_resource_content,
+    prepare_confirmed_locator, prepare_confirmed_locator_under_root,
+    prepare_image_sequence_representation, prepare_ordered_parts_representation,
+    prepare_original_media, prepare_package_representation, prepare_recognized_original_media,
+    prepare_single_file_representation, resource_usage, verify_resource_content,
 };
 use postproject_storage_sqlite::SqliteProduction;
 use serde::{Deserialize, Serialize};
@@ -203,6 +203,10 @@ struct MediaResolveArgs {
     /// Map a production root name to this machine's directory (NAME=PATH).
     #[arg(long = "root-map", value_name = "NAME=PATH")]
     root_mappings: Vec<RootMappingArg>,
+    /// Also search this unnamed directory, after the mapped roots. Search
+    /// directories are never recorded in the production.
+    #[arg(long = "search-dir", value_name = "PATH")]
+    search_directories: Vec<PathBuf>,
     /// Recompute stored fingerprints for content at known locators.
     #[arg(long)]
     verify: bool,
@@ -1241,6 +1245,7 @@ struct AvailabilityIssueView {
 struct CandidateView {
     uri: String,
     confidence_basis_points: u16,
+    media_root: Option<String>,
     evidence: Vec<EvidenceView>,
 }
 
@@ -3789,14 +3794,19 @@ fn prepare_executor_job(
     {
         bail!("reference executor input {input_id} must be a single-file representation");
     }
-    let resolution = resolve_representation(
-        production,
-        representation,
+    let input = load_resolution_input(production, representation.clone(), false)?;
+    let scope = SearchScope::new(
+        production.production().media_roots().to_vec(),
+        root_mappings.to_vec(),
+    );
+    let resolution = resolve_representations(
         &MediaResolver::default(),
-        root_mappings,
-        false,
+        &scope,
+        std::slice::from_ref(&input),
         &FfprobeInspector::default(),
-    )?;
+    )?
+    .pop()
+    .context("resolve reference executor input")?;
     if resolution.availability() != RepresentationAvailability::Online {
         bail!("reference executor input {input_id} is not unambiguously online");
     }
@@ -4962,22 +4972,28 @@ fn media_resolve(args: MediaResolveArgs, json: bool) -> Result<()> {
     find_asset(&production, asset_id)?;
     let representations = production
         .representations(asset_id)
-        .context("load asset representations")?;
-    let resolver = MediaResolver::default();
-    let inspector = FfprobeInspector::with_executable(&args.ffprobe);
-    let resolutions = representations
-        .iter()
-        .map(|representation| {
-            resolve_representation(
-                &production,
-                representation,
-                &resolver,
-                &root_mappings,
-                args.verify,
-                &inspector,
-            )
-        })
+        .context("load asset representations")?
+        .into_iter()
+        .map(|representation| load_resolution_input(&production, representation, args.verify))
         .collect::<Result<Vec<_>>>()?;
+    let resolver = MediaResolver::new(ResolverOptions {
+        verification: if args.verify {
+            VerificationMode::Content
+        } else {
+            VerificationMode::Presence
+        },
+        ..ResolverOptions::default()
+    })
+    .context("configure resolver")?;
+    let scope = args.search_directories.iter().fold(
+        SearchScope::new(
+            production.production().media_roots().to_vec(),
+            root_mappings,
+        ),
+        SearchScope::with_search_directory,
+    );
+    let inspector = FfprobeInspector::with_executable(&args.ffprobe);
+    let resolutions = resolve_representations(&resolver, &scope, &representations, &inspector)?;
 
     if let Some(uri) = args.confirm.as_deref() {
         let matching: Vec<_> = resolutions
@@ -4989,13 +5005,10 @@ fn media_resolve(args: MediaResolveArgs, json: bool) -> Result<()> {
                     .iter()
                     .filter(move |candidate| candidate.uri() == uri)
                     .map(move |candidate| {
-                        let root = candidate
-                            .evidence()
-                            .iter()
-                            .find(|evidence| evidence.kind() == EvidenceKind::MediaRootRelation)
-                            .and_then(postproject_core::ResolutionEvidence::detail)
-                            .map(str::to_owned);
-                        (resolution.resource_id(), root)
+                        (
+                            resolution.resource_id(),
+                            candidate.media_root().map(str::to_owned),
+                        )
                     })
             })
             .collect();
@@ -5049,14 +5062,18 @@ fn media_resolve(args: MediaResolveArgs, json: bool) -> Result<()> {
     }
 }
 
-fn resolve_representation(
+/// A representation with the stored knowledge its resolution needs.
+struct ResolutionInput {
+    representation: Representation,
+    technical_metadata: Option<TechnicalMetadata>,
+    resources: Vec<(Resource, Vec<Locator>)>,
+}
+
+fn load_resolution_input(
     production: &SqliteProduction,
-    representation: &Representation,
-    resolver: &MediaResolver,
-    root_mappings: &[MediaRootMapping],
+    representation: Representation,
     verify: bool,
-    inspector: &dyn MediaInspector,
-) -> Result<RepresentationResolution> {
+) -> Result<ResolutionInput> {
     let technical_metadata = if verify {
         let assertions = production
             .metadata(ObjectRef::Representation(representation.id()))
@@ -5067,45 +5084,61 @@ fn resolve_representation(
     };
     let resources = production
         .resources(representation.id())
-        .context("load representation resources")?;
-    let resource_resolutions = resources
-        .iter()
+        .context("load representation resources")?
+        .into_iter()
         .map(|resource| {
             let locators = production
                 .locators(resource.id())
                 .context("load resource locators")?;
-            let resolution = if let Some(expected) = technical_metadata.as_ref() {
-                resolver.resolve_resource_with_technical_evidence(
-                    resource,
-                    representation.content_structure(),
-                    &locators,
-                    production.production().media_roots(),
-                    root_mappings,
-                    (expected, inspector),
-                )
-            } else {
-                resolver.resolve_resource_with_verification(
-                    resource,
-                    representation.content_structure(),
-                    &locators,
-                    production.production().media_roots(),
-                    root_mappings,
-                    if verify {
-                        VerificationMode::Content
-                    } else {
-                        VerificationMode::Presence
-                    },
-                )
-            };
-            resolution.context("resolve representation resource")
+            Ok((resource, locators))
         })
         .collect::<Result<Vec<_>>>()?;
-    RepresentationResolution::aggregate(
-        representation.id(),
-        representation.content_structure(),
-        resource_resolutions,
-    )
-    .context("aggregate representation availability")
+    Ok(ResolutionInput {
+        representation,
+        technical_metadata,
+        resources,
+    })
+}
+
+/// Resolves every resource of every representation in one resolver call, so
+/// the search scope is scanned once.
+fn resolve_representations(
+    resolver: &MediaResolver,
+    scope: &SearchScope,
+    inputs: &[ResolutionInput],
+    inspector: &dyn MediaInspector,
+) -> Result<Vec<RepresentationResolution>> {
+    let items = inputs
+        .iter()
+        .flat_map(|input| {
+            input.resources.iter().map(move |(resource, locators)| {
+                let item = ResolutionItem::new(
+                    resource,
+                    input.representation.content_structure(),
+                    locators,
+                );
+                match &input.technical_metadata {
+                    Some(expected) => item.with_technical_evidence(expected, inspector),
+                    None => item,
+                }
+            })
+        })
+        .collect::<Vec<_>>();
+    let mut results = resolver
+        .resolve(&items, scope)
+        .context("resolve representation resources")?
+        .into_iter();
+    inputs
+        .iter()
+        .map(|input| {
+            RepresentationResolution::aggregate(
+                input.representation.id(),
+                input.representation.content_structure(),
+                results.by_ref().take(input.resources.len()).collect(),
+            )
+            .context("aggregate representation availability")
+        })
+        .collect()
 }
 
 fn parse_asset_id(value: &str) -> Result<AssetId> {
@@ -5532,6 +5565,7 @@ impl From<&ResourceResolution> for ResourceResolutionView {
                 .map(|candidate| CandidateView {
                     uri: candidate.uri().to_owned(),
                     confidence_basis_points: candidate.confidence().basis_points(),
+                    media_root: candidate.media_root().map(str::to_owned),
                     evidence: candidate
                         .evidence()
                         .iter()
@@ -5698,6 +5732,7 @@ const fn evidence_kind(kind: EvidenceKind) -> &'static str {
         EvidenceKind::DiscoveryError => "discovery_error",
         EvidenceKind::FingerprintMismatch => "fingerprint_mismatch",
         EvidenceKind::FingerprintNotVerified => "fingerprint_not_verified",
+        EvidenceKind::SearchTruncated => "search_truncated",
         _ => "unknown",
     }
 }

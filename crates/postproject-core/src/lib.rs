@@ -6,6 +6,7 @@
 #![forbid(unsafe_code)]
 
 mod artifact;
+mod cancel;
 mod content;
 mod dependency;
 mod error;
@@ -31,6 +32,7 @@ pub use artifact::{
     ArtifactEvaluationLimits, ArtifactKnowledgeReason, ArtifactKnowledgeState,
     ArtifactReproducibilityIssue, ArtifactReproducibilityReport, ArtifactTraversalLimitKind,
 };
+pub use cancel::CancellationToken;
 pub use content::{
     ContentStructure, ContentStructureKind, FrameRange, ImageSequenceDescriptor,
     ImageSequencePattern, MAX_CONTENT_MEMBERS, MAX_FRAME_PADDING, MAX_RESOURCE_ROLE_BYTES,
