@@ -85,11 +85,45 @@ locator URI that import would record.
 **Resolution is one asset at a time.** A project opened with many missing clips
 rescans the same roots once per clip. The pilot did not measure the cost.
 
+## Changes made in response
+
+Release 0.4 addresses each finding in general terms, for every host rather than
+for Kdenlive alone. Each change is recorded in an ADR and documented for
+integrators.
+
+- **C++ without exceptions (ADR 0032).** Every fallible C++ operation returns
+  `postproject::Result<T>`. The header compiles with `-fno-exceptions`, and
+  `value()` throws `postproject::Exception` only where exceptions are enabled.
+  See the {doc}`/src/integrators/cpp-quickstart`.
+- **Host content hashes (ADR 0028, C ABI 28).** A fingerprint in a domain that
+  PostProject cannot compute no longer disables resolution. Candidates are
+  found by name and size and carry `fingerprint_not_verified` evidence that
+  lists the host's domains, so the host checks them with its own hash. Content
+  verification reports such a resource as not verified, not as a mismatch.
+- **Content fingerprints for hosts (ADR 0029, C ABI 29).** Hosts can compute
+  PostProject's fingerprint of a file and verify a resource against a path. A
+  transaction can observe a resource's present content, which also recomputes
+  every representation that uses the resource and records the file's size and
+  modification time. This was the prerequisite for managed proxies.
+- **Qualified identifier lookup (ADR 0002, C ABI 30).** Lookup by external
+  identifier can require an exact qualifier.
+- **Canonical locators (ADR 0030, C ABI 31).** Hosts obtain the locator URI
+  that import records for a path, and a local path for a locator, instead of
+  spelling URIs themselves.
+- **Search scope, budgets, batches, and cancellation (ADR 0031, C ABI 32).**
+  - Resolution accepts unnamed search directories, so hosts without logical
+    roots no longer invent them.
+  - It resolves many assets with one scan of each directory.
+  - It budgets entries per directory: an oversized directory is searched
+    partially and reported, and the resolution does not fail.
+  - A cancellation token can stop it.
+  - A candidate names the logical root it was found under.
+
 ## For managed proxies
 
-Proxies as managed artifacts need the missing fingerprint computation first.
-The rest already exists. Kdenlive's proxy task can act as the job worker: it
-claims a proxy job, renders with its own `melt` or `ffmpeg` settings, and
+Proxies as managed artifacts needed fingerprint computation, which release 0.4
+now provides through content observation. The rest already existed.
+Kdenlive's proxy task can act as the job worker: it claims a proxy job, renders with its own `melt` or `ffmpeg` settings, and
 completes with the proxy as a derived representation. Artifact evaluation
 would then report a proxy as stale where Kdenlive, which names proxies by the
 source's MD5 and never checks a proxy's content, reports nothing.

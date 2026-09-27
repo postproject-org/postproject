@@ -59,6 +59,20 @@ guarantee. Library callers can stage any representation structure — single
 resource, image sequence, ordered parts, or package — before completing; the
 CLI completion adapter creates a single-file output.
 
+Staging an output representation fingerprints its files, so a new output needs
+no separate fingerprint step. A worker that instead rewrites existing media in
+place must observe that content in the transaction:
+
+- a proxy regenerated at its old path;
+- a source replaced by a conform.
+
+See [recording a new fingerprint observation](fingerprints-and-verification.md#record-a-new-fingerprint-observation).
+Observation records the new resource value and recomputes every representation
+that uses the resource, so [artifact evaluation](artifacts-and-staleness.md)
+reports the artifacts that depend on it as stale. Never write a representation
+fingerprint of your own devising. Only PostProject's own values take part in
+staleness and resolution.
+
 ## Fail or cancel a job
 
 On a tool error, fail the job with a bounded diagnostic. A failed job never
