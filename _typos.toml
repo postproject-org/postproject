@@ -1,3 +1,7 @@
+[default]
+# printf-style frame padding such as {frame:04d} or {frame:0Nd}
+extend-ignore-re = ["\\{frame:0[0-9N]d\\}"]
+
 [default.extend-words]
 EBUCore = "EBUCore"
 FIMS = "FIMS"
