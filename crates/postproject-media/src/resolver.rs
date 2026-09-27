@@ -13,13 +13,12 @@ use postproject_core::{
     ResolutionEvidence, Resource, ResourceFingerprint, ResourceResolution, ResourceResolutionState,
     Result,
 };
-use url::Url;
 use walkdir::WalkDir;
 
 use crate::{
     FULL_FINGERPRINT_ALGORITHM, InspectionOutcome, MediaInspector, SEQUENCE_FINGERPRINT_ALGORITHM,
     TechnicalMetadata, canonical_file_uri, fingerprint::is_file_fingerprint_domain,
-    fingerprint_file, fingerprint_image_sequence,
+    fingerprint_file, fingerprint_image_sequence, local_file_path,
 };
 
 /// One machine's directory mapping for a production-portable root name.
@@ -331,7 +330,7 @@ impl MediaResolver {
     ) -> Result<ResourceResolution> {
         let original_path = known_locators
             .iter()
-            .find_map(|locator| file_uri_to_path(locator.uri()).ok());
+            .find_map(|locator| local_file_path(locator.uri()).ok());
         let original_name = original_path.as_deref().and_then(Path::file_name);
         let fingerprints = FileFingerprints::classify(resource.fingerprints());
         let mut discovered = match self.discover(
@@ -348,7 +347,7 @@ impl MediaResolver {
 
         let mut candidates = Vec::new();
         for (uri, cheap_evidence) in discovered.candidates {
-            let path = file_uri_to_path(&uri).map_err(|error| {
+            let path = local_file_path(&uri).map_err(|error| {
                 Error::new(
                     ErrorKind::Internal,
                     format!("discovered URI cannot be converted back to a path: {error}"),
@@ -618,7 +617,7 @@ fn searchable_roots(
     for root in ordered {
         let legacy = root
             .legacy_uri()
-            .map(file_uri_to_path)
+            .map(local_file_path)
             .transpose()
             .map_err(|error| format!("legacy media root {} is invalid: {error}", root.name()))?;
         let Some(path) = by_name.get(root.name()).copied().or(legacy.as_deref()) else {
@@ -707,7 +706,7 @@ fn verify_known_file(
     if fingerprints.comparable.is_empty() {
         return unverified_known_resolution(resource, presence_candidate);
     }
-    let path = file_uri_to_path(presence_candidate.uri())?;
+    let path = local_file_path(presence_candidate.uri())?;
     let evidence = vec![ResolutionEvidence::new(
         EvidenceKind::KnownLocatorAvailable,
         None,
@@ -754,7 +753,7 @@ fn verify_known_sequence(
     let Some(candidate) = presence.candidates().first() else {
         return verification_failure(resource.id(), "sequence presence result has no candidate");
     };
-    let path = file_uri_to_path(candidate.uri())?;
+    let path = local_file_path(candidate.uri())?;
     let report = match fingerprint_image_sequence(&path, descriptor) {
         Ok(report) => report,
         Err(error) => return verification_failure(resource.id(), error.to_string()),
@@ -917,7 +916,7 @@ fn add_relative_path_evidence(
 fn online_known_candidate(known_locators: &[Locator]) -> Result<Option<ResolutionCandidate>> {
     let mut online = Vec::new();
     for locator in known_locators {
-        let Ok(path) = file_uri_to_path(locator.uri()) else {
+        let Ok(path) = local_file_path(locator.uri()) else {
             continue;
         };
         if path.is_file() {
@@ -942,7 +941,7 @@ fn online_sequence_candidate(
     let mut online = known_locators
         .iter()
         .filter_map(|locator| {
-            let path = file_uri_to_path(locator.uri()).ok()?;
+            let path = local_file_path(locator.uri()).ok()?;
             path.is_dir().then_some((locator.uri(), path))
         })
         .collect::<Vec<_>>();
@@ -1101,21 +1100,6 @@ fn error_resolution(
             Some(detail),
         )],
     )
-}
-
-fn file_uri_to_path(uri: &str) -> Result<PathBuf> {
-    let url = Url::parse(uri).map_err(|error| {
-        Error::new(
-            ErrorKind::InvalidArgument,
-            format!("invalid file URI: {error}"),
-        )
-    })?;
-    url.to_file_path().map_err(|()| {
-        Error::new(
-            ErrorKind::Unsupported,
-            format!("URI is not a local file path: {uri}"),
-        )
-    })
 }
 
 #[cfg(test)]
