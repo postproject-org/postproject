@@ -9,6 +9,8 @@ Development version: `0.4.0-alpha.1`.
 
 ### Added
 
+- Added content verification and observation that recomputes every
+  representation using a resource (ADR 0029).
 - Added a tested Flatpak module that builds PostProject offline from the release
   source archive, published with its Cargo sources on each release.
 - Documented publishing media through the OpenAssetIO Manager (ADR 0010).
@@ -114,6 +116,8 @@ Development version: `0.4.0-alpha.1`.
 
 ### Changed
 
+- `postproject media fingerprint` takes only a resource and a path, and a new
+  `postproject media verify-content` command compares content with it.
 - Downstream integration runs now include the OpenAssetIO Manager suite.
 - Bumped the pre-release C ABI to version 26 with event-kind-filtered revision
   pages and revision waiters: `pp_revision_waiter_create`,

@@ -24,6 +24,7 @@ Read the relevant ADR before changing an invariant, a boundary, or a public cont
 - {doc}`ADR 0007 — Revision and event model </adr/0007-revision-event-model>`
 - {doc}`ADR 0013 — Namespace policy </adr/0013-namespace-policy>`
 - {doc}`ADR 0021 — Fingerprint observations and activity snapshots </adr/0021-fingerprint-observations-and-activity-snapshots>`
+- {doc}`ADR 0029 — Content fingerprints and observation for hosts </adr/0029-host-content-observation>`
 - {doc}`ADR 0022 — Managed-artifact state and staleness </adr/0022-managed-artifact-state-and-staleness>`
 - {doc}`ADR 0024 — Dependency relationships </adr/0024-dependency-relationships>`
 - {doc}`ADR 0027 — Change delivery </adr/0027-change-delivery>`
@@ -76,4 +77,5 @@ Read the relevant ADR before changing an invariant, a boundary, or a public cont
 /adr/0026-domain-query-cursors
 /adr/0027-change-delivery
 /adr/0028-comparable-and-foreign-fingerprint-domains
+/adr/0029-host-content-observation
 ```

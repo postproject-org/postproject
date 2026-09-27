@@ -184,10 +184,12 @@ test "$(jq -r '[.items[] | "\(.category):\(.uri | split("/") | last)"] | sort | 
 
 # [fingerprint-observation]
 printf 'regraded camera original' > moved/A001.mov
-# Records the new resource fingerprint, then the recomputed representation
-# fingerprint, in one revision.
-postproject --json media fingerprint media.pproj "$ASSET_ID" "$ORIGINAL_ID" \
-  "$RESOURCE_ID" moved/A001.mov | jq '{resource_fingerprint, representation_fingerprint}'
+# Content changed, and PostProject's own fingerprint says so.
+postproject media verify-content media.pproj "$RESOURCE_ID" moved/A001.mov
+# Records the new resource fingerprint, and recomputes every representation
+# using the resource, in one revision.
+postproject --json media fingerprint media.pproj "$RESOURCE_ID" moved/A001.mov |
+  jq '{resource_fingerprint, representation_fingerprints}'
 REVISION_ID=$(postproject --json revisions latest media.pproj | jq -r .id)
 postproject --json revisions events media.pproj "$REVISION_ID" |
   jq -r '.[] | "\(.position) \(.kind)"'

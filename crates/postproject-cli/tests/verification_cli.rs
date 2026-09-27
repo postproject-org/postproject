@@ -45,23 +45,43 @@ fn verification_detects_content_replaced_at_an_online_locator() {
     assert_eq!(resource["state"], "error");
     assert_eq!(resource["evidence"][0]["kind"], "fingerprint_mismatch");
 
+    let media_path = media.to_str().expect("UTF-8 media path");
+    let before = run_json(&[
+        "media",
+        "verify-content",
+        production,
+        resource_id,
+        media_path,
+    ]);
+    assert_eq!(before["verification"], "differs");
+
     let observed = run_json(&[
         "media",
         "fingerprint",
         production,
-        asset_id,
-        representation_id,
         resource_id,
         media.to_str().expect("UTF-8 media path"),
     ]);
     assert_eq!(observed["resource_id"], resource_id);
-    assert_eq!(observed["representation_id"], representation_id);
+    assert_eq!(
+        observed["representation_fingerprints"][0]["representation_id"],
+        representation_id
+    );
     let latest = run_json(&["revisions", "latest", production]);
     let revision_id = latest["id"].as_str().expect("revision ID");
     let events = run_json(&["revisions", "events", production, revision_id]);
     assert_eq!(events.as_array().expect("event array").len(), 2);
     assert_eq!(events[0]["kind"], "resource_fingerprint_observed");
     assert_eq!(events[1]["kind"], "representation_fingerprint_observed");
+
+    let after = run_json(&[
+        "media",
+        "verify-content",
+        production,
+        resource_id,
+        media_path,
+    ]);
+    assert_eq!(after["verification"], "matches");
 
     let reverified = run_json(&["media", "resolve", production, asset_id, "--verify"]);
     assert_eq!(

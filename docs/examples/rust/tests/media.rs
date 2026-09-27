@@ -13,12 +13,13 @@ use postproject_core::{
     ResourceId, ResourceResolutionState, ResourceRole, Result, RevisionEventKind,
 };
 use postproject_media::{
-    FileResourceSource, ImageSequenceSource, InventoryCategory, InventoryItem, InventoryScanner,
-    MediaRecognizer, MediaResolver, MediaRootMapping, PRIMARY_ESSENCE_ROLE, RecognizedMedia,
-    SIDECAR_ROLE, SPAN_PART_ROLE, VerificationMode, canonical_file_uri, fingerprint_file,
-    fingerprint_representation, prepare_confirmed_locator, prepare_image_sequence_representation,
-    prepare_ordered_parts_representation, prepare_original_media, prepare_package_representation,
-    prepare_recognized_original_media, prepare_single_file_representation,
+    ContentVerification, FileResourceSource, ImageSequenceSource, InventoryCategory, InventoryItem,
+    InventoryScanner, MediaRecognizer, MediaResolver, MediaRootMapping, PRIMARY_ESSENCE_ROLE,
+    RecognizedMedia, SIDECAR_ROLE, SPAN_PART_ROLE, VerificationMode, canonical_file_uri,
+    fingerprint_file, observe_resource_content, prepare_confirmed_locator,
+    prepare_image_sequence_representation, prepare_ordered_parts_representation,
+    prepare_original_media, prepare_package_representation, prepare_recognized_original_media,
+    prepare_single_file_representation, resource_usage, verify_resource_content,
 };
 use postproject_storage_sqlite::SqliteProduction;
 
@@ -212,10 +213,24 @@ fn move_to_archive(
 }
 // [/retire-locator]
 
+// [content-fingerprint]
+fn print_file_fingerprint(path: &Path) -> Result<()> {
+    // The same value import records; computing it records nothing.
+    let report = fingerprint_file(path)?;
+    let fingerprint = report.fingerprint();
+    println!(
+        "{} v{}: {} bytes",
+        fingerprint.algorithm(),
+        fingerprint.version(),
+        fingerprint.value().len()
+    );
+    Ok(())
+}
+// [/content-fingerprint]
+
 // [fingerprint-observation]
 fn observe_changed_original(
     production: &mut SqliteProduction,
-    asset_id: AssetId,
     original_id: RepresentationId,
     path: &Path,
 ) -> Result<()> {
@@ -223,26 +238,29 @@ fn observe_changed_original(
         .latest_revision()?
         .map_or(0, |revision| revision.sequence());
     let resource_id = production.resources(original_id)?[0].id();
-    let observed = fingerprint_file(path)?;
-    {
-        let mut transaction = production.begin_transaction()?;
-        transaction.record_resource_fingerprint(resource_id, observed.fingerprint())?;
-        transaction.commit()?;
-    }
+    let usage = resource_usage(production, resource_id)?;
 
-    // The representation fingerprint aggregates the current resource observations.
-    let original = production
-        .representations(asset_id)?
-        .into_iter()
-        .find(|representation| representation.id() == original_id)
-        .expect("original belongs to the asset");
-    let aggregate = fingerprint_representation(
-        original.content_structure(),
-        &production.resources(original_id)?,
+    // Verification only reads: it compares the file with the stored value.
+    let (representation, resources) = &usage[0];
+    let resource = resources
+        .iter()
+        .find(|resource| resource.id() == resource_id);
+    let verification = verify_resource_content(
+        resource.expect("representation lists the resource"),
+        representation.content_structure(),
+        path,
     )?;
+    assert_eq!(verification, ContentVerification::Differs);
+
+    // The new resource value and every representation recomputed from it are
+    // recorded in one revision.
+    let observation = observe_resource_content(resource_id, &usage, path)?;
     {
         let mut transaction = production.begin_transaction()?;
-        transaction.record_representation_fingerprint(original_id, &aggregate)?;
+        transaction.record_resource_fingerprint(resource_id, observation.resource())?;
+        for (representation_id, fingerprint) in observation.representations() {
+            transaction.record_representation_fingerprint(*representation_id, fingerprint)?;
+        }
         transaction.commit()?;
     }
 
@@ -569,8 +587,9 @@ fn media_examples_run_in_order() -> Result<()> {
 
     write(&original_path, "re-exported camera original");
     let before = production_sequence(&production)?;
-    observe_changed_original(&mut production, asset_id, original_id, &original_path)?;
-    assert_eq!(production_sequence(&production)?, before + 2);
+    print_file_fingerprint(&original_path)?;
+    observe_changed_original(&mut production, original_id, &original_path)?;
+    assert_eq!(production_sequence(&production)?, before + 1);
     let observed = fingerprint_file(&original_path)?;
     assert_eq!(
         production.resources(original_id)?[0].fingerprints(),

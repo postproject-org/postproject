@@ -487,8 +487,6 @@ fn queries_stale_artifacts_and_changed_objects() {
             "media",
             "fingerprint",
             production,
-            imported["asset_id"].as_str().expect("asset ID"),
-            &rep(imported),
             &resource_id,
             path.to_str().expect("UTF-8 path"),
         ]);

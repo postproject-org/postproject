@@ -217,6 +217,23 @@ impl Resource {
     pub const fn file_facts(&self) -> Option<FileFacts> {
         self.file_facts
     }
+
+    /// Returns this resource with `fingerprint` as the current observation in
+    /// its algorithm/version domain, replacing any value in that domain.
+    #[must_use]
+    pub fn with_observed_fingerprint(&self, fingerprint: &ResourceFingerprint) -> Self {
+        let mut fingerprints = self
+            .fingerprints
+            .iter()
+            .filter(|current| {
+                current.algorithm() != fingerprint.algorithm()
+                    || current.version() != fingerprint.version()
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+        fingerprints.push(fingerprint.clone());
+        Self::new(self.id, fingerprints, self.file_facts)
+    }
 }
 
 /// The last observed availability of a resource locator.

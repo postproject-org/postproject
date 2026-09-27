@@ -32,15 +32,16 @@ use postproject_core::{
     RevisionWaitOutcome, StaleArtifactQuery, Timestamp, ToolIdentity, VocabularyId,
 };
 use postproject_media::{
-    EXECUTOR_PARAMETER_VOCABULARY, EXECUTOR_PROFILE_PROPERTY, ExecutionOutcome, ExecutionRequest,
-    Executor, ExecutorCapability, FfmpegExecutor, FfprobeInspector, FileResourceSource,
-    ImageSequenceSource, InspectionOutcome, InventoryCategory, InventoryReport, InventoryScanner,
-    MediaInspector, MediaRecognizer, MediaResolver, MediaRootMapping, RecognizedMedia,
-    TechnicalMetadata, VerificationMode, fingerprint_file, fingerprint_representation,
-    local_file_path, prepare_confirmed_locator, prepare_confirmed_locator_under_root,
-    prepare_image_sequence_representation, prepare_ordered_parts_representation,
-    prepare_original_media, prepare_package_representation, prepare_recognized_original_media,
-    prepare_single_file_representation,
+    ContentVerification, EXECUTOR_PARAMETER_VOCABULARY, EXECUTOR_PROFILE_PROPERTY,
+    ExecutionOutcome, ExecutionRequest, Executor, ExecutorCapability, FfmpegExecutor,
+    FfprobeInspector, FileResourceSource, ImageSequenceSource, InspectionOutcome,
+    InventoryCategory, InventoryReport, InventoryScanner, MediaInspector, MediaRecognizer,
+    MediaResolver, MediaRootMapping, RecognizedMedia, TechnicalMetadata, VerificationMode,
+    local_file_path, observe_resource_content, prepare_confirmed_locator,
+    prepare_confirmed_locator_under_root, prepare_image_sequence_representation,
+    prepare_ordered_parts_representation, prepare_original_media, prepare_package_representation,
+    prepare_recognized_original_media, prepare_single_file_representation, resource_usage,
+    verify_resource_content,
 };
 use postproject_storage_sqlite::SqliteProduction;
 use serde::{Deserialize, Serialize};
@@ -111,8 +112,16 @@ enum MediaCommand {
     Resolve(MediaResolveArgs),
     /// Inventory known and unassociated media without changing the production.
     Inventory(MediaInventoryArgs),
-    /// Record a freshly computed resource and representation fingerprint.
+    /// Record a resource's present content as a new fingerprint observation.
+    ///
+    /// Every representation using the resource is recomputed in the same
+    /// revision.
     Fingerprint(MediaFingerprintArgs),
+    /// Compare present content with a resource's stored fingerprints.
+    ///
+    /// Read-only. Prints `matches`, `differs`, or `not_comparable` when no
+    /// stored fingerprint lies in a domain the library computes.
+    VerifyContent(MediaFingerprintArgs),
     /// Query representations with a required resource that has no durable locator.
     ///
     /// Knowledge-only: no filesystem path is checked. Use `media resolve` or
@@ -216,10 +225,8 @@ struct MediaInventoryArgs {
 #[derive(Debug, Args)]
 struct MediaFingerprintArgs {
     production: PathBuf,
-    asset_id: String,
-    representation_id: String,
     resource_id: String,
-    /// Regular file whose content now realizes the resource.
+    /// File, or image-sequence directory, whose content realizes the resource.
     path: PathBuf,
 }
 
@@ -1137,10 +1144,21 @@ struct FingerprintView {
 
 #[derive(Debug, Serialize)]
 struct FingerprintObservationView {
-    representation_id: String,
     resource_id: String,
     resource_fingerprint: FingerprintView,
-    representation_fingerprint: FingerprintView,
+    representation_fingerprints: Vec<RepresentationFingerprintView>,
+}
+
+#[derive(Debug, Serialize)]
+struct RepresentationFingerprintView {
+    representation_id: String,
+    fingerprint: FingerprintView,
+}
+
+#[derive(Debug, Serialize)]
+struct ContentVerificationView {
+    resource_id: String,
+    verification: &'static str,
 }
 
 #[derive(Debug, Serialize)]
@@ -1772,6 +1790,7 @@ fn execute(cli: Cli) -> Result<()> {
             MediaCommand::Resolve(args) => media_resolve(args, cli.json),
             MediaCommand::Inventory(args) => media_inventory(&args, cli.json),
             MediaCommand::Fingerprint(args) => media_fingerprint(&args, cli.json),
+            MediaCommand::VerifyContent(args) => media_verify_content(&args, cli.json),
             MediaCommand::Unresolved(args) => media_unresolved(&args, cli.json),
             MediaCommand::UnderRoot(args) => media_under_root(&args, cli.json),
         },
@@ -2078,69 +2097,94 @@ fn representation_add(args: &RepresentationAddArgs, json: bool) -> Result<()> {
 }
 
 fn media_fingerprint(args: &MediaFingerprintArgs, json: bool) -> Result<()> {
-    let asset_id = AssetId::from_str(&args.asset_id).context("parse asset ID")?;
-    let representation_id =
-        RepresentationId::from_str(&args.representation_id).context("parse representation ID")?;
     let resource_id = ResourceId::from_str(&args.resource_id).context("parse resource ID")?;
-    let report = fingerprint_file(&args.path).context("fingerprint resource content")?;
     let mut production = SqliteProduction::open(&args.production).context("open production")?;
-    let representation = production
-        .representations(asset_id)
-        .context("load asset representations")?
-        .into_iter()
-        .find(|candidate| candidate.id() == representation_id)
-        .with_context(|| format!("representation does not exist on asset: {representation_id}"))?;
-    let mut resources = production
-        .resources(representation_id)
-        .context("load representation resources")?;
-    let resource = resources
-        .iter_mut()
-        .find(|candidate| candidate.id() == resource_id)
-        .with_context(|| format!("resource does not belong to representation: {resource_id}"))?;
-    let fingerprint = report.fingerprint().clone();
-    let mut fingerprints = resource.fingerprints().to_vec();
-    fingerprints.retain(|current| {
-        current.algorithm() != fingerprint.algorithm() || current.version() != fingerprint.version()
-    });
-    fingerprints.push(fingerprint.clone());
-    *resource = Resource::new(resource.id(), fingerprints, resource.file_facts());
-    let representation_fingerprint =
-        fingerprint_representation(representation.content_structure(), &resources)
-            .context("recompute representation fingerprint")?;
+    let usage = resource_usage(&production, resource_id).context("load resource usage")?;
+    let observation = observe_resource_content(resource_id, &usage, &args.path)
+        .context("fingerprint resource content")?;
 
     let mut transaction = production
         .begin_transaction()
         .context("begin fingerprint transaction")?;
     set_cli_revision_context(&mut transaction, "Record fingerprint observation")?;
     transaction
-        .record_resource_fingerprint(resource_id, &fingerprint)
+        .record_resource_fingerprint(resource_id, observation.resource())
         .context("stage resource fingerprint")?;
-    transaction
-        .record_representation_fingerprint(representation_id, &representation_fingerprint)
-        .context("stage representation fingerprint")?;
+    for (representation_id, fingerprint) in observation.representations() {
+        transaction
+            .record_representation_fingerprint(*representation_id, fingerprint)
+            .context("stage representation fingerprint")?;
+    }
     transaction.commit().context("commit fingerprints")?;
 
     let view = FingerprintObservationView {
-        representation_id: representation_id.to_string(),
         resource_id: resource_id.to_string(),
-        resource_fingerprint: FingerprintView {
-            algorithm: fingerprint.algorithm().to_owned(),
-            version: fingerprint.version(),
-            value_hex: hex::encode(fingerprint.value()),
-        },
-        representation_fingerprint: FingerprintView {
-            algorithm: representation_fingerprint.algorithm().to_owned(),
-            version: representation_fingerprint.version(),
-            value_hex: hex::encode(representation_fingerprint.value()),
-        },
+        resource_fingerprint: fingerprint_view(
+            observation.resource().algorithm(),
+            observation.resource().version(),
+            observation.resource().value(),
+        ),
+        representation_fingerprints: observation
+            .representations()
+            .iter()
+            .map(
+                |(representation_id, fingerprint)| RepresentationFingerprintView {
+                    representation_id: representation_id.to_string(),
+                    fingerprint: fingerprint_view(
+                        fingerprint.algorithm(),
+                        fingerprint.version(),
+                        fingerprint.value(),
+                    ),
+                },
+            )
+            .collect(),
     };
     if json {
         print_json(&view)
     } else {
         println!(
-            "recorded fingerprints for resource {} and representation {}",
-            view.resource_id, view.representation_id
+            "recorded fingerprints for resource {} and {} representation(s)",
+            view.resource_id,
+            view.representation_fingerprints.len()
         );
+        Ok(())
+    }
+}
+
+fn fingerprint_view(algorithm: &str, version: u16, value: &[u8]) -> FingerprintView {
+    FingerprintView {
+        algorithm: algorithm.to_owned(),
+        version,
+        value_hex: hex::encode(value),
+    }
+}
+
+fn media_verify_content(args: &MediaFingerprintArgs, json: bool) -> Result<()> {
+    let resource_id = ResourceId::from_str(&args.resource_id).context("parse resource ID")?;
+    let production = SqliteProduction::open(&args.production).context("open production")?;
+    let usage = resource_usage(&production, resource_id).context("load resource usage")?;
+    let (representation, resources) = usage
+        .first()
+        .context("resource is not used by any representation")?;
+    let resource = resources
+        .iter()
+        .find(|resource| resource.id() == resource_id)
+        .context("representation does not list the resource")?;
+    let verification =
+        verify_resource_content(resource, representation.content_structure(), &args.path)
+            .context("verify resource content")?;
+    let view = ContentVerificationView {
+        resource_id: resource_id.to_string(),
+        verification: match verification {
+            ContentVerification::Matches => "matches",
+            ContentVerification::Differs => "differs",
+            _ => "not_comparable",
+        },
+    };
+    if json {
+        print_json(&view)
+    } else {
+        println!("{}", view.verification);
         Ok(())
     }
 }

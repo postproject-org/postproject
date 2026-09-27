@@ -349,8 +349,6 @@ fn exercise_artifact_evaluation(
         "media",
         "fingerprint",
         production,
-        input_asset_id,
-        input_representation_id,
         resource_id,
         input_path.to_str().expect("UTF-8 source path"),
     ]);
