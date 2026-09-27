@@ -278,6 +278,66 @@ impl SqliteProduction {
         .collect()
     }
 
+    /// Loads one asset by identity.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ErrorKind::NotFound`] when `asset_id` is absent, or
+    /// [`ErrorKind::Storage`] for query failures or invalid stored data.
+    pub fn asset(&self, asset_id: AssetId) -> Result<Asset> {
+        let (id, created_at, display_name, import_source) = self
+            .connection
+            .query_row(
+                "SELECT id, created_at_micros, display_name, import_source
+                 FROM assets WHERE id = ?1",
+                params![asset_id.as_bytes().as_slice()],
+                |row| {
+                    Ok((
+                        row.get::<_, Vec<u8>>(0)?,
+                        row.get::<_, i64>(1)?,
+                        row.get::<_, Option<String>>(2)?,
+                        row.get::<_, Option<String>>(3)?,
+                    ))
+                },
+            )
+            .optional()
+            .map_err(sqlite_error("load asset"))?
+            .ok_or_else(|| Error::new(ErrorKind::NotFound, "asset does not exist"))?;
+        Ok(Asset::new(
+            AssetId::from_bytes(id_bytes(id, "asset")?),
+            Timestamp::from_unix_micros(created_at),
+            display_name,
+            import_source,
+        ))
+    }
+
+    /// Loads one representation, with its structure and fingerprints, by
+    /// identity.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ErrorKind::NotFound`] when `representation_id` is absent, or
+    /// [`ErrorKind::Storage`] for query failures or invalid stored data.
+    pub fn representation(&self, representation_id: RepresentationId) -> Result<Representation> {
+        let exists = self
+            .connection
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM representations WHERE id = ?1)",
+                [representation_id.as_bytes().as_slice()],
+                |row| row.get::<_, bool>(0),
+            )
+            .map_err(sqlite_error("check representation"))?;
+        if !exists {
+            return Err(Error::new(
+                ErrorKind::NotFound,
+                "representation does not exist",
+            ));
+        }
+        self.load_representations_by_ids(&[representation_id.into_bytes()])?
+            .pop()
+            .ok_or_else(|| Error::new(ErrorKind::Storage, "representation row disappeared"))
+    }
+
     /// Loads representations belonging to `asset_id` in stable identity order.
     ///
     /// # Errors
@@ -660,6 +720,36 @@ impl SqliteProduction {
             None
         };
         Ok(QueryPage::new(locators, next_cursor, false))
+    }
+
+    /// Queries representations that use a resource, in identity order.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the resource is absent, the cursor is invalid, or
+    /// stored representation data is malformed.
+    pub fn representations_using_resource(
+        &self,
+        resource_id: ResourceId,
+        page: &QueryPageRequest,
+    ) -> Result<QueryPage<Representation>> {
+        self.ensure_resource_exists(resource_id)?;
+        let signature = query_cursor::signature(&[resource_id.as_bytes()]);
+        let position = query_cursor::id_position::<RepresentationId>(
+            page,
+            "representations-resource",
+            &signature,
+        )?;
+        let ids = self.query_representation_ids(
+            "SELECT representation_id FROM representation_resources
+             WHERE resource_id = ?1 AND representation_id > ?2
+             ORDER BY representation_id LIMIT ?3",
+            resource_id.as_bytes(),
+            position.as_ref(),
+            page.limit(),
+            "resource representation",
+        )?;
+        self.representation_page_from_ids(ids, page, "representations-resource", &signature)
     }
 
     /// Queries representations with knowledge recorded under a logical root.
@@ -3122,6 +3212,14 @@ impl ProductionRead for SqliteProduction {
         SqliteProduction::assets_page(self, page)
     }
 
+    fn asset(&self, asset_id: AssetId) -> Result<Asset> {
+        SqliteProduction::asset(self, asset_id)
+    }
+
+    fn representation(&self, representation_id: RepresentationId) -> Result<Representation> {
+        SqliteProduction::representation(self, representation_id)
+    }
+
     fn representations(&self, asset_id: AssetId) -> Result<Vec<Representation>> {
         SqliteProduction::representations(self, asset_id)
     }
@@ -3164,6 +3262,14 @@ impl ProductionRead for SqliteProduction {
         page: &QueryPageRequest,
     ) -> Result<QueryPage<Representation>> {
         SqliteProduction::representations_under_media_root(self, root_name, page)
+    }
+
+    fn representations_using_resource(
+        &self,
+        resource_id: ResourceId,
+        page: &QueryPageRequest,
+    ) -> Result<QueryPage<Representation>> {
+        SqliteProduction::representations_using_resource(self, resource_id, page)
     }
 
     fn unresolved_media(&self, page: &QueryPageRequest) -> Result<QueryPage<RepresentationId>> {

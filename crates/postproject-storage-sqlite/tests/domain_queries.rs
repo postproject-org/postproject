@@ -261,3 +261,56 @@ fn cursors_are_scoped_to_their_query() {
     let wrong = QueryPageRequest::new(1, assets.next_cursor().cloned()).expect("page request");
     assert!(production.unresolved_media(&wrong).is_err());
 }
+
+#[test]
+fn point_reads_return_one_object_or_not_found() {
+    let directory = tempdir().expect("temporary directory");
+    let path = directory.path().join("points.pproj");
+    let mut production = SqliteProduction::create(path, None).expect("create production");
+    let first = imported(6, None);
+    let second = imported(7, None);
+    let mut transaction = production.begin_transaction().expect("begin");
+    transaction.import_original(&first).expect("first import");
+    transaction.import_original(&second).expect("second import");
+    transaction.commit().expect("commit");
+    drop(transaction);
+
+    assert_eq!(
+        production.asset(first.asset().id()).expect("asset"),
+        *first.asset()
+    );
+    assert_eq!(
+        production
+            .representation(second.representation().id())
+            .expect("representation"),
+        *second.representation()
+    );
+    let users = production
+        .representations_using_resource(ResourceId::from_bytes([7; 16]), &page(1))
+        .expect("representations using resource");
+    assert_eq!(users.items(), [second.representation().clone()]);
+    assert!(users.next_cursor().is_none());
+
+    let absent = [9; 16];
+    for error in [
+        production.asset(AssetId::from_bytes(absent)).map(drop),
+        production
+            .representation(RepresentationId::from_bytes(absent))
+            .map(drop),
+        production
+            .representations_using_resource(ResourceId::from_bytes(absent), &page(1))
+            .map(drop),
+    ] {
+        assert_eq!(
+            error.expect_err("absent object").kind(),
+            postproject_core::ErrorKind::NotFound
+        );
+    }
+    let assets = production.assets_page(&page(1)).expect("asset page");
+    let foreign = QueryPageRequest::new(1, assets.next_cursor().cloned()).expect("page request");
+    assert!(
+        production
+            .representations_using_resource(ResourceId::from_bytes([6; 16]), &foreign)
+            .is_err()
+    );
+}

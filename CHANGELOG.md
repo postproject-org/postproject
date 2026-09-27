@@ -9,6 +9,8 @@ Development version: `0.4.0-alpha.1`.
 
 ### Added
 
+- Added point reads for assets, representations, and jobs, and a page of the
+  representations using a resource, on Rust.
 - Added tested documentation examples for every public operation. Every C
   function, C++ member function, and Python method, every CLI command, and the
   Rust storage and media services now appear in a program that CI runs, shown

@@ -37,6 +37,23 @@ pub trait ProductionRead {
     /// Returns a domain error for an invalid cursor or unreadable storage.
     fn assets_page(&self, page: &QueryPageRequest) -> Result<QueryPage<Asset>>;
 
+    /// Loads one asset by identity.
+    ///
+    /// # Errors
+    ///
+    /// Returns a not-found error when the asset is absent, or a storage-domain
+    /// error when persisted data cannot be read or decoded safely.
+    fn asset(&self, asset_id: AssetId) -> Result<Asset>;
+
+    /// Loads one representation, with its structure and fingerprints, by
+    /// identity.
+    ///
+    /// # Errors
+    ///
+    /// Returns a not-found error when the representation is absent, or a
+    /// storage-domain error when persisted data cannot be decoded safely.
+    fn representation(&self, representation_id: RepresentationId) -> Result<Representation>;
+
     /// Loads every representation belonging to an asset in deterministic order.
     ///
     /// # Errors
@@ -106,6 +123,21 @@ pub trait ProductionRead {
     fn representations_under_media_root(
         &self,
         root_name: &str,
+        page: &QueryPageRequest,
+    ) -> Result<QueryPage<Representation>>;
+
+    /// Queries representations that use a resource, in identity order.
+    ///
+    /// A resource is usually used by one representation, but the model allows
+    /// several representations to share it, so the result is a bounded page.
+    ///
+    /// # Errors
+    ///
+    /// Returns a domain error when the resource is absent, the cursor is
+    /// invalid, or persisted representation data cannot be decoded safely.
+    fn representations_using_resource(
+        &self,
+        resource_id: ResourceId,
         page: &QueryPageRequest,
     ) -> Result<QueryPage<Representation>>;
 
