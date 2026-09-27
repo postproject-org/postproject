@@ -530,7 +530,7 @@ static pp_error_code_t request_and_page_jobs(pp_production_t *production,
     status = pp_transaction_commit(transaction, error);
   }
   pp_job_set_t *first_job = NULL;
-  pp_job_t job;
+  pp_job_t job = {0};
   if (status == PP_OK) {
     status = pp_production_job(production, &job_ids[0], &first_job, error);
   }
