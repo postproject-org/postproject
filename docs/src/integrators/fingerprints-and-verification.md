@@ -91,6 +91,7 @@ The host should hash each such candidate with its own algorithm and confirm the
 locator only when the values agree. Resolution never commits a candidate by
 itself, so this check fits the normal confirmation step.
 
+## Verify content during resolution
 
 By default resolution trusts known locators whose files exist. Verification
 additionally recomputes the fingerprints of content found at known locators and
