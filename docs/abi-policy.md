@@ -1,6 +1,6 @@
 # ABI policy
 
-ABI version 31 is pre-release and may change during the 0.x series, with every
+ABI version 32 is pre-release and may change during the 0.x series, with every
 change recorded in the changelog and ABI tests. `pp_abi_version()` reports the
 implemented version. Exported symbol names are unversioned until the first stable
 release, but removals or signature changes require an explicit ABI-version bump.
@@ -75,8 +75,8 @@ embedded NUL bytes are rejected before calling C.
 
 ## Resolution results
 
-`pp_production_resolve_asset` returns an immutable opaque set containing one result
-per representation. Each representation reports aggregate availability,
+`pp_production_resolve_assets` returns an immutable opaque set containing one
+result per representation of each requested asset, in asset order. Each representation reports aggregate availability,
 ordered resource results, and availability issues such as offline required
 resources or missing sequence frames. Fixed-width states, issue kinds, frames,
 candidates, and evidence are read through index-checked accessors. Candidate URI
@@ -95,10 +95,11 @@ persistence time but does not silently choose a candidate.
 Resolution snapshots the database state it needs while holding the production
 lock, then releases that lock before filesystem discovery and fingerprinting.
 
-Logical media-root names are production knowledge. `pp_media_root_mapping_t`
-values borrow a root name and a machine-local directory only for one resolution
-call; the library copies and validates them before scanning. A null mapping
-pointer is valid only with a zero count. Root summaries expose an optional
+Logical media-root names are production knowledge. Root mappings and search
+directories in `pp_resolution_options_t` are machine-local; the library copies
+and validates them when they are added and never records them. A null options
+pointer means the defaults, and a null asset array is valid only with a zero
+count. Cancellation tokens may be cancelled from any thread. Root summaries expose an optional
 legacy absolute URI solely for lossless migration from schema versions before 6.
 
 ## Representation inspection
@@ -208,6 +209,15 @@ ABI version 31 adds `pp_file_path_to_locator` and `pp_locator_to_file_path`
 (ADR 0030). Owned strings returned through `char **` outputs, including host
 bindings, are released with `pp_string_release`, which replaces
 `pp_host_binding_release`.
+
+ABI version 32 replaces `pp_production_resolve_asset` and
+`pp_media_root_mapping_t` with `pp_production_resolve_assets` and an opaque
+`pp_resolution_options_t` (ADR 0031). The options carry root mappings, unnamed
+search directories, the verification tier, per-directory limits, and an
+optional `pp_cancel_token_t`. A cancelled token makes the call fail with
+`PP_ERROR_CANCELLED`. Representation results report their asset, candidates
+report the logical root they were found under, and a directory over its budget
+adds `PP_EVIDENCE_SEARCH_TRUNCATED`.
 
 ## External identifiers
 

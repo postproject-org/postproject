@@ -95,8 +95,10 @@ std::vector<postproject::RepresentationResolution>
 resolve_asset(const postproject::Production &production,
               const postproject::Uuid &asset_id,
               const std::string &rushes_directory) {
-  const auto resolutions =
-      production.resolveAsset(asset_id, {{"rushes", rushes_directory}});
+  // The mapping locates the logical root on this machine for this call only.
+  postproject::ResolutionOptions options;
+  options.addRootMapping("rushes", rushes_directory);
+  const auto resolutions = production.resolveAsset(asset_id, options);
   for (const auto &representation : resolutions) {
     std::cout << "availability: "
               << static_cast<std::uint32_t>(representation.availability)
@@ -124,16 +126,10 @@ void confirm_unique_candidates(
         continue;
       }
       const auto &candidate = resource.candidates.front();
-      std::optional<std::string> root;
-      for (const auto &evidence : candidate.evidence) {
-        if (evidence.kind == postproject::EvidenceKind::media_root_relation) {
-          root = evidence.detail;
-        }
-      }
-      if (root.has_value()) {
+      if (candidate.media_root.has_value()) {
         // Record the logical root the candidate was found under.
         transaction.confirmLocatorUnderRoot(resource.resource_id, candidate.uri,
-                                            *root);
+                                            *candidate.media_root);
       } else {
         transaction.confirmLocator(resource.resource_id, candidate.uri);
       }

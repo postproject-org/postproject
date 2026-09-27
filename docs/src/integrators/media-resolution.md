@@ -54,10 +54,9 @@ decides which candidate to confirm: a person picks one of several plausible
 candidates, or a policy accepts a single exact match. Confirmation adds a
 locator for the resource in a transaction; the stored identity is unchanged.
 
-A candidate found under a mapped root carries `media_root_relation` evidence
-that names the logical root. The example confirms such a candidate under that
-root, so the locator records the portable root name but never the local
-directory. The CLI `media resolve --confirm` does the same automatically.
+A candidate found under a mapped root names that logical root. The example
+confirms such a candidate under that root, so the locator records the portable
+root name but never the local directory. The CLI `media resolve --confirm` does the same automatically.
 [Locator and media-root queries](bounded-queries.md) report that recorded root.
 
 ```{code-variants} confirm-locator
@@ -71,6 +70,38 @@ size only. The resource's recorded fingerprints were ones PostProject cannot
 compute, such as a hash the host application recorded. Check the candidate with
 the host's own algorithm before confirming it. See
 [host content hashes](fingerprints-and-verification.md#keep-a-hosts-own-content-hashes).
+
+## Search near where media was
+
+Named roots describe storage shared across machines. Many hosts, such as
+editors, compositors, and scripts, know only a project folder and absolute
+paths. They search *search directories* instead of inventing roots:
+
+- **Where to search.** A search directory is an unnamed, machine-local
+  directory, for example the project folder or a clip's former folder. It is
+  searched after the mapped roots and is never recorded in the production.
+- **What a candidate carries.** A candidate found only there has no root, so it
+  is confirmed as a plain locator.
+- **Never put machine paths in root names or labels.** Doing so leaks one
+  workstation's layout into every copy of the production.
+
+```{code-variants} resolve-scope
+```
+
+**Resolve everything that is offline in one call.** When a host opens a
+project, it passes every asset to resolution at once. PostProject then walks
+each root and search directory a single time and shares that scan across all
+resources. Resolving assets one by one repeats the scan for each of them.
+
+**Each searched directory has its own entry budget.** A directory with more
+entries than its budget is searched partially and reported with
+`search_truncated` evidence. The other directories, and the candidates already
+found, are still used.
+
+**Cancel from another thread.** Pass a cancellation token when the host
+resolves from a user interface, and cancel it from any thread to stop a long
+scan. The call then fails with a cancelled error, and nothing has changed,
+because resolution is read-only.
 
 ## Compare locators with host paths
 

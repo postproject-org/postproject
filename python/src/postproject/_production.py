@@ -42,6 +42,7 @@ from ._abi import (
 from ._abi import (
     ArtifactReproducibility as NativeArtifactReproducibility,
 )
+from ._abi import CancelToken as NativeCancelToken
 from ._abi import Dependency as NativeDependency
 from ._abi import DependencyMatch as NativeDependencyMatch
 from ._abi import (
@@ -53,9 +54,6 @@ from ._abi import (
 from ._abi import Fingerprint as NativeFingerprint
 from ._abi import Job as NativeJob
 from ._abi import (
-    MediaRootMapping as NativeMediaRootMapping,
-)
-from ._abi import (
     MetadataInput as NativeMetadataInput,
 )
 from ._abi import (
@@ -64,6 +62,7 @@ from ._abi import (
 from ._abi import (
     Production as NativeProduction,
 )
+from ._abi import ResolutionOptions as NativeResolutionOptions
 from ._abi import (
     RevisionEvent as NativeRevisionEvent,
 )
@@ -185,6 +184,7 @@ from ._model import (
     RevisionWaitResult,
     ToolIdentity,
     TransactionId,
+    VerificationMode,
 )
 from ._native import NativeLibrary
 
@@ -632,12 +632,34 @@ class Production:
 
     def resolve(
         self,
-        asset_id: AssetId,
+        asset_ids: AssetId | Iterable[AssetId],
         root_mappings: Mapping[str, str | os.PathLike[str]] | None = None,
+        *,
+        search_directories: Iterable[str | os.PathLike[str]] = (),
+        verification: VerificationMode = VerificationMode.PRESENCE,
+        max_depth: int = 64,
+        max_entries_per_directory: int = 100_000,
+        cancel_token: CancelToken | None = None,
     ) -> tuple[RepresentationResolution, ...]:
-        """Resolve an asset using optional machine-local root mappings."""
+        """Resolve one or more assets, scanning the search scope once.
 
-        return self._resolve_asset(asset_id, root_mappings or {})
+        ``root_mappings`` map logical roots to this machine's directories and
+        ``search_directories`` are unnamed places searched after them; neither
+        is recorded. Results cover every representation of each asset, in
+        asset order. A cancelled ``cancel_token`` raises ``CancelledError``.
+        """
+
+        ids = (asset_ids,) if isinstance(asset_ids, AssetId) else tuple(asset_ids)
+        options = _ResolutionOptions(self._native)
+        for name, directory in sorted((root_mappings or {}).items()):
+            options.add_root_mapping(name, directory)
+        for directory in search_directories:
+            options.add_search_directory(directory)
+        options.set_verification(verification)
+        options.set_limits(max_depth, max_entries_per_directory)
+        if cancel_token is not None:
+            options.set_cancel_token(cancel_token)
+        return self._resolve_assets(ids, options)
 
     def evaluate_artifact(
         self,
@@ -1487,31 +1509,20 @@ class Production:
         finally:
             self._native.lib.pp_revision_event_set_release(handle)
 
-    def _resolve_asset(
-        self,
-        asset_id: AssetId,
-        root_mappings: Mapping[str, str | os.PathLike[str]],
+    def _resolve_assets(
+        self, asset_ids: tuple[AssetId, ...], options: _ResolutionOptions
     ) -> tuple[RepresentationResolution, ...]:
         self._require_open()
-        native_id = _native_uuid(asset_id.value)
-        mapping_values = sorted(root_mappings.items())
-        mapping_names = [_utf8(name, "root name") for name, _ in mapping_values]
-        mapping_directories = [_path_bytes(path) for _, path in mapping_values]
-        native_mappings = (NativeMediaRootMapping * len(mapping_values))(
-            *(
-                NativeMediaRootMapping(name, directory)
-                for name, directory in zip(
-                    mapping_names, mapping_directories, strict=True
-                )
-            )
+        native_ids = (Uuid * len(asset_ids))(
+            *(_native_uuid(asset_id.value) for asset_id in asset_ids)
         )
         handle = ctypes.POINTER(ResolutionSet)()
         error = ctypes.POINTER(Error)()
-        status = self._native.lib.pp_production_resolve_asset(
+        status = self._native.lib.pp_production_resolve_assets(
             self._handle,
-            ctypes.byref(native_id),
-            native_mappings if mapping_values else None,
-            len(mapping_values),
+            native_ids if asset_ids else None,
+            len(asset_ids),
+            options.handle,
             ctypes.byref(handle),
             ctypes.byref(error),
         )
@@ -2633,6 +2644,95 @@ def fingerprint_file(
         native.lib.pp_fingerprint_release(handle)
 
 
+class CancelToken:
+    """A cancellation flag shared with running operations.
+
+    ``cancel()`` may be called from any thread, including while
+    ``Production.resolve`` runs on another; that call then raises
+    ``CancelledError``. Cancellation cannot be undone.
+    """
+
+    def __init__(self, *, library_path: str | os.PathLike[str] | None = None) -> None:
+        native = NativeLibrary(library_path)
+        handle = ctypes.POINTER(NativeCancelToken)()
+        error = ctypes.POINTER(Error)()
+        status = native.lib.pp_cancel_token_create(
+            ctypes.byref(handle), ctypes.byref(error)
+        )
+        native.check(status, error)
+        self._native = native
+        self.handle = handle
+        self._finalizer = weakref.finalize(
+            self, native.lib.pp_cancel_token_release, handle
+        )
+
+    def cancel(self) -> None:
+        """Request cancellation of every operation observing this token."""
+
+        self._native.lib.pp_cancel_token_cancel(self.handle)
+
+
+class _ResolutionOptions:
+    """Owned native resolution options for one resolve call."""
+
+    def __init__(self, native: NativeLibrary) -> None:
+        handle = ctypes.POINTER(NativeResolutionOptions)()
+        error = ctypes.POINTER(Error)()
+        status = native.lib.pp_resolution_options_create(
+            ctypes.byref(handle), ctypes.byref(error)
+        )
+        native.check(status, error)
+        self._native = native
+        self.handle = handle
+        self._finalizer = weakref.finalize(
+            self, native.lib.pp_resolution_options_release, handle
+        )
+
+    def add_root_mapping(self, name: str, directory: str | os.PathLike[str]) -> None:
+        error = ctypes.POINTER(Error)()
+        status = self._native.lib.pp_resolution_options_add_root_mapping(
+            self.handle,
+            _utf8(name, "root name"),
+            _path_bytes(directory),
+            ctypes.byref(error),
+        )
+        self._native.check(status, error)
+
+    def add_search_directory(self, directory: str | os.PathLike[str]) -> None:
+        error = ctypes.POINTER(Error)()
+        status = self._native.lib.pp_resolution_options_add_search_directory(
+            self.handle, _path_bytes(directory), ctypes.byref(error)
+        )
+        self._native.check(status, error)
+
+    def set_verification(self, verification: VerificationMode) -> None:
+        error = ctypes.POINTER(Error)()
+        status = self._native.lib.pp_resolution_options_set_verification(
+            self.handle, _VERIFICATION_MODES[verification], ctypes.byref(error)
+        )
+        self._native.check(status, error)
+
+    def set_limits(self, max_depth: int, max_entries_per_directory: int) -> None:
+        error = ctypes.POINTER(Error)()
+        status = self._native.lib.pp_resolution_options_set_limits(
+            self.handle, max_depth, max_entries_per_directory, ctypes.byref(error)
+        )
+        self._native.check(status, error)
+
+    def set_cancel_token(self, token: CancelToken) -> None:
+        error = ctypes.POINTER(Error)()
+        status = self._native.lib.pp_resolution_options_set_cancel_token(
+            self.handle, token.handle, ctypes.byref(error)
+        )
+        self._native.check(status, error)
+
+
+_VERIFICATION_MODES = {
+    VerificationMode.PRESENCE: _abi.PP_VERIFY_PRESENCE,
+    VerificationMode.CONTENT: _abi.PP_VERIFY_CONTENT,
+}
+
+
 def file_locator(
     path: str | os.PathLike[str],
     *,
@@ -3725,6 +3825,7 @@ def _representation_resolution_at(
     resolutions: _Pointer[ResolutionSet],
     representation_index: int,
 ) -> RepresentationResolution:
+    asset_id = Uuid()
     representation_id = Uuid()
     availability = _abi.RepresentationAvailability()
     resource_count = ctypes.c_uint64()
@@ -3733,6 +3834,7 @@ def _representation_resolution_at(
     status = native.lib.pp_resolution_set_get_representation(
         resolutions,
         representation_index,
+        ctypes.byref(asset_id),
         ctypes.byref(representation_id),
         ctypes.byref(availability),
         ctypes.byref(resource_count),
@@ -3741,6 +3843,7 @@ def _representation_resolution_at(
     )
     native.check(status, error)
     return RepresentationResolution(
+        AssetId(_uuid(asset_id)),
         RepresentationId(_uuid(representation_id)),
         _representation_availability(int(availability.value)),
         tuple(
@@ -3815,6 +3918,7 @@ def _resolution_candidate_at(
 ) -> ResolutionCandidate:
     uri = ctypes.c_char_p()
     confidence = ctypes.c_uint16()
+    media_root = ctypes.c_char_p()
     evidence_count = ctypes.c_uint64()
     error = ctypes.POINTER(Error)()
     status = native.lib.pp_resolution_set_get_candidate(
@@ -3824,6 +3928,7 @@ def _resolution_candidate_at(
         candidate_index,
         ctypes.byref(uri),
         ctypes.byref(confidence),
+        ctypes.byref(media_root),
         ctypes.byref(evidence_count),
         ctypes.byref(error),
     )
@@ -3831,6 +3936,7 @@ def _resolution_candidate_at(
     return ResolutionCandidate(
         _decode_required(uri.value, "resolution candidate URI"),
         int(confidence.value),
+        _decode_optional(media_root.value),
         tuple(
             _candidate_evidence_at(
                 native,

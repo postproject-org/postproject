@@ -43,6 +43,8 @@ typedef struct pp_revision_set pp_revision_set_t;
 typedef struct pp_revision_event_set pp_revision_event_set_t;
 typedef struct pp_revision_waiter pp_revision_waiter_t;
 typedef struct pp_fingerprint pp_fingerprint_t;
+typedef struct pp_cancel_token pp_cancel_token_t;
+typedef struct pp_resolution_options pp_resolution_options_t;
 typedef struct pp_error pp_error_t;
 
 /* Production handles may be moved between threads and called concurrently;
@@ -331,12 +333,6 @@ typedef struct pp_file_resource_input {
   uint8_t required;
 } pp_file_resource_input_t;
 
-/* Borrowed machine-local mapping used only for one resolution call. */
-typedef struct pp_media_root_mapping {
-  const char *name;
-  const char *directory;
-} pp_media_root_mapping_t;
-
 typedef uint32_t pp_error_code_t;
 
 #define PP_OK UINT32_C(0)
@@ -350,6 +346,7 @@ typedef uint32_t pp_error_code_t;
 #define PP_ERROR_AMBIGUOUS_RESOLUTION UINT32_C(8)
 #define PP_ERROR_FINGERPRINT UINT32_C(9)
 #define PP_ERROR_UNSUPPORTED UINT32_C(10)
+#define PP_ERROR_CANCELLED UINT32_C(11)
 #define PP_ERROR_INTERNAL UINT32_C(255)
 
 typedef uint32_t pp_representation_availability_t;
@@ -392,6 +389,12 @@ typedef uint32_t pp_evidence_kind_t;
 #define PP_EVIDENCE_MEDIA_ROOT_UNAVAILABLE UINT32_C(12)
 #define PP_EVIDENCE_FINGERPRINT_MISMATCH UINT32_C(13)
 #define PP_EVIDENCE_FINGERPRINT_NOT_VERIFIED UINT32_C(14)
+#define PP_EVIDENCE_SEARCH_TRUNCATED UINT32_C(15)
+
+typedef uint32_t pp_verification_mode_t;
+
+#define PP_VERIFY_PRESENCE UINT32_C(1)
+#define PP_VERIFY_CONTENT UINT32_C(2)
 
 typedef uint32_t pp_content_verification_t;
 
@@ -996,18 +999,57 @@ PP_API pp_error_code_t pp_production_verify_resource(
     const pp_production_t *production, const pp_uuid_t *resource_id,
     const char *path, pp_content_verification_t *out_verification,
     pp_error_t **out_error);
-/* Resolution is read-only. Borrowed candidate URI and evidence-detail strings
- * remain valid until pp_resolution_set_release(). */
-PP_API pp_error_code_t pp_production_resolve_asset(
-    const pp_production_t *production, const pp_uuid_t *asset_id,
-    const pp_media_root_mapping_t *root_mappings,
-    uint64_t root_mapping_count,
+/* A cancellation token is a flag shared by the caller and running operations.
+ * pp_cancel_token_cancel() may be called from any thread, including while an
+ * operation observing the token runs on another; that operation then fails
+ * with PP_ERROR_CANCELLED. Cancellation cannot be undone. */
+PP_API pp_error_code_t pp_cancel_token_create(pp_cancel_token_t **out_token,
+                                              pp_error_t **out_error);
+PP_API void pp_cancel_token_cancel(const pp_cancel_token_t *token);
+PP_API void pp_cancel_token_release(pp_cancel_token_t *token);
+/* Resolution options are caller-owned and caller-serialized; one options
+ * handle may serve many calls. Defaults: presence verification, depth 64,
+ * 100000 entries per searched directory, no mappings or search directories,
+ * and no cancellation token. Inputs are copied. */
+PP_API pp_error_code_t pp_resolution_options_create(
+    pp_resolution_options_t **out_options, pp_error_t **out_error);
+PP_API void pp_resolution_options_release(pp_resolution_options_t *options);
+/* Maps a logical media root to an existing directory on this machine. The
+ * mapping is never recorded in the production. */
+PP_API pp_error_code_t pp_resolution_options_add_root_mapping(
+    pp_resolution_options_t *options, const char *name, const char *directory,
+    pp_error_t **out_error);
+/* Adds an unnamed, machine-local directory searched after the mapped roots.
+ * Candidates found only there have no media root. */
+PP_API pp_error_code_t pp_resolution_options_add_search_directory(
+    pp_resolution_options_t *options, const char *directory,
+    pp_error_t **out_error);
+PP_API pp_error_code_t pp_resolution_options_set_verification(
+    pp_resolution_options_t *options, pp_verification_mode_t verification,
+    pp_error_t **out_error);
+/* A directory exceeding its entry budget is searched partially and reported
+ * with PP_EVIDENCE_SEARCH_TRUNCATED; resolution continues. */
+PP_API pp_error_code_t pp_resolution_options_set_limits(
+    pp_resolution_options_t *options, uint32_t max_depth,
+    uint64_t max_entries_per_directory, pp_error_t **out_error);
+/* NULL removes the token. The options share the token's flag, so the token
+ * handle may be released independently. */
+PP_API pp_error_code_t pp_resolution_options_set_cancel_token(
+    pp_resolution_options_t *options, const pp_cancel_token_t *token,
+    pp_error_t **out_error);
+/* Resolution is read-only. It resolves every representation of each asset,
+ * in asset order, walking each searched directory at most once for the whole
+ * call. NULL options mean the defaults. Borrowed candidate URI, media-root,
+ * and evidence-detail strings remain valid until pp_resolution_set_release(). */
+PP_API pp_error_code_t pp_production_resolve_assets(
+    const pp_production_t *production, const pp_uuid_t *asset_ids,
+    uint64_t asset_count, const pp_resolution_options_t *options,
     pp_resolution_set_t **out_resolutions, pp_error_t **out_error);
 PP_API uint64_t pp_resolution_set_representation_count(
     const pp_resolution_set_t *resolutions);
 PP_API pp_error_code_t pp_resolution_set_get_representation(
     const pp_resolution_set_t *resolutions, uint64_t representation_index,
-    pp_uuid_t *out_representation_id,
+    pp_uuid_t *out_asset_id, pp_uuid_t *out_representation_id,
     pp_representation_availability_t *out_availability,
     uint64_t *out_resource_count, uint64_t *out_issue_count,
     pp_error_t **out_error);
@@ -1029,8 +1071,8 @@ PP_API pp_error_code_t pp_resolution_set_get_issue_frame(
 PP_API pp_error_code_t pp_resolution_set_get_candidate(
     const pp_resolution_set_t *resolutions, uint64_t representation_index,
     uint64_t resource_index, uint64_t candidate_index, const char **out_uri,
-    uint16_t *out_confidence_basis_points, uint64_t *out_evidence_count,
-    pp_error_t **out_error);
+    uint16_t *out_confidence_basis_points, const char **out_media_root,
+    uint64_t *out_evidence_count, pp_error_t **out_error);
 PP_API pp_error_code_t pp_resolution_set_get_resource_evidence(
     const pp_resolution_set_t *resolutions, uint64_t representation_index,
     uint64_t resource_index, uint64_t evidence_index,

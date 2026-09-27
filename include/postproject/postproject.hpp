@@ -34,6 +34,7 @@ enum class ErrorCode : std::uint32_t {
   ambiguous_resolution = PP_ERROR_AMBIGUOUS_RESOLUTION,
   fingerprint = PP_ERROR_FINGERPRINT,
   unsupported = PP_ERROR_UNSUPPORTED,
+  cancelled = PP_ERROR_CANCELLED,
   internal = PP_ERROR_INTERNAL,
 };
 
@@ -528,9 +529,9 @@ struct MediaRoot final {
   bool enabled;
 };
 
-struct MediaRootMapping final {
-  std::string name;
-  std::string directory;
+enum class VerificationMode : std::uint32_t {
+  presence = PP_VERIFY_PRESENCE,
+  content = PP_VERIFY_CONTENT,
 };
 
 enum class RepresentationKind : std::uint32_t {
@@ -710,6 +711,7 @@ enum class EvidenceKind : std::uint32_t {
   media_root_unavailable = PP_EVIDENCE_MEDIA_ROOT_UNAVAILABLE,
   fingerprint_mismatch = PP_EVIDENCE_FINGERPRINT_MISMATCH,
   fingerprint_not_verified = PP_EVIDENCE_FINGERPRINT_NOT_VERIFIED,
+  search_truncated = PP_EVIDENCE_SEARCH_TRUNCATED,
 };
 
 enum class ContentVerification : std::uint32_t {
@@ -726,6 +728,9 @@ struct Evidence final {
 struct ResolutionCandidate final {
   std::string uri;
   std::uint16_t confidence_basis_points;
+  // The logical root the candidate was found under; empty for a candidate
+  // found only in an unnamed search directory.
+  std::optional<std::string> media_root;
   std::vector<Evidence> evidence;
 };
 
@@ -744,6 +749,7 @@ struct AvailabilityIssue final {
 };
 
 struct RepresentationResolution final {
+  Uuid asset_id;
   Uuid representation_id;
   RepresentationAvailability availability;
   std::vector<ResourceResolution> resources;
@@ -2730,6 +2736,114 @@ private:
 
 // Move-only owner of a thread-safe native handle. Concurrent const calls are
 // supported while ownership operations and destruction remain serialized.
+// A cancellation flag shared with running operations. cancel() may be called
+// from any thread; an observing operation then throws ErrorCode::cancelled.
+class CancelToken final {
+public:
+  CancelToken() {
+    pp_error_t *error = nullptr;
+    detail::throw_if_error(pp_cancel_token_create(&token_, &error), error);
+  }
+  CancelToken(const CancelToken &) = delete;
+  CancelToken &operator=(const CancelToken &) = delete;
+  CancelToken(CancelToken &&other) noexcept
+      : token_(std::exchange(other.token_, nullptr)) {}
+  CancelToken &operator=(CancelToken &&other) noexcept {
+    if (this != &other) {
+      pp_cancel_token_release(token_);
+      token_ = std::exchange(other.token_, nullptr);
+    }
+    return *this;
+  }
+  ~CancelToken() { pp_cancel_token_release(token_); }
+
+  void cancel() const noexcept { pp_cancel_token_cancel(token_); }
+
+private:
+  friend class ResolutionOptions;
+  pp_cancel_token_t *token_ = nullptr;
+};
+
+// Search scope, verification tier, limits, and cancellation for resolution.
+// Mappings and search directories are machine-local and never recorded.
+class ResolutionOptions final {
+public:
+  ResolutionOptions() {
+    pp_error_t *error = nullptr;
+    detail::throw_if_error(pp_resolution_options_create(&options_, &error),
+                           error);
+  }
+  ResolutionOptions(const ResolutionOptions &) = delete;
+  ResolutionOptions &operator=(const ResolutionOptions &) = delete;
+  ResolutionOptions(ResolutionOptions &&other) noexcept
+      : options_(std::exchange(other.options_, nullptr)) {}
+  ResolutionOptions &operator=(ResolutionOptions &&other) noexcept {
+    if (this != &other) {
+      pp_resolution_options_release(options_);
+      options_ = std::exchange(other.options_, nullptr);
+    }
+    return *this;
+  }
+  ~ResolutionOptions() { pp_resolution_options_release(options_); }
+
+  ResolutionOptions &addRootMapping(std::string_view name,
+                                    std::string_view directory) {
+    const std::string native_name = detail::checked_string(name, "root name");
+    const std::string native_directory =
+        detail::checked_string(directory, "root directory");
+    pp_error_t *error = nullptr;
+    detail::throw_if_error(
+        pp_resolution_options_add_root_mapping(options_, native_name.c_str(),
+                                               native_directory.c_str(),
+                                               &error),
+        error);
+    return *this;
+  }
+
+  ResolutionOptions &addSearchDirectory(std::string_view directory) {
+    const std::string native_directory =
+        detail::checked_string(directory, "search directory");
+    pp_error_t *error = nullptr;
+    detail::throw_if_error(pp_resolution_options_add_search_directory(
+                               options_, native_directory.c_str(), &error),
+                           error);
+    return *this;
+  }
+
+  ResolutionOptions &setVerification(VerificationMode verification) {
+    pp_error_t *error = nullptr;
+    detail::throw_if_error(
+        pp_resolution_options_set_verification(
+            options_, static_cast<pp_verification_mode_t>(verification),
+            &error),
+        error);
+    return *this;
+  }
+
+  ResolutionOptions &setLimits(std::uint32_t max_depth,
+                               std::uint64_t max_entries_per_directory) {
+    pp_error_t *error = nullptr;
+    detail::throw_if_error(
+        pp_resolution_options_set_limits(options_, max_depth,
+                                          max_entries_per_directory, &error),
+        error);
+    return *this;
+  }
+
+  // The options share the token's flag; the token may be destroyed first.
+  ResolutionOptions &setCancelToken(const CancelToken &token) {
+    pp_error_t *error = nullptr;
+    detail::throw_if_error(
+        pp_resolution_options_set_cancel_token(options_, token.token_, &error),
+        error);
+    return *this;
+  }
+
+private:
+  friend class Production;
+  pp_resolution_options_t *options_ = nullptr;
+};
+
 class Production final {
 public:
   static Production create(std::string_view path) {
@@ -3235,32 +3349,45 @@ public:
     return static_cast<ContentVerification>(verification);
   }
 
+  // Resolves one asset with default options: known locators only.
   [[nodiscard]] std::vector<RepresentationResolution>
-  resolveAsset(const Uuid &asset_id,
-               const std::vector<MediaRootMapping> &root_mappings = {}) const {
-    const pp_uuid_t value = detail::native_uuid(asset_id);
-    std::vector<std::string> mapping_names;
-    std::vector<std::string> mapping_directories;
-    mapping_names.reserve(root_mappings.size());
-    mapping_directories.reserve(root_mappings.size());
-    for (const MediaRootMapping &mapping : root_mappings) {
-      mapping_names.push_back(detail::checked_string(mapping.name, "root name"));
-      mapping_directories.push_back(
-          detail::checked_string(mapping.directory, "root directory"));
-    }
-    std::vector<pp_media_root_mapping_t> native_mappings;
-    native_mappings.reserve(root_mappings.size());
-    for (std::size_t index = 0; index < root_mappings.size(); ++index) {
-      native_mappings.push_back(
-          {mapping_names[index].c_str(), mapping_directories[index].c_str()});
+  resolveAsset(const Uuid &asset_id) const {
+    return resolveAssets({asset_id}, nullptr);
+  }
+
+  [[nodiscard]] std::vector<RepresentationResolution>
+  resolveAsset(const Uuid &asset_id, const ResolutionOptions &options) const {
+    return resolveAssets({asset_id}, options.options_);
+  }
+
+  [[nodiscard]] std::vector<RepresentationResolution>
+  resolveAssets(const std::vector<Uuid> &asset_ids) const {
+    return resolveAssets(asset_ids, nullptr);
+  }
+
+  // Resolves every representation of each asset, in asset order, scanning the
+  // search scope once for the whole call.
+  [[nodiscard]] std::vector<RepresentationResolution>
+  resolveAssets(const std::vector<Uuid> &asset_ids,
+                const ResolutionOptions &options) const {
+    return resolveAssets(asset_ids, options.options_);
+  }
+
+private:
+  [[nodiscard]] std::vector<RepresentationResolution>
+  resolveAssets(const std::vector<Uuid> &asset_ids,
+                const pp_resolution_options_t *options) const {
+    std::vector<pp_uuid_t> native_ids;
+    native_ids.reserve(asset_ids.size());
+    for (const Uuid &asset_id : asset_ids) {
+      native_ids.push_back(detail::native_uuid(asset_id));
     }
     pp_resolution_set_t *raw_resolutions = nullptr;
     pp_error_t *error = nullptr;
-    const pp_error_code_t status = pp_production_resolve_asset(
-        production_, &value,
-        native_mappings.empty() ? nullptr : native_mappings.data(),
-        static_cast<std::uint64_t>(native_mappings.size()), &raw_resolutions,
-        &error);
+    const pp_error_code_t status = pp_production_resolve_assets(
+        production_, native_ids.empty() ? nullptr : native_ids.data(),
+        static_cast<std::uint64_t>(native_ids.size()), options,
+        &raw_resolutions, &error);
     detail::throw_if_error(status, error);
     detail::ResolutionSetHandle resolutions(raw_resolutions);
 
@@ -3269,6 +3396,7 @@ public:
         pp_resolution_set_representation_count(resolutions.get());
     for (std::uint64_t representation_index = 0;
          representation_index < count; ++representation_index) {
+      pp_uuid_t asset_id{};
       pp_uuid_t representation_id{};
       pp_representation_availability_t availability = 0;
       std::uint64_t resource_count = 0;
@@ -3276,8 +3404,9 @@ public:
       pp_error_t *item_error = nullptr;
       const pp_error_code_t item_status =
           pp_resolution_set_get_representation(
-              resolutions.get(), representation_index, &representation_id,
-              &availability, &resource_count, &issue_count, &item_error);
+              resolutions.get(), representation_index, &asset_id,
+              &representation_id, &availability, &resource_count,
+              &issue_count, &item_error);
       detail::throw_if_error(item_status, item_error);
 
       std::vector<ResourceResolution> resources;
@@ -3299,13 +3428,14 @@ public:
              candidate_index < candidate_count; ++candidate_index) {
           const char *uri = nullptr;
           std::uint16_t confidence = 0;
+          const char *media_root = nullptr;
           std::uint64_t candidate_evidence_count = 0;
           pp_error_t *candidate_error = nullptr;
           const pp_error_code_t candidate_status =
               pp_resolution_set_get_candidate(
                   resolutions.get(), representation_index, resource_index,
-                  candidate_index, &uri, &confidence, &candidate_evidence_count,
-                  &candidate_error);
+                  candidate_index, &uri, &confidence, &media_root,
+                  &candidate_evidence_count, &candidate_error);
           detail::throw_if_error(candidate_status, candidate_error);
 
           std::vector<Evidence> evidence;
@@ -3317,6 +3447,9 @@ public:
           }
           candidates.push_back(
               {uri != nullptr ? std::string(uri) : std::string(), confidence,
+               media_root != nullptr
+                   ? std::optional<std::string>(media_root)
+                   : std::nullopt,
                std::move(evidence)});
         }
 
@@ -3360,12 +3493,14 @@ public:
                           static_cast<AvailabilityIssueKind>(kind),
                           std::move(frames)});
       }
-      result.push_back({detail::uuid(representation_id),
+      result.push_back({detail::uuid(asset_id), detail::uuid(representation_id),
                         static_cast<RepresentationAvailability>(availability),
                         std::move(resources), std::move(issues)});
     }
     return result;
   }
+
+public:
 
   [[nodiscard]] std::vector<Activity> activities() const {
     pp_activity_set_t *raw_activities = nullptr;

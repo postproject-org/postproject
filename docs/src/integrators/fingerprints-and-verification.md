@@ -99,22 +99,6 @@ reports a mismatch as evidence, so replaced or corrupted files are noticed.
 Verification reads every byte it checks and is opt-in for that reason:
 
 ```{code-variants} verify-resolution
-:::{no-variant} c
-Content verification is not exposed through the C ABI. `pp_production_resolve_asset`
-checks known locators and searches mapped roots without recomputing
-fingerprints; use the CLI `media resolve --verify` or the Rust adapter.
-:::
-:::{no-variant} cpp
-Content verification is not exposed through the C++ wrapper. `Production::resolve`
-checks known locators and searches mapped roots without recomputing
-fingerprints; use the CLI `media resolve --verify` or the Rust adapter.
-:::
-:::{no-variant} python
-Content verification is not exposed through the Python binding.
-`Production.resolve` checks known locators and searches mapped roots without
-recomputing fingerprints; use the CLI `media resolve --verify` or the Rust
-adapter.
-:::
 ```
 
 A verification mismatch is a report. Record the new observation, as shown
@@ -139,17 +123,17 @@ the cache is machine-local and holds no production knowledge.
 ```{code-variants} inventory-scan
 :::{no-variant} c
 Inventory scanning is not exposed through the C ABI. Run `postproject media
-inventory` from a host tool, or resolve individual assets with
-`pp_production_resolve_asset`.
+inventory` from a host tool, or resolve assets with
+`pp_production_resolve_assets`.
 :::
 :::{no-variant} cpp
 Inventory scanning is not exposed through the C++ wrapper. Run `postproject
-media inventory` from a host tool, or resolve individual assets with
-`Production::resolve`.
+media inventory` from a host tool, or resolve assets with
+`Production::resolveAssets`.
 :::
 :::{no-variant} python
 Inventory scanning is not exposed through the Python binding. Run `postproject
-media inventory` with `subprocess`, or resolve individual assets with
+media inventory` with `subprocess`, or resolve assets with
 `Production.resolve`.
 :::
 ```

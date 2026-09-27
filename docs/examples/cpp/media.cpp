@@ -153,6 +153,65 @@ void cycle_media_root(postproject::Production &production,
 }
 // [/media-root-lifecycle]
 
+// [verify-resolution]
+std::size_t verify_contents(const postproject::Production &production,
+                            const postproject::Uuid &asset_id) {
+  // Content mode re-fingerprints files at known locators instead of trusting
+  // their presence.
+  postproject::ResolutionOptions options;
+  options.setVerification(postproject::VerificationMode::content);
+  std::size_t verified = 0;
+  for (const auto &representation :
+       production.resolveAsset(asset_id, options)) {
+    for (const auto &resource : representation.resources) {
+      if (resource.state ==
+          postproject::ResourceResolutionState::online_at_known_locator) {
+        ++verified;
+      } else if (resource.state ==
+                 postproject::ResourceResolutionState::error) {
+        // fingerprint_mismatch evidence: the content was replaced.
+        std::cout << "content differs for " << resource.evidence.size()
+                  << " reason(s)\n";
+      }
+    }
+  }
+  return verified;
+}
+// [/verify-resolution]
+
+// [resolve-scope]
+std::optional<std::string>
+find_nearby(const postproject::Production &production,
+            const std::vector<postproject::Uuid> &asset_ids,
+            const std::string &directory,
+            const postproject::CancelToken &cancel_token) {
+  // A search directory is an unnamed, machine-local place such as the project
+  // folder or where the media used to be; it is never recorded. Each searched
+  // directory has its own budget, and another thread may cancel the token.
+  postproject::ResolutionOptions options;
+  options.addSearchDirectory(directory)
+      .setVerification(postproject::VerificationMode::presence)
+      .setLimits(16, 50000)
+      .setCancelToken(cancel_token);
+  // All assets are resolved together; each directory is scanned once.
+  for (const auto &representation :
+       production.resolveAssets(asset_ids, options)) {
+    for (const auto &resource : representation.resources) {
+      const bool discovered =
+          resource.state == postproject::ResourceResolutionState::resolved_exact ||
+          resource.state ==
+              postproject::ResourceResolutionState::resolved_probable;
+      // A candidate from a search directory has no media root.
+      if (discovered && resource.candidates.size() == 1 &&
+          !resource.candidates.front().media_root.has_value()) {
+        return resource.candidates.front().uri;
+      }
+    }
+  }
+  return std::nullopt;
+}
+// [/resolve-scope]
+
 // [retire-locator]
 std::vector<postproject::ResourceLocator> move_resource(
     postproject::Production &production, const postproject::Uuid &resource_id,
@@ -363,8 +422,23 @@ int main(int argc, char **argv) {
     const auto &proxy_resource = proxy.resources.front();
     require(proxy_resource.locators.size() == 1, "one proxy locator");
     const auto &old_locator = proxy_resource.locators.front();
-    const auto new_uri = old_locator.uri.substr(0, old_locator.uri.rfind('/')) +
-                         "/moved/A001_proxy.mov";
+    // The proxy moved; find it where it went instead of spelling a URI.
+    std::filesystem::remove(work / "proxies" / "A001_proxy.mov");
+    postproject::CancelToken cancel_token;
+    const auto found = find_nearby(production, {asset_id},
+                                   (work / "proxies" / "moved").string(),
+                                   cancel_token);
+    require(found.has_value(), "moved proxy found in the search directory");
+    const std::string new_uri = *found;
+    cancel_token.cancel();
+    try {
+      (void)find_nearby(production, {asset_id},
+                        (work / "proxies" / "moved").string(), cancel_token);
+      require(false, "cancelled resolution throws");
+    } catch (const postproject::Error &error) {
+      require(error.code() == postproject::ErrorCode::cancelled,
+              "cancelled resolution reports cancelled");
+    }
     const auto locators =
         move_resource(production, proxy_resource.id, old_locator.id, new_uri);
     require(std::any_of(locators.begin(), locators.end(),
@@ -400,6 +474,8 @@ int main(int argc, char **argv) {
                 postproject::ContentVerification::matches,
             "observed content verifies");
 
+    require(verify_contents(production, asset_id) > 0,
+            "content verification checks known locators");
     const auto issues = report_issues(production, asset_id);
     require(
         std::any_of(

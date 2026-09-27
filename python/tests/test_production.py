@@ -21,6 +21,8 @@ from postproject import (
     AssetId,
     AssetImportedEvent,
     AvailabilityIssueKind,
+    CancelledError,
+    CancelToken,
     ContentStructureKind,
     ContentVerification,
     Dependency,
@@ -86,6 +88,7 @@ from postproject import (
     RevisionContext,
     RevisionId,
     ToolIdentity,
+    VerificationMode,
     file_locator,
     fingerprint_file,
     locator_file_path,
@@ -884,6 +887,35 @@ class ProductionTests(unittest.TestCase):
                 tuple(item.kind for item in candidate.evidence),
                 (EvidenceKind.KNOWN_LOCATOR_AVAILABLE,),
             )
+
+    def test_search_directories_batches_and_cancellation(self) -> None:
+        nearby = self.root / "nearby"
+        nearby.mkdir()
+        with Production.create(
+            self.production_path, library_path=LIBRARY_PATH
+        ) as production:
+            with production.transaction() as transaction:
+                asset_id = transaction.import_media(self.media_path)
+            moved = nearby / self.media_path.name
+            self.media_path.rename(moved)
+
+            (resolution,) = production.resolve(
+                [asset_id],
+                search_directories=[nearby],
+                verification=VerificationMode.CONTENT,
+                max_entries_per_directory=1_000,
+            )
+            self.assertEqual(resolution.asset_id, asset_id)
+            (candidate,) = resolution.resources[0].candidates
+            self.assertEqual(candidate.uri, moved.resolve().as_uri())
+            self.assertIsNone(candidate.media_root)
+
+            token = CancelToken(library_path=LIBRARY_PATH)
+            token.cancel()
+            with self.assertRaises(CancelledError):
+                production.resolve(
+                    asset_id, search_directories=[nearby], cancel_token=token
+                )
 
     def test_ambiguous_resolution_requires_explicit_confirmation(self) -> None:
         candidates = self.root / "candidates"

@@ -498,18 +498,19 @@ print_resolution_issues(const pp_production_t *production,
                         uint64_t *out_evidence_count, pp_error_t **error) {
   pp_resolution_set_t *resolutions = NULL;
   /* Resolution is read-only; it never changes the production. */
-  pp_error_code_t status = pp_production_resolve_asset(
-      production, asset_id, NULL, 0, &resolutions, error);
+  pp_error_code_t status = pp_production_resolve_assets(
+      production, asset_id, 1, NULL, &resolutions, error);
   const uint64_t count =
       status == PP_OK ? pp_resolution_set_representation_count(resolutions) : 0;
   for (uint64_t r = 0; status == PP_OK && r < count; ++r) {
+    pp_uuid_t resolved_asset_id;
     pp_uuid_t representation_id;
     pp_representation_availability_t availability;
     uint64_t resource_count = 0;
     uint64_t issue_count = 0;
     status = pp_resolution_set_get_representation(
-        resolutions, r, &representation_id, &availability, &resource_count,
-        &issue_count, error);
+        resolutions, r, &resolved_asset_id, &representation_id, &availability,
+        &resource_count, &issue_count, error);
     for (uint64_t i = 0; status == PP_OK && i < issue_count; ++i) {
       pp_uuid_t resource_id;
       uint8_t required = 0;
@@ -657,22 +658,175 @@ original_resource(const pp_production_t *production, const pp_uuid_t *asset_id,
   return status;
 }
 
-static pp_error_code_t confirm_moved(pp_production_t *production,
-                                     const pp_uuid_t *resource_id,
-                                     const char *old_uri, pp_error_t **error) {
-  /* The file moved from rushes/ to moved/; derive the new file URI. */
-  const char *suffix = "rushes/A001.mov";
-  const size_t length = strlen(old_uri);
-  if (length < strlen(suffix) ||
-      strcmp(old_uri + length - strlen(suffix), suffix) != 0) {
-    return PP_ERROR_INTERNAL;
+/* [verify-resolution] */
+static pp_error_code_t verify_contents(const pp_production_t *production,
+                                       const pp_uuid_t *asset_id,
+                                       uint64_t *out_verified,
+                                       pp_error_t **error) {
+  pp_resolution_options_t *options = NULL;
+  pp_resolution_set_t *resolutions = NULL;
+  /* Content mode re-fingerprints files at known locators instead of trusting
+   * their presence. */
+  pp_error_code_t status = pp_resolution_options_create(&options, error);
+  if (status == PP_OK) {
+    status = pp_resolution_options_set_verification(options, PP_VERIFY_CONTENT,
+                                                    error);
   }
+  if (status == PP_OK) {
+    status = pp_production_resolve_assets(production, asset_id, 1, options,
+                                          &resolutions, error);
+  }
+  pp_resolution_options_release(options);
+  const uint64_t count =
+      status == PP_OK ? pp_resolution_set_representation_count(resolutions) : 0;
+  for (uint64_t r = 0; status == PP_OK && r < count; ++r) {
+    pp_uuid_t resolved_asset_id, representation_id;
+    pp_representation_availability_t availability;
+    uint64_t resource_count = 0, issue_count = 0;
+    status = pp_resolution_set_get_representation(
+        resolutions, r, &resolved_asset_id, &representation_id, &availability,
+        &resource_count, &issue_count, error);
+    for (uint64_t s = 0; status == PP_OK && s < resource_count; ++s) {
+      pp_uuid_t resource_id;
+      pp_resource_resolution_state_t state;
+      uint64_t candidate_count = 0, evidence_count = 0;
+      status = pp_resolution_set_get_resource(resolutions, r, s, &resource_id,
+                                              &state, &candidate_count,
+                                              &evidence_count, error);
+      if (status == PP_OK && state == PP_RESOURCE_ONLINE_AT_KNOWN_LOCATOR) {
+        ++*out_verified;
+      }
+      if (status == PP_OK && state == PP_RESOURCE_RESOLUTION_ERROR) {
+        /* PP_EVIDENCE_FINGERPRINT_MISMATCH: the content was replaced. */
+        printf("resource %llu content differs\n", (unsigned long long)s);
+      }
+    }
+  }
+  pp_resolution_set_release(resolutions);
+  return status;
+}
+/* [/verify-resolution] */
+
+/* [resolve-scope] */
+static pp_error_code_t find_nearby(const pp_production_t *production,
+                                   const pp_uuid_t *asset_ids,
+                                   uint64_t asset_count, const char *directory,
+                                   const pp_cancel_token_t *cancel_token,
+                                   char *out_uri, size_t out_uri_size,
+                                   pp_error_t **error) {
+  pp_resolution_options_t *options = NULL;
+  pp_resolution_set_t *resolutions = NULL;
+  /* A search directory is an unnamed, machine-local place such as the
+   * project folder or where the media used to be; it is never recorded. */
+  pp_error_code_t status = pp_resolution_options_create(&options, error);
+  if (status == PP_OK) {
+    status =
+        pp_resolution_options_add_search_directory(options, directory, error);
+  }
+  if (status == PP_OK) {
+    status = pp_resolution_options_set_verification(options,
+                                                    PP_VERIFY_PRESENCE, error);
+  }
+  if (status == PP_OK) {
+    /* Each searched directory has its own budget; an oversized one is
+     * searched partially and reported as PP_EVIDENCE_SEARCH_TRUNCATED. */
+    status = pp_resolution_options_set_limits(options, 16, 50000, error);
+  }
+  if (status == PP_OK) {
+    /* Another thread may call pp_cancel_token_cancel() to stop the scan. */
+    status =
+        pp_resolution_options_set_cancel_token(options, cancel_token, error);
+  }
+  if (status == PP_OK) {
+    /* All assets are resolved together; each directory is scanned once. */
+    status = pp_production_resolve_assets(production, asset_ids, asset_count,
+                                          options, &resolutions, error);
+  }
+  pp_resolution_options_release(options);
+
+  out_uri[0] = '\0';
+  const uint64_t count =
+      status == PP_OK ? pp_resolution_set_representation_count(resolutions) : 0;
+  for (uint64_t r = 0; status == PP_OK && r < count; ++r) {
+    pp_uuid_t asset_id, representation_id;
+    pp_representation_availability_t availability;
+    uint64_t resource_count = 0, issue_count = 0;
+    status = pp_resolution_set_get_representation(
+        resolutions, r, &asset_id, &representation_id, &availability,
+        &resource_count, &issue_count, error);
+    for (uint64_t s = 0; status == PP_OK && s < resource_count; ++s) {
+      pp_uuid_t resource_id;
+      pp_resource_resolution_state_t state;
+      uint64_t candidate_count = 0, evidence_count = 0;
+      status = pp_resolution_set_get_resource(resolutions, r, s, &resource_id,
+                                              &state, &candidate_count,
+                                              &evidence_count, error);
+      const char *uri = NULL;
+      const char *root = NULL;
+      uint16_t confidence = 0;
+      if (status == PP_OK && candidate_count == 1) {
+        status = pp_resolution_set_get_candidate(resolutions, r, s, 0, &uri,
+                                                 &confidence, &root,
+                                                 &evidence_count, error);
+      }
+      for (uint64_t e = 0; status == PP_OK && uri != NULL && e < evidence_count;
+           ++e) {
+        pp_evidence_kind_t kind;
+        const char *detail = NULL;
+        status = pp_resolution_set_get_candidate_evidence(
+            resolutions, r, s, 0, e, &kind, &detail, error);
+        if (status == PP_OK) {
+          printf("%s evidence %u: %s\n", uri, kind,
+                 detail != NULL ? detail : "-");
+        }
+      }
+      /* Only discovered candidates need confirmation; one found in a search
+       * directory has no root (root == NULL). */
+      const int discovered = state == PP_RESOURCE_RESOLVED_EXACT ||
+                             state == PP_RESOURCE_RESOLVED_PROBABLE;
+      if (status == PP_OK && discovered && uri != NULL && out_uri[0] == '\0' &&
+          root == NULL) {
+        snprintf(out_uri, out_uri_size, "%s", uri);
+      }
+    }
+  }
+  pp_resolution_set_release(resolutions);
+  return status;
+}
+/* [/resolve-scope] */
+
+static pp_error_code_t confirm_moved(pp_production_t *production,
+                                     const pp_uuid_t *asset_id,
+                                     const pp_uuid_t *resource_id,
+                                     const char *moved_directory,
+                                     pp_error_t **error) {
+  /* Find the moved file near where it went and confirm what was found. */
   char new_uri[4096];
-  snprintf(new_uri, sizeof new_uri, "%.*smoved/A001.mov",
-           (int)(length - strlen(suffix)), old_uri);
+  pp_cancel_token_t *cancel_token = NULL;
+  pp_error_code_t status = pp_cancel_token_create(&cancel_token, error);
+  if (status == PP_OK) {
+    status = find_nearby(production, asset_id, 1, moved_directory, cancel_token,
+                         new_uri, sizeof new_uri, error);
+  }
+  if (status == PP_OK && new_uri[0] == '\0') {
+    status = PP_ERROR_NOT_FOUND;
+  }
+  /* A cancelled token stops the next resolution with PP_ERROR_CANCELLED. */
+  char ignored[16];
+  pp_error_t *cancelled = NULL;
+  pp_cancel_token_cancel(cancel_token);
+  if (status == PP_OK &&
+      find_nearby(production, asset_id, 1, moved_directory, cancel_token,
+                  ignored, sizeof ignored, &cancelled) != PP_ERROR_CANCELLED) {
+    status = PP_ERROR_INTERNAL;
+  }
+  pp_error_release(cancelled);
+  pp_cancel_token_release(cancel_token);
+
   pp_transaction_t *transaction = NULL;
-  pp_error_code_t status =
-      pp_production_begin_transaction(production, &transaction, error);
+  if (status == PP_OK) {
+    status = pp_production_begin_transaction(production, &transaction, error);
+  }
   if (status == PP_OK) {
     status = pp_transaction_confirm_locator(transaction, resource_id, new_uri,
                                             error);
@@ -884,7 +1038,10 @@ int main(int argc, char **argv) {
     status = PP_ERROR_IO;
   }
   if (status == PP_OK) {
-    status = confirm_moved(production, &resource_id, old_uri, &error);
+    char moved_directory[4096];
+    join(moved_directory, sizeof moved_directory, work, "moved");
+    status = confirm_moved(production, &asset_id, &resource_id,
+                           moved_directory, &error);
   }
   if (status == PP_OK) {
     status = retire_superseded(production, &resource_id, &old_locator_id,
@@ -900,6 +1057,13 @@ int main(int argc, char **argv) {
   }
   if (status == PP_OK) {
     status = add_unmapped_root(production, &error);
+  }
+  uint64_t verified = 0;
+  if (status == PP_OK) {
+    status = verify_contents(production, &asset_id, &verified, &error);
+  }
+  if (status == PP_OK && verified == 0) {
+    status = PP_ERROR_INTERNAL;
   }
   missing_frame = 0;
   count = 0;

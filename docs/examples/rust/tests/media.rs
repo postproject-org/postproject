@@ -7,8 +7,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use postproject_core::{
-    AssetId, AvailabilityIssueKind, ContentStructureKind, EvidenceKind, FrameRange,
-    ImageSequencePattern, MediaRoot, MediaRootId, QueryPageRequest, RationalRate,
+    AssetId, AvailabilityIssueKind, CancellationToken, ContentStructureKind, EvidenceKind,
+    FrameRange, ImageSequencePattern, MediaRoot, MediaRootId, QueryPageRequest, RationalRate,
     RepresentationAvailability, RepresentationId, RepresentationKind, RepresentationResolution,
     ResourceId, ResourceResolutionState, ResourceRole, Result, RevisionEventKind,
 };
@@ -288,6 +288,55 @@ fn observe_changed_original(
     Ok(())
 }
 // [/fingerprint-observation]
+
+// [resolve-scope]
+fn find_nearby(
+    production: &SqliteProduction,
+    asset_ids: &[AssetId],
+    directory: &Path,
+    cancellation: CancellationToken,
+) -> Result<Option<String>> {
+    // A search directory is an unnamed, machine-local place such as the project
+    // folder or where the media used to be; it is never recorded. Each searched
+    // directory has its own budget, and another thread may cancel the token.
+    let resolver = MediaResolver::new(ResolverOptions {
+        max_depth: 16,
+        max_entries_per_directory: 50_000,
+        verification: VerificationMode::Presence,
+        cancellation: Some(cancellation),
+    })?;
+    let mut inputs = Vec::new();
+    for asset_id in asset_ids {
+        for representation in production.representations(*asset_id)? {
+            for resource in production.resources(representation.id())? {
+                let locators = production.locators(resource.id())?;
+                inputs.push((representation.clone(), resource, locators));
+            }
+        }
+    }
+    let items = inputs
+        .iter()
+        .map(|(representation, resource, locators)| {
+            ResolutionItem::new(resource, representation.content_structure(), locators)
+        })
+        .collect::<Vec<_>>();
+    let scope = SearchScope::default().with_search_directory(directory);
+    // All resources are resolved together; each directory is scanned once.
+    for resolution in resolver.resolve(&items, &scope)? {
+        let discovered = matches!(
+            resolution.state(),
+            ResourceResolutionState::ResolvedExact | ResourceResolutionState::ResolvedProbable
+        );
+        // A candidate from a search directory has no media root.
+        if let [candidate] = resolution.candidates() {
+            if discovered && candidate.media_root().is_none() {
+                return Ok(Some(candidate.uri().to_owned()));
+            }
+        }
+    }
+    Ok(None)
+}
+// [/resolve-scope]
 
 // [resolution-issues]
 fn print_resolution_issues(
@@ -699,6 +748,18 @@ fn media_examples_run_in_order() -> Result<()> {
     let archived = work.join("archive/A001.mov");
     fs::create_dir_all(work.join("archive")).expect("archive directory");
     fs::rename(&original_path, &archived).expect("move original");
+    let found = find_nearby(
+        &production,
+        &[asset_id],
+        &work.join("archive"),
+        CancellationToken::new(),
+    )?;
+    assert_eq!(found, Some(canonical_file_uri(&archived)?));
+    let cancelled = CancellationToken::new();
+    cancelled.cancel();
+    let error = find_nearby(&production, &[asset_id], &work.join("archive"), cancelled)
+        .expect_err("cancelled resolution fails");
+    assert_eq!(error.kind(), postproject_core::ErrorKind::Cancelled);
     let original_resource = production.resources(original_id)?[0].id();
     move_to_archive(&mut production, original_resource, &archived)?;
     let locators = production.locators(original_resource)?;

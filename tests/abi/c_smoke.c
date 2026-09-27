@@ -30,7 +30,7 @@ int main(int argc, char **argv) {
     return 64;
   }
   (void)remove(argv[1]);
-  if (pp_abi_version() != UINT32_C(31)) {
+  if (pp_abi_version() != UINT32_C(32)) {
     return 1;
   }
   pp_error_code_t status =
@@ -670,25 +670,75 @@ int main(int argc, char **argv) {
   }
 
   pp_resolution_set_t *resolutions = NULL;
-  const pp_media_root_mapping_t root_mapping = {"fixtures", argv[2]};
-  status = pp_production_resolve_asset(production, &asset_id, &root_mapping,
-                                       UINT64_C(1), &resolutions, &error);
+  pp_resolution_options_t *resolution_options = NULL;
+  pp_cancel_token_t *cancel_token = NULL;
+  status = pp_resolution_options_create(&resolution_options, &error);
+  if (status == PP_OK) {
+    status = pp_resolution_options_add_root_mapping(resolution_options,
+                                                    "fixtures", argv[2], &error);
+  }
+  if (status == PP_OK) {
+    status = pp_resolution_options_add_search_directory(resolution_options,
+                                                        argv[2], &error);
+  }
+  if (status == PP_OK) {
+    status = pp_resolution_options_set_verification(
+        resolution_options, PP_VERIFY_PRESENCE, &error);
+  }
+  if (status == PP_OK) {
+    status = pp_resolution_options_set_limits(resolution_options, 64,
+                                              UINT64_C(1000000), &error);
+  }
+  if (status == PP_OK) {
+    status = pp_cancel_token_create(&cancel_token, &error);
+  }
+  if (status == PP_OK) {
+    status = pp_resolution_options_set_cancel_token(resolution_options,
+                                                    cancel_token, &error);
+  }
+  if (status == PP_OK) {
+    status = pp_production_resolve_assets(production, &asset_id, UINT64_C(1),
+                                          resolution_options, &resolutions,
+                                          &error);
+  }
   if (status != PP_OK || resolutions == NULL ||
       pp_resolution_set_representation_count(resolutions) != UINT64_C(1)) {
     pp_resolution_set_release(resolutions);
+    pp_resolution_options_release(resolution_options);
+    pp_cancel_token_release(cancel_token);
     pp_production_release(production);
     pp_error_release(error);
     return 17;
   }
+  /* A cancelled token stops a later call; the options share its flag even
+   * after the token handle is released. */
+  pp_cancel_token_cancel(cancel_token);
+  pp_cancel_token_release(cancel_token);
+  pp_resolution_set_t *cancelled = NULL;
+  status = pp_production_resolve_assets(production, &asset_id, UINT64_C(1),
+                                        resolution_options, &cancelled, &error);
+  pp_resolution_options_release(resolution_options);
+  if (status != PP_ERROR_CANCELLED || cancelled != NULL) {
+    pp_resolution_set_release(cancelled);
+    pp_resolution_set_release(resolutions);
+    pp_production_release(production);
+    pp_error_release(error);
+    return 121;
+  }
+  pp_error_release(error);
+  error = NULL;
   pp_representation_availability_t availability = 0;
   uint64_t resource_count = 0;
   uint64_t issue_count = 0;
+  pp_uuid_t resolved_asset_id = {{0}};
   status = pp_resolution_set_get_representation(
-      resolutions, 0, &representation_id, &availability, &resource_count,
-      &issue_count, &error);
+      resolutions, 0, &resolved_asset_id, &representation_id, &availability,
+      &resource_count, &issue_count, &error);
   if (status != PP_OK || availability != PP_AVAILABILITY_ONLINE ||
       resource_count != UINT64_C(1) || issue_count != 0 ||
-      uuid_is_zero(&representation_id)) {
+      uuid_is_zero(&representation_id) ||
+      memcmp(resolved_asset_id.bytes, asset_id.bytes, sizeof asset_id.bytes) !=
+          0) {
     pp_resolution_set_release(resolutions);
     pp_production_release(production);
     pp_error_release(error);
@@ -709,12 +759,14 @@ int main(int argc, char **argv) {
   }
   const char *candidate_uri = NULL;
   uint16_t confidence = 0;
+  const char *candidate_root = NULL;
   uint64_t candidate_evidence_count = 0;
   status = pp_resolution_set_get_candidate(
-      resolutions, 0, 0, 0, &candidate_uri, &confidence,
+      resolutions, 0, 0, 0, &candidate_uri, &confidence, &candidate_root,
       &candidate_evidence_count, &error);
   if (status != PP_OK || candidate_uri == NULL ||
-      confidence != UINT16_C(10000) || candidate_evidence_count == 0) {
+      confidence != UINT16_C(10000) || candidate_evidence_count == 0 ||
+      candidate_root == NULL || strcmp(candidate_root, "fixtures") != 0) {
     pp_resolution_set_release(resolutions);
     pp_production_release(production);
     pp_error_release(error);
@@ -1257,12 +1309,11 @@ int main(int argc, char **argv) {
 
   status = pp_production_open(argv[1], &production, &error);
   if (status != PP_OK ||
-      pp_production_resolve_asset(production, &asset_id, NULL, UINT64_C(0),
-                                  &resolutions, &error) !=
-          PP_OK ||
+      pp_production_resolve_assets(production, &asset_id, UINT64_C(1), NULL,
+                                   &resolutions, &error) != PP_OK ||
       pp_resolution_set_get_representation(
-          resolutions, 0, &representation_id, &availability, &resource_count,
-          &issue_count, &error) != PP_OK ||
+          resolutions, 0, &resolved_asset_id, &representation_id,
+          &availability, &resource_count, &issue_count, &error) != PP_OK ||
       pp_resolution_set_get_resource(
           resolutions, 0, 0, &resource_id, &state, &candidate_count,
           &result_evidence_count, &error) != PP_OK ||

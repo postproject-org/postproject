@@ -12,6 +12,7 @@ mod metadata;
 mod metadata_input;
 mod provenance;
 mod representations;
+mod resolution;
 mod revision_events;
 mod revision_waits;
 mod revisions;
@@ -46,8 +47,8 @@ use postproject_core::{
     Timestamp, ToolIdentity, TransactionLifecycle, VocabularyId,
 };
 use postproject_media::{
-    FileResourceSource, ImageSequenceSource, MediaResolver, MediaRootMapping, canonical_file_uri,
-    local_file_path, prepare_confirmed_locator, prepare_confirmed_locator_under_root,
+    FileResourceSource, ImageSequenceSource, canonical_file_uri, local_file_path,
+    prepare_confirmed_locator, prepare_confirmed_locator_under_root,
     prepare_image_sequence_representation, prepare_ordered_parts_representation,
     prepare_original_media, prepare_package_representation, prepare_single_file_representation,
 };
@@ -66,6 +67,7 @@ pub use metadata_input::PpMetadataInput;
 pub use provenance::PpActivitySet;
 use provenance::{AbiActivityEdge, AbiActivityEdgeSnapshot, AbiFingerprintSnapshot};
 pub use representations::PpRepresentationSet;
+pub use resolution::{PpCancelToken, PpResolutionOptions};
 pub use revision_events::PpRevisionEventSet;
 pub use revision_waits::PpRevisionWaiter;
 pub use revisions::PpRevisionSet;
@@ -81,6 +83,7 @@ const PP_ERROR_CONFLICT: u32 = 7;
 const PP_ERROR_AMBIGUOUS_RESOLUTION: u32 = 8;
 const PP_ERROR_FINGERPRINT: u32 = 9;
 const PP_ERROR_UNSUPPORTED: u32 = 10;
+const PP_ERROR_CANCELLED: u32 = 11;
 const PP_ERROR_INTERNAL: u32 = 255;
 
 const PP_RESOURCE_ONLINE_AT_KNOWN_LOCATOR: u32 = 1;
@@ -115,6 +118,7 @@ const PP_EVIDENCE_MEDIA_ROOT_UNMAPPED: u32 = 11;
 const PP_EVIDENCE_MEDIA_ROOT_UNAVAILABLE: u32 = 12;
 const PP_EVIDENCE_FINGERPRINT_MISMATCH: u32 = 13;
 const PP_EVIDENCE_FINGERPRINT_NOT_VERIFIED: u32 = 14;
+const PP_EVIDENCE_SEARCH_TRUNCATED: u32 = 15;
 
 const PP_OBJECT_PRODUCTION: u32 = 1;
 const PP_OBJECT_ASSET: u32 = 2;
@@ -156,7 +160,7 @@ const PP_REVISION_JOB_FAILED: u32 = 25;
 const PP_REVISION_JOB_CANCELLED: u32 = 26;
 
 /// Current pre-1.0 ABI version.
-pub const ABI_VERSION: u32 = 31;
+pub const ABI_VERSION: u32 = 32;
 
 /// Fixed-layout UUID-compatible public identifier.
 #[repr(C)]
@@ -196,16 +200,6 @@ pub struct PpFileResourceInput {
     pub role: *const c_char,
     /// Exactly zero or one.
     pub required: u8,
-}
-
-/// Borrowed machine-local mapping for one resolution operation.
-#[repr(C)]
-#[derive(Clone, Copy, Debug)]
-pub struct PpMediaRootMapping {
-    /// Required NUL-terminated logical root name.
-    pub name: *const c_char,
-    /// Required NUL-terminated local directory path.
-    pub directory: *const c_char,
 }
 
 /// Borrowed, fixed-layout semantic revision event.
@@ -436,6 +430,7 @@ pub struct PpResolutionSet {
 }
 
 struct AbiRepresentationResolution {
+    asset_id: AssetId,
     representation_id: RepresentationId,
     availability: RepresentationAvailability,
     resources: Vec<AbiResolution>,
@@ -452,6 +447,7 @@ struct AbiResolution {
 struct AbiCandidate {
     uri: CString,
     confidence: u16,
+    media_root: Option<CString>,
     evidence: Vec<AbiEvidence>,
 }
 
@@ -4246,106 +4242,6 @@ pub unsafe extern "C" fn pp_metadata_value_get_reference(
     }
 }
 
-/// Resolves every representation belonging to an asset without mutating the production.
-///
-/// The returned immutable result set owns all candidate URI and evidence-detail
-/// strings exposed by its accessors.
-///
-/// # Safety
-///
-/// `production` must be a live handle, `asset_id` must be readable, and
-/// `out_resolutions` must be writable. `out_error` may be null or writable.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn pp_production_resolve_asset(
-    production: *const PpProduction,
-    asset_id: *const PpUuid,
-    root_mappings: *const PpMediaRootMapping,
-    root_mapping_count: u64,
-    out_resolutions: *mut *mut PpResolutionSet,
-    out_error: *mut *mut PpError,
-) -> u32 {
-    // SAFETY: Null pointers are rejected before dereference; remaining pointer
-    // validity and synchronization are guaranteed by the caller contract.
-    unsafe {
-        initialize_output(out_resolutions);
-        ffi_call(out_error, || {
-            let production = production
-                .as_ref()
-                .ok_or_else(|| invalid_argument("production must not be null"))?;
-            let asset_id = asset_id
-                .as_ref()
-                .ok_or_else(|| invalid_argument("asset_id must not be null"))?;
-            if out_resolutions.is_null() {
-                return Err(invalid_argument("out_resolutions must not be null"));
-            }
-            let mapping_count = usize::try_from(root_mapping_count)
-                .map_err(|_| invalid_argument("root_mapping_count is too large"))?;
-            if mapping_count != 0 && root_mappings.is_null() {
-                return Err(invalid_argument(
-                    "root_mappings must not be null when root_mapping_count is nonzero",
-                ));
-            }
-            let native_mappings = if mapping_count == 0 {
-                &[]
-            } else {
-                std::slice::from_raw_parts(root_mappings, mapping_count)
-            };
-            let mappings = native_mappings
-                .iter()
-                .map(|mapping| {
-                    let name = required_utf8(mapping.name, "root mapping name")?;
-                    let directory = required_utf8(mapping.directory, "root mapping directory")?;
-                    MediaRootMapping::new(name, Path::new(directory))
-                })
-                .collect::<Result<Vec<_>, Error>>()?;
-
-            let asset_id = AssetId::from_bytes(asset_id.bytes);
-            let (media_roots, work) = {
-                let inner = lock_production(&production.state);
-                if !inner.assets()?.iter().any(|asset| asset.id() == asset_id) {
-                    return Err(Error::new(
-                        ErrorKind::NotFound,
-                        format!("asset {asset_id} does not exist"),
-                    ));
-                }
-                let mut work = Vec::new();
-                for representation in inner.representations(asset_id)? {
-                    let mut resources = Vec::new();
-                    for resource in inner.resources(representation.id())? {
-                        let locators = inner.locators(resource.id())?;
-                        resources.push((resource, locators));
-                    }
-                    work.push((representation, resources));
-                }
-                (inner.production().media_roots().to_vec(), work)
-            };
-
-            let resolver = MediaResolver::default();
-            let mut resolutions = Vec::new();
-            for (representation, resources) in work {
-                let mut resource_resolutions = Vec::new();
-                for (resource, locators) in resources {
-                    let resolution = resolver.resolve_resource(
-                        &resource,
-                        representation.content_structure(),
-                        &locators,
-                        &media_roots,
-                        &mappings,
-                    )?;
-                    resource_resolutions.push(resolution);
-                }
-                resolutions.push(RepresentationResolution::aggregate(
-                    representation.id(),
-                    representation.content_structure(),
-                    resource_resolutions,
-                )?);
-            }
-            out_resolutions.write(Box::into_raw(Box::new(PpResolutionSet::new(resolutions))));
-            Ok(())
-        })
-    }
-}
-
 /// Returns the number of representation results in a resolution set.
 /// Null input returns zero.
 ///
@@ -4375,6 +4271,7 @@ pub unsafe extern "C" fn pp_resolution_set_representation_count(
 pub unsafe extern "C" fn pp_resolution_set_get_representation(
     resolutions: *const PpResolutionSet,
     representation_index: u64,
+    out_asset_id: *mut PpUuid,
     out_representation_id: *mut PpUuid,
     out_availability: *mut u32,
     out_resource_count: *mut u64,
@@ -4383,16 +4280,21 @@ pub unsafe extern "C" fn pp_resolution_set_get_representation(
 ) -> u32 {
     // SAFETY: Outputs are initialized and checked before writes.
     unsafe {
+        initialize_uuid(out_asset_id);
         initialize_uuid(out_representation_id);
         initialize_value(out_availability, 0);
         initialize_value(out_resource_count, 0);
         initialize_value(out_issue_count, 0);
         ffi_call(out_error, || {
+            require_output(out_asset_id, "out_asset_id")?;
             require_output(out_representation_id, "out_representation_id")?;
             require_output(out_availability, "out_availability")?;
             require_output(out_resource_count, "out_resource_count")?;
             require_output(out_issue_count, "out_issue_count")?;
             let resolution = representation_resolution_at(resolutions, representation_index)?;
+            out_asset_id.write(PpUuid {
+                bytes: resolution.asset_id.into_bytes(),
+            });
             out_representation_id.write(PpUuid {
                 bytes: resolution.representation_id.into_bytes(),
             });
@@ -4531,6 +4433,7 @@ pub unsafe extern "C" fn pp_resolution_set_get_candidate(
     candidate_index: u64,
     out_uri: *mut *const c_char,
     out_confidence_basis_points: *mut u16,
+    out_media_root: *mut *const c_char,
     out_evidence_count: *mut u64,
     out_error: *mut *mut PpError,
 ) -> u32 {
@@ -4538,9 +4441,11 @@ pub unsafe extern "C" fn pp_resolution_set_get_candidate(
     unsafe {
         initialize_const_output(out_uri);
         initialize_value(out_confidence_basis_points, 0);
+        initialize_const_output(out_media_root);
         initialize_value(out_evidence_count, 0);
         ffi_call(out_error, || {
             require_output(out_uri, "out_uri")?;
+            require_output(out_media_root, "out_media_root")?;
             require_output(out_confidence_basis_points, "out_confidence_basis_points")?;
             require_output(out_evidence_count, "out_evidence_count")?;
             let resource =
@@ -4548,6 +4453,12 @@ pub unsafe extern "C" fn pp_resolution_set_get_candidate(
             let candidate = item_at(&resource.candidates, candidate_index, "candidate")?;
             out_uri.write(candidate.uri.as_ptr());
             out_confidence_basis_points.write(candidate.confidence);
+            out_media_root.write(
+                candidate
+                    .media_root
+                    .as_ref()
+                    .map_or(ptr::null(), |root| root.as_ptr()),
+            );
             out_evidence_count.write(length_as_u64(candidate.evidence.len())?);
             Ok(())
         })
@@ -7017,6 +6928,7 @@ const fn error_code(kind: ErrorKind) -> u32 {
         ErrorKind::AmbiguousResolution => PP_ERROR_AMBIGUOUS_RESOLUTION,
         ErrorKind::Fingerprint => PP_ERROR_FINGERPRINT,
         ErrorKind::Unsupported => PP_ERROR_UNSUPPORTED,
+        ErrorKind::Cancelled => PP_ERROR_CANCELLED,
         _ => PP_ERROR_INTERNAL,
     }
 }
@@ -7103,11 +7015,12 @@ unsafe fn write_copy<T: Copy>(output: *mut T, value: T, label: &str) -> Result<(
 }
 
 impl PpResolutionSet {
-    fn new(resolutions: Vec<RepresentationResolution>) -> Self {
+    fn new(resolutions: Vec<(AssetId, RepresentationResolution)>) -> Self {
         Self {
             representations: resolutions
                 .into_iter()
-                .map(|resolution| AbiRepresentationResolution {
+                .map(|(asset_id, resolution)| AbiRepresentationResolution {
+                    asset_id,
                     representation_id: resolution.representation_id(),
                     availability: resolution.availability(),
                     resources: resolution
@@ -7122,6 +7035,7 @@ impl PpResolutionSet {
                                 .map(|candidate| AbiCandidate {
                                     uri: sanitized_cstring(candidate.uri()),
                                     confidence: candidate.confidence().basis_points(),
+                                    media_root: candidate.media_root().map(sanitized_cstring),
                                     evidence: candidate
                                         .evidence()
                                         .iter()
@@ -7225,6 +7139,7 @@ const fn evidence_kind(kind: EvidenceKind) -> u32 {
         EvidenceKind::MediaRootUnavailable => PP_EVIDENCE_MEDIA_ROOT_UNAVAILABLE,
         EvidenceKind::FingerprintMismatch => PP_EVIDENCE_FINGERPRINT_MISMATCH,
         EvidenceKind::FingerprintNotVerified => PP_EVIDENCE_FINGERPRINT_NOT_VERIFIED,
+        EvidenceKind::SearchTruncated => PP_EVIDENCE_SEARCH_TRUNCATED,
         _ => 0,
     }
 }
@@ -7568,6 +7483,7 @@ mod tests {
     #[test]
     fn resolution_accessors_reject_out_of_range_indices() {
         let resolutions = Box::into_raw(Box::new(PpResolutionSet::new(Vec::new())));
+        let mut asset_id = PpUuid { bytes: [9; 16] };
         let mut representation_id = PpUuid { bytes: [9; 16] };
         let mut availability = 99;
         let mut resource_count = 99;
@@ -7579,6 +7495,7 @@ mod tests {
             pp_resolution_set_get_representation(
                 resolutions,
                 0,
+                &raw mut asset_id,
                 &raw mut representation_id,
                 &raw mut availability,
                 &raw mut resource_count,
@@ -7639,7 +7556,11 @@ mod tests {
             vec![resource],
         )
         .expect("valid aggregate");
-        let resolutions = Box::into_raw(Box::new(PpResolutionSet::new(vec![representation])));
+        let resolutions = Box::into_raw(Box::new(PpResolutionSet::new(vec![(
+            AssetId::new(),
+            representation,
+        )])));
+        let mut asset_id = PpUuid { bytes: [0; 16] };
         let mut id = PpUuid { bytes: [0; 16] };
         let mut availability = 0;
         let mut resource_count = 0;
@@ -7652,6 +7573,7 @@ mod tests {
                 pp_resolution_set_get_representation(
                     resolutions,
                     0,
+                    &raw mut asset_id,
                     &raw mut id,
                     &raw mut availability,
                     &raw mut resource_count,

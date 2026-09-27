@@ -576,6 +576,13 @@ class AvailabilityIssueKind(Enum):
     MISSING_FRAMES = "missing_frames"
 
 
+class VerificationMode(Enum):
+    """Cost tier for resources found at a known locator."""
+
+    PRESENCE = "presence"
+    CONTENT = "content"
+
+
 class ContentVerification(Enum):
     """Result of comparing present content with stored fingerprints."""
 
@@ -599,6 +606,7 @@ class EvidenceKind(Enum):
     MEDIA_ROOT_UNAVAILABLE = "media_root_unavailable"
     CONFLICTING_CANDIDATE = "conflicting_candidate"
     DISCOVERY_ERROR = "discovery_error"
+    SEARCH_TRUNCATED = "search_truncated"
     FINGERPRINT_MISMATCH = "fingerprint_mismatch"
     FINGERPRINT_NOT_VERIFIED = "fingerprint_not_verified"
 
@@ -613,6 +621,9 @@ class ResolutionEvidence:
 class ResolutionCandidate:
     uri: str
     confidence_basis_points: int
+    #: Logical root the candidate was found under; ``None`` for a candidate
+    #: found only in an unnamed search directory.
+    media_root: str | None
     evidence: tuple[ResolutionEvidence, ...]
 
 
@@ -634,6 +645,7 @@ class AvailabilityIssue:
 
 @dataclass(frozen=True, slots=True)
 class RepresentationResolution:
+    asset_id: AssetId
     representation_id: RepresentationId
     availability: RepresentationAvailability
     resources: tuple[ResourceResolution, ...]

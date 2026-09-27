@@ -119,8 +119,9 @@ Development version: `0.4.0-alpha.1`.
 ### Changed
 
 - Resolution searches unnamed search directories as well as mapped roots,
-  resolves many resources with one scan, budgets entries per directory instead
-  of failing, can be cancelled, and names each candidate's root (ADR 0031).
+  resolves many assets with one scan, budgets entries per directory instead of
+  failing, can be cancelled, and names each candidate's root, on every surface
+  (ADR 0031, C ABI 32).
 - `pp_string_release` releases every owned string, replacing
   `pp_host_binding_release`.
 - External-identifier lookup can require an exact qualifier on every surface

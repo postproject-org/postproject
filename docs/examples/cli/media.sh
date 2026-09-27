@@ -141,6 +141,21 @@ postproject root remove media.pproj "$ARCHIVE_ID"
 test "$(postproject --json root list media.pproj | jq -r '[.[].name] | join(" ")')" = rushes
 
 mv rushes/A001.mov moved/A001.mov
+
+# [resolve-scope]
+# A search directory is an unnamed, machine-local place, such as where the
+# media used to be; it is searched after mapped roots and never recorded.
+postproject --json media resolve media.pproj "$ASSET_ID" \
+  --search-dir "$PWD/moved" |
+  jq -r '.resolutions[].resources[] | select(.state == "resolved_exact") |
+         .candidates[0] | "\(.uri) (root: \(.media_root // "-"))"'
+# [/resolve-scope]
+
+test "$(postproject --json media resolve media.pproj "$ASSET_ID" \
+  --search-dir "$PWD/moved" |
+  jq -r '[.resolutions[].resources[] | select(.state == "resolved_exact")] |
+         length')" = 1
+
 CANDIDATE=$(postproject --json media resolve media.pproj "$ASSET_ID" \
   --root-map rushes="$PWD/moved" |
   jq -r --arg id "$ORIGINAL_ID" \

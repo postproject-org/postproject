@@ -17,6 +17,8 @@ from postproject import (
     AssetId,
     AvailabilityIssue,
     AvailabilityIssueKind,
+    CancelledError,
+    CancelToken,
     ContentStructureKind,
     ContentVerification,
     EvidenceKind,
@@ -34,7 +36,9 @@ from postproject import (
     ResolutionEvidence,
     ResourceFingerprintObservedEvent,
     ResourceId,
+    ResourceResolutionState,
     RevisionEvent,
+    VerificationMode,
     file_locator,
     fingerprint_file,
     locator_file_path,
@@ -273,6 +277,61 @@ def add_render_sequence(
         )
 
 
+# [verify-resolution]
+def verify_contents(production: Production, asset_id: AssetId) -> int:
+    # Content mode re-fingerprints files at known locators instead of trusting
+    # their presence.
+    verified = 0
+    for representation in production.resolve(
+        asset_id, verification=VerificationMode.CONTENT
+    ):
+        for resource in representation.resources:
+            if resource.state is ResourceResolutionState.ONLINE_AT_KNOWN_LOCATOR:
+                verified += 1
+            elif resource.state is ResourceResolutionState.ERROR:
+                # FINGERPRINT_MISMATCH evidence: the content was replaced.
+                print(f"{resource.resource_id} content differs")
+    return verified
+
+
+# [/verify-resolution]
+
+
+# [resolve-scope]
+def find_nearby(
+    production: Production,
+    asset_ids: list[AssetId],
+    directory: Path,
+    cancel_token: CancelToken,
+) -> str | None:
+    # A search directory is an unnamed, machine-local place such as the project
+    # folder or where the media used to be; it is never recorded. Each searched
+    # directory has its own budget, and another thread may cancel the token.
+    # All assets are resolved together; each directory is scanned once.
+    for representation in production.resolve(
+        asset_ids,
+        search_directories=[directory],
+        verification=VerificationMode.PRESENCE,
+        max_depth=16,
+        max_entries_per_directory=50_000,
+        cancel_token=cancel_token,
+    ):
+        for resource in representation.resources:
+            discovered = resource.state in (
+                ResourceResolutionState.RESOLVED_EXACT,
+                ResourceResolutionState.RESOLVED_PROBABLE,
+            )
+            # A candidate from a search directory has no media root.
+            if discovered and len(resource.candidates) == 1:
+                (candidate,) = resource.candidates
+                if candidate.media_root is None:
+                    return candidate.uri
+    return None
+
+
+# [/resolve-scope]
+
+
 def relocate_under_root(
     production: Production,
     asset_id: AssetId,
@@ -292,6 +351,7 @@ def relocate_under_root(
     ]
     (resource,) = resolution.resources
     (candidate,) = resource.candidates
+    assert candidate.media_root == "proxies"
     assert any(
         evidence.kind is EvidenceKind.MEDIA_ROOT_RELATION
         for evidence in candidate.evidence
@@ -380,6 +440,21 @@ def main() -> None:
         assert observed.fingerprints != original.fingerprints
         assert observed.resources[0].fingerprints == (print_file_fingerprint(media),)
 
+        nearby = work / "nearby"
+        nearby.mkdir()
+        proxy.rename(nearby / proxy.name)
+        token = CancelToken()
+        found = find_nearby(production, [asset_id], nearby, token)
+        assert found == (nearby / proxy.name).resolve().as_uri()
+        token.cancel()
+        try:
+            find_nearby(production, [asset_id], nearby, token)
+            raise AssertionError("cancelled resolution must raise")
+        except CancelledError:
+            pass
+        (nearby / proxy.name).rename(proxy)
+
+        assert verify_contents(production, asset_id) > 0
         superseded_uri = proxy.resolve().as_uri()
         moved = work / "moved"
         relocate_under_root(production, asset_id, proxy_id, proxy, moved)

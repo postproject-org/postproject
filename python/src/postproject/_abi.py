@@ -101,6 +101,14 @@ class Fingerprint(ctypes.Structure):
     pass
 
 
+class CancelToken(ctypes.Structure):
+    pass
+
+
+class ResolutionOptions(ctypes.Structure):
+    pass
+
+
 class Error(ctypes.Structure):
     pass
 
@@ -149,10 +157,6 @@ class FileResourceInput(ctypes.Structure):
     pass
 
 
-class MediaRootMapping(ctypes.Structure):
-    pass
-
-
 ObjectKind = ctypes.c_uint32
 RepresentationKind = ctypes.c_uint32
 JobState = ctypes.c_uint32
@@ -173,6 +177,7 @@ RepresentationAvailability = ctypes.c_uint32
 ResourceResolutionState = ctypes.c_uint32
 AvailabilityIssueKind = ctypes.c_uint32
 EvidenceKind = ctypes.c_uint32
+VerificationMode = ctypes.c_uint32
 ContentVerification = ctypes.c_uint32
 
 
@@ -286,6 +291,7 @@ PP_ERROR_CONFLICT = 7
 PP_ERROR_AMBIGUOUS_RESOLUTION = 8
 PP_ERROR_FINGERPRINT = 9
 PP_ERROR_UNSUPPORTED = 10
+PP_ERROR_CANCELLED = 11
 PP_ERROR_INTERNAL = 255
 PP_AVAILABILITY_ONLINE = 1
 PP_AVAILABILITY_PARTIAL = 2
@@ -316,6 +322,9 @@ PP_EVIDENCE_MEDIA_ROOT_UNMAPPED = 11
 PP_EVIDENCE_MEDIA_ROOT_UNAVAILABLE = 12
 PP_EVIDENCE_FINGERPRINT_MISMATCH = 13
 PP_EVIDENCE_FINGERPRINT_NOT_VERIFIED = 14
+PP_EVIDENCE_SEARCH_TRUNCATED = 15
+PP_VERIFY_PRESENCE = 1
+PP_VERIFY_CONTENT = 2
 PP_CONTENT_MATCHES = 1
 PP_CONTENT_DIFFERS = 2
 PP_CONTENT_NOT_COMPARABLE = 3
@@ -444,11 +453,6 @@ FileResourceInput._fields_ = [
     ("required", ctypes.c_uint8),
 ]
 
-MediaRootMapping._fields_ = [
-    ("name", ctypes.c_char_p),
-    ("directory", ctypes.c_char_p),
-]
-
 
 PUBLIC_STRUCTS = {
     "pp_uuid_t": (Uuid, ("bytes",)),
@@ -462,7 +466,6 @@ PUBLIC_STRUCTS = {
     "pp_artifact_reason_t": (ArtifactReason, ("kind", "activity_id", "representation_id", "input_representation_id", "edge_kind", "upstream_state", "traversal_limit", "activity_count", "dependency_issue", "dependency_path", "dependency_path_length", "fingerprint_algorithm", "fingerprint_version", "has_snapshot_value", "snapshot_value", "snapshot_value_length", "has_current_value", "current_value", "current_value_length")),
     "pp_artifact_reproducibility_issue_t": (ArtifactReproducibilityIssue, ("kind", "activity_id", "representation_id", "activity_count")),
     "pp_file_resource_input_t": (FileResourceInput, ("path", "role", "required")),
-    "pp_media_root_mapping_t": (MediaRootMapping, ("name", "directory")),
 }
 
 
@@ -490,6 +493,9 @@ EXPORTED_SYMBOLS = (
     "pp_asset_set_get",
     "pp_asset_set_next_cursor",
     "pp_asset_set_release",
+    "pp_cancel_token_cancel",
+    "pp_cancel_token_create",
+    "pp_cancel_token_release",
     "pp_dependency_query_set_count",
     "pp_dependency_query_set_get",
     "pp_dependency_query_set_next_cursor",
@@ -607,7 +613,7 @@ EXPORTED_SYMBOLS = (
     "pp_production_representations_page",
     "pp_production_representations_under_media_root",
     "pp_production_representations_using_resource",
-    "pp_production_resolve_asset",
+    "pp_production_resolve_assets",
     "pp_production_resources_page",
     "pp_production_revision_events",
     "pp_production_stale_artifacts",
@@ -627,6 +633,13 @@ EXPORTED_SYMBOLS = (
     "pp_representation_set_get_sequence_missing_frame",
     "pp_representation_set_next_cursor",
     "pp_representation_set_release",
+    "pp_resolution_options_add_root_mapping",
+    "pp_resolution_options_add_search_directory",
+    "pp_resolution_options_create",
+    "pp_resolution_options_release",
+    "pp_resolution_options_set_cancel_token",
+    "pp_resolution_options_set_limits",
+    "pp_resolution_options_set_verification",
     "pp_resolution_set_get_candidate",
     "pp_resolution_set_get_candidate_evidence",
     "pp_resolution_set_get_issue",
@@ -1014,11 +1027,31 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_fingerprint_release.restype = None
     lib.pp_production_verify_resource.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(Uuid), ctypes.c_char_p, ctypes.POINTER(ContentVerification), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_production_verify_resource.restype = ErrorCode
-    lib.pp_production_resolve_asset.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(Uuid), ctypes.POINTER(MediaRootMapping), ctypes.c_uint64, ctypes.POINTER(ctypes.POINTER(ResolutionSet)), ctypes.POINTER(ctypes.POINTER(Error))]
-    lib.pp_production_resolve_asset.restype = ErrorCode
+    lib.pp_cancel_token_create.argtypes = [ctypes.POINTER(ctypes.POINTER(CancelToken)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_cancel_token_create.restype = ErrorCode
+    lib.pp_cancel_token_cancel.argtypes = [ctypes.POINTER(CancelToken)]
+    lib.pp_cancel_token_cancel.restype = None
+    lib.pp_cancel_token_release.argtypes = [ctypes.POINTER(CancelToken)]
+    lib.pp_cancel_token_release.restype = None
+    lib.pp_resolution_options_create.argtypes = [ctypes.POINTER(ctypes.POINTER(ResolutionOptions)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_resolution_options_create.restype = ErrorCode
+    lib.pp_resolution_options_release.argtypes = [ctypes.POINTER(ResolutionOptions)]
+    lib.pp_resolution_options_release.restype = None
+    lib.pp_resolution_options_add_root_mapping.argtypes = [ctypes.POINTER(ResolutionOptions), ctypes.c_char_p, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_resolution_options_add_root_mapping.restype = ErrorCode
+    lib.pp_resolution_options_add_search_directory.argtypes = [ctypes.POINTER(ResolutionOptions), ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_resolution_options_add_search_directory.restype = ErrorCode
+    lib.pp_resolution_options_set_verification.argtypes = [ctypes.POINTER(ResolutionOptions), VerificationMode, ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_resolution_options_set_verification.restype = ErrorCode
+    lib.pp_resolution_options_set_limits.argtypes = [ctypes.POINTER(ResolutionOptions), ctypes.c_uint32, ctypes.c_uint64, ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_resolution_options_set_limits.restype = ErrorCode
+    lib.pp_resolution_options_set_cancel_token.argtypes = [ctypes.POINTER(ResolutionOptions), ctypes.POINTER(CancelToken), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_resolution_options_set_cancel_token.restype = ErrorCode
+    lib.pp_production_resolve_assets.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(Uuid), ctypes.c_uint64, ctypes.POINTER(ResolutionOptions), ctypes.POINTER(ctypes.POINTER(ResolutionSet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_production_resolve_assets.restype = ErrorCode
     lib.pp_resolution_set_representation_count.argtypes = [ctypes.POINTER(ResolutionSet)]
     lib.pp_resolution_set_representation_count.restype = ctypes.c_uint64
-    lib.pp_resolution_set_get_representation.argtypes = [ctypes.POINTER(ResolutionSet), ctypes.c_uint64, ctypes.POINTER(Uuid), ctypes.POINTER(RepresentationAvailability), ctypes.POINTER(ctypes.c_uint64), ctypes.POINTER(ctypes.c_uint64), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_resolution_set_get_representation.argtypes = [ctypes.POINTER(ResolutionSet), ctypes.c_uint64, ctypes.POINTER(Uuid), ctypes.POINTER(Uuid), ctypes.POINTER(RepresentationAvailability), ctypes.POINTER(ctypes.c_uint64), ctypes.POINTER(ctypes.c_uint64), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_resolution_set_get_representation.restype = ErrorCode
     lib.pp_resolution_set_get_resource.argtypes = [ctypes.POINTER(ResolutionSet), ctypes.c_uint64, ctypes.c_uint64, ctypes.POINTER(Uuid), ctypes.POINTER(ResourceResolutionState), ctypes.POINTER(ctypes.c_uint64), ctypes.POINTER(ctypes.c_uint64), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_resolution_set_get_resource.restype = ErrorCode
@@ -1026,7 +1059,7 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_resolution_set_get_issue.restype = ErrorCode
     lib.pp_resolution_set_get_issue_frame.argtypes = [ctypes.POINTER(ResolutionSet), ctypes.c_uint64, ctypes.c_uint64, ctypes.c_uint64, ctypes.POINTER(ctypes.c_int64), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_resolution_set_get_issue_frame.restype = ErrorCode
-    lib.pp_resolution_set_get_candidate.argtypes = [ctypes.POINTER(ResolutionSet), ctypes.c_uint64, ctypes.c_uint64, ctypes.c_uint64, ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.c_uint16), ctypes.POINTER(ctypes.c_uint64), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_resolution_set_get_candidate.argtypes = [ctypes.POINTER(ResolutionSet), ctypes.c_uint64, ctypes.c_uint64, ctypes.c_uint64, ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.c_uint16), ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.c_uint64), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_resolution_set_get_candidate.restype = ErrorCode
     lib.pp_resolution_set_get_resource_evidence.argtypes = [ctypes.POINTER(ResolutionSet), ctypes.c_uint64, ctypes.c_uint64, ctypes.c_uint64, ctypes.POINTER(EvidenceKind), ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_resolution_set_get_resource_evidence.restype = ErrorCode

@@ -49,6 +49,10 @@ class FingerprintError(PostProjectError):
     """Media fingerprinting failed."""
 
 
+class CancelledError(PostProjectError):
+    """The caller cancelled the operation through a cancellation token."""
+
+
 class InternalError(PostProjectError):
     """The native library reported an internal invariant failure."""
 
@@ -64,5 +68,6 @@ ERROR_TYPES: dict[int, type[PostProjectError]] = {
     8: AmbiguousResolutionError,
     9: FingerprintError,
     10: UnsupportedError,
+    11: CancelledError,
     255: InternalError,
 }

@@ -28,7 +28,7 @@ int main(int argc, char **argv) {
   std::remove(path.c_str());
 
   try {
-    if (postproject::abi_version() != 31) {
+    if (postproject::abi_version() != 32) {
       return 3;
     }
 
@@ -214,10 +214,22 @@ int main(int argc, char **argv) {
 
     const std::string moved_media_path = media_path + ".moved";
     std::filesystem::rename(media_path, moved_media_path);
-    const auto resolutions = production.resolveAsset(
-        asset_id,
-        {{"fixtures", std::filesystem::path(path).parent_path().string()}});
-    if (resolutions.size() != 1 ||
+    const std::string fixtures =
+        std::filesystem::path(path).parent_path().string();
+    postproject::ResolutionOptions options;
+    options.addRootMapping("fixtures", fixtures)
+        .addSearchDirectory(fixtures)
+        .setVerification(postproject::VerificationMode::presence)
+        .setLimits(64, 1000000);
+    {
+      postproject::CancelToken token;
+      options.setCancelToken(token);
+    }
+    const auto resolutions = production.resolveAssets({asset_id}, options);
+    if (resolutions.size() != 1 || !(resolutions[0].asset_id == asset_id) ||
+        resolutions[0].resources[0].candidates.empty() ||
+        resolutions[0].resources[0].candidates[0].media_root !=
+            std::optional<std::string>("fixtures") ||
         resolutions[0].availability !=
             postproject::RepresentationAvailability::online ||
         resolutions[0].resources.size() != 1 ||
@@ -230,6 +242,17 @@ int main(int argc, char **argv) {
                 .confidence_basis_points != 10000 ||
         resolutions[0].resources[0].candidates[0].evidence.empty()) {
       return 11;
+    }
+    postproject::CancelToken cancel_token;
+    options.setCancelToken(cancel_token);
+    cancel_token.cancel();
+    try {
+      (void)production.resolveAsset(asset_id, options);
+      return 63;
+    } catch (const postproject::Error &error) {
+      if (error.code() != postproject::ErrorCode::cancelled) {
+        return 64;
+      }
     }
 
     const postproject::ActivitySpec activity_spec{

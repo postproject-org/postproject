@@ -3,6 +3,7 @@
 from ._errors import (
     AlreadyExistsError,
     AmbiguousResolutionError,
+    CancelledError,
     ConflictError,
     FingerprintError,
     InternalError,
@@ -134,9 +135,11 @@ from ._model import (
     RevisionWaitResult,
     ToolIdentity,
     TransactionId,
+    VerificationMode,
 )
 from ._native import ABI_VERSION, NativeLibrary
 from ._production import (
+    CancelToken,
     Production,
     RevisionObserver,
     RevisionWaiter,
@@ -175,6 +178,8 @@ __all__ = [
     "AssetImportedEvent",
     "AvailabilityIssue",
     "AvailabilityIssueKind",
+    "CancelToken",
+    "CancelledError",
     "ConflictError",
     "ContentStructureKind",
     "ContentVerification",
@@ -284,6 +289,7 @@ __all__ = [
     "Transaction",
     "TransactionId",
     "UnsupportedError",
+    "VerificationMode",
     "file_locator",
     "fingerprint_file",
     "locator_file_path",

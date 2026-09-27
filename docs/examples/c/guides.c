@@ -184,21 +184,31 @@ static pp_error_code_t resolve_asset(const pp_production_t *production,
                                      const char *rushes_directory,
                                      pp_resolution_set_t **out_resolutions,
                                      pp_error_t **error) {
-  const pp_media_root_mapping_t mappings[] = {{"rushes", rushes_directory}};
+  pp_resolution_options_t *options = NULL;
   pp_resolution_set_t *resolutions = NULL;
 
-  pp_error_code_t status = pp_production_resolve_asset(
-      production, asset_id, mappings, 1, &resolutions, error);
+  /* The mapping locates the logical root on this machine for this call only. */
+  pp_error_code_t status = pp_resolution_options_create(&options, error);
+  if (status == PP_OK) {
+    status = pp_resolution_options_add_root_mapping(options, "rushes",
+                                                    rushes_directory, error);
+  }
+  if (status == PP_OK) {
+    status = pp_production_resolve_assets(production, asset_id, 1, options,
+                                          &resolutions, error);
+  }
+  pp_resolution_options_release(options);
   const uint64_t count =
       status == PP_OK ? pp_resolution_set_representation_count(resolutions) : 0;
   for (uint64_t r = 0; status == PP_OK && r < count; ++r) {
+    pp_uuid_t resolved_asset_id;
     pp_uuid_t representation_id;
     pp_representation_availability_t availability;
     uint64_t resource_count = 0;
     uint64_t issue_count = 0;
     status = pp_resolution_set_get_representation(
-        resolutions, r, &representation_id, &availability, &resource_count,
-        &issue_count, error);
+        resolutions, r, &resolved_asset_id, &representation_id, &availability,
+        &resource_count, &issue_count, error);
     if (status == PP_OK) {
       printf("availability: %u\n", availability);
     }
@@ -213,11 +223,13 @@ static pp_error_code_t resolve_asset(const pp_production_t *production,
       for (uint64_t c = 0; status == PP_OK && c < candidate_count; ++c) {
         const char *uri = NULL;
         uint16_t confidence = 0;
+        const char *root = NULL;
         status = pp_resolution_set_get_candidate(resolutions, r, s, c, &uri,
-                                                 &confidence, &evidence_count,
-                                                 error);
+                                                 &confidence, &root,
+                                                 &evidence_count, error);
         if (status == PP_OK) {
-          printf("candidate: %s (%u/10000)\n", uri, confidence);
+          printf("candidate: %s (%u/10000) under %s\n", uri, confidence,
+                 root != NULL ? root : "no root");
         }
       }
     }
@@ -243,13 +255,14 @@ confirm_unique_candidates(pp_production_t *production,
 
   const uint64_t count = pp_resolution_set_representation_count(resolutions);
   for (uint64_t r = 0; status == PP_OK && r < count; ++r) {
+    pp_uuid_t asset_id;
     pp_uuid_t representation_id;
     pp_representation_availability_t availability;
     uint64_t resource_count = 0;
     uint64_t issue_count = 0;
     status = pp_resolution_set_get_representation(
-        resolutions, r, &representation_id, &availability, &resource_count,
-        &issue_count, error);
+        resolutions, r, &asset_id, &representation_id, &availability,
+        &resource_count, &issue_count, error);
     for (uint64_t s = 0; status == PP_OK && s < resource_count; ++s) {
       pp_uuid_t resource_id;
       pp_resource_resolution_state_t state;
@@ -257,26 +270,16 @@ confirm_unique_candidates(pp_production_t *production,
       uint64_t evidence_count = 0;
       const char *uri = NULL;
       uint16_t confidence = 0;
+      /* The logical root the candidate was found under, if any. */
+      const char *root = NULL;
       status = pp_resolution_set_get_resource(resolutions, r, s, &resource_id,
                                               &state, &candidate_count,
                                               &evidence_count, error);
       /* Several candidates need a person to choose; never pick one here. */
       if (status == PP_OK && candidate_count == 1) {
         status = pp_resolution_set_get_candidate(resolutions, r, s, 0, &uri,
-                                                 &confidence, &evidence_count,
-                                                 error);
-      }
-      /* Record the logical root the candidate was found under, if any. */
-      const char *root = NULL;
-      for (uint64_t e = 0; status == PP_OK && uri != NULL && e < evidence_count;
-           ++e) {
-        pp_evidence_kind_t kind;
-        const char *detail = NULL;
-        status = pp_resolution_set_get_candidate_evidence(
-            resolutions, r, s, 0, e, &kind, &detail, error);
-        if (status == PP_OK && kind == PP_EVIDENCE_MEDIA_ROOT_RELATION) {
-          root = detail;
-        }
+                                                 &confidence, &root,
+                                                 &evidence_count, error);
       }
       if (status == PP_OK && uri != NULL && root != NULL) {
         status = pp_transaction_confirm_locator_under_root(
