@@ -1,0 +1,17 @@
+name: Kdenlive pilot
+
+# A full Kdenlive build is too heavy for every pull request; it runs nightly
+# and on demand.
+on:
+  schedule:
+    - cron: "41 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  kdenlive:
+    uses: postproject-org/postproject-kdenlive/.github/workflows/ci.yml@main
+    with:
+      postproject_ref: ${{ github.sha }}
