@@ -119,6 +119,11 @@ integrators.
   - A cancellation token can stop it.
   - A candidate names the logical root it was found under.
 
+The pilot uses these changes. Its adapter builds without exceptions and finds
+a clip with one qualified lookup. It spells locators through PostProject and
+keeps Kdenlive's MD5 as a host fingerprint. Opening a project resolves every
+missing clip in one call, using search directories instead of invented roots.
+
 ## For managed proxies
 
 Proxies as managed artifacts needed fingerprint computation, which release 0.4
