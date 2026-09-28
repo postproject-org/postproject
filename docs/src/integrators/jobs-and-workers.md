@@ -14,6 +14,15 @@ typed metadata model with the job as their target:
 ```{code-variants} request-job
 ```
 
+The kind names the work, and any worker that understands a kind may claim a job
+of it, including `postproject job run` for the reference executor's kinds.
+Parameters that only your application can interpret, such as its own encoder
+settings, need a kind of your own, qualified by your application's identifier.
+Planned regeneration copies the kind from the producing activity, so a plan
+derived from your activity is claimed by your workers only. A host that is the
+only worker for its jobs can request and claim a job in one transaction, so no
+other worker sees it requested.
+
 Listing jobs returns a bounded page in stable identity order. State and
 open-world kind are optional exact filters. Pass the opaque `next_cursor` back
 with the same filters and page size to continue; pages are weakly consistent
@@ -72,6 +81,13 @@ that uses the resource, so [artifact evaluation](artifacts-and-staleness.md)
 reports the artifacts that depend on it as stale. Never write a representation
 fingerprint of your own devising. Only PostProject's own values take part in
 staleness and resolution.
+
+Some work happens before there is a production to record it in, for example
+proxies an editor renders before a project is first saved. Record such work
+later only when your application has its own evidence of what it was made
+from, and record its activity without a job, tool, or parameters you did not
+observe. Artifact evaluation can still report the output as current, and the
+reproducibility report says, correctly, that it cannot be regenerated.
 
 ## Fail or cancel a job
 
