@@ -67,7 +67,7 @@ A sequence's file names are part of where it is, not what it is.
 
 ## Alternatives considered
 
-- **A templated locator URI**, such as `file:///plates/shot_{frame}.png`, as
+- **A templated locator URI**, such as `file:///mnt/show/plates/shot_{frame}.png`, as
   OpenAssetIO presents a sequence. Braces are not valid in a URI, a template is
   not a place, and every consumer comparing locators would have to parse it.
   Hosts that need a template build it from the directory and the naming, as the
