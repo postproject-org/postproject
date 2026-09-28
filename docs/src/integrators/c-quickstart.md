@@ -29,6 +29,27 @@ find_package(PostProject 0.3 REQUIRED CONFIG)
 target_link_libraries(my_application PRIVATE PostProject::postproject)
 ```
 
-The example source demonstrates explicit error-handle ownership, transaction
-commit, result-set ownership, and production cleanup. The full contract for
-every function remains in `<postproject/postproject.h>`.
+## The example program
+
+The installed example is the program below. It follows the ownership rules
+that apply to every C integration:
+
+- **Every handle is caller-owned.** Productions, transactions, result sets, and
+  error handles are each released exactly once with their release function.
+  Release functions accept `NULL`, so starting every handle as `NULL` gives one
+  cleanup path for success and failure alike.
+- **Errors are optional, owned handles.** A failed call returns its status code
+  and, when `out_error` is not `NULL`, transfers an error handle. Stop at the
+  first failure so an error that still has to be released is never
+  overwritten. Branch on the status code; the message is diagnostic text and is
+  borrowed from the error handle.
+- **Only commit makes staged work durable.** Releasing a transaction that was
+  not committed discards everything staged in it.
+- **Result-set strings are borrowed.** A string read from a result set, such as
+  a locator URI, stays valid only until the set is released.
+
+```{literalinclude} ../../../examples/c/main.c
+:language: c
+```
+
+The full contract for every function remains in `<postproject/postproject.h>`.
