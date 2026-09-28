@@ -1066,7 +1066,10 @@ struct StringDeleter final {
 
 using StringHandle = std::unique_ptr<char, StringDeleter>;
 
-inline Result<void> check(pp_error_code_t status, pp_error_t *raw_error) {
+// raw_error is read by reference so that check(pp_call(..., &error), error) is
+// correct whichever argument the compiler evaluates first.
+inline Result<void> check(pp_error_code_t status,
+                          pp_error_t *const &raw_error) {
   ErrorHandle error(raw_error);
   if (status == PP_OK) {
     return {};
