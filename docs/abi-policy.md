@@ -78,6 +78,11 @@ exceptions are enabled. Without exceptions, `value()` on an error aborts. The
 header therefore compiles with `-fno-exceptions` (ADR 0032). Inputs containing
 embedded NUL bytes return `ErrorCode::invalid_argument` before C is called.
 
+`Result` uses the member names of C++23 `std::expected<T, Error>`, including
+`and_then`, `transform`, and `or_else`. `POSTPROJECT_TRY` and
+`POSTPROJECT_TRY_ASSIGN` are public and stay defined after the header; they
+return a failed `Result`'s error from the enclosing function (ADR 0033).
+
 ## Resolution results
 
 `pp_production_resolve_assets` returns an immutable opaque set containing one

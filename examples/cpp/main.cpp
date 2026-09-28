@@ -1,7 +1,6 @@
 #include <postproject/postproject.hpp>
 
 #include <iostream>
-#include <optional>
 #include <string>
 #include <utility>
 
@@ -15,34 +14,23 @@ void report(const postproject::Error &error) {
             << "): " << error.message() << '\n';
 }
 
-// Checks every Result explicitly, so it also builds with -fno-exceptions.
-std::optional<postproject::Uuid> import_media(const std::string &output,
-                                              const std::string &media) {
-  auto created = postproject::Production::create(output, "C++ quickstart");
-  if (!created.ok()) {
-    report(created.error());
-    return std::nullopt;
-  }
-  // Owned handles are move-only; move the production out of its Result.
-  postproject::Production production = std::move(*created);
-
-  auto transaction = production.beginTransaction();
-  if (!transaction.ok()) {
-    report(transaction.error());
-    return std::nullopt;
-  }
-  const auto asset_id = transaction->importMedia(media, "Quickstart media");
-  if (!asset_id.ok()) {
-    // Returning destroys the open transaction, which discards its work.
-    report(asset_id.error());
-    return std::nullopt;
-  }
-  const auto committed = transaction->commit();
-  if (!committed.ok()) {
-    report(committed.error());
-    return std::nullopt;
-  }
-  return *asset_id;
+// Passes every failure on to its caller, one line per call, so it also builds
+// with -fno-exceptions. POSTPROJECT_TRY_ASSIGN returns the error of a failed
+// Result and otherwise declares the value; POSTPROJECT_TRY does the same for
+// Result<void>.
+postproject::Result<postproject::Uuid> import_media(const std::string &output,
+                                                   const std::string &media) {
+  // Owned handles are move-only; the macro moves the value out of its Result.
+  POSTPROJECT_TRY_ASSIGN(
+      auto production,
+      postproject::Production::create(output, "C++ quickstart"));
+  POSTPROJECT_TRY_ASSIGN(auto transaction, production.beginTransaction());
+  // A failure returns here and destroys the open transaction, which discards
+  // its work.
+  POSTPROJECT_TRY_ASSIGN(const auto asset_id,
+                         transaction.importMedia(media, "Quickstart media"));
+  POSTPROJECT_TRY(transaction.commit());
+  return asset_id;
 } // The production handle closes here.
 
 // Invalid input does not fail when it is built; the consuming call reports it.
@@ -50,14 +38,14 @@ bool rejects_invalid_metadata(postproject::Production &production,
                               const postproject::Uuid &asset_id) {
   const auto duration = postproject::MetadataInput::decimal("twelve", 2);
   auto transaction = production.beginTransaction();
-  if (!transaction.ok()) {
+  if (!transaction.has_value()) {
     report(transaction.error());
     return false;
   }
   const postproject::ObjectRef asset{postproject::ObjectKind::asset, asset_id};
   const auto added =
       transaction->addMetadataValue(asset, editorial, "duration", duration);
-  return !added.ok() &&
+  return !added.has_value() &&
          added.error().code() == postproject::ErrorCode::invalid_argument &&
          duration.error().has_value();
 } // Never committed: releasing the transaction rolls it back.
@@ -71,8 +59,10 @@ int main(int argc, char **argv) {
     return 2;
   }
 
+  // Check a Result explicitly where the failure is handled.
   const auto asset_id = import_media(argv[1], argv[2]);
   if (!asset_id.has_value()) {
+    report(asset_id.error());
     return 1;
   }
 

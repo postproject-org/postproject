@@ -195,11 +195,9 @@ find_nearby(const postproject::Production &production,
       .setCancelToken(cancel_token);
   // All assets are resolved together; each directory is scanned once. A
   // cancelled token yields ErrorCode::cancelled.
-  auto resolutions = production.resolveAssets(asset_ids, options);
-  if (!resolutions.ok()) {
-    return resolutions.error();
-  }
-  for (const auto &representation : *resolutions) {
+  POSTPROJECT_TRY_ASSIGN(const auto resolutions,
+                         production.resolveAssets(asset_ids, options));
+  for (const auto &representation : resolutions) {
     for (const auto &resource : representation.resources) {
       const bool discovered =
           resource.state == postproject::ResourceResolutionState::resolved_exact ||
@@ -439,7 +437,7 @@ int main(int argc, char **argv) {
     const auto cancelled = find_nearby(
         production, {asset_id}, (work / "proxies" / "moved").string(),
         cancel_token);
-    require(!cancelled.ok() &&
+    require(!cancelled.has_value() &&
                 cancelled.error().code() == postproject::ErrorCode::cancelled,
             "cancelled resolution reports cancelled");
     const auto locators =

@@ -38,12 +38,27 @@ and a diagnostic `message()`. The header never throws on its own, so it builds
 in projects compiled with `-fno-exceptions`, such as KDE applications, game
 engines, and plugin SDKs:
 
-- **Check a result explicitly.** Call `ok()`, then read the value with `*` or
-  `->`, or read `error()`.
+- **Pass a failure on with the propagation macros.** In a function that
+  returns a `Result`, `POSTPROJECT_TRY_ASSIGN(auto production,
+  Production::open(path));` returns the error of a failed call to the caller
+  and otherwise declares the value. `POSTPROJECT_TRY(transaction.commit());`
+  does the same for an operation without a value. The enclosing function may
+  return any type implicitly constructible from `postproject::Error`, so a
+  host's own error type can take part by adding such a constructor.
+  `POSTPROJECT_TRY_ASSIGN` expands to several statements: use it only directly
+  inside a block, at most once per line.
+- **Check a result explicitly where the failure is handled.** Call
+  `has_value()`, then read the value with `*` or `->`, or read `error()`.
 - **Call `value()` where exceptions are enabled.** It throws
   `postproject::Exception` on failure. Without exceptions it prints the error
-  and aborts, so code built with `-fno-exceptions` should always check `ok()`
-  first.
+  and aborts, so code built with `-fno-exceptions` should always check
+  `has_value()` first.
+
+`Result` uses the member names of C++23 `std::expected<T, Error>`:
+`has_value()`, `error()`, `value()`, `value_or()`, and the combinators
+`and_then()`, `transform()`, and `or_else()`. Unlike `std::expected`, its error
+type is always `postproject::Error`, and it is constructed from an `Error`
+directly rather than through `std::unexpected`.
 
 `MetadataInput` and `ResolutionOptions` record an invalid argument instead of
 failing when they are built. The operation that consumes them then returns
@@ -51,12 +66,12 @@ that error.
 
 ## The example program
 
-The installed example is the program below. `import_media` checks every
-result explicitly and builds with or without exceptions; returning early from
-it destroys the open transaction, which discards the staged import. `main`
-uses `value()` inside a `try` block instead, and `rejects_invalid_metadata`
-passes an invalid decimal to `addMetadataValue`, which returns the recorded
-`invalid_argument` error.
+The installed example is the program below. `import_media` passes every
+failure on with the propagation macros and builds with or without exceptions;
+returning early from it destroys the open transaction, which discards the
+staged import. `main` checks its result explicitly, then uses `value()` inside
+a `try` block, and `rejects_invalid_metadata` passes an invalid decimal to
+`addMetadataValue`, which returns the recorded `invalid_argument` error.
 
 ```{literalinclude} ../../../examples/cpp/main.cpp
 :language: cpp

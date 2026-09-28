@@ -6,6 +6,7 @@
 // The work directory is prepared by prepare-workdir.cmake.
 #include <postproject/postproject.hpp>
 
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <iostream>
@@ -84,7 +85,7 @@ try_open(const std::string &missing_path) {
   // Every fallible operation returns a Result instead of throwing, so this
   // works in code built with -fno-exceptions.
   const auto production = postproject::Production::open(missing_path);
-  if (production.ok()) {
+  if (production.has_value()) {
     return std::nullopt;
   }
   // code() is stable to branch on; message() is a diagnostic for people.
@@ -96,6 +97,17 @@ try_open(const std::string &missing_path) {
   // With exceptions enabled, value() on a failed Result throws
   // postproject::Exception instead; without them it aborts.
   return error.code();
+}
+
+// POSTPROJECT_TRY_ASSIGN returns a failure to the caller and otherwise
+// declares the value; POSTPROJECT_TRY does the same for Result<void>. The
+// enclosing function must return a Result.
+postproject::Result<std::size_t> count_assets(const std::string &path) {
+  POSTPROJECT_TRY_ASSIGN(const auto production,
+                         postproject::Production::open(path));
+  // transform() maps a value and passes an error through unchanged.
+  return production.assets().transform(
+      [](const auto &assets) { return assets.size(); });
 }
 // [/error-handling]
 
@@ -134,6 +146,10 @@ int main(int argc, char **argv) {
     require(try_open(work + "/missing.pproj") ==
                 postproject::ErrorCode::not_found,
             "not-found error");
+    require(count_assets(path).value() == 1, "counted through a Result");
+    require(count_assets(work + "/missing.pproj").error().code() ==
+                postproject::ErrorCode::not_found,
+            "propagated not-found error");
   } catch (const std::exception &error) {
     std::cerr << error.what() << '\n';
     return 1;

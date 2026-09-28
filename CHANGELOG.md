@@ -121,6 +121,8 @@ Development version: `0.4.0-alpha.1`.
 - The C++ wrapper returns `postproject::Result<T>` from every fallible
   operation and compiles without exceptions; `value()` throws
   `postproject::Exception` when they are enabled (ADR 0032).
+- C++ `Result` uses the `std::expected` member names and combinators, and
+  `POSTPROJECT_TRY` and `POSTPROJECT_TRY_ASSIGN` are public (ADR 0033).
 - Resolution searches unnamed search directories as well as mapped roots,
   resolves many assets with one scan, budgets entries per directory instead of
   failing, can be cancelled, and names each candidate's root, on every surface

@@ -85,13 +85,21 @@ namespace detail {
 #endif
 }
 
+template <typename T>
+using remove_cvref_t = std::remove_cv_t<std::remove_reference_t<T>>;
+
 } // namespace detail
 
-// Every fallible operation returns a Result: either a value or an Error.
-// Check ok() and read error(), or call value(), which throws Exception when
-// exceptions are enabled and otherwise aborts after printing the error.
+// Every fallible operation returns a Result: either a value or an Error. The
+// members take their names and meanings from C++23 std::expected<T, Error>.
+// Check has_value() and read error(), or call value(), which throws Exception
+// when exceptions are enabled and otherwise aborts after printing the error.
+// A Result is constructed implicitly from an Error.
 template <typename T> class [[nodiscard]] Result final {
 public:
+  using value_type = T;
+  using error_type = Error;
+
   Result(T value) : state_(std::in_place_index<0>, std::move(value)) {}
   Result(Error error) : state_(std::in_place_index<1>, std::move(error)) {}
   template <typename U, typename = std::enable_if_t<
@@ -102,12 +110,16 @@ public:
   Result(U &&value)
       : state_(std::in_place_index<0>, T(std::forward<U>(value))) {}
 
-  [[nodiscard]] bool ok() const noexcept { return state_.index() == 0; }
-  [[nodiscard]] explicit operator bool() const noexcept { return ok(); }
+  [[nodiscard]] bool has_value() const noexcept { return state_.index() == 0; }
+  [[nodiscard]] explicit operator bool() const noexcept { return has_value(); }
 
-  // Precondition: !ok().
+  // Precondition: !has_value().
+  [[nodiscard]] Error &error() & { return std::get<1>(state_); }
   [[nodiscard]] const Error &error() const & { return std::get<1>(state_); }
-  [[nodiscard]] Error takeError() && { return std::get<1>(std::move(state_)); }
+  [[nodiscard]] Error &&error() && { return std::get<1>(std::move(state_)); }
+  [[nodiscard]] const Error &&error() const && {
+    return std::get<1>(std::move(state_));
+  }
 
   T &value() & {
     check();
@@ -122,22 +134,112 @@ public:
     return std::get<0>(std::move(state_));
   }
 
-  [[nodiscard]] T valueOr(T fallback) && {
-    return ok() ? std::get<0>(std::move(state_)) : std::move(fallback);
+  template <typename U> [[nodiscard]] T value_or(U &&fallback) const & {
+    return has_value() ? std::get<0>(state_)
+                       : static_cast<T>(std::forward<U>(fallback));
+  }
+  template <typename U> [[nodiscard]] T value_or(U &&fallback) && {
+    return has_value() ? std::get<0>(std::move(state_))
+                       : static_cast<T>(std::forward<U>(fallback));
   }
 
-  // Unchecked access. Precondition: ok().
+  // Unchecked access. Precondition: has_value().
   [[nodiscard]] T &operator*() & { return std::get<0>(state_); }
   [[nodiscard]] T &&operator*() && { return std::get<0>(std::move(state_)); }
   [[nodiscard]] const T &operator*() const & { return std::get<0>(state_); }
+  [[nodiscard]] const T &&operator*() const && {
+    return std::get<0>(std::move(state_));
+  }
   [[nodiscard]] T *operator->() { return &std::get<0>(state_); }
   [[nodiscard]] const T *operator->() const { return &std::get<0>(state_); }
 
+  // Calls f with the value, which returns a Result<U>; an error passes through.
+  template <typename F> auto and_then(F &&f) & {
+    return and_then_(*this, std::forward<F>(f));
+  }
+  template <typename F> auto and_then(F &&f) const & {
+    return and_then_(*this, std::forward<F>(f));
+  }
+  template <typename F> auto and_then(F &&f) && {
+    return and_then_(std::move(*this), std::forward<F>(f));
+  }
+  template <typename F> auto and_then(F &&f) const && {
+    return and_then_(std::move(*this), std::forward<F>(f));
+  }
+
+  // Calls f with the value and wraps what it returns; an error passes through.
+  template <typename F> auto transform(F &&f) & {
+    return transform_(*this, std::forward<F>(f));
+  }
+  template <typename F> auto transform(F &&f) const & {
+    return transform_(*this, std::forward<F>(f));
+  }
+  template <typename F> auto transform(F &&f) && {
+    return transform_(std::move(*this), std::forward<F>(f));
+  }
+  template <typename F> auto transform(F &&f) const && {
+    return transform_(std::move(*this), std::forward<F>(f));
+  }
+
+  // Calls f with the error, which returns a Result<T>; a value passes through.
+  template <typename F> Result or_else(F &&f) & {
+    return or_else_(*this, std::forward<F>(f));
+  }
+  template <typename F> Result or_else(F &&f) const & {
+    return or_else_(*this, std::forward<F>(f));
+  }
+  template <typename F> Result or_else(F &&f) && {
+    return or_else_(std::move(*this), std::forward<F>(f));
+  }
+  template <typename F> Result or_else(F &&f) const && {
+    return or_else_(std::move(*this), std::forward<F>(f));
+  }
+
 private:
   void check() const {
-    if (!ok()) {
+    if (!has_value()) {
       detail::fail(std::get<1>(state_));
     }
+  }
+
+  template <typename Self, typename F>
+  static auto and_then_(Self &&self, F &&f) {
+    using R = detail::remove_cvref_t<
+        std::invoke_result_t<F, decltype(*std::forward<Self>(self))>>;
+    static_assert(std::is_same_v<R, Result<typename R::value_type>>,
+                  "and_then requires a function that returns a Result");
+    if (self.has_value()) {
+      return R(std::invoke(std::forward<F>(f), *std::forward<Self>(self)));
+    }
+    return R(std::forward<Self>(self).error());
+  }
+
+  template <typename Self, typename F>
+  static auto transform_(Self &&self, F &&f) {
+    using U = std::remove_cv_t<
+        std::invoke_result_t<F, decltype(*std::forward<Self>(self))>>;
+    if (!self.has_value()) {
+      return Result<U>(std::forward<Self>(self).error());
+    }
+    if constexpr (std::is_void_v<U>) {
+      std::invoke(std::forward<F>(f), *std::forward<Self>(self));
+      return Result<U>();
+    } else {
+      return Result<U>(
+          std::invoke(std::forward<F>(f), *std::forward<Self>(self)));
+    }
+  }
+
+  template <typename Self, typename F>
+  static Result or_else_(Self &&self, F &&f) {
+    using R = detail::remove_cvref_t<
+        std::invoke_result_t<F, decltype(std::forward<Self>(self).error())>>;
+    static_assert(std::is_same_v<R, Result>,
+                  "or_else requires a function that returns the same Result");
+    if (self.has_value()) {
+      return Result(std::forward<Self>(self));
+    }
+    return std::invoke(std::forward<F>(f), std::forward<Self>(self).error());
   }
 
   std::variant<T, Error> state_;
@@ -145,15 +247,20 @@ private:
 
 template <> class [[nodiscard]] Result<void> final {
 public:
+  using value_type = void;
+  using error_type = Error;
+
   Result() = default;
   Result(Error error) : error_(std::move(error)) {}
 
-  [[nodiscard]] bool ok() const noexcept { return !error_.has_value(); }
-  [[nodiscard]] explicit operator bool() const noexcept { return ok(); }
+  [[nodiscard]] bool has_value() const noexcept { return !error_.has_value(); }
+  [[nodiscard]] explicit operator bool() const noexcept { return has_value(); }
 
-  // Precondition: !ok().
+  // Precondition: !has_value().
+  [[nodiscard]] Error &error() & { return *error_; }
   [[nodiscard]] const Error &error() const & { return *error_; }
-  [[nodiscard]] Error takeError() && { return std::move(*error_); }
+  [[nodiscard]] Error &&error() && { return std::move(*error_); }
+  [[nodiscard]] const Error &&error() const && { return std::move(*error_); }
 
   void value() const {
     if (error_.has_value()) {
@@ -161,26 +268,86 @@ public:
     }
   }
 
+  // Calls f without arguments, which returns a Result<U>; an error passes
+  // through.
+  template <typename F> auto and_then(F &&f) const & {
+    using R = detail::remove_cvref_t<std::invoke_result_t<F>>;
+    static_assert(std::is_same_v<R, Result<typename R::value_type>>,
+                  "and_then requires a function that returns a Result");
+    return has_value() ? R(std::invoke(std::forward<F>(f))) : R(*error_);
+  }
+  template <typename F> auto and_then(F &&f) && {
+    using R = detail::remove_cvref_t<std::invoke_result_t<F>>;
+    static_assert(std::is_same_v<R, Result<typename R::value_type>>,
+                  "and_then requires a function that returns a Result");
+    return has_value() ? R(std::invoke(std::forward<F>(f)))
+                       : R(std::move(*error_));
+  }
+
+  // Calls f without arguments and wraps what it returns; an error passes
+  // through.
+  template <typename F> auto transform(F &&f) const & {
+    return transform_(*this, std::forward<F>(f));
+  }
+  template <typename F> auto transform(F &&f) && {
+    return transform_(std::move(*this), std::forward<F>(f));
+  }
+
+  // Calls f with the error, which returns a Result<void>; success passes
+  // through.
+  template <typename F> Result or_else(F &&f) const & {
+    return has_value() ? Result()
+                       : Result(std::invoke(std::forward<F>(f), *error_));
+  }
+  template <typename F> Result or_else(F &&f) && {
+    return has_value()
+               ? Result()
+               : Result(std::invoke(std::forward<F>(f), std::move(*error_)));
+  }
+
 private:
+  template <typename Self, typename F>
+  static auto transform_(Self &&self, F &&f) {
+    using U = std::remove_cv_t<std::invoke_result_t<F>>;
+    if (!self.has_value()) {
+      return Result<U>(std::forward<Self>(self).error());
+    }
+    if constexpr (std::is_void_v<U>) {
+      std::invoke(std::forward<F>(f));
+      return Result<U>();
+    } else {
+      return Result<U>(std::invoke(std::forward<F>(f)));
+    }
+  }
+
   std::optional<Error> error_;
 };
 
-// Internal propagation helpers; undefined at the end of this header.
+// Propagation helpers for code built with or without exceptions. The
+// enclosing function must return a type implicitly constructible from Error,
+// such as any Result.
+//
+// POSTPROJECT_TRY(expression) returns the error of a failed Result.
+//
+// POSTPROJECT_TRY_ASSIGN(declaration, expression) returns the error of a
+// failed Result and otherwise declares a variable holding its value, as in
+// POSTPROJECT_TRY_ASSIGN(auto production, Production::open(path)). It expands
+// to several statements: use it only directly inside a block, at most once
+// per line.
 #define POSTPROJECT_DETAIL_CONCAT_(left, right) left##right
 #define POSTPROJECT_DETAIL_CONCAT(left, right)                                 \
   POSTPROJECT_DETAIL_CONCAT_(left, right)
 #define POSTPROJECT_TRY(expression)                                            \
   do {                                                                         \
     auto pp_try_result_ = (expression);                                        \
-    if (!pp_try_result_.ok()) {                                                \
-      return std::move(pp_try_result_).takeError();                            \
+    if (!pp_try_result_.has_value()) {                                         \
+      return std::move(pp_try_result_).error();                                \
     }                                                                          \
   } while (false)
 #define POSTPROJECT_TRY_ASSIGN(declaration, expression)                        \
   auto POSTPROJECT_DETAIL_CONCAT(pp_try_, __LINE__) = (expression);            \
-  if (!POSTPROJECT_DETAIL_CONCAT(pp_try_, __LINE__).ok()) {                    \
-    return std::move(POSTPROJECT_DETAIL_CONCAT(pp_try_, __LINE__))             \
-        .takeError();                                                          \
+  if (!POSTPROJECT_DETAIL_CONCAT(pp_try_, __LINE__).has_value()) {             \
+    return std::move(POSTPROJECT_DETAIL_CONCAT(pp_try_, __LINE__)).error();    \
   }                                                                            \
   declaration = *std::move(POSTPROJECT_DETAIL_CONCAT(pp_try_, __LINE__))
 
@@ -3172,10 +3339,10 @@ private:
   friend class Production;
 
   template <typename T> bool record(const Result<T> &result) {
-    if (!result.ok() && !error_.has_value()) {
+    if (!result.has_value() && !error_.has_value()) {
       error_ = result.error();
     }
-    return result.ok() && !error_.has_value();
+    return result.has_value() && !error_.has_value();
   }
 
   pp_resolution_options_t *options_ = nullptr;
@@ -4574,7 +4741,7 @@ public:
       : production_(production), cursor_(after_sequence),
         callback_(std::move(callback)), kinds_(std::move(kinds)) {
     Result<RevisionWaiter> waiter = production.revisionWaiter();
-    if (!waiter.ok()) {
+    if (!waiter.has_value()) {
       error_ = waiter.error();
       return;
     }
@@ -4628,7 +4795,7 @@ private:
   }
 
   void record(Result<void> result) {
-    if (!result.ok()) {
+    if (!result.has_value()) {
       const std::lock_guard<std::mutex> lock(mutex_);
       error_ = result.error();
     }
@@ -4743,10 +4910,5 @@ fingerprintFile(std::string_view path) {
 }
 
 } // namespace postproject
-
-#undef POSTPROJECT_TRY_ASSIGN
-#undef POSTPROJECT_TRY
-#undef POSTPROJECT_DETAIL_CONCAT
-#undef POSTPROJECT_DETAIL_CONCAT_
 
 #endif

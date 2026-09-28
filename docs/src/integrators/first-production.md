@@ -82,8 +82,9 @@ The language surfaces differ only in how they express ownership and failure:
   documented release function. Strings returned by a result-set accessor borrow
   the result set.
 - The C++17 wrapper owns handles with RAII types, copies results into values,
-  and returns `postproject::Result<T>`; `value()` throws
-  `postproject::Exception` when exceptions are enabled.
+  and returns `postproject::Result<T>`. `POSTPROJECT_TRY` and
+  `POSTPROJECT_TRY_ASSIGN` pass a failure on to the caller in one line, and
+  `value()` throws `postproject::Exception` when exceptions are enabled.
 - The Python binding raises typed exceptions. A transaction used as a context
   manager commits on a clean exit and rolls back when an exception escapes.
 - Rust storage returns `postproject_core::Result`. The media adapter prepares
