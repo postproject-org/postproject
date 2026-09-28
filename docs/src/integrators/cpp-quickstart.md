@@ -19,8 +19,9 @@ ctest --test-dir build/postproject-cpp-example \
 
 The test creates `cpp-example.pproj`, imports the installed
 `sample-media.dat`, commits through the RAII transaction wrapper, and verifies
-that the asset owns one representation. Its production path must not already
-exist.
+that the asset owns one representation. It then shows that invalid metadata
+input is reported by the operation that consumes it. Its production path must
+not already exist.
 
 Use the exported package target from an application:
 
@@ -47,3 +48,16 @@ engines, and plugin SDKs:
 `MetadataInput` and `ResolutionOptions` record an invalid argument instead of
 failing when they are built. The operation that consumes them then returns
 that error.
+
+## The example program
+
+The installed example is the program below. `import_media` checks every
+result explicitly and builds with or without exceptions; returning early from
+it destroys the open transaction, which discards the staged import. `main`
+uses `value()` inside a `try` block instead, and `rejects_invalid_metadata`
+passes an invalid decimal to `addMetadataValue`, which returns the recorded
+`invalid_argument` error.
+
+```{literalinclude} ../../../examples/cpp/main.cpp
+:language: cpp
+```
