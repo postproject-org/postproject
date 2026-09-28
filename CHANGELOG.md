@@ -167,6 +167,8 @@ Development version: `0.4.0-alpha.1`.
 
 ### Fixed
 
+- The C++ header no longer raises `-Wmaybe-uninitialized` in `evaluateArtifact`
+  under GCC 15, and CI compiles it with the current GCC and Clang (ADR 0034).
 - Observing content records the resource's size and modification time too, so
   resolution still finds content whose size changed.
 - Resolution no longer ignores resources whose only fingerprints are foreign to

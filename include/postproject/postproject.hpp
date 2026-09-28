@@ -4339,17 +4339,8 @@ public:
                  : std::nullopt,
              std::string(segment.authored_reference)});
       }
-      POSTPROJECT_TRY_ASSIGN(
-          std::optional<std::vector<std::uint8_t>> snapshot_value,
-          detail::optional_bytes(native.has_snapshot_value,
-                                 native.snapshot_value,
-                                 native.snapshot_value_length));
-      POSTPROJECT_TRY_ASSIGN(
-          std::optional<std::vector<std::uint8_t>> current_value,
-          detail::optional_bytes(native.has_current_value, native.current_value,
-                                 native.current_value_length));
-      reasons.push_back(
-          {kind,
+      ArtifactReason reason{
+          kind,
            has_activity ? std::optional<Uuid>(detail::uuid(native.activity_id))
                         : std::nullopt,
            detail::uuid(native.representation_id),
@@ -4381,7 +4372,17 @@ public:
            native.fingerprint_algorithm != nullptr
                ? std::optional<std::uint16_t>(native.fingerprint_version)
                : std::nullopt,
-           std::move(snapshot_value), std::move(current_value)});
+           std::nullopt, std::nullopt};
+      POSTPROJECT_TRY_ASSIGN(
+          reason.snapshot_value,
+          detail::optional_bytes(native.has_snapshot_value,
+                                 native.snapshot_value,
+                                 native.snapshot_value_length));
+      POSTPROJECT_TRY_ASSIGN(
+          reason.current_value,
+          detail::optional_bytes(native.has_current_value, native.current_value,
+                                 native.current_value_length));
+      reasons.push_back(std::move(reason));
     }
     return ArtifactEvaluation{
         detail::uuid(evaluated_id), static_cast<ArtifactKnowledgeState>(state),

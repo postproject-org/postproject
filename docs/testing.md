@@ -70,6 +70,13 @@ header, a public member function of a C++ wrapper class, or a public method of
 a Python handle class appears in no example program, so a new operation cannot
 ship without a tested demonstration.
 
+Hosts compile the header-only C++ wrapper with their own compilers and flags.
+`tools/check_cpp_header_warnings.py` compiles every C++ program against
+`include/` as C++17 and C++20 at `-O2` with warnings as errors, without linking.
+CI runs it with the current GCC and Clang in an Arch Linux container.
+`tests/abi/cpp_isolated_calls.cpp` keeps wrapper calls that once raised a
+warning in isolated functions, where optimizers warn most readily (ADR 0034).
+
 Published documentation identifies historical scope by package release, C ABI,
 or schema version. Planning labels remain confined to the untracked planning
 briefs. A workspace test scans the published Markdown to keep that boundary

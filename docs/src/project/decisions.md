@@ -46,6 +46,7 @@ Read the relevant ADR before changing an invariant, a boundary, or a public cont
 - {doc}`ADR 0014 — Native concurrency contract </adr/0014-native-concurrency-contract>`
 - {doc}`ADR 0032 — C++ error reporting without exceptions </adr/0032-cpp-error-reporting>`
 - {doc}`ADR 0033 — Propagating C++ results </adr/0033-cpp-result-propagation>`
+- {doc}`ADR 0034 — A warning-free C++ header in host builds </adr/0034-warning-free-cpp-header>`
 - {doc}`ADR 0016 — Documentation site generator </adr/0016-documentation-site-generator>`
 - {doc}`ADR 0020 — Integration-preview compatibility tier </adr/0020-integration-preview-compatibility>`
 - {doc}`ADR 0026 — Domain query cursors </adr/0026-domain-query-cursors>`
@@ -86,4 +87,5 @@ Read the relevant ADR before changing an invariant, a boundary, or a public cont
 /adr/0031-resolution-scope-and-batches
 /adr/0032-cpp-error-reporting
 /adr/0033-cpp-result-propagation
+/adr/0034-warning-free-cpp-header
 ```
