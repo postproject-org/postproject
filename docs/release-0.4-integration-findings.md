@@ -94,7 +94,9 @@ integrators.
 - **C++ without exceptions (ADR 0032).** Every fallible C++ operation returns
   `postproject::Result<T>`. The header compiles with `-fno-exceptions`, and
   `value()` throws `postproject::Exception` only where exceptions are enabled.
-  See the {doc}`/src/integrators/cpp-quickstart`.
+  `Result` uses the member names of `std::expected`, and the public macros
+  `POSTPROJECT_TRY` and `POSTPROJECT_TRY_ASSIGN` pass a failure on to the
+  caller in one line (ADR 0033). See the {doc}`/src/integrators/cpp-quickstart`.
 - **Host content hashes (ADR 0028, C ABI 28).** A fingerprint in a domain that
   PostProject cannot compute no longer disables resolution. Candidates are
   found by name and size and carry `fingerprint_not_verified` evidence that
@@ -119,10 +121,13 @@ integrators.
   - A cancellation token can stop it.
   - A candidate names the logical root it was found under.
 
-The pilot uses these changes. Its adapter builds without exceptions and finds
-a clip with one qualified lookup. It spells locators through PostProject and
-keeps Kdenlive's MD5 as a host fingerprint. Opening a project resolves every
-missing clip in one call, using search directories instead of invented roots.
+The pilot uses these changes. Its adapter builds without exceptions, passes
+failures on with the propagation macros, and finds a clip with one qualified
+lookup. It spells locators through PostProject and keeps Kdenlive's MD5 as a
+host fingerprint. Opening a project resolves every missing clip in one call,
+using search directories instead of invented roots. The adapter grew to about
+375 lines, because it now records Kdenlive's hash and keeps the answers of the
+batched resolution.
 
 ## For managed proxies
 
