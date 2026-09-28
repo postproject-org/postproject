@@ -67,10 +67,10 @@ postproject::Uuid request_proxy(postproject::Production &production,
   const postproject::ObjectRef job{postproject::ObjectKind::job, job_id};
   transaction.addMetadataValue(
       job, transcode, "profile",
-      postproject::MetadataInput::plainString("editing-proxy")).value();
+      postproject::MetadataValue::plainString("editing-proxy")).value();
   transaction.addMetadataValue(
       job, transcode, "max-width",
-      postproject::MetadataInput::unsignedInteger(1920)).value();
+      postproject::MetadataValue::unsignedInteger(1920)).value();
   transaction.commit().value();
 
   const auto requested =
@@ -132,7 +132,7 @@ postproject::Uuid complete_proxy(postproject::Production &production,
   // Parameters on the activity let the artifact be regenerated later.
   transaction.addMetadataValue(
       {postproject::ObjectKind::activity, activity_id}, transcode, "profile",
-      postproject::MetadataInput::plainString("editing-proxy")).value();
+      postproject::MetadataValue::plainString("editing-proxy")).value();
   transaction.completeJob(job.id, claim_id, now + one_minute, proxy_id,
                           activity_id).value();
   transaction.commit().value();
@@ -221,7 +221,7 @@ int main(int argc, char **argv) {
     require(production
                     .queryMetadata(
                         transcode, "max-width",
-                        postproject::MetadataInput::unsignedInteger(1920), 10).value()
+                        postproject::MetadataValue::unsignedInteger(1920), 10).value()
                     .items.front()
                     .target ==
                 postproject::ObjectRef{postproject::ObjectKind::job, job_id},
@@ -290,7 +290,7 @@ int main(int argc, char **argv) {
             "enqueued regeneration job");
     require(production
                     .queryMetadata(transcode, "profile",
-                                   postproject::MetadataInput::plainString(
+                                   postproject::MetadataValue::plainString(
                                        "editing-proxy"),
                                    10).value()
                     .items.size() == 3,

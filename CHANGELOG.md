@@ -118,6 +118,8 @@ Development version: `0.4.0-alpha.1`.
 
 ### Changed
 
+- C++ metadata values are readable: `MetadataValue` replaces `MetadataInput`
+  for writing and reading (ADR 0036).
 - Observing content reports whether it was unchanged, changed, or observed for
   the first time, on every surface (ADR 0035, C ABI 33).
 - The C++ wrapper returns `postproject::Result<T>` from every fallible

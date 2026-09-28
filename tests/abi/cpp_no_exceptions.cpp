@@ -64,10 +64,7 @@ int main(int argc, char **argv) {
     return 7;
   }
   // Invalid input is reported by the operation that consumes it.
-  const auto invalid = postproject::MetadataInput::decimal("not a number", 2);
-  if (!invalid.error().has_value()) {
-    return 8;
-  }
+  const auto invalid = postproject::MetadataValue::decimal("not a number", 2);
   const auto rejected = transaction->addMetadataValue(
       {postproject::ObjectKind::asset, *asset_id}, "com.example", "amount",
       invalid);

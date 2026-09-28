@@ -76,7 +76,7 @@ void add_title(postproject::Production &production,
       target,
       "https://iptc.org/std/videometadatahub/recommendation/"
       "iptc-vmhub-1.7-schema.json",
-      "title", postproject::MetadataInput::languageString("Interview", "en-US")).value();
+      "title", postproject::MetadataValue::languageString("Interview", "en-US")).value();
   transaction.commit().value();
   // Read one target's assertions with the C function pp_production_metadata().
 }
@@ -335,7 +335,7 @@ find_interview_titles(const postproject::Production &production) {
   const auto page = production.queryMetadata(
       "https://iptc.org/std/videometadatahub/recommendation/"
       "iptc-vmhub-1.7-schema.json",
-      "title", postproject::MetadataInput::languageString("Interview", "en-US"),
+      "title", postproject::MetadataValue::languageString("Interview", "en-US"),
       100).value();
   std::cout << "exact title matches: " << page.items.size() << '\n';
   std::vector<postproject::ObjectRef> targets;

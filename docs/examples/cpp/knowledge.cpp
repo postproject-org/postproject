@@ -12,6 +12,8 @@
 #include <optional>
 #include <stdexcept>
 #include <string>
+#include <type_traits>
+#include <variant>
 #include <vector>
 
 namespace {
@@ -61,34 +63,34 @@ constexpr const char *editorial = "https://example.com/ns/editorial/1";
 void add_editorial_metadata(postproject::Production &production,
                             const postproject::Uuid &asset_id,
                             const postproject::Uuid &representation_id) {
-  using postproject::MetadataInput;
+  using postproject::MetadataValue;
   const postproject::ObjectRef asset{postproject::ObjectKind::asset, asset_id};
 
-  std::vector<MetadataInput> keywords;
-  keywords.push_back(MetadataInput::plainString("interview"));
-  keywords.push_back(MetadataInput::plainString("exterior"));
-  std::vector<postproject::MetadataFieldInput> slate;
-  slate.push_back({"scene", MetadataInput::plainString("12A")});
-  slate.push_back({"take", MetadataInput::unsignedInteger(3)});
+  std::vector<MetadataValue> keywords;
+  keywords.push_back(MetadataValue::plainString("interview"));
+  keywords.push_back(MetadataValue::plainString("exterior"));
+  std::vector<postproject::MetadataField> slate;
+  slate.push_back({"scene", MetadataValue::plainString("12A")});
+  slate.push_back({"take", MetadataValue::unsignedInteger(3)});
 
   auto transaction = production.beginTransaction().value();
-  const auto add = [&](const char *property, const MetadataInput &value) {
+  const auto add = [&](const char *property, const MetadataValue &value) {
     transaction.addMetadataValue(asset, editorial, property, value).value();
   };
-  add("title", MetadataInput::plainString("Harbour interview"));
-  add("caption", MetadataInput::languageString("Am Hafen", "de-DE"));
-  add("timecode-offset", MetadataInput::signedInteger(-48));
-  add("frame-count", MetadataInput::unsignedInteger(86400));
-  add("aspect-ratio", MetadataInput::decimal("239", 2)); // 2.39
-  add("circled", MetadataInput::boolean(true));
-  add("shot-at", MetadataInput::timestamp(1'700'000'000'000'000));
-  add("licence", MetadataInput::uri("https://example.com/licences/7"));
-  add("checksum", MetadataInput::bytes({0xde, 0xad, 0xbe, 0xef}));
-  add("frame-rate", MetadataInput::rational(24000, 1001));
-  add("keywords", MetadataInput::list(keywords));
-  add("slate", MetadataInput::structure(slate));
+  add("title", MetadataValue::plainString("Harbour interview"));
+  add("caption", MetadataValue::languageString("Am Hafen", "de-DE"));
+  add("timecode-offset", MetadataValue::signedInteger(-48));
+  add("frame-count", MetadataValue::unsignedInteger(86400));
+  add("aspect-ratio", MetadataValue::decimal("239", 2)); // 2.39
+  add("circled", MetadataValue::boolean(true));
+  add("shot-at", MetadataValue::timestamp(1'700'000'000'000'000));
+  add("licence", MetadataValue::uri("https://example.com/licences/7"));
+  add("checksum", MetadataValue::bytes({0xde, 0xad, 0xbe, 0xef}));
+  add("frame-rate", MetadataValue::rational(24000, 1001));
+  add("keywords", MetadataValue::list(keywords));
+  add("slate", MetadataValue::structure(slate));
   add("preferred-representation",
-      MetadataInput::reference(
+      MetadataValue::reference(
           {postproject::ObjectKind::representation, representation_id}));
   transaction.commit().value();
 }
@@ -107,12 +109,31 @@ count_editorial_values(const postproject::Production &production,
       cursor = page.next_cursor;
     } while (cursor.has_value());
   }
-  // Values come back as reusable MetadataInput objects: pass one to an
+  // Values come back as MetadataValue objects: read them, pass one to an
   // exact-value query, or copy it onto another target.
   const auto frame_rate = production.queryMetadata(
       editorial, "frame-rate",
-      postproject::MetadataInput::rational(24000, 1001), 10).value();
+      postproject::MetadataValue::rational(24000, 1001), 10).value();
   std::cout << "assets shot at 23.976 fps: " << frame_rate.items.size() << '\n';
+
+  const auto keywords =
+      production.queryMetadata(editorial, "keywords", 1).value();
+  if (const auto *list =
+          keywords.items.front().value.getIf<postproject::MetadataList>()) {
+    for (const auto &item : list->items) {
+      std::cout << "keyword: "
+                << item.getIf<postproject::MetadataString>()->value << '\n';
+    }
+  }
+  const auto slate = production.queryMetadata(editorial, "slate", 1).value();
+  std::visit(
+      [](const auto &value) {
+        using Value = std::decay_t<decltype(value)>;
+        if constexpr (std::is_same_v<Value, postproject::MetadataStructure>) {
+          std::cout << "slate has " << value.fields.size() << " fields\n";
+        }
+      },
+      slate.items.front().value.variant());
   return counts;
 }
 // [/typed-metadata]
@@ -170,38 +191,56 @@ int main(int argc, char **argv) {
       require(counts.at(property) == 1, "one value per property");
     }
 
-    using postproject::MetadataInput;
-    const auto exact = [&](const char *property, const MetadataInput &value) {
+    using postproject::MetadataValue;
+    const auto exact = [&](const char *property, const MetadataValue &value) {
       const auto page =
           production.queryMetadata(editorial, property, value, 10).value();
       return page.items.size() == 1 && page.items.front().target == asset;
     };
-    require(exact("title", MetadataInput::plainString("Harbour interview")),
+    require(exact("title", MetadataValue::plainString("Harbour interview")),
             "string round trip");
     require(
-        exact("caption", MetadataInput::languageString("Am Hafen", "de-DE")),
+        exact("caption", MetadataValue::languageString("Am Hafen", "de-DE")),
         "language string round trip");
-    require(exact("timecode-offset", MetadataInput::signedInteger(-48)),
+    require(exact("timecode-offset", MetadataValue::signedInteger(-48)),
             "i64 round trip");
-    require(exact("frame-count", MetadataInput::unsignedInteger(86400)),
+    require(exact("frame-count", MetadataValue::unsignedInteger(86400)),
             "u64 round trip");
-    require(exact("aspect-ratio", MetadataInput::decimal("239", 2)),
+    require(exact("aspect-ratio", MetadataValue::decimal("239", 2)),
             "decimal round trip");
-    require(exact("circled", MetadataInput::boolean(true)), "bool round trip");
-    require(exact("shot-at", MetadataInput::timestamp(1'700'000'000'000'000)),
+    require(exact("circled", MetadataValue::boolean(true)), "bool round trip");
+    require(exact("shot-at", MetadataValue::timestamp(1'700'000'000'000'000)),
             "timestamp round trip");
     require(
-        exact("licence", MetadataInput::uri("https://example.com/licences/7")),
+        exact("licence", MetadataValue::uri("https://example.com/licences/7")),
         "URI round trip");
-    require(exact("frame-rate", MetadataInput::rational(24000, 1001)),
+    require(exact("frame-rate", MetadataValue::rational(24000, 1001)),
             "rational round trip");
     require(
         exact("preferred-representation",
-              MetadataInput::reference({postproject::ObjectKind::representation,
+              MetadataValue::reference({postproject::ObjectKind::representation,
                                         representation_id})),
         "reference round trip");
-    require(!exact("circled", MetadataInput::boolean(false)),
+    require(!exact("circled", MetadataValue::boolean(false)),
             "exact query rejects other values");
+    // Every kind reads back as the value that was written.
+    const auto read = [&](const char *property) {
+      return production.queryMetadata(editorial, property, 1).value()
+          .items.front().value;
+    };
+    require(read("caption") == MetadataValue::languageString("Am Hafen", "de-DE"),
+            "language string reads back");
+    require(read("checksum") == MetadataValue::bytes({0xde, 0xad, 0xbe, 0xef}),
+            "bytes read back");
+    require(read("keywords") ==
+                MetadataValue::list({MetadataValue::plainString("interview"),
+                                     MetadataValue::plainString("exterior")}),
+            "list reads back");
+    require(read("slate") ==
+                MetadataValue::structure(
+                    {{"scene", MetadataValue::plainString("12A")},
+                     {"take", MetadataValue::unsignedInteger(3)}}),
+            "structure reads back");
   } catch (const std::exception &error) {
     std::cerr << error.what() << '\n';
     return 1;

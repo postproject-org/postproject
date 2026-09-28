@@ -2101,233 +2101,406 @@ HostObjectBinding::fromString(std::string_view value) {
                            detail::object_ref(object)};
 }
 
-struct MetadataFieldInput;
+class MetadataValue;
+struct MetadataField;
 
-// Move-only immutable input that can be reused across transaction calls.
-// Invalid input does not fail construction: the input records its error, and
-// the operation that consumes it returns that error.
-class MetadataInput final {
+// The alternatives a metadata value can hold. Each mirrors one value kind of
+// the C ABI and compares by value.
+struct MetadataString final {
+  std::string value;
+};
+
+struct MetadataLanguageString final {
+  std::string value;
+  // A BCP 47 language tag.
+  std::string language;
+};
+
+struct MetadataSignedInteger final {
+  std::int64_t value;
+};
+
+struct MetadataUnsignedInteger final {
+  std::uint64_t value;
+};
+
+// The exact value coefficient * 10^-scale; the coefficient is base-ten text.
+struct MetadataDecimal final {
+  std::string coefficient;
+  std::uint32_t scale;
+};
+
+struct MetadataBoolean final {
+  bool value;
+};
+
+struct MetadataTimestamp final {
+  std::int64_t unix_micros;
+};
+
+struct MetadataUri final {
+  std::string value;
+};
+
+struct MetadataBytes final {
+  std::vector<std::uint8_t> value;
+};
+
+struct MetadataRational final {
+  std::int64_t numerator;
+  std::uint64_t denominator;
+};
+
+struct MetadataList final {
+  std::vector<MetadataValue> items;
+};
+
+struct MetadataStructure final {
+  std::vector<MetadataField> fields;
+};
+
+struct MetadataReference final {
+  ObjectRef target;
+};
+
+// A typed metadata value that is both written and read. Construct one with a
+// factory, read it with getIf or by visiting variant(). Values are validated
+// when a call consumes them, which then returns any validation error.
+class MetadataValue final {
 public:
-  [[nodiscard]] static MetadataInput plainString(std::string_view value) {
-    POSTPROJECT_TRY_ASSIGN(const std::string native,
-                           detail::checked_string(value, "metadata string"));
-    pp_metadata_input_t *input = nullptr;
-    pp_error_t *error = nullptr;
-    const pp_error_code_t status = pp_metadata_input_create_string(
-        native.c_str(), nullptr, &input, &error);
-    return checked(status, input, error);
-  }
+  using Variant =
+      std::variant<MetadataString, MetadataLanguageString,
+                   MetadataSignedInteger, MetadataUnsignedInteger,
+                   MetadataDecimal, MetadataBoolean, MetadataTimestamp,
+                   MetadataUri, MetadataBytes, MetadataRational, MetadataList,
+                   MetadataStructure, MetadataReference>;
 
-  [[nodiscard]] static MetadataInput languageString(
-      std::string_view value, std::string_view language) {
-    POSTPROJECT_TRY_ASSIGN(const std::string native,
-                           detail::checked_string(value, "metadata string"));
-    POSTPROJECT_TRY_ASSIGN(
-        const std::string native_language,
-        detail::checked_string(language, "metadata language"));
-    pp_metadata_input_t *input = nullptr;
-    pp_error_t *error = nullptr;
-    const pp_error_code_t status = pp_metadata_input_create_string(
-        native.c_str(), native_language.c_str(), &input, &error);
-    return checked(status, input, error);
-  }
+  explicit MetadataValue(Variant value);
 
-  [[nodiscard]] static MetadataInput signedInteger(std::int64_t value) {
-    pp_metadata_input_t *input = nullptr;
-    pp_error_t *error = nullptr;
-    const pp_error_code_t status =
-        pp_metadata_input_create_i64(value, &input, &error);
-    return checked(status, input, error);
-  }
+  [[nodiscard]] static MetadataValue plainString(std::string_view value);
 
-  [[nodiscard]] static MetadataInput unsignedInteger(std::uint64_t value) {
-    pp_metadata_input_t *input = nullptr;
-    pp_error_t *error = nullptr;
-    const pp_error_code_t status =
-        pp_metadata_input_create_u64(value, &input, &error);
-    return checked(status, input, error);
-  }
+  [[nodiscard]] static MetadataValue languageString(std::string_view value,
+                                                    std::string_view language);
 
-  [[nodiscard]] static MetadataInput decimal(std::string_view coefficient,
-                                             std::uint32_t scale) {
-    POSTPROJECT_TRY_ASSIGN(
-        const std::string native,
-        detail::checked_string(coefficient, "decimal coefficient"));
-    pp_metadata_input_t *input = nullptr;
-    pp_error_t *error = nullptr;
-    const pp_error_code_t status = pp_metadata_input_create_decimal(
-        native.c_str(), scale, &input, &error);
-    return checked(status, input, error);
-  }
+  [[nodiscard]] static MetadataValue signedInteger(std::int64_t value);
 
-  [[nodiscard]] static MetadataInput boolean(bool value) {
-    pp_metadata_input_t *input = nullptr;
-    pp_error_t *error = nullptr;
-    const pp_error_code_t status =
-        pp_metadata_input_create_bool(value ? 1 : 0, &input, &error);
-    return checked(status, input, error);
-  }
+  [[nodiscard]] static MetadataValue unsignedInteger(std::uint64_t value);
 
-  [[nodiscard]] static MetadataInput timestamp(std::int64_t unix_micros) {
-    pp_metadata_input_t *input = nullptr;
-    pp_error_t *error = nullptr;
-    const pp_error_code_t status =
-        pp_metadata_input_create_timestamp(unix_micros, &input, &error);
-    return checked(status, input, error);
-  }
+  [[nodiscard]] static MetadataValue decimal(std::string_view coefficient,
+                                             std::uint32_t scale);
 
-  [[nodiscard]] static MetadataInput uri(std::string_view value) {
-    POSTPROJECT_TRY_ASSIGN(const std::string native,
-                           detail::checked_string(value, "metadata URI"));
-    pp_metadata_input_t *input = nullptr;
-    pp_error_t *error = nullptr;
-    const pp_error_code_t status =
-        pp_metadata_input_create_uri(native.c_str(), &input, &error);
-    return checked(status, input, error);
-  }
+  [[nodiscard]] static MetadataValue boolean(bool value);
 
-  [[nodiscard]] static MetadataInput
-  bytes(const std::vector<std::uint8_t> &value) {
-    pp_metadata_input_t *input = nullptr;
-    pp_error_t *error = nullptr;
-    const pp_error_code_t status = pp_metadata_input_create_bytes(
-        value.data(), static_cast<std::uint64_t>(value.size()), &input, &error);
-    return checked(status, input, error);
-  }
+  [[nodiscard]] static MetadataValue timestamp(std::int64_t unix_micros);
 
-  [[nodiscard]] static MetadataInput rational(std::int64_t numerator,
-                                              std::uint64_t denominator) {
-    pp_metadata_input_t *input = nullptr;
-    pp_error_t *error = nullptr;
-    const pp_error_code_t status = pp_metadata_input_create_rational(
-        numerator, denominator, &input, &error);
-    return checked(status, input, error);
-  }
+  [[nodiscard]] static MetadataValue uri(std::string_view value);
 
-  [[nodiscard]] static MetadataInput reference(const ObjectRef &target) {
-    const pp_object_ref_t native = detail::native_object_ref(target);
-    pp_metadata_input_t *input = nullptr;
-    pp_error_t *error = nullptr;
-    const pp_error_code_t status =
-        pp_metadata_input_create_reference(&native, &input, &error);
-    return checked(status, input, error);
-  }
+  [[nodiscard]] static MetadataValue bytes(std::vector<std::uint8_t> value);
 
-  [[nodiscard]] static MetadataInput
-  list(const std::vector<MetadataInput> &items);
+  [[nodiscard]] static MetadataValue rational(std::int64_t numerator,
+                                              std::uint64_t denominator);
 
-  [[nodiscard]] static MetadataInput
-  structure(const std::vector<MetadataFieldInput> &fields);
+  [[nodiscard]] static MetadataValue list(std::vector<MetadataValue> items);
 
-  MetadataInput(const MetadataInput &) = delete;
-  MetadataInput &operator=(const MetadataInput &) = delete;
+  [[nodiscard]] static MetadataValue
+  structure(std::vector<MetadataField> fields);
 
-  MetadataInput(MetadataInput &&other) noexcept
-      : input_(std::exchange(other.input_, nullptr)),
-        error_(std::move(other.error_)) {}
+  [[nodiscard]] static MetadataValue reference(const ObjectRef &target);
 
-  MetadataInput &operator=(MetadataInput &&other) noexcept {
-    if (this != &other) {
-      pp_metadata_input_release(input_);
-      input_ = std::exchange(other.input_, nullptr);
-      error_ = std::move(other.error_);
-    }
-    return *this;
-  }
+  // The held alternative, for std::visit or std::holds_alternative.
+  [[nodiscard]] const Variant &variant() const noexcept { return value_; }
 
-  ~MetadataInput() { pp_metadata_input_release(input_); }
-
-  // The error recorded while constructing this input, if any.
-  [[nodiscard]] const std::optional<Error> &error() const noexcept {
-    return error_;
+  // The held alternative if it is a T, otherwise nullptr.
+  template <typename T> [[nodiscard]] const T *getIf() const noexcept {
+    return std::get_if<T>(&value_);
   }
 
 private:
-  friend class Transaction;
-  friend class Production;
-
-  explicit MetadataInput(pp_metadata_input_t *input) noexcept : input_(input) {}
-  // Implicit so that validation failures can be returned directly.
-  MetadataInput(Error error) : input_(nullptr), error_(std::move(error)) {}
-
-  [[nodiscard]] static MetadataInput checked(pp_error_code_t status,
-                                             pp_metadata_input_t *input,
-                                             pp_error_t *error) {
-    POSTPROJECT_TRY(detail::check(status, error));
-    return MetadataInput(input);
-  }
-
-  // Returns the recorded error of an input about to be consumed.
-  [[nodiscard]] Result<const pp_metadata_input_t *> native() const {
-    if (error_.has_value()) {
-      return *error_;
-    }
-    return static_cast<const pp_metadata_input_t *>(input_);
-  }
-
-  pp_metadata_input_t *input_;
-  std::optional<Error> error_;
+  Variant value_;
 };
 
-struct MetadataFieldInput final {
+struct MetadataField final {
   std::string name;
-  MetadataInput value;
+  MetadataValue value;
 };
 
-inline MetadataInput
-MetadataInput::list(const std::vector<MetadataInput> &items) {
-  std::vector<const pp_metadata_input_t *> native_items;
-  native_items.reserve(items.size());
-  for (const MetadataInput &item : items) {
-    POSTPROJECT_TRY_ASSIGN(const pp_metadata_input_t *native, item.native());
-    native_items.push_back(native);
-  }
-  pp_metadata_input_t *input = nullptr;
-  pp_error_t *error = nullptr;
-  const pp_error_code_t status = pp_metadata_input_create_list(
-      native_items.data(), static_cast<std::uint64_t>(native_items.size()),
-      &input, &error);
-  return checked(status, input, error);
+// Defined once MetadataField is complete, because constructing a value
+// instantiates the variant's members for every alternative.
+inline MetadataValue::MetadataValue(Variant value) : value_(std::move(value)) {}
+
+inline MetadataValue MetadataValue::plainString(std::string_view value) {
+  return MetadataValue(MetadataString{std::string(value)});
 }
 
-inline MetadataInput MetadataInput::structure(
-    const std::vector<MetadataFieldInput> &fields) {
-  std::vector<std::string> names;
-  names.reserve(fields.size());
-  std::vector<const pp_metadata_input_t *> values;
-  values.reserve(fields.size());
-  for (const MetadataFieldInput &field : fields) {
-    POSTPROJECT_TRY_ASSIGN(
-        auto item_2, detail::checked_string(field.name, "metadata field name"));
-    names.push_back(std::move(item_2));
-    POSTPROJECT_TRY_ASSIGN(const pp_metadata_input_t *native,
-                           field.value.native());
-    values.push_back(native);
+inline MetadataValue MetadataValue::languageString(std::string_view value,
+                                                   std::string_view language) {
+  return MetadataValue(
+      MetadataLanguageString{std::string(value), std::string(language)});
+}
+
+inline MetadataValue MetadataValue::signedInteger(std::int64_t value) {
+  return MetadataValue(MetadataSignedInteger{value});
+}
+
+inline MetadataValue MetadataValue::unsignedInteger(std::uint64_t value) {
+  return MetadataValue(MetadataUnsignedInteger{value});
+}
+
+inline MetadataValue MetadataValue::decimal(std::string_view coefficient,
+                                            std::uint32_t scale) {
+  return MetadataValue(MetadataDecimal{std::string(coefficient), scale});
+}
+
+inline MetadataValue MetadataValue::boolean(bool value) {
+  return MetadataValue(MetadataBoolean{value});
+}
+
+inline MetadataValue MetadataValue::timestamp(std::int64_t unix_micros) {
+  return MetadataValue(MetadataTimestamp{unix_micros});
+}
+
+inline MetadataValue MetadataValue::uri(std::string_view value) {
+  return MetadataValue(MetadataUri{std::string(value)});
+}
+
+inline MetadataValue MetadataValue::bytes(std::vector<std::uint8_t> value) {
+  return MetadataValue(MetadataBytes{std::move(value)});
+}
+
+inline MetadataValue MetadataValue::rational(std::int64_t numerator,
+                                             std::uint64_t denominator) {
+  return MetadataValue(MetadataRational{numerator, denominator});
+}
+
+inline MetadataValue MetadataValue::reference(const ObjectRef &target) {
+  return MetadataValue(MetadataReference{target});
+}
+
+inline MetadataValue MetadataValue::list(std::vector<MetadataValue> items) {
+  return MetadataValue(MetadataList{std::move(items)});
+}
+
+inline MetadataValue
+MetadataValue::structure(std::vector<MetadataField> fields) {
+  return MetadataValue(MetadataStructure{std::move(fields)});
+}
+
+inline bool operator==(const MetadataString &left,
+                       const MetadataString &right) {
+  return left.value == right.value;
+}
+inline bool operator==(const MetadataLanguageString &left,
+                       const MetadataLanguageString &right) {
+  return left.value == right.value && left.language == right.language;
+}
+inline bool operator==(const MetadataSignedInteger &left,
+                       const MetadataSignedInteger &right) {
+  return left.value == right.value;
+}
+inline bool operator==(const MetadataUnsignedInteger &left,
+                       const MetadataUnsignedInteger &right) {
+  return left.value == right.value;
+}
+inline bool operator==(const MetadataDecimal &left,
+                       const MetadataDecimal &right) {
+  return left.coefficient == right.coefficient && left.scale == right.scale;
+}
+inline bool operator==(const MetadataBoolean &left,
+                       const MetadataBoolean &right) {
+  return left.value == right.value;
+}
+inline bool operator==(const MetadataTimestamp &left,
+                       const MetadataTimestamp &right) {
+  return left.unix_micros == right.unix_micros;
+}
+inline bool operator==(const MetadataUri &left, const MetadataUri &right) {
+  return left.value == right.value;
+}
+inline bool operator==(const MetadataBytes &left, const MetadataBytes &right) {
+  return left.value == right.value;
+}
+inline bool operator==(const MetadataRational &left,
+                       const MetadataRational &right) {
+  return left.numerator == right.numerator &&
+         left.denominator == right.denominator;
+}
+inline bool operator==(const MetadataReference &left,
+                       const MetadataReference &right) {
+  return left.target == right.target;
+}
+// Recursive alternatives compare through MetadataValue, so all are declared
+// before std::variant's comparison needs them.
+inline bool operator==(const MetadataList &left, const MetadataList &right);
+inline bool operator==(const MetadataField &left, const MetadataField &right);
+inline bool operator==(const MetadataStructure &left,
+                       const MetadataStructure &right);
+inline bool operator==(const MetadataValue &left, const MetadataValue &right) {
+  return left.variant() == right.variant();
+}
+inline bool operator!=(const MetadataValue &left, const MetadataValue &right) {
+  return !(left == right);
+}
+inline bool operator==(const MetadataList &left, const MetadataList &right) {
+  return left.items == right.items;
+}
+inline bool operator==(const MetadataField &left, const MetadataField &right) {
+  return left.name == right.name && left.value == right.value;
+}
+inline bool operator==(const MetadataStructure &left,
+                       const MetadataStructure &right) {
+  return left.fields == right.fields;
+}
+
+namespace detail {
+
+struct MetadataInputDeleter final {
+  void operator()(pp_metadata_input_t *input) const noexcept {
+    pp_metadata_input_release(input);
   }
-  std::vector<const char *> name_pointers;
-  name_pointers.reserve(names.size());
-  for (const std::string &name : names) {
-    name_pointers.push_back(name.c_str());
-  }
+};
+
+using MetadataInputHandle =
+    std::unique_ptr<pp_metadata_input_t, MetadataInputDeleter>;
+
+inline Result<MetadataInputHandle>
+checked_metadata_input(pp_error_code_t status, pp_metadata_input_t *input,
+                       pp_error_t *error) {
+  MetadataInputHandle handle(input);
+  POSTPROJECT_TRY(check(status, error));
+  return handle;
+}
+
+// Builds the native input a call consumes, validating the value.
+inline Result<MetadataInputHandle>
+native_metadata_input(const MetadataValue &value) {
   pp_metadata_input_t *input = nullptr;
   pp_error_t *error = nullptr;
-  const pp_error_code_t status = pp_metadata_input_create_struct(
-      name_pointers.data(), values.data(),
-      static_cast<std::uint64_t>(fields.size()), &input, &error);
-  return checked(status, input, error);
+  if (const auto *text = value.getIf<MetadataString>()) {
+    POSTPROJECT_TRY_ASSIGN(const std::string native,
+                           checked_string(text->value, "metadata string"));
+    const pp_error_code_t status = pp_metadata_input_create_string(
+        native.c_str(), nullptr, &input, &error);
+    return checked_metadata_input(status, input, error);
+  }
+  if (const auto *text = value.getIf<MetadataLanguageString>()) {
+    POSTPROJECT_TRY_ASSIGN(const std::string native,
+                           checked_string(text->value, "metadata string"));
+    POSTPROJECT_TRY_ASSIGN(const std::string language,
+                           checked_string(text->language, "metadata language"));
+    const pp_error_code_t status = pp_metadata_input_create_string(
+        native.c_str(), language.c_str(), &input, &error);
+    return checked_metadata_input(status, input, error);
+  }
+  if (const auto *number = value.getIf<MetadataSignedInteger>()) {
+    const pp_error_code_t status =
+        pp_metadata_input_create_i64(number->value, &input, &error);
+    return checked_metadata_input(status, input, error);
+  }
+  if (const auto *number = value.getIf<MetadataUnsignedInteger>()) {
+    const pp_error_code_t status =
+        pp_metadata_input_create_u64(number->value, &input, &error);
+    return checked_metadata_input(status, input, error);
+  }
+  if (const auto *number = value.getIf<MetadataDecimal>()) {
+    POSTPROJECT_TRY_ASSIGN(
+        const std::string coefficient,
+        checked_string(number->coefficient, "decimal coefficient"));
+    const pp_error_code_t status = pp_metadata_input_create_decimal(
+        coefficient.c_str(), number->scale, &input, &error);
+    return checked_metadata_input(status, input, error);
+  }
+  if (const auto *flag = value.getIf<MetadataBoolean>()) {
+    const pp_error_code_t status =
+        pp_metadata_input_create_bool(flag->value ? 1 : 0, &input, &error);
+    return checked_metadata_input(status, input, error);
+  }
+  if (const auto *time = value.getIf<MetadataTimestamp>()) {
+    const pp_error_code_t status =
+        pp_metadata_input_create_timestamp(time->unix_micros, &input, &error);
+    return checked_metadata_input(status, input, error);
+  }
+  if (const auto *uri = value.getIf<MetadataUri>()) {
+    POSTPROJECT_TRY_ASSIGN(const std::string native,
+                           checked_string(uri->value, "metadata URI"));
+    const pp_error_code_t status =
+        pp_metadata_input_create_uri(native.c_str(), &input, &error);
+    return checked_metadata_input(status, input, error);
+  }
+  if (const auto *bytes = value.getIf<MetadataBytes>()) {
+    const pp_error_code_t status = pp_metadata_input_create_bytes(
+        bytes->value.data(), static_cast<std::uint64_t>(bytes->value.size()),
+        &input, &error);
+    return checked_metadata_input(status, input, error);
+  }
+  if (const auto *ratio = value.getIf<MetadataRational>()) {
+    const pp_error_code_t status = pp_metadata_input_create_rational(
+        ratio->numerator, ratio->denominator, &input, &error);
+    return checked_metadata_input(status, input, error);
+  }
+  if (const auto *list = value.getIf<MetadataList>()) {
+    std::vector<MetadataInputHandle> items;
+    items.reserve(list->items.size());
+    std::vector<const pp_metadata_input_t *> native_items;
+    native_items.reserve(list->items.size());
+    for (const MetadataValue &item : list->items) {
+      POSTPROJECT_TRY_ASSIGN(MetadataInputHandle native,
+                             native_metadata_input(item));
+      native_items.push_back(native.get());
+      items.push_back(std::move(native));
+    }
+    const pp_error_code_t status = pp_metadata_input_create_list(
+        native_items.data(), static_cast<std::uint64_t>(native_items.size()),
+        &input, &error);
+    return checked_metadata_input(status, input, error);
+  }
+  if (const auto *structure = value.getIf<MetadataStructure>()) {
+    std::vector<std::string> names;
+    names.reserve(structure->fields.size());
+    std::vector<MetadataInputHandle> fields;
+    fields.reserve(structure->fields.size());
+    for (const MetadataField &field : structure->fields) {
+      POSTPROJECT_TRY_ASSIGN(std::string name,
+                             checked_string(field.name, "metadata field name"));
+      names.push_back(std::move(name));
+      POSTPROJECT_TRY_ASSIGN(MetadataInputHandle native,
+                             native_metadata_input(field.value));
+      fields.push_back(std::move(native));
+    }
+    std::vector<const char *> name_pointers;
+    name_pointers.reserve(names.size());
+    for (const std::string &name : names) {
+      name_pointers.push_back(name.c_str());
+    }
+    std::vector<const pp_metadata_input_t *> native_fields;
+    native_fields.reserve(fields.size());
+    for (const MetadataInputHandle &field : fields) {
+      native_fields.push_back(field.get());
+    }
+    const pp_error_code_t status = pp_metadata_input_create_struct(
+        name_pointers.data(), native_fields.data(),
+        static_cast<std::uint64_t>(native_fields.size()), &input, &error);
+    return checked_metadata_input(status, input, error);
+  }
+  const auto &reference = std::get<MetadataReference>(value.variant());
+  const pp_object_ref_t target = native_object_ref(reference.target);
+  const pp_error_code_t status =
+      pp_metadata_input_create_reference(&target, &input, &error);
+  return checked_metadata_input(status, input, error);
 }
+
+} // namespace detail
 
 struct RegenerationParameter final {
   std::string vocabulary;
   std::string property;
-  MetadataInput value;
+  MetadataValue value;
 };
 
 struct MetadataAssertion final {
   ObjectRef target;
   std::string vocabulary;
   std::string property;
-  MetadataInput value;
+  MetadataValue value;
 };
 
 struct RegenerationJobPlan final {
@@ -2338,7 +2511,7 @@ struct RegenerationJobPlan final {
 
 namespace detail {
 
-inline Result<MetadataInput> metadata_input(const pp_metadata_value_t *value) {
+inline Result<MetadataValue> metadata_value(const pp_metadata_value_t *value) {
   pp_error_t *error = nullptr;
   switch (pp_metadata_value_kind(value)) {
   case PP_METADATA_STRING:
@@ -2349,23 +2522,23 @@ inline Result<MetadataInput> metadata_input(const pp_metadata_value_t *value) {
         pp_metadata_value_get_string(value, &text, &language, &error);
     POSTPROJECT_TRY(check(status, error));
     if (language != nullptr) {
-      return MetadataInput::languageString(text, language);
+      return MetadataValue::languageString(text, language);
     }
-    return MetadataInput::plainString(text);
+    return MetadataValue::plainString(text);
   }
   case PP_METADATA_I64: {
     std::int64_t result = 0;
     const pp_error_code_t status =
         pp_metadata_value_get_i64(value, &result, &error);
     POSTPROJECT_TRY(check(status, error));
-    return MetadataInput::signedInteger(result);
+    return MetadataValue::signedInteger(result);
   }
   case PP_METADATA_U64: {
     std::uint64_t result = 0;
     const pp_error_code_t status =
         pp_metadata_value_get_u64(value, &result, &error);
     POSTPROJECT_TRY(check(status, error));
-    return MetadataInput::unsignedInteger(result);
+    return MetadataValue::unsignedInteger(result);
   }
   case PP_METADATA_DECIMAL: {
     const char *coefficient = nullptr;
@@ -2373,28 +2546,28 @@ inline Result<MetadataInput> metadata_input(const pp_metadata_value_t *value) {
     const pp_error_code_t status = pp_metadata_value_get_decimal(
         value, &coefficient, &scale, &error);
     POSTPROJECT_TRY(check(status, error));
-    return MetadataInput::decimal(coefficient, scale);
+    return MetadataValue::decimal(coefficient, scale);
   }
   case PP_METADATA_BOOL: {
     std::uint8_t result = 0;
     const pp_error_code_t status =
         pp_metadata_value_get_bool(value, &result, &error);
     POSTPROJECT_TRY(check(status, error));
-    return MetadataInput::boolean(result != 0);
+    return MetadataValue::boolean(result != 0);
   }
   case PP_METADATA_TIMESTAMP: {
     std::int64_t result = 0;
     const pp_error_code_t status =
         pp_metadata_value_get_timestamp(value, &result, &error);
     POSTPROJECT_TRY(check(status, error));
-    return MetadataInput::timestamp(result);
+    return MetadataValue::timestamp(result);
   }
   case PP_METADATA_URI: {
     const char *result = nullptr;
     const pp_error_code_t status =
         pp_metadata_value_get_uri(value, &result, &error);
     POSTPROJECT_TRY(check(status, error));
-    return MetadataInput::uri(result);
+    return MetadataValue::uri(result);
   }
   case PP_METADATA_BYTES: {
     const std::uint8_t *data = nullptr;
@@ -2406,7 +2579,7 @@ inline Result<MetadataInput> metadata_input(const pp_metadata_value_t *value) {
     if (length != 0) {
       bytes.assign(data, data + length);
     }
-    return MetadataInput::bytes(bytes);
+    return MetadataValue::bytes(std::move(bytes));
   }
   case PP_METADATA_RATIONAL: {
     std::int64_t numerator = 0;
@@ -2414,11 +2587,11 @@ inline Result<MetadataInput> metadata_input(const pp_metadata_value_t *value) {
     const pp_error_code_t status = pp_metadata_value_get_rational(
         value, &numerator, &denominator, &error);
     POSTPROJECT_TRY(check(status, error));
-    return MetadataInput::rational(numerator, denominator);
+    return MetadataValue::rational(numerator, denominator);
   }
   case PP_METADATA_LIST: {
     const std::uint64_t count = pp_metadata_value_list_count(value);
-    std::vector<MetadataInput> items;
+    std::vector<MetadataValue> items;
     items.reserve(static_cast<std::size_t>(count));
     for (std::uint64_t index = 0; index < count; ++index) {
       const pp_metadata_value_t *item = nullptr;
@@ -2426,14 +2599,14 @@ inline Result<MetadataInput> metadata_input(const pp_metadata_value_t *value) {
       const pp_error_code_t status =
           pp_metadata_value_list_get(value, index, &item, &error);
       POSTPROJECT_TRY(check(status, error));
-      POSTPROJECT_TRY_ASSIGN(auto item_3, metadata_input(item));
-      items.push_back(std::move(item_3));
+      POSTPROJECT_TRY_ASSIGN(MetadataValue item_value, metadata_value(item));
+      items.push_back(std::move(item_value));
     }
-    return MetadataInput::list(items);
+    return MetadataValue::list(std::move(items));
   }
   case PP_METADATA_STRUCT: {
     const std::uint64_t count = pp_metadata_value_struct_count(value);
-    std::vector<MetadataFieldInput> fields;
+    std::vector<MetadataField> fields;
     fields.reserve(static_cast<std::size_t>(count));
     for (std::uint64_t index = 0; index < count; ++index) {
       const char *name = nullptr;
@@ -2442,17 +2615,17 @@ inline Result<MetadataInput> metadata_input(const pp_metadata_value_t *value) {
       const pp_error_code_t status = pp_metadata_value_struct_get(
           value, index, &name, &field_value, &error);
       POSTPROJECT_TRY(check(status, error));
-      POSTPROJECT_TRY_ASSIGN(MetadataInput field, metadata_input(field_value));
+      POSTPROJECT_TRY_ASSIGN(MetadataValue field, metadata_value(field_value));
       fields.push_back({std::string(name), std::move(field)});
     }
-    return MetadataInput::structure(fields);
+    return MetadataValue::structure(std::move(fields));
   }
   case PP_METADATA_REFERENCE: {
     pp_object_ref_t target{};
     const pp_error_code_t status =
         pp_metadata_value_get_reference(value, &target, &error);
     POSTPROJECT_TRY(check(status, error));
-    return MetadataInput::reference(object_ref(target));
+    return MetadataValue::reference(object_ref(target));
   }
   default:
     return Error(ErrorCode::internal, "unknown metadata value kind");
@@ -2476,9 +2649,9 @@ metadata_page(MetadataSetHandle metadata) {
     if (vocabulary == nullptr || property == nullptr || value == nullptr) {
       return Error(ErrorCode::internal, "metadata assertion is incomplete");
     }
-    POSTPROJECT_TRY_ASSIGN(MetadataInput input, metadata_input(value));
+    POSTPROJECT_TRY_ASSIGN(MetadataValue item, metadata_value(value));
     items.push_back({object_ref(target), std::string(vocabulary),
-                     std::string(property), std::move(input)});
+                     std::string(property), std::move(item)});
   }
   const char *cursor = pp_metadata_set_next_cursor(metadata.get());
   return QueryPage<MetadataAssertion>{std::move(items), optional_string(cursor),
@@ -2819,7 +2992,7 @@ public:
   Result<void> addMetadataValue(const ObjectRef &target,
                                 std::string_view vocabulary,
                                 std::string_view property,
-                                const MetadataInput &input) {
+                                const MetadataValue &value) {
     const pp_object_ref_t native_target = detail::native_object_ref(target);
     POSTPROJECT_TRY_ASSIGN(
         const std::string native_vocabulary,
@@ -2827,12 +3000,12 @@ public:
     POSTPROJECT_TRY_ASSIGN(
         const std::string native_property,
         detail::checked_string(property, "metadata property"));
-    POSTPROJECT_TRY_ASSIGN(const pp_metadata_input_t *native_input,
-                           input.native());
+    POSTPROJECT_TRY_ASSIGN(const detail::MetadataInputHandle native_input,
+                           detail::native_metadata_input(value));
     pp_error_t *error = nullptr;
     const pp_error_code_t status = pp_transaction_add_metadata_value(
         transaction_, &native_target, native_vocabulary.c_str(),
-        native_property.c_str(), native_input, &error);
+        native_property.c_str(), native_input.get(), &error);
     POSTPROJECT_TRY(detail::check(status, error));
     return {};
   }
@@ -3856,11 +4029,11 @@ public:
 
   [[nodiscard]] Result<QueryPage<MetadataAssertion>>
   queryMetadata(std::string_view vocabulary, std::string_view property,
-                const MetadataInput &exact_value, std::uint32_t limit,
+                const MetadataValue &exact_value, std::uint32_t limit,
                 std::optional<std::string_view> cursor = std::nullopt) const {
-    POSTPROJECT_TRY_ASSIGN(const pp_metadata_input_t *native_value,
-                           exact_value.native());
-    return query_metadata_impl(vocabulary, property, native_value, limit,
+    POSTPROJECT_TRY_ASSIGN(const detail::MetadataInputHandle native_value,
+                           detail::native_metadata_input(exact_value));
+    return query_metadata_impl(vocabulary, property, native_value.get(), limit,
                                cursor);
   }
 
@@ -4162,10 +4335,11 @@ public:
           return Error(ErrorCode::internal,
                        "regeneration parameter target does not match its job");
         }
-        POSTPROJECT_TRY_ASSIGN(MetadataInput input,
-                               detail::metadata_input(value));
-        parameter_values.push_back(
-            {std::string(vocabulary), std::string(property), std::move(input)});
+        POSTPROJECT_TRY_ASSIGN(MetadataValue parameter,
+                               detail::metadata_value(value));
+        parameter_values.push_back({std::string(vocabulary),
+                                    std::string(property),
+                                    std::move(parameter)});
       }
       result.push_back({detail::uuid(artifact_id), std::move(job),
                         std::move(parameter_values)});

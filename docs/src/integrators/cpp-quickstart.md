@@ -60,9 +60,9 @@ engines, and plugin SDKs:
 type is always `postproject::Error`, and it is constructed from an `Error`
 directly rather than through `std::unexpected`.
 
-`MetadataInput` and `ResolutionOptions` record an invalid argument instead of
-failing when they are built. The operation that consumes them then returns
-that error.
+A `MetadataValue` is validated, and `ResolutionOptions` record an invalid
+argument, when an operation consumes them rather than when they are built. That
+operation then returns the error.
 
 ## The example program
 
@@ -71,7 +71,7 @@ failure on with the propagation macros and builds with or without exceptions;
 returning early from it destroys the open transaction, which discards the
 staged import. `main` checks its result explicitly, then uses `value()` inside
 a `try` block, and `rejects_invalid_metadata` passes an invalid decimal to
-`addMetadataValue`, which returns the recorded `invalid_argument` error.
+`addMetadataValue`, which returns an `invalid_argument` error.
 
 ```{literalinclude} ../../../examples/cpp/main.cpp
 :language: cpp

@@ -278,29 +278,29 @@ int main(int argc, char **argv) {
     }
     auto provenance = production.beginTransaction().value();
     const auto activity_id = provenance.createActivity(activity_spec).value();
-    std::vector<postproject::MetadataInput> metadata_items;
-    metadata_items.push_back(postproject::MetadataInput::rational(24000, 1001));
+    std::vector<postproject::MetadataValue> metadata_items;
+    metadata_items.push_back(postproject::MetadataValue::rational(24000, 1001));
     metadata_items.push_back(
-        postproject::MetadataInput::languageString("Interview", "en-US"));
-    std::vector<postproject::MetadataFieldInput> metadata_fields;
+        postproject::MetadataValue::languageString("Interview", "en-US"));
+    std::vector<postproject::MetadataField> metadata_fields;
     metadata_fields.push_back(
-        {"values", postproject::MetadataInput::list(metadata_items)});
+        {"values", postproject::MetadataValue::list(metadata_items)});
     const auto metadata =
-        postproject::MetadataInput::structure(metadata_fields);
+        postproject::MetadataValue::structure(metadata_fields);
     provenance.addMetadataValue(
         {postproject::ObjectKind::activity, activity_id},
         "com.example.ingest", "details", metadata).value();
     provenance.addMetadataValue(asset_ref, "com.example.ingest", "title",
-                                postproject::MetadataInput::plainString(
+                                postproject::MetadataValue::plainString(
                                     "Interview")).value();
     provenance.commit().value();
 
     const auto title_matches = production.queryMetadata(
         "com.example.ingest", "title",
-        postproject::MetadataInput::plainString("Interview"), 10).value();
+        postproject::MetadataValue::plainString("Interview"), 10).value();
     const auto title_misses = production.queryMetadata(
         "com.example.ingest", "title",
-        postproject::MetadataInput::plainString("Other"), 10).value();
+        postproject::MetadataValue::plainString("Other"), 10).value();
     const auto detail_matches =
         production.queryMetadata("com.example.ingest", "details", 1).value();
     if (title_matches.items.size() != 1 ||

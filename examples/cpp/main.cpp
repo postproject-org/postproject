@@ -36,7 +36,7 @@ postproject::Result<postproject::Uuid> import_media(const std::string &output,
 // Invalid input does not fail when it is built; the consuming call reports it.
 bool rejects_invalid_metadata(postproject::Production &production,
                               const postproject::Uuid &asset_id) {
-  const auto duration = postproject::MetadataInput::decimal("twelve", 2);
+  const auto duration = postproject::MetadataValue::decimal("twelve", 2);
   auto transaction = production.beginTransaction();
   if (!transaction.has_value()) {
     report(transaction.error());
@@ -46,8 +46,7 @@ bool rejects_invalid_metadata(postproject::Production &production,
   const auto added =
       transaction->addMetadataValue(asset, editorial, "duration", duration);
   return !added.has_value() &&
-         added.error().code() == postproject::ErrorCode::invalid_argument &&
-         duration.error().has_value();
+         added.error().code() == postproject::ErrorCode::invalid_argument;
 } // Never committed: releasing the transaction rolls it back.
 
 } // namespace

@@ -45,7 +45,10 @@ a property query:
 ```
 
 In C, recursive input handles copy their children, so callers can release
-intermediate list and structure values immediately after construction. The CLI
+intermediate list and structure values immediately after construction. In C++,
+`MetadataValue` is one copyable type for writing and reading, like Python's
+value classes: read one with `getIf<T>()` or by visiting `variant()`, and
+compare values with `==` (ADR 0036). The CLI
 reads a typed value from a JSON file in the same tagged shape that `--json`
 output emits. Decimal coefficients are strings so JSON consumers do not lose
 precision, binary values use hexadecimal text, and lists and structure fields

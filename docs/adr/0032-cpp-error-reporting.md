@@ -1,6 +1,6 @@
 # ADR 0032: C++ error reporting without exceptions
 
-- Status: Accepted; accessor names amended by ADR 0033
+- Status: Accepted; accessor names amended by ADR 0033, metadata values by ADR 0036
 - Date: 2026-09-27
 
 ## Context
