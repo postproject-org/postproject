@@ -62,7 +62,9 @@ together or not at all:
 ```
 
 Completion validates that the activity consumes the job inputs and produces
-the staged output requested by the job. Do not commit the representation or
+the staged output requested by the job. It does not copy the job's parameters:
+record on the activity the parameters the worker actually used, so the output
+can be reproduced and a regeneration plan carries them. Do not commit the representation or
 activity in an earlier transaction: only `complete` gives the all-or-nothing
 guarantee. Library callers can stage any representation structure — single
 resource, image sequence, ordered parts, or package — before completing; the

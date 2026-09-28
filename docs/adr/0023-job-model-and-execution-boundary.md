@@ -1,6 +1,6 @@
 # ADR 0023: Job model and execution boundary
 
-- Status: Accepted; regeneration requests amended on 2026-09-28
+- Status: Accepted; activity parameters and regeneration requests amended on 2026-09-28
 - Date: 2026-09-24
 
 ## Context
@@ -60,6 +60,12 @@ activity's job inputs/output. Any failure rolls back all of it. Failure records
 a bounded diagnostic and no activity. Cancellation is allowed from requested
 or claimed; release returns a claimed job to requested.
 
+The completed activity records what the worker actually used, including its
+parameters. Completion does not copy the job's parameter metadata onto the
+activity. A worker that follows the requested parameters records them on the
+activity itself. A worker that substitutes an encoder, clamps a size, or
+renders with settings of its own records those instead.
+
 PostProject exposes the protocol but does not select priorities, distribute
 work, spawn processes, retry failures, download tools, or run a background
 scheduler. Regeneration planning is a read operation and never enqueues jobs;
@@ -81,7 +87,10 @@ behavior and tests timing-dependent. Completing output, activity, and job in
 separate transactions was rejected because crashes would expose contradictory
 production facts.
 
-Deriving a plan's kind and target root from the activity alone was rejected
+Copying the job's parameters onto the activity at completion was rejected. The
+activity would claim settings the worker may not have used, which is false
+provenance, and a worker that renders with its own settings could not correct
+it. Deriving a plan's kind and target root from the activity alone was rejected
 too. An activity names what the worker did, which can differ from the requested
 kind, and it records no destination, so the regenerated job could go unclaimed
 or be written elsewhere.
@@ -107,4 +116,6 @@ can use their existing schedulers while sharing portable requested/failed work.
 The model adds a new metadata/host-binding object kind, schema tables, semantic
 events, and public API/ABI surface. Claim-token holders must protect the token
 for the duration of a claim, and a lost token requires waiting for expiry or an
-explicit administrative cancellation.
+explicit administrative cancellation. A worker must record its own parameters
+for its outputs to be reproducible; the reference executor and the
+documentation examples do so.
