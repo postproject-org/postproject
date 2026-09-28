@@ -42,6 +42,14 @@ A reason chain also covers artifacts produced from other artifacts, such as a
 render made from a stale proxy, and changes that arrive through a required
 [dependency](dependencies.md).
 
+Evaluation never reads files, so it cannot notice a source that someone else
+replaced, for example graded media copied over the original by another
+application. When a source may have changed outside the host, observe it first
+and then evaluate. The observation reports whether the content changed, and
+records nothing when it did not. A worker also observes its inputs before it
+claims a job, so the activity's snapshots describe the content it actually
+read.
+
 ## Find and regenerate stale artifacts
 
 To list every stale artifact, optionally only downstream of one source, page

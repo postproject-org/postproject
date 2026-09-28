@@ -19,6 +19,7 @@ from postproject import (
     AvailabilityIssueKind,
     CancelledError,
     CancelToken,
+    ContentObservationOutcome,
     ContentStructureKind,
     ContentVerification,
     EvidenceKind,
@@ -213,10 +214,17 @@ def observe_fingerprints(
     with production.transaction() as transaction:
         # Stages the new resource fingerprint and every representation
         # fingerprint recomputed from it; commit records both in one revision.
-        transaction.observe_resource_content(resource.id, path)
-
+        outcome = transaction.observe_resource_content(resource.id, path)
+        assert outcome is ContentObservationOutcome.CHANGED
     latest = production.latest_revision
     assert latest is not None
+
+    # Observing the same content again changes nothing and records nothing.
+    with production.transaction() as transaction:
+        outcome = transaction.observe_resource_content(resource.id, path)
+        assert outcome is ContentObservationOutcome.UNCHANGED
+    assert production.latest_revision == latest
+
     events = production.revision_events[latest.id]
     for event in events:
         print(f"event {event.position}: {type(event.payload).__name__}")

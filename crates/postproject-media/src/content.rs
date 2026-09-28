@@ -27,15 +27,36 @@ pub enum ContentVerification {
     NotComparable,
 }
 
+/// How observed content relates to what the production recorded.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[non_exhaustive]
+pub enum ContentObservationOutcome {
+    /// The content matches a stored fingerprint in a domain this crate
+    /// computes. Recording the observation adds no fingerprint.
+    Unchanged,
+    /// The content differs from the stored fingerprints this crate computes.
+    Changed,
+    /// No fingerprint in a domain this crate computes was stored, so the
+    /// observation records the first one.
+    FirstObservation,
+}
+
 /// Fingerprints recomputed for one resource and every representation using it.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ContentObservation {
+    outcome: ContentObservationOutcome,
     resource: ResourceFingerprint,
     file_facts: Option<FileFacts>,
     representations: Vec<(RepresentationId, RepresentationFingerprint)>,
 }
 
 impl ContentObservation {
+    /// Returns how the observed content relates to the stored fingerprints.
+    #[must_use]
+    pub const fn outcome(&self) -> ContentObservationOutcome {
+        self.outcome
+    }
+
     /// Returns the new resource fingerprint.
     #[must_use]
     pub const fn resource(&self) -> &ResourceFingerprint {
@@ -145,21 +166,7 @@ pub fn verify_resource_content(
     structure: &ContentStructure,
     path: impl AsRef<Path>,
 ) -> Result<ContentVerification> {
-    let sequence = structure
-        .image_sequence_descriptor()
-        .is_some_and(|descriptor| descriptor.resource_id() == resource.id());
-    let comparable = resource
-        .fingerprints()
-        .iter()
-        .filter(|fingerprint| {
-            if sequence {
-                fingerprint.algorithm() == SEQUENCE_FINGERPRINT_ALGORITHM
-                    && fingerprint.version() == SEQUENCE_FINGERPRINT_VERSION
-            } else {
-                is_file_fingerprint_domain(fingerprint)
-            }
-        })
-        .collect::<Vec<_>>();
+    let comparable = comparable_fingerprints(resource, structure);
     if comparable.is_empty() {
         return Ok(ContentVerification::NotComparable);
     }
@@ -171,6 +178,29 @@ pub fn verify_resource_content(
     })
 }
 
+/// Returns a resource's stored fingerprints in the domains this crate computes
+/// for its place in `structure`.
+fn comparable_fingerprints<'a>(
+    resource: &'a Resource,
+    structure: &ContentStructure,
+) -> Vec<&'a ResourceFingerprint> {
+    let sequence = structure
+        .image_sequence_descriptor()
+        .is_some_and(|descriptor| descriptor.resource_id() == resource.id());
+    resource
+        .fingerprints()
+        .iter()
+        .filter(|fingerprint| {
+            if sequence {
+                fingerprint.algorithm() == SEQUENCE_FINGERPRINT_ALGORITHM
+                    && fingerprint.version() == SEQUENCE_FINGERPRINT_VERSION
+            } else {
+                is_file_fingerprint_domain(fingerprint)
+            }
+        })
+        .collect()
+}
+
 /// Fingerprints present content for a resource and recomputes every
 /// representation that uses it.
 ///
@@ -178,6 +208,10 @@ pub fn verify_resource_content(
 /// with its complete stored resources. The new value replaces the stored one in
 /// its domain before representation fingerprints are recomputed, so recording
 /// the returned observation leaves no representation pending recomputation.
+/// The outcome compares the new value with the stored resource's fingerprints
+/// as [`verify_resource_content`] does. Recording an unchanged observation adds
+/// no fingerprint and, unless a representation awaits recomputation, no
+/// revision.
 ///
 /// # Errors
 ///
@@ -196,6 +230,23 @@ pub fn observe_resource_content(
         ));
     };
     let (resource, file_facts) = observe_content(resource_id, first.content_structure(), path)?;
+    let outcome = representations
+        .iter()
+        .find_map(|(_, resources)| {
+            resources
+                .iter()
+                .find(|candidate| candidate.id() == resource_id)
+        })
+        .map_or(ContentObservationOutcome::FirstObservation, |stored| {
+            let comparable = comparable_fingerprints(stored, first.content_structure());
+            if comparable.is_empty() {
+                ContentObservationOutcome::FirstObservation
+            } else if comparable.contains(&&resource) {
+                ContentObservationOutcome::Unchanged
+            } else {
+                ContentObservationOutcome::Changed
+            }
+        });
     let representations = representations
         .iter()
         .map(|(representation, resources)| {
@@ -215,6 +266,7 @@ pub fn observe_resource_content(
         })
         .collect::<Result<Vec<_>>>()?;
     Ok(ContentObservation {
+        outcome,
         resource,
         file_facts,
         representations,
@@ -288,6 +340,40 @@ mod tests {
         assert_ne!(
             observation.representations()[0].1,
             representation.fingerprints()[0]
+        );
+    }
+
+    #[test]
+    fn observation_reports_unchanged_changed_and_first_content() {
+        let directory = tempfile::tempdir().expect("create directory");
+        let path = directory.path().join("clip.mov");
+        fs::write(&path, b"original").expect("write media");
+        let prepared = prepare_original_media(&path, None, None).expect("prepare import");
+        let representation = prepared.representation().clone();
+        let resource = prepared.resources()[0].clone();
+        let outcome = |resources: Vec<Resource>| {
+            observe_resource_content(resource.id(), &[(representation.clone(), resources)], &path)
+                .expect("observe content")
+                .outcome()
+        };
+
+        assert_eq!(
+            outcome(vec![resource.clone()]),
+            ContentObservationOutcome::Unchanged
+        );
+        let foreign = Resource::new(
+            resource.id(),
+            vec![ResourceFingerprint::new("example-host-md5", 1, vec![1; 16]).expect("foreign")],
+            resource.file_facts(),
+        );
+        assert_eq!(
+            outcome(vec![foreign]),
+            ContentObservationOutcome::FirstObservation
+        );
+        fs::write(&path, b"replaced").expect("replace media");
+        assert_eq!(
+            outcome(vec![resource.clone()]),
+            ContentObservationOutcome::Changed
         );
     }
 }

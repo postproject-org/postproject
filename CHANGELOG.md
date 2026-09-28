@@ -118,6 +118,8 @@ Development version: `0.4.0-alpha.1`.
 
 ### Changed
 
+- Observing content reports whether it was unchanged, changed, or observed for
+  the first time, on every surface (ADR 0035, C ABI 33).
 - The C++ wrapper returns `postproject::Result<T>` from every fallible
   operation and compiles without exceptions; `value()` throws
   `postproject::Exception` when they are enabled (ADR 0032).

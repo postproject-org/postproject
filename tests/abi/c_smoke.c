@@ -30,7 +30,7 @@ int main(int argc, char **argv) {
     return 64;
   }
   (void)remove(argv[1]);
-  if (pp_abi_version() != UINT32_C(32)) {
+  if (pp_abi_version() != UINT32_C(33)) {
     return 1;
   }
   pp_error_code_t status =
@@ -645,16 +645,17 @@ int main(int argc, char **argv) {
   }
 
   pp_transaction_t *observation = NULL;
+  pp_content_observation_t outcome = 0;
   status = pp_production_begin_transaction(production, &observation, &error);
   if (status == PP_OK) {
     status = pp_transaction_observe_resource_content(observation, &resource_id,
-                                                     media_path, &error);
+                                                     media_path, &outcome, &error);
   }
   if (status == PP_OK) {
     status = pp_transaction_commit(observation, &error);
   }
   pp_transaction_release(observation);
-  if (status != PP_OK) {
+  if (status != PP_OK || outcome != PP_OBSERVATION_UNCHANGED) {
     pp_production_release(production);
     pp_error_release(error);
     return 118;

@@ -591,6 +591,14 @@ class ContentVerification(Enum):
     NOT_COMPARABLE = "not_comparable"
 
 
+class ContentObservationOutcome(Enum):
+    """How observed content relates to the stored fingerprints."""
+
+    UNCHANGED = "unchanged"
+    CHANGED = "changed"
+    FIRST = "first"
+
+
 class EvidenceKind(Enum):
     """Machine-readable reason supporting or opposing a candidate."""
 

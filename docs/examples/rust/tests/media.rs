@@ -13,14 +13,14 @@ use postproject_core::{
     ResourceId, ResourceResolutionState, ResourceRole, Result, RevisionEventKind,
 };
 use postproject_media::{
-    ContentVerification, FileResourceSource, ImageSequenceSource, InventoryCategory, InventoryItem,
-    InventoryScanner, MediaRecognizer, MediaResolver, MediaRootMapping, PRIMARY_ESSENCE_ROLE,
-    RecognizedMedia, ResolutionItem, ResolverOptions, SIDECAR_ROLE, SPAN_PART_ROLE, SearchScope,
-    VerificationMode, canonical_file_uri, fingerprint_file, local_file_path,
-    observe_resource_content, prepare_confirmed_locator, prepare_image_sequence_representation,
-    prepare_ordered_parts_representation, prepare_original_media, prepare_package_representation,
-    prepare_recognized_original_media, prepare_single_file_representation, resource_usage,
-    verify_resource_content,
+    ContentObservationOutcome, ContentVerification, FileResourceSource, ImageSequenceSource,
+    InventoryCategory, InventoryItem, InventoryScanner, MediaRecognizer, MediaResolver,
+    MediaRootMapping, PRIMARY_ESSENCE_ROLE, RecognizedMedia, ResolutionItem, ResolverOptions,
+    SIDECAR_ROLE, SPAN_PART_ROLE, SearchScope, VerificationMode, canonical_file_uri,
+    fingerprint_file, local_file_path, observe_resource_content, prepare_confirmed_locator,
+    prepare_image_sequence_representation, prepare_ordered_parts_representation,
+    prepare_original_media, prepare_package_representation, prepare_recognized_original_media,
+    prepare_single_file_representation, resource_usage, verify_resource_content,
 };
 use postproject_storage_sqlite::SqliteProduction;
 
@@ -266,8 +266,9 @@ fn observe_changed_original(
     assert_eq!(verification, ContentVerification::Differs);
 
     // The new resource value and every representation recomputed from it are
-    // recorded in one revision.
+    // recorded in one revision. Recording an unchanged observation adds none.
     let observation = observe_resource_content(resource_id, &usage, path)?;
+    assert_eq!(observation.outcome(), ContentObservationOutcome::Changed);
     {
         let mut transaction = production.begin_transaction()?;
         transaction.record_resource_fingerprint(resource_id, observation.resource())?;

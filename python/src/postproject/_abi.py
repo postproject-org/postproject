@@ -179,6 +179,7 @@ AvailabilityIssueKind = ctypes.c_uint32
 EvidenceKind = ctypes.c_uint32
 VerificationMode = ctypes.c_uint32
 ContentVerification = ctypes.c_uint32
+ContentObservation = ctypes.c_uint32
 
 
 PP_OBJECT_PRODUCTION = 1
@@ -328,6 +329,9 @@ PP_VERIFY_CONTENT = 2
 PP_CONTENT_MATCHES = 1
 PP_CONTENT_DIFFERS = 2
 PP_CONTENT_NOT_COMPARABLE = 3
+PP_OBSERVATION_UNCHANGED = 1
+PP_OBSERVATION_CHANGED = 2
+PP_OBSERVATION_FIRST = 3
 
 
 Uuid._fields_ = [
@@ -1099,7 +1103,7 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_transaction_record_resource_fingerprint.restype = ErrorCode
     lib.pp_transaction_record_representation_fingerprint.argtypes = [ctypes.POINTER(Transaction), ctypes.POINTER(Uuid), ctypes.c_char_p, ctypes.c_uint16, ctypes.POINTER(ctypes.c_uint8), ctypes.c_uint64, ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_transaction_record_representation_fingerprint.restype = ErrorCode
-    lib.pp_transaction_observe_resource_content.argtypes = [ctypes.POINTER(Transaction), ctypes.POINTER(Uuid), ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_transaction_observe_resource_content.argtypes = [ctypes.POINTER(Transaction), ctypes.POINTER(Uuid), ctypes.c_char_p, ctypes.POINTER(ContentObservation), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_transaction_observe_resource_content.restype = ErrorCode
     lib.pp_transaction_record_dependency_set.argtypes = [ctypes.POINTER(Transaction), ctypes.POINTER(Uuid), ctypes.POINTER(Dependency), ctypes.c_uint64, ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_transaction_record_dependency_set.restype = ErrorCode

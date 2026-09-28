@@ -90,6 +90,7 @@ from ._model import (
     AssetImportedEvent,
     AvailabilityIssue,
     AvailabilityIssueKind,
+    ContentObservationOutcome,
     ContentStructureKind,
     ContentVerification,
     Dependency,
@@ -2161,23 +2162,27 @@ class Transaction:
 
     def observe_resource_content(
         self, resource_id: ResourceId, path: str | os.PathLike[str]
-    ) -> None:
+    ) -> ContentObservationOutcome:
         """Stage the content at path as the resource's new observation.
 
         Every representation using the resource is recomputed and staged too,
-        so commit leaves no representation pending recomputation.
+        so commit leaves no representation pending recomputation. The outcome
+        says whether the content changed; ``UNCHANGED`` records no fingerprint.
         """
 
         self._require_open()
         native_id = _native_uuid(resource_id.value)
+        outcome = ctypes.c_uint32()
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_transaction_observe_resource_content(
             self._handle,
             ctypes.byref(native_id),
             _path_bytes(path),
+            ctypes.byref(outcome),
             ctypes.byref(error),
         )
         self._native.check(status, error)
+        return _CONTENT_OBSERVATION_OUTCOMES[outcome.value]
 
     def record_representation_fingerprint(
         self, representation_id: RepresentationId, fingerprint: Fingerprint
@@ -2778,6 +2783,11 @@ _CONTENT_VERIFICATIONS = {
     _abi.PP_CONTENT_MATCHES: ContentVerification.MATCHES,
     _abi.PP_CONTENT_DIFFERS: ContentVerification.DIFFERS,
     _abi.PP_CONTENT_NOT_COMPARABLE: ContentVerification.NOT_COMPARABLE,
+}
+_CONTENT_OBSERVATION_OUTCOMES = {
+    _abi.PP_OBSERVATION_UNCHANGED: ContentObservationOutcome.UNCHANGED,
+    _abi.PP_OBSERVATION_CHANGED: ContentObservationOutcome.CHANGED,
+    _abi.PP_OBSERVATION_FIRST: ContentObservationOutcome.FIRST,
 }
 
 

@@ -28,10 +28,20 @@ locked. The host never computes a representation fingerprint itself.
 ```{code-variants} fingerprint-observation
 ```
 
-Recording an identical value is a no-op and creates no revision, so a host may
-safely observe after every render or copy. A job worker that produces or
-replaces media observes the new content before completing, so
-[artifact evaluation](artifacts-and-staleness.md) sees current evidence.
+The observation reports its outcome (ADR 0035):
+
+- *unchanged* means the content matches the stored fingerprint, and nothing
+  new is recorded;
+- *changed* means it differs, and the new content is recorded;
+- *first* means no fingerprint in a domain PostProject computes was stored,
+  for example when only a host's own hash was recorded.
+
+An unchanged observation creates no revision, unless it completes a pending
+representation recomputation. A host therefore observes without verifying
+first, whenever it may matter: after every render or copy, or when it opens a
+project. A job worker that produces or replaces media observes the new content
+before completing, so [artifact evaluation](artifacts-and-staleness.md) sees
+current evidence.
 
 A representation fingerprint is derived from its resources' fingerprints. A
 resource fingerprint recorded without an observation, for example a value

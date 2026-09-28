@@ -402,6 +402,12 @@ typedef uint32_t pp_content_verification_t;
 #define PP_CONTENT_DIFFERS UINT32_C(2)
 #define PP_CONTENT_NOT_COMPARABLE UINT32_C(3)
 
+typedef uint32_t pp_content_observation_t;
+
+#define PP_OBSERVATION_UNCHANGED UINT32_C(1)
+#define PP_OBSERVATION_CHANGED UINT32_C(2)
+#define PP_OBSERVATION_FIRST UINT32_C(3)
+
 /* Inputs are borrowed UTF-8 without embedded NUL. A NULL display name is
  * absent. On success, *out_production is caller-owned and *out_error is NULL. On
  * failure, *out_production is NULL and a non-NULL *out_error is caller-owned.
@@ -1159,10 +1165,15 @@ PP_API pp_error_code_t pp_transaction_record_representation_fingerprint(
 /* Fingerprints the file or image-sequence directory at path as the present
  * content of the resource, and recomputes every representation using it. Both
  * are staged now, outside the production lock, and recorded on commit.
- * Observations staged earlier in the same transaction are taken into account. */
+ * Observations staged earlier in the same transaction are taken into account.
+ * out_outcome compares the content with the stored fingerprints in the domains
+ * PostProject computes: PP_OBSERVATION_UNCHANGED records no fingerprint,
+ * PP_OBSERVATION_CHANGED records the new content, and PP_OBSERVATION_FIRST means
+ * no such fingerprint was stored before. */
 PP_API pp_error_code_t pp_transaction_observe_resource_content(
     pp_transaction_t *transaction, const pp_uuid_t *resource_id,
-    const char *path, pp_error_t **out_error);
+    const char *path, pp_content_observation_t *out_outcome,
+    pp_error_t **out_error);
 /* Replaces the complete ordered dependency observation. The array and strings
  * are borrowed for this call and copied into the transaction. */
 PP_API pp_error_code_t pp_transaction_record_dependency_set(

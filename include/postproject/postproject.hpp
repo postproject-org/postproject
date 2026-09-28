@@ -1023,6 +1023,12 @@ enum class ContentVerification : std::uint32_t {
   not_comparable = PP_CONTENT_NOT_COMPARABLE,
 };
 
+enum class ContentObservationOutcome : std::uint32_t {
+  unchanged = PP_OBSERVATION_UNCHANGED,
+  changed = PP_OBSERVATION_CHANGED,
+  first = PP_OBSERVATION_FIRST,
+};
+
 struct Evidence final {
   EvidenceKind kind;
   std::optional<std::string> detail;
@@ -2735,17 +2741,20 @@ public:
   }
 
   // Fingerprints the content at path as the resource's present content and
-  // stages it together with every representation recomputed from it.
-  Result<void>
+  // stages it together with every representation recomputed from it. The
+  // outcome says whether the content changed; unchanged content records no
+  // fingerprint.
+  Result<ContentObservationOutcome>
   observeResourceContent(const Uuid &resource_id, std::string_view path) {
     const pp_uuid_t id = detail::native_uuid(resource_id);
     POSTPROJECT_TRY_ASSIGN(const std::string native_path,
                            detail::checked_string(path, "path"));
+    pp_content_observation_t outcome = 0;
     pp_error_t *error = nullptr;
     const pp_error_code_t status = pp_transaction_observe_resource_content(
-        transaction_, &id, native_path.c_str(), &error);
+        transaction_, &id, native_path.c_str(), &outcome, &error);
     POSTPROJECT_TRY(detail::check(status, error));
-    return {};
+    return static_cast<ContentObservationOutcome>(outcome);
   }
 
   Result<void>

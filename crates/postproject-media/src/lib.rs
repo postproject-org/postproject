@@ -18,8 +18,9 @@ mod resolver;
 mod sequence_fingerprint;
 
 pub use content::{
-    ContentObservation, ContentVerification, fingerprint_resource_content,
-    observe_resource_content, resource_usage, verify_resource_content,
+    ContentObservation, ContentObservationOutcome, ContentVerification,
+    fingerprint_resource_content, observe_resource_content, resource_usage,
+    verify_resource_content,
 };
 pub use executor::{
     EXECUTOR_PARAMETER_VOCABULARY, EXECUTOR_PROFILE_PROPERTY, ExecutionOutcome, ExecutionRequest,

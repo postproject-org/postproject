@@ -23,6 +23,7 @@ from postproject import (
     AvailabilityIssueKind,
     CancelledError,
     CancelToken,
+    ContentObservationOutcome,
     ContentStructureKind,
     ContentVerification,
     Dependency,
@@ -466,7 +467,11 @@ class ProductionTests(unittest.TestCase):
                 ContentVerification.DIFFERS,
             )
             with production.transaction() as transaction:
-                transaction.observe_resource_content(resource.id, self.media_path)
+                self.assertIs(
+                    transaction.observe_resource_content(resource.id, self.media_path),
+                    ContentObservationOutcome.CHANGED,
+                )
+            latest = production.latest_revision
 
             observed = production.representations[asset_id][0]
             self.assertEqual(
@@ -478,6 +483,13 @@ class ProductionTests(unittest.TestCase):
                 production.verify_resource(resource.id, self.media_path),
                 ContentVerification.MATCHES,
             )
+            # Observing unchanged content records nothing.
+            with production.transaction() as transaction:
+                self.assertIs(
+                    transaction.observe_resource_content(resource.id, self.media_path),
+                    ContentObservationOutcome.UNCHANGED,
+                )
+            self.assertEqual(production.latest_revision, latest)
 
     def test_media_roots_and_locators_have_a_complete_lifecycle(self) -> None:
         with Production.create(

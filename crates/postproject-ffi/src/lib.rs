@@ -160,7 +160,7 @@ const PP_REVISION_JOB_FAILED: u32 = 25;
 const PP_REVISION_JOB_CANCELLED: u32 = 26;
 
 /// Current pre-1.0 ABI version.
-pub const ABI_VERSION: u32 = 32;
+pub const ABI_VERSION: u32 = 33;
 
 /// Fixed-layout UUID-compatible public identifier.
 #[repr(C)]

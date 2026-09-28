@@ -1,6 +1,6 @@
 # ABI policy
 
-ABI version 32 is pre-release and may change during the 0.x series, with every
+ABI version 33 is pre-release and may change during the 0.x series, with every
 change recorded in the changelog and ABI tests. `pp_abi_version()` reports the
 implemented version. Exported symbol names are unversioned until the first stable
 release, but removals or signature changes require an explicit ABI-version bump.
@@ -228,6 +228,13 @@ optional `pp_cancel_token_t`. A cancelled token makes the call fail with
 `PP_ERROR_CANCELLED`. Representation results report their asset, candidates
 report the logical root they were found under, and a directory over its budget
 adds `PP_EVIDENCE_SEARCH_TRUNCATED`.
+
+ABI version 33 adds a required `pp_content_observation_t` output to
+`pp_transaction_observe_resource_content` (ADR 0035). It reports
+`PP_OBSERVATION_UNCHANGED` when the content matches a stored fingerprint in a
+domain PostProject computes, `PP_OBSERVATION_CHANGED` when it differs, and
+`PP_OBSERVATION_FIRST` when no such fingerprint was stored. An unchanged
+observation records no fingerprint.
 
 ## External identifiers
 

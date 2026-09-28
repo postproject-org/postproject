@@ -1,6 +1,6 @@
 # ADR 0029: Content fingerprints and observation for hosts
 
-- Status: Accepted
+- Status: Accepted; observation outcome amended by ADR 0035
 - Date: 2026-09-27
 
 ## Context

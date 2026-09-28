@@ -7,8 +7,8 @@ use std::{
 
 use postproject_core::{Error, ErrorKind, ResourceFingerprint, ResourceId};
 use postproject_media::{
-    ContentVerification, fingerprint_file, observe_resource_content, resource_usage,
-    verify_resource_content,
+    ContentObservationOutcome, ContentVerification, fingerprint_file, observe_resource_content,
+    resource_usage, verify_resource_content,
 };
 
 use crate::{
@@ -20,6 +20,9 @@ use crate::{
 const PP_CONTENT_MATCHES: u32 = 1;
 const PP_CONTENT_DIFFERS: u32 = 2;
 const PP_CONTENT_NOT_COMPARABLE: u32 = 3;
+const PP_OBSERVATION_UNCHANGED: u32 = 1;
+const PP_OBSERVATION_CHANGED: u32 = 2;
+const PP_OBSERVATION_FIRST: u32 = 3;
 
 /// Opaque immutable fingerprint value owned by the C caller.
 pub struct PpFingerprint {
@@ -176,21 +179,23 @@ pub unsafe extern "C" fn pp_production_verify_resource(
 }
 
 /// Stages present content as a new observation of a resource and of every
-/// representation using it.
+/// representation using it, and reports whether the content changed.
 ///
 /// # Safety
 ///
 /// `transaction` and `resource_id` must be live; `path` must be
-/// NUL-terminated UTF-8.
+/// NUL-terminated UTF-8; `out_outcome` must be writable.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn pp_transaction_observe_resource_content(
     transaction: *mut PpTransaction,
     resource_id: *const PpUuid,
     path: *const c_char,
+    out_outcome: *mut u32,
     out_error: *mut *mut PpError,
 ) -> u32 {
-    // SAFETY: Null pointers are rejected before dereference.
+    // SAFETY: Null pointers are rejected before dereference or write.
     unsafe {
+        initialize_value(out_outcome, 0);
         ffi_call(out_error, || {
             let transaction = transaction
                 .as_mut()
@@ -199,6 +204,7 @@ pub unsafe extern "C" fn pp_transaction_observe_resource_content(
             let resource_id = resource_id
                 .as_ref()
                 .ok_or_else(|| invalid_argument("resource_id must not be null"))?;
+            require_output(out_outcome, "out_outcome")?;
             let path = required_utf8(path, "path")?;
             let resource_id = ResourceId::from_bytes(resource_id.bytes);
             let mut usage = resource_usage(&*lock_production(&transaction.state), resource_id)?;
@@ -231,6 +237,11 @@ pub unsafe extern "C" fn pp_transaction_observe_resource_content(
                         fingerprint.clone(),
                     ));
             }
+            out_outcome.write(match observation.outcome() {
+                ContentObservationOutcome::Unchanged => PP_OBSERVATION_UNCHANGED,
+                ContentObservationOutcome::Changed => PP_OBSERVATION_CHANGED,
+                _ => PP_OBSERVATION_FIRST,
+            });
             Ok(())
         })
     }

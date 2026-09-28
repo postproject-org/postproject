@@ -380,6 +380,7 @@ static pp_error_code_t observe_changed_file(pp_production_t *production,
   pp_revision_set_t *latest = NULL;
   pp_revision_event_set_t *events = NULL;
   pp_content_verification_t verification = 0;
+  pp_content_observation_t outcome = 0;
 
   /* Verification only reads: it compares the file with the stored value. */
   pp_error_code_t status = pp_production_verify_resource(
@@ -394,7 +395,26 @@ static pp_error_code_t observe_changed_file(pp_production_t *production,
     /* Stages the new resource fingerprint and every representation
      * fingerprint recomputed from it; commit records both in one revision. */
     status = pp_transaction_observe_resource_content(transaction, resource_id,
-                                                     path, error);
+                                                     path, &outcome, error);
+  }
+  if (status == PP_OK && outcome != PP_OBSERVATION_CHANGED) {
+    status = PP_ERROR_INTERNAL;
+  }
+  if (status == PP_OK) {
+    status = pp_transaction_commit(transaction, error);
+  }
+  pp_transaction_release(transaction);
+  transaction = NULL;
+  /* Observing the same content again changes nothing and records nothing. */
+  if (status == PP_OK) {
+    status = pp_production_begin_transaction(production, &transaction, error);
+  }
+  if (status == PP_OK) {
+    status = pp_transaction_observe_resource_content(transaction, resource_id,
+                                                     path, &outcome, error);
+  }
+  if (status == PP_OK && outcome != PP_OBSERVATION_UNCHANGED) {
+    status = PP_ERROR_INTERNAL;
   }
   if (status == PP_OK) {
     status = pp_transaction_commit(transaction, error);

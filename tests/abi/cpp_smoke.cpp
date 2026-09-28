@@ -28,7 +28,7 @@ int main(int argc, char **argv) {
   std::remove(path.c_str());
 
   try {
-    if (postproject::abi_version() != 32) {
+    if (postproject::abi_version() != 33) {
       return 3;
     }
 
@@ -190,8 +190,11 @@ int main(int argc, char **argv) {
       return 62;
     }
     auto content_observation = production.beginTransaction().value();
-    content_observation.observeResourceContent(
-        representations[0].resources[0].id, media_path).value();
+    if (content_observation.observeResourceContent(
+            representations[0].resources[0].id, media_path).value() !=
+        postproject::ContentObservationOutcome::unchanged) {
+      return 65;
+    }
     content_observation.commit().value();
     const auto identifiers = production.externalIdentifiers(asset_ref).value();
     const auto found =

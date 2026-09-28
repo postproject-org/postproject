@@ -202,10 +202,14 @@ printf 'regraded camera original' > moved/A001.mov
 # Content changed, and PostProject's own fingerprint says so.
 postproject media verify-content media.pproj "$RESOURCE_ID" moved/A001.mov
 # Records the new resource fingerprint, and recomputes every representation
-# using the resource, in one revision.
+# using the resource, in one revision. The outcome is "changed".
 postproject --json media fingerprint media.pproj "$RESOURCE_ID" moved/A001.mov |
-  jq '{resource_fingerprint, representation_fingerprints}'
+  jq '{outcome, resource_fingerprint, representation_fingerprints}'
 REVISION_ID=$(postproject --json revisions latest media.pproj | jq -r .id)
+# Observing the same content again reports "unchanged" and records nothing.
+postproject --json media fingerprint media.pproj "$RESOURCE_ID" moved/A001.mov |
+  jq -r .outcome
+test "$(postproject --json revisions latest media.pproj | jq -r .id)" = "$REVISION_ID"
 postproject --json revisions events media.pproj "$REVISION_ID" |
   jq -r '.[] | "\(.position) \(.kind)"'
 # [/fingerprint-observation]

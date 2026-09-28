@@ -269,11 +269,25 @@ observe_new_content(postproject::Production &production,
   // Stages the new resource fingerprint and every representation fingerprint
   // recomputed from it; commit records both in one revision.
   auto transaction = production.beginTransaction().value();
-  transaction.observeResourceContent(resource_id, path).value();
+  if (transaction.observeResourceContent(resource_id, path).value() !=
+      postproject::ContentObservationOutcome::changed) {
+    throw std::runtime_error("content is unchanged");
+  }
   transaction.commit().value();
+  const auto observed = production.latestRevision().value()->id;
 
-  const auto events =
-      production.revisionEvents(production.latestRevision().value()->id).value();
+  // Observing the same content again changes nothing and records nothing.
+  auto again = production.beginTransaction().value();
+  if (again.observeResourceContent(resource_id, path).value() !=
+      postproject::ContentObservationOutcome::unchanged) {
+    throw std::runtime_error("content changed again");
+  }
+  again.commit().value();
+  if (production.latestRevision().value()->id != observed) {
+    throw std::runtime_error("an unchanged observation was recorded");
+  }
+
+  const auto events = production.revisionEvents(observed).value();
   for (const auto &event : events) {
     std::visit(
         [](const auto &payload) {

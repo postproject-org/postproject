@@ -32,9 +32,9 @@ use postproject_core::{
     RevisionWaitOutcome, StaleArtifactQuery, Timestamp, ToolIdentity, VocabularyId,
 };
 use postproject_media::{
-    ContentVerification, EXECUTOR_PARAMETER_VOCABULARY, EXECUTOR_PROFILE_PROPERTY,
-    ExecutionOutcome, ExecutionRequest, Executor, ExecutorCapability, FfmpegExecutor,
-    FfprobeInspector, FileResourceSource, ImageSequenceSource, InspectionOutcome,
+    ContentObservationOutcome, ContentVerification, EXECUTOR_PARAMETER_VOCABULARY,
+    EXECUTOR_PROFILE_PROPERTY, ExecutionOutcome, ExecutionRequest, Executor, ExecutorCapability,
+    FfmpegExecutor, FfprobeInspector, FileResourceSource, ImageSequenceSource, InspectionOutcome,
     InventoryCategory, InventoryReport, InventoryScanner, MediaInspector, MediaRecognizer,
     MediaResolver, MediaRootMapping, RecognizedMedia, ResolutionItem, ResolverOptions, SearchScope,
     TechnicalMetadata, VerificationMode, local_file_path, observe_resource_content,
@@ -1153,6 +1153,7 @@ struct FingerprintView {
 #[derive(Debug, Serialize)]
 struct FingerprintObservationView {
     resource_id: String,
+    outcome: &'static str,
     resource_fingerprint: FingerprintView,
     representation_fingerprints: Vec<RepresentationFingerprintView>,
 }
@@ -2133,6 +2134,11 @@ fn media_fingerprint(args: &MediaFingerprintArgs, json: bool) -> Result<()> {
 
     let view = FingerprintObservationView {
         resource_id: resource_id.to_string(),
+        outcome: match observation.outcome() {
+            ContentObservationOutcome::Unchanged => "unchanged",
+            ContentObservationOutcome::Changed => "changed",
+            _ => "first",
+        },
         resource_fingerprint: fingerprint_view(
             observation.resource().algorithm(),
             observation.resource().version(),
@@ -2157,7 +2163,8 @@ fn media_fingerprint(args: &MediaFingerprintArgs, json: bool) -> Result<()> {
         print_json(&view)
     } else {
         println!(
-            "recorded fingerprints for resource {} and {} representation(s)",
+            "{} content of resource {}; fingerprints for {} representation(s)",
+            view.outcome,
             view.resource_id,
             view.representation_fingerprints.len()
         );
