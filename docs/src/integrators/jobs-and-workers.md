@@ -143,8 +143,11 @@ workers use the protocol above rather than an executor wrapper.
 
 `plan_regeneration` accepts artifact representation IDs and returns proposals
 derived from recorded producers. Each proposal includes a fresh requested job
-and parameter metadata already retargeted to that job ID. Planning requires one
-unambiguous producer for each artifact.
+and parameter metadata already retargeted to that job ID. The inputs and
+parameters come from the producing activity. When that activity completed a
+job, the proposal repeats the job's kind and target root, so the work reaches
+the same workers and destination. Planning requires one unambiguous producer for
+each artifact (ADR 0023).
 
 The proposal is not durable. To enqueue it, open a transaction, request the
 proposed job, copy its parameter assertions to the job target, and commit. This

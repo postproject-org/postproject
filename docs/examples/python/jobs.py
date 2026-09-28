@@ -160,15 +160,15 @@ def cancel(production: Production, job_id: JobId) -> None:
 
 # [plan-regeneration]
 def plan_and_enqueue(
-    production: Production, artifact_id: RepresentationId, target_root: str
+    production: Production, artifact_id: RepresentationId
 ) -> tuple[RegenerationJobPlan, JobId]:
     # Planning is read-only: it proposes a job but never enqueues one.
     (plan,) = production.plan_regeneration([artifact_id])
     proposed = plan.job
     print(f"regenerate {artifact_id} with {proposed.kind}")
 
-    # Enqueue explicitly. Provenance does not record where the output was
-    # written, so the host supplies the target root again.
+    # Enqueue explicitly. The proposal repeats the kind and target root of the
+    # job that produced the artifact.
     with production.transaction() as transaction:
         job_id = transaction.request_job(
             JobRequest(
@@ -176,7 +176,7 @@ def plan_and_enqueue(
                 proposed.inputs,
                 proposed.output_asset_id,
                 proposed.output_representation_kind,
-                target_root,
+                proposed.target_root,
             )
         )
         # The planned parameters target the proposal; retarget them.
@@ -241,11 +241,11 @@ def main() -> None:
         assert job_by_id(production, cancelled_id).state is JobState.CANCELLED
 
         revision = production.latest_revision
-        plan, enqueued_id = plan_and_enqueue(production, proxy_id, "proxies")
+        plan, enqueued_id = plan_and_enqueue(production, proxy_id)
         assert plan.artifact_representation_id == proxy_id
         assert plan.job.state is JobState.REQUESTED
         assert plan.job.inputs == (source_id,)
-        assert plan.job.target_root is None
+        assert plan.job.target_root == "proxies"
         assert plan.parameters == (MetadataAssertion(plan.job.id, PROFILE, parameter),)
         latest = production.latest_revision
         assert revision is not None and latest is not None

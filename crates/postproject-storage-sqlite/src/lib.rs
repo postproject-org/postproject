@@ -2154,6 +2154,11 @@ impl SqliteProduction {
 
     /// Derives non-persisted requests that would regenerate existing artifacts.
     ///
+    /// When the producing activity completed a job, the plan repeats that job's
+    /// kind and target root; otherwise it uses the activity's kind and no target
+    /// root. Inputs come from the activity and parameters from its metadata,
+    /// because the activity records what the worker used.
+    ///
     /// # Errors
     ///
     /// Returns [`ErrorKind::InvalidArgument`] for an excessive request,
@@ -2192,21 +2197,39 @@ impl SqliteProduction {
                     .collect::<Vec<_>>();
                 inputs.sort_unstable();
                 inputs.dedup();
+                let completed = self.job_completed_by(activity.id())?;
+                let (kind, target_root) = match completed {
+                    Some((kind, target_root)) => (kind, target_root),
+                    None => (activity.kind().as_str().to_owned(), None),
+                };
                 let output = RequestedJobOutput::new(
                     representation.asset_id(),
                     representation.kind(),
-                    None,
+                    target_root,
                 )?;
-                let job = Job::new(
-                    JobId::new(),
-                    JobKind::new(activity.kind().as_str())?,
-                    inputs,
-                    output,
-                )?;
+                let job = Job::new(JobId::new(), JobKind::new(kind)?, inputs, output)?;
                 let parameters = self.metadata(ObjectRef::Activity(activity.id()))?;
                 Ok(RegenerationJobPlan::new(representation_id, job, parameters))
             })
             .collect()
+    }
+
+    /// Returns the kind and target root of the job an activity completed, if any.
+    fn job_completed_by(
+        &self,
+        activity_id: ActivityId,
+    ) -> Result<Option<(String, Option<String>)>> {
+        self.connection
+            .query_row(
+                "SELECT kind, target_root FROM jobs
+                 WHERE completion_activity_id = ?1
+                 ORDER BY id
+                 LIMIT 1",
+                params![activity_id.as_bytes().as_slice()],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .optional()
+            .map_err(sqlite_error("load the job an activity completed"))
     }
 
     /// Returns the newest durable revision, if the journal is non-empty.

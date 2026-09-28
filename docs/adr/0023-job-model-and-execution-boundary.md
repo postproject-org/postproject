@@ -1,6 +1,6 @@
 # ADR 0023: Job model and execution boundary
 
-- Status: Accepted
+- Status: Accepted; regeneration requests amended on 2026-09-28
 - Date: 2026-09-24
 
 ## Context
@@ -63,7 +63,13 @@ or claimed; release returns a claimed job to requested.
 PostProject exposes the protocol but does not select priorities, distribute
 work, spawn processes, retry failures, download tools, or run a background
 scheduler. Regeneration planning is a read operation and never enqueues jobs;
-requesting each returned plan remains an explicit caller transaction.
+requesting each returned plan remains an explicit caller transaction. A plan
+takes its inputs from the producing activity and its parameters from the
+activity's metadata. When that activity completed a job, the plan repeats the
+job's kind and logical target root, so the regenerated work reaches the same
+workers and the same destination. An activity recorded without a job yields the
+activity's kind and no target root. Schema 14 indexes jobs by their completion
+activity, so this lookup reads one index entry per artifact.
 
 ## Alternatives considered
 
@@ -74,6 +80,11 @@ unique. Implicit current-time reads were rejected because they make storage
 behavior and tests timing-dependent. Completing output, activity, and job in
 separate transactions was rejected because crashes would expose contradictory
 production facts.
+
+Deriving a plan's kind and target root from the activity alone was rejected
+too. An activity names what the worker did, which can differ from the requested
+kind, and it records no destination, so the regenerated job could go unclaimed
+or be written elsewhere.
 
 A daemon, network queue, and distributed lock service were rejected as product
 scope. Hosts remain free to mirror jobs into their own task systems and use the

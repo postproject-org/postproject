@@ -800,6 +800,80 @@ fn completion_is_atomic_and_records_output_activity_and_snapshots() {
 }
 
 #[test]
+fn regeneration_planning_repeats_the_completed_jobs_kind_and_target_root() {
+    let directory = tempdir().expect("create temporary directory");
+    let mut production = SqliteProduction::create(directory.path().join("production.pproj"), None)
+        .expect("create production");
+    let source = source_import();
+    let job = requested_job(&source);
+    {
+        let mut transaction = production.begin_transaction().expect("begin setup");
+        transaction.import_original(&source).expect("import source");
+        transaction
+            .add_media_root(
+                MediaRoot::new(
+                    MediaRootId::from_bytes([6; 16]),
+                    "proxies",
+                    None,
+                    None,
+                    0,
+                    true,
+                )
+                .expect("valid root"),
+            )
+            .expect("add root");
+        transaction.request_job(&job).expect("request job");
+        transaction.commit().expect("commit setup");
+    }
+    let claim = {
+        let mut transaction = production.begin_transaction().expect("begin claim");
+        let claim = transaction
+            .claim_job(
+                job.id(),
+                &ToolIdentity::new("worker", None, None).expect("valid tool"),
+                None,
+                Timestamp::from_unix_micros(100),
+                Timestamp::from_unix_micros(200),
+            )
+            .expect("claim job");
+        transaction.commit().expect("commit claim");
+        claim
+    };
+    // The worker names its activity differently from the requested kind.
+    let output_id = RepresentationId::from_bytes([40; 16]);
+    let activity = Activity::new(
+        ActivityId::from_bytes([41; 16]),
+        ActivityKind::new("org.postproject:transcode").expect("valid activity kind"),
+        vec![ActivityInput::new(source.representation().id(), None)],
+        vec![ActivityOutput::new(output_id, None)],
+    )
+    .expect("valid completion activity");
+    {
+        let output = proxy_import(&source, output_id, ResourceId::from_bytes([42; 16]));
+        let mut transaction = production.begin_transaction().expect("begin completion");
+        transaction
+            .complete_job(
+                job.id(),
+                claim.id(),
+                Timestamp::from_unix_micros(150),
+                &output,
+                &activity,
+            )
+            .expect("complete job");
+        transaction.commit().expect("commit completion");
+    }
+
+    let plans = production
+        .plan_regeneration(&[output_id])
+        .expect("plan regeneration");
+    assert_eq!(plans.len(), 1);
+    let planned = plans[0].job();
+    assert_eq!(planned.kind().as_str(), "org.postproject:generate-proxy");
+    assert_eq!(planned.requested_output().target_root(), Some("proxies"));
+    assert_eq!(planned.inputs(), [source.representation().id()]);
+}
+
+#[test]
 fn regeneration_planning_copies_producer_inputs_kind_and_parameters_without_enqueuing() {
     let directory = tempdir().expect("create temporary directory");
     let mut production = SqliteProduction::create(directory.path().join("production.pproj"), None)

@@ -171,6 +171,8 @@ Development version: `0.4.0-alpha.1`.
 
 ### Fixed
 
+- Regeneration plans repeat the kind and target root of the job that produced
+  the artifact, found through a new SQLite schema 14 index (ADR 0023).
 - The C++ header no longer raises `-Wmaybe-uninitialized` in `evaluateArtifact`
   under GCC 15, and CI compiles it with the current GCC and Clang (ADR 0034).
 - Observing content records the resource's size and modification time too, so

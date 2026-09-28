@@ -7,7 +7,7 @@ SQLite's per-connection value-length limit is reduced to 16 MiB before migration
 or queries run. This bounds allocations for strings, blobs, and result rows read
 from an untrusted production file while leaving ample room for production metadata.
 
-## Schema version 13
+## Schema version 14
 
 The current development schema stores a singleton production record plus assets,
 representations, content structures, resources, memberships, locators, typed
@@ -41,7 +41,9 @@ activity-output pages read rows proportional to the page even when matches are
 sparse. Schema 13 adds a fourth, keyed by revision event kind and revision
 sequence, which a trigger fills from every journaled event. Event-type-filtered
 revision pages read at most one page of keys per requested kind, however long
-the run of unrelated revisions after the cursor.
+the run of unrelated revisions after the cursor. Schema 14 indexes jobs by
+their completion activity, so a regeneration plan finds the job that produced an
+artifact without scanning the job table.
 
 External identifiers and metadata assertions use polymorphic typed targets.
 Jobs are valid targets alongside production, asset, representation, resource,
