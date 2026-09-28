@@ -11,7 +11,9 @@
 - A **Resource** is a storage-level component or compact patterned object. File
   facts and resource fingerprints belong here.
 - A **Locator** says where or how a resource may be accessed. A resource may
-  have multiple locators.
+  have multiple locators. A locator of an image-sequence resource also carries
+  the **SequenceNaming** of its files (prefix, suffix, and frame-number
+  padding); copies of one sequence may be named differently (ADR 0038).
 - A **MediaRoot** is an ordered, optional search boundary used by the resolver.
 - A **ResourceFingerprint** and a **RepresentationFingerprint** are separate,
   versioned evidence domains. Neither replaces object identity.

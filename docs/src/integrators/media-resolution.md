@@ -56,7 +56,9 @@ locator for the resource in a transaction; the stored identity is unchanged.
 
 A candidate found under a mapped root names that logical root. The example
 confirms such a candidate under that root, so the locator records the portable
-root name but never the local directory. The CLI `media resolve --confirm` does the same automatically.
+root name but never the local directory. The CLI `media resolve --confirm` does the same automatically. A candidate for
+an image sequence also carries the naming of its files, and confirmation must
+record it.
 [Locator and media-root queries](bounded-queries.md) report that recorded root.
 
 ```{code-variants} confirm-locator
@@ -70,6 +72,31 @@ size only. The resource's recorded fingerprints were ones PostProject cannot
 compute, such as a hash the host application recorded. Check the candidate with
 the host's own algorithm before confirming it. See
 [host content hashes](fingerprints-and-verification.md#keep-a-hosts-own-content-hashes).
+
+## Relink a renamed image sequence
+
+Graded plates get a suffix, renders are renamed for delivery, and conform
+tools rename by shot. A sequence's file names belong to its locator, not to its
+content (ADR 0038), so resolution finds a renamed sequence by content. It
+groups the numbered files of each searched directory by prefix, suffix, and
+padding. A group that holds every expected frame and matches the sequence's
+sampled fingerprint is a candidate carrying the naming it was found under, with
+`partial_fingerprint_match` evidence. `file_name_match` evidence is added only
+when that naming is one already recorded for the resource. A group with other
+content, or with frames missing, is not a candidate, and two matching copies
+are ambiguous.
+
+Confirming the candidate with its naming records a second locator. The
+original locator keeps the original names, so a backup under the old names
+stays a valid place of the same sequence:
+
+```{code-variants} relink-renamed-sequence
+```
+
+A sequence imported before schema 15 has only a version 1 sequence fingerprint,
+which included file names and is no longer computed. Until its content is
+observed again, a moved sequence is offered only under a recorded naming, with
+`fingerprint_not_verified` evidence rather than a fingerprint match.
 
 ## Search near where media was
 

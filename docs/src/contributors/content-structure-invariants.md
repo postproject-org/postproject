@@ -22,18 +22,20 @@ and have at least one locator when a representation is created. Ordered parts
 must remain in their declared order. A package must contain at least one
 required member. Roles are namespaced open-world identifiers, not vendor enums.
 
-A regular image sequence stores a pattern, inclusive stepped frame domain,
-padding, rational rate, and bounded sorted exceptions. It does not persist one
-resource row per frame. Presence is determined with one directory inventory:
-expected filenames are generated from the descriptor, recorded exceptions are
-excluded, and observed gaps are returned as sorted frame diagnostics.
+A regular image sequence stores an inclusive stepped frame domain, rational
+rate, and bounded sorted exceptions. It does not persist one resource row per
+frame. Every locator of the sequence, and no other locator, carries a sequence
+naming: prefix, suffix, and padding (ADR 0038). Presence is determined with one
+directory inventory: expected filenames are generated from the locator's naming
+and the descriptor, recorded exceptions are excluded, and observed gaps are
+returned as sorted frame diagnostics.
 
 Resource fingerprints cover storage-level content evidence. Representation
 fingerprints combine canonical structure with resource evidence and exclude
 object IDs and locators so identity survives relocation. Ordered-part
 fingerprints preserve member order; package fingerprints do not. Sequence
 fingerprints sample deterministic members and record their strategy rather than
-claiming complete-content verification.
+claiming complete-content verification. Neither contains file names.
 
 Availability aggregates required resource outcomes with the precedence `Error
 > Ambiguous > Offline > Partial > Online`. Optional package gaps remain issues

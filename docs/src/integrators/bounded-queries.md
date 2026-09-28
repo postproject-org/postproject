@@ -76,11 +76,10 @@ page of each nested query:
 ```{code-variants} media-structure-pages
 ```
 
-A locator records a root only when it was confirmed under that root. Use
-`pp_transaction_confirm_locator_under_root`, C++ `confirmLocatorUnderRoot`,
-Python `confirm_locator_under_root`, or Rust
-`prepare_confirmed_locator_under_root` with the root named by the candidate's
-`media_root_relation` evidence, as the
+A locator records a root only when it was confirmed under that root. Pass the
+candidate's media root to `pp_transaction_confirm_locator`, C++
+`confirmLocator`, Python `confirm_locator`, or Rust `prepare_confirmed_locator`,
+as the
 [confirmation example](media-resolution.md) does. The CLI
 `media resolve --confirm` records that root automatically. Imported locators,
 locators confirmed without a root, and locators stored before schema version 11

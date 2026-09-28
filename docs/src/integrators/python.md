@@ -53,15 +53,15 @@ roots. `production.resolutions[asset_id]` is the shorthand when no mappings are
 needed.
 `production.representations[asset_id]` returns the
 stored structure, ordered membership, compact sequence descriptor, resources,
-locators, and distinct resource and representation fingerprints as immutable
+locators with their sequence namings, and distinct resource and representation fingerprints as immutable
 values. `production.media_roots` lists immutable logical-root summaries in
 resolver order. Root creation takes a portable name rather than a directory;
 local paths are supplied to `resolve()`. Root creation, enablement, removal,
 locator retirement, and explicit
 candidate confirmation are transactional through `add_media_root()`,
 `set_media_root_enabled()`, `remove_media_root()`, `retire_locator()`,
-`confirm_locator()`, and `confirm_locator_under_root()`, which also records the
-logical root a candidate was found under. A media source — `FileSource`,
+and `confirm_locator()`, which also records the logical root a candidate was
+found under and, for an image sequence, the `SequenceNaming` of its files. A media source — `FileSource`,
 `ImageSequenceSource`, `OrderedPartsSource`, or `PackageSource` — describes a
 representation's content structure: `import_media()` creates an asset whose
 original has that structure, and `add_representation()` adds a representation

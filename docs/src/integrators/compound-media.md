@@ -47,11 +47,14 @@ missing and reads back the asset's single original:
 
 ## Add an image sequence
 
-An image-sequence representation is described compactly: directory, filename
-prefix and suffix, frame-number padding, first and last frame, frame step, an
-exact rational frame rate, and any frames already known to be missing. The
-example adds a derived render sequence to an existing asset and reads back the
-stored descriptor:
+An image-sequence representation is described compactly: directory, file
+naming (prefix, suffix, and frame-number padding), first and last frame, frame
+step, an exact rational frame rate, and any frames already known to be missing.
+The directory and naming become the sequence's first locator; the frames, rate,
+and missing frames become its descriptor. File names belong to where a sequence
+is, not what it is (ADR 0038), so another copy may name the same frames
+differently. The example adds a derived render sequence to an existing asset
+and reads back the stored descriptor:
 
 ```{code-variants} image-sequence
 ```
@@ -99,7 +102,8 @@ index. Each representation exposes:
 - ordered members, open-world roles, and requiredness;
 - the compact sequence descriptor and the frames known to be missing;
 - resources and their fingerprints;
-- resource locators; and
+- resource locators, each with the naming of its sequence files for an image
+  sequence; and
 - representation fingerprints separately from resource fingerprints.
 
 The example reads one page of an asset's representations and walks that
@@ -109,6 +113,9 @@ structure:
 ```
 
 ## Availability
+
+Read a sequence's file names from the locator you use, not from the
+representation: a sequence renamed and relinked has one locator per naming.
 
 [Resolution](media-resolution.md) returns one aggregate availability value
 plus resource results and issues. Missing sequence frames are sorted individual

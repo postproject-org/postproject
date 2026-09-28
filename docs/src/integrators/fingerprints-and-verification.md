@@ -71,6 +71,13 @@ before it observes. The result is one of three values:
 - *not comparable*: the resource has only fingerprints that PostProject cannot
   compute (see below), so nothing was compared.
 
+For an image sequence, the path is a directory, and verifying and observing
+also take the naming of its files there. Without one, the naming recorded for
+that directory is used. Neither fingerprint contains file names, so a renamed
+copy verifies as a match (ADR 0038). A sequence fingerprint of version 1, from
+before schema 15, is no longer computed: observe the sequence once to record a
+version 2 value that can be compared.
+
 ## Keep a host's own content hashes
 
 Many hosts already hash their media, for example an editor's head-and-tail

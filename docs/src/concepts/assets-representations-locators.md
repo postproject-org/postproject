@@ -17,7 +17,8 @@ A **representation fingerprint** combines the content structure with its
 resource-fingerprint evidence. It excludes PostProject object IDs and locators,
 preserves order for spanned media, treats package member order as irrelevant,
 and hashes an image sequence's compact descriptor without visiting every
-frame during representation aggregation. The sequence resource contributes
+frame during representation aggregation. Neither fingerprint includes an image
+sequence's file names, so a renamed copy has the same identity. The sequence resource contributes
 deterministically sampled member-content evidence. Its confidence cannot exceed
 the resource evidence it aggregates: a sampled resource fingerprint does not
 become a full-content identity claim.
@@ -25,12 +26,16 @@ become a full-content identity claim.
 A **locator** describes where or how a resource can currently be accessed. One
 resource may have several locators, such as paths through different mounts.
 Moving content changes its locator rather than its resource, representation, or
-asset identity.
+asset identity. For an image sequence the locator names a directory together
+with the naming of the files there: their prefix, suffix, and frame-number
+padding. Renaming a sequence therefore changes only its locator, and a copy of
+the sequence under other names is another locator of the same resource.
 
 Content structures distinguish:
 
 - one resource;
-- a compact image sequence with a pattern, frame domain, and exact rate;
+- a compact image sequence with a frame domain, exact rate, and known gaps,
+  whose file naming belongs to each locator;
 - ordered resources, such as a spanned recording; and
 - a package whose required and optional members have extensible roles.
 

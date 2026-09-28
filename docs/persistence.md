@@ -7,7 +7,7 @@ SQLite's per-connection value-length limit is reduced to 16 MiB before migration
 or queries run. This bounds allocations for strings, blobs, and result rows read
 from an untrusted production file while leaving ample room for production metadata.
 
-## Schema version 14
+## Schema version 15
 
 The current development schema stores a singleton production record plus assets,
 representations, content structures, resources, memberships, locators, typed
@@ -17,7 +17,13 @@ the revision journal, and durable jobs. Machine-local root mappings are
 intentionally not production rows; schema 6 retains migrated absolute URIs only
 as transitional legacy fallbacks.
 Image-sequence descriptors and their known missing frames are stored compactly;
-a regular sequence does not require one resource row per frame. Public
+a regular sequence does not require one resource row per frame. A descriptor
+holds the frame range, step, and rate. The prefix, suffix, and padding of the
+files belong to each locator of the sequence, one `locator_sequence_namings` row
+per locator (ADR 0038). Schema 15 moved them there from `image_sequences`,
+copying the names to every locator of each sequence, and dropped the
+`(resource_id, uri)` uniqueness of locators so that one directory can be
+recorded under two namings; writers keep resource, URI, and naming unique. Public
 identities are 16-byte UUID values; SQLite row numbers are never exposed.
 
 Constraints enforce ID lengths, enumeration ranges, bounded text and blobs,

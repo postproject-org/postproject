@@ -30,7 +30,9 @@ reported with `SearchTruncated` evidence, and the other directories and the
 candidates found so far are still used. A cancellation token stops the call.
 
 Presence and verification remain separate as required by ADR 0015. Normal
-resolution checks that a known locator and its declared members exist. Callers
+resolution checks that a known locator and its declared members exist. An
+image-sequence locator is checked under its own naming; a directory holding none
+of the frames under that naming is searched for like moved media. Callers
 may opt into content verification per call; that tier recomputes the stored file
 or sampled sequence fingerprint. Present content that differs from its recorded
 identity produces an error result with `FingerprintMismatch` evidence. It is
@@ -56,6 +58,18 @@ candidate for the caller to check. A candidate that cannot be read adds
 `Ambiguous` and require explicit confirmation. Confirmation adds a new locator
 for the selected resource inside a production transaction; the resolver itself
 never mutates production state.
+
+An image sequence that moved or was renamed is found by content (ADR 0038).
+The numbered files of each searched directory are grouped by prefix, suffix,
+and padding, and a group holding every expected present frame is verified
+against the version 2 sampled sequence fingerprint, which contains no names.
+The candidate carries the naming it was found under; it adds `FileNameMatch`
+evidence only when that naming equals one recorded for the resource.
+Confirmation records the naming with the new locator. Several matching groups
+are ambiguous, and an incomplete group is no candidate. A sequence whose only
+stored fingerprint is of version 1 cannot be compared, so only a group named as
+one of its locators is offered, with `FingerprintNotVerified` evidence, until
+the sequence is observed again.
 
 Candidate discovery also compares parent path components with the former
 locator. A match adds weak `RelativePathSimilarity` evidence and a small
