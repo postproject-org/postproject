@@ -61,9 +61,12 @@ locator retirement, and explicit
 candidate confirmation are transactional through `add_media_root()`,
 `set_media_root_enabled()`, `remove_media_root()`, `retire_locator()`,
 `confirm_locator()`, and `confirm_locator_under_root()`, which also records the
-logical root a candidate was found under. Transactions can add
-single-file, compact image-sequence, ordered-parts, and package representations
-to an existing asset. The generated low-level declaration table covers every
+logical root a candidate was found under. A media source — `FileSource`,
+`ImageSequenceSource`, `OrderedPartsSource`, or `PackageSource` — describes a
+representation's content structure: `import_media()` creates an asset whose
+original has that structure, and `add_representation()` adds a representation
+of a chosen kind to an existing asset. Both also accept a plain path as a
+single file. The generated low-level declaration table covers every
 function and struct in the current ABI.
 
 Production-sized reads are [bounded queries](bounded-queries.md) that take a

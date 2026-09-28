@@ -5,6 +5,46 @@ not import every member as an unrelated asset. The representation owns a
 content structure; its resources carry content evidence and one or more
 locators.
 
+## Media sources
+
+A **media source** describes the content structure of a representation at its
+present location: a single file, an image sequence, ordered parts, or a
+package (ADR 0037). The same source serves both operations that create a
+representation:
+
+- **import** creates an asset whose original representation has the source's
+  structure; and
+- **add representation** adds a representation of a chosen kind, with the
+  source's structure, to an existing asset.
+
+Both fingerprint the content and record a locator for each resource. A host
+already knows the structure of what it imports: an image strip lists its
+frames, and an editor knows a clip's spans. A plain path is a single-file
+source on every surface.
+
+| Surface | Single file | Image sequence | Ordered parts | Package |
+| --- | --- | --- | --- | --- |
+| C | `pp_media_source_create_file` | `pp_media_source_create_image_sequence` | `pp_media_source_create_ordered_parts` | `pp_media_source_create_package` |
+| C++ | a path, or `MediaSource::file` | `MediaSource::imageSequence` | `MediaSource::orderedParts` | `MediaSource::package` |
+| Python | a path, or `FileSource` | `ImageSequenceSource` | `OrderedPartsSource` | `PackageSource` |
+| Rust | `MediaSource::File` | `MediaSource::ImageSequence` | `MediaSource::OrderedParts` | `MediaSource::Package` |
+
+In C, `pp_transaction_import_media` and `pp_transaction_add_representation`
+borrow a `pp_media_source_t` only for the call, so one source may serve several
+calls; release it with `pp_media_source_release`. The CLI describes an added
+representation with a JSON source file and recognizes the structure of
+imported media, as shown below.
+
+## Import an image sequence as an original
+
+A compositor reading an EXR plate, or an editor importing an image strip,
+records the sequence as one asset whose only original representation is the
+sequence. The example imports a render directory with one frame known to be
+missing and reads back the asset's single original:
+
+```{code-variants} import-sequence
+```
+
 ## Add an image sequence
 
 An image-sequence representation is described compactly: directory, filename
@@ -26,9 +66,11 @@ content fingerprint:
 ```{code-variants} add-representation
 ```
 
-The representation kind (original, proxy, optimized, or derived) says how the
-representation relates to the asset. Why it exists — which activity produced it
-from which input — is recorded separately as [provenance](provenance.md).
+A path converts to a single-file source, so a proxy needs no other source
+type. The representation kind (original, proxy, optimized, or derived) says
+how the representation relates to the asset. Why it exists — which activity
+produced it from which input — is recorded separately as
+[provenance](provenance.md).
 
 ## Add ordered parts
 
@@ -84,21 +126,20 @@ sidecars:
 
 ```{code-variants} media-recognition
 :::{no-variant} c
-Recognition is not exposed through the C ABI. Create the recognized structure
-explicitly with `pp_transaction_add_image_sequence_representation`,
-`pp_transaction_add_ordered_parts_representation`, or
-`pp_transaction_add_package_representation`, as shown above.
+Recognition is not exposed through the C ABI. Describe the structure
+explicitly with `pp_media_source_create_image_sequence`,
+`pp_media_source_create_ordered_parts`, or `pp_media_source_create_package`,
+and import or add it as shown above.
 :::
 :::{no-variant} cpp
-Recognition is not exposed through the C++ wrapper. Create the recognized
-structure explicitly with `addImageSequenceRepresentation`,
-`addOrderedPartsRepresentation`, or `addPackageRepresentation`, as shown above.
+Recognition is not exposed through the C++ wrapper. Describe the structure
+explicitly with `MediaSource::imageSequence`, `MediaSource::orderedParts`, or
+`MediaSource::package`, and import or add it as shown above.
 :::
 :::{no-variant} python
-Recognition is not exposed through the Python binding. Create the recognized
-structure explicitly with `add_image_sequence_representation`,
-`add_ordered_parts_representation`, or `add_package_representation`, as shown
-above.
+Recognition is not exposed through the Python binding. Describe the structure
+explicitly with `ImageSequenceSource`, `OrderedPartsSource`, or
+`PackageSource`, and import or add it as shown above.
 :::
 ```
 

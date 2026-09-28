@@ -287,3 +287,16 @@ postproject --json representation list media.pproj \
 test "$(jq -r .resource_count recognized.json)" = 2
 test "$(postproject --json representation list media.pproj \
   "$(jq -r .asset_id recognized.json)" | jq -r '.items[0].structure')" = package
+
+# [import-sequence]
+# A directory holding one numbered image group imports as one asset whose
+# only original representation is the sequence; frame 1003 is missing.
+postproject --json media add media.pproj renders/shot010 --name "shot010 strip" \
+  --sequence-rate 24/1 > strip.json
+postproject --json representation list media.pproj \
+  "$(jq -r .asset_id strip.json)" | jq -r '.items[] | "\(.kind) \(.structure)"'
+# [/import-sequence]
+
+test "$(postproject --json representation list media.pproj \
+  "$(jq -r .asset_id strip.json)" | jq -r '[.items[] | "\(.kind) \(.structure)"] | join(",")')" = \
+  "original image_sequence"
