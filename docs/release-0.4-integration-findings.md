@@ -157,20 +157,21 @@ recorded. In the running application under Xvfb on 2026-09-28:
 - PostProject then evaluated the old proxy as stale and the new one as current.
 
 **Evaluation sees only observed content.** Artifact evaluation compares recorded
-fingerprints and never reads a file, as designed. To ask whether a proxy is
-stale now, Kdenlive first verifies the source, observes it in a write
-transaction if it differs, and only then evaluates. A host that evaluates
-without observing reports a replaced source's proxy as current. The same
-sequence precedes every render, so that the proxy is recorded against the
-content it was made from.
+fingerprints and never reads a file, as designed. A host that evaluates without
+observing reports a replaced source's proxy as current. To ask whether a proxy
+is stale now, the first version of the adapter verified the source, observed it
+in a write transaction only if it differed, and then evaluated. It did the same
+before every render, so that the proxy is recorded against the content it was
+made from. The verification was unnecessary: observing unchanged content already
+recorded nothing and created no revision, but the observation did not say what
+it had found.
 
 **A C++ host cannot read metadata values.** The C++ wrapper returns metadata
 values, including regeneration parameters, as opaque `MetadataInput` objects.
 They can be passed to an exact-value query or copied to another target, but
 not read. The C ABI has typed getters. Kdenlive records its render arguments as
 an ordered list on the activity. It cannot read them back to render a proxy
-again from a regeneration plan, although the CLI and Python can. The pilot
-checks their content through the CLI only.
+again from a regeneration plan, although the CLI and Python can.
 
 **A host needs a job kind of its own.** Kdenlive's arguments mean something
 only to Kdenlive. A proxy job under the reference executor's
@@ -192,6 +193,27 @@ PostProject reports it as current but not reproducible, which is accurate.
 for its optional fingerprint values. Both values are initialized before they
 are moved, so the warning is a false positive. It still appears in every
 consumer's build log.
+
+### Changes made in response
+
+Each change is recorded in an ADR and applies to every host.
+
+- **Observation outcome (ADR 0035, C ABI 33).** Observing content reports
+  whether it was unchanged, changed, or observed for the first time, and the
+  guides recommend observing a source that may have changed outside the host,
+  then evaluating. The adapter now observes before every render and on every
+  open, without verifying first.
+- **Readable C++ metadata values (ADR 0036).** `MetadataValue` replaces
+  `MetadataInput` as one copyable type for writing and reading. The pilot's
+  tests read the recorded argument list back and compare it with the expected
+  value.
+- **A warning-free C++ header (ADR 0034).** `evaluateArtifact` no longer
+  triggers the GCC 15 false positive. CI compiles every C++ program against the
+  header with the current GCC and Clang, as C++17 and C++20, with warnings as
+  errors. The pilot's test build is free of the warning.
+
+The job kind and the recording of work done before the sidecar existed needed
+no change. The integrator guides describe both.
 
 ## Packaging
 
