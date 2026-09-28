@@ -66,57 +66,131 @@ impl FileResourceSource {
     }
 }
 
+/// Content structure of a representation at its present location.
+///
+/// The same source serves both operations that create a representation:
+/// [`prepare_original_media`] creates an asset whose original has the source's
+/// structure, and [`prepare_representation`] adds a representation of a chosen
+/// kind to an existing asset.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum MediaSource {
+    /// One regular file forming a single-resource representation.
+    File(PathBuf),
+    /// One compact image sequence in a directory.
+    ImageSequence(ImageSequenceSource),
+    /// Ordered, fully required files, such as spanned camera recordings.
+    OrderedParts(Vec<FileResourceSource>),
+    /// Role-bearing required and optional files, such as a card package.
+    Package(Vec<FileResourceSource>),
+}
+
+impl From<PathBuf> for MediaSource {
+    fn from(path: PathBuf) -> Self {
+        Self::File(path)
+    }
+}
+
+impl From<&PathBuf> for MediaSource {
+    fn from(path: &PathBuf) -> Self {
+        Self::File(path.clone())
+    }
+}
+
+impl From<&Path> for MediaSource {
+    fn from(path: &Path) -> Self {
+        Self::File(path.to_path_buf())
+    }
+}
+
+impl From<ImageSequenceSource> for MediaSource {
+    fn from(source: ImageSequenceSource) -> Self {
+        Self::ImageSequence(source)
+    }
+}
+
 #[derive(Clone, Copy)]
 enum CompoundShape {
     OrderedParts,
     Package,
 }
 
-/// Inspects a regular file and prepares a validated original-media import.
+/// Inspects a media source and prepares a validated original-media import.
 ///
-/// This function does not mutate production state. Persist the returned aggregate
-/// inside an explicit production transaction.
+/// The new asset's original representation has the source's content
+/// structure. This function does not mutate production state. Persist the
+/// returned aggregate inside an explicit production transaction.
 ///
 /// # Errors
 ///
-/// Returns errors from path canonicalization, fingerprint calculation, time
-/// capture, or domain validation.
+/// Returns errors from path canonicalization, directory inspection,
+/// fingerprint calculation, time capture, or domain validation.
 pub fn prepare_original_media(
-    path: impl AsRef<Path>,
+    source: impl Into<MediaSource>,
     display_name: Option<String>,
     import_source: Option<String>,
 ) -> Result<OriginalMediaImport> {
     let now = Timestamp::now()?;
     let asset = Asset::new(AssetId::new(), now, display_name, import_source);
-    let prepared = prepare_single_file_representation_at(
+    let prepared = prepare_representation_at(
         asset.id(),
         RepresentationKind::Original,
-        path.as_ref(),
+        &source.into(),
         now,
     )?;
     let (representation, resources, locators) = prepared.into_parts();
     OriginalMediaImport::new(asset, representation, resources, locators)
 }
 
-/// Inspects a regular file and prepares a representation for an existing asset.
+/// Inspects a media source and prepares a representation for an existing asset.
 ///
-/// The caller chooses the representation kind. This function does not mutate
-/// production state; persist the returned aggregate with a production
-/// transaction.
+/// The caller chooses the representation kind. An image-sequence source is
+/// explicit: this validates its directory, fingerprints a deterministic sample
+/// of declared members, and records the caller-supplied frame domain and
+/// exceptions. Ordered parts keep their supplied order, and every part must be
+/// required. This function does not mutate production state; persist the
+/// returned aggregate with a production transaction.
 ///
 /// # Errors
 ///
-/// Returns errors from path canonicalization, fingerprint calculation, time
-/// capture, or domain validation.
-pub fn prepare_single_file_representation(
+/// Returns errors from path canonicalization, directory inspection,
+/// fingerprint calculation, time capture, or domain validation.
+pub fn prepare_representation(
     asset_id: AssetId,
     kind: RepresentationKind,
-    path: impl AsRef<Path>,
+    source: impl Into<MediaSource>,
 ) -> Result<RepresentationImport> {
-    prepare_single_file_representation_at(asset_id, kind, path.as_ref(), Timestamp::now()?)
+    prepare_representation_at(asset_id, kind, &source.into(), Timestamp::now()?)
 }
 
-fn prepare_single_file_representation_at(
+fn prepare_representation_at(
+    asset_id: AssetId,
+    kind: RepresentationKind,
+    source: &MediaSource,
+    now: Timestamp,
+) -> Result<RepresentationImport> {
+    match source {
+        MediaSource::File(path) => prepare_single_file_representation(asset_id, kind, path, now),
+        MediaSource::ImageSequence(sequence) => {
+            prepare_image_sequence_representation(asset_id, kind, sequence, now)
+        }
+        MediaSource::OrderedParts(parts) => prepare_compound_file_representation(
+            asset_id,
+            kind,
+            parts,
+            CompoundShape::OrderedParts,
+            now,
+        ),
+        MediaSource::Package(members) => prepare_compound_file_representation(
+            asset_id,
+            kind,
+            members,
+            CompoundShape::Package,
+            now,
+        ),
+    }
+}
+
+fn prepare_single_file_representation(
     asset_id: AssetId,
     kind: RepresentationKind,
     path: &Path,
@@ -147,22 +221,11 @@ fn prepare_single_file_representation_at(
     RepresentationImport::new(representation, vec![resource], vec![locator])
 }
 
-/// Prepares a compact image-sequence representation for an existing asset.
-///
-/// The source is explicit: this validates its directory, fingerprints a
-/// deterministic sample of declared members, and records the caller-supplied
-/// frame domain and exceptions. Automatic sequence discovery and a complete
-/// filesystem frame inventory are separate operations.
-///
-/// # Errors
-///
-/// Returns an I/O error when the directory cannot be inspected, an
-/// invalid-argument error when it is not a directory, or domain validation
-/// errors for an invalid descriptor.
-pub fn prepare_image_sequence_representation(
+fn prepare_image_sequence_representation(
     asset_id: AssetId,
     kind: RepresentationKind,
     source: &ImageSequenceSource,
+    now: Timestamp,
 ) -> Result<RepresentationImport> {
     let metadata = fs::metadata(&source.directory).map_err(|error| {
         postproject_core::Error::new(
@@ -208,41 +271,10 @@ pub fn prepare_image_sequence_representation(
         LocatorId::new(),
         resource_id,
         canonical_file_uri(&source.directory)?,
-        Some(Timestamp::now()?),
+        Some(now),
         LocatorAvailability::Online,
     )?;
     RepresentationImport::new(representation, vec![resource], vec![locator])
-}
-
-/// Prepares an ordered, fully required multi-file representation.
-///
-/// Sources retain their supplied order. Every source must be marked required,
-/// as enforced by the content-structure domain model.
-///
-/// # Errors
-///
-/// Returns domain validation errors or errors while inspecting and
-/// fingerprinting any source file.
-pub fn prepare_ordered_parts_representation(
-    asset_id: AssetId,
-    kind: RepresentationKind,
-    sources: &[FileResourceSource],
-) -> Result<RepresentationImport> {
-    prepare_compound_file_representation(asset_id, kind, sources, CompoundShape::OrderedParts)
-}
-
-/// Prepares a role-bearing package of required and optional files.
-///
-/// # Errors
-///
-/// Returns domain validation errors or errors while inspecting and
-/// fingerprinting any source file.
-pub fn prepare_package_representation(
-    asset_id: AssetId,
-    kind: RepresentationKind,
-    sources: &[FileResourceSource],
-) -> Result<RepresentationImport> {
-    prepare_compound_file_representation(asset_id, kind, sources, CompoundShape::Package)
 }
 
 fn prepare_compound_file_representation(
@@ -250,6 +282,7 @@ fn prepare_compound_file_representation(
     kind: RepresentationKind,
     sources: &[FileResourceSource],
     shape: CompoundShape,
+    now: Timestamp,
 ) -> Result<RepresentationImport> {
     let resource_ids = sources
         .iter()
@@ -266,7 +299,6 @@ fn prepare_compound_file_representation(
         CompoundShape::OrderedParts => ContentStructure::ordered_parts(members)?,
         CompoundShape::Package => ContentStructure::package(members)?,
     };
-    let now = Timestamp::now()?;
     let mut resources = Vec::with_capacity(sources.len());
     let mut locators = Vec::with_capacity(sources.len());
     for (source, resource_id) in sources.iter().zip(resource_ids) {
@@ -407,9 +439,8 @@ mod tests {
         file.write_all(b"proxy media").expect("write file");
         let asset_id = AssetId::new();
 
-        let prepared =
-            prepare_single_file_representation(asset_id, RepresentationKind::Proxy, file.path())
-                .expect("prepare proxy");
+        let prepared = prepare_representation(asset_id, RepresentationKind::Proxy, file.path())
+            .expect("prepare proxy");
 
         assert_eq!(prepared.representation().asset_id(), asset_id);
         assert_eq!(prepared.representation().kind(), RepresentationKind::Proxy);
@@ -436,12 +467,8 @@ mod tests {
             vec![1_003],
         );
 
-        let prepared = prepare_image_sequence_representation(
-            AssetId::new(),
-            RepresentationKind::Derived,
-            &source,
-        )
-        .expect("prepare sequence");
+        let prepared = prepare_representation(AssetId::new(), RepresentationKind::Derived, source)
+            .expect("prepare sequence");
 
         let descriptor = prepared
             .representation()
@@ -453,6 +480,43 @@ mod tests {
         assert_eq!(prepared.resources()[0].fingerprints().len(), 1);
         assert_eq!(prepared.representation().fingerprints().len(), 1);
         assert!(prepared.locators()[0].uri().starts_with("file:"));
+    }
+
+    #[test]
+    fn prepares_image_sequence_as_original_media() {
+        let directory = tempfile::tempdir().expect("create directory");
+        for frame in 1..=3 {
+            fs::write(
+                directory.path().join(format!("strip.{frame:04}.png")),
+                format!("frame {frame}"),
+            )
+            .expect("write frame");
+        }
+        let frames = FrameRange::new(1, 3, 1).expect("valid range");
+        let source = ImageSequenceSource::new(
+            directory.path(),
+            ImageSequencePattern::new("strip.", ".png", 4).expect("valid pattern"),
+            frames,
+            RationalRate::new(24, 1).expect("valid rate"),
+            Vec::new(),
+        );
+
+        let prepared = prepare_original_media(source, Some("Strip".to_owned()), None)
+            .expect("prepare sequence import");
+
+        assert_eq!(
+            prepared.representation().kind(),
+            RepresentationKind::Original
+        );
+        assert_eq!(prepared.representation().asset_id(), prepared.asset().id());
+        let descriptor = prepared
+            .representation()
+            .content_structure()
+            .image_sequence_descriptor()
+            .expect("sequence descriptor");
+        assert_eq!(descriptor.frames(), frames);
+        assert_eq!(prepared.resources().len(), 1);
+        assert_eq!(prepared.locators().len(), 1);
     }
 
     #[test]
@@ -471,10 +535,10 @@ mod tests {
             .map(|path| FileResourceSource::new(path, role.clone(), true))
             .collect::<Vec<_>>();
 
-        let prepared = prepare_ordered_parts_representation(
+        let prepared = prepare_representation(
             AssetId::new(),
             RepresentationKind::Original,
-            &sources,
+            MediaSource::OrderedParts(sources),
         )
         .expect("prepare ordered parts");
 
@@ -510,9 +574,12 @@ mod tests {
             ),
         ];
 
-        let prepared =
-            prepare_package_representation(AssetId::new(), RepresentationKind::Optimized, &sources)
-                .expect("prepare package");
+        let prepared = prepare_representation(
+            AssetId::new(),
+            RepresentationKind::Optimized,
+            MediaSource::Package(sources),
+        )
+        .expect("prepare package");
 
         let members = prepared
             .representation()

@@ -15,7 +15,7 @@ use postproject_core::{
 };
 use postproject_media::{
     EXECUTOR_PARAMETER_VOCABULARY, EXECUTOR_PROFILE_PROPERTY, GENERATE_PROXY_JOB_KIND,
-    PROXY_720P_PROFILE, prepare_original_media, prepare_single_file_representation,
+    PROXY_720P_PROFILE, prepare_original_media, prepare_representation,
 };
 use postproject_storage_sqlite::SqliteProduction;
 
@@ -121,7 +121,7 @@ fn complete_proxy_job(
     };
 
     // ... the worker writes the proxy file to output_path here ...
-    let output = prepare_single_file_representation(
+    let output = prepare_representation(
         job.requested_output().asset_id(),
         RepresentationKind::Proxy,
         output_path,

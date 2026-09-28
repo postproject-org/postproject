@@ -7,7 +7,7 @@ use postproject_core::{
 };
 use postproject_media::{
     ImageSequenceSource, InventoryCategory, InventoryScanner, MediaRootMapping,
-    prepare_image_sequence_representation, prepare_original_media,
+    prepare_original_media, prepare_representation,
 };
 use postproject_storage_sqlite::SqliteProduction;
 
@@ -49,12 +49,9 @@ fn inventory_fixture() -> InventoryFixture {
         RationalRate::new(24, 1).expect("rate"),
         Vec::new(),
     );
-    let sequence = prepare_image_sequence_representation(
-        online.asset().id(),
-        RepresentationKind::Original,
-        &sequence,
-    )
-    .expect("prepare sequence");
+    let sequence =
+        prepare_representation(online.asset().id(), RepresentationKind::Original, sequence)
+            .expect("prepare sequence");
 
     let mut production =
         SqliteProduction::create(&production_path, None).expect("create production");

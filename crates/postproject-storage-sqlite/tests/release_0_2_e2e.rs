@@ -14,10 +14,8 @@ use postproject_core::{
     VocabularyId,
 };
 use postproject_media::{
-    FileResourceSource, ImageSequenceSource, MediaResolver, prepare_confirmed_locator,
-    prepare_image_sequence_representation, prepare_media_root,
-    prepare_ordered_parts_representation, prepare_original_media,
-    prepare_single_file_representation,
+    FileResourceSource, ImageSequenceSource, MediaResolver, MediaSource, prepare_confirmed_locator,
+    prepare_media_root, prepare_original_media, prepare_representation,
 };
 use postproject_storage_sqlite::SqliteProduction;
 
@@ -117,10 +115,10 @@ fn prepare_fixture(root: &Path) -> Fixture {
         )
         .expect("write sequence frame");
     }
-    let sequence = prepare_image_sequence_representation(
+    let sequence = prepare_representation(
         asset_id,
         postproject_core::RepresentationKind::Derived,
-        &ImageSequenceSource::new(
+        ImageSequenceSource::new(
             &sequence_directory,
             ImageSequencePattern::new("shot010.", ".exr", 4).expect("valid sequence pattern"),
             FrameRange::new(1001, 1004, 1).expect("valid frame range"),
@@ -143,14 +141,14 @@ fn prepare_fixture(root: &Path) -> Fixture {
         .iter()
         .map(|path| FileResourceSource::new(path, part_role.clone(), true))
         .collect::<Vec<_>>();
-    let ordered = prepare_ordered_parts_representation(
+    let ordered = prepare_representation(
         asset_id,
         postproject_core::RepresentationKind::Original,
-        &part_sources,
+        MediaSource::OrderedParts(part_sources),
     )
     .expect("prepare ordered parts");
 
-    let proxy = prepare_single_file_representation(
+    let proxy = prepare_representation(
         asset_id,
         postproject_core::RepresentationKind::Proxy,
         &proxy_path,

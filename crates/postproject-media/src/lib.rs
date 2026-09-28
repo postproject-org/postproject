@@ -33,10 +33,9 @@ pub use fingerprint::{
     REGION_SIZE_BYTES, SAMPLED_FINGERPRINT_ALGORITHM, fingerprint_file,
 };
 pub use import::{
-    FileResourceSource, ImageSequenceSource, prepare_confirmed_locator,
-    prepare_confirmed_locator_under_root, prepare_image_sequence_representation,
-    prepare_media_root, prepare_ordered_parts_representation, prepare_original_media,
-    prepare_package_representation, prepare_single_file_representation,
+    FileResourceSource, ImageSequenceSource, MediaSource, prepare_confirmed_locator,
+    prepare_confirmed_locator_under_root, prepare_media_root, prepare_original_media,
+    prepare_representation,
 };
 pub use inspection::{
     FfprobeInspector, InspectionOutcome, MediaInspector, TECHNICAL_INSPECTION_PROPERTY,

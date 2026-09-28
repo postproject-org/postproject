@@ -11,11 +11,7 @@ use postproject_core::{
     RationalRate, RepresentationImport, RepresentationKind, ResourceRole, Result, Timestamp,
 };
 
-use crate::{
-    FileResourceSource, ImageSequenceSource, prepare_image_sequence_representation,
-    prepare_ordered_parts_representation, prepare_package_representation,
-    prepare_single_file_representation,
-};
+use crate::{FileResourceSource, ImageSequenceSource, MediaSource, prepare_representation};
 
 /// Role assigned to the playable files in an AVCHD package.
 pub const AVCHD_ESSENCE_ROLE: &str = "org.postproject.avchd:essence";
@@ -167,34 +163,25 @@ fn prepare_recognized_representation(
     kind: RepresentationKind,
     recognized: &RecognizedMedia,
 ) -> Result<RepresentationImport> {
-    match recognized {
-        RecognizedMedia::SingleFile(path) => {
-            prepare_single_file_representation(asset_id, kind, path)
-        }
+    let source = match recognized {
+        RecognizedMedia::SingleFile(path) => MediaSource::File(path.clone()),
         RecognizedMedia::ImageSequence {
             directory,
             pattern,
             frames,
             missing_frames,
             rate,
-        } => prepare_image_sequence_representation(
-            asset_id,
-            kind,
-            &ImageSequenceSource::new(
-                directory,
-                pattern.clone(),
-                *frames,
-                *rate,
-                missing_frames.clone(),
-            ),
-        ),
-        RecognizedMedia::OrderedParts(members) => {
-            prepare_ordered_parts_representation(asset_id, kind, &file_sources(members)?)
-        }
-        RecognizedMedia::Package(members) => {
-            prepare_package_representation(asset_id, kind, &file_sources(members)?)
-        }
-    }
+        } => MediaSource::ImageSequence(ImageSequenceSource::new(
+            directory,
+            pattern.clone(),
+            *frames,
+            *rate,
+            missing_frames.clone(),
+        )),
+        RecognizedMedia::OrderedParts(members) => MediaSource::OrderedParts(file_sources(members)?),
+        RecognizedMedia::Package(members) => MediaSource::Package(file_sources(members)?),
+    };
+    prepare_representation(asset_id, kind, source)
 }
 
 fn file_sources(members: &[RecognizedMember]) -> Result<Vec<FileResourceSource>> {

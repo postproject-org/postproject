@@ -1300,8 +1300,7 @@ mod tests {
 
     use super::*;
     use crate::{
-        ImageSequenceSource, prepare_image_sequence_representation, prepare_media_root,
-        prepare_original_media,
+        ImageSequenceSource, prepare_media_root, prepare_original_media, prepare_representation,
     };
 
     #[test]
@@ -1477,10 +1476,10 @@ mod tests {
             )
             .expect("write frame");
         }
-        let prepared = prepare_image_sequence_representation(
+        let prepared = prepare_representation(
             postproject_core::AssetId::new(),
             postproject_core::RepresentationKind::Original,
-            &ImageSequenceSource::new(
+            ImageSequenceSource::new(
                 &original,
                 ImageSequencePattern::new("plate.", ".exr", 4).expect("pattern"),
                 FrameRange::new(1001, 1003, 1).expect("range"),
@@ -1524,10 +1523,10 @@ mod tests {
             fs::write(original.join(format!("shot_{frame:04}.png")), [frame; 8])
                 .expect("write frame");
         }
-        let prepared = prepare_image_sequence_representation(
+        let prepared = prepare_representation(
             postproject_core::AssetId::new(),
             postproject_core::RepresentationKind::Original,
-            &ImageSequenceSource::new(
+            ImageSequenceSource::new(
                 &original,
                 ImageSequencePattern::new("shot_", ".png", 4).expect("pattern"),
                 FrameRange::new(1, 3, 1).expect("range"),

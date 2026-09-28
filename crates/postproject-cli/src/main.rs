@@ -36,12 +36,11 @@ use postproject_media::{
     EXECUTOR_PROFILE_PROPERTY, ExecutionOutcome, ExecutionRequest, Executor, ExecutorCapability,
     FfmpegExecutor, FfprobeInspector, FileResourceSource, ImageSequenceSource, InspectionOutcome,
     InventoryCategory, InventoryReport, InventoryScanner, MediaInspector, MediaRecognizer,
-    MediaResolver, MediaRootMapping, RecognizedMedia, ResolutionItem, ResolverOptions, SearchScope,
-    TechnicalMetadata, VerificationMode, local_file_path, observe_resource_content,
-    prepare_confirmed_locator, prepare_confirmed_locator_under_root,
-    prepare_image_sequence_representation, prepare_ordered_parts_representation,
-    prepare_original_media, prepare_package_representation, prepare_recognized_original_media,
-    prepare_single_file_representation, resource_usage, verify_resource_content,
+    MediaResolver, MediaRootMapping, MediaSource, RecognizedMedia, ResolutionItem, ResolverOptions,
+    SearchScope, TechnicalMetadata, VerificationMode, local_file_path, observe_resource_content,
+    prepare_confirmed_locator, prepare_confirmed_locator_under_root, prepare_original_media,
+    prepare_recognized_original_media, prepare_representation, resource_usage,
+    verify_resource_content,
 };
 use postproject_storage_sqlite::SqliteProduction;
 use serde::{Deserialize, Serialize};
@@ -2049,10 +2048,8 @@ fn representation_add(args: &RepresentationAddArgs, json: bool) -> Result<()> {
         .with_context(|| format!("read representation spec {}", args.spec_file.display()))?;
     let spec: RepresentationSourceSpec =
         serde_json::from_slice(&encoded).context("parse representation spec")?;
-    let prepared = match spec {
-        RepresentationSourceSpec::SingleFile { path } => {
-            prepare_single_file_representation(asset_id, kind, path)
-        }
+    let source = match spec {
+        RepresentationSourceSpec::SingleFile { path } => MediaSource::File(path),
         RepresentationSourceSpec::ImageSequence {
             directory,
             prefix,
@@ -2064,27 +2061,22 @@ fn representation_add(args: &RepresentationAddArgs, json: bool) -> Result<()> {
             rate_numerator,
             rate_denominator,
             missing_frames,
-        } => prepare_image_sequence_representation(
-            asset_id,
-            kind,
-            &ImageSequenceSource::new(
-                directory,
-                ImageSequencePattern::new(prefix, suffix, padding)?,
-                FrameRange::new(start, end, step)?,
-                RationalRate::new(rate_numerator, rate_denominator)?,
-                missing_frames,
-            ),
-        ),
+        } => MediaSource::ImageSequence(ImageSequenceSource::new(
+            directory,
+            ImageSequencePattern::new(prefix, suffix, padding)?,
+            FrameRange::new(start, end, step)?,
+            RationalRate::new(rate_numerator, rate_denominator)?,
+            missing_frames,
+        )),
         RepresentationSourceSpec::OrderedParts { members } => {
-            let sources = file_resource_sources(members)?;
-            prepare_ordered_parts_representation(asset_id, kind, &sources)
+            MediaSource::OrderedParts(file_resource_sources(members)?)
         }
         RepresentationSourceSpec::Package { members } => {
-            let sources = file_resource_sources(members)?;
-            prepare_package_representation(asset_id, kind, &sources)
+            MediaSource::Package(file_resource_sources(members)?)
         }
-    }
-    .context("prepare representation")?;
+    };
+    let prepared =
+        prepare_representation(asset_id, kind, source).context("prepare representation")?;
     let view = RepresentationRefView {
         representation_id: prepared.representation().id().to_string(),
     };
@@ -3402,7 +3394,7 @@ fn job_complete(args: &JobCompleteArgs, json: bool) -> Result<()> {
     let JobState::Claimed(claim) = job.state() else {
         bail!("job must be claimed before completion");
     };
-    let output = prepare_single_file_representation(
+    let output = prepare_representation(
         job.requested_output().asset_id(),
         job.requested_output().representation_kind(),
         &args.output,
@@ -3965,7 +3957,7 @@ fn complete_executor_job(
     ffmpeg_version: String,
 ) -> Result<JobRunView> {
     let job_id = prepared.job.id();
-    let output = match prepare_single_file_representation(
+    let output = match prepare_representation(
         prepared.job.requested_output().asset_id(),
         prepared.job.requested_output().representation_kind(),
         output_path,

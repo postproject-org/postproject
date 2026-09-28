@@ -15,12 +15,11 @@ use postproject_core::{
 use postproject_media::{
     ContentObservationOutcome, ContentVerification, FileResourceSource, ImageSequenceSource,
     InventoryCategory, InventoryItem, InventoryScanner, MediaRecognizer, MediaResolver,
-    MediaRootMapping, PRIMARY_ESSENCE_ROLE, RecognizedMedia, ResolutionItem, ResolverOptions,
-    SIDECAR_ROLE, SPAN_PART_ROLE, SearchScope, VerificationMode, canonical_file_uri,
-    fingerprint_file, local_file_path, observe_resource_content, prepare_confirmed_locator,
-    prepare_image_sequence_representation, prepare_ordered_parts_representation,
-    prepare_original_media, prepare_package_representation, prepare_recognized_original_media,
-    prepare_single_file_representation, resource_usage, verify_resource_content,
+    MediaRootMapping, MediaSource, PRIMARY_ESSENCE_ROLE, RecognizedMedia, ResolutionItem,
+    ResolverOptions, SIDECAR_ROLE, SPAN_PART_ROLE, SearchScope, VerificationMode,
+    canonical_file_uri, fingerprint_file, local_file_path, observe_resource_content,
+    prepare_confirmed_locator, prepare_original_media, prepare_recognized_original_media,
+    prepare_representation, resource_usage, verify_resource_content,
 };
 use postproject_storage_sqlite::SqliteProduction;
 
@@ -29,13 +28,43 @@ use postproject_core::ObjectRef;
 #[cfg(unix)]
 use postproject_media::{FfprobeInspector, InspectionOutcome, MediaInspector, TechnicalMetadata};
 
+// [import-sequence]
+fn import_image_strip(production: &mut SqliteProduction, directory: &Path) -> Result<AssetId> {
+    // The sequence becomes the new asset's only original representation.
+    let strip = ImageSequenceSource::new(
+        directory,
+        ImageSequencePattern::new("shot010.", ".exr", 4)?,
+        FrameRange::new(1001, 1004, 1)?,
+        RationalRate::new(24, 1)?,
+        vec![1003],
+    );
+    let import = prepare_original_media(strip, Some("shot010 strip".to_owned()), None)?;
+    let asset_id = import.asset().id();
+    {
+        let mut transaction = production.begin_transaction()?;
+        transaction.import_original(&import)?;
+        transaction.commit()?;
+    }
+
+    let representations = production.representations(asset_id)?;
+    let original = &representations[0];
+    println!(
+        "{} representation, {:?}",
+        representations.len(),
+        original.content_structure().kind()
+    );
+    Ok(asset_id)
+}
+// [/import-sequence]
+
 // [add-representation]
 fn add_proxy(
     production: &mut SqliteProduction,
     asset_id: AssetId,
     proxy: &Path,
 ) -> Result<RepresentationId> {
-    let import = prepare_single_file_representation(asset_id, RepresentationKind::Proxy, proxy)?;
+    // A path converts to a single-file source.
+    let import = prepare_representation(asset_id, RepresentationKind::Proxy, proxy)?;
     let mut transaction = production.begin_transaction()?;
     transaction.add_representation(&import)?;
     transaction.commit()?;
@@ -50,7 +79,7 @@ fn add_spanned_clip(
     spanned: &Path,
 ) -> Result<RepresentationId> {
     // Order is significant: the parts play back as one continuous clip.
-    let parts = [
+    let parts = MediaSource::OrderedParts(vec![
         FileResourceSource::new(
             spanned.join("CLIP0001.MTS"),
             ResourceRole::new(PRIMARY_ESSENCE_ROLE)?,
@@ -61,9 +90,8 @@ fn add_spanned_clip(
             ResourceRole::new(SPAN_PART_ROLE)?,
             true,
         ),
-    ];
-    let import =
-        prepare_ordered_parts_representation(asset_id, RepresentationKind::Original, &parts)?;
+    ]);
+    let import = prepare_representation(asset_id, RepresentationKind::Original, parts)?;
     let mut transaction = production.begin_transaction()?;
     transaction.add_representation(&import)?;
     transaction.commit()?;
@@ -77,7 +105,7 @@ fn add_package(
     asset_id: AssetId,
     package: &Path,
 ) -> Result<RepresentationId> {
-    let members = [
+    let members = MediaSource::Package(vec![
         FileResourceSource::new(
             package.join("clip.mxf"),
             ResourceRole::new(PRIMARY_ESSENCE_ROLE)?,
@@ -89,8 +117,8 @@ fn add_package(
             ResourceRole::new(SIDECAR_ROLE)?,
             false,
         ),
-    ];
-    let import = prepare_package_representation(asset_id, RepresentationKind::Derived, &members)?;
+    ]);
+    let import = prepare_representation(asset_id, RepresentationKind::Derived, members)?;
     let mut transaction = production.begin_transaction()?;
     transaction.add_representation(&import)?;
     transaction.commit()?;
@@ -601,14 +629,21 @@ fn media_examples_run_in_order() -> Result<()> {
         RationalRate::new(24, 1)?,
         vec![1003],
     );
-    let sequence_import =
-        prepare_image_sequence_representation(asset_id, RepresentationKind::Derived, &sequence)?;
+    let sequence_import = prepare_representation(asset_id, RepresentationKind::Derived, sequence)?;
     let sequence_id = sequence_import.representation().id();
     {
         let mut transaction = production.begin_transaction()?;
         transaction.add_representation(&sequence_import)?;
         transaction.commit()?;
     }
+    let strip_id = import_image_strip(&mut production, &work.join("renders/shot010"))?;
+    let strip = production.representations(strip_id)?;
+    assert_eq!(strip.len(), 1);
+    assert_eq!(strip[0].kind(), RepresentationKind::Original);
+    assert_eq!(
+        strip[0].content_structure().kind(),
+        ContentStructureKind::ImageSequence
+    );
     let representations = production.representations(asset_id)?;
     let kind_of = |id: RepresentationId| {
         representations

@@ -15,8 +15,7 @@ use postproject_core::{
     ToolIdentity,
 };
 use postproject_media::{
-    fingerprint_file, fingerprint_representation, prepare_original_media,
-    prepare_single_file_representation,
+    fingerprint_file, fingerprint_representation, prepare_original_media, prepare_representation,
 };
 use postproject_storage_sqlite::SqliteProduction;
 
@@ -270,8 +269,7 @@ fn provenance_examples_run_in_order() -> Result<()> {
     let original = prepare_original_media(&original_path, Some("A001".to_owned()), None)?;
     let asset_id = original.asset().id();
     let original_id = original.representation().id();
-    let proxy =
-        prepare_single_file_representation(asset_id, RepresentationKind::Proxy, &proxy_path)?;
+    let proxy = prepare_representation(asset_id, RepresentationKind::Proxy, &proxy_path)?;
     let proxy_id = proxy.representation().id();
     let comp = prepare_original_media(&comp_path, Some("shot010 comp".to_owned()), None)?;
     let comp_asset_id = comp.asset().id();

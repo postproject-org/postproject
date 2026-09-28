@@ -23,8 +23,8 @@ use postproject_core::{
 use postproject_media::{
     ExecutionOutcome, ExecutionRequest, Executor, FfmpegExecutor, GENERATE_PROXY_JOB_KIND,
     ImageSequenceSource, MediaResolver, MediaRootMapping, PROXY_720P_PROFILE,
-    prepare_confirmed_locator, prepare_confirmed_locator_under_root,
-    prepare_image_sequence_representation, prepare_original_media,
+    prepare_confirmed_locator, prepare_confirmed_locator_under_root, prepare_original_media,
+    prepare_representation,
 };
 use postproject_storage_sqlite::SqliteProduction;
 
@@ -209,8 +209,7 @@ fn add_render_sequence(
         RationalRate::new(24000, 1001)?,
         vec![1003],
     );
-    let import =
-        prepare_image_sequence_representation(asset_id, RepresentationKind::Derived, &source)?;
+    let import = prepare_representation(asset_id, RepresentationKind::Derived, source)?;
     let sequence_id = import.representation().id();
     {
         let mut transaction = production.begin_transaction()?;

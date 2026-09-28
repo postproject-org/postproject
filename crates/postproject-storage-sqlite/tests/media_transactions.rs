@@ -2,8 +2,11 @@
 
 use std::fs;
 
-use postproject_core::{ErrorKind, RevisionEventKind, TransactionState};
-use postproject_media::{prepare_media_root, prepare_original_media};
+use postproject_core::{
+    ErrorKind, FrameRange, ImageSequencePattern, RationalRate, RepresentationKind,
+    RevisionEventKind, TransactionState,
+};
+use postproject_media::{ImageSequenceSource, prepare_media_root, prepare_original_media};
 use postproject_storage_sqlite::SqliteProduction;
 use tempfile::tempdir;
 
@@ -80,6 +83,58 @@ fn imported_original_and_root_survive_reopen() {
     assert_eq!(locators[0].id(), locator_id);
     assert_eq!(locators[0].uri(), prepared.locators()[0].uri());
     assert_eq!(reopened.production().media_roots(), [root]);
+}
+
+#[test]
+fn image_sequence_imports_as_the_only_original() {
+    let directory = tempdir().expect("create temporary directory");
+    let production_path = directory.path().join("production.pproj");
+    let strip_directory = directory.path().join("strip");
+    fs::create_dir(&strip_directory).expect("create strip directory");
+    for frame in 1..=3 {
+        fs::write(
+            strip_directory.join(format!("strip_{frame:04}.png")),
+            format!("frame {frame}"),
+        )
+        .expect("write frame");
+    }
+    let frames = FrameRange::new(1, 3, 1).expect("frame range");
+    let prepared = prepare_original_media(
+        ImageSequenceSource::new(
+            &strip_directory,
+            ImageSequencePattern::new("strip_", ".png", 4).expect("pattern"),
+            frames,
+            RationalRate::new(24, 1).expect("rate"),
+            Vec::new(),
+        ),
+        Some("Strip".to_owned()),
+        None,
+    )
+    .expect("prepare sequence import");
+    let asset_id = prepared.asset().id();
+
+    let mut production =
+        SqliteProduction::create(&production_path, None).expect("create production");
+    let mut transaction = production.begin_transaction().expect("begin transaction");
+    transaction
+        .import_original(&prepared)
+        .expect("stage sequence import");
+    transaction.commit().expect("commit sequence import");
+    drop(transaction);
+    drop(production);
+
+    let reopened = SqliteProduction::open(&production_path).expect("reopen production");
+    let representations = reopened
+        .representations(asset_id)
+        .expect("load representations");
+    assert_eq!(representations.len(), 1);
+    assert_eq!(representations[0].kind(), RepresentationKind::Original);
+    let descriptor = representations[0]
+        .content_structure()
+        .image_sequence_descriptor()
+        .expect("sequence structure");
+    assert_eq!(descriptor.frames(), frames);
+    assert_eq!(descriptor.pattern().prefix(), "strip_");
 }
 
 #[test]

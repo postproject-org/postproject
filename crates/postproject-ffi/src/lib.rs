@@ -47,10 +47,9 @@ use postproject_core::{
     Timestamp, ToolIdentity, TransactionLifecycle, VocabularyId,
 };
 use postproject_media::{
-    FileResourceSource, ImageSequenceSource, canonical_file_uri, local_file_path,
-    prepare_confirmed_locator, prepare_confirmed_locator_under_root,
-    prepare_image_sequence_representation, prepare_ordered_parts_representation,
-    prepare_original_media, prepare_package_representation, prepare_single_file_representation,
+    FileResourceSource, ImageSequenceSource, MediaSource, canonical_file_uri, local_file_path,
+    prepare_confirmed_locator, prepare_confirmed_locator_under_root, prepare_original_media,
+    prepare_representation,
 };
 use postproject_storage_sqlite::SqliteProduction;
 
@@ -4716,7 +4715,7 @@ pub unsafe extern "C" fn pp_transaction_add_single_file_representation(
             if path.is_empty() {
                 return Err(invalid_argument("path must not be empty"));
             }
-            let import = prepare_single_file_representation(
+            let import = prepare_representation(
                 AssetId::from_bytes(asset_id.bytes),
                 representation_kind_from_abi(kind)?,
                 Path::new(path),
@@ -4809,10 +4808,10 @@ pub unsafe extern "C" fn pp_transaction_add_image_sequence_representation(
                 RationalRate::new(rate_numerator, rate_denominator)?,
                 missing_frames,
             );
-            let import = prepare_image_sequence_representation(
+            let import = prepare_representation(
                 AssetId::from_bytes(asset_id.bytes),
                 representation_kind_from_abi(kind)?,
-                &source,
+                source,
             )?;
             out_representation_id.write(PpUuid {
                 bytes: import.representation().id().into_bytes(),
@@ -4955,14 +4954,11 @@ unsafe fn transaction_add_file_collection_representation(
                 .collect::<Result<Vec<_>, Error>>()?;
             let asset_id = AssetId::from_bytes(asset_id.bytes);
             let kind = representation_kind_from_abi(kind)?;
-            let import = match shape {
-                FileCollectionShape::OrderedParts => {
-                    prepare_ordered_parts_representation(asset_id, kind, &sources)?
-                }
-                FileCollectionShape::Package => {
-                    prepare_package_representation(asset_id, kind, &sources)?
-                }
+            let source = match shape {
+                FileCollectionShape::OrderedParts => MediaSource::OrderedParts(sources),
+                FileCollectionShape::Package => MediaSource::Package(sources),
             };
+            let import = prepare_representation(asset_id, kind, source)?;
             out_representation_id.write(PpUuid {
                 bytes: import.representation().id().into_bytes(),
             });
