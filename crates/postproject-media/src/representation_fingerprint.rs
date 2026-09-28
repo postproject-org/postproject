@@ -10,16 +10,20 @@ use postproject_core::{
 /// Algorithm identifier for structure-aware representation fingerprints.
 pub const REPRESENTATION_FINGERPRINT_ALGORITHM: &str = "pp-blake3-representation";
 /// Current canonical representation-fingerprint strategy version.
-pub const REPRESENTATION_FINGERPRINT_VERSION: u16 = 1;
+///
+/// Version 2 no longer hashes image-sequence file names (ADR 0038). Version 1
+/// values are no longer computed.
+pub const REPRESENTATION_FINGERPRINT_VERSION: u16 = 2;
 
-const CONTEXT: &str = "postproject.org representation fingerprint v1";
+const CONTEXT: &str = "postproject.org representation fingerprint v2";
 
 /// Computes a structure-aware fingerprint from resource fingerprint evidence.
 ///
 /// Internal resource IDs and locators are deliberately excluded: importing the
 /// same content into another production must produce the same result. Package
 /// membership is order-independent, while ordered parts retain their order.
-/// Image sequences hash their compact descriptor and do not enumerate frames.
+/// Image sequences hash their compact descriptor, without file names, and do
+/// not enumerate frames.
 ///
 /// # Errors
 ///
@@ -54,9 +58,6 @@ pub fn fingerprint_representation(
             let descriptor = structure
                 .image_sequence_descriptor()
                 .ok_or_else(invalid_structure)?;
-            hash_text(&mut hasher, descriptor.pattern().prefix());
-            hash_text(&mut hasher, descriptor.pattern().suffix());
-            hasher.update(&[descriptor.pattern().padding()]);
             hasher.update(&descriptor.frames().start().to_le_bytes());
             hasher.update(&descriptor.frames().end().to_le_bytes());
             hasher.update(&descriptor.frames().step().to_le_bytes());

@@ -229,9 +229,11 @@ static pp_error_code_t resolve_asset(const pp_production_t *production,
         const char *uri = NULL;
         uint16_t confidence = 0;
         const char *root = NULL;
-        status = pp_resolution_set_get_candidate(resolutions, r, s, c, &uri,
-                                                 &confidence, &root,
-                                                 &evidence_count, error);
+        uint8_t has_naming = 0;
+        pp_sequence_naming_t naming;
+        status = pp_resolution_set_get_candidate(
+            resolutions, r, s, c, &uri, &confidence, &root, &has_naming,
+            &naming, &evidence_count, error);
         if (status == PP_OK) {
           printf("candidate: %s (%u/10000) under %s\n", uri, confidence,
                  root != NULL ? root : "no root");
@@ -275,23 +277,24 @@ confirm_unique_candidates(pp_production_t *production,
       uint64_t evidence_count = 0;
       const char *uri = NULL;
       uint16_t confidence = 0;
-      /* The logical root the candidate was found under, if any. */
+      /* The logical root the candidate was found under, if any, and for an
+       * image sequence the naming of its files there. */
       const char *root = NULL;
+      uint8_t has_naming = 0;
+      pp_sequence_naming_t naming;
       status = pp_resolution_set_get_resource(resolutions, r, s, &resource_id,
                                               &state, &candidate_count,
                                               &evidence_count, error);
       /* Several candidates need a person to choose; never pick one here. */
       if (status == PP_OK && candidate_count == 1) {
-        status = pp_resolution_set_get_candidate(resolutions, r, s, 0, &uri,
-                                                 &confidence, &root,
-                                                 &evidence_count, error);
+        status = pp_resolution_set_get_candidate(
+            resolutions, r, s, 0, &uri, &confidence, &root, &has_naming,
+            &naming, &evidence_count, error);
       }
-      if (status == PP_OK && uri != NULL && root != NULL) {
-        status = pp_transaction_confirm_locator_under_root(
-            transaction, &resource_id, uri, root, error);
-      } else if (status == PP_OK && uri != NULL) {
-        status = pp_transaction_confirm_locator(transaction, &resource_id, uri,
-                                                error);
+      if (status == PP_OK && uri != NULL) {
+        status = pp_transaction_confirm_locator(
+            transaction, &resource_id, uri, root, has_naming ? &naming : NULL,
+            error);
       }
     }
   }
@@ -315,11 +318,12 @@ static pp_error_code_t add_render_sequence(pp_production_t *production,
   pp_transaction_t *transaction = NULL;
   pp_representation_set_t *representations = NULL;
 
-  /* Directory, filename pattern, frame range and step, exact rate, and the
+  /* Directory and file naming, frame range and step, exact rate, and the
    * frames already known to be missing. */
+  const pp_sequence_naming_t naming = {"shot010.", ".exr", 4};
   pp_error_code_t status = pp_media_source_create_image_sequence(
-      directory, "shot010.", ".exr", 4, 1001, 1004, 1, 24000, 1001,
-      missing_frames, 1, &sequence, error);
+      directory, &naming, 1001, 1004, 1, 24000, 1001, missing_frames, 1,
+      &sequence, error);
   if (status == PP_OK) {
     status = pp_production_begin_transaction(production, &transaction, error);
   }
@@ -350,9 +354,6 @@ static pp_error_code_t add_render_sequence(pp_production_t *production,
                                        &kind, &structure, &members, &resources,
                                        &fingerprints, error);
     if (status == PP_OK && structure == PP_CONTENT_IMAGE_SEQUENCE) {
-      const char *prefix = NULL;
-      const char *suffix = NULL;
-      uint8_t padding = 0;
       int64_t start = 0;
       int64_t end = 0;
       uint32_t step = 0;
@@ -360,12 +361,12 @@ static pp_error_code_t add_render_sequence(pp_production_t *production,
       uint32_t rate_denominator = 0;
       uint64_t missing_count = 0;
       status = pp_representation_set_get_sequence(
-          representations, index, &prefix, &suffix, &padding, &start, &end,
-          &step, &rate_numerator, &rate_denominator, &missing_count, error);
+          representations, index, &start, &end, &step, &rate_numerator,
+          &rate_denominator, &missing_count, error);
       if (status == PP_OK) {
-        printf("%s#%s frames %lld-%lld, %llu known missing\n", prefix, suffix,
-               (long long)start, (long long)end,
-               (unsigned long long)missing_count);
+        printf("frames %lld-%lld at %u/%u, %llu known missing\n",
+               (long long)start, (long long)end, rate_numerator,
+               rate_denominator, (unsigned long long)missing_count);
       }
     }
   }
@@ -606,9 +607,11 @@ print_resource_locators(const pp_production_t *production,
     uint8_t has_last_seen = 0;
     int64_t last_seen = 0;
     const char *media_root = NULL;
-    status = pp_locator_query_set_get(locators, i, &locator_id, &owner_id, &uri,
-                                      &availability, &has_last_seen,
-                                      &last_seen, &media_root, error);
+    uint8_t has_naming = 0;
+    pp_sequence_naming_t naming;
+    status = pp_locator_query_set_get(
+        locators, i, &locator_id, &owner_id, &uri, &availability,
+        &has_last_seen, &last_seen, &media_root, &has_naming, &naming, error);
     if (status == PP_OK) {
       printf("%s (root: %s)\n", uri, media_root != NULL ? media_root : "-");
     }

@@ -19,6 +19,118 @@ template <class T> struct EventTag {
   using type = T;
 };
 
+namespace fs = std::filesystem;
+
+void write_frame(const fs::path &directory, const std::string &prefix,
+                 int frame, const std::string &content) {
+  char name[64];
+  std::snprintf(name, sizeof(name), "%04d.png", frame);
+  std::ofstream file(directory / (prefix + name), std::ios::binary);
+  file << content;
+}
+
+bool has_evidence(const postproject::ResolutionCandidate &candidate,
+                  postproject::EvidenceKind kind) {
+  return std::any_of(candidate.evidence.begin(), candidate.evidence.end(),
+                     [&](const postproject::Evidence &evidence) {
+                       return evidence.kind == kind;
+                     });
+}
+
+// A sequence imported as shot_0001.png to shot_0003.png and renamed into
+// another directory as shot-graded_0001.png ... is found by content and
+// confirmed under its new naming beside the original one. A group with the
+// same names but other content and an incomplete group are no candidates; two
+// identical renamed copies are ambiguous.
+int renamed_sequence_scenario(const std::string &production_path) {
+  const fs::path base = fs::path(production_path + ".renamed-sequence");
+  fs::remove_all(base);
+  std::remove((production_path + ".renamed").c_str());
+  const fs::path plates = base / "plates";
+  const fs::path graded = base / "graded";
+  const fs::path other = base / "other";
+  const fs::path partial = base / "partial";
+  const fs::path copy = base / "copy";
+  for (const fs::path &directory : {plates, graded, other, partial, copy}) {
+    fs::create_directories(directory);
+  }
+  const std::string contents[] = {"frame one", "frame two", "frame three"};
+  for (int frame = 1; frame <= 3; ++frame) {
+    write_frame(plates, "shot_", frame, contents[frame - 1]);
+    write_frame(other, "shot-graded_", frame, "other content");
+  }
+  write_frame(partial, "shot-graded_", 1, contents[0]);
+  write_frame(partial, "shot-graded_", 2, contents[1]);
+
+  auto production = postproject::Production::create(
+                        production_path + ".renamed", "Renamed sequence")
+                        .value();
+  const postproject::SequenceNaming original{"shot_", ".png", 4};
+  const auto source = postproject::MediaSource::imageSequence(
+      {plates.string(), original, 1, 3, 1, 24, 1, {}});
+  auto import = production.beginTransaction().value();
+  const auto asset_id = import.importMedia(source, "Shot").value();
+  import.commit().value();
+  for (int frame = 1; frame <= 3; ++frame) {
+    char number[16];
+    std::snprintf(number, sizeof(number), "%04d.png", frame);
+    fs::rename(plates / (std::string("shot_") + number),
+               graded / (std::string("shot-graded_") + number));
+  }
+
+  postproject::ResolutionOptions options;
+  options.addSearchDirectory(base.string());
+  const auto resolved = production.resolveAsset(asset_id, options).value();
+  const auto &resource = resolved[0].resources[0];
+  const postproject::SequenceNaming renamed{"shot-graded_", ".png", 4};
+  if (resource.state != postproject::ResourceResolutionState::resolved_probable ||
+      resource.candidates.size() != 1 ||
+      resource.candidates[0].sequence_naming != renamed ||
+      resource.candidates[0].uri.find("graded") == std::string::npos ||
+      !has_evidence(resource.candidates[0],
+                    postproject::EvidenceKind::partial_fingerprint_match)) {
+    return 70;
+  }
+  const auto &candidate = resource.candidates[0];
+  auto confirmation = production.beginTransaction().value();
+  confirmation
+      .confirmLocator(resource.resource_id, candidate.uri, candidate.media_root,
+                      candidate.sequence_naming)
+      .value();
+  confirmation.commit().value();
+
+  const auto locators = production.locators(resource.resource_id, 10).value();
+  std::vector<postproject::SequenceNaming> namings;
+  for (const auto &item : locators.items) {
+    if (item.locator.sequence_naming.has_value()) {
+      namings.push_back(*item.locator.sequence_naming);
+    }
+  }
+  if (namings.size() != 2 ||
+      std::find(namings.begin(), namings.end(), original) == namings.end() ||
+      std::find(namings.begin(), namings.end(), renamed) == namings.end()) {
+    return 71;
+  }
+
+  // An identical renamed copy makes the search ambiguous once the confirmed
+  // directory no longer holds the frames.
+  for (int frame = 1; frame <= 3; ++frame) {
+    write_frame(copy, "shot-graded_", frame, contents[frame - 1]);
+  }
+  fs::remove_all(graded);
+  fs::create_directories(graded);
+  for (int frame = 1; frame <= 3; ++frame) {
+    write_frame(plates, "shot-graded_", frame, contents[frame - 1]);
+  }
+  const auto ambiguous = production.resolveAsset(asset_id, options).value();
+  if (ambiguous[0].resources[0].state !=
+          postproject::ResourceResolutionState::ambiguous ||
+      ambiguous[0].resources[0].candidates.size() != 2) {
+    return 72;
+  }
+  return 0;
+}
+
 int main(int argc, char **argv) {
   if (argc != 2) {
     return 2;
@@ -28,7 +140,7 @@ int main(int argc, char **argv) {
   std::remove(path.c_str());
 
   try {
-    if (postproject::abi_version() != 34) {
+    if (postproject::abi_version() != 35) {
       return 3;
     }
 
@@ -123,7 +235,7 @@ int main(int argc, char **argv) {
         representations[0].members[0].role.has_value() ||
         representations[0].image_sequence.has_value() ||
         representations[0].fingerprints.size() != 1 ||
-        representations[0].fingerprints[0].version != 1 ||
+        representations[0].fingerprints[0].version != 2 ||
         representations[0].fingerprints[0].value.empty() ||
         representations[0].resources.size() != 1 ||
         representations[0].resources[0].id !=
@@ -405,9 +517,10 @@ int main(int argc, char **argv) {
       return 28;
     }
     auto confirmation = production.beginTransaction().value();
-    confirmation.confirmLocatorUnderRoot(
+    confirmation.confirmLocator(
         resolutions[0].resources[0].resource_id,
-        resolutions[0].resources[0].candidates[0].uri, "fixtures").value();
+        resolutions[0].resources[0].candidates[0].uri,
+        std::string("fixtures")).value();
     confirmation.setMediaRootEnabled(root_id, false).value();
     confirmation.retireLocator(
         representations[0].resources[0].locators[0].id).value();
@@ -517,8 +630,14 @@ int main(int argc, char **argv) {
     const auto proxy_id = additions.addRepresentation(
         asset_id, postproject::RepresentationKind::proxy, moved_media_path).value();
     const auto sequence = postproject::MediaSource::imageSequence(
-        {sequence_frame_path.parent_path().string(), "frame", ".exr", 4, 1, 1,
-         1, 24000, 1001, {}});
+        {sequence_frame_path.parent_path().string(),
+         {"frame", ".exr", 4},
+         1,
+         1,
+         1,
+         24000,
+         1001,
+         {}});
     const auto sequence_id = additions.addRepresentation(
         asset_id, postproject::RepresentationKind::derived, sequence).value();
     // The same sequence imported as a new asset is that asset's only original.
@@ -552,7 +671,10 @@ int main(int argc, char **argv) {
         strip[0].structure_kind !=
             postproject::ContentStructureKind::image_sequence ||
         !strip[0].image_sequence.has_value() ||
-        strip[0].image_sequence->prefix != "frame" ||
+        strip[0].resources.size() != 1 ||
+        strip[0].resources[0].locators.size() != 1 ||
+        strip[0].resources[0].locators[0].sequence_naming !=
+            postproject::SequenceNaming{"frame", ".exr", 4} ||
         strip[0].image_sequence->start != 1 ||
         strip[0].image_sequence->end != 1) {
       return 67;
@@ -982,6 +1104,10 @@ int main(int argc, char **argv) {
           std::string(error.what()).empty()) {
         return 7;
       }
+    }
+    const int renamed = renamed_sequence_scenario(path);
+    if (renamed != 0) {
+      return renamed;
     }
   } catch (const std::exception &error) {
     std::fprintf(stderr, "%s\n", error.what());

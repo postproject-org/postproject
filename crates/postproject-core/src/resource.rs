@@ -1,7 +1,8 @@
 //! Storage-level resource identity and access values.
 
 use crate::{
-    Error, ErrorKind, LocatorId, MediaRoot, ResourceId, Result, Timestamp, uri::normalize_uri,
+    Error, ErrorKind, LocatorId, MediaRoot, ResourceId, Result, SequenceNaming, Timestamp,
+    uri::normalize_uri,
 };
 
 /// Cheap filesystem facts observed for one resource.
@@ -249,6 +250,9 @@ pub enum LocatorAvailability {
 }
 
 /// A URI identifying one access route to a resource.
+///
+/// A locator of an image-sequence resource names its directory and carries
+/// the [`SequenceNaming`] of the files there; no other locator has a naming.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Locator {
     id: LocatorId,
@@ -257,6 +261,7 @@ pub struct Locator {
     last_seen: Option<Timestamp>,
     availability: LocatorAvailability,
     media_root: Option<String>,
+    sequence_naming: Option<SequenceNaming>,
 }
 
 impl Locator {
@@ -280,7 +285,15 @@ impl Locator {
             last_seen,
             availability,
             media_root: None,
+            sequence_naming: None,
         })
+    }
+
+    /// Records how the files of the image sequence at this locator are named.
+    #[must_use]
+    pub fn with_sequence_naming(mut self, naming: SequenceNaming) -> Self {
+        self.sequence_naming = Some(naming);
+        self
     }
 
     /// Associates this locator with the logical root used to discover it.
@@ -329,6 +342,13 @@ impl Locator {
     #[must_use]
     pub fn media_root(&self) -> Option<&str> {
         self.media_root.as_deref()
+    }
+
+    /// Returns the naming of the sequence files at this locator, present
+    /// exactly for a locator of an image-sequence resource.
+    #[must_use]
+    pub const fn sequence_naming(&self) -> Option<&SequenceNaming> {
+        self.sequence_naming.as_ref()
     }
 }
 

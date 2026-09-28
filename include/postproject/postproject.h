@@ -334,6 +334,18 @@ typedef struct pp_file_resource_input {
   uint8_t required;
 } pp_file_resource_input_t;
 
+/* How the files of an image sequence are named in one directory: prefix, frame
+ * number zero-padded to at least padding digits, and suffix. A naming belongs
+ * to a locator: every locator of an image-sequence resource has one, and
+ * copies of one sequence may name their files differently. Strings in an input
+ * naming are borrowed UTF-8 without embedded NUL; strings in an output naming
+ * borrow the owning result set. */
+typedef struct pp_sequence_naming {
+  const char *prefix;
+  const char *suffix;
+  uint8_t padding;
+} pp_sequence_naming_t;
+
 typedef uint32_t pp_error_code_t;
 
 #define PP_OK UINT32_C(0)
@@ -530,9 +542,8 @@ PP_API pp_error_code_t pp_representation_set_get_member(
     pp_error_t **out_error);
 PP_API pp_error_code_t pp_representation_set_get_sequence(
     const pp_representation_set_t *representations,
-    uint64_t representation_index, const char **out_prefix,
-    const char **out_suffix, uint8_t *out_padding, int64_t *out_start,
-    int64_t *out_end, uint32_t *out_step, uint32_t *out_rate_numerator,
+    uint64_t representation_index, int64_t *out_start, int64_t *out_end,
+    uint32_t *out_step, uint32_t *out_rate_numerator,
     uint32_t *out_rate_denominator, uint64_t *out_missing_count,
     pp_error_t **out_error);
 PP_API pp_error_code_t pp_representation_set_get_sequence_missing_frame(
@@ -552,12 +563,15 @@ PP_API pp_error_code_t pp_representation_set_get_resource_fingerprint(
     uint64_t fingerprint_index, const char **out_algorithm,
     uint16_t *out_version, const uint8_t **out_value,
     uint64_t *out_value_length, pp_error_t **out_error);
+/* *out_has_sequence_naming is 1 exactly for a locator of an image-sequence
+ * resource, and *out_sequence_naming then names the files in its directory. */
 PP_API pp_error_code_t pp_representation_set_get_locator(
     const pp_representation_set_t *representations,
     uint64_t representation_index, uint64_t resource_index,
     uint64_t locator_index, pp_uuid_t *out_id, const char **out_uri,
     pp_locator_availability_t *out_availability, uint8_t *out_has_last_seen,
-    int64_t *out_last_seen_unix_micros, pp_error_t **out_error);
+    int64_t *out_last_seen_unix_micros, uint8_t *out_has_sequence_naming,
+    pp_sequence_naming_t *out_sequence_naming, pp_error_t **out_error);
 PP_API void pp_representation_set_release(
     pp_representation_set_t *representations);
 /* Result strings are borrowed until the owning result set is released. */
@@ -612,7 +626,8 @@ PP_API pp_error_code_t pp_locator_query_set_get(
     pp_uuid_t *out_id, pp_uuid_t *out_resource_id, const char **out_uri,
     pp_locator_availability_t *out_availability,
     uint8_t *out_has_last_seen, int64_t *out_last_seen_unix_micros,
-    const char **out_media_root, pp_error_t **out_error);
+    const char **out_media_root, uint8_t *out_has_sequence_naming,
+    pp_sequence_naming_t *out_sequence_naming, pp_error_t **out_error);
 PP_API const char *pp_locator_query_set_next_cursor(
     const pp_locator_query_set_t *locators);
 PP_API void pp_locator_query_set_release(pp_locator_query_set_t *locators);
@@ -1001,11 +1016,14 @@ PP_API pp_error_code_t pp_fingerprint_get(const pp_fingerprint_t *fingerprint,
 PP_API void pp_fingerprint_release(pp_fingerprint_t *fingerprint);
 /* Compares the content at path with the resource's stored fingerprints in the
  * domains PostProject computes. Read-only. PP_CONTENT_NOT_COMPARABLE means only
- * foreign fingerprints are stored, so nothing was compared. */
+ * foreign fingerprints are stored, so nothing was compared. For an
+ * image-sequence resource, path is a directory and sequence_naming names its
+ * files; NULL means the naming recorded for that directory. It must be NULL
+ * for any other resource. */
 PP_API pp_error_code_t pp_production_verify_resource(
     const pp_production_t *production, const pp_uuid_t *resource_id,
-    const char *path, pp_content_verification_t *out_verification,
-    pp_error_t **out_error);
+    const char *path, const pp_sequence_naming_t *sequence_naming,
+    pp_content_verification_t *out_verification, pp_error_t **out_error);
 /* A cancellation token is a flag shared by the caller and running operations.
  * pp_cancel_token_cancel() may be called from any thread, including while an
  * operation observing the token runs on another; that operation then fails
@@ -1079,6 +1097,7 @@ PP_API pp_error_code_t pp_resolution_set_get_candidate(
     const pp_resolution_set_t *resolutions, uint64_t representation_index,
     uint64_t resource_index, uint64_t candidate_index, const char **out_uri,
     uint16_t *out_confidence_basis_points, const char **out_media_root,
+    uint8_t *out_has_sequence_naming, pp_sequence_naming_t *out_sequence_naming,
     uint64_t *out_evidence_count, pp_error_t **out_error);
 PP_API pp_error_code_t pp_resolution_set_get_resource_evidence(
     const pp_resolution_set_t *resolutions, uint64_t representation_index,
@@ -1112,10 +1131,12 @@ PP_API void pp_production_release(pp_production_t *production);
 PP_API pp_error_code_t pp_media_source_create_file(
     const char *path, pp_media_source_t **out_source, pp_error_t **out_error);
 /* The missing-frame array is borrowed and may be NULL only when its count is
- * zero. The directory and pattern strings are required borrowed UTF-8. */
+ * zero. The directory and the naming are required and borrowed. The directory
+ * and naming become the sequence's first locator; the frames, rate, and
+ * missing frames its descriptor. */
 PP_API pp_error_code_t pp_media_source_create_image_sequence(
-    const char *directory, const char *prefix, const char *suffix,
-    uint8_t padding, int64_t start, int64_t end, uint32_t step,
+    const char *directory, const pp_sequence_naming_t *naming, int64_t start,
+    int64_t end, uint32_t step,
     uint32_t rate_numerator, uint32_t rate_denominator,
     const int64_t *missing_frames, uint64_t missing_frame_count,
     pp_media_source_t **out_source, pp_error_t **out_error);
@@ -1153,12 +1174,15 @@ PP_API pp_error_code_t pp_transaction_set_media_root_enabled(
 PP_API pp_error_code_t pp_transaction_remove_media_root(
     pp_transaction_t *transaction, const pp_uuid_t *root_id,
     pp_error_t **out_error);
+/* Records uri as a locator of the resource. root_name may be NULL; otherwise it
+ * names the logical media root the URI was found under. sequence_naming is
+ * required for a resource that is an image sequence and must be NULL for any
+ * other; commit rejects a mismatch. A resource may hold one directory under
+ * several namings. */
 PP_API pp_error_code_t pp_transaction_confirm_locator(
     pp_transaction_t *transaction, const pp_uuid_t *resource_id,
-    const char *uri, pp_error_t **out_error);
-PP_API pp_error_code_t pp_transaction_confirm_locator_under_root(
-    pp_transaction_t *transaction, const pp_uuid_t *resource_id,
-    const char *uri, const char *root_name, pp_error_t **out_error);
+    const char *uri, const char *root_name,
+    const pp_sequence_naming_t *sequence_naming, pp_error_t **out_error);
 PP_API pp_error_code_t pp_transaction_retire_locator(
     pp_transaction_t *transaction, const pp_uuid_t *locator_id,
     pp_error_t **out_error);
@@ -1179,11 +1203,13 @@ PP_API pp_error_code_t pp_transaction_record_representation_fingerprint(
  * out_outcome compares the content with the stored fingerprints in the domains
  * PostProject computes: PP_OBSERVATION_UNCHANGED records no fingerprint,
  * PP_OBSERVATION_CHANGED records the new content, and PP_OBSERVATION_FIRST means
- * no such fingerprint was stored before. */
+ * no such fingerprint was stored before. sequence_naming is as for
+ * pp_production_verify_resource(); a locator confirmed earlier in the same
+ * transaction also records a naming for its directory. */
 PP_API pp_error_code_t pp_transaction_observe_resource_content(
     pp_transaction_t *transaction, const pp_uuid_t *resource_id,
-    const char *path, pp_content_observation_t *out_outcome,
-    pp_error_t **out_error);
+    const char *path, const pp_sequence_naming_t *sequence_naming,
+    pp_content_observation_t *out_outcome, pp_error_t **out_error);
 /* Replaces the complete ordered dependency observation. The array and strings
  * are borrowed for this call and copied into the transaction. */
 PP_API pp_error_code_t pp_transaction_record_dependency_set(

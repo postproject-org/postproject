@@ -33,10 +33,13 @@ static pp_error_code_t import_image_strip(pp_production_t *production,
   pp_media_source_t *strip = NULL;
   pp_transaction_t *transaction = NULL;
   pp_representation_set_t *representations = NULL;
-  /* The sequence becomes the new asset's only original representation. */
+  /* The sequence becomes the new asset's only original representation. The
+   * directory and file naming become its locator; frames and rate its
+   * descriptor. */
+  const pp_sequence_naming_t naming = {"shot010.", ".exr", 4};
   pp_error_code_t status = pp_media_source_create_image_sequence(
-      directory, "shot010.", ".exr", 4, 1001, 1004, 1, 24, 1, missing_frames,
-      1, &strip, error);
+      directory, &naming, 1001, 1004, 1, 24, 1, missing_frames, 1, &strip,
+      error);
   if (status == PP_OK) {
     status = pp_production_begin_transaction(production, &transaction, error);
   }
@@ -204,10 +207,17 @@ static pp_error_code_t print_resource(const pp_representation_set_t *set,
     pp_locator_availability_t availability;
     uint8_t has_last_seen = 0;
     int64_t last_seen = 0;
-    status = pp_representation_set_get_locator(set, r, s, l, &locator_id, &uri,
-                                               &availability, &has_last_seen,
-                                               &last_seen, error);
-    if (status == PP_OK) {
+    uint8_t has_naming = 0;
+    pp_sequence_naming_t naming;
+    status = pp_representation_set_get_locator(
+        set, r, s, l, &locator_id, &uri, &availability, &has_last_seen,
+        &last_seen, &has_naming, &naming, error);
+    if (status == PP_OK && has_naming) {
+      /* A sequence locator names its directory and the files there. */
+      printf("    locator: %s %s%0*d%s (availability %u)\n", uri,
+             naming.prefix, (int)naming.padding, 1001, naming.suffix,
+             availability);
+    } else if (status == PP_OK) {
       printf("    locator: %s (availability %u)\n", uri, availability);
     }
   }
@@ -261,14 +271,12 @@ static pp_error_code_t print_representation(const pp_representation_set_t *set,
     }
   }
   if (status == PP_OK && structure == PP_CONTENT_IMAGE_SEQUENCE) {
-    const char *prefix, *suffix;
-    uint8_t padding = 0;
     int64_t start = 0, end = 0;
     uint32_t step = 0, rate_numerator = 0, rate_denominator = 0;
     uint64_t missing_count = 0;
     status = pp_representation_set_get_sequence(
-        set, r, &prefix, &suffix, &padding, &start, &end, &step,
-        &rate_numerator, &rate_denominator, &missing_count, error);
+        set, r, &start, &end, &step, &rate_numerator, &rate_denominator,
+        &missing_count, error);
     for (uint64_t i = 0; status == PP_OK && i < missing_count; ++i) {
       status = pp_representation_set_get_sequence_missing_frame(
           set, r, i, out_missing_frame, error);
@@ -443,8 +451,10 @@ static pp_error_code_t observe_changed_file(pp_production_t *production,
   pp_content_observation_t outcome = 0;
 
   /* Verification only reads: it compares the file with the stored value. */
+  /* An image-sequence resource also takes the naming of the files at path;
+   * NULL uses the naming recorded for that directory. */
   pp_error_code_t status = pp_production_verify_resource(
-      production, resource_id, path, &verification, error);
+      production, resource_id, path, NULL, &verification, error);
   if (status == PP_OK && verification != PP_CONTENT_DIFFERS) {
     status = PP_ERROR_INTERNAL;
   }
@@ -454,8 +464,8 @@ static pp_error_code_t observe_changed_file(pp_production_t *production,
   if (status == PP_OK) {
     /* Stages the new resource fingerprint and every representation
      * fingerprint recomputed from it; commit records both in one revision. */
-    status = pp_transaction_observe_resource_content(transaction, resource_id,
-                                                     path, &outcome, error);
+    status = pp_transaction_observe_resource_content(
+        transaction, resource_id, path, NULL, &outcome, error);
   }
   if (status == PP_OK && outcome != PP_OBSERVATION_CHANGED) {
     status = PP_ERROR_INTERNAL;
@@ -470,8 +480,8 @@ static pp_error_code_t observe_changed_file(pp_production_t *production,
     status = pp_production_begin_transaction(production, &transaction, error);
   }
   if (status == PP_OK) {
-    status = pp_transaction_observe_resource_content(transaction, resource_id,
-                                                     path, &outcome, error);
+    status = pp_transaction_observe_resource_content(
+        transaction, resource_id, path, NULL, &outcome, error);
   }
   if (status == PP_OK && outcome != PP_OBSERVATION_UNCHANGED) {
     status = PP_ERROR_INTERNAL;
@@ -542,11 +552,12 @@ static pp_error_code_t retire_superseded(pp_production_t *production,
       pp_uuid_t locator_id, owner_id;
       const char *uri, *media_root;
       pp_locator_availability_t availability;
-      uint8_t has_last_seen = 0;
+      uint8_t has_last_seen = 0, has_naming = 0;
       int64_t last_seen = 0;
-      status = pp_locator_query_set_get(page, i, &locator_id, &owner_id, &uri,
-                                        &availability, &has_last_seen,
-                                        &last_seen, &media_root, error);
+      pp_sequence_naming_t naming;
+      status = pp_locator_query_set_get(
+          page, i, &locator_id, &owner_id, &uri, &availability, &has_last_seen,
+          &last_seen, &media_root, &has_naming, &naming, error);
       if (status == PP_OK) {
         printf("current locator: %s\n", uri);
         ++*out_remaining;
@@ -672,9 +683,10 @@ static pp_error_code_t create_production(const char *path, const char *media,
     status = pp_media_source_create_file(media, &camera, error);
   }
   if (status == PP_OK) {
+    const pp_sequence_naming_t naming = {"shot010.", ".exr", 4};
     status = pp_media_source_create_image_sequence(
-        renders, "shot010.", ".exr", 4, 1001, 1004, 1, 24000, 1001,
-        missing_frames, 1, &sequence, error);
+        renders, &naming, 1001, 1004, 1, 24000, 1001, missing_frames, 1,
+        &sequence, error);
   }
   if (status == PP_OK) {
     status = pp_production_begin_transaction(production, &transaction, error);
@@ -736,9 +748,11 @@ original_resource(const pp_production_t *production, const pp_uuid_t *asset_id,
         set, r, 0, out_resource_id, &has_file_facts, &size, &has_modified_at,
         &modified_at, &locator_count, &fingerprint_count, error);
     if (status == PP_OK) {
+      uint8_t has_naming = 0;
+      pp_sequence_naming_t naming;
       status = pp_representation_set_get_locator(
           set, r, 0, locator_count - 1, out_locator_id, &uri, &availability,
-          &has_last_seen, &last_seen, error);
+          &has_last_seen, &last_seen, &has_naming, &naming, error);
     }
     if (status == PP_OK) {
       snprintf(out_uri, uri_size, "%s", uri);
@@ -855,10 +869,12 @@ static pp_error_code_t find_nearby(const pp_production_t *production,
       const char *uri = NULL;
       const char *root = NULL;
       uint16_t confidence = 0;
+      uint8_t has_naming = 0;
+      pp_sequence_naming_t naming;
       if (status == PP_OK && candidate_count == 1) {
-        status = pp_resolution_set_get_candidate(resolutions, r, s, 0, &uri,
-                                                 &confidence, &root,
-                                                 &evidence_count, error);
+        status = pp_resolution_set_get_candidate(
+            resolutions, r, s, 0, &uri, &confidence, &root, &has_naming,
+            &naming, &evidence_count, error);
       }
       for (uint64_t e = 0; status == PP_OK && uri != NULL && e < evidence_count;
            ++e) {
@@ -920,7 +936,7 @@ static pp_error_code_t confirm_moved(pp_production_t *production,
   }
   if (status == PP_OK) {
     status = pp_transaction_confirm_locator(transaction, resource_id, new_uri,
-                                            error);
+                                            NULL, NULL, error);
   }
   if (status == PP_OK) {
     status = pp_transaction_commit(transaction, error);
@@ -981,6 +997,76 @@ static pp_error_code_t count_events(const pp_production_t *production,
   pp_revision_set_release(revisions);
   return status;
 }
+
+/* [relink-renamed-sequence] */
+static pp_error_code_t relink_renamed_sequence(pp_production_t *production,
+                                               const pp_uuid_t *asset_id,
+                                               const char *directory,
+                                               int *out_relinked,
+                                               pp_error_t **error) {
+  pp_resolution_options_t *options = NULL;
+  pp_resolution_set_t *resolutions = NULL;
+  pp_transaction_t *transaction = NULL;
+  *out_relinked = 0;
+  pp_error_code_t status = pp_resolution_options_create(&options, error);
+  if (status == PP_OK) {
+    status = pp_resolution_options_add_search_directory(options, directory,
+                                                        error);
+  }
+  if (status == PP_OK) {
+    status = pp_production_resolve_assets(production, asset_id, 1, options,
+                                          &resolutions, error);
+  }
+  if (status == PP_OK) {
+    status = pp_production_begin_transaction(production, &transaction, error);
+  }
+  const uint64_t count =
+      status == PP_OK ? pp_resolution_set_representation_count(resolutions) : 0;
+  for (uint64_t r = 0; status == PP_OK && r < count; ++r) {
+    pp_uuid_t owner, representation_id;
+    pp_representation_availability_t availability;
+    uint64_t resource_count = 0, issue_count = 0;
+    status = pp_resolution_set_get_representation(
+        resolutions, r, &owner, &representation_id, &availability,
+        &resource_count, &issue_count, error);
+    for (uint64_t s = 0; status == PP_OK && s < resource_count; ++s) {
+      pp_uuid_t resource_id;
+      pp_resource_resolution_state_t state;
+      uint64_t candidate_count = 0, evidence_count = 0;
+      status = pp_resolution_set_get_resource(resolutions, r, s, &resource_id,
+                                              &state, &candidate_count,
+                                              &evidence_count, error);
+      if (status != PP_OK || candidate_count != 1) {
+        continue;
+      }
+      /* A renamed sequence is found by content; the candidate carries the
+       * naming its files have now. */
+      const char *uri = NULL, *root = NULL;
+      uint16_t confidence = 0;
+      uint8_t has_naming = 0;
+      pp_sequence_naming_t naming;
+      status = pp_resolution_set_get_candidate(
+          resolutions, r, s, 0, &uri, &confidence, &root, &has_naming, &naming,
+          &evidence_count, error);
+      if (status != PP_OK || !has_naming) {
+        continue;
+      }
+      printf("%s as %s%%0%ud%s\n", uri, naming.prefix, (unsigned)naming.padding,
+             naming.suffix);
+      status = pp_transaction_confirm_locator(transaction, &resource_id, uri,
+                                              root, &naming, error);
+      *out_relinked += status == PP_OK;
+    }
+  }
+  if (status == PP_OK) {
+    status = pp_transaction_commit(transaction, error);
+  }
+  pp_transaction_release(transaction);
+  pp_resolution_set_release(resolutions);
+  pp_resolution_options_release(options);
+  return status;
+}
+/* [/relink-renamed-sequence] */
 
 int main(int argc, char **argv) {
   if (argc != 2) {
@@ -1173,6 +1259,29 @@ int main(int argc, char **argv) {
                                 &error);
   }
   if (status == PP_OK && strip_kind != PP_CONTENT_IMAGE_SEQUENCE) {
+    status = PP_ERROR_INTERNAL;
+  }
+
+  /* The strip's frames are graded and renamed into another directory. */
+  char graded[4096], from[4200], to[4200];
+  join(graded, sizeof graded, work, "graded");
+  if (status == PP_OK && make_directory(graded) != 0) {
+    status = PP_ERROR_IO;
+  }
+  const int frames[] = {1001, 1002, 1004};
+  for (size_t i = 0; status == PP_OK && i < 3; ++i) {
+    snprintf(from, sizeof from, "%s/shot010.%d.exr", renders, frames[i]);
+    snprintf(to, sizeof to, "%s/shot010-graded_%d.exr", graded, frames[i]);
+    if (rename(from, to) != 0) {
+      status = PP_ERROR_IO;
+    }
+  }
+  int relinked = 0;
+  if (status == PP_OK) {
+    status = relink_renamed_sequence(production, &strip_id, graded, &relinked,
+                                     &error);
+  }
+  if (status == PP_OK && relinked != 1) {
     status = PP_ERROR_INTERNAL;
   }
 

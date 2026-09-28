@@ -3,7 +3,7 @@
 use std::{fs, path::PathBuf};
 
 use postproject_core::{
-    FrameRange, ImageSequencePattern, MediaRoot, MediaRootId, RationalRate, RepresentationKind,
+    FrameRange, MediaRoot, MediaRootId, RationalRate, RepresentationKind, SequenceNaming,
 };
 use postproject_media::{
     ImageSequenceSource, InventoryCategory, InventoryScanner, MediaRootMapping,
@@ -44,7 +44,7 @@ fn inventory_fixture() -> InventoryFixture {
     fs::write(sequence_path.join("plate.0002.exr"), b"frame-two").expect("write frame two");
     let sequence = ImageSequenceSource::new(
         &sequence_path,
-        ImageSequencePattern::new("plate.", ".exr", 4).expect("sequence pattern"),
+        SequenceNaming::new("plate.", ".exr", 4).expect("sequence pattern"),
         FrameRange::new(1, 2, 1).expect("frame range"),
         RationalRate::new(24, 1).expect("rate"),
         Vec::new(),

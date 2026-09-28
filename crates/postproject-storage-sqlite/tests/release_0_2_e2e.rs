@@ -7,11 +7,11 @@ use std::{
 
 use postproject_core::{
     Activity, ActivityId, ActivityInput, ActivityKind, ActivityOutput, ExternalIdentifier,
-    FrameRange, IdentifierScheme, ImageSequencePattern, MediaRoot, MetadataField, MetadataProperty,
-    MetadataValue, ObjectRef, OriginIdentity, OriginalMediaImport, PropertyId, RationalRate,
+    FrameRange, IdentifierScheme, MediaRoot, MetadataField, MetadataProperty, MetadataValue,
+    ObjectRef, OriginIdentity, OriginalMediaImport, PropertyId, RationalRate,
     RepresentationAvailability, RepresentationImport, RepresentationResolution, Resource,
-    ResourceResolutionState, ResourceRole, RevisionContext, RevisionEventKind, ToolIdentity,
-    VocabularyId,
+    ResourceResolutionState, ResourceRole, RevisionContext, RevisionEventKind, SequenceNaming,
+    ToolIdentity, VocabularyId,
 };
 use postproject_media::{
     FileResourceSource, ImageSequenceSource, MediaResolver, MediaSource, prepare_confirmed_locator,
@@ -120,7 +120,7 @@ fn prepare_fixture(root: &Path) -> Fixture {
         postproject_core::RepresentationKind::Derived,
         ImageSequenceSource::new(
             &sequence_directory,
-            ImageSequencePattern::new("shot010.", ".exr", 4).expect("valid sequence pattern"),
+            SequenceNaming::new("shot010.", ".exr", 4).expect("valid sequence pattern"),
             FrameRange::new(1001, 1004, 1).expect("valid frame range"),
             RationalRate::new(24_000, 1_001).expect("valid rate"),
             vec![1002],
@@ -428,14 +428,21 @@ fn relink_moved_media(production: &mut SqliteProduction, fixture: &Fixture, relo
     assert_eq!(discovered.state(), ResourceResolutionState::ResolvedExact);
 
     let mut replacements = vec![
-        prepare_confirmed_locator(original_resource.id(), discovered.candidates()[0].uri())
-            .expect("prepare original locator"),
+        prepare_confirmed_locator(
+            original_resource.id(),
+            discovered.candidates()[0].uri(),
+            None,
+            None,
+        )
+        .expect("prepare original locator"),
     ];
     let sequence_resource = fixture.sequence.resources()[0].id();
     replacements.push(
         prepare_confirmed_locator(
             sequence_resource,
             postproject_media::canonical_file_uri(relocated.join("plates")).expect("sequence URI"),
+            None,
+            Some(SequenceNaming::new("shot010.", ".exr", 4).expect("valid naming")),
         )
         .expect("prepare sequence locator"),
     );
@@ -449,6 +456,8 @@ fn relink_moved_media(production: &mut SqliteProduction, fixture: &Fixture, relo
                         .join(format!("span-{}.mxf", index + 1)),
                 )
                 .expect("span URI"),
+                None,
+                None,
             )
             .expect("prepare span locator"),
         );

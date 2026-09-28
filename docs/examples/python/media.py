@@ -42,6 +42,7 @@ from postproject import (
     ResourceId,
     ResourceResolutionState,
     RevisionEvent,
+    SequenceNaming,
     VerificationMode,
     file_locator,
     fingerprint_file,
@@ -51,12 +52,12 @@ from postproject import (
 
 # [import-sequence]
 def import_image_strip(production: Production, directory: Path) -> AssetId:
-    # The sequence becomes the new asset's only original representation.
+    # The sequence becomes the new asset's only original representation. The
+    # directory and file naming become its locator; frames and rate its
+    # descriptor.
     strip = ImageSequenceSource(
         directory,
-        prefix="shot010.",
-        suffix=".exr",
-        padding=4,
+        naming=SequenceNaming("shot010.", ".exr", 4),
         start=1001,
         end=1004,
         step=1,
@@ -155,15 +156,19 @@ def describe_representations(
                 for fingerprint in resource.fingerprints:
                     print(f"  resource {fingerprint.algorithm} v{fingerprint.version}")
                 for locator in resource.locators:
-                    print(f"  locator {locator.uri} ({locator.availability.name})")
+                    # A sequence locator names its directory and the files there.
+                    naming = locator.sequence_naming
+                    files = f" {naming.filename(1001)}" if naming is not None else ""
+                    print(
+                        f"  locator {locator.uri}{files} ({locator.availability.name})"
+                    )
             # Representation fingerprints are separate from resource ones.
             for fingerprint in representation.fingerprints:
                 print(f"  representation {fingerprint.algorithm}")
             sequence = representation.image_sequence
             if sequence is not None:
                 print(
-                    f"  {sequence.prefix}#{sequence.suffix} "
-                    f"{sequence.start}-{sequence.end}, "
+                    f"  frames {sequence.start}-{sequence.end}, "
                     f"missing {list(sequence.missing_frames)}"
                 )
             described.append(representation)
@@ -310,9 +315,7 @@ def add_render_sequence(
             RepresentationKind.DERIVED,
             ImageSequenceSource(
                 directory=directory,
-                prefix="shot010.",
-                suffix=".exr",
-                padding=4,
+                naming=SequenceNaming("shot010.", ".exr", 4),
                 start=1001,
                 end=1004,
                 step=1,
@@ -403,9 +406,38 @@ def relocate_under_root(
         for evidence in candidate.evidence
     )
     with production.transaction() as transaction:
-        transaction.confirm_locator_under_root(
-            resource.resource_id, candidate.uri, "proxies"
+        transaction.confirm_locator(
+            resource.resource_id, candidate.uri, media_root="proxies"
         )
+
+
+# [relink-renamed-sequence]
+def relink_renamed_sequence(
+    production: Production, asset_id: AssetId, directory: Path
+) -> SequenceNaming | None:
+    for representation in production.resolve(asset_id, search_directories=[directory]):
+        for resource in representation.resources:
+            # A renamed sequence is found by content; the candidate carries the
+            # naming its files have now.
+            if len(resource.candidates) != 1:
+                continue
+            candidate = resource.candidates[0]
+            if candidate.sequence_naming is None:
+                continue
+            for evidence in candidate.evidence:
+                print(f"{candidate.uri}: {evidence.kind.name}")
+            with production.transaction() as transaction:
+                transaction.confirm_locator(
+                    resource.resource_id,
+                    candidate.uri,
+                    media_root=candidate.media_root,
+                    sequence_naming=candidate.sequence_naming,
+                )
+            return candidate.sequence_naming
+    return None
+
+
+# [/relink-renamed-sequence]
 
 
 def main() -> None:
@@ -534,6 +566,22 @@ def main() -> None:
         (strip,) = production.representations[strip_id]
         assert strip.kind is RepresentationKind.ORIGINAL
         assert strip.structure_kind is ContentStructureKind.IMAGE_SEQUENCE
+
+        # The strip's frames are graded and renamed into another directory.
+        graded = work / "graded"
+        graded.mkdir()
+        for frame in (1001, 1002, 1004):
+            (work / "renders" / "shot010" / f"shot010.{frame}.exr").rename(
+                graded / f"shot010-graded_{frame}.exr"
+            )
+        naming = relink_renamed_sequence(production, strip_id, graded)
+        assert naming == SequenceNaming("shot010-graded_", ".exr", 4)
+        (relinked,) = production.representations[strip_id]
+        assert {
+            locator.sequence_naming.prefix
+            for locator in relinked.resources[0].locators
+            if locator.sequence_naming is not None
+        } == {"shot010.", "shot010-graded_"}
 
 
 if __name__ == "__main__":

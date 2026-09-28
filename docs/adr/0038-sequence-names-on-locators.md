@@ -48,22 +48,44 @@ A sequence's file names are part of where it is, not what it is.
   directory by prefix, suffix, and padding. A group that holds every expected
   frame is verified against the version 2 fingerprint. A candidate carries the
   naming it was found under, with file-name evidence only when that naming
-  equals a recorded one.
+  equals a recorded one. Several matching groups are ambiguous; a group missing
+  an expected frame is no candidate. Without a comparable (version 2)
+  fingerprint, only a group under a naming some locator records is offered,
+  with `fingerprint_not_verified` evidence.
 - **Confirmation.** Confirming a candidate for a sequence records its naming
   with the locator. `pp_transaction_confirm_locator(transaction, resource_id,
   uri, root_name, sequence_naming, out_error)` takes an optional root name and
   an optional `pp_sequence_naming_t`, required exactly for a sequence
-  resource. It replaces `pp_transaction_confirm_locator_under_root`.
+  resource; a mismatch fails at commit. It replaces
+  `pp_transaction_confirm_locator_under_root`. A resource's locators are unique
+  by URI and naming, so one directory may be recorded under two namings.
 - **Reading.** Locators and resolution candidates report their naming on every
   surface. `pp_representation_set_get_sequence` loses its prefix, suffix, and
   padding outputs; `pp_representation_set_get_locator` and
-  `pp_resolution_set_get_candidate` gain a naming output. Python's `Locator`
+  `pp_resolution_set_get_candidate` gain a naming output, as does
+  `pp_locator_query_set_get`: an `out_has_sequence_naming` flag and a borrowed
+  `pp_sequence_naming_t`. Python's `Locator`
   and `ResolutionCandidate` gain `sequence_naming`, and
   `ImageSequenceDescriptor` loses its name fields. C++ changes the same way.
+  C++ `Transaction::confirmLocator` takes an optional root name and naming and
+  replaces `confirmLocatorUnderRoot`; Python's `confirm_locator` takes
+  `media_root` and `sequence_naming` keywords and replaces
+  `confirm_locator_under_root`. Revision events are unchanged: a
+  `locator_added` event identifies the locator, whose naming is read from it.
   The C ABI becomes version 35.
+- **Naming a sequence elsewhere.** `pp_media_source_create_image_sequence` takes
+  its naming as a `pp_sequence_naming_t`; the directory and naming become the
+  sequence's first locator. Verifying or observing a sequence's content at a
+  directory needs the naming of its files there:
+  `pp_production_verify_resource` and `pp_transaction_observe_resource_content`
+  take a nullable `pp_sequence_naming_t`, where NULL means the naming recorded
+  for that directory. The CLI prints namings as printf-style patterns such as
+  `shot_%04d.png`, takes `--confirm-naming` to choose among candidates at one
+  URI and `--sequence-naming` for `media fingerprint` and `media verify-content`.
 - **Storage.** Schema 15 moves the prefix, suffix, and padding from
   `image_sequences` to a new `locator_sequence_namings` table, one row for each
-  locator of every sequence resource.
+  locator of every sequence resource. The locator table is rebuilt without its
+  `(resource_id, uri)` uniqueness.
 
 ## Alternatives considered
 

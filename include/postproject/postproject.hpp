@@ -869,10 +869,28 @@ struct RepresentationMember final {
   bool required;
 };
 
-struct ImageSequenceDescriptor final {
+// How the files of an image sequence are named in one directory: prefix, frame
+// number zero-padded to at least padding digits, and suffix. A naming belongs
+// to a locator; copies of one sequence may name their files differently.
+struct SequenceNaming final {
   std::string prefix;
   std::string suffix;
   std::uint8_t padding;
+
+  friend bool operator==(const SequenceNaming &left,
+                         const SequenceNaming &right) {
+    return left.prefix == right.prefix && left.suffix == right.suffix &&
+           left.padding == right.padding;
+  }
+  friend bool operator!=(const SequenceNaming &left,
+                         const SequenceNaming &right) {
+    return !(left == right);
+  }
+};
+
+// What an image sequence is: its frames, rate, and known gaps. Its file names
+// belong to each locator.
+struct ImageSequenceDescriptor final {
   std::int64_t start;
   std::int64_t end;
   std::uint32_t step;
@@ -881,11 +899,10 @@ struct ImageSequenceDescriptor final {
   std::vector<std::int64_t> missing_frames;
 };
 
+// The directory and naming become the sequence's first locator.
 struct ImageSequenceInput final {
   std::string directory;
-  std::string prefix;
-  std::string suffix;
-  std::uint8_t padding;
+  SequenceNaming naming;
   std::int64_t start;
   std::int64_t end;
   std::uint32_t step;
@@ -905,6 +922,8 @@ struct Locator final {
   std::string uri;
   LocatorAvailability availability;
   std::optional<std::int64_t> last_seen_unix_micros;
+  // Present exactly for a locator of an image-sequence resource.
+  std::optional<SequenceNaming> sequence_naming;
 };
 
 // A locator returned by a paginated locator query, with its owning resource
@@ -1040,6 +1059,9 @@ struct ResolutionCandidate final {
   // The logical root the candidate was found under; empty for a candidate
   // found only in an unnamed search directory.
   std::optional<std::string> media_root;
+  // The naming the files were found under, for an image-sequence resource.
+  // Confirm the candidate with it.
+  std::optional<SequenceNaming> sequence_naming;
   std::vector<Evidence> evidence;
 };
 
@@ -1300,6 +1322,50 @@ inline std::optional<std::string> optional_string(const char *value) {
              : std::nullopt;
 }
 
+inline std::optional<SequenceNaming>
+optional_naming(std::uint8_t present, const pp_sequence_naming_t &naming) {
+  if (present == 0) {
+    return std::nullopt;
+  }
+  return SequenceNaming{
+      naming.prefix != nullptr ? std::string(naming.prefix) : std::string(),
+      naming.suffix != nullptr ? std::string(naming.suffix) : std::string(),
+      naming.padding};
+}
+
+// A checked copy of a naming whose view stays valid while this value lives.
+struct NativeNaming final {
+public:
+  static Result<NativeNaming> make(const std::optional<SequenceNaming> &naming) {
+    NativeNaming native;
+    if (naming.has_value()) {
+      POSTPROJECT_TRY_ASSIGN(native.prefix_,
+                             checked_string(naming->prefix, "naming prefix"));
+      POSTPROJECT_TRY_ASSIGN(native.suffix_,
+                             checked_string(naming->suffix, "naming suffix"));
+      native.padding_ = naming->padding;
+      native.present_ = true;
+    }
+    return native;
+  }
+
+  // Null when no naming was given.
+  [[nodiscard]] const pp_sequence_naming_t *get() {
+    if (!present_) {
+      return nullptr;
+    }
+    view_ = {prefix_.c_str(), suffix_.c_str(), padding_};
+    return &view_;
+  }
+
+private:
+  std::string prefix_;
+  std::string suffix_;
+  std::uint8_t padding_ = 0;
+  bool present_ = false;
+  pp_sequence_naming_t view_{};
+};
+
 inline Result<std::optional<std::vector<std::uint8_t>>>
 optional_bytes(std::uint8_t present, const std::uint8_t *value,
                std::uint64_t length) {
@@ -1434,9 +1500,6 @@ representation(const pp_representation_set_t *representations,
 
   std::optional<ImageSequenceDescriptor> image_sequence;
   if (structure_kind == PP_CONTENT_IMAGE_SEQUENCE) {
-    const char *prefix = nullptr;
-    const char *suffix = nullptr;
-    std::uint8_t padding = 0;
     std::int64_t start = 0;
     std::int64_t end = 0;
     std::uint32_t step = 0;
@@ -1445,8 +1508,8 @@ representation(const pp_representation_set_t *representations,
     std::uint64_t missing_count = 0;
     error = nullptr;
     status = pp_representation_set_get_sequence(
-        representations, index, &prefix, &suffix, &padding, &start, &end, &step,
-        &rate_numerator, &rate_denominator, &missing_count, &error);
+        representations, index, &start, &end, &step, &rate_numerator,
+        &rate_denominator, &missing_count, &error);
     POSTPROJECT_TRY(check(status, error));
     std::vector<std::int64_t> missing_frames;
     missing_frames.reserve(static_cast<std::size_t>(missing_count));
@@ -1460,9 +1523,6 @@ representation(const pp_representation_set_t *representations,
       missing_frames.push_back(frame);
     }
     image_sequence = ImageSequenceDescriptor{
-        prefix != nullptr ? std::string(prefix) : std::string(),
-        suffix != nullptr ? std::string(suffix) : std::string(),
-        padding,
         start,
         end,
         step,
@@ -1519,17 +1579,21 @@ representation(const pp_representation_set_t *representations,
       pp_locator_availability_t availability = 0;
       std::uint8_t has_last_seen = 0;
       std::int64_t last_seen = 0;
+      std::uint8_t has_naming = 0;
+      pp_sequence_naming_t naming{};
       error = nullptr;
       status = pp_representation_set_get_locator(
           representations, index, resource_index, locator_index, &locator_id,
-          &uri, &availability, &has_last_seen, &last_seen, &error);
+          &uri, &availability, &has_last_seen, &last_seen, &has_naming,
+          &naming, &error);
       POSTPROJECT_TRY(check(status, error));
       locators.push_back(
           {uuid(locator_id), uri != nullptr ? std::string(uri) : std::string(),
            static_cast<LocatorAvailability>(availability),
            has_last_seen != 0
                ? std::optional<std::int64_t>(last_seen)
-               : std::nullopt});
+               : std::nullopt,
+           optional_naming(has_naming, naming)});
     }
     resources.push_back(
         {uuid(resource_id),
@@ -2791,13 +2855,11 @@ private:
       POSTPROJECT_TRY_ASSIGN(
           const std::string directory,
           detail::checked_string(sequence->directory, "directory"));
-      POSTPROJECT_TRY_ASSIGN(const std::string prefix,
-                             detail::checked_string(sequence->prefix, "prefix"));
-      POSTPROJECT_TRY_ASSIGN(const std::string suffix,
-                             detail::checked_string(sequence->suffix, "suffix"));
+      POSTPROJECT_TRY_ASSIGN(detail::NativeNaming naming,
+                             detail::NativeNaming::make(sequence->naming));
       status = pp_media_source_create_image_sequence(
-          directory.c_str(), prefix.c_str(), suffix.c_str(), sequence->padding,
-          sequence->start, sequence->end, sequence->step,
+          directory.c_str(), naming.get(), sequence->start, sequence->end,
+          sequence->step,
           sequence->rate_numerator, sequence->rate_denominator,
           sequence->missing_frames.data(),
           static_cast<std::uint64_t>(sequence->missing_frames.size()), &raw,
@@ -2934,29 +2996,27 @@ public:
     return {};
   }
 
-  Result<void> confirmLocator(const Uuid &resource_id, std::string_view uri) {
+  // Confirms uri as a locator of the resource. root_name records the logical
+  // media root it was found under. sequence_naming names the files at a
+  // locator of an image-sequence resource: required for such a resource and
+  // rejected at commit for any other.
+  Result<void>
+  confirmLocator(const Uuid &resource_id, std::string_view uri,
+                 const std::optional<std::string> &root_name = std::nullopt,
+                 const std::optional<SequenceNaming> &sequence_naming =
+                     std::nullopt) {
     const pp_uuid_t id = detail::native_uuid(resource_id);
     POSTPROJECT_TRY_ASSIGN(const std::string native_uri,
                            detail::checked_string(uri, "uri"));
+    POSTPROJECT_TRY_ASSIGN(
+        const std::optional<std::string> native_root,
+        detail::checked_optional_string(root_name, "root name"));
+    POSTPROJECT_TRY_ASSIGN(detail::NativeNaming naming,
+                           detail::NativeNaming::make(sequence_naming));
     pp_error_t *error = nullptr;
     const pp_error_code_t status = pp_transaction_confirm_locator(
-        transaction_, &id, native_uri.c_str(), &error);
-    POSTPROJECT_TRY(detail::check(status, error));
-    return {};
-  }
-
-  // Confirms a locator and records the logical media root it lives under.
-  Result<void>
-  confirmLocatorUnderRoot(const Uuid &resource_id, std::string_view uri,
-                          std::string_view root_name) {
-    const pp_uuid_t id = detail::native_uuid(resource_id);
-    POSTPROJECT_TRY_ASSIGN(const std::string native_uri,
-                           detail::checked_string(uri, "uri"));
-    POSTPROJECT_TRY_ASSIGN(const std::string native_root,
-                           detail::checked_string(root_name, "root name"));
-    pp_error_t *error = nullptr;
-    const pp_error_code_t status = pp_transaction_confirm_locator_under_root(
-        transaction_, &id, native_uri.c_str(), native_root.c_str(), &error);
+        transaction_, &id, native_uri.c_str(),
+        detail::optional_c_str(native_root), naming.get(), &error);
     POSTPROJECT_TRY(detail::check(status, error));
     return {};
   }
@@ -3004,16 +3064,21 @@ public:
   // Fingerprints the content at path as the resource's present content and
   // stages it together with every representation recomputed from it. The
   // outcome says whether the content changed; unchanged content records no
-  // fingerprint.
-  Result<ContentObservationOutcome>
-  observeResourceContent(const Uuid &resource_id, std::string_view path) {
+  // fingerprint. For an image sequence, path is its directory and
+  // sequence_naming names its files; empty means the naming recorded there.
+  Result<ContentObservationOutcome> observeResourceContent(
+      const Uuid &resource_id, std::string_view path,
+      const std::optional<SequenceNaming> &sequence_naming = std::nullopt) {
     const pp_uuid_t id = detail::native_uuid(resource_id);
     POSTPROJECT_TRY_ASSIGN(const std::string native_path,
                            detail::checked_string(path, "path"));
+    POSTPROJECT_TRY_ASSIGN(detail::NativeNaming naming,
+                           detail::NativeNaming::make(sequence_naming));
     pp_content_observation_t outcome = 0;
     pp_error_t *error = nullptr;
     const pp_error_code_t status = pp_transaction_observe_resource_content(
-        transaction_, &id, native_path.c_str(), &outcome, &error);
+        transaction_, &id, native_path.c_str(), naming.get(), &outcome,
+        &error);
     POSTPROJECT_TRY(detail::check(status, error));
     return static_cast<ContentObservationOutcome>(outcome);
   }
@@ -3871,10 +3936,13 @@ public:
       std::uint8_t has_last_seen = 0;
       std::int64_t last_seen = 0;
       const char *media_root = nullptr;
+      std::uint8_t has_naming = 0;
+      pp_sequence_naming_t naming{};
       pp_error_t *item_error = nullptr;
       const pp_error_code_t item_status = pp_locator_query_set_get(
           locators.get(), index, &id, &owner_id, &uri, &availability,
-          &has_last_seen, &last_seen, &media_root, &item_error);
+          &has_last_seen, &last_seen, &media_root, &has_naming, &naming,
+          &item_error);
       POSTPROJECT_TRY(detail::check(item_status, item_error));
       if (uri == nullptr) {
         return Error(ErrorCode::internal, "locator has no URI");
@@ -3884,7 +3952,8 @@ public:
            Locator{detail::uuid(id), std::string(uri),
                    static_cast<LocatorAvailability>(availability),
                    has_last_seen != 0 ? std::optional<std::int64_t>(last_seen)
-                                      : std::nullopt},
+                                      : std::nullopt,
+                   detail::optional_naming(has_naming, naming)},
            detail::optional_string(media_root)});
     }
     const char *next_cursor = pp_locator_query_set_next_cursor(locators.get());
@@ -4083,16 +4152,23 @@ public:
                                cursor);
   }
 
-  // Compares the content at path with the resource's stored fingerprints.
-  [[nodiscard]] Result<ContentVerification>
-  verifyResource(const Uuid &resource_id, std::string_view path) const {
+  // Compares the content at path with the resource's stored fingerprints. For
+  // an image sequence, path is its directory and sequence_naming names its
+  // files; empty means the naming recorded for that directory.
+  [[nodiscard]] Result<ContentVerification> verifyResource(
+      const Uuid &resource_id, std::string_view path,
+      const std::optional<SequenceNaming> &sequence_naming =
+          std::nullopt) const {
     const pp_uuid_t id = detail::native_uuid(resource_id);
     POSTPROJECT_TRY_ASSIGN(const std::string native_path,
                            detail::checked_string(path, "path"));
+    POSTPROJECT_TRY_ASSIGN(detail::NativeNaming naming,
+                           detail::NativeNaming::make(sequence_naming));
     pp_content_verification_t verification = 0;
     pp_error_t *error = nullptr;
     const pp_error_code_t status = pp_production_verify_resource(
-        production_, &id, native_path.c_str(), &verification, &error);
+        production_, &id, native_path.c_str(), naming.get(), &verification,
+        &error);
     POSTPROJECT_TRY(detail::check(status, error));
     return static_cast<ContentVerification>(verification);
   }
@@ -4183,13 +4259,16 @@ private:
           const char *uri = nullptr;
           std::uint16_t confidence = 0;
           const char *media_root = nullptr;
+          std::uint8_t has_naming = 0;
+          pp_sequence_naming_t naming{};
           std::uint64_t candidate_evidence_count = 0;
           pp_error_t *candidate_error = nullptr;
           const pp_error_code_t candidate_status =
               pp_resolution_set_get_candidate(
                   resolutions.get(), representation_index, resource_index,
                   candidate_index, &uri, &confidence, &media_root,
-                  &candidate_evidence_count, &candidate_error);
+                  &has_naming, &naming, &candidate_evidence_count,
+                  &candidate_error);
           POSTPROJECT_TRY(detail::check(candidate_status, candidate_error));
 
           std::vector<Evidence> evidence;
@@ -4207,6 +4286,7 @@ private:
                media_root != nullptr
                    ? std::optional<std::string>(media_root)
                    : std::nullopt,
+               detail::optional_naming(has_naming, naming),
                std::move(evidence)});
         }
 

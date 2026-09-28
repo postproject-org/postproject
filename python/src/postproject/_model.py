@@ -470,12 +470,33 @@ class RepresentationMember:
 
 
 @dataclass(frozen=True, slots=True)
-class ImageSequenceDescriptor:
-    """Compact patterned description of an image sequence."""
+class SequenceNaming:
+    """How the files of an image sequence are named in one directory.
+
+    A file is named by the prefix, the frame number zero-padded to at least
+    ``padding`` digits, and the suffix. A naming belongs to a locator, not to
+    the sequence: copies of one sequence may name their files differently.
+    """
 
     prefix: str
     suffix: str
     padding: int
+
+    def filename(self, frame: int) -> str:
+        """Return the file name of one frame, without a directory."""
+
+        sign = "-" if frame < 0 else ""
+        digits = str(abs(frame)).rjust(max(self.padding - len(sign), 0), "0")
+        return f"{self.prefix}{sign}{digits}{self.suffix}"
+
+
+@dataclass(frozen=True, slots=True)
+class ImageSequenceDescriptor:
+    """What an image sequence is: frames, rate, and known gaps.
+
+    Its file names belong to each locator (see :class:`SequenceNaming`).
+    """
+
     start: int
     end: int
     step: int
@@ -502,12 +523,13 @@ class FileSource:
 
 @dataclass(frozen=True, slots=True)
 class ImageSequenceSource:
-    """Media source for one compact image sequence in a directory."""
+    """Media source for one compact image sequence in a directory.
+
+    The directory and naming become the sequence's first locator.
+    """
 
     directory: str | os.PathLike[str]
-    prefix: str
-    suffix: str
-    padding: int
+    naming: SequenceNaming
     start: int
     end: int
     step: int
@@ -542,6 +564,9 @@ class Locator:
     uri: str
     availability: LocatorAvailability
     last_seen_unix_micros: int | None
+    #: Naming of the files in the directory, exactly for a locator of an
+    #: image-sequence resource.
+    sequence_naming: SequenceNaming | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -660,6 +685,9 @@ class ResolutionCandidate:
     #: Logical root the candidate was found under; ``None`` for a candidate
     #: found only in an unnamed search directory.
     media_root: str | None
+    #: Naming the image-sequence files were found under; confirm the
+    #: candidate with it. ``None`` for any other resource.
+    sequence_naming: SequenceNaming | None
     evidence: tuple[ResolutionEvidence, ...]
 
 

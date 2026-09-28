@@ -300,3 +300,28 @@ postproject --json representation list media.pproj \
 test "$(postproject --json representation list media.pproj \
   "$(jq -r .asset_id strip.json)" | jq -r '[.items[] | "\(.kind) \(.structure)"] | join(",")')" = \
   "original image_sequence"
+
+STRIP_ID=$(jq -r .asset_id strip.json)
+mkdir -p graded
+for FRAME in 1001 1002 1004; do
+  mv "renders/shot010/shot010.$FRAME.exr" "graded/shot010-graded_$FRAME.exr"
+done
+
+# [relink-renamed-sequence]
+# A renamed sequence is found by content; each candidate carries the naming
+# its files have now, as a printf-style pattern.
+postproject --json media resolve media.pproj "$STRIP_ID" --search-dir "$PWD/graded" |
+  jq -r '.resolutions[].resources[].candidates[] |
+         "\(.uri) \(.sequence_naming.pattern) \([.evidence[].kind])"'
+# Confirmation records the candidate with its naming; --confirm-naming picks
+# one when several namings were found in the same directory.
+postproject media resolve media.pproj "$STRIP_ID" --search-dir "$PWD/graded" \
+  --confirm "$(postproject --json media resolve media.pproj "$STRIP_ID" \
+    --search-dir "$PWD/graded" |
+    jq -r '.resolutions[0].resources[0].candidates[0].uri')" \
+  --confirm-naming 'shot010-graded_%04d.exr'
+# [/relink-renamed-sequence]
+
+test "$(postproject --json media show media.pproj "$STRIP_ID" |
+  jq -r '[.representations[0].resources[0].locators[].sequence_naming.pattern] |
+         sort | join(" ")')" = "shot010-graded_%04d.exr shot010.%04d.exr"

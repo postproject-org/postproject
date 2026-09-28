@@ -259,8 +259,9 @@ impl RepresentationImport {
     /// # Errors
     ///
     /// Returns [`ErrorKind::InvalidArgument`] if a referenced resource is absent
-    /// or duplicated, an extra resource is supplied, or any resource lacks a
-    /// locator.
+    /// or duplicated, an extra resource is supplied, any resource lacks a
+    /// locator, or a locator has a sequence naming although it does not locate
+    /// the image-sequence resource, or lacks one although it does.
     pub fn new(
         representation: Representation,
         resources: Vec<Resource>,
@@ -290,6 +291,19 @@ impl RepresentationImport {
             return Err(Error::new(
                 ErrorKind::InvalidArgument,
                 "every representation resource must own at least one supplied locator",
+            ));
+        }
+        let sequence_resource = representation
+            .content_structure()
+            .image_sequence_descriptor()
+            .map(crate::ImageSequenceDescriptor::resource_id);
+        if locators.iter().any(|locator| {
+            locator.sequence_naming().is_some()
+                != (Some(locator.resource_id()) == sequence_resource)
+        }) {
+            return Err(Error::new(
+                ErrorKind::InvalidArgument,
+                "exactly the locators of an image-sequence resource must carry a sequence naming",
             ));
         }
         Ok(Self {
@@ -338,7 +352,8 @@ impl OriginalMediaImport {
     ///
     /// Returns [`ErrorKind::InvalidArgument`] if ownership is inconsistent, a
     /// referenced resource is absent or duplicated, an extra resource is
-    /// supplied, or any resource lacks a locator.
+    /// supplied, any resource lacks a locator, or a sequence naming is
+    /// misplaced as [`RepresentationImport::new`] describes.
     pub fn new(
         asset: Asset,
         representation: Representation,
@@ -607,5 +622,55 @@ mod tests {
             .kind(),
             ErrorKind::InvalidArgument
         );
+    }
+
+    #[test]
+    fn exactly_sequence_locators_carry_a_naming() {
+        let resource_id = ResourceId::new();
+        let descriptor = crate::ImageSequenceDescriptor::new(
+            resource_id,
+            crate::FrameRange::new(1, 3, 1).expect("valid range"),
+            crate::RationalRate::new(24, 1).expect("valid rate"),
+            Vec::new(),
+        )
+        .expect("valid descriptor");
+        let sequence = Representation::new(
+            RepresentationId::new(),
+            AssetId::new(),
+            RepresentationKind::Derived,
+            ContentStructure::image_sequence(descriptor),
+            Vec::new(),
+        );
+        let file = Representation::new(
+            RepresentationId::new(),
+            AssetId::new(),
+            RepresentationKind::Derived,
+            ContentStructure::single_resource(resource_id),
+            Vec::new(),
+        );
+        let resource = Resource::new(resource_id, Vec::new(), None);
+        let unnamed = Locator::new(
+            LocatorId::new(),
+            resource_id,
+            "file:///plates/",
+            None,
+            LocatorAvailability::Online,
+        )
+        .expect("valid locator");
+        let named = unnamed.clone().with_sequence_naming(
+            crate::SequenceNaming::new("shot_", ".png", 4).expect("valid naming"),
+        );
+
+        let import = |representation: &Representation, locator: &Locator| {
+            RepresentationImport::new(
+                representation.clone(),
+                vec![resource.clone()],
+                vec![locator.clone()],
+            )
+        };
+        assert!(import(&sequence, &named).is_ok());
+        assert!(import(&sequence, &unnamed).is_err());
+        assert!(import(&file, &named).is_err());
+        assert!(import(&file, &unnamed).is_ok());
     }
 }

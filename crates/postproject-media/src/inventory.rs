@@ -628,12 +628,10 @@ fn inspect_partial_structures(
     for (representation_id, resources) in by_representation {
         let structure = &resources[0].structure;
         if let Some(sequence) = structure.image_sequence_descriptor() {
-            let Some(directory) = resources[0]
-                .locators
-                .iter()
-                .find_map(locator_path)
-                .filter(|path| path.is_dir())
-            else {
+            let Some((directory, naming)) = resources[0].locators.iter().find_map(|locator| {
+                let path = locator_path(locator).filter(|path| path.is_dir())?;
+                Some((path, locator.sequence_naming()?))
+            }) else {
                 continue;
             };
             let names = fs::read_dir(&directory)
@@ -650,7 +648,7 @@ fn inspect_partial_structures(
             let mut frame = sequence.frames().start();
             loop {
                 if !sequence.is_known_missing(frame)
-                    && !names.contains(OsStr::new(&sequence.pattern().filename(frame)))
+                    && !names.contains(OsStr::new(&naming.filename(frame)))
                 {
                     missing.push(frame);
                 }

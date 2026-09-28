@@ -58,10 +58,13 @@ int main(int argc, char **argv) {
   pp_locator_availability_t availability = 0;
   uint8_t has_last_seen = 0;
   int64_t last_seen = 0;
+  uint8_t has_sequence_naming = 0;
+  pp_sequence_naming_t sequence_naming;
   if (status == PP_OK) {
     status = pp_representation_set_get_locator(
         representations, 0, 0, 0, &locator_id, &uri, &availability,
-        &has_last_seen, &last_seen, &error);
+        &has_last_seen, &last_seen, &has_sequence_naming, &sequence_naming,
+        &error);
   }
 
   if (status != PP_OK) {

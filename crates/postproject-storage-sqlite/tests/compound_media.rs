@@ -1,15 +1,19 @@
 //! Persistence coverage for compact and multi-resource content structures.
 
 use postproject_core::{
-    Asset, AssetId, ContentStructure, ErrorKind, FrameRange, ImageSequenceDescriptor,
-    ImageSequencePattern, Locator, LocatorAvailability, LocatorId, OriginalMediaImport,
-    RationalRate, Representation, RepresentationId, RepresentationImport, RepresentationKind,
-    Resource, ResourceId, ResourceMember, ResourceRole, RevisionEventKind, Timestamp,
+    Asset, AssetId, ContentStructure, ErrorKind, FrameRange, ImageSequenceDescriptor, Locator,
+    LocatorAvailability, LocatorId, OriginalMediaImport, RationalRate, Representation,
+    RepresentationId, RepresentationImport, RepresentationKind, Resource, ResourceId,
+    ResourceMember, ResourceRole, RevisionEventKind, SequenceNaming, Timestamp,
 };
 use postproject_storage_sqlite::SqliteProduction;
 use rusqlite::Connection;
 
 #[test]
+#[allow(
+    clippy::too_many_lines,
+    reason = "one sequence verifies reopening and recording a renamed copy"
+)]
 fn sparse_image_sequence_reopens_without_per_frame_resources() {
     let directory = tempfile::tempdir().expect("create temporary directory");
     let production_path = directory.path().join("sequence.pproj");
@@ -17,11 +21,9 @@ fn sparse_image_sequence_reopens_without_per_frame_resources() {
     let asset = Asset::new(AssetId::new(), now, Some("VFX plate".to_owned()), None);
     let resource_id = ResourceId::new();
     let frames = FrameRange::new(1_001, 1_100, 1).expect("valid frame range");
-    let pattern = ImageSequencePattern::new("plate.", ".exr", 4).expect("valid pattern");
     let rate = RationalRate::new(24_000, 1_001).expect("valid rate");
-    let sequence =
-        ImageSequenceDescriptor::new(resource_id, pattern, frames, rate, vec![1_027, 1_042])
-            .expect("valid sequence");
+    let sequence = ImageSequenceDescriptor::new(resource_id, frames, rate, vec![1_027, 1_042])
+        .expect("valid sequence");
     let representation = Representation::new(
         RepresentationId::new(),
         asset.id(),
@@ -37,7 +39,8 @@ fn sparse_image_sequence_reopens_without_per_frame_resources() {
         Some(now),
         LocatorAvailability::Online,
     )
-    .expect("valid locator");
+    .expect("valid locator")
+    .with_sequence_naming(SequenceNaming::new("plate.", ".exr", 4).expect("valid naming"));
     let import = OriginalMediaImport::new(
         asset,
         representation.clone(),
@@ -72,7 +75,7 @@ fn sparse_image_sequence_reopens_without_per_frame_resources() {
     );
     assert_eq!(
         reopened.locators(resource_id).expect("load locators"),
-        [locator]
+        std::slice::from_ref(&locator)
     );
     drop(reopened);
 
@@ -89,6 +92,109 @@ fn sparse_image_sequence_reopens_without_per_frame_resources() {
         .expect("count sparse exceptions");
     assert_eq!(resource_rows, 1);
     assert_eq!(exception_rows, 2);
+    drop(connection);
+
+    // A renamed copy is recorded as a second locator, even at the same URI,
+    // beside the locator that keeps the original names.
+    let mut production = SqliteProduction::open(&production_path).expect("reopen for confirm");
+    let renamed = Locator::new(
+        LocatorId::new(),
+        resource_id,
+        "file:///production/plates/shot-a/",
+        Some(now),
+        LocatorAvailability::Online,
+    )
+    .expect("valid locator")
+    .with_sequence_naming(SequenceNaming::new("plate-graded_", ".exr", 4).expect("naming"));
+    let unnamed = Locator::new(
+        LocatorId::new(),
+        resource_id,
+        "file:///backup/shot-a/",
+        Some(now),
+        LocatorAvailability::Online,
+    )
+    .expect("valid locator");
+    let mut transaction = production.begin_transaction().expect("begin transaction");
+    assert_eq!(
+        transaction
+            .add_locator(&unnamed)
+            .expect_err("a sequence locator needs a naming")
+            .kind(),
+        ErrorKind::InvalidArgument
+    );
+    assert_eq!(
+        transaction
+            .add_locator(
+                &Locator::new(
+                    LocatorId::new(),
+                    resource_id,
+                    locator.uri(),
+                    None,
+                    LocatorAvailability::Online,
+                )
+                .expect("valid locator")
+                .with_sequence_naming(locator.sequence_naming().expect("naming").clone())
+            )
+            .expect_err("the same URI and naming is a duplicate")
+            .kind(),
+        ErrorKind::AlreadyExists
+    );
+    transaction.rollback().expect("roll back rejected locators");
+    drop(transaction);
+    let mut transaction = production.begin_transaction().expect("begin transaction");
+    transaction
+        .add_locator(&renamed)
+        .expect("stage renamed locator");
+    transaction.commit().expect("commit renamed locator");
+    drop(transaction);
+    let namings = production
+        .locators(resource_id)
+        .expect("load locators")
+        .iter()
+        .map(|locator| locator.sequence_naming().cloned())
+        .collect::<std::collections::BTreeSet<_>>();
+    assert_eq!(
+        namings,
+        [
+            Some(SequenceNaming::new("plate.", ".exr", 4).expect("naming")),
+            Some(SequenceNaming::new("plate-graded_", ".exr", 4).expect("naming")),
+        ]
+        .into_iter()
+        .collect()
+    );
+}
+
+#[test]
+fn only_sequence_locators_carry_a_naming() {
+    let directory = tempfile::tempdir().expect("create temporary directory");
+    let production_path = directory.path().join("file.pproj");
+    let resource_id = ResourceId::from_bytes([40; 16]);
+    let import = compound_import(
+        "File",
+        ContentStructure::single_resource(resource_id),
+        &[resource_id],
+    );
+    let mut production =
+        SqliteProduction::create(&production_path, None).expect("create production");
+    let mut transaction = production.begin_transaction().expect("begin transaction");
+    transaction.import_original(&import).expect("stage import");
+    let named = Locator::new(
+        LocatorId::new(),
+        resource_id,
+        "file:///elsewhere/clip.mov",
+        None,
+        LocatorAvailability::Online,
+    )
+    .expect("valid locator")
+    .with_sequence_naming(SequenceNaming::new("clip_", ".mov", 4).expect("naming"));
+
+    assert_eq!(
+        transaction
+            .add_locator(&named)
+            .expect_err("a file locator has no naming")
+            .kind(),
+        ErrorKind::InvalidArgument
+    );
 }
 
 #[test]

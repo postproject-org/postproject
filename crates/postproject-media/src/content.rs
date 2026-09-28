@@ -1,15 +1,15 @@
 //! Content observation and verification for one stored resource.
 
-use std::path::Path;
+use std::{collections::BTreeSet, path::Path};
 
 use postproject_core::{
-    ContentStructure, Error, ErrorKind, FileFacts, MAX_QUERY_PAGE_SIZE, ProductionRead,
+    ContentStructure, Error, ErrorKind, FileFacts, Locator, MAX_QUERY_PAGE_SIZE, ProductionRead,
     QueryPageRequest, Representation, RepresentationFingerprint, RepresentationId, Resource,
-    ResourceFingerprint, ResourceId, Result,
+    ResourceFingerprint, ResourceId, Result, SequenceNaming,
 };
 
 use crate::{
-    SEQUENCE_FINGERPRINT_ALGORITHM, SEQUENCE_FINGERPRINT_VERSION,
+    SEQUENCE_FINGERPRINT_ALGORITHM, SEQUENCE_FINGERPRINT_VERSION, canonical_file_uri,
     fingerprint::is_file_fingerprint_domain, fingerprint_file, fingerprint_image_sequence,
     fingerprint_representation,
 };
@@ -113,42 +113,105 @@ pub fn resource_usage<R: ProductionRead + ?Sized>(
 /// Computes the fingerprint of the present content of one resource.
 ///
 /// A file resource is fingerprinted as a file. An image-sequence resource is
-/// fingerprinted as the sequence directory at `path`, using the structure's
-/// descriptor.
+/// fingerprinted as the files named by `sequence_naming` in the directory at
+/// `path`, using the structure's descriptor. The naming is required exactly
+/// for an image-sequence resource.
 ///
 /// # Errors
 ///
 /// Returns [`ErrorKind::InvalidArgument`] when the resource is not part of
-/// `structure`, and the fingerprinting errors of [`fingerprint_file`] or
+/// `structure` or `sequence_naming` is supplied for a file or missing for a
+/// sequence, and the fingerprinting errors of [`fingerprint_file`] or
 /// [`fingerprint_image_sequence`] for unreadable or unstable content.
 pub fn fingerprint_resource_content(
     resource_id: ResourceId,
     structure: &ContentStructure,
     path: impl AsRef<Path>,
+    sequence_naming: Option<&SequenceNaming>,
 ) -> Result<ResourceFingerprint> {
-    observe_content(resource_id, structure, path).map(|(fingerprint, _)| fingerprint)
+    observe_content(resource_id, structure, path, sequence_naming)
+        .map(|(fingerprint, _)| fingerprint)
 }
 
 fn observe_content(
     resource_id: ResourceId,
     structure: &ContentStructure,
     path: impl AsRef<Path>,
+    sequence_naming: Option<&SequenceNaming>,
 ) -> Result<(ResourceFingerprint, Option<FileFacts>)> {
+    if let Some((descriptor, naming)) = content_naming(resource_id, structure, sequence_naming)? {
+        let report = fingerprint_image_sequence(path, naming, descriptor)?;
+        return Ok((report.fingerprint().clone(), None));
+    }
+    let report = fingerprint_file(path)?;
+    Ok((report.fingerprint().clone(), Some(report.facts())))
+}
+
+/// Checks that a resource belongs to `structure` and that a sequence naming is
+/// supplied exactly for its image-sequence resource, returning the sequence's
+/// descriptor and naming.
+fn content_naming<'a>(
+    resource_id: ResourceId,
+    structure: &'a ContentStructure,
+    sequence_naming: Option<&'a SequenceNaming>,
+) -> Result<
+    Option<(
+        &'a postproject_core::ImageSequenceDescriptor,
+        &'a SequenceNaming,
+    )>,
+> {
     if !structure.resource_ids().contains(&resource_id) {
         return Err(Error::new(
             ErrorKind::InvalidArgument,
             "resource does not belong to the supplied content structure",
         ));
     }
-    if let Some(descriptor) = structure
+    let descriptor = structure
         .image_sequence_descriptor()
-        .filter(|descriptor| descriptor.resource_id() == resource_id)
-    {
-        let report = fingerprint_image_sequence(path, descriptor)?;
-        return Ok((report.fingerprint().clone(), None));
+        .filter(|descriptor| descriptor.resource_id() == resource_id);
+    match (descriptor, sequence_naming) {
+        (Some(descriptor), Some(naming)) => Ok(Some((descriptor, naming))),
+        (None, None) => Ok(None),
+        (Some(_), None) => Err(Error::new(
+            ErrorKind::InvalidArgument,
+            "an image-sequence resource needs the sequence naming of its files",
+        )),
+        (None, Some(_)) => Err(Error::new(
+            ErrorKind::InvalidArgument,
+            "only an image-sequence resource has a sequence naming",
+        )),
     }
-    let report = fingerprint_file(path)?;
-    Ok((report.fingerprint().clone(), Some(report.facts())))
+}
+
+/// Returns the sequence naming recorded for the directory at `path`.
+///
+/// Among `locators`, those whose URI names `path` are considered. Their one
+/// naming is returned; without such a locator, or for locators without a
+/// naming, the result is `None`.
+///
+/// # Errors
+///
+/// Returns the path errors of [`canonical_file_uri`], and
+/// [`ErrorKind::InvalidArgument`] when the locators at `path` record several
+/// namings, so the caller must name the files explicitly.
+pub fn recorded_sequence_naming(
+    locators: &[Locator],
+    path: impl AsRef<Path>,
+) -> Result<Option<SequenceNaming>> {
+    let uri = canonical_file_uri(path)?;
+    let namings = locators
+        .iter()
+        .filter(|locator| locator.uri() == uri)
+        .filter_map(Locator::sequence_naming)
+        .collect::<BTreeSet<_>>();
+    match namings.len() {
+        0 => Ok(None),
+        1 => Ok(namings.into_iter().next().cloned()),
+        _ => Err(Error::new(
+            ErrorKind::InvalidArgument,
+            "several sequence namings are recorded for this directory; name the files explicitly",
+        )),
+    }
 }
 
 /// Compares present content with a resource's stored fingerprints.
@@ -165,12 +228,14 @@ pub fn verify_resource_content(
     resource: &Resource,
     structure: &ContentStructure,
     path: impl AsRef<Path>,
+    sequence_naming: Option<&SequenceNaming>,
 ) -> Result<ContentVerification> {
+    content_naming(resource.id(), structure, sequence_naming)?;
     let comparable = comparable_fingerprints(resource, structure);
     if comparable.is_empty() {
         return Ok(ContentVerification::NotComparable);
     }
-    let present = fingerprint_resource_content(resource.id(), structure, path)?;
+    let present = fingerprint_resource_content(resource.id(), structure, path, sequence_naming)?;
     Ok(if comparable.contains(&&present) {
         ContentVerification::Matches
     } else {
@@ -222,6 +287,7 @@ pub fn observe_resource_content(
     resource_id: ResourceId,
     representations: &[(Representation, Vec<Resource>)],
     path: impl AsRef<Path>,
+    sequence_naming: Option<&SequenceNaming>,
 ) -> Result<ContentObservation> {
     let Some((first, _)) = representations.first() else {
         return Err(Error::new(
@@ -229,7 +295,12 @@ pub fn observe_resource_content(
             "resource is not used by any representation",
         ));
     };
-    let (resource, file_facts) = observe_content(resource_id, first.content_structure(), path)?;
+    let (resource, file_facts) = observe_content(
+        resource_id,
+        first.content_structure(),
+        path,
+        sequence_naming,
+    )?;
     let outcome = representations
         .iter()
         .find_map(|(_, resources)| {
@@ -290,12 +361,12 @@ mod tests {
         let structure = prepared.representation().content_structure();
 
         assert_eq!(
-            verify_resource_content(resource, structure, &path).expect("verify"),
+            verify_resource_content(resource, structure, &path, None).expect("verify"),
             ContentVerification::Matches
         );
         fs::write(&path, b"replaced").expect("replace media");
         assert_eq!(
-            verify_resource_content(resource, structure, &path).expect("verify"),
+            verify_resource_content(resource, structure, &path, None).expect("verify"),
             ContentVerification::Differs
         );
         let foreign = Resource::new(
@@ -304,7 +375,7 @@ mod tests {
             resource.file_facts(),
         );
         assert_eq!(
-            verify_resource_content(&foreign, structure, &path).expect("verify"),
+            verify_resource_content(&foreign, structure, &path, None).expect("verify"),
             ContentVerification::NotComparable
         );
     }
@@ -323,6 +394,7 @@ mod tests {
             resource_id,
             &[(representation.clone(), prepared.resources().to_vec())],
             &path,
+            None,
         )
         .expect("observe content");
 
@@ -352,9 +424,14 @@ mod tests {
         let representation = prepared.representation().clone();
         let resource = prepared.resources()[0].clone();
         let outcome = |resources: Vec<Resource>| {
-            observe_resource_content(resource.id(), &[(representation.clone(), resources)], &path)
-                .expect("observe content")
-                .outcome()
+            observe_resource_content(
+                resource.id(),
+                &[(representation.clone(), resources)],
+                &path,
+                None,
+            )
+            .expect("observe content")
+            .outcome()
         };
 
         assert_eq!(

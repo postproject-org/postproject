@@ -8,9 +8,9 @@ use std::path::{Path, PathBuf};
 
 use postproject_core::{
     AssetId, AvailabilityIssueKind, CancellationToken, ContentStructureKind, EvidenceKind,
-    FrameRange, ImageSequencePattern, MediaRoot, MediaRootId, QueryPageRequest, RationalRate,
-    RepresentationAvailability, RepresentationId, RepresentationKind, RepresentationResolution,
-    ResourceId, ResourceResolutionState, ResourceRole, Result, RevisionEventKind,
+    FrameRange, MediaRoot, MediaRootId, QueryPageRequest, RationalRate, RepresentationAvailability,
+    RepresentationId, RepresentationKind, RepresentationResolution, ResourceId,
+    ResourceResolutionState, ResourceRole, Result, RevisionEventKind, SequenceNaming,
 };
 use postproject_media::{
     ContentObservationOutcome, ContentVerification, FileResourceSource, ImageSequenceSource,
@@ -30,10 +30,12 @@ use postproject_media::{FfprobeInspector, InspectionOutcome, MediaInspector, Tec
 
 // [import-sequence]
 fn import_image_strip(production: &mut SqliteProduction, directory: &Path) -> Result<AssetId> {
-    // The sequence becomes the new asset's only original representation.
+    // The sequence becomes the new asset's only original representation. The
+    // directory and file naming become its locator; frames and rate its
+    // descriptor.
     let strip = ImageSequenceSource::new(
         directory,
-        ImageSequencePattern::new("shot010.", ".exr", 4)?,
+        SequenceNaming::new("shot010.", ".exr", 4)?,
         FrameRange::new(1001, 1004, 1)?,
         RationalRate::new(24, 1)?,
         vec![1003],
@@ -159,11 +161,10 @@ fn print_structure(production: &SqliteProduction, asset_id: AssetId) -> Result<u
             if let Some(sequence) = structure.image_sequence_descriptor() {
                 let frames = sequence.frames();
                 println!(
-                    "  frames {}-{} of {}####{}, known missing {:?}",
+                    "  frames {}-{} at {}, known missing {:?}",
                     frames.start(),
                     frames.end(),
-                    sequence.pattern().prefix(),
-                    sequence.pattern().suffix(),
+                    sequence.rate(),
                     sequence.known_missing_frames()
                 );
             }
@@ -173,7 +174,13 @@ fn print_structure(production: &SqliteProduction, asset_id: AssetId) -> Result<u
                     println!("    fingerprint {}", fingerprint.algorithm());
                 }
                 for locator in production.locators(resource.id())? {
-                    println!("    locator {}", locator.uri());
+                    // A sequence locator names its directory and the files there.
+                    match locator.sequence_naming() {
+                        Some(naming) => {
+                            println!("    locator {} {}", locator.uri(), naming.filename(1001));
+                        }
+                        None => println!("    locator {}", locator.uri()),
+                    }
                 }
             }
         }
@@ -218,7 +225,8 @@ fn move_to_archive(
     archived: &Path,
 ) -> Result<()> {
     let superseded: Vec<_> = production.locators(resource_id)?;
-    let replacement = prepare_confirmed_locator(resource_id, canonical_file_uri(archived)?)?;
+    let replacement =
+        prepare_confirmed_locator(resource_id, canonical_file_uri(archived)?, None, None)?;
     {
         let mut transaction = production.begin_transaction()?;
         transaction.add_locator(&replacement)?;
@@ -290,12 +298,14 @@ fn observe_changed_original(
         resource.expect("representation lists the resource"),
         representation.content_structure(),
         path,
+        None,
     )?;
     assert_eq!(verification, ContentVerification::Differs);
 
     // The new resource value and every representation recomputed from it are
     // recorded in one revision. Recording an unchanged observation adds none.
-    let observation = observe_resource_content(resource_id, &usage, path)?;
+    // An image-sequence resource also needs the naming of the files at path.
+    let observation = observe_resource_content(resource_id, &usage, path, None)?;
     assert_eq!(observation.outcome(), ContentObservationOutcome::Changed);
     {
         let mut transaction = production.begin_transaction()?;
@@ -366,6 +376,53 @@ fn find_nearby(
     Ok(None)
 }
 // [/resolve-scope]
+
+// [relink-renamed-sequence]
+fn relink_renamed_sequence(
+    production: &mut SqliteProduction,
+    asset_id: AssetId,
+    directory: &Path,
+) -> Result<Option<SequenceNaming>> {
+    let mut inputs = Vec::new();
+    for representation in production.representations(asset_id)? {
+        for resource in production.resources(representation.id())? {
+            let locators = production.locators(resource.id())?;
+            inputs.push((representation.clone(), resource, locators));
+        }
+    }
+    let items = inputs
+        .iter()
+        .map(|(representation, resource, locators)| {
+            ResolutionItem::new(resource, representation.content_structure(), locators)
+        })
+        .collect::<Vec<_>>();
+    let scope = SearchScope::default().with_search_directory(directory);
+    for resolution in MediaResolver::default().resolve(&items, &scope)? {
+        // A renamed sequence is found by content; the candidate carries the
+        // naming its files have now.
+        let [candidate] = resolution.candidates() else {
+            continue;
+        };
+        let Some(naming) = candidate.sequence_naming() else {
+            continue;
+        };
+        for evidence in candidate.evidence() {
+            println!("{} {:?}", candidate.uri(), evidence.kind());
+        }
+        let locator = prepare_confirmed_locator(
+            resolution.resource_id(),
+            candidate.uri(),
+            candidate.media_root(),
+            Some(naming.clone()),
+        )?;
+        let mut transaction = production.begin_transaction()?;
+        transaction.add_locator(&locator)?;
+        transaction.commit()?;
+        return Ok(Some(naming.clone()));
+    }
+    Ok(None)
+}
+// [/relink-renamed-sequence]
 
 // [resolution-issues]
 fn print_resolution_issues(
@@ -624,7 +681,7 @@ fn media_examples_run_in_order() -> Result<()> {
     let package_id = add_package(&mut production, asset_id, &work.join("package"))?;
     let sequence = ImageSequenceSource::new(
         work.join("renders/shot010"),
-        ImageSequencePattern::new("shot010.", ".exr", 4)?,
+        SequenceNaming::new("shot010.", ".exr", 4)?,
         FrameRange::new(1001, 1004, 1)?,
         RationalRate::new(24, 1)?,
         vec![1003],
@@ -801,5 +858,35 @@ fn media_examples_run_in_order() -> Result<()> {
     let locators = production.locators(original_resource)?;
     assert_eq!(locators.len(), 1);
     assert_eq!(locators[0].uri(), canonical_file_uri(&archived)?);
+
+    // The strip's frames are graded and renamed into another directory.
+    let graded = work.join("graded");
+    fs::create_dir_all(&graded).expect("graded directory");
+    for frame in [1001, 1002, 1004] {
+        fs::rename(
+            work.join(format!("renders/shot010/shot010.{frame}.exr")),
+            graded.join(format!("shot010-graded_{frame}.exr")),
+        )
+        .expect("rename frame");
+    }
+    let naming = relink_renamed_sequence(&mut production, strip_id, &graded)?;
+    assert_eq!(
+        naming,
+        Some(SequenceNaming::new("shot010-graded_", ".exr", 4)?)
+    );
+    let strip_resource = production.resources(strip[0].id())?[0].id();
+    let namings: Vec<_> = production
+        .locators(strip_resource)?
+        .iter()
+        .filter_map(|locator| {
+            locator
+                .sequence_naming()
+                .map(SequenceNaming::prefix)
+                .map(str::to_owned)
+        })
+        .collect();
+    assert_eq!(namings.len(), 2);
+    assert!(namings.contains(&"shot010.".to_owned()));
+    assert!(namings.contains(&"shot010-graded_".to_owned()));
     Ok(())
 }

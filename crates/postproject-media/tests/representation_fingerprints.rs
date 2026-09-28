@@ -1,8 +1,8 @@
 //! Structure-aware representation-fingerprint integration tests.
 
 use postproject_core::{
-    ContentStructure, FrameRange, ImageSequenceDescriptor, ImageSequencePattern, RationalRate,
-    Resource, ResourceFingerprint, ResourceId, ResourceMember, ResourceRole,
+    ContentStructure, FrameRange, ImageSequenceDescriptor, RationalRate, Resource,
+    ResourceFingerprint, ResourceId, ResourceMember, ResourceRole,
 };
 use postproject_media::{
     REPRESENTATION_FINGERPRINT_ALGORITHM, REPRESENTATION_FINGERPRINT_VERSION,
@@ -91,7 +91,6 @@ fn image_sequence_uses_its_compact_descriptor() {
     let descriptor = |end| {
         ImageSequenceDescriptor::new(
             resource.id(),
-            ImageSequencePattern::new("shot.", ".exr", 6).expect("valid pattern"),
             FrameRange::new(1, end, 1).expect("valid frame range"),
             RationalRate::new(24_000, 1_001).expect("valid rate"),
             vec![42],

@@ -1,8 +1,13 @@
 #include <postproject/postproject.h>
 
+#include <errno.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/stat.h>
+#ifdef _WIN32
+#include <direct.h>
+#endif
 
 static int uuid_is_zero(const pp_uuid_t *id) {
   static const uint8_t zero[16] = {0};
@@ -38,6 +43,279 @@ static pp_error_code_t add_file(pp_transaction_t *transaction,
   return status;
 }
 
+static int make_directory(const char *path) {
+#ifdef _WIN32
+  return _mkdir(path) == 0 || errno == EEXIST ? 0 : -1;
+#else
+  return mkdir(path, 0777) == 0 || errno == EEXIST ? 0 : -1;
+#endif
+}
+
+static int join_path(char *buffer, size_t size, const char *directory,
+                     const char *name) {
+  int length = snprintf(buffer, size, "%s/%s", directory, name);
+  return length < 0 || (size_t)length >= size ? -1 : 0;
+}
+
+static int frame_path(char *buffer, size_t size, const char *directory,
+                      const char *prefix, int frame) {
+  int length =
+      snprintf(buffer, size, "%s/%s%04d.png", directory, prefix, frame);
+  return length < 0 || (size_t)length >= size ? -1 : 0;
+}
+
+static int write_frame(const char *directory, const char *prefix, int frame,
+                       const char *content) {
+  char path[4096];
+  FILE *file = NULL;
+  if (frame_path(path, sizeof(path), directory, prefix, frame) != 0 ||
+      (file = fopen(path, "wb")) == NULL) {
+    return -1;
+  }
+  size_t length = strlen(content);
+  int written = fwrite(content, 1, length, file) == length;
+  return fclose(file) == 0 && written ? 0 : -1;
+}
+
+static const char *const frame_contents[] = {"frame one", "frame two",
+                                             "frame three"};
+
+/* Resolves the asset searching directory and reads the first resource. */
+static pp_error_code_t resolve_in(pp_production_t *production,
+                                  const pp_uuid_t *asset_id,
+                                  const char *directory,
+                                  pp_resolution_set_t **out_resolutions,
+                                  pp_resource_resolution_state_t *out_state,
+                                  uint64_t *out_candidates,
+                                  pp_error_t **out_error) {
+  pp_resolution_options_t *options = NULL;
+  pp_error_code_t status = pp_resolution_options_create(&options, out_error);
+  if (status == PP_OK) {
+    status =
+        pp_resolution_options_add_search_directory(options, directory, out_error);
+  }
+  if (status == PP_OK) {
+    status = pp_production_resolve_assets(production, asset_id, 1, options,
+                                          out_resolutions, out_error);
+  }
+  pp_resolution_options_release(options);
+  if (status == PP_OK) {
+    pp_uuid_t resource_id = {{0}};
+    uint64_t evidence_count = 0;
+    status = pp_resolution_set_get_resource(*out_resolutions, 0, 0,
+                                            &resource_id, out_state,
+                                            out_candidates, &evidence_count,
+                                            out_error);
+  }
+  return status;
+}
+
+/* A sequence imported as shot_0001.png to shot_0003.png and renamed into
+ * another directory as shot-graded_0001.png ... is found by content, and
+ * confirming it records a second locator beside the original naming. A group
+ * with the same names but other content and an incomplete group are not
+ * candidates; two identical renamed copies are ambiguous. */
+static int renamed_sequence_scenario(pp_production_t *production,
+                                     const char *work) {
+  char base[4096];
+  char plates[4096];
+  char graded[4096];
+  char other[4096];
+  char partial[4096];
+  char copy[4096];
+  char path[4096];
+  char target[4096];
+  pp_error_t *error = NULL;
+  if (join_path(base, sizeof(base), work, "c-renamed-sequence") != 0 ||
+      join_path(plates, sizeof(plates), base, "plates") != 0 ||
+      join_path(graded, sizeof(graded), base, "graded") != 0 ||
+      join_path(other, sizeof(other), base, "other") != 0 ||
+      join_path(partial, sizeof(partial), base, "partial") != 0 ||
+      join_path(copy, sizeof(copy), base, "copy") != 0 ||
+      make_directory(base) != 0 || make_directory(plates) != 0 ||
+      make_directory(graded) != 0 || make_directory(other) != 0 ||
+      make_directory(partial) != 0 || make_directory(copy) != 0) {
+    return 130;
+  }
+  for (int frame = 1; frame <= 3; ++frame) {
+    const char *directories[] = {plates, graded, other, partial, copy};
+    for (size_t index = 0; index < 5; ++index) {
+      if (frame_path(path, sizeof(path), directories[index], "shot-graded_",
+                     frame) != 0) {
+        return 130;
+      }
+      (void)remove(path);
+    }
+    if (write_frame(plates, "shot_", frame, frame_contents[frame - 1]) != 0 ||
+        write_frame(other, "shot-graded_", frame, "other content") != 0) {
+      return 130;
+    }
+  }
+  if (write_frame(partial, "shot-graded_", 1, frame_contents[0]) != 0 ||
+      write_frame(partial, "shot-graded_", 2, frame_contents[1]) != 0) {
+    return 130;
+  }
+
+  const pp_sequence_naming_t naming = {"shot_", ".png", UINT8_C(4)};
+  pp_media_source_t *source = NULL;
+  pp_transaction_t *transaction = NULL;
+  pp_uuid_t asset_id = {{0}};
+  pp_error_code_t status = pp_media_source_create_image_sequence(
+      plates, &naming, INT64_C(1), INT64_C(3), UINT32_C(1), UINT32_C(24),
+      UINT32_C(1), NULL, 0, &source, &error);
+  if (status == PP_OK) {
+    status = pp_production_begin_transaction(production, &transaction, &error);
+  }
+  if (status == PP_OK) {
+    status = pp_transaction_import_media(transaction, source, "Shot", &asset_id,
+                                         &error);
+  }
+  if (status == PP_OK) {
+    status = pp_transaction_commit(transaction, &error);
+  }
+  pp_transaction_release(transaction);
+  transaction = NULL;
+  pp_media_source_release(source);
+  if (status != PP_OK) {
+    pp_error_release(error);
+    return 131;
+  }
+  for (int frame = 1; frame <= 3; ++frame) {
+    if (frame_path(path, sizeof(path), plates, "shot_", frame) != 0 ||
+        frame_path(target, sizeof(target), graded, "shot-graded_", frame) !=
+            0 ||
+        rename(path, target) != 0) {
+      return 132;
+    }
+  }
+
+  pp_resolution_set_t *resolutions = NULL;
+  pp_resource_resolution_state_t state = 0;
+  uint64_t candidate_count = 0;
+  status = resolve_in(production, &asset_id, base, &resolutions, &state,
+                      &candidate_count, &error);
+  const char *uri = NULL;
+  uint16_t confidence = 0;
+  const char *media_root = NULL;
+  uint8_t has_naming = 0;
+  pp_sequence_naming_t found = {NULL, NULL, 0};
+  uint64_t evidence_count = 0;
+  if (status != PP_OK || state != PP_RESOURCE_RESOLVED_PROBABLE ||
+      candidate_count != UINT64_C(1) ||
+      pp_resolution_set_get_candidate(resolutions, 0, 0, 0, &uri, &confidence,
+                                      &media_root, &has_naming, &found,
+                                      &evidence_count, &error) != PP_OK ||
+      has_naming != UINT8_C(1) || strcmp(found.prefix, "shot-graded_") != 0 ||
+      strcmp(found.suffix, ".png") != 0 || found.padding != UINT8_C(4) ||
+      strstr(uri, "graded") == NULL) {
+    pp_resolution_set_release(resolutions);
+    pp_error_release(error);
+    return 133;
+  }
+  int partial_match = 0;
+  for (uint64_t index = 0; index < evidence_count; ++index) {
+    pp_evidence_kind_t kind = 0;
+    const char *detail = NULL;
+    if (pp_resolution_set_get_candidate_evidence(resolutions, 0, 0, 0, index,
+                                                 &kind, &detail,
+                                                 &error) != PP_OK) {
+      pp_resolution_set_release(resolutions);
+      pp_error_release(error);
+      return 134;
+    }
+    partial_match |= kind == PP_EVIDENCE_PARTIAL_FINGERPRINT_MATCH;
+  }
+  if (!partial_match) {
+    pp_resolution_set_release(resolutions);
+    return 134;
+  }
+
+  // The candidate is confirmed with the naming it was found under.
+  pp_uuid_t resource_id = {{0}};
+  pp_resource_resolution_state_t unused_state = 0;
+  uint64_t unused_count = 0;
+  status = pp_resolution_set_get_resource(resolutions, 0, 0, &resource_id,
+                                          &unused_state, &unused_count,
+                                          &unused_count, &error);
+  if (status == PP_OK) {
+    status = pp_production_begin_transaction(production, &transaction, &error);
+  }
+  if (status == PP_OK) {
+    status = pp_transaction_confirm_locator(transaction, &resource_id, uri,
+                                            media_root, &found, &error);
+  }
+  if (status == PP_OK) {
+    status = pp_transaction_commit(transaction, &error);
+  }
+  pp_transaction_release(transaction);
+  pp_resolution_set_release(resolutions);
+  if (status != PP_OK) {
+    pp_error_release(error);
+    return 135;
+  }
+
+  pp_locator_query_set_t *locators = NULL;
+  int original = 0;
+  int renamed = 0;
+  status = pp_production_locators_page(production, &resource_id, 10, NULL,
+                                       &locators, &error);
+  for (uint64_t index = 0;
+       status == PP_OK && index < pp_locator_query_set_count(locators);
+       ++index) {
+    pp_uuid_t locator_id = {{0}};
+    pp_uuid_t owner_id = {{0}};
+    const char *locator_uri = NULL;
+    pp_locator_availability_t availability = 0;
+    uint8_t has_last_seen = 0;
+    int64_t last_seen = 0;
+    const char *root = NULL;
+    uint8_t has_locator_naming = 0;
+    pp_sequence_naming_t locator_naming = {NULL, NULL, 0};
+    status = pp_locator_query_set_get(
+        locators, index, &locator_id, &owner_id, &locator_uri, &availability,
+        &has_last_seen, &last_seen, &root, &has_locator_naming,
+        &locator_naming, &error);
+    if (status == PP_OK && has_locator_naming == UINT8_C(1)) {
+      original += strcmp(locator_naming.prefix, "shot_") == 0;
+      renamed += strcmp(locator_naming.prefix, "shot-graded_") == 0;
+    }
+  }
+  pp_locator_query_set_release(locators);
+  if (status != PP_OK || original != 1 || renamed != 1) {
+    pp_error_release(error);
+    return 136;
+  }
+
+  // An identical renamed copy elsewhere makes the search ambiguous once the
+  // confirmed directory is gone.
+  for (int frame = 1; frame <= 3; ++frame) {
+    if (write_frame(copy, "shot-graded_", frame, frame_contents[frame - 1]) !=
+        0) {
+      return 137;
+    }
+  }
+  for (int frame = 1; frame <= 3; ++frame) {
+    if (frame_path(path, sizeof(path), graded, "shot-graded_", frame) != 0 ||
+        frame_path(target, sizeof(target), plates, "shot-graded_", frame) !=
+            0) {
+      return 137;
+    }
+    (void)remove(target);
+    if (rename(path, target) != 0) {
+      return 137;
+    }
+  }
+  status = resolve_in(production, &asset_id, base, &resolutions, &state,
+                      &candidate_count, &error);
+  pp_resolution_set_release(resolutions);
+  if (status != PP_OK || state != PP_RESOURCE_AMBIGUOUS ||
+      candidate_count != UINT64_C(2)) {
+    pp_error_release(error);
+    return 138;
+  }
+  return 0;
+}
+
 int main(int argc, char **argv) {
   pp_production_t *production = NULL;
   pp_transaction_t *transaction = NULL;
@@ -59,7 +337,7 @@ int main(int argc, char **argv) {
     return 64;
   }
   (void)remove(argv[1]);
-  if (pp_abi_version() != UINT32_C(34)) {
+  if (pp_abi_version() != UINT32_C(35)) {
     return 1;
   }
   pp_error_code_t status =
@@ -432,7 +710,7 @@ int main(int argc, char **argv) {
   if (status != PP_OK || representation_fingerprint_algorithm == NULL ||
       strcmp(representation_fingerprint_algorithm,
              "pp-blake3-representation") != 0 ||
-      representation_fingerprint_version != UINT16_C(1) ||
+      representation_fingerprint_version != UINT16_C(2) ||
       representation_fingerprint_value == NULL ||
       representation_fingerprint_value_length != UINT64_C(32)) {
     pp_representation_set_release(representations);
@@ -495,10 +773,14 @@ int main(int argc, char **argv) {
   pp_locator_availability_t locator_availability = 0;
   uint8_t has_last_seen = 0;
   int64_t last_seen = 0;
+  uint8_t has_locator_naming = UINT8_C(9);
+  pp_sequence_naming_t locator_naming = {NULL, NULL, 0};
   status = pp_representation_set_get_locator(
       representations, 0, 0, 0, &locator_id, &locator_uri,
-      &locator_availability, &has_last_seen, &last_seen, &error);
+      &locator_availability, &has_last_seen, &last_seen, &has_locator_naming,
+      &locator_naming, &error);
   if (status != PP_OK || uuid_is_zero(&locator_id) || locator_uri == NULL ||
+      has_locator_naming != UINT8_C(0) || locator_naming.prefix != NULL ||
       locator_availability != PP_LOCATOR_ONLINE ||
       has_last_seen != UINT8_C(1) || last_seen == 0) {
     pp_representation_set_release(representations);
@@ -644,7 +926,7 @@ int main(int argc, char **argv) {
 
   pp_content_verification_t verification = 0;
   status = pp_production_verify_resource(production, &resource_id, media_path,
-                                         &verification, &error);
+                                         NULL, &verification, &error);
   if (status != PP_OK || verification != PP_CONTENT_MATCHES) {
     pp_production_release(production);
     pp_error_release(error);
@@ -663,7 +945,7 @@ int main(int argc, char **argv) {
   fputs("different content", other_media);
   fclose(other_media);
   status = pp_production_verify_resource(production, &resource_id,
-                                         other_media_path, &verification,
+                                         other_media_path, NULL, &verification,
                                          &error);
   remove(other_media_path);
   if (status != PP_OK || verification != PP_CONTENT_DIFFERS) {
@@ -677,7 +959,8 @@ int main(int argc, char **argv) {
   status = pp_production_begin_transaction(production, &observation, &error);
   if (status == PP_OK) {
     status = pp_transaction_observe_resource_content(observation, &resource_id,
-                                                     media_path, &outcome, &error);
+                                                     media_path, NULL, &outcome,
+                                                     &error);
   }
   if (status == PP_OK) {
     status = pp_transaction_commit(observation, &error);
@@ -789,11 +1072,15 @@ int main(int argc, char **argv) {
   const char *candidate_uri = NULL;
   uint16_t confidence = 0;
   const char *candidate_root = NULL;
+  uint8_t candidate_has_naming = UINT8_C(9);
+  pp_sequence_naming_t candidate_naming = {NULL, NULL, 0};
   uint64_t candidate_evidence_count = 0;
   status = pp_resolution_set_get_candidate(
       resolutions, 0, 0, 0, &candidate_uri, &confidence, &candidate_root,
-      &candidate_evidence_count, &error);
+      &candidate_has_naming, &candidate_naming, &candidate_evidence_count,
+      &error);
   if (status != PP_OK || candidate_uri == NULL ||
+      candidate_has_naming != UINT8_C(0) ||
       confidence != UINT16_C(10000) || candidate_evidence_count == 0 ||
       candidate_root == NULL || strcmp(candidate_root, "fixtures") != 0) {
     pp_resolution_set_release(resolutions);
@@ -816,9 +1103,8 @@ int main(int argc, char **argv) {
   const uint8_t observed_resource_fingerprint[] = {0x10, 0x20, 0x30};
   const uint8_t observed_representation_fingerprint[] = {0x40, 0x50, 0x60};
   if (status != PP_OK ||
-      pp_transaction_confirm_locator_under_root(
-          transaction, &resource_id, candidate_uri, "fixtures", &error) !=
-          PP_OK ||
+      pp_transaction_confirm_locator(transaction, &resource_id, candidate_uri,
+                                     "fixtures", NULL, &error) != PP_OK ||
       pp_transaction_record_resource_fingerprint(
           transaction, &resource_id, "c-smoke", UINT16_C(1),
           observed_resource_fingerprint,
@@ -973,6 +1259,8 @@ int main(int argc, char **argv) {
   uint8_t queried_locator_has_last_seen = 0;
   int64_t queried_locator_last_seen = 0;
   const char *queried_locator_root = NULL;
+  uint8_t queried_locator_has_naming = UINT8_C(9);
+  pp_sequence_naming_t queried_locator_naming = {NULL, NULL, 0};
   if (status != PP_OK || locator_page == NULL ||
       pp_locator_query_set_count(locator_page) == UINT64_C(0) ||
       pp_locator_query_set_get(
@@ -980,7 +1268,9 @@ int main(int argc, char **argv) {
           &queried_locator_id, &queried_locator_resource_id,
           &queried_locator_uri, &queried_locator_availability,
           &queried_locator_has_last_seen, &queried_locator_last_seen,
-          &queried_locator_root, &error) != PP_OK ||
+          &queried_locator_root, &queried_locator_has_naming,
+          &queried_locator_naming, &error) != PP_OK ||
+      queried_locator_has_naming != UINT8_C(0) ||
       uuid_is_zero(&queried_locator_id) || queried_locator_uri == NULL ||
       queried_locator_root == NULL ||
       strcmp(queried_locator_root, "fixtures") != 0 ||
@@ -1396,8 +1686,9 @@ int main(int argc, char **argv) {
     return 69;
   }
   pp_media_source_t *sequence_source = NULL;
+  const pp_sequence_naming_t frame_naming = {"frame", ".exr", UINT8_C(4)};
   if (pp_media_source_create_image_sequence(
-          argv[2], "frame", ".exr", UINT8_C(4), INT64_C(1), INT64_C(1),
+          argv[2], &frame_naming, INT64_C(1), INT64_C(1),
           UINT32_C(1), UINT32_C(24000), UINT32_C(1001), NULL, 0,
           &sequence_source, &error) != PP_OK ||
       sequence_source == NULL) {
@@ -1435,9 +1726,6 @@ int main(int argc, char **argv) {
   uint64_t strip_members = 0;
   uint64_t strip_resources = 0;
   uint64_t strip_fingerprints = 0;
-  const char *strip_prefix = NULL;
-  const char *strip_suffix = NULL;
-  uint8_t strip_padding = 0;
   int64_t strip_start = 0;
   int64_t strip_end = 0;
   uint32_t strip_step = 0;
@@ -1455,10 +1743,9 @@ int main(int argc, char **argv) {
       strip_kind != PP_REPRESENTATION_ORIGINAL ||
       strip_structure != PP_CONTENT_IMAGE_SEQUENCE ||
       pp_representation_set_get_sequence(
-          representations, 0, &strip_prefix, &strip_suffix, &strip_padding,
-          &strip_start, &strip_end, &strip_step, &strip_rate_numerator,
-          &strip_rate_denominator, &strip_missing, &error) != PP_OK ||
-      strcmp(strip_prefix, "frame") != 0 || strcmp(strip_suffix, ".exr") != 0 ||
+          representations, 0, &strip_start, &strip_end, &strip_step,
+          &strip_rate_numerator, &strip_rate_denominator, &strip_missing,
+          &error) != PP_OK ||
       strip_start != INT64_C(1) || strip_end != INT64_C(1)) {
     pp_representation_set_release(representations);
     pp_production_release(production);
@@ -2202,6 +2489,26 @@ int main(int argc, char **argv) {
     return 5;
   }
   pp_error_release(error);
+  error = NULL;
+
+  char renamed_path[4096];
+  int renamed_length =
+      snprintf(renamed_path, sizeof(renamed_path), "%s.renamed", argv[1]);
+  if (renamed_length < 0 || (size_t)renamed_length >= sizeof(renamed_path)) {
+    return 139;
+  }
+  (void)remove(renamed_path);
+  production = NULL;
+  if (pp_production_create(renamed_path, "Renamed sequence", &production,
+                           &error) != PP_OK) {
+    pp_error_release(error);
+    return 139;
+  }
+  int renamed_status = renamed_sequence_scenario(production, argv[2]);
+  pp_production_release(production);
+  if (renamed_status != 0) {
+    return renamed_status;
+  }
   remove(moved_media_path);
   remove(sequence_frame_path);
   pp_production_release(NULL);

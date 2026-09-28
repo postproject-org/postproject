@@ -168,3 +168,107 @@ fn optional_inspection_records_metadata_or_reports_unavailable() {
     ]);
     assert_eq!(unavailable["inspections"][0]["status"], "unavailable");
 }
+
+#[test]
+fn renamed_sequence_is_confirmed_under_its_new_naming() {
+    let temporary = tempfile::tempdir().expect("create temporary directory");
+    let plates = temporary.path().join("plates");
+    let graded = temporary.path().join("graded");
+    fs::create_dir(&plates).expect("create plates");
+    fs::create_dir(&graded).expect("create graded");
+    for frame in 1..=3 {
+        fs::write(
+            plates.join(format!("shot_{frame:04}.exr")),
+            format!("frame {frame}"),
+        )
+        .expect("write frame");
+    }
+    let production = temporary.path().join("sequence.pproj");
+    let production = production.to_str().expect("UTF-8 production path");
+    run_json(&["init", production]);
+    let imported = run_json(&[
+        "media",
+        "add",
+        production,
+        plates.to_str().expect("UTF-8 plates path"),
+        "--sequence-rate",
+        "24/1",
+    ]);
+    let asset_id = imported["asset_id"].as_str().expect("asset ID").to_owned();
+    let shown = run_json(&["media", "show", production, &asset_id]);
+    let naming = &shown["representations"][0]["resources"][0]["locators"][0]["sequence_naming"];
+    assert_eq!(naming["prefix"], "shot_");
+    assert_eq!(naming["pattern"], "shot_%04d.exr");
+
+    for frame in 1..=3 {
+        fs::rename(
+            plates.join(format!("shot_{frame:04}.exr")),
+            graded.join(format!("shot-graded_{frame:04}.exr")),
+        )
+        .expect("rename frame");
+    }
+    let resolved = run_json(&[
+        "media",
+        "resolve",
+        production,
+        &asset_id,
+        "--search-dir",
+        graded.to_str().expect("UTF-8 graded path"),
+    ]);
+    let candidates = &resolved["resolutions"][0]["resources"][0]["candidates"];
+    let uri = candidates[0]["uri"]
+        .as_str()
+        .expect("candidate URI")
+        .to_owned();
+    assert!(
+        uri.ends_with("/graded"),
+        "{uri} is not the graded directory"
+    );
+    assert_eq!(
+        candidates[0]["sequence_naming"]["pattern"],
+        "shot-graded_%04d.exr"
+    );
+    let confirmed = run_json(&[
+        "media",
+        "resolve",
+        production,
+        &asset_id,
+        "--search-dir",
+        graded.to_str().expect("UTF-8 graded path"),
+        "--confirm",
+        &uri,
+        "--confirm-naming",
+        "shot-graded_%04d.exr",
+    ]);
+    assert_eq!(
+        confirmed["confirmed_sequence_naming"]["prefix"],
+        "shot-graded_"
+    );
+
+    let shown = run_json(&["media", "show", production, &asset_id]);
+    let locators = shown["representations"][0]["resources"][0]["locators"]
+        .as_array()
+        .expect("locators");
+    let mut patterns = locators
+        .iter()
+        .map(|locator| {
+            locator["sequence_naming"]["pattern"]
+                .as_str()
+                .expect("pattern")
+        })
+        .collect::<Vec<_>>();
+    patterns.sort_unstable();
+    assert_eq!(patterns, ["shot-graded_%04d.exr", "shot_%04d.exr"]);
+
+    let resource_id = shown["representations"][0]["resources"][0]["id"]
+        .as_str()
+        .expect("resource ID");
+    let verified = run_json(&[
+        "media",
+        "verify-content",
+        production,
+        resource_id,
+        graded.to_str().expect("UTF-8 graded path"),
+    ]);
+    assert_eq!(verified["verification"], "matches");
+}

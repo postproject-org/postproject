@@ -138,7 +138,7 @@ fn relocation_workflow_handles_unique_and_ambiguous_media() {
                 .first()
                 .expect("resolved candidate exists");
             confirmations.push(
-                prepare_confirmed_locator(resource.id(), selected.uri())
+                prepare_confirmed_locator(resource.id(), selected.uri(), None, None)
                     .expect("prepare confirmed locator"),
             );
         }

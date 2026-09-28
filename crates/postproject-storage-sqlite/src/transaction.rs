@@ -8,7 +8,8 @@ use postproject_core::{
     OriginalMediaImport, Production, ProductionStoreTransaction, Representation,
     RepresentationFingerprint, RepresentationId, RepresentationImport, RepresentationKind,
     Resource, ResourceFingerprint, ResourceId, Result, RevisionContext, RevisionEventKind,
-    RevisionId, Timestamp, ToolIdentity, TransactionId, TransactionLifecycle, TransactionState,
+    RevisionId, SequenceNaming, Timestamp, ToolIdentity, TransactionId, TransactionLifecycle,
+    TransactionState,
 };
 use rusqlite::{
     Connection, ErrorCode, OptionalExtension, Transaction, TransactionBehavior, params,
@@ -697,11 +698,18 @@ impl<'production> SqliteTransaction<'production> {
 
     /// Stages an additional confirmed locator for a resource.
     ///
+    /// A locator of an image-sequence resource carries the naming of its files
+    /// and no other locator does. A resource may hold one URI under several
+    /// namings.
+    ///
     /// # Errors
     ///
     /// Returns [`ErrorKind::Conflict`] if the transaction is closed,
-    /// [`ErrorKind::AlreadyExists`] for a duplicate locator or missing owning
-    /// resource, or [`ErrorKind::Storage`] for other persistence failures.
+    /// [`ErrorKind::InvalidArgument`] when the sequence naming is present for
+    /// a resource that is not an image sequence or absent for one that is,
+    /// [`ErrorKind::AlreadyExists`] for a locator with the same URI and naming
+    /// or a missing owning resource, or [`ErrorKind::Storage`] for other
+    /// persistence failures.
     pub fn add_locator(&mut self, locator: &Locator) -> Result<()> {
         persist_locator(self.open_transaction()?, locator)?;
         self.pending_events.push(RevisionEventKind::LocatorAdded {
@@ -2435,20 +2443,16 @@ fn persist_content_structure(
 
     if let Some(sequence) = structure.image_sequence_descriptor() {
         let frames = sequence.frames();
-        let pattern = sequence.pattern();
         let rate = sequence.rate();
         transaction
             .execute(
                 "INSERT INTO image_sequences (
-                    representation_id, resource_id, prefix, suffix, padding,
+                    representation_id, resource_id,
                     start_frame, end_frame, frame_step, rate_numerator, rate_denominator
-                 ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+                 ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
                 params![
                     representation_id.as_bytes().as_slice(),
                     sequence.resource_id().as_bytes().as_slice(),
-                    pattern.prefix(),
-                    pattern.suffix(),
-                    pattern.padding(),
                     frames.start(),
                     frames.end(),
                     frames.step(),
@@ -2470,7 +2474,55 @@ fn persist_content_structure(
     Ok(())
 }
 
+/// Persists a locator and its sequence naming.
+///
+/// A locator of an image-sequence resource must carry a naming and no other
+/// locator may. A resource's locators are unique by URI and naming, so one
+/// directory may be recorded under two namings.
 fn persist_locator(transaction: &Transaction<'_>, locator: &Locator) -> Result<()> {
+    let resource_id = *locator.resource_id().as_bytes();
+    let sequence_resource: bool = transaction
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM image_sequences WHERE resource_id = ?1)",
+            [resource_id.as_slice()],
+            |row| row.get(0),
+        )
+        .map_err(sqlite_error("check image-sequence resource"))?;
+    let naming = locator.sequence_naming();
+    if sequence_resource != naming.is_some() {
+        return Err(Error::new(
+            ErrorKind::InvalidArgument,
+            if sequence_resource {
+                "a locator of an image-sequence resource needs a sequence naming"
+            } else {
+                "only a locator of an image-sequence resource has a sequence naming"
+            },
+        ));
+    }
+    let duplicate: bool = transaction
+        .query_row(
+            "SELECT EXISTS(
+                SELECT 1 FROM locators l
+                LEFT JOIN locator_sequence_namings n ON n.locator_id = l.id
+                WHERE l.resource_id = ?1 AND l.uri = ?2
+                  AND n.prefix IS ?3 AND n.suffix IS ?4 AND n.padding IS ?5
+             )",
+            params![
+                resource_id.as_slice(),
+                locator.uri(),
+                naming.map(SequenceNaming::prefix),
+                naming.map(SequenceNaming::suffix),
+                naming.map(SequenceNaming::padding),
+            ],
+            |row| row.get(0),
+        )
+        .map_err(sqlite_error("check duplicate resource locator"))?;
+    if duplicate {
+        return Err(Error::new(
+            ErrorKind::AlreadyExists,
+            "persist resource locator: the resource already has this locator",
+        ));
+    }
     let availability = encode_availability(locator.availability())?;
     transaction
         .execute(
@@ -2488,8 +2540,22 @@ fn persist_locator(transaction: &Transaction<'_>, locator: &Locator) -> Result<(
                 locator.media_root(),
             ],
         )
-        .map(|_| ())
-        .map_err(mutation_error("persist resource locator"))
+        .map_err(mutation_error("persist resource locator"))?;
+    if let Some(naming) = naming {
+        transaction
+            .execute(
+                "INSERT INTO locator_sequence_namings (locator_id, prefix, suffix, padding)
+                 VALUES (?1, ?2, ?3, ?4)",
+                params![
+                    locator.id().as_bytes().as_slice(),
+                    naming.prefix(),
+                    naming.suffix(),
+                    naming.padding(),
+                ],
+            )
+            .map_err(mutation_error("persist locator sequence naming"))?;
+    }
+    Ok(())
 }
 
 fn identifier_target_exists(

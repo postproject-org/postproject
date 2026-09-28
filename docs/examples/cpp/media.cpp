@@ -36,9 +36,11 @@ void write_file(const std::filesystem::path &path, const std::string &bytes) {
 // [import-sequence]
 postproject::Uuid import_image_strip(postproject::Production &production,
                                      const std::string &directory) {
-  // The sequence becomes the new asset's only original representation.
+  // The sequence becomes the new asset's only original representation. The
+  // directory and file naming become its locator; frames and rate its
+  // descriptor.
   const auto strip = postproject::MediaSource::imageSequence(
-      {directory, "shot010.", ".exr", 4, 1001, 1004, 1, 24, 1, {1003}});
+      {directory, {"shot010.", ".exr", 4}, 1001, 1004, 1, 24, 1, {1003}});
   auto transaction = production.beginTransaction().value();
   const auto asset_id = transaction.importMedia(strip, "shot010 strip").value();
   transaction.commit().value();
@@ -124,7 +126,13 @@ print_structure(const postproject::Production &production,
                     << " v" << fingerprint.version << '\n';
         }
         for (const auto &locator : resource.locators) {
-          std::cout << "  locator " << locator.uri << '\n';
+          std::cout << "  locator " << locator.uri;
+          // A sequence locator names its directory and the files there.
+          if (const auto &naming = locator.sequence_naming) {
+            std::cout << ' ' << naming->prefix << "#"
+                      << naming->suffix;
+          }
+          std::cout << '\n';
         }
       }
       if (const auto &sequence = representation.image_sequence) {
@@ -233,6 +241,40 @@ find_nearby(const postproject::Production &production,
   return std::optional<std::string>();
 }
 // [/resolve-scope]
+
+// [relink-renamed-sequence]
+std::optional<postproject::SequenceNaming>
+relink_renamed_sequence(postproject::Production &production,
+                        const postproject::Uuid &asset_id,
+                        const std::string &directory) {
+  postproject::ResolutionOptions options;
+  options.addSearchDirectory(directory);
+  for (const auto &representation :
+       production.resolveAsset(asset_id, options).value()) {
+    for (const auto &resource : representation.resources) {
+      // A renamed sequence is found by content; the candidate carries the
+      // naming its files have now.
+      if (resource.candidates.size() != 1 ||
+          !resource.candidates.front().sequence_naming.has_value()) {
+        continue;
+      }
+      const auto &candidate = resource.candidates.front();
+      for (const auto &evidence : candidate.evidence) {
+        std::cout << candidate.uri << " evidence "
+                  << static_cast<unsigned>(evidence.kind) << '\n';
+      }
+      auto transaction = production.beginTransaction().value();
+      transaction
+          .confirmLocator(resource.resource_id, candidate.uri,
+                          candidate.media_root, candidate.sequence_naming)
+          .value();
+      transaction.commit().value();
+      return candidate.sequence_naming;
+    }
+  }
+  return std::nullopt;
+}
+// [/relink-renamed-sequence]
 
 // [retire-locator]
 std::vector<postproject::ResourceLocator> move_resource(
@@ -364,9 +406,7 @@ postproject::Uuid add_sequence(postproject::Production &production,
                                const std::string &directory) {
   postproject::ImageSequenceInput sequence{};
   sequence.directory = directory;
-  sequence.prefix = "shot010.";
-  sequence.suffix = ".exr";
-  sequence.padding = 4;
+  sequence.naming = {"shot010.", ".exr", 4};
   sequence.start = 1001;
   sequence.end = 1004;
   sequence.step = 1;
@@ -531,6 +571,23 @@ int main(int argc, char **argv) {
                 strip.front().structure_kind ==
                     postproject::ContentStructureKind::image_sequence,
             "image strip is one original sequence");
+
+    // The strip's frames are graded and renamed into another directory.
+    const auto graded = work / "graded";
+    std::filesystem::create_directories(graded);
+    for (const int frame : {1001, 1002, 1004}) {
+      std::filesystem::rename(
+          work / "renders" / "shot010" /
+              ("shot010." + std::to_string(frame) + ".exr"),
+          graded / ("shot010-graded_" + std::to_string(frame) + ".exr"));
+    }
+    const auto naming =
+        relink_renamed_sequence(production, strip_id, graded.string());
+    require(naming.has_value() && naming->prefix == "shot010-graded_",
+            "renamed sequence relinked");
+    const auto relinked = production.representations(strip_id).value();
+    require(relinked.front().resources.front().locators.size() == 2,
+            "both namings recorded");
   } catch (const std::exception &error) {
     std::cerr << error.what() << '\n';
     return 1;

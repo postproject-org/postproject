@@ -1,6 +1,6 @@
 # ABI policy
 
-ABI version 34 is pre-release and may change during the 0.x series, with every
+ABI version 35 is pre-release and may change during the 0.x series, with every
 change recorded in the changelog and ABI tests. `pp_abi_version()` reports the
 implemented version. Exported symbol names are unversioned until the first stable
 release, but removals or signature changes require an explicit ABI-version bump.
@@ -125,7 +125,8 @@ spans borrow the result set and remain valid until
 
 The C++ wrapper copies the complete snapshot into `Representation`, `Resource`,
 `Locator`, and `Fingerprint` values. Compact image sequences remain one resource
-with a pattern and frame domain rather than one synthetic resource per frame.
+with a frame domain rather than one synthetic resource per frame; each of its
+locators carries the naming of its files.
 
 ABI version 16 adds explicit transaction mutations for resource and
 structure-aware representation fingerprint observations. Callers retain their
@@ -247,6 +248,20 @@ takes a source and creates an asset whose original representation has its
 structure; `pp_transaction_add_representation` adds a representation of a
 chosen kind with the source's structure. A transaction borrows a source only
 for the call.
+
+ABI version 35 moves image-sequence file names from the sequence descriptor to
+its locators (ADR 0038). A flat `pp_sequence_naming_t` holds a prefix, suffix,
+and padding. `pp_representation_set_get_sequence` loses its name outputs;
+`pp_representation_set_get_locator`, `pp_locator_query_set_get`, and
+`pp_resolution_set_get_candidate` report an optional naming through an
+`out_has_sequence_naming` flag and a borrowed `pp_sequence_naming_t`.
+`pp_transaction_confirm_locator` takes a nullable root name and a nullable
+naming, required exactly for a sequence resource, and replaces
+`pp_transaction_confirm_locator_under_root`.
+`pp_media_source_create_image_sequence` takes the naming as a
+`pp_sequence_naming_t`, and `pp_production_verify_resource` and
+`pp_transaction_observe_resource_content` take a nullable naming for a
+sequence directory, where NULL means the naming recorded for that directory.
 
 ## External identifiers
 

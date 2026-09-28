@@ -17,6 +17,7 @@ mod resolution;
 mod revision_events;
 mod revision_waits;
 mod revisions;
+mod sequence_naming;
 
 use std::{
     any::Any,
@@ -47,8 +48,8 @@ use postproject_core::{
     ToolIdentity, TransactionLifecycle, VocabularyId,
 };
 use postproject_media::{
-    canonical_file_uri, local_file_path, prepare_confirmed_locator,
-    prepare_confirmed_locator_under_root, prepare_original_media, prepare_representation,
+    canonical_file_uri, local_file_path, prepare_confirmed_locator, prepare_original_media,
+    prepare_representation,
 };
 use postproject_storage_sqlite::SqliteProduction;
 
@@ -70,6 +71,10 @@ pub use resolution::{PpCancelToken, PpResolutionOptions};
 pub use revision_events::PpRevisionEventSet;
 pub use revision_waits::PpRevisionWaiter;
 pub use revisions::PpRevisionSet;
+pub use sequence_naming::PpSequenceNaming;
+use sequence_naming::{
+    AbiSequenceNaming, initialize_naming_output, optional_naming, write_naming_output,
+};
 
 const PP_OK: u32 = 0;
 const PP_ERROR_INVALID_ARGUMENT: u32 = 1;
@@ -159,7 +164,7 @@ const PP_REVISION_JOB_FAILED: u32 = 25;
 const PP_REVISION_JOB_CANCELLED: u32 = 26;
 
 /// Current pre-1.0 ABI version.
-pub const ABI_VERSION: u32 = 34;
+pub const ABI_VERSION: u32 = 35;
 
 /// Fixed-layout UUID-compatible public identifier.
 #[repr(C)]
@@ -415,6 +420,7 @@ struct AbiQueryLocator {
     availability: u32,
     last_seen: Option<i64>,
     media_root: Option<CString>,
+    sequence_naming: Option<AbiSequenceNaming>,
 }
 
 /// Opaque set of immutable media-resolution results owned by the C caller.
@@ -441,6 +447,7 @@ struct AbiCandidate {
     uri: CString,
     confidence: u16,
     media_root: Option<CString>,
+    sequence_naming: Option<AbiSequenceNaming>,
     evidence: Vec<AbiEvidence>,
 }
 
@@ -1418,6 +1425,8 @@ pub unsafe extern "C" fn pp_locator_query_set_get(
     out_has_last_seen: *mut u8,
     out_last_seen_unix_micros: *mut i64,
     out_media_root: *mut *const c_char,
+    out_has_sequence_naming: *mut u8,
+    out_sequence_naming: *mut PpSequenceNaming,
     out_error: *mut *mut PpError,
 ) -> u32 {
     unsafe {
@@ -1428,7 +1437,10 @@ pub unsafe extern "C" fn pp_locator_query_set_get(
         initialize_value(out_has_last_seen, 0);
         initialize_value(out_last_seen_unix_micros, 0);
         initialize_const_output(out_media_root);
+        initialize_naming_output(out_has_sequence_naming, out_sequence_naming);
         ffi_call(out_error, || {
+            require_output(out_has_sequence_naming, "out_has_sequence_naming")?;
+            require_output(out_sequence_naming, "out_sequence_naming")?;
             require_output(out_id, "out_id")?;
             require_output(out_resource_id, "out_resource_id")?;
             require_output(out_uri, "out_uri")?;
@@ -1457,6 +1469,11 @@ pub unsafe extern "C" fn pp_locator_query_set_get(
                     .media_root
                     .as_ref()
                     .map_or(ptr::null(), |root| root.as_ptr()),
+            );
+            write_naming_output(
+                locator.sequence_naming.as_ref(),
+                out_has_sequence_naming,
+                out_sequence_naming,
             );
             Ok(())
         })
@@ -4427,6 +4444,8 @@ pub unsafe extern "C" fn pp_resolution_set_get_candidate(
     out_uri: *mut *const c_char,
     out_confidence_basis_points: *mut u16,
     out_media_root: *mut *const c_char,
+    out_has_sequence_naming: *mut u8,
+    out_sequence_naming: *mut PpSequenceNaming,
     out_evidence_count: *mut u64,
     out_error: *mut *mut PpError,
 ) -> u32 {
@@ -4435,8 +4454,11 @@ pub unsafe extern "C" fn pp_resolution_set_get_candidate(
         initialize_const_output(out_uri);
         initialize_value(out_confidence_basis_points, 0);
         initialize_const_output(out_media_root);
+        initialize_naming_output(out_has_sequence_naming, out_sequence_naming);
         initialize_value(out_evidence_count, 0);
         ffi_call(out_error, || {
+            require_output(out_has_sequence_naming, "out_has_sequence_naming")?;
+            require_output(out_sequence_naming, "out_sequence_naming")?;
             require_output(out_uri, "out_uri")?;
             require_output(out_media_root, "out_media_root")?;
             require_output(out_confidence_basis_points, "out_confidence_basis_points")?;
@@ -4451,6 +4473,11 @@ pub unsafe extern "C" fn pp_resolution_set_get_candidate(
                     .media_root
                     .as_ref()
                     .map_or(ptr::null(), |root| root.as_ptr()),
+            );
+            write_naming_output(
+                candidate.sequence_naming.as_ref(),
+                out_has_sequence_naming,
+                out_sequence_naming,
             );
             out_evidence_count.write(length_as_u64(candidate.evidence.len())?);
             Ok(())
@@ -4840,23 +4867,30 @@ pub unsafe extern "C" fn pp_transaction_remove_media_root(
 
 /// Stages an explicitly confirmed URI for a resource.
 ///
-/// The URI is borrowed UTF-8 without embedded NUL and must be absolute.
-/// Confirmation is not durable until the transaction commits.
+/// The URI is borrowed UTF-8 without embedded NUL and must be absolute. A
+/// non-null `root_name` records the logical media root the URI was found
+/// under; it does not require a currently enabled mapping. `sequence_naming`
+/// names the files at a locator of an image-sequence resource: it is required
+/// for such a resource and rejected at commit for any other. Confirmation is
+/// not durable until the transaction commits.
 ///
 /// # Safety
 ///
 /// `transaction` must be a live transaction handle, `resource_id` must be
-/// readable, `uri` must be a NUL-terminated string, and `out_error` may be null
-/// or writable.
+/// readable, `uri` must be a NUL-terminated string, `root_name` null or
+/// NUL-terminated, `sequence_naming` null or readable with NUL-terminated
+/// strings, and `out_error` may be null or writable.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn pp_transaction_confirm_locator(
     transaction: *mut PpTransaction,
     resource_id: *const PpUuid,
     uri: *const c_char,
+    root_name: *const c_char,
+    sequence_naming: *const PpSequenceNaming,
     out_error: *mut *mut PpError,
 ) -> u32 {
-    // SAFETY: Null pointers are rejected before dereference and the URI follows
-    // the documented borrowed NUL-terminated contract.
+    // SAFETY: Null pointers are rejected before dereference and borrowed
+    // strings follow the documented NUL-terminated contract.
     unsafe {
         ffi_call(out_error, || {
             let transaction = transaction
@@ -4870,49 +4904,13 @@ pub unsafe extern "C" fn pp_transaction_confirm_locator(
             if uri.is_empty() {
                 return Err(invalid_argument("uri must not be empty"));
             }
+            let root_name = optional_utf8(root_name, "root_name")?;
+            let naming = optional_naming(sequence_naming, "sequence_naming")?;
             let locator = prepare_confirmed_locator(
                 ResourceId::from_bytes(resource_id.bytes),
                 uri.to_owned(),
-            )?;
-            transaction.mutations.push(StagedMutation::Locator(locator));
-            Ok(())
-        })
-    }
-}
-
-/// Stages an explicitly confirmed URI associated with a logical media root.
-///
-/// Confirmation is not durable until the transaction commits. The root name is
-/// retained as query evidence; it does not require a currently enabled mapping.
-///
-/// # Safety
-///
-/// `transaction` must be live, `resource_id` readable, `uri` and `root_name`
-/// must be NUL-terminated UTF-8, and `out_error` may be null or writable.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn pp_transaction_confirm_locator_under_root(
-    transaction: *mut PpTransaction,
-    resource_id: *const PpUuid,
-    uri: *const c_char,
-    root_name: *const c_char,
-    out_error: *mut *mut PpError,
-) -> u32 {
-    // SAFETY: Required pointers are checked before copied values are staged.
-    unsafe {
-        ffi_call(out_error, || {
-            let transaction = transaction
-                .as_mut()
-                .ok_or_else(|| invalid_argument("transaction must not be null"))?;
-            transaction.lifecycle.ensure_open()?;
-            let resource_id = resource_id
-                .as_ref()
-                .ok_or_else(|| invalid_argument("resource_id must not be null"))?;
-            let uri = required_utf8(uri, "uri")?;
-            let root_name = required_utf8(root_name, "root_name")?;
-            let locator = prepare_confirmed_locator_under_root(
-                ResourceId::from_bytes(resource_id.bytes),
-                uri.to_owned(),
-                root_name.to_owned(),
+                root_name,
+                naming,
             )?;
             transaction.mutations.push(StagedMutation::Locator(locator));
             Ok(())
@@ -6361,6 +6359,7 @@ fn locator_query_set(
                         .media_root()
                         .map(|name| exact_cstring(name, "locator media root"))
                         .transpose()?,
+                    sequence_naming: AbiSequenceNaming::optional(locator.sequence_naming())?,
                 })
             })
             .collect::<Result<Vec<_>, Error>>()?,
@@ -6787,6 +6786,9 @@ impl PpResolutionSet {
                                     uri: sanitized_cstring(candidate.uri()),
                                     confidence: candidate.confidence().basis_points(),
                                     media_root: candidate.media_root().map(sanitized_cstring),
+                                    sequence_naming: candidate
+                                        .sequence_naming()
+                                        .map(AbiSequenceNaming::sanitized),
                                     evidence: candidate
                                         .evidence()
                                         .iter()
@@ -7035,13 +7037,13 @@ fn panic_message(payload: &(dyn Any + Send)) -> String {
 
 #[cfg(test)]
 mod tests {
-    use std::{sync::mpsc, thread, time::Duration};
+    use std::{ffi::CStr, sync::mpsc, thread, time::Duration};
 
     use super::*;
     use postproject_core::{
         Confidence, ContentStructure, EvidenceKind, FrameRange, ImageSequenceDescriptor,
-        ImageSequencePattern, MetadataAssertion, MetadataField, MetadataProperty, PropertyId,
-        RationalRate, ResolutionCandidate, ResourceResolution, VocabularyId,
+        MetadataAssertion, MetadataField, MetadataProperty, PropertyId, RationalRate,
+        ResolutionCandidate, ResourceResolution, SequenceNaming, VocabularyId,
     };
 
     #[test]
@@ -7288,12 +7290,15 @@ mod tests {
     }
 
     #[test]
+    #[allow(
+        clippy::too_many_lines,
+        reason = "one result set is read through every nested accessor"
+    )]
     fn nested_resolution_accessors_expose_missing_sequence_frames() {
         let representation_id = RepresentationId::new();
         let resource_id = ResourceId::new();
         let descriptor = ImageSequenceDescriptor::new(
             resource_id,
-            ImageSequencePattern::new("plate.", ".exr", 4).expect("valid pattern"),
             FrameRange::new(1001, 1003, 1).expect("valid frames"),
             RationalRate::new(24, 1).expect("valid rate"),
             vec![1002],
@@ -7307,7 +7312,8 @@ mod tests {
                 None,
             )],
         )
-        .expect("valid candidate");
+        .expect("valid candidate")
+        .with_sequence_naming(SequenceNaming::new("plate.", ".exr", 4).expect("valid naming"));
         let resource = ResourceResolution::new(
             resource_id,
             ResourceResolutionState::OnlineAtKnownLocator,
@@ -7394,6 +7400,45 @@ mod tests {
         );
         assert_eq!(frame, 1002);
         assert!(error.is_null());
+
+        let mut uri = ptr::null();
+        let mut confidence = 0;
+        let mut media_root = ptr::null();
+        let mut has_naming = 0;
+        let mut naming = PpSequenceNaming {
+            prefix: ptr::null(),
+            suffix: ptr::null(),
+            padding: 0,
+        };
+        let mut evidence_count = 0;
+        // SAFETY: The handle remains live and all outputs are writable.
+        assert_eq!(
+            unsafe {
+                pp_resolution_set_get_candidate(
+                    resolutions,
+                    0,
+                    0,
+                    0,
+                    &raw mut uri,
+                    &raw mut confidence,
+                    &raw mut media_root,
+                    &raw mut has_naming,
+                    &raw mut naming,
+                    &raw mut evidence_count,
+                    &raw mut error,
+                )
+            },
+            PP_OK
+        );
+        assert_eq!(has_naming, 1);
+        // SAFETY: The naming borrows the still-live result set.
+        assert_eq!(
+            unsafe { CStr::from_ptr(naming.prefix) }.to_bytes(),
+            b"plate."
+        );
+        // SAFETY: Same borrowed lifetime as the prefix.
+        assert_eq!(unsafe { CStr::from_ptr(naming.suffix) }.to_bytes(), b".exr");
+        assert_eq!(naming.padding, 4);
         // SAFETY: The live handle is released exactly once.
         unsafe { pp_resolution_set_release(resolutions) };
     }

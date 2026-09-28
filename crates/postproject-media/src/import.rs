@@ -6,10 +6,10 @@ use std::{
 };
 
 use postproject_core::{
-    Asset, AssetId, ContentStructure, FrameRange, ImageSequenceDescriptor, ImageSequencePattern,
-    Locator, LocatorAvailability, LocatorId, MediaRoot, MediaRootId, OriginalMediaImport,
-    RationalRate, Representation, RepresentationId, RepresentationImport, RepresentationKind,
-    Resource, ResourceId, ResourceMember, ResourceRole, Result, Timestamp,
+    Asset, AssetId, ContentStructure, FrameRange, ImageSequenceDescriptor, Locator,
+    LocatorAvailability, LocatorId, MediaRoot, MediaRootId, OriginalMediaImport, RationalRate,
+    Representation, RepresentationId, RepresentationImport, RepresentationKind, Resource,
+    ResourceId, ResourceMember, ResourceRole, Result, SequenceNaming, Timestamp,
 };
 
 use crate::{
@@ -17,10 +17,13 @@ use crate::{
 };
 
 /// Explicit filesystem description of one compact image sequence.
+///
+/// The directory and naming become the sequence's first locator; the frames,
+/// rate, and known missing frames become its descriptor.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ImageSequenceSource {
     directory: PathBuf,
-    pattern: ImageSequencePattern,
+    naming: SequenceNaming,
     frames: FrameRange,
     rate: RationalRate,
     known_missing_frames: Vec<i64>,
@@ -31,14 +34,14 @@ impl ImageSequenceSource {
     #[must_use]
     pub fn new(
         directory: impl Into<PathBuf>,
-        pattern: ImageSequencePattern,
+        naming: SequenceNaming,
         frames: FrameRange,
         rate: RationalRate,
         known_missing_frames: Vec<i64>,
     ) -> Self {
         Self {
             directory: directory.into(),
-            pattern,
+            naming,
             frames,
             rate,
             known_missing_frames,
@@ -248,14 +251,14 @@ fn prepare_image_sequence_representation(
     let resource_id = ResourceId::new();
     let descriptor = ImageSequenceDescriptor::new(
         resource_id,
-        source.pattern.clone(),
         source.frames,
         source.rate,
         source.known_missing_frames.clone(),
     )?;
-    let sequence_fingerprint = fingerprint_image_sequence(&source.directory, &descriptor)?
-        .into_parts()
-        .0;
+    let sequence_fingerprint =
+        fingerprint_image_sequence(&source.directory, &source.naming, &descriptor)?
+            .into_parts()
+            .0;
     let structure = ContentStructure::image_sequence(descriptor);
     let resource = Resource::new(resource_id, vec![sequence_fingerprint], None);
     let representation_fingerprint =
@@ -273,7 +276,8 @@ fn prepare_image_sequence_representation(
         canonical_file_uri(&source.directory)?,
         Some(now),
         LocatorAvailability::Online,
-    )?;
+    )?
+    .with_sequence_naming(source.naming.clone());
     RepresentationImport::new(representation, vec![resource], vec![locator])
 }
 
@@ -371,36 +375,35 @@ pub fn prepare_media_root(
 ///
 /// The URI is normalized by the domain constructor. This function does not
 /// require the URI to use the `file` scheme because future storage transports may
-/// confirm other locator types.
+/// confirm other locator types. `root_name` records the logical media root the
+/// locator was found under, if any. `sequence_naming` is the naming of the
+/// files at a locator of an image-sequence resource; the transaction rejects a
+/// naming for any other resource and its absence for a sequence.
 ///
 /// # Errors
 ///
-/// Returns errors from time capture or URI validation.
+/// Returns errors from time capture, URI validation, or root-name validation.
 pub fn prepare_confirmed_locator(
     resource_id: ResourceId,
     uri: impl Into<String>,
+    root_name: Option<&str>,
+    sequence_naming: Option<SequenceNaming>,
 ) -> Result<Locator> {
     let now = Timestamp::now()?;
-    Locator::new(
+    let mut locator = Locator::new(
         LocatorId::new(),
         resource_id,
         uri,
         Some(now),
         LocatorAvailability::Online,
-    )
-}
-
-/// Prepares a confirmed online locator associated with a logical media root.
-///
-/// # Errors
-///
-/// Returns errors from time capture, URI validation, or root-name validation.
-pub fn prepare_confirmed_locator_under_root(
-    resource_id: ResourceId,
-    uri: impl Into<String>,
-    root_name: impl Into<String>,
-) -> Result<Locator> {
-    prepare_confirmed_locator(resource_id, uri)?.with_media_root(root_name)
+    )?;
+    if let Some(root_name) = root_name {
+        locator = locator.with_media_root(root_name)?;
+    }
+    if let Some(naming) = sequence_naming {
+        locator = locator.with_sequence_naming(naming);
+    }
+    Ok(locator)
 }
 
 #[cfg(test)]
@@ -461,7 +464,7 @@ mod tests {
         }
         let source = ImageSequenceSource::new(
             directory.path(),
-            ImageSequencePattern::new("shot.", ".exr", 4).expect("valid pattern"),
+            SequenceNaming::new("shot.", ".exr", 4).expect("valid naming"),
             FrameRange::new(1_001, 1_005, 1).expect("valid range"),
             RationalRate::new(24_000, 1_001).expect("valid rate"),
             vec![1_003],
@@ -480,6 +483,10 @@ mod tests {
         assert_eq!(prepared.resources()[0].fingerprints().len(), 1);
         assert_eq!(prepared.representation().fingerprints().len(), 1);
         assert!(prepared.locators()[0].uri().starts_with("file:"));
+        assert_eq!(
+            prepared.locators()[0].sequence_naming(),
+            Some(&SequenceNaming::new("shot.", ".exr", 4).expect("valid naming"))
+        );
     }
 
     #[test]
@@ -495,7 +502,7 @@ mod tests {
         let frames = FrameRange::new(1, 3, 1).expect("valid range");
         let source = ImageSequenceSource::new(
             directory.path(),
-            ImageSequencePattern::new("strip.", ".png", 4).expect("valid pattern"),
+            SequenceNaming::new("strip.", ".png", 4).expect("valid naming"),
             frames,
             RationalRate::new(24, 1).expect("valid rate"),
             Vec::new(),

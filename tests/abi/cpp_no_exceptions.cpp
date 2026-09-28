@@ -66,7 +66,7 @@ int main(int argc, char **argv) {
   // A malformed source is reported by the call that uses it.
   const auto unsequenced = transaction->importMedia(
       postproject::MediaSource::imageSequence(
-          {path + ".no-such-directory", "frame", ".exr", 4, 1, 1, 1, 24, 1,
+          {path + ".no-such-directory", {"frame", ".exr", 4}, 1, 1, 1, 24, 1,
            {}}));
   if (unsequenced.has_value() ||
       unsequenced.error().code() == postproject::ErrorCode::ok) {

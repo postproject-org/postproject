@@ -19,8 +19,8 @@ mod sequence_fingerprint;
 
 pub use content::{
     ContentObservation, ContentObservationOutcome, ContentVerification,
-    fingerprint_resource_content, observe_resource_content, resource_usage,
-    verify_resource_content,
+    fingerprint_resource_content, observe_resource_content, recorded_sequence_naming,
+    resource_usage, verify_resource_content,
 };
 pub use executor::{
     EXECUTOR_PARAMETER_VOCABULARY, EXECUTOR_PROFILE_PROPERTY, ExecutionOutcome, ExecutionRequest,
@@ -34,8 +34,7 @@ pub use fingerprint::{
 };
 pub use import::{
     FileResourceSource, ImageSequenceSource, MediaSource, prepare_confirmed_locator,
-    prepare_confirmed_locator_under_root, prepare_media_root, prepare_original_media,
-    prepare_representation,
+    prepare_media_root, prepare_original_media, prepare_representation,
 };
 pub use inspection::{
     FfprobeInspector, InspectionOutcome, MediaInspector, TECHNICAL_INSPECTION_PROPERTY,

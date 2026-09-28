@@ -7,15 +7,14 @@ use std::{
 };
 
 use postproject_core::{
-    ContentStructure, Error, FrameRange, ImageSequenceDescriptor, ImageSequencePattern,
-    MAX_CONTENT_MEMBERS, MAX_SEQUENCE_EXCEPTIONS, RationalRate, ResourceId, ResourceMember,
-    ResourceRole,
+    ContentStructure, Error, FrameRange, ImageSequenceDescriptor, MAX_CONTENT_MEMBERS,
+    MAX_SEQUENCE_EXCEPTIONS, RationalRate, ResourceId, ResourceMember, ResourceRole,
 };
 use postproject_media::{FileResourceSource, ImageSequenceSource, MediaSource};
 
 use crate::{
-    PpError, PpFileResourceInput, ffi_call, initialize_output, invalid_argument, require_output,
-    required_utf8,
+    PpError, PpFileResourceInput, PpSequenceNaming, ffi_call, initialize_output, invalid_argument,
+    require_output, required_utf8, sequence_naming::required_naming,
 };
 
 /// Opaque, caller-owned description of a representation's content structure
@@ -53,7 +52,8 @@ pub unsafe extern "C" fn pp_media_source_create_file(
 ///
 /// # Safety
 ///
-/// String pointers must be borrowed NUL-terminated UTF-8. `missing_frames`
+/// `directory` and the naming's strings must be borrowed NUL-terminated
+/// UTF-8, and `naming` must be readable. `missing_frames`
 /// must point to `missing_frame_count` readable values and may be null only
 /// when the count is zero. `out_source` must be writable; `out_error` may be
 /// null or writable.
@@ -61,9 +61,7 @@ pub unsafe extern "C" fn pp_media_source_create_file(
 #[allow(clippy::too_many_arguments)]
 pub unsafe extern "C" fn pp_media_source_create_image_sequence(
     directory: *const c_char,
-    prefix: *const c_char,
-    suffix: *const c_char,
-    padding: u8,
+    naming: *const PpSequenceNaming,
     start: i64,
     end: i64,
     step: u32,
@@ -99,25 +97,20 @@ pub unsafe extern "C" fn pp_media_source_create_image_sequence(
                 // SAFETY: The caller guarantees the checked count of readable values.
                 std::slice::from_raw_parts(missing_frames, missing_frame_count).to_vec()
             };
-            let pattern = ImageSequencePattern::new(
-                required_utf8(prefix, "prefix")?,
-                required_utf8(suffix, "suffix")?,
-                padding,
+            let naming = required_naming(
+                naming
+                    .as_ref()
+                    .ok_or_else(|| invalid_argument("naming must not be null"))?,
+                "naming",
             )?;
             let frames = FrameRange::new(start, end, step)?;
             let rate = RationalRate::new(rate_numerator, rate_denominator)?;
             // The descriptor rules are checked now so an invalid source never
             // reaches a transaction.
-            ImageSequenceDescriptor::new(
-                ResourceId::new(),
-                pattern.clone(),
-                frames,
-                rate,
-                missing_frames.clone(),
-            )?;
+            ImageSequenceDescriptor::new(ResourceId::new(), frames, rate, missing_frames.clone())?;
             let source = ImageSequenceSource::new(
                 Path::new(directory),
-                pattern,
+                naming,
                 frames,
                 rate,
                 missing_frames,

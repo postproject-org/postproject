@@ -120,6 +120,10 @@ Development version: `0.4.0-alpha.1`.
 
 ### Changed
 
+- Image-sequence file names belong to each locator, so a renamed sequence is
+  found by content and confirmed under its new naming, on every surface
+  (ADR 0038, C ABI 35, schema 15). Version 1 sequence and representation
+  fingerprints are no longer computed; observe a sequence again to compare it.
 - Media sources describe a single file, image sequence, ordered parts, or
   package for both importing an asset's original and adding a representation,
   on every surface; they replace the four per-structure add functions

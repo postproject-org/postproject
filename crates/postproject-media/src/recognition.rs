@@ -7,8 +7,8 @@ use std::{
 };
 
 use postproject_core::{
-    Asset, AssetId, Error, ErrorKind, FrameRange, ImageSequencePattern, OriginalMediaImport,
-    RationalRate, RepresentationImport, RepresentationKind, ResourceRole, Result, Timestamp,
+    Asset, AssetId, Error, ErrorKind, FrameRange, OriginalMediaImport, RationalRate,
+    RepresentationImport, RepresentationKind, ResourceRole, Result, SequenceNaming, Timestamp,
 };
 
 use crate::{FileResourceSource, ImageSequenceSource, MediaSource, prepare_representation};
@@ -74,8 +74,8 @@ pub enum RecognizedMedia {
     ImageSequence {
         /// Directory containing the frames.
         directory: PathBuf,
-        /// Pattern shared by every frame.
-        pattern: ImageSequencePattern,
+        /// Naming shared by every frame file in the directory.
+        naming: SequenceNaming,
         /// Inclusive frame-number domain.
         frames: FrameRange,
         /// Frames absent within the domain.
@@ -167,13 +167,13 @@ fn prepare_recognized_representation(
         RecognizedMedia::SingleFile(path) => MediaSource::File(path.clone()),
         RecognizedMedia::ImageSequence {
             directory,
-            pattern,
+            naming,
             frames,
             missing_frames,
             rate,
         } => MediaSource::ImageSequence(ImageSequenceSource::new(
             directory,
-            pattern.clone(),
+            naming.clone(),
             *frames,
             *rate,
             missing_frames.clone(),
@@ -283,11 +283,12 @@ fn append_role_files(
     Ok(())
 }
 
+/// The prefix, suffix, and digit count shared by numbered file names.
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
-struct NumberedGroup {
-    prefix: String,
-    suffix: String,
-    padding: u8,
+pub(crate) struct NumberedGroup {
+    pub(crate) prefix: String,
+    pub(crate) suffix: String,
+    pub(crate) padding: u8,
 }
 
 fn recognize_numbered_groups(directory: &Path, rate: RationalRate) -> Result<Vec<RecognizedMedia>> {
@@ -335,14 +336,16 @@ fn recognize_sequence(
         .collect();
     Ok(RecognizedMedia::ImageSequence {
         directory: directory.to_path_buf(),
-        pattern: ImageSequencePattern::new(group.prefix, group.suffix, group.padding)?,
+        naming: SequenceNaming::new(group.prefix, group.suffix, group.padding)?,
         frames: FrameRange::new(start, end, 1)?,
         missing_frames,
         rate,
     })
 }
 
-fn numbered_name(path: &Path) -> Option<(NumberedGroup, i64)> {
+/// Splits a file name such as `shot_0001.png` into its numbered group and
+/// frame number: the last run of digits before the final extension.
+pub(crate) fn numbered_name(path: &Path) -> Option<(NumberedGroup, i64)> {
     let name = path.file_name()?.to_str()?;
     let suffix_start = name.rfind('.')?;
     let suffix = &name[suffix_start..];

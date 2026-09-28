@@ -24,7 +24,7 @@ fn recognizes_sparse_numbered_image_sequences() {
         .expect("recognize directory");
     let [
         RecognizedMedia::ImageSequence {
-            pattern,
+            naming,
             frames,
             missing_frames,
             ..
@@ -33,9 +33,9 @@ fn recognizes_sparse_numbered_image_sequences() {
     else {
         panic!("expected one image sequence");
     };
-    assert_eq!(pattern.prefix(), "plate.");
-    assert_eq!(pattern.suffix(), ".exr");
-    assert_eq!(pattern.padding(), 4);
+    assert_eq!(naming.prefix(), "plate.");
+    assert_eq!(naming.suffix(), ".exr");
+    assert_eq!(naming.padding(), 4);
     assert_eq!((frames.start(), frames.end()), (1001, 1004));
     assert_eq!(missing_frames, &[1003]);
 

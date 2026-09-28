@@ -11,20 +11,19 @@ use std::time::Duration;
 use postproject_core::{
     Activity, ActivityId, ActivityInput, ActivityKind, ActivityOutput, ActivityOutputQuery,
     ActivityRole, ArtifactEvaluationLimits, AssetId, Dependency, DependencyKind,
-    DependencyQueryLimits, DependencyTarget, Error, ErrorKind, EvidenceKind, ExternalIdentifier,
-    FrameRange, HostObjectBinding, IdentifierScheme, ImageSequencePattern, Job, JobClaimId, JobId,
-    JobKind, JobQuery, JobStateKind, MediaRoot, MediaRootId, MetadataMatch, MetadataProperty,
-    MetadataQuery, MetadataValue, ObjectRef, OriginIdentity, ProductionId, PropertyId,
-    ProvenanceQueryLimits, QueryPageRequest, RationalRate, Representation, RepresentationId,
-    RepresentationKind, RepresentationResolution, RequestedJobOutput, ResolutionEvidence, Result,
-    Revision, RevisionContext, RevisionEvent, RevisionEventFilter, RevisionEventType, RevisionId,
-    RevisionWaitOutcome, StaleArtifactQuery, ToolIdentity, VocabularyId,
+    DependencyQueryLimits, DependencyTarget, Error, ErrorKind, ExternalIdentifier, FrameRange,
+    HostObjectBinding, IdentifierScheme, Job, JobClaimId, JobId, JobKind, JobQuery, JobStateKind,
+    MediaRoot, MediaRootId, MetadataMatch, MetadataProperty, MetadataQuery, MetadataValue,
+    ObjectRef, OriginIdentity, ProductionId, PropertyId, ProvenanceQueryLimits, QueryPageRequest,
+    RationalRate, Representation, RepresentationId, RepresentationKind, RepresentationResolution,
+    RequestedJobOutput, Result, Revision, RevisionContext, RevisionEvent, RevisionEventFilter,
+    RevisionEventType, RevisionId, RevisionWaitOutcome, SequenceNaming, StaleArtifactQuery,
+    ToolIdentity, VocabularyId,
 };
 use postproject_media::{
     ExecutionOutcome, ExecutionRequest, Executor, FfmpegExecutor, GENERATE_PROXY_JOB_KIND,
     ImageSequenceSource, MediaResolver, MediaRootMapping, PROXY_720P_PROFILE,
-    prepare_confirmed_locator, prepare_confirmed_locator_under_root, prepare_original_media,
-    prepare_representation,
+    prepare_confirmed_locator, prepare_original_media, prepare_representation,
 };
 use postproject_storage_sqlite::SqliteProduction;
 
@@ -175,20 +174,14 @@ fn confirm_unique_candidates(
             let [candidate] = resource.candidates() else {
                 continue;
             };
-            let root = candidate
-                .evidence()
-                .iter()
-                .find(|evidence| evidence.kind() == EvidenceKind::MediaRootRelation)
-                .and_then(ResolutionEvidence::detail);
-            // Record the logical root the candidate was found under.
-            let locator = match root {
-                Some(root) => prepare_confirmed_locator_under_root(
-                    resource.resource_id(),
-                    candidate.uri(),
-                    root,
-                )?,
-                None => prepare_confirmed_locator(resource.resource_id(), candidate.uri())?,
-            };
+            // Record the logical root the candidate was found under and, for
+            // an image sequence, the naming of its files there.
+            let locator = prepare_confirmed_locator(
+                resource.resource_id(),
+                candidate.uri(),
+                candidate.media_root(),
+                candidate.sequence_naming().cloned(),
+            )?;
             transaction.add_locator(&locator)?;
         }
     }
@@ -204,7 +197,7 @@ fn add_render_sequence(
 ) -> Result<RepresentationId> {
     let source = ImageSequenceSource::new(
         directory,
-        ImageSequencePattern::new("shot010.", ".exr", 4)?,
+        SequenceNaming::new("shot010.", ".exr", 4)?,
         FrameRange::new(1001, 1004, 1)?,
         RationalRate::new(24000, 1001)?,
         vec![1003],

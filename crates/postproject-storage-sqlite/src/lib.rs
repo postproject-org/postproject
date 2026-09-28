@@ -29,17 +29,17 @@ use postproject_core::{
     Dependency, DependencyKind, DependencyQueryLimits, DependencyQueryMatch, DependencySet,
     DependencySetStatus, DependencyTarget, Error, ErrorKind, ExternalIdentifier, FileFacts,
     FilteredRevisionPage, FingerprintSnapshot, FrameRange, IdentifierScheme,
-    ImageSequenceDescriptor, ImageSequencePattern, Job, JobClaim, JobClaimId, JobCompletion,
-    JobFailure, JobId, JobKind, JobQuery, JobState, Locator, LocatorAvailability, LocatorId,
-    MAX_REGENERATION_PLANS, MAX_REVISION_PAGE_SIZE, MediaRoot, MediaRootId, MetadataAssertion,
-    MetadataMatch, MetadataProperty, MetadataQuery, MetadataValue, ObjectRef, OriginIdentity,
-    Production, ProductionId, ProductionRead, ProductionStore, PropertyId, ProvenanceQueryLimits,
+    ImageSequenceDescriptor, Job, JobClaim, JobClaimId, JobCompletion, JobFailure, JobId, JobKind,
+    JobQuery, JobState, Locator, LocatorAvailability, LocatorId, MAX_REGENERATION_PLANS,
+    MAX_REVISION_PAGE_SIZE, MediaRoot, MediaRootId, MetadataAssertion, MetadataMatch,
+    MetadataProperty, MetadataQuery, MetadataValue, ObjectRef, OriginIdentity, Production,
+    ProductionId, ProductionRead, ProductionStore, PropertyId, ProvenanceQueryLimits,
     ProvenanceQueryMatch, QueryCursor, QueryPage, QueryPageRequest, RationalRate,
     RegenerationJobPlan, Representation, RepresentationFingerprint, RepresentationId,
     RepresentationKind, RequestedJobOutput, Resource, ResourceFingerprint, ResourceId,
     ResourceMember, ResourceRole, Result, Revision, RevisionEvent, RevisionEventFilter,
-    RevisionEventKind, RevisionEventType, RevisionId, StaleArtifactQuery, Timestamp, ToolIdentity,
-    TransactionId, VocabularyId,
+    RevisionEventKind, RevisionEventType, RevisionId, SequenceNaming, StaleArtifactQuery,
+    Timestamp, ToolIdentity, TransactionId, VocabularyId,
 };
 use rusqlite::{
     Connection, OpenFlags, OptionalExtension, limits::Limit, params, params_from_iter, types::Value,
@@ -76,7 +76,7 @@ struct StoredActivity {
     agent_qualifier: Option<String>,
 }
 
-type StoredSequence = (ResourceId, String, String, i64, i64, i64, i64, i64, i64);
+type StoredSequence = (ResourceId, i64, i64, i64, i64, i64);
 
 struct StoredRevision {
     id: Vec<u8>,
@@ -436,40 +436,20 @@ impl SqliteProduction {
     pub fn locators(&self, resource_id: ResourceId) -> Result<Vec<Locator>> {
         let mut statement = self
             .connection
-            .prepare(
-                "SELECT id, uri, last_seen_micros, availability, media_root_name FROM locators
-                 WHERE resource_id = ?1 ORDER BY id",
-            )
+            .prepare(&format!(
+                "SELECT {LOCATOR_COLUMNS} WHERE l.resource_id = ?1 ORDER BY l.id"
+            ))
             .map_err(sqlite_error("prepare locator query"))?;
         let rows = statement
-            .query_map(params![resource_id.as_bytes().as_slice()], |row| {
-                Ok((
-                    row.get::<_, Vec<u8>>(0)?,
-                    row.get::<_, String>(1)?,
-                    row.get::<_, Option<i64>>(2)?,
-                    row.get::<_, i64>(3)?,
-                    row.get::<_, Option<String>>(4)?,
-                ))
-            })
+            .query_map(
+                params![resource_id.as_bytes().as_slice()],
+                StoredLocator::read,
+            )
             .map_err(sqlite_error("query locators"))?;
 
         rows.map(|row| {
-            let (id, uri, last_seen, availability, media_root) =
-                row.map_err(sqlite_error("read locator row"))?;
-            let locator = Locator::new(
-                LocatorId::from_bytes(id_bytes(id, "locator")?),
-                resource_id,
-                uri,
-                last_seen.map(Timestamp::from_unix_micros),
-                decode_availability(availability)?,
-            )
-            .map_err(stored_domain_error("locator"))?;
-            match media_root {
-                Some(name) => locator
-                    .with_media_root(name)
-                    .map_err(stored_domain_error("locator media root")),
-                None => Ok(locator),
-            }
+            row.map_err(sqlite_error("read locator row"))?
+                .into_locator(resource_id)
         })
         .collect()
     }
@@ -664,11 +644,10 @@ impl SqliteProduction {
         let position = query_cursor::id_position::<LocatorId>(page, "locators", &signature)?;
         let mut statement = self
             .connection
-            .prepare(
-                "SELECT id, uri, last_seen_micros, availability, media_root_name
-                 FROM locators WHERE resource_id = ?1 AND id > ?2
-                 ORDER BY id LIMIT ?3",
-            )
+            .prepare(&format!(
+                "SELECT {LOCATOR_COLUMNS} WHERE l.resource_id = ?1 AND l.id > ?2
+                 ORDER BY l.id LIMIT ?3"
+            ))
             .map_err(sqlite_error("prepare paginated locator query"))?;
         let mut locators = statement
             .query_map(
@@ -677,34 +656,12 @@ impl SqliteProduction {
                     position.unwrap_or([0; 16]).as_slice(),
                     i64::from(page.limit()) + 1,
                 ],
-                |row| {
-                    Ok((
-                        row.get::<_, Vec<u8>>(0)?,
-                        row.get::<_, String>(1)?,
-                        row.get::<_, Option<i64>>(2)?,
-                        row.get::<_, i64>(3)?,
-                        row.get::<_, Option<String>>(4)?,
-                    ))
-                },
+                StoredLocator::read,
             )
             .map_err(sqlite_error("query paginated locators"))?
             .map(|row| {
-                let (id, uri, last_seen, availability, media_root) =
-                    row.map_err(sqlite_error("read paginated locator row"))?;
-                let locator = Locator::new(
-                    LocatorId::from_bytes(id_bytes(id, "locator")?),
-                    resource_id,
-                    uri,
-                    last_seen.map(Timestamp::from_unix_micros),
-                    decode_availability(availability)?,
-                )
-                .map_err(stored_domain_error("locator"))?;
-                match media_root {
-                    Some(name) => locator
-                        .with_media_root(name)
-                        .map_err(stored_domain_error("locator media root")),
-                    None => Ok(locator),
-                }
+                row.map_err(sqlite_error("read paginated locator row"))?
+                    .into_locator(resource_id)
             })
             .collect::<Result<Vec<_>>>()?;
         let has_more = locators.len() > page.limit() as usize;
@@ -920,21 +877,18 @@ impl SqliteProduction {
         let row = self
             .connection
             .query_row(
-                "SELECT resource_id, prefix, suffix, padding, start_frame, end_frame,
+                "SELECT resource_id, start_frame, end_frame,
                         frame_step, rate_numerator, rate_denominator
                  FROM image_sequences WHERE representation_id = ?1",
                 params![representation_id.as_bytes().as_slice()],
                 |row| {
                     Ok((
                         row.get::<_, Vec<u8>>(0)?,
-                        row.get::<_, String>(1)?,
-                        row.get::<_, String>(2)?,
+                        row.get::<_, i64>(1)?,
+                        row.get::<_, i64>(2)?,
                         row.get::<_, i64>(3)?,
                         row.get::<_, i64>(4)?,
                         row.get::<_, i64>(5)?,
-                        row.get::<_, i64>(6)?,
-                        row.get::<_, i64>(7)?,
-                        row.get::<_, i64>(8)?,
                     ))
                 },
             )
@@ -945,13 +899,11 @@ impl SqliteProduction {
                 "image-sequence resource does not match membership",
             ));
         }
-        let pattern = ImageSequencePattern::new(row.1, row.2, stored_u8(row.3, "padding")?)
-            .map_err(stored_domain_error("image-sequence pattern"))?;
-        let frames = FrameRange::new(row.4, row.5, stored_u32(row.6, "frame step")?)
+        let frames = FrameRange::new(row.1, row.2, stored_u32(row.3, "frame step")?)
             .map_err(stored_domain_error("image-sequence frame range"))?;
         let rate = RationalRate::new(
-            stored_u32(row.7, "rate numerator")?,
-            stored_u32(row.8, "rate denominator")?,
+            stored_u32(row.4, "rate numerator")?,
+            stored_u32(row.5, "rate denominator")?,
         )
         .map_err(stored_domain_error("image-sequence rate"))?;
         let mut statement = self
@@ -968,7 +920,7 @@ impl SqliteProduction {
             .map_err(sqlite_error("query missing frames"))?
             .collect::<std::result::Result<Vec<_>, _>>()
             .map_err(sqlite_error("read missing-frame row"))?;
-        ImageSequenceDescriptor::new(resource_id, pattern, frames, rate, missing)
+        ImageSequenceDescriptor::new(resource_id, frames, rate, missing)
             .map_err(stored_domain_error("image-sequence descriptor"))
     }
 
@@ -2726,7 +2678,7 @@ impl SqliteProduction {
         let mut sequence_statement = self
             .connection
             .prepare(&format!(
-                "SELECT representation_id, resource_id, prefix, suffix, padding,
+                "SELECT representation_id, resource_id,
                         start_frame, end_frame, frame_step, rate_numerator, rate_denominator
                  FROM image_sequences WHERE representation_id IN ({placeholders})"
             ))
@@ -2737,14 +2689,11 @@ impl SqliteProduction {
                 Ok((
                     row.get::<_, Vec<u8>>(0)?,
                     row.get::<_, Vec<u8>>(1)?,
-                    row.get::<_, String>(2)?,
-                    row.get::<_, String>(3)?,
+                    row.get::<_, i64>(2)?,
+                    row.get::<_, i64>(3)?,
                     row.get::<_, i64>(4)?,
                     row.get::<_, i64>(5)?,
                     row.get::<_, i64>(6)?,
-                    row.get::<_, i64>(7)?,
-                    row.get::<_, i64>(8)?,
-                    row.get::<_, i64>(9)?,
                 ))
             })
             .map_err(sqlite_error("query representation-page sequences"))?
@@ -2759,9 +2708,6 @@ impl SqliteProduction {
                     row.4,
                     row.5,
                     row.6,
-                    row.7,
-                    row.8,
-                    row.9,
                 ),
             );
         }
@@ -2853,21 +2799,15 @@ impl SqliteProduction {
                     ContentStructure::image_sequence(
                         ImageSequenceDescriptor::new(
                             resource_id,
-                            ImageSequencePattern::new(
+                            FrameRange::new(
                                 sequence.1,
                                 sequence.2,
-                                stored_u8(sequence.3, "padding")?,
-                            )
-                            .map_err(stored_domain_error("image-sequence pattern"))?,
-                            FrameRange::new(
-                                sequence.4,
-                                sequence.5,
-                                stored_u32(sequence.6, "frame step")?,
+                                stored_u32(sequence.3, "frame step")?,
                             )
                             .map_err(stored_domain_error("image-sequence frame range"))?,
                             RationalRate::new(
-                                stored_u32(sequence.7, "rate numerator")?,
-                                stored_u32(sequence.8, "rate denominator")?,
+                                stored_u32(sequence.4, "rate numerator")?,
+                                stored_u32(sequence.5, "rate denominator")?,
                             )
                             .map_err(stored_domain_error("image-sequence rate"))?,
                             missing.remove(&id).unwrap_or_default(),
@@ -3660,6 +3600,63 @@ fn decode_representation_kind(value: i64) -> Result<RepresentationKind> {
             ErrorKind::Storage,
             format!("stored representation kind {value} is invalid"),
         )),
+    }
+}
+
+/// Selected locator columns, with the sequence naming when there is one.
+const LOCATOR_COLUMNS: &str = "l.id, l.uri, l.last_seen_micros, l.availability, l.media_root_name,
+     n.prefix, n.suffix, n.padding
+     FROM locators l LEFT JOIN locator_sequence_namings n ON n.locator_id = l.id";
+
+/// One stored locator row as selected by [`LOCATOR_COLUMNS`].
+struct StoredLocator {
+    id: Vec<u8>,
+    uri: String,
+    last_seen: Option<i64>,
+    availability: i64,
+    media_root: Option<String>,
+    naming: Option<(String, String, i64)>,
+}
+
+impl StoredLocator {
+    fn read(row: &rusqlite::Row<'_>) -> rusqlite::Result<Self> {
+        let prefix = row.get::<_, Option<String>>(5)?;
+        let suffix = row.get::<_, Option<String>>(6)?;
+        let padding = row.get::<_, Option<i64>>(7)?;
+        Ok(Self {
+            id: row.get(0)?,
+            uri: row.get(1)?,
+            last_seen: row.get(2)?,
+            availability: row.get(3)?,
+            media_root: row.get(4)?,
+            naming: prefix
+                .zip(suffix)
+                .zip(padding)
+                .map(|((prefix, suffix), padding)| (prefix, suffix, padding)),
+        })
+    }
+
+    fn into_locator(self, resource_id: ResourceId) -> Result<Locator> {
+        let mut locator = Locator::new(
+            LocatorId::from_bytes(id_bytes(self.id, "locator")?),
+            resource_id,
+            self.uri,
+            self.last_seen.map(Timestamp::from_unix_micros),
+            decode_availability(self.availability)?,
+        )
+        .map_err(stored_domain_error("locator"))?;
+        if let Some(name) = self.media_root {
+            locator = locator
+                .with_media_root(name)
+                .map_err(stored_domain_error("locator media root"))?;
+        }
+        if let Some((prefix, suffix, padding)) = self.naming {
+            locator = locator.with_sequence_naming(
+                SequenceNaming::new(prefix, suffix, stored_u8(padding, "padding")?)
+                    .map_err(stored_domain_error("locator sequence naming"))?,
+            );
+        }
+        Ok(locator)
     }
 }
 

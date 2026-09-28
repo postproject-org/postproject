@@ -4,7 +4,7 @@ use postproject_core::{Error, ErrorKind, Result, Timestamp};
 use rusqlite::{Connection, Transaction, TransactionBehavior, params};
 
 /// The newest schema understood by this build.
-pub const CURRENT_SCHEMA_VERSION: u32 = 14;
+pub const CURRENT_SCHEMA_VERSION: u32 = 15;
 
 struct Migration {
     version: u32,
@@ -67,6 +67,10 @@ const MIGRATIONS: &[Migration] = &[
     Migration {
         version: 14,
         sql: include_str!("migrations/014_job_completion_index.sql"),
+    },
+    Migration {
+        version: 15,
+        sql: include_str!("migrations/015_locator_sequence_namings.sql"),
     },
 ];
 
@@ -170,7 +174,7 @@ mod tests {
             .expect("query migration history")
             .collect::<std::result::Result<_, _>>()
             .expect("read migration history");
-        assert_eq!(applied, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]);
+        assert_eq!(applied, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
         for table in [
             "productions",
             "assets",
@@ -182,6 +186,7 @@ mod tests {
             "resource_fingerprints",
             "representation_fingerprints",
             "locators",
+            "locator_sequence_namings",
             "media_roots",
             "external_identifiers",
             "metadata_assertions",
@@ -474,6 +479,187 @@ mod tests {
             .execute("DELETE FROM revisions WHERE sequence = 3", [])
             .expect("delete revision");
         assert_eq!(keys(&connection), [(1, 1), (3, 1), (20, 2)]);
+    }
+
+    #[test]
+    #[allow(
+        clippy::too_many_lines,
+        reason = "one migrated production verifies moved namings and every rebuilt table"
+    )]
+    fn schema_fourteen_moves_sequence_names_to_every_sequence_locator() {
+        let mut connection = Connection::open_in_memory().expect("open database");
+        for migration in &MIGRATIONS[..14] {
+            apply_migration(&mut connection, migration).expect("apply old migration");
+        }
+        connection
+            .execute_batch(
+                "PRAGMA foreign_keys = ON;
+                 INSERT INTO productions (
+                    singleton, id, schema_version, created_at_micros, display_name
+                 ) VALUES (1, zeroblob(16), 14, 0, NULL);
+                 INSERT INTO assets VALUES (x'01010101010101010101010101010101', 0, NULL, NULL);
+                 INSERT INTO media_roots (id, name, priority, enabled)
+                 VALUES (x'1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e', 'plates', 0, 1);",
+            )
+            .expect("insert production");
+        // Representation 2 is a sequence with two locators; representation 3 is
+        // a single file with one.
+        for label in [2_u8, 3] {
+            connection
+                .execute(
+                    "INSERT INTO representations VALUES (?1, ?2, 1, 0)",
+                    params![vec![label; 16], vec![1_u8; 16]],
+                )
+                .expect("insert representation");
+            connection
+                .execute(
+                    "INSERT INTO resources (id) VALUES (?1)",
+                    [vec![label + 10; 16]],
+                )
+                .expect("insert resource");
+            connection
+                .execute(
+                    "INSERT INTO representation_resources VALUES (?1, ?2, 0, NULL, 1)",
+                    params![vec![label; 16], vec![label + 10; 16]],
+                )
+                .expect("insert membership");
+        }
+        connection
+            .execute(
+                "INSERT INTO image_sequences (
+                    representation_id, resource_id, prefix, suffix, padding,
+                    start_frame, end_frame, frame_step, rate_numerator, rate_denominator
+                 ) VALUES (?1, ?2, 'shot_', '.png', 4, 1, 3, 1, 24, 1)",
+                params![vec![2_u8; 16], vec![12_u8; 16]],
+            )
+            .expect("insert sequence");
+        connection
+            .execute(
+                "INSERT INTO image_sequence_missing_frames VALUES (?1, 2)",
+                [vec![2_u8; 16]],
+            )
+            .expect("insert missing frame");
+        for (label, resource, uri, root) in [
+            (20_u8, 12_u8, "file:///plates/", Some("plates")),
+            (21, 12, "file:///backup/", None),
+            (22, 13, "file:///media/a.mov", None),
+        ] {
+            connection
+                .execute(
+                    "INSERT INTO locators (id, resource_id, uri, availability, media_root_name)
+                     VALUES (?1, ?2, ?3, 1, ?4)",
+                    params![vec![label; 16], vec![resource; 16], uri, root],
+                )
+                .expect("insert locator");
+        }
+
+        migrate(&mut connection).expect("migrate schema fourteen");
+
+        let namings = |connection: &Connection| -> Vec<(Vec<u8>, String, String, u8)> {
+            connection
+                .prepare(
+                    "SELECT locator_id, prefix, suffix, padding
+                     FROM locator_sequence_namings ORDER BY 1",
+                )
+                .expect("prepare naming query")
+                .query_map([], |row| {
+                    Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+                })
+                .expect("query namings")
+                .collect::<std::result::Result<_, _>>()
+                .expect("read namings")
+        };
+        assert_eq!(
+            namings(&connection),
+            [
+                (vec![20_u8; 16], "shot_".to_owned(), ".png".to_owned(), 4),
+                (vec![21_u8; 16], "shot_".to_owned(), ".png".to_owned(), 4),
+            ]
+        );
+        let sequence_columns: Vec<String> = connection
+            .prepare("SELECT name FROM pragma_table_info('image_sequences') ORDER BY cid")
+            .expect("prepare column query")
+            .query_map([], |row| row.get(0))
+            .expect("query columns")
+            .collect::<std::result::Result<_, _>>()
+            .expect("read columns");
+        assert_eq!(
+            sequence_columns,
+            [
+                "representation_id",
+                "resource_id",
+                "start_frame",
+                "end_frame",
+                "frame_step",
+                "rate_numerator",
+                "rate_denominator"
+            ]
+        );
+        let missing: i64 = connection
+            .query_row(
+                "SELECT frame FROM image_sequence_missing_frames",
+                [],
+                |row| row.get(0),
+            )
+            .expect("read missing frame");
+        assert_eq!(missing, 2);
+        let rooted: u32 = connection
+            .query_row(
+                "SELECT count(*) FROM media_root_representations WHERE locator_id = ?1",
+                [vec![20_u8; 16]],
+                |row| row.get(0),
+            )
+            .expect("count rooted locator");
+        assert_eq!(rooted, 1);
+        let violations: u32 = connection
+            .query_row("SELECT count(*) FROM pragma_foreign_key_check", [], |row| {
+                row.get(0)
+            })
+            .expect("check foreign keys");
+        assert_eq!(violations, 0);
+
+        // The rebuilt locator table keeps its maintaining triggers, lets a
+        // resource hold one URI under two namings, and cascades to namings.
+        connection
+            .execute(
+                "INSERT INTO locators (id, resource_id, uri, availability)
+                 VALUES (?1, ?2, 'file:///plates/', 1)",
+                params![vec![23_u8; 16], vec![12_u8; 16]],
+            )
+            .expect("add second locator at one URI");
+        connection
+            .execute(
+                "INSERT INTO locator_sequence_namings VALUES (?1, 'shot-graded_', '.png', 4)",
+                [vec![23_u8; 16]],
+            )
+            .expect("record second naming");
+        connection
+            .execute(
+                "DELETE FROM locators WHERE resource_id = ?1",
+                [vec![12_u8; 16]],
+            )
+            .expect("retire sequence locators");
+        assert!(namings(&connection).is_empty());
+        let unresolved: u32 = connection
+            .query_row("SELECT count(*) FROM unresolved_memberships", [], |row| {
+                row.get(0)
+            })
+            .expect("count unresolved");
+        assert_eq!(unresolved, 1);
+        connection
+            .execute(
+                "DELETE FROM representations WHERE id = ?1",
+                [vec![2_u8; 16]],
+            )
+            .expect("delete sequence representation");
+        let remaining: u32 = connection
+            .query_row(
+                "SELECT count(*) FROM image_sequence_missing_frames",
+                [],
+                |row| row.get(0),
+            )
+            .expect("count missing frames");
+        assert_eq!(remaining, 0);
     }
 
     #[test]

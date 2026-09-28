@@ -4,6 +4,7 @@ use std::path::Path;
 
 use postproject_core::{
     Error, ErrorKind, FrameRange, ImageSequenceDescriptor, ResourceFingerprint, Result,
+    SequenceNaming,
 };
 
 use crate::fingerprint_file;
@@ -11,9 +12,12 @@ use crate::fingerprint_file;
 /// Algorithm identifier for sampled image-sequence member fingerprints.
 pub const SEQUENCE_FINGERPRINT_ALGORITHM: &str = "pp-blake3-sequence-sampled-members";
 /// Current sampled image-sequence fingerprint strategy version.
-pub const SEQUENCE_FINGERPRINT_VERSION: u16 = 1;
+///
+/// Version 2 excludes file names (ADR 0038). Version 1 values, which hashed
+/// the prefix, suffix, padding, and sampled file names, are no longer computed.
+pub const SEQUENCE_FINGERPRINT_VERSION: u16 = 2;
 
-const CONTEXT: &str = "postproject.org image sequence sampled members v1";
+const CONTEXT: &str = "postproject.org image sequence sampled members v2";
 
 /// A collection fingerprint and the exact frames that contributed to it.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -44,10 +48,12 @@ impl SequenceFingerprintReport {
 
 /// Fingerprints the first, middle, and last declared members of an image sequence.
 ///
-/// Recorded missing frames are excluded before deterministic sample ranks are
-/// selected. The digest covers the canonical descriptor, sampled filenames,
-/// and each sampled member's versioned content fingerprint; it excludes the
-/// directory path and internal object identity.
+/// The members are the files in `directory` named by `naming`. Recorded
+/// missing frames are excluded before deterministic sample ranks are selected.
+/// The digest covers the frame range, step, rate, known missing frames,
+/// sampled frame numbers, and each sampled member's versioned content
+/// fingerprint. It excludes the directory, the file names, and internal object
+/// identity, so a moved or renamed copy of the sequence has the same value.
 ///
 /// # Errors
 ///
@@ -56,13 +62,11 @@ impl SequenceFingerprintReport {
 /// fingerprinted safely.
 pub fn fingerprint_image_sequence(
     directory: impl AsRef<Path>,
+    naming: &SequenceNaming,
     descriptor: &ImageSequenceDescriptor,
 ) -> Result<SequenceFingerprintReport> {
     let sampled_frames = sampled_frames(descriptor)?;
     let mut hasher = blake3::Hasher::new_derive_key(CONTEXT);
-    hash_text(&mut hasher, descriptor.pattern().prefix());
-    hash_text(&mut hasher, descriptor.pattern().suffix());
-    hasher.update(&[descriptor.pattern().padding()]);
     let frames = descriptor.frames();
     hasher.update(&frames.start().to_le_bytes());
     hasher.update(&frames.end().to_le_bytes());
@@ -73,10 +77,8 @@ pub fn fingerprint_image_sequence(
     hash_i64_values(&mut hasher, &sampled_frames);
 
     for frame in &sampled_frames {
-        let filename = descriptor.pattern().filename(*frame);
-        let report = fingerprint_file(directory.as_ref().join(&filename))?;
+        let report = fingerprint_file(directory.as_ref().join(naming.filename(*frame)))?;
         let fingerprint = report.fingerprint();
-        hash_text(&mut hasher, &filename);
         hash_text(&mut hasher, fingerprint.algorithm());
         hasher.update(&fingerprint.version().to_le_bytes());
         hash_bytes(&mut hasher, fingerprint.value());

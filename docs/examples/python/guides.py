@@ -20,7 +20,6 @@ from postproject import (
     ActivitySpec,
     AssetId,
     Dependency,
-    EvidenceKind,
     ExternalIdentifier,
     ImageSequenceSource,
     JobRequest,
@@ -39,6 +38,7 @@ from postproject import (
     RevisionEvent,
     RevisionId,
     RevisionObserver,
+    SequenceNaming,
     ToolIdentity,
 )
 
@@ -134,21 +134,14 @@ def confirm_unique_candidates(
                 if len(resource.candidates) != 1:
                     continue
                 candidate = resource.candidates[0]
-                root = next(
-                    (
-                        evidence.detail
-                        for evidence in candidate.evidence
-                        if evidence.kind is EvidenceKind.MEDIA_ROOT_RELATION
-                    ),
-                    None,
+                # Record the logical root the candidate was found under and,
+                # for an image sequence, the naming of its files there.
+                transaction.confirm_locator(
+                    resource.resource_id,
+                    candidate.uri,
+                    media_root=candidate.media_root,
+                    sequence_naming=candidate.sequence_naming,
                 )
-                if root is None:
-                    transaction.confirm_locator(resource.resource_id, candidate.uri)
-                else:
-                    # Record the logical root the candidate was found under.
-                    transaction.confirm_locator_under_root(
-                        resource.resource_id, candidate.uri, root
-                    )
 
 
 # [/confirm-locator]
@@ -164,9 +157,7 @@ def add_render_sequence(
             RepresentationKind.DERIVED,
             ImageSequenceSource(
                 directory=directory,
-                prefix="shot010.",
-                suffix=".exr",
-                padding=4,
+                naming=SequenceNaming("shot010.", ".exr", 4),
                 start=1001,
                 end=1004,
                 step=1,
@@ -182,7 +173,8 @@ def add_render_sequence(
     sequence = stored.image_sequence
     assert sequence is not None
     print(
-        f"{sequence.prefix}#{sequence.suffix} frames {sequence.start}-{sequence.end}, "
+        f"frames {sequence.start}-{sequence.end} at "
+        f"{sequence.rate_numerator}/{sequence.rate_denominator}, "
         f"{len(sequence.missing_frames)} known missing"
     )
     return sequence_id

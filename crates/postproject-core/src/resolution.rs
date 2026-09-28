@@ -4,7 +4,7 @@ use std::cmp::Reverse;
 
 use crate::{
     ContentStructure, Error, ErrorKind, MAX_SEQUENCE_EXCEPTIONS, MediaRoot, RepresentationId,
-    ResourceId, Result, uri::normalize_uri,
+    ResourceId, Result, SequenceNaming, uri::normalize_uri,
 };
 
 /// A deterministic confidence value in basis points from 0 through 10,000.
@@ -109,6 +109,7 @@ pub struct ResolutionCandidate {
     confidence: Confidence,
     evidence: Vec<ResolutionEvidence>,
     media_root: Option<String>,
+    sequence_naming: Option<SequenceNaming>,
 }
 
 impl ResolutionCandidate {
@@ -135,7 +136,23 @@ impl ResolutionCandidate {
             confidence,
             evidence,
             media_root: None,
+            sequence_naming: None,
         })
+    }
+
+    /// Records the naming of the image-sequence files the candidate was found
+    /// under, so confirmation can record it with the locator.
+    #[must_use]
+    pub fn with_sequence_naming(mut self, naming: SequenceNaming) -> Self {
+        self.sequence_naming = Some(naming);
+        self
+    }
+
+    /// Returns the naming of the sequence files at the candidate, present
+    /// exactly for a candidate of an image-sequence resource.
+    #[must_use]
+    pub const fn sequence_naming(&self) -> Option<&SequenceNaming> {
+        self.sequence_naming.as_ref()
     }
 
     /// Associates the candidate with the logical media root it was found
@@ -219,8 +236,16 @@ impl ResourceResolution {
         evidence: Vec<ResolutionEvidence>,
     ) -> Result<Self> {
         candidates.sort_by(|left, right| {
-            (Reverse(left.confidence), left.uri.as_str())
-                .cmp(&(Reverse(right.confidence), right.uri.as_str()))
+            (
+                Reverse(left.confidence),
+                left.uri.as_str(),
+                &left.sequence_naming,
+            )
+                .cmp(&(
+                    Reverse(right.confidence),
+                    right.uri.as_str(),
+                    &right.sequence_naming,
+                ))
         });
         let valid_count = match state {
             ResourceResolutionState::OnlineAtKnownLocator
@@ -557,10 +582,7 @@ fn resource_is_required(structure: &ContentStructure, resource_id: ResourceId) -
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        FrameRange, ImageSequenceDescriptor, ImageSequencePattern, RationalRate, ResourceMember,
-        ResourceRole,
-    };
+    use crate::{FrameRange, ImageSequenceDescriptor, RationalRate, ResourceMember, ResourceRole};
     use proptest::prelude::*;
 
     use super::*;
@@ -702,7 +724,6 @@ mod tests {
         let resource_id = ResourceId::new();
         let descriptor = ImageSequenceDescriptor::new(
             resource_id,
-            ImageSequencePattern::new("shot.", ".exr", 4).expect("valid pattern"),
             FrameRange::new(1001, 1004, 1).expect("valid frame range"),
             RationalRate::new(24, 1).expect("valid rate"),
             vec![1002, 1003],
@@ -736,7 +757,6 @@ mod tests {
         let resource_id = ResourceId::new();
         let descriptor = ImageSequenceDescriptor::new(
             resource_id,
-            ImageSequencePattern::new("shot.", ".exr", 4).expect("valid pattern"),
             FrameRange::new(1001, 1004, 1).expect("valid frame range"),
             RationalRate::new(24, 1).expect("valid rate"),
             vec![1002],

@@ -19,17 +19,17 @@ use postproject_core::{
     ArtifactReproducibilityIssue, ArtifactTraversalLimitKind, Asset, AssetId, AvailabilityIssue,
     AvailabilityIssueKind, DecimalValue, Dependency, DependencyKind, DependencyQueryLimits,
     DependencySet, DependencySetStatus, DependencyTarget, EvidenceKind, ExternalIdentifier,
-    FrameRange, IdentifierScheme, ImageSequencePattern, Job, JobClaimId, JobFailure, JobId,
-    JobKind, JobQuery, JobState, JobStateKind, Locator, LocatorAvailability, LocatorId,
-    MAX_JOB_DIAGNOSTIC_BYTES, MediaRoot, MediaRootId, MetadataAssertion, MetadataField,
-    MetadataProperty, MetadataQuery, MetadataValue, MetadataValueKind, ObjectRef, OriginIdentity,
-    OriginalMediaImport, ProductionId, ProductionStoreTransaction, PropertyId,
-    ProvenanceQueryLimits, QueryCursor, QueryPage, QueryPageRequest, RationalRate, RationalValue,
-    Representation, RepresentationAvailability, RepresentationId, RepresentationKind,
-    RepresentationResolution, RequestedJobOutput, ResolutionEvidence, Resource, ResourceId,
-    ResourceResolution, ResourceResolutionState, ResourceRole, Revision, RevisionContext,
-    RevisionEvent, RevisionEventFilter, RevisionEventKind, RevisionEventType, RevisionId,
-    RevisionWaitOutcome, StaleArtifactQuery, Timestamp, ToolIdentity, VocabularyId,
+    FrameRange, IdentifierScheme, Job, JobClaimId, JobFailure, JobId, JobKind, JobQuery, JobState,
+    JobStateKind, Locator, LocatorAvailability, LocatorId, MAX_JOB_DIAGNOSTIC_BYTES, MediaRoot,
+    MediaRootId, MetadataAssertion, MetadataField, MetadataProperty, MetadataQuery, MetadataValue,
+    MetadataValueKind, ObjectRef, OriginIdentity, OriginalMediaImport, ProductionId,
+    ProductionStoreTransaction, PropertyId, ProvenanceQueryLimits, QueryCursor, QueryPage,
+    QueryPageRequest, RationalRate, RationalValue, Representation, RepresentationAvailability,
+    RepresentationId, RepresentationKind, RepresentationResolution, RequestedJobOutput,
+    ResolutionEvidence, Resource, ResourceId, ResourceResolution, ResourceResolutionState,
+    ResourceRole, Revision, RevisionContext, RevisionEvent, RevisionEventFilter, RevisionEventKind,
+    RevisionEventType, RevisionId, RevisionWaitOutcome, SequenceNaming, StaleArtifactQuery,
+    Timestamp, ToolIdentity, VocabularyId,
 };
 use postproject_media::{
     ContentObservationOutcome, ContentVerification, EXECUTOR_PARAMETER_VOCABULARY,
@@ -38,9 +38,8 @@ use postproject_media::{
     InventoryCategory, InventoryReport, InventoryScanner, MediaInspector, MediaRecognizer,
     MediaResolver, MediaRootMapping, MediaSource, RecognizedMedia, ResolutionItem, ResolverOptions,
     SearchScope, TechnicalMetadata, VerificationMode, local_file_path, observe_resource_content,
-    prepare_confirmed_locator, prepare_confirmed_locator_under_root, prepare_original_media,
-    prepare_recognized_original_media, prepare_representation, resource_usage,
-    verify_resource_content,
+    prepare_confirmed_locator, prepare_original_media, prepare_recognized_original_media,
+    prepare_representation, recorded_sequence_naming, resource_usage, verify_resource_content,
 };
 use postproject_storage_sqlite::SqliteProduction;
 use serde::{Deserialize, Serialize};
@@ -196,9 +195,15 @@ struct MediaAssetArgs {
 struct MediaResolveArgs {
     production: PathBuf,
     asset_id: String,
-    /// Confirm one URI returned by this resolution and persist it.
+    /// Confirm one URI returned by this resolution and persist it. An
+    /// image-sequence candidate is recorded with the file naming it was found
+    /// under.
     #[arg(long, value_name = "URI")]
     confirm: Option<String>,
+    /// Choose, by its naming (such as `shot_%04d.png`), which image-sequence
+    /// candidate at the confirmed URI to record.
+    #[arg(long, value_name = "PATTERN", requires = "confirm")]
+    confirm_naming: Option<SequenceNamingArg>,
     /// Map a production root name to this machine's directory (NAME=PATH).
     #[arg(long = "root-map", value_name = "NAME=PATH")]
     root_mappings: Vec<RootMappingArg>,
@@ -231,6 +236,51 @@ struct MediaFingerprintArgs {
     resource_id: String,
     /// File, or image-sequence directory, whose content realizes the resource.
     path: PathBuf,
+    /// Naming of the image-sequence files in the directory, such as
+    /// `shot_%04d.png`. Defaults to the naming recorded for the directory.
+    #[arg(long, value_name = "PATTERN")]
+    sequence_naming: Option<SequenceNamingArg>,
+}
+
+/// An image-sequence file naming written as a printf-style pattern: the
+/// prefix, `%d` or `%0Nd` for a frame number padded to N digits, and the
+/// suffix.
+#[derive(Clone, Debug)]
+struct SequenceNamingArg(SequenceNaming);
+
+impl FromStr for SequenceNamingArg {
+    type Err = String;
+
+    fn from_str(value: &str) -> std::result::Result<Self, Self::Err> {
+        parse_sequence_naming(value).map(Self)
+    }
+}
+
+fn parse_sequence_naming(value: &str) -> std::result::Result<SequenceNaming, String> {
+    for (start, _) in value.rmatch_indices('%') {
+        let rest = &value[start + 1..];
+        let Some(end) = rest.find('d') else {
+            continue;
+        };
+        let width = &rest[..end];
+        if !width.bytes().all(|byte| byte.is_ascii_digit()) {
+            continue;
+        }
+        let padding = if width.is_empty() {
+            0
+        } else if width.starts_with('0') {
+            width
+                .parse::<u8>()
+                .map_err(|error| format!("invalid frame padding in {value:?}: {error}"))?
+        } else {
+            continue;
+        };
+        return SequenceNaming::new(&value[..start], &rest[end + 1..], padding)
+            .map_err(|error| error.to_string());
+    }
+    Err(format!(
+        "sequence naming {value:?} must contain %d or %0Nd for the frame number"
+    ))
 }
 
 #[derive(Debug, Args)]
@@ -1175,6 +1225,36 @@ struct LocatorView {
     uri: String,
     availability: &'static str,
     last_seen_unix_micros: Option<i64>,
+    sequence_naming: Option<SequenceNamingView>,
+}
+
+#[derive(Debug, Serialize)]
+struct SequenceNamingView {
+    prefix: String,
+    suffix: String,
+    padding: u8,
+    pattern: String,
+}
+
+impl From<&SequenceNaming> for SequenceNamingView {
+    fn from(naming: &SequenceNaming) -> Self {
+        Self {
+            prefix: naming.prefix().to_owned(),
+            suffix: naming.suffix().to_owned(),
+            padding: naming.padding(),
+            pattern: naming_pattern(naming),
+        }
+    }
+}
+
+/// Formats a naming as the printf-style pattern `--confirm-naming` accepts.
+fn naming_pattern(naming: &SequenceNaming) -> String {
+    let frame = if naming.padding() == 0 {
+        "%d".to_owned()
+    } else {
+        format!("%0{}d", naming.padding())
+    };
+    format!("{}{frame}{}", naming.prefix(), naming.suffix())
 }
 
 #[derive(Debug, Serialize)]
@@ -1192,6 +1272,7 @@ struct ResolveView {
     asset_id: String,
     resolutions: Vec<ResolutionView>,
     confirmed_uri: Option<String>,
+    confirmed_sequence_naming: Option<SequenceNamingView>,
 }
 
 #[derive(Debug, Serialize)]
@@ -1246,6 +1327,7 @@ struct CandidateView {
     uri: String,
     confidence_basis_points: u16,
     media_root: Option<String>,
+    sequence_naming: Option<SequenceNamingView>,
     evidence: Vec<EvidenceView>,
 }
 
@@ -1466,6 +1548,7 @@ struct LocatorQueryView {
     availability: &'static str,
     last_seen_unix_micros: Option<i64>,
     media_root: Option<String>,
+    sequence_naming: Option<SequenceNamingView>,
 }
 
 #[derive(Debug, Serialize)]
@@ -1989,13 +2072,13 @@ fn recognized_inspection_paths(recognized: &RecognizedMedia) -> Vec<PathBuf> {
         RecognizedMedia::SingleFile(path) => vec![path.clone()],
         RecognizedMedia::ImageSequence {
             directory,
-            pattern,
+            naming,
             frames,
             missing_frames,
             ..
         } => (frames.start()..=frames.end())
             .find(|frame| !missing_frames.contains(frame))
-            .map(|frame| vec![directory.join(pattern.filename(frame))])
+            .map(|frame| vec![directory.join(naming.filename(frame))])
             .unwrap_or_default(),
         RecognizedMedia::OrderedParts(members) | RecognizedMedia::Package(members) => members
             .iter()
@@ -2063,7 +2146,7 @@ fn representation_add(args: &RepresentationAddArgs, json: bool) -> Result<()> {
             missing_frames,
         } => MediaSource::ImageSequence(ImageSequenceSource::new(
             directory,
-            ImageSequencePattern::new(prefix, suffix, padding)?,
+            SequenceNaming::new(prefix, suffix, padding)?,
             FrameRange::new(start, end, step)?,
             RationalRate::new(rate_numerator, rate_denominator)?,
             missing_frames,
@@ -2102,7 +2185,8 @@ fn media_fingerprint(args: &MediaFingerprintArgs, json: bool) -> Result<()> {
     let resource_id = ResourceId::from_str(&args.resource_id).context("parse resource ID")?;
     let mut production = SqliteProduction::open(&args.production).context("open production")?;
     let usage = resource_usage(&production, resource_id).context("load resource usage")?;
-    let observation = observe_resource_content(resource_id, &usage, &args.path)
+    let naming = sequence_naming_for(&production, resource_id, args)?;
+    let observation = observe_resource_content(resource_id, &usage, &args.path, naming.as_ref())
         .context("fingerprint resource content")?;
 
     let mut transaction = production
@@ -2164,6 +2248,31 @@ fn media_fingerprint(args: &MediaFingerprintArgs, json: bool) -> Result<()> {
     }
 }
 
+/// Returns the explicit naming, or the one recorded for the directory when the
+/// resource has locators with namings.
+fn sequence_naming_for(
+    production: &SqliteProduction,
+    resource_id: ResourceId,
+    args: &MediaFingerprintArgs,
+) -> Result<Option<SequenceNaming>> {
+    if let Some(naming) = &args.sequence_naming {
+        return Ok(Some(naming.0.clone()));
+    }
+    let locators = production
+        .locators(resource_id)
+        .context("load resource locators")?;
+    if locators
+        .iter()
+        .all(|locator| locator.sequence_naming().is_none())
+    {
+        return Ok(None);
+    }
+    recorded_sequence_naming(&locators, &args.path)
+        .context("find the recorded sequence naming")?
+        .context("no sequence naming is recorded for this directory; pass --sequence-naming")
+        .map(Some)
+}
+
 fn fingerprint_view(algorithm: &str, version: u16, value: &[u8]) -> FingerprintView {
     FingerprintView {
         algorithm: algorithm.to_owned(),
@@ -2183,9 +2292,14 @@ fn media_verify_content(args: &MediaFingerprintArgs, json: bool) -> Result<()> {
         .iter()
         .find(|resource| resource.id() == resource_id)
         .context("representation does not list the resource")?;
-    let verification =
-        verify_resource_content(resource, representation.content_structure(), &args.path)
-            .context("verify resource content")?;
+    let naming = sequence_naming_for(&production, resource_id, args)?;
+    let verification = verify_resource_content(
+        resource,
+        representation.content_structure(),
+        &args.path,
+        naming.as_ref(),
+    )
+    .context("verify resource content")?;
     let view = ContentVerificationView {
         resource_id: resource_id.to_string(),
         verification: match verification {
@@ -2355,11 +2469,14 @@ fn locator_list(args: &LocatorListArgs, json: bool) -> Result<()> {
     let view = query_page_view(&page, |locator| Ok(locator_query_view(locator)))?;
     print_query_page(&view, json, false, |item| {
         println!(
-            "{}\t{}\t{}\t{}",
+            "{}\t{}\t{}\t{}\t{}",
             item.id,
             item.uri,
             item.availability,
-            item.media_root.as_deref().unwrap_or("-")
+            item.media_root.as_deref().unwrap_or("-"),
+            item.sequence_naming
+                .as_ref()
+                .map_or("-", |naming| naming.pattern.as_str())
         );
     })
 }
@@ -2413,6 +2530,7 @@ fn locator_query_view(locator: &Locator) -> LocatorQueryView {
         availability: view.availability,
         last_seen_unix_micros: view.last_seen_unix_micros,
         media_root: locator.media_root().map(str::to_owned),
+        sequence_naming: view.sequence_naming,
     }
 }
 
@@ -2440,7 +2558,13 @@ fn media_show(args: &MediaAssetArgs, json: bool) -> Result<()> {
             );
             for resource in &representation.resources {
                 for locator in &resource.locators {
-                    println!("    {} [{}]", locator.uri, locator.availability);
+                    match &locator.sequence_naming {
+                        Some(naming) => println!(
+                            "    {} {} [{}]",
+                            locator.uri, naming.pattern, locator.availability
+                        ),
+                        None => println!("    {} [{}]", locator.uri, locator.availability),
+                    }
                 }
             }
         }
@@ -4999,47 +5123,21 @@ fn media_resolve(args: MediaResolveArgs, json: bool) -> Result<()> {
     let inspector = FfprobeInspector::with_executable(&args.ffprobe);
     let resolutions = resolve_representations(&resolver, &scope, &representations, &inspector)?;
 
-    if let Some(uri) = args.confirm.as_deref() {
-        let matching: Vec<_> = resolutions
-            .iter()
-            .flat_map(RepresentationResolution::resources)
-            .flat_map(|resolution| {
-                resolution
-                    .candidates()
-                    .iter()
-                    .filter(move |candidate| candidate.uri() == uri)
-                    .map(move |candidate| {
-                        (
-                            resolution.resource_id(),
-                            candidate.media_root().map(str::to_owned),
-                        )
-                    })
-            })
-            .collect();
-        if matching.len() != 1 {
-            bail!("confirmation URI must identify exactly one candidate from this resolution");
-        }
-        let (resource_id, root_name) = &matching[0];
-        let locator = if let Some(root_name) = root_name {
-            prepare_confirmed_locator_under_root(*resource_id, uri.to_owned(), root_name.clone())
-        } else {
-            prepare_confirmed_locator(*resource_id, uri.to_owned())
-        }
-        .context("prepare confirmed locator")?;
-        let mut transaction = production
-            .begin_transaction()
-            .context("begin confirmation transaction")?;
-        set_cli_revision_context(&mut transaction, "Confirm media locator")?;
-        transaction
-            .add_locator(&locator)
-            .context("stage confirmed locator")?;
-        transaction.commit().context("commit confirmed locator")?;
-    }
+    let confirmed_sequence_naming = match args.confirm.as_deref() {
+        Some(uri) => confirm_candidate(
+            &mut production,
+            &resolutions,
+            uri,
+            args.confirm_naming.as_ref(),
+        )?,
+        None => None,
+    };
 
     let view = ResolveView {
         asset_id: asset_id.to_string(),
         resolutions: resolutions.iter().map(ResolutionView::from).collect(),
         confirmed_uri: args.confirm,
+        confirmed_sequence_naming,
     };
     if json {
         print_json(&view)
@@ -5052,18 +5150,73 @@ fn media_resolve(args: MediaResolveArgs, json: bool) -> Result<()> {
             for resource in &resolution.resources {
                 println!("  {}: {}", resource.resource_id, resource.state);
                 for candidate in &resource.candidates {
-                    println!(
-                        "    {} ({} bp)",
-                        candidate.uri, candidate.confidence_basis_points
-                    );
+                    match &candidate.sequence_naming {
+                        Some(naming) => println!(
+                            "    {} {} ({} bp)",
+                            candidate.uri, naming.pattern, candidate.confidence_basis_points
+                        ),
+                        None => println!(
+                            "    {} ({} bp)",
+                            candidate.uri, candidate.confidence_basis_points
+                        ),
+                    }
                 }
             }
         }
-        if let Some(uri) = &view.confirmed_uri {
-            println!("confirmed {uri}");
+        match (&view.confirmed_uri, &view.confirmed_sequence_naming) {
+            (Some(uri), Some(naming)) => println!("confirmed {uri} {}", naming.pattern),
+            (Some(uri), None) => println!("confirmed {uri}"),
+            _ => {}
         }
         Ok(())
     }
+}
+
+/// Records the one candidate at `uri`, with its root and sequence naming.
+fn confirm_candidate(
+    production: &mut SqliteProduction,
+    resolutions: &[RepresentationResolution],
+    uri: &str,
+    confirm_naming: Option<&SequenceNamingArg>,
+) -> Result<Option<SequenceNamingView>> {
+    let wanted = confirm_naming.map(|naming| &naming.0);
+    let matching: Vec<_> = resolutions
+        .iter()
+        .flat_map(RepresentationResolution::resources)
+        .flat_map(|resolution| {
+            resolution
+                .candidates()
+                .iter()
+                .filter(move |candidate| {
+                    candidate.uri() == uri
+                        && wanted.is_none_or(|wanted| candidate.sequence_naming() == Some(wanted))
+                })
+                .map(move |candidate| (resolution.resource_id(), candidate))
+        })
+        .collect();
+    if matching.len() != 1 {
+        bail!(
+            "confirmation URI must identify exactly one candidate from this resolution; \
+             choose among image-sequence namings with --confirm-naming"
+        );
+    }
+    let (resource_id, candidate) = matching[0];
+    let locator = prepare_confirmed_locator(
+        resource_id,
+        uri.to_owned(),
+        candidate.media_root(),
+        candidate.sequence_naming().cloned(),
+    )
+    .context("prepare confirmed locator")?;
+    let mut transaction = production
+        .begin_transaction()
+        .context("begin confirmation transaction")?;
+    set_cli_revision_context(&mut transaction, "Confirm media locator")?;
+    transaction
+        .add_locator(&locator)
+        .context("stage confirmed locator")?;
+    transaction.commit().context("commit confirmed locator")?;
+    Ok(candidate.sequence_naming().map(SequenceNamingView::from))
 }
 
 /// A representation with the stored knowledge its resolution needs.
@@ -5510,6 +5663,7 @@ impl From<&Locator> for LocatorView {
             last_seen_unix_micros: locator
                 .last_seen()
                 .map(postproject_core::Timestamp::as_unix_micros),
+            sequence_naming: locator.sequence_naming().map(SequenceNamingView::from),
         }
     }
 }
@@ -5570,6 +5724,7 @@ impl From<&ResourceResolution> for ResourceResolutionView {
                     uri: candidate.uri().to_owned(),
                     confidence_basis_points: candidate.confidence().basis_points(),
                     media_root: candidate.media_root().map(str::to_owned),
+                    sequence_naming: candidate.sequence_naming().map(SequenceNamingView::from),
                     evidence: candidate
                         .evidence()
                         .iter()

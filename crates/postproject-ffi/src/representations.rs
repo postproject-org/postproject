@@ -8,9 +8,10 @@ use postproject_core::{
 use postproject_storage_sqlite::SqliteProduction;
 
 use crate::{
-    PpError, PpProduction, PpUuid, exact_cstring, ffi_call, initialize_const_output,
-    initialize_output, initialize_uuid, initialize_value, item_at, lock_production,
-    query_page_request, require_output, required_utf8,
+    PpError, PpProduction, PpSequenceNaming, PpUuid, exact_cstring, ffi_call,
+    initialize_const_output, initialize_output, initialize_uuid, initialize_value, item_at,
+    lock_production, query_page_request, require_output, required_utf8,
+    sequence_naming::{AbiSequenceNaming, initialize_naming_output, write_naming_output},
 };
 
 const PP_REPRESENTATION_ORIGINAL: u32 = 1;
@@ -51,9 +52,6 @@ struct AbiMember {
 }
 
 struct AbiSequence {
-    prefix: CString,
-    suffix: CString,
-    padding: u8,
     start: i64,
     end: i64,
     step: u32,
@@ -81,6 +79,7 @@ struct AbiLocator {
     uri: CString,
     availability: u32,
     last_seen: Option<i64>,
+    sequence_naming: Option<AbiSequenceNaming>,
 }
 
 /// Loads the representations belonging to one asset in stable order.
@@ -477,9 +476,6 @@ pub unsafe extern "C" fn pp_representation_set_get_member(
 pub unsafe extern "C" fn pp_representation_set_get_sequence(
     representations: *const PpRepresentationSet,
     representation_index: u64,
-    out_prefix: *mut *const c_char,
-    out_suffix: *mut *const c_char,
-    out_padding: *mut u8,
     out_start: *mut i64,
     out_end: *mut i64,
     out_step: *mut u32,
@@ -490,9 +486,6 @@ pub unsafe extern "C" fn pp_representation_set_get_sequence(
 ) -> u32 {
     // SAFETY: Outputs are initialized and checked before writes.
     unsafe {
-        initialize_const_output(out_prefix);
-        initialize_const_output(out_suffix);
-        initialize_value(out_padding, 0);
         initialize_value(out_start, 0);
         initialize_value(out_end, 0);
         initialize_value(out_step, 0);
@@ -500,9 +493,6 @@ pub unsafe extern "C" fn pp_representation_set_get_sequence(
         initialize_value(out_rate_denominator, 0);
         initialize_value(out_missing_count, 0);
         ffi_call(out_error, || {
-            require_output(out_prefix, "out_prefix")?;
-            require_output(out_suffix, "out_suffix")?;
-            require_output(out_padding, "out_padding")?;
             require_output(out_start, "out_start")?;
             require_output(out_end, "out_end")?;
             require_output(out_step, "out_step")?;
@@ -518,9 +508,6 @@ pub unsafe extern "C" fn pp_representation_set_get_sequence(
                 .sequence
                 .as_ref()
                 .ok_or_else(|| invalid_argument("representation is not an image sequence"))?;
-            out_prefix.write(sequence.prefix.as_ptr());
-            out_suffix.write(sequence.suffix.as_ptr());
-            out_padding.write(sequence.padding);
             out_start.write(sequence.start);
             out_end.write(sequence.end);
             out_step.write(sequence.step);
@@ -690,6 +677,8 @@ pub unsafe extern "C" fn pp_representation_set_get_locator(
     out_availability: *mut u32,
     out_has_last_seen: *mut u8,
     out_last_seen_unix_micros: *mut i64,
+    out_has_sequence_naming: *mut u8,
+    out_sequence_naming: *mut PpSequenceNaming,
     out_error: *mut *mut PpError,
 ) -> u32 {
     // SAFETY: Outputs are initialized and checked before writes.
@@ -699,7 +688,10 @@ pub unsafe extern "C" fn pp_representation_set_get_locator(
         initialize_value(out_availability, 0);
         initialize_value(out_has_last_seen, 0);
         initialize_value(out_last_seen_unix_micros, 0);
+        initialize_naming_output(out_has_sequence_naming, out_sequence_naming);
         ffi_call(out_error, || {
+            require_output(out_has_sequence_naming, "out_has_sequence_naming")?;
+            require_output(out_sequence_naming, "out_sequence_naming")?;
             require_output(out_id, "out_id")?;
             require_output(out_uri, "out_uri")?;
             require_output(out_availability, "out_availability")?;
@@ -716,6 +708,11 @@ pub unsafe extern "C" fn pp_representation_set_get_locator(
                 out_has_last_seen.write(1);
                 out_last_seen_unix_micros.write(last_seen);
             }
+            write_naming_output(
+                locator.sequence_naming.as_ref(),
+                out_has_sequence_naming,
+                out_sequence_naming,
+            );
             Ok(())
         })
     }
@@ -775,7 +772,7 @@ impl AbiRepresentation {
             kind: representation_kind(representation.kind()),
             structure_kind: content_structure_kind(structure.kind()),
             members: members(structure)?,
-            sequence: sequence(structure)?,
+            sequence: sequence(structure),
             resources,
             fingerprints: representation
                 .fingerprints()
@@ -841,6 +838,7 @@ impl TryFrom<Locator> for AbiLocator {
             last_seen: locator
                 .last_seen()
                 .map(postproject_core::Timestamp::as_unix_micros),
+            sequence_naming: AbiSequenceNaming::optional(locator.sequence_naming())?,
         })
     }
 }
@@ -897,23 +895,18 @@ fn members(structure: &ContentStructure) -> Result<Vec<AbiMember>, Error> {
         .collect())
 }
 
-fn sequence(structure: &ContentStructure) -> Result<Option<AbiSequence>, Error> {
-    let Some(descriptor) = structure.image_sequence_descriptor() else {
-        return Ok(None);
-    };
+fn sequence(structure: &ContentStructure) -> Option<AbiSequence> {
+    let descriptor = structure.image_sequence_descriptor()?;
     let frames = descriptor.frames();
     let rate = descriptor.rate();
-    Ok(Some(AbiSequence {
-        prefix: exact_cstring(descriptor.pattern().prefix(), "sequence prefix")?,
-        suffix: exact_cstring(descriptor.pattern().suffix(), "sequence suffix")?,
-        padding: descriptor.pattern().padding(),
+    Some(AbiSequence {
         start: frames.start(),
         end: frames.end(),
         step: frames.step(),
         rate_numerator: rate.numerator(),
         rate_denominator: rate.denominator(),
         missing_frames: descriptor.known_missing_frames().to_vec(),
-    }))
+    })
 }
 
 const fn representation_kind(kind: RepresentationKind) -> u32 {
@@ -951,11 +944,11 @@ fn invalid_argument(message: impl Into<String>) -> Error {
 
 #[cfg(test)]
 mod tests {
-    use std::{ffi::CStr, ptr};
+    use std::ptr;
 
     use postproject_core::{
-        AssetId, ContentStructure, FrameRange, ImageSequenceDescriptor, ImageSequencePattern,
-        RationalRate, Representation, RepresentationId, RepresentationKind, ResourceId,
+        AssetId, ContentStructure, FrameRange, ImageSequenceDescriptor, RationalRate,
+        Representation, RepresentationId, RepresentationKind, ResourceId,
     };
 
     use super::*;
@@ -965,7 +958,6 @@ mod tests {
         let resource_id = ResourceId::new();
         let descriptor = ImageSequenceDescriptor::new(
             resource_id,
-            ImageSequencePattern::new("shot.", ".exr", 4).expect("valid pattern"),
             FrameRange::new(1001, 1005, 1).expect("valid range"),
             RationalRate::new(24_000, 1_001).expect("valid rate"),
             vec![1003],
@@ -984,9 +976,6 @@ mod tests {
             ],
             next_cursor: None,
         };
-        let mut prefix = ptr::null();
-        let mut suffix = ptr::null();
-        let mut padding = 0;
         let mut start = 0;
         let mut end = 0;
         let mut step = 0;
@@ -1000,9 +989,6 @@ mod tests {
             pp_representation_set_get_sequence(
                 &raw const set,
                 0,
-                &raw mut prefix,
-                &raw mut suffix,
-                &raw mut padding,
                 &raw mut start,
                 &raw mut end,
                 &raw mut step,
@@ -1014,11 +1000,7 @@ mod tests {
         };
         assert_eq!(status, 0);
         assert!(error.is_null());
-        // SAFETY: Both strings borrow the still-live result set.
-        assert_eq!(unsafe { CStr::from_ptr(prefix) }.to_bytes(), b"shot.");
-        // SAFETY: Same borrowed lifetime as `prefix`.
-        assert_eq!(unsafe { CStr::from_ptr(suffix) }.to_bytes(), b".exr");
-        assert_eq!((padding, start, end, step), (4, 1001, 1005, 1));
+        assert_eq!((start, end, step), (1001, 1005, 1));
         assert_eq!((rate_numerator, rate_denominator), (24_000, 1_001));
         assert_eq!(missing_count, 1);
 

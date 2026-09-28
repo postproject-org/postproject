@@ -126,13 +126,12 @@ void confirm_unique_candidates(
         continue;
       }
       const auto &candidate = resource.candidates.front();
-      if (candidate.media_root.has_value()) {
-        // Record the logical root the candidate was found under.
-        transaction.confirmLocatorUnderRoot(resource.resource_id, candidate.uri,
-                                            *candidate.media_root).value();
-      } else {
-        transaction.confirmLocator(resource.resource_id, candidate.uri).value();
-      }
+      // Record the logical root the candidate was found under and, for an
+      // image sequence, the naming of its files there.
+      transaction
+          .confirmLocator(resource.resource_id, candidate.uri,
+                          candidate.media_root, candidate.sequence_naming)
+          .value();
     }
   }
   transaction.commit().value();
@@ -145,9 +144,7 @@ postproject::Uuid add_render_sequence(postproject::Production &production,
                                       const std::string &directory) {
   postproject::ImageSequenceInput sequence{};
   sequence.directory = directory;
-  sequence.prefix = "shot010.";
-  sequence.suffix = ".exr";
-  sequence.padding = 4;
+  sequence.naming = {"shot010.", ".exr", 4};
   sequence.start = 1001;
   sequence.end = 1004;
   sequence.step = 1;
@@ -164,8 +161,9 @@ postproject::Uuid add_render_sequence(postproject::Production &production,
   for (const auto &representation : production.representations(asset_id).value()) {
     if (representation.id == sequence_id && representation.image_sequence) {
       const auto &stored = *representation.image_sequence;
-      std::cout << stored.prefix << '#' << stored.suffix << " frames "
-                << stored.start << '-' << stored.end << ", "
+      std::cout << "frames " << stored.start << '-' << stored.end << " at "
+                << stored.rate_numerator << '/' << stored.rate_denominator
+                << ", "
                 << stored.missing_frames.size() << " known missing\n";
     }
   }

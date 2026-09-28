@@ -5,16 +5,18 @@ use std::{
     path::Path,
 };
 
-use postproject_core::{Error, ErrorKind, ResourceFingerprint, ResourceId};
+use postproject_core::{
+    Error, ErrorKind, Locator, ResourceFingerprint, ResourceId, SequenceNaming,
+};
 use postproject_media::{
     ContentObservationOutcome, ContentVerification, fingerprint_file, observe_resource_content,
-    resource_usage, verify_resource_content,
+    recorded_sequence_naming, resource_usage, verify_resource_content,
 };
 
 use crate::{
-    PpError, PpProduction, PpTransaction, PpUuid, StagedMutation, ffi_call,
+    PpError, PpProduction, PpSequenceNaming, PpTransaction, PpUuid, StagedMutation, ffi_call,
     initialize_const_output, initialize_output, initialize_value, invalid_argument,
-    lock_production, require_output, required_utf8,
+    lock_production, require_output, required_utf8, sequence_naming::optional_naming,
 };
 
 const PP_CONTENT_MATCHES: u32 = 1;
@@ -120,17 +122,39 @@ pub unsafe extern "C" fn pp_fingerprint_release(fingerprint: *mut PpFingerprint)
     }));
 }
 
+/// Returns the explicit naming, or else the one recorded for the directory at
+/// `path` among `locators` of a sequence resource.
+fn naming_at(
+    explicit: Option<SequenceNaming>,
+    locators: &[Locator],
+    path: &str,
+) -> Result<Option<SequenceNaming>, Error> {
+    if explicit.is_some()
+        || locators
+            .iter()
+            .all(|locator| locator.sequence_naming().is_none())
+    {
+        return Ok(explicit);
+    }
+    recorded_sequence_naming(locators, path)
+}
+
 /// Compares present content with a resource's stored fingerprints.
+///
+/// A null `sequence_naming` means the naming recorded for the directory at
+/// `path`.
 ///
 /// # Safety
 ///
 /// `production` and `resource_id` must be live; `path` must be NUL-terminated
-/// UTF-8; `out_verification` must be writable.
+/// UTF-8; `sequence_naming` must be null or readable with NUL-terminated
+/// strings; `out_verification` must be writable.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn pp_production_verify_resource(
     production: *const PpProduction,
     resource_id: *const PpUuid,
     path: *const c_char,
+    sequence_naming: *const PpSequenceNaming,
     out_verification: *mut u32,
     out_error: *mut *mut PpError,
 ) -> u32 {
@@ -146,8 +170,14 @@ pub unsafe extern "C" fn pp_production_verify_resource(
                 .ok_or_else(|| invalid_argument("resource_id must not be null"))?;
             require_output(out_verification, "out_verification")?;
             let path = required_utf8(path, "path")?;
+            let naming = optional_naming(sequence_naming, "sequence_naming")?;
             let resource_id = ResourceId::from_bytes(resource_id.bytes);
-            let usage = resource_usage(&*lock_production(&production.state), resource_id)?;
+            let (usage, naming) = {
+                let production = lock_production(&production.state);
+                let usage = resource_usage(&*production, resource_id)?;
+                let locators = production.locators(resource_id)?;
+                (usage, naming_at(naming, &locators, path)?)
+            };
             let (representation, resources) = usage.first().ok_or_else(|| {
                 Error::new(
                     ErrorKind::NotFound,
@@ -167,6 +197,7 @@ pub unsafe extern "C" fn pp_production_verify_resource(
                 resource,
                 representation.content_structure(),
                 Path::new(path),
+                naming.as_ref(),
             )?;
             out_verification.write(match verification {
                 ContentVerification::Matches => PP_CONTENT_MATCHES,
@@ -184,12 +215,14 @@ pub unsafe extern "C" fn pp_production_verify_resource(
 /// # Safety
 ///
 /// `transaction` and `resource_id` must be live; `path` must be
-/// NUL-terminated UTF-8; `out_outcome` must be writable.
+/// NUL-terminated UTF-8; `sequence_naming` must be null or readable with
+/// NUL-terminated strings; `out_outcome` must be writable.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn pp_transaction_observe_resource_content(
     transaction: *mut PpTransaction,
     resource_id: *const PpUuid,
     path: *const c_char,
+    sequence_naming: *const PpSequenceNaming,
     out_outcome: *mut u32,
     out_error: *mut *mut PpError,
 ) -> u32 {
@@ -206,8 +239,30 @@ pub unsafe extern "C" fn pp_transaction_observe_resource_content(
                 .ok_or_else(|| invalid_argument("resource_id must not be null"))?;
             require_output(out_outcome, "out_outcome")?;
             let path = required_utf8(path, "path")?;
+            let naming = optional_naming(sequence_naming, "sequence_naming")?;
             let resource_id = ResourceId::from_bytes(resource_id.bytes);
-            let mut usage = resource_usage(&*lock_production(&transaction.state), resource_id)?;
+            let (mut usage, mut locators) = {
+                let production = lock_production(&transaction.state);
+                (
+                    resource_usage(&*production, resource_id)?,
+                    production.locators(resource_id)?,
+                )
+            };
+            // Locators confirmed earlier in this transaction name directories too.
+            locators.extend(
+                transaction
+                    .mutations
+                    .iter()
+                    .filter_map(|mutation| match mutation {
+                        StagedMutation::Locator(locator)
+                            if locator.resource_id() == resource_id =>
+                        {
+                            Some(locator.clone())
+                        }
+                        _ => None,
+                    }),
+            );
+            let naming = naming_at(naming, &locators, path)?;
             // Earlier observations staged in this transaction are current for
             // the representations recomputed now.
             for (_, resources) in &mut usage {
@@ -217,7 +272,8 @@ pub unsafe extern "C" fn pp_transaction_observe_resource_content(
                     }
                 }
             }
-            let observation = observe_resource_content(resource_id, &usage, Path::new(path))?;
+            let observation =
+                observe_resource_content(resource_id, &usage, Path::new(path), naming.as_ref())?;
             transaction
                 .mutations
                 .push(StagedMutation::RecordResourceFingerprint(

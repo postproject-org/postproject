@@ -35,8 +35,8 @@ pub use artifact::{
 pub use cancel::CancellationToken;
 pub use content::{
     ContentStructure, ContentStructureKind, FrameRange, ImageSequenceDescriptor,
-    ImageSequencePattern, MAX_CONTENT_MEMBERS, MAX_FRAME_PADDING, MAX_RESOURCE_ROLE_BYTES,
-    MAX_SEQUENCE_EXCEPTIONS, MAX_SEQUENCE_PATTERN_BYTES, ResourceMember, ResourceRole,
+    MAX_CONTENT_MEMBERS, MAX_FRAME_PADDING, MAX_RESOURCE_ROLE_BYTES, MAX_SEQUENCE_EXCEPTIONS,
+    MAX_SEQUENCE_NAMING_BYTES, ResourceMember, ResourceRole, SequenceNaming,
 };
 pub use dependency::{
     Dependency, DependencyKind, DependencyQueryMatch, DependencySet, DependencySetStatus,

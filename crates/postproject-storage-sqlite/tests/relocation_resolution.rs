@@ -87,8 +87,8 @@ fn moved_media_resolves_and_confirmed_location_persists() {
         .expect("find intended candidate")
         .uri()
         .to_owned();
-    let confirmed =
-        prepare_confirmed_locator(resource.id(), chosen_uri).expect("prepare confirmed locator");
+    let confirmed = prepare_confirmed_locator(resource.id(), chosen_uri, None, None)
+        .expect("prepare confirmed locator");
     let mut transaction = production
         .begin_transaction()
         .expect("begin confirmation transaction");

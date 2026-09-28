@@ -3,8 +3,8 @@
 use std::fs;
 
 use postproject_core::{
-    ErrorKind, FrameRange, ImageSequencePattern, RationalRate, RepresentationKind,
-    RevisionEventKind, TransactionState,
+    ErrorKind, FrameRange, RationalRate, RepresentationKind, RevisionEventKind, SequenceNaming,
+    TransactionState,
 };
 use postproject_media::{ImageSequenceSource, prepare_media_root, prepare_original_media};
 use postproject_storage_sqlite::SqliteProduction;
@@ -102,7 +102,7 @@ fn image_sequence_imports_as_the_only_original() {
     let prepared = prepare_original_media(
         ImageSequenceSource::new(
             &strip_directory,
-            ImageSequencePattern::new("strip_", ".png", 4).expect("pattern"),
+            SequenceNaming::new("strip_", ".png", 4).expect("pattern"),
             frames,
             RationalRate::new(24, 1).expect("rate"),
             Vec::new(),
@@ -134,7 +134,13 @@ fn image_sequence_imports_as_the_only_original() {
         .image_sequence_descriptor()
         .expect("sequence structure");
     assert_eq!(descriptor.frames(), frames);
-    assert_eq!(descriptor.pattern().prefix(), "strip_");
+    let locators = reopened
+        .locators(descriptor.resource_id())
+        .expect("load sequence locators");
+    assert_eq!(
+        locators[0].sequence_naming().map(SequenceNaming::prefix),
+        Some("strip_")
+    );
 }
 
 #[test]

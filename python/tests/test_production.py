@@ -92,6 +92,7 @@ from postproject import (
     ResourceResolutionState,
     RevisionContext,
     RevisionId,
+    SequenceNaming,
     ToolIdentity,
     VerificationMode,
     file_locator,
@@ -386,7 +387,7 @@ class ProductionTests(unittest.TestCase):
         self.assertEqual(
             representation.fingerprints[0].algorithm, "pp-blake3-representation"
         )
-        self.assertEqual(representation.fingerprints[0].version, 1)
+        self.assertEqual(representation.fingerprints[0].version, 2)
         self.assertTrue(representation.fingerprints[0].value)
         self.assertEqual(len(representation.members), 1)
         self.assertTrue(representation.members[0].required)
@@ -566,7 +567,13 @@ class ProductionTests(unittest.TestCase):
                     asset_id,
                     RepresentationKind.DERIVED,
                     ImageSequenceSource(
-                        self.root, "frame", ".exr", 4, 1, 1, 1, 24_000, 1_001
+                        self.root,
+                        SequenceNaming("frame", ".exr", 4),
+                        1,
+                        1,
+                        1,
+                        24_000,
+                        1_001,
                     ),
                 )
                 ordered_id = transaction.add_representation(
@@ -646,7 +653,9 @@ class ProductionTests(unittest.TestCase):
         ) as production:
             with production.transaction() as transaction:
                 asset_id = transaction.import_media(
-                    ImageSequenceSource(self.root, "strip_", ".png", 4, 1, 3, 1, 24, 1),
+                    ImageSequenceSource(
+                        self.root, SequenceNaming("strip_", ".png", 4), 1, 3, 1, 24, 1
+                    ),
                     "Image strip",
                 )
 
@@ -658,10 +667,97 @@ class ProductionTests(unittest.TestCase):
                 original.structure_kind, ContentStructureKind.IMAGE_SEQUENCE
             )
             assert original.image_sequence is not None
-            self.assertEqual(original.image_sequence.prefix, "strip_")
+            (locator,) = original.resources[0].locators
+            self.assertEqual(
+                locator.sequence_naming, SequenceNaming("strip_", ".png", 4)
+            )
             self.assertEqual(
                 (original.image_sequence.start, original.image_sequence.end), (1, 3)
             )
+
+    def _write_frames(
+        self, directory: Path, prefix: str, frames: range, content: bytes = b"frame"
+    ) -> None:
+        directory.mkdir(parents=True, exist_ok=True)
+        for frame in frames:
+            (directory / f"{prefix}{frame:04}.png").write_bytes(content + b"%d" % frame)
+
+    def test_renamed_sequence_resolves_by_content_under_its_new_naming(self) -> None:
+        plates = self.root / "shots" / "plates"
+        graded = self.root / "shots" / "graded"
+        self._write_frames(plates, "shot_", range(1, 4))
+        original = SequenceNaming("shot_", ".png", 4)
+        renamed = SequenceNaming("shot-graded_", ".png", 4)
+        with Production.create(
+            self.production_path, library_path=LIBRARY_PATH
+        ) as production:
+            with production.transaction() as transaction:
+                asset_id = transaction.import_media(
+                    ImageSequenceSource(plates, original, 1, 3, 1, 24, 1), "Shot"
+                )
+            graded.mkdir()
+            for frame in range(1, 4):
+                (plates / original.filename(frame)).rename(
+                    graded / renamed.filename(frame)
+                )
+            # Same names with other content, and an incomplete copy, are no
+            # candidates.
+            self._write_frames(
+                self.root / "shots" / "other", "shot-graded_", range(1, 4), b"other"
+            )
+            self._write_frames(
+                self.root / "shots" / "partial", "shot-graded_", range(1, 3)
+            )
+
+            (resolution,) = production.resolve(
+                asset_id, search_directories=[self.root / "shots"]
+            )
+            (resource,) = resolution.resources
+            self.assertEqual(resource.state, ResourceResolutionState.RESOLVED_PROBABLE)
+            (candidate,) = resource.candidates
+            self.assertEqual(candidate.uri, file_locator(graded))
+            self.assertEqual(candidate.sequence_naming, renamed)
+            kinds = {evidence.kind for evidence in candidate.evidence}
+            self.assertIn(EvidenceKind.PARTIAL_FINGERPRINT_MATCH, kinds)
+            self.assertNotIn(EvidenceKind.FILE_NAME_MATCH, kinds)
+
+            with production.transaction() as transaction:
+                transaction.confirm_locator(
+                    resource.resource_id,
+                    candidate.uri,
+                    media_root=candidate.media_root,
+                    sequence_naming=candidate.sequence_naming,
+                )
+            locators = production.locators_page(resource.resource_id, limit=10).items
+            self.assertEqual(
+                {match.locator.sequence_naming for match in locators},
+                {original, renamed},
+            )
+            self.assertEqual(
+                production.verify_resource(resource.resource_id, graded),
+                ContentVerification.MATCHES,
+            )
+
+            # An identical renamed copy is ambiguous once the confirmed
+            # directory is gone.
+            self._write_frames(
+                self.root / "shots" / "copy", "shot-graded_", range(1, 4)
+            )
+            for frame in range(1, 4):
+                (graded / renamed.filename(frame)).rename(
+                    plates / renamed.filename(frame)
+                )
+            (ambiguous,) = production.resolve(
+                asset_id, search_directories=[self.root / "shots"]
+            )
+            self.assertEqual(
+                ambiguous.resources[0].state, ResourceResolutionState.AMBIGUOUS
+            )
+            self.assertEqual(len(ambiguous.resources[0].candidates), 2)
+
+            with self.assertRaises(InvalidArgumentError):
+                with production.transaction() as transaction:
+                    transaction.confirm_locator(resource.resource_id, candidate.uri)
 
     def test_dependency_sets_roundtrip_replace_and_support_reverse_queries(
         self,
@@ -1337,8 +1433,8 @@ class ProductionTests(unittest.TestCase):
             )
 
             with production.transaction() as transaction:
-                transaction.confirm_locator_under_root(
-                    resource.id, locator.uri, "media"
+                transaction.confirm_locator(
+                    resource.id, locator.uri, media_root="media"
                 )
             self.assertEqual(production.unresolved_media(limit=1000).items, ())
             (confirmed,) = production.locators_page(resource.id, limit=1000).items
@@ -1376,8 +1472,8 @@ class ProductionTests(unittest.TestCase):
                 production.representations_under_media_root("", limit=1)
             with self.assertRaises(ValueError):
                 with production.transaction() as transaction:
-                    transaction.confirm_locator_under_root(
-                        resource.id, "file:///nul", "bad\0root"
+                    transaction.confirm_locator(
+                        resource.id, "file:///nul", media_root="bad\0root"
                     )
 
     def test_metadata_queries_page_and_filter_exact_scalars(self) -> None:

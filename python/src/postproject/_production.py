@@ -186,6 +186,7 @@ from ._model import (
     RevisionId,
     RevisionWait,
     RevisionWaitResult,
+    SequenceNaming,
     ToolIdentity,
     TransactionId,
     VerificationMode,
@@ -612,12 +613,18 @@ class Production:
         return _Resolutions(self)
 
     def verify_resource(
-        self, resource_id: ResourceId, path: str | os.PathLike[str]
+        self,
+        resource_id: ResourceId,
+        path: str | os.PathLike[str],
+        *,
+        sequence_naming: SequenceNaming | None = None,
     ) -> ContentVerification:
         """Compare the content at path with the resource's stored fingerprints.
 
         Only fingerprint domains PostProject computes are compared; a resource
-        with only foreign fingerprints is ``NOT_COMPARABLE``.
+        with only foreign fingerprints is ``NOT_COMPARABLE``. For an image
+        sequence, path is its directory and ``sequence_naming`` names its
+        files; ``None`` means the naming recorded for that directory.
         """
 
         self._require_open()
@@ -628,6 +635,7 @@ class Production:
             self._handle,
             ctypes.byref(native_id),
             _path_bytes(path),
+            _native_naming(sequence_naming),
             ctypes.byref(verification),
             ctypes.byref(error),
         )
@@ -2036,8 +2044,23 @@ class Transaction:
         )
         self._native.check(status, error)
 
-    def confirm_locator(self, resource_id: ResourceId, uri: str) -> None:
-        """Stage explicit confirmation of one resource candidate URI."""
+    def confirm_locator(
+        self,
+        resource_id: ResourceId,
+        uri: str,
+        *,
+        media_root: str | None = None,
+        sequence_naming: SequenceNaming | None = None,
+    ) -> None:
+        """Stage explicit confirmation of one resource candidate URI.
+
+        ``media_root`` records the logical root the URI was found under; it is
+        retained as query evidence and need not name a configured or enabled
+        root. ``sequence_naming`` names the files at a locator of an
+        image-sequence resource: required for such a resource and rejected at
+        commit for any other. Pass a candidate's ``media_root`` and
+        ``sequence_naming`` to record it as found.
+        """
 
         self._require_open()
         native_id = _native_uuid(resource_id.value)
@@ -2046,27 +2069,8 @@ class Transaction:
             self._handle,
             ctypes.byref(native_id),
             _utf8(uri, "locator URI"),
-            ctypes.byref(error),
-        )
-        self._native.check(status, error)
-
-    def confirm_locator_under_root(
-        self, resource_id: ResourceId, uri: str, root_name: str
-    ) -> None:
-        """Stage explicit confirmation of a URI under a logical media root.
-
-        The root name is retained as query evidence and need not name a
-        currently configured or enabled root.
-        """
-
-        self._require_open()
-        native_id = _native_uuid(resource_id.value)
-        error = ctypes.POINTER(Error)()
-        status = self._native.lib.pp_transaction_confirm_locator_under_root(
-            self._handle,
-            ctypes.byref(native_id),
-            _utf8(uri, "locator URI"),
-            _utf8(root_name, "root name"),
+            None if media_root is None else _utf8(media_root, "root name"),
+            _native_naming(sequence_naming),
             ctypes.byref(error),
         )
         self._native.check(status, error)
@@ -2105,13 +2109,18 @@ class Transaction:
         self._native.check(status, error)
 
     def observe_resource_content(
-        self, resource_id: ResourceId, path: str | os.PathLike[str]
+        self,
+        resource_id: ResourceId,
+        path: str | os.PathLike[str],
+        *,
+        sequence_naming: SequenceNaming | None = None,
     ) -> ContentObservationOutcome:
         """Stage the content at path as the resource's new observation.
 
         Every representation using the resource is recomputed and staged too,
         so commit leaves no representation pending recomputation. The outcome
         says whether the content changed; ``UNCHANGED`` records no fingerprint.
+        ``sequence_naming`` is as for :meth:`Production.verify_resource`.
         """
 
         self._require_open()
@@ -2122,6 +2131,7 @@ class Transaction:
             self._handle,
             ctypes.byref(native_id),
             _path_bytes(path),
+            _native_naming(sequence_naming),
             ctypes.byref(outcome),
             ctypes.byref(error),
         )
@@ -2609,9 +2619,7 @@ class _NativeMediaSource:
             missing_frames = missing_type(*source.missing_frames)
             status = native.lib.pp_media_source_create_image_sequence(
                 _path_bytes(source.directory),
-                _utf8(source.prefix, "image-sequence prefix"),
-                _utf8(source.suffix, "image-sequence suffix"),
-                source.padding,
+                _native_naming(source.naming),
                 source.start,
                 source.end,
                 source.step,
@@ -2780,6 +2788,34 @@ def _path_bytes(path: str | os.PathLike[str]) -> bytes:
 
 def _optional_text(value: str | None) -> bytes | None:
     return None if value is None else _utf8(value, "text")
+
+
+def _native_naming(
+    naming: SequenceNaming | None,
+) -> _Pointer[_abi.SequenceNaming] | None:
+    """Return a borrowed native naming, or ``None`` for no naming."""
+
+    if naming is None:
+        return None
+    return ctypes.pointer(
+        _abi.SequenceNaming(
+            _utf8(naming.prefix, "sequence naming prefix"),
+            _utf8(naming.suffix, "sequence naming suffix"),
+            naming.padding,
+        )
+    )
+
+
+def _sequence_naming(
+    present: ctypes.c_uint8, naming: _abi.SequenceNaming
+) -> SequenceNaming | None:
+    if not present.value:
+        return None
+    return SequenceNaming(
+        _decode_required(naming.prefix, "sequence naming prefix"),
+        _decode_required(naming.suffix, "sequence naming suffix"),
+        int(naming.padding),
+    )
 
 
 def _utf8(value: str, label: str) -> bytes:
@@ -3230,6 +3266,8 @@ def _locator_match_at(
     has_last_seen = ctypes.c_uint8()
     last_seen = ctypes.c_int64()
     media_root = ctypes.c_char_p()
+    has_naming = ctypes.c_uint8()
+    naming = _abi.SequenceNaming()
     error = ctypes.POINTER(Error)()
     status = native.lib.pp_locator_query_set_get(
         locators,
@@ -3241,6 +3279,8 @@ def _locator_match_at(
         ctypes.byref(has_last_seen),
         ctypes.byref(last_seen),
         ctypes.byref(media_root),
+        ctypes.byref(has_naming),
+        ctypes.byref(naming),
         ctypes.byref(error),
     )
     native.check(status, error)
@@ -3251,6 +3291,7 @@ def _locator_match_at(
             _decode_required(uri.value, "locator URI"),
             _locator_availability(int(availability.value)),
             int(last_seen.value) if has_last_seen.value else None,
+            _sequence_naming(has_naming, naming),
         ),
         _decode_optional(media_root.value),
     )
@@ -3597,9 +3638,6 @@ def _image_sequence_at(
     representations: _Pointer[RepresentationSet],
     representation_index: int,
 ) -> ImageSequenceDescriptor:
-    prefix = ctypes.c_char_p()
-    suffix = ctypes.c_char_p()
-    padding = ctypes.c_uint8()
     start = ctypes.c_int64()
     end = ctypes.c_int64()
     step = ctypes.c_uint32()
@@ -3610,9 +3648,6 @@ def _image_sequence_at(
     status = native.lib.pp_representation_set_get_sequence(
         representations,
         representation_index,
-        ctypes.byref(prefix),
-        ctypes.byref(suffix),
-        ctypes.byref(padding),
         ctypes.byref(start),
         ctypes.byref(end),
         ctypes.byref(step),
@@ -3623,9 +3658,6 @@ def _image_sequence_at(
     )
     native.check(status, error)
     return ImageSequenceDescriptor(
-        _decode_required(prefix.value, "image-sequence prefix"),
-        _decode_required(suffix.value, "image-sequence suffix"),
-        int(padding.value),
         int(start.value),
         int(end.value),
         int(step.value),
@@ -3791,6 +3823,8 @@ def _locator_at(
     availability = _abi.LocatorAvailability()
     has_last_seen = ctypes.c_uint8()
     last_seen = ctypes.c_int64()
+    has_naming = ctypes.c_uint8()
+    naming = _abi.SequenceNaming()
     error = ctypes.POINTER(Error)()
     status = native.lib.pp_representation_set_get_locator(
         representations,
@@ -3802,6 +3836,8 @@ def _locator_at(
         ctypes.byref(availability),
         ctypes.byref(has_last_seen),
         ctypes.byref(last_seen),
+        ctypes.byref(has_naming),
+        ctypes.byref(naming),
         ctypes.byref(error),
     )
     native.check(status, error)
@@ -3810,6 +3846,7 @@ def _locator_at(
         _decode_required(uri.value, "locator URI"),
         _locator_availability(int(availability.value)),
         int(last_seen.value) if has_last_seen.value else None,
+        _sequence_naming(has_naming, naming),
     )
 
 
@@ -3912,6 +3949,8 @@ def _resolution_candidate_at(
     uri = ctypes.c_char_p()
     confidence = ctypes.c_uint16()
     media_root = ctypes.c_char_p()
+    has_naming = ctypes.c_uint8()
+    naming = _abi.SequenceNaming()
     evidence_count = ctypes.c_uint64()
     error = ctypes.POINTER(Error)()
     status = native.lib.pp_resolution_set_get_candidate(
@@ -3922,6 +3961,8 @@ def _resolution_candidate_at(
         ctypes.byref(uri),
         ctypes.byref(confidence),
         ctypes.byref(media_root),
+        ctypes.byref(has_naming),
+        ctypes.byref(naming),
         ctypes.byref(evidence_count),
         ctypes.byref(error),
     )
@@ -3930,6 +3971,7 @@ def _resolution_candidate_at(
         _decode_required(uri.value, "resolution candidate URI"),
         int(confidence.value),
         _decode_optional(media_root.value),
+        _sequence_naming(has_naming, naming),
         tuple(
             _candidate_evidence_at(
                 native,

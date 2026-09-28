@@ -6,8 +6,8 @@ use crate::{Error, ErrorKind, RationalRate, ResourceId, Result};
 
 /// Maximum encoded length of an extensible resource-role identifier.
 pub const MAX_RESOURCE_ROLE_BYTES: usize = 128;
-/// Maximum combined UTF-8 length of an image-sequence prefix and suffix.
-pub const MAX_SEQUENCE_PATTERN_BYTES: usize = 1_024;
+/// Maximum combined UTF-8 length of a sequence naming's prefix and suffix.
+pub const MAX_SEQUENCE_NAMING_BYTES: usize = 1_024;
 /// Maximum supported zero-padding width for an image-sequence frame number.
 pub const MAX_FRAME_PADDING: u8 = 32;
 /// Maximum number of sparse frame exceptions stored in one sequence descriptor.
@@ -83,34 +83,38 @@ impl FrameRange {
     }
 }
 
-/// The filename components surrounding an image-sequence frame number.
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub struct ImageSequencePattern {
+/// How the files of an image sequence are named in one place.
+///
+/// The prefix, suffix, and frame-number padding belong to a locator, not to
+/// the sequence's content (ADR 0038): copies of one sequence may name their
+/// files differently.
+#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct SequenceNaming {
     prefix: String,
     suffix: String,
     padding: u8,
 }
 
-impl ImageSequencePattern {
-    /// Creates a bounded filename pattern without directory separators.
+impl SequenceNaming {
+    /// Creates a bounded file naming without directory separators.
     ///
     /// # Errors
     ///
-    /// Returns [`ErrorKind::InvalidArgument`] when the pattern is empty, too
+    /// Returns [`ErrorKind::InvalidArgument`] when the naming is empty, too
     /// long, contains a path separator or NUL, or requests excessive padding.
     pub fn new(prefix: impl Into<String>, suffix: impl Into<String>, padding: u8) -> Result<Self> {
         let prefix = prefix.into();
         let suffix = suffix.into();
         let invalid_character = |character| matches!(character, '/' | '\\' | '\0');
         if (prefix.is_empty() && suffix.is_empty())
-            || prefix.len().saturating_add(suffix.len()) > MAX_SEQUENCE_PATTERN_BYTES
+            || prefix.len().saturating_add(suffix.len()) > MAX_SEQUENCE_NAMING_BYTES
             || prefix.chars().any(invalid_character)
             || suffix.chars().any(invalid_character)
             || padding > MAX_FRAME_PADDING
         {
             return Err(Error::new(
                 ErrorKind::InvalidArgument,
-                "invalid image-sequence filename pattern",
+                "invalid image-sequence file naming",
             ));
         }
         Ok(Self {
@@ -138,7 +142,7 @@ impl ImageSequencePattern {
         self.padding
     }
 
-    /// Formats a filename for `frame` without joining it to a locator.
+    /// Formats the file name of `frame` without joining it to a directory.
     #[must_use]
     pub fn filename(&self, frame: i64) -> String {
         let frame = format!("{frame:0width$}", width = usize::from(self.padding));
@@ -147,10 +151,12 @@ impl ImageSequencePattern {
 }
 
 /// A compact description of one regular or sparse image sequence.
+///
+/// The descriptor holds what the sequence is: its frames, rate, and known
+/// gaps. How its files are named is part of each locator.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ImageSequenceDescriptor {
     resource_id: ResourceId,
-    pattern: ImageSequencePattern,
     frames: FrameRange,
     rate: RationalRate,
     known_missing_frames: Vec<i64>,
@@ -165,7 +171,6 @@ impl ImageSequenceDescriptor {
     /// frames or an exception does not belong to the regular frame domain.
     pub fn new(
         resource_id: ResourceId,
-        pattern: ImageSequencePattern,
         frames: FrameRange,
         rate: RationalRate,
         mut known_missing_frames: Vec<i64>,
@@ -189,7 +194,6 @@ impl ImageSequenceDescriptor {
         known_missing_frames.dedup();
         Ok(Self {
             resource_id,
-            pattern,
             frames,
             rate,
             known_missing_frames,
@@ -200,12 +204,6 @@ impl ImageSequenceDescriptor {
     #[must_use]
     pub const fn resource_id(&self) -> ResourceId {
         self.resource_id
-    }
-
-    /// Returns the sequence filename pattern.
-    #[must_use]
-    pub const fn pattern(&self) -> &ImageSequencePattern {
-        &self.pattern
     }
 
     /// Returns the regular frame domain before sparse exceptions.
@@ -468,23 +466,21 @@ mod tests {
     }
 
     #[test]
-    fn sequence_patterns_format_frames_without_paths() {
-        let pattern = ImageSequencePattern::new("shot.", ".exr", 4).expect("valid pattern");
+    fn sequence_namings_format_frames_without_paths() {
+        let naming = SequenceNaming::new("shot.", ".exr", 4).expect("valid naming");
 
-        assert_eq!(pattern.filename(12), "shot.0012.exr");
-        assert_eq!(pattern.filename(-2), "shot.-002.exr");
-        assert!(ImageSequencePattern::new("directory/shot.", ".exr", 4).is_err());
-        assert!(ImageSequencePattern::new("", "", 0).is_err());
+        assert_eq!(naming.filename(12), "shot.0012.exr");
+        assert_eq!(naming.filename(-2), "shot.-002.exr");
+        assert!(SequenceNaming::new("directory/shot.", ".exr", 4).is_err());
+        assert!(SequenceNaming::new("", "", 0).is_err());
     }
 
     #[test]
     fn sequence_descriptor_is_compact_and_canonical() {
         let frames = FrameRange::new(1_001, 1_010, 1).expect("valid range");
-        let pattern = ImageSequencePattern::new("render.", ".exr", 4).expect("valid pattern");
         let rate = RationalRate::new(24_000, 1_001).expect("valid rate");
         let descriptor = ImageSequenceDescriptor::new(
             ResourceId::new(),
-            pattern,
             frames,
             rate,
             vec![1_007, 1_003, 1_007],
@@ -494,16 +490,7 @@ mod tests {
         assert_eq!(descriptor.known_missing_frames(), [1_003, 1_007]);
         assert!(descriptor.is_known_missing(1_003));
         assert!(!descriptor.is_known_missing(1_004));
-        assert!(
-            ImageSequenceDescriptor::new(
-                ResourceId::new(),
-                descriptor.pattern().clone(),
-                frames,
-                rate,
-                vec![999],
-            )
-            .is_err()
-        );
+        assert!(ImageSequenceDescriptor::new(ResourceId::new(), frames, rate, vec![999],).is_err());
     }
 
     #[test]

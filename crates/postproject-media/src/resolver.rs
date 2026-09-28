@@ -11,14 +11,15 @@ use postproject_core::{
     CancellationToken, Confidence, ContentStructure, Error, ErrorKind, EvidenceKind, FileFacts,
     ImageSequenceDescriptor, Locator, MAX_SEQUENCE_EXCEPTIONS, MediaRoot, ResolutionCandidate,
     ResolutionEvidence, Resource, ResourceFingerprint, ResourceResolution, ResourceResolutionState,
-    Result,
+    Result, SequenceNaming,
 };
 use walkdir::WalkDir;
 
 use crate::{
     FULL_FINGERPRINT_ALGORITHM, InspectionOutcome, MediaInspector, SEQUENCE_FINGERPRINT_ALGORITHM,
-    TechnicalMetadata, canonical_file_uri, fingerprint::is_file_fingerprint_domain,
-    fingerprint_file, fingerprint_image_sequence, local_file_path,
+    SEQUENCE_FINGERPRINT_VERSION, TechnicalMetadata, canonical_file_uri,
+    fingerprint::is_file_fingerprint_domain, fingerprint_file, fingerprint_image_sequence,
+    local_file_path, recognition::numbered_name,
 };
 
 /// One machine's directory mapping for a production-portable root name.
@@ -236,13 +237,17 @@ impl MediaResolver {
 
     /// Resolves resources without mutating production state.
     ///
-    /// Known locators are checked first. Every directory in `scope` is then
-    /// walked at most once for the whole call, and the resulting index is
-    /// shared by every resource that needs discovery, so resolving many
-    /// offline resources together costs one scan. Traversal does not follow
-    /// symlinks, is ordered by filename, is bounded per directory, filters by
-    /// stored size before hashing, and returns all equally credible matches.
-    /// Results are in item order.
+    /// Known locators are checked first; a sequence's locator is checked under
+    /// its own naming. Every directory in `scope` is then walked at most once
+    /// for the whole call, and the resulting index is shared by every resource
+    /// that needs discovery, so resolving many offline resources together
+    /// costs one scan. Traversal does not follow symlinks, is ordered by
+    /// filename, is bounded per directory, filters by stored size before
+    /// hashing, and returns all equally credible matches. A moved or renamed
+    /// sequence is found by grouping each directory's numbered files by
+    /// prefix, suffix, and padding; a group holding every expected frame is
+    /// verified by content, and its candidate carries the naming it was found
+    /// under. Results are in item order.
     ///
     /// # Errors
     ///
@@ -327,7 +332,7 @@ impl MediaResolver {
                     Ok(None) => {
                         let index = index.get(self, scope)?;
                         return self
-                            .resolve_moved_sequence(resource, sequence, index)
+                            .resolve_moved_sequence(resource, sequence, item.known_locators, index)
                             .map(Some);
                     }
                     Err(detail) => return error_resolution(resource.id(), detail).map(Some),
@@ -441,31 +446,31 @@ impl MediaResolver {
         &self,
         resource: &Resource,
         descriptor: &ImageSequenceDescriptor,
+        known_locators: &[Locator],
         index: &IndexState,
     ) -> Result<ResourceResolution> {
         let index = match index {
             IndexState::Ready(index) => index,
             IndexState::Failed(detail) => return error_resolution(resource.id(), detail.clone()),
         };
+        let recorded = known_locators
+            .iter()
+            .filter_map(Locator::sequence_naming)
+            .collect::<BTreeSet<_>>();
         let mut diagnostics = index.diagnostics.clone();
         let mut found = BTreeMap::new();
-        for (root, directory) in index.sequence_directories(descriptor) {
+        for group in index.sequence_groups(descriptor, &recorded) {
             self.check_cancelled()?;
-            match verify_sequence_directory(
-                directory,
-                root.as_deref(),
-                descriptor,
-                resource.fingerprints(),
-            ) {
+            match verify_sequence_group(&group, descriptor, resource.fingerprints(), &recorded) {
                 Ok(Some(candidate)) => {
                     found
-                        .entry(candidate.candidate.uri().to_owned())
+                        .entry((candidate.candidate.uri().to_owned(), group.naming.clone()))
                         .or_insert(candidate);
                 }
                 Ok(None) => {}
                 Err(detail) => diagnostics.push(ResolutionEvidence::new(
                     EvidenceKind::DiscoveryError,
-                    Some(format!("{}: {detail}", directory.display())),
+                    Some(format!("{}: {detail}", group.directory.display())),
                 )),
             }
         }
@@ -479,7 +484,7 @@ impl MediaResolver {
         if state == ResourceResolutionState::Ambiguous {
             diagnostics.push(ResolutionEvidence::new(
                 EvidenceKind::ConflictingCandidate,
-                Some(format!("{} sequence directories match", found.len())),
+                Some(format!("{} sequence file groups match", found.len())),
             ));
         }
         let missing_frames = if found.len() == 1 {
@@ -654,28 +659,122 @@ impl DirectoryIndex {
         }
     }
 
-    /// Returns directories holding the sequence's first expected frame, each
-    /// once, with the root it was found under.
-    fn sequence_directories(
+    /// Groups the numbered files of each indexed directory by prefix and
+    /// suffix, and returns every naming under which a group may hold the whole
+    /// sequence, in search order with the root it was found under.
+    ///
+    /// Only files numbered within the frame domain count, and a group with
+    /// fewer of them than the sequence has present frames is skipped without
+    /// reading its directory. Each digit count seen in a group proposes a
+    /// padding. A recorded naming that names the sequence's files exactly as
+    /// a proposed one does replaces it, so a recorded naming is recognized
+    /// whatever padding its files suggest.
+    fn sequence_groups(
         &self,
         descriptor: &ImageSequenceDescriptor,
-    ) -> Vec<(&Option<String>, &Path)> {
+        recorded: &BTreeSet<&SequenceNaming>,
+    ) -> Vec<SequenceGroup<'_>> {
         let frames = descriptor.frames();
-        let mut frame = frames.start();
-        while descriptor.is_known_missing(frame) && frame != frames.end() {
-            frame += i64::from(frames.step());
+        let present = frames
+            .frame_count()
+            .saturating_sub(descriptor.known_missing_frames().len() as u128);
+        let mut order = Vec::new();
+        let mut groups = BTreeMap::<(&Path, String, String), (usize, BTreeSet<u8>)>::new();
+        for file in &self.files {
+            let Some(parent) = file.path.parent() else {
+                continue;
+            };
+            for (prefix, suffix, padding, frame) in numbered_interpretations(&file.path) {
+                if !frames.contains(frame) {
+                    continue;
+                }
+                let key = (parent, prefix, suffix);
+                if !groups.contains_key(&key) {
+                    order.push((key.clone(), &file.root));
+                }
+                let (count, paddings) = groups.entry(key).or_default();
+                *count += 1;
+                paddings.insert(padding);
+            }
         }
-        let first = descriptor.pattern().filename(frame);
-        let mut seen = BTreeSet::new();
-        self.files
-            .iter()
-            .filter(|file| file.path.file_name() == Some(OsStr::new(&first)))
-            .filter_map(|file| {
-                let parent = file.path.parent()?;
-                seen.insert(parent).then_some((&file.root, parent))
-            })
-            .collect()
+        let mut proposed = Vec::new();
+        for (key, root) in order {
+            let Some((count, paddings)) = groups.get(&key) else {
+                continue;
+            };
+            if (*count as u128) < present {
+                continue;
+            }
+            let (directory, prefix, suffix) = key;
+            let mut namings = BTreeSet::new();
+            for padding in paddings {
+                let Ok(naming) = SequenceNaming::new(prefix.clone(), suffix.clone(), *padding)
+                else {
+                    continue;
+                };
+                let naming = recorded
+                    .iter()
+                    .find(|recorded| same_file_names(recorded, &naming, descriptor))
+                    .map_or(naming, |recorded| (*recorded).clone());
+                namings.insert(naming);
+            }
+            proposed.extend(namings.into_iter().map(|naming| SequenceGroup {
+                root: root.as_deref(),
+                directory,
+                naming,
+            }));
+        }
+        proposed
     }
+}
+
+/// One directory and naming under which a moved sequence may be found.
+struct SequenceGroup<'a> {
+    root: Option<&'a str>,
+    directory: &'a Path,
+    naming: SequenceNaming,
+}
+
+/// Returns the ways a file name can be read as a numbered sequence member:
+/// prefix, suffix, padding, and frame number. A `-` before the digits is also
+/// read as the sign of a negative frame.
+fn numbered_interpretations(path: &Path) -> Vec<(String, String, u8, i64)> {
+    let Some((group, number)) = numbered_name(path) else {
+        return Vec::new();
+    };
+    let mut interpretations = Vec::with_capacity(2);
+    if let Some(prefix) = group.prefix.strip_suffix('-') {
+        if let Some(padding) = group.padding.checked_add(1) {
+            interpretations.push((
+                prefix.to_owned(),
+                group.suffix.clone(),
+                padding,
+                number.saturating_neg(),
+            ));
+        }
+    }
+    interpretations.push((group.prefix, group.suffix, group.padding, number));
+    interpretations
+}
+
+/// Returns whether two namings give the same file names to a sequence's
+/// frames. Names are compared at the frames of smallest and largest width,
+/// which decide whether padding changes a name.
+fn same_file_names(
+    left: &SequenceNaming,
+    right: &SequenceNaming,
+    descriptor: &ImageSequenceDescriptor,
+) -> bool {
+    let frames = descriptor.frames();
+    left.prefix() == right.prefix()
+        && left.suffix() == right.suffix()
+        && [
+            frames.start(),
+            frames.end(),
+            0_i64.clamp(frames.start(), frames.end()),
+        ]
+        .iter()
+        .all(|frame| left.filename(*frame) == right.filename(*frame))
 }
 
 /// Records a failure to examine one discovered entry without abandoning the scan.
@@ -801,36 +900,48 @@ fn searchable_directories(
     })
 }
 
-fn verify_sequence_directory(
-    directory: &Path,
-    root_name: Option<&str>,
+/// Verifies one group of numbered files as a moved or renamed sequence.
+///
+/// The group must hold every expected frame. With a comparable stored
+/// fingerprint the group must match it; without one, only a group named as a
+/// recorded locator names the sequence is offered, and its content is
+/// reported as not verified.
+fn verify_sequence_group(
+    group: &SequenceGroup<'_>,
     descriptor: &ImageSequenceDescriptor,
     fingerprints: &[ResourceFingerprint],
+    recorded: &BTreeSet<&SequenceNaming>,
 ) -> std::result::Result<Option<SequenceCandidate>, String> {
-    let missing_frames = sequence_missing_frames(directory, descriptor)?;
+    let SequenceGroup {
+        root: root_name,
+        directory,
+        ref naming,
+    } = *group;
+    let expected = fingerprints.iter().find(|fingerprint| {
+        fingerprint.algorithm() == SEQUENCE_FINGERPRINT_ALGORITHM
+            && fingerprint.version() == SEQUENCE_FINGERPRINT_VERSION
+    });
+    let recorded_naming = recorded.contains(naming);
+    if expected.is_none() && !recorded_naming {
+        return Ok(None);
+    }
+    let missing_frames = sequence_missing_frames(directory, naming, descriptor)?;
     if !missing_frames.is_empty() {
         return Ok(None);
     }
-    let expected = fingerprints.iter().find(|fingerprint| {
-        fingerprint.algorithm() == SEQUENCE_FINGERPRINT_ALGORITHM
-            && fingerprint.version() == crate::SEQUENCE_FINGERPRINT_VERSION
-    });
     let mut evidence = root_name
         .map(|root| ResolutionEvidence::new(EvidenceKind::MediaRootRelation, Some(root.to_owned())))
         .into_iter()
         .collect::<Vec<_>>();
-    evidence.push(ResolutionEvidence::new(
-        EvidenceKind::FileNameMatch,
-        Some(format!(
-            "{}%0{}d{}",
-            descriptor.pattern().prefix(),
-            descriptor.pattern().padding(),
-            descriptor.pattern().suffix()
-        )),
-    ));
+    if recorded_naming {
+        evidence.push(ResolutionEvidence::new(
+            EvidenceKind::FileNameMatch,
+            Some(naming_pattern(naming)),
+        ));
+    }
     let confidence = if let Some(expected) = expected {
-        let report =
-            fingerprint_image_sequence(directory, descriptor).map_err(|error| error.to_string())?;
+        let report = fingerprint_image_sequence(directory, naming, descriptor)
+            .map_err(|error| error.to_string())?;
         if report.fingerprint() != expected {
             return Ok(None);
         }
@@ -850,8 +961,9 @@ fn verify_sequence_directory(
         Confidence::from_basis_points(7_000).map_err(|error| error.to_string())?
     };
     let uri = canonical_file_uri(directory).map_err(|error| error.to_string())?;
-    let mut candidate =
-        ResolutionCandidate::new(uri, confidence, evidence).map_err(|error| error.to_string())?;
+    let mut candidate = ResolutionCandidate::new(uri, confidence, evidence)
+        .map_err(|error| error.to_string())?
+        .with_sequence_naming(naming.clone());
     if let Some(root) = root_name {
         candidate = candidate
             .with_media_root(root)
@@ -904,7 +1016,7 @@ fn verify_known_sequence(
 ) -> Result<ResourceResolution> {
     let Some(expected) = resource.fingerprints().iter().find(|fingerprint| {
         fingerprint.algorithm() == SEQUENCE_FINGERPRINT_ALGORITHM
-            && fingerprint.version() == crate::SEQUENCE_FINGERPRINT_VERSION
+            && fingerprint.version() == SEQUENCE_FINGERPRINT_VERSION
     }) else {
         let Some(candidate) = presence.candidates().first() else {
             return verification_failure(
@@ -915,11 +1027,15 @@ fn verify_known_sequence(
         return unverified_known_resolution(resource, candidate)?
             .with_missing_frames(presence.missing_frames().to_vec());
     };
-    let Some(candidate) = presence.candidates().first() else {
+    let Some((candidate, naming)) = presence
+        .candidates()
+        .first()
+        .and_then(|candidate| Some((candidate, candidate.sequence_naming()?)))
+    else {
         return verification_failure(resource.id(), "sequence presence result has no candidate");
     };
     let path = local_file_path(candidate.uri())?;
-    let report = match fingerprint_image_sequence(&path, descriptor) {
+    let report = match fingerprint_image_sequence(&path, naming, descriptor) {
         Ok(report) => report,
         Err(error) => return verification_failure(resource.id(), error.to_string()),
     };
@@ -943,7 +1059,8 @@ fn verify_known_sequence(
                 )),
             ),
         ],
-    )?;
+    )?
+    .with_sequence_naming(naming.clone());
     ResourceResolution::new(
         resource.id(),
         ResourceResolutionState::OnlineAtKnownLocator,
@@ -972,11 +1089,14 @@ fn unverified_known_resolution(
             )
         }),
     );
-    let candidate = ResolutionCandidate::new(
+    let mut candidate = ResolutionCandidate::new(
         presence_candidate.uri(),
         presence_candidate.confidence(),
         evidence,
     )?;
+    if let Some(naming) = presence_candidate.sequence_naming() {
+        candidate = candidate.with_sequence_naming(naming.clone());
+    }
     ResourceResolution::new(
         resource.id(),
         ResourceResolutionState::OnlineAtKnownLocator,
@@ -1107,20 +1227,22 @@ fn online_sequence_candidate(
         .iter()
         .filter_map(|locator| {
             let path = local_file_path(locator.uri()).ok()?;
-            path.is_dir().then_some((locator.uri(), path))
+            let naming = locator.sequence_naming()?;
+            path.is_dir().then_some((locator.uri(), naming, path))
         })
         .collect::<Vec<_>>();
-    online.sort_by_key(|(uri, _)| *uri);
-    // A directory holding none of the sequence's frames is where the sequence
-    // was, not where it is: the sequence is searched for like any moved media.
-    let Some((uri, path)) = online
+    online.sort_by_key(|(uri, naming, _)| (*uri, *naming));
+    // A directory holding none of the sequence's frames under the locator's
+    // naming is where the sequence was, not where it is: the sequence is
+    // searched for like any moved media.
+    let Some((uri, naming, path)) = online
         .into_iter()
-        .find(|(_, path)| directory_holds_a_frame(path, descriptor))
+        .find(|(_, naming, path)| directory_holds_a_frame(path, naming, descriptor))
     else {
         return Ok(None);
     };
 
-    let missing_frames = sequence_missing_frames(&path, descriptor)?;
+    let missing_frames = sequence_missing_frames(&path, naming, descriptor)?;
 
     let candidate = ResolutionCandidate::new(
         uri,
@@ -1130,17 +1252,30 @@ fn online_sequence_candidate(
             None,
         )],
     )
-    .map_err(|error| error.to_string())?;
+    .map_err(|error| error.to_string())?
+    .with_sequence_naming(naming.clone());
     Ok(Some((candidate, missing_frames)))
 }
 
-fn directory_holds_a_frame(path: &Path, descriptor: &ImageSequenceDescriptor) -> bool {
+/// Formats a naming as a printf-style pattern for evidence details.
+fn naming_pattern(naming: &SequenceNaming) -> String {
+    format!(
+        "{}%0{}d{}",
+        naming.prefix(),
+        naming.padding(),
+        naming.suffix()
+    )
+}
+
+fn directory_holds_a_frame(
+    path: &Path,
+    naming: &SequenceNaming,
+    descriptor: &ImageSequenceDescriptor,
+) -> bool {
     let frames = descriptor.frames();
     let mut frame = frames.start();
     loop {
-        if !descriptor.is_known_missing(frame)
-            && path.join(descriptor.pattern().filename(frame)).is_file()
-        {
+        if !descriptor.is_known_missing(frame) && path.join(naming.filename(frame)).is_file() {
             return true;
         }
         if frame == frames.end() {
@@ -1152,6 +1287,7 @@ fn directory_holds_a_frame(path: &Path, descriptor: &ImageSequenceDescriptor) ->
 
 fn sequence_missing_frames(
     path: &Path,
+    naming: &SequenceNaming,
     descriptor: &ImageSequenceDescriptor,
 ) -> std::result::Result<Vec<i64>, String> {
     let names = fs::read_dir(path)
@@ -1167,7 +1303,7 @@ fn sequence_missing_frames(
     let mut frame = frames.start();
     loop {
         if !descriptor.is_known_missing(frame)
-            && !names.contains(OsStr::new(&descriptor.pattern().filename(frame)))
+            && !names.contains(OsStr::new(&naming.filename(frame)))
         {
             missing_frames.push(frame);
             if missing_frames.len() > MAX_SEQUENCE_EXCEPTIONS {
@@ -1293,9 +1429,9 @@ mod tests {
     use std::fs;
 
     use postproject_core::{
-        ContentStructure, FrameRange, ImageSequenceDescriptor, ImageSequencePattern, LocatorId,
-        MediaRoot, MediaRootId, RationalRate, RepresentationAvailability, RepresentationId,
-        RepresentationResolution, ResourceId, ResourceResolutionState,
+        ContentStructure, FrameRange, ImageSequenceDescriptor, LocatorId, MediaRoot, MediaRootId,
+        RationalRate, RepresentationAvailability, RepresentationId, RepresentationImport,
+        RepresentationResolution, ResourceId, ResourceResolutionState, SequenceNaming,
     };
 
     use super::*;
@@ -1380,7 +1516,6 @@ mod tests {
         let resource_id = ResourceId::new();
         let descriptor = ImageSequenceDescriptor::new(
             resource_id,
-            ImageSequencePattern::new("plate.", ".exr", 4).expect("valid pattern"),
             FrameRange::new(1, 3, 1).expect("valid frame range"),
             RationalRate::new(24, 1).expect("valid rate"),
             vec![2],
@@ -1395,7 +1530,8 @@ mod tests {
             None,
             postproject_core::LocatorAvailability::Online,
         )
-        .expect("valid locator");
+        .expect("valid locator")
+        .with_sequence_naming(SequenceNaming::new("plate.", ".exr", 4).expect("valid naming"));
 
         let resolved = MediaResolver::default()
             .resolve_resource(&resource, &structure, &[locator], &[], &[])
@@ -1427,7 +1563,6 @@ mod tests {
         let resource_id = ResourceId::new();
         let descriptor = ImageSequenceDescriptor::new(
             resource_id,
-            ImageSequencePattern::new("plate.", ".exr", 4).expect("valid pattern"),
             FrameRange::new(1001, 1004, 1).expect("valid frame range"),
             RationalRate::new(24, 1).expect("valid rate"),
             Vec::new(),
@@ -1442,7 +1577,8 @@ mod tests {
             None,
             postproject_core::LocatorAvailability::Online,
         )
-        .expect("valid locator");
+        .expect("valid locator")
+        .with_sequence_naming(SequenceNaming::new("plate.", ".exr", 4).expect("valid naming"));
 
         let resolved = MediaResolver::default()
             .resolve_resource(&resource, &structure, &[locator], &[], &[])
@@ -1481,7 +1617,7 @@ mod tests {
             postproject_core::RepresentationKind::Original,
             ImageSequenceSource::new(
                 &original,
-                ImageSequencePattern::new("plate.", ".exr", 4).expect("pattern"),
+                SequenceNaming::new("plate.", ".exr", 4).expect("naming"),
                 FrameRange::new(1001, 1003, 1).expect("range"),
                 RationalRate::new(24, 1).expect("rate"),
                 Vec::new(),
@@ -1528,7 +1664,7 @@ mod tests {
             postproject_core::RepresentationKind::Original,
             ImageSequenceSource::new(
                 &original,
-                ImageSequencePattern::new("shot_", ".png", 4).expect("pattern"),
+                SequenceNaming::new("shot_", ".png", 4).expect("naming"),
                 FrameRange::new(1, 3, 1).expect("range"),
                 RationalRate::new(24, 1).expect("rate"),
                 Vec::new(),
@@ -1558,6 +1694,207 @@ mod tests {
             resolved.candidates()[0].uri(),
             canonical_file_uri(&moved).expect("moved URI")
         );
+        assert_eq!(
+            resolved.candidates()[0].sequence_naming(),
+            prepared.locators()[0].sequence_naming()
+        );
+        assert!(has_evidence(
+            &resolved.candidates()[0],
+            EvidenceKind::FileNameMatch
+        ));
+    }
+
+    /// Imports `shot_0001.png` to `shot_0003.png` from `plates` below a
+    /// temporary directory and returns the directory and the import.
+    fn import_shot_sequence() -> (tempfile::TempDir, RepresentationImport) {
+        let temporary = tempfile::tempdir().expect("create directory");
+        let original = temporary.path().join("plates");
+        fs::create_dir(&original).expect("create original sequence");
+        for frame in 1..=3_u8 {
+            fs::write(original.join(format!("shot_{frame:04}.png")), [frame; 8])
+                .expect("write frame");
+        }
+        let prepared = prepare_representation(
+            postproject_core::AssetId::new(),
+            postproject_core::RepresentationKind::Original,
+            ImageSequenceSource::new(
+                &original,
+                SequenceNaming::new("shot_", ".png", 4).expect("naming"),
+                FrameRange::new(1, 3, 1).expect("range"),
+                RationalRate::new(24, 1).expect("rate"),
+                Vec::new(),
+            ),
+        )
+        .expect("prepare sequence");
+        (temporary, prepared)
+    }
+
+    /// Writes frames `first..=last` named `{prefix}{frame:04}.png` whose
+    /// content is the imported sequence's content offset by `offset`.
+    fn write_renamed(
+        directory: &Path,
+        prefix: &str,
+        frames: std::ops::RangeInclusive<u8>,
+        offset: u8,
+    ) {
+        fs::create_dir_all(directory).expect("create directory");
+        for frame in frames {
+            fs::write(
+                directory.join(format!("{prefix}{frame:04}.png")),
+                [frame + offset; 8],
+            )
+            .expect("write frame");
+        }
+    }
+
+    fn resolve_in(prepared: &RepresentationImport, directory: &Path) -> ResourceResolution {
+        MediaResolver::default()
+            .resolve(
+                &[ResolutionItem::new(
+                    &prepared.resources()[0],
+                    prepared.representation().content_structure(),
+                    prepared.locators(),
+                )],
+                &SearchScope::default().with_search_directory(directory),
+            )
+            .expect("resolve sequence")
+            .pop()
+            .expect("one result")
+    }
+
+    #[test]
+    fn renamed_sequence_resolves_by_content_under_its_new_naming() {
+        let (temporary, prepared) = import_shot_sequence();
+        fs::remove_dir_all(temporary.path().join("plates")).expect("remove original");
+        let graded = temporary.path().join("graded");
+        write_renamed(&graded, "shot-graded_", 1..=3, 0);
+
+        let resolved = resolve_in(&prepared, temporary.path());
+
+        assert_eq!(resolved.state(), ResourceResolutionState::ResolvedProbable);
+        let candidate = &resolved.candidates()[0];
+        assert_eq!(
+            candidate.uri(),
+            canonical_file_uri(&graded).expect("graded URI")
+        );
+        assert_eq!(
+            candidate.sequence_naming(),
+            Some(&SequenceNaming::new("shot-graded_", ".png", 4).expect("naming"))
+        );
+        assert!(has_evidence(
+            candidate,
+            EvidenceKind::PartialFingerprintMatch
+        ));
+        assert!(!has_evidence(candidate, EvidenceKind::FileNameMatch));
+    }
+
+    #[test]
+    fn sequence_renamed_in_place_is_found_beside_its_former_names() {
+        let (temporary, prepared) = import_shot_sequence();
+        let plates = temporary.path().join("plates");
+        for frame in 1..=3 {
+            fs::rename(
+                plates.join(format!("shot_{frame:04}.png")),
+                plates.join(format!("shot-graded_{frame:04}.png")),
+            )
+            .expect("rename frame");
+        }
+
+        let resolved = resolve_in(&prepared, temporary.path());
+
+        assert_eq!(resolved.state(), ResourceResolutionState::ResolvedProbable);
+        assert_eq!(resolved.candidates()[0].uri(), prepared.locators()[0].uri());
+        assert_eq!(
+            resolved.candidates()[0]
+                .sequence_naming()
+                .map(SequenceNaming::prefix),
+            Some("shot-graded_")
+        );
+    }
+
+    #[test]
+    fn renamed_group_with_other_content_is_not_accepted() {
+        let (temporary, prepared) = import_shot_sequence();
+        fs::remove_dir_all(temporary.path().join("plates")).expect("remove original");
+        write_renamed(&temporary.path().join("other"), "shot_", 1..=3, 10);
+        write_renamed(&temporary.path().join("graded"), "shot-graded_", 1..=3, 10);
+
+        let resolved = resolve_in(&prepared, temporary.path());
+
+        assert_eq!(resolved.state(), ResourceResolutionState::Offline);
+        assert!(resolved.candidates().is_empty());
+    }
+
+    #[test]
+    fn identical_renamed_copies_are_ambiguous() {
+        let (temporary, prepared) = import_shot_sequence();
+        fs::remove_dir_all(temporary.path().join("plates")).expect("remove original");
+        write_renamed(&temporary.path().join("a"), "shot-graded_", 1..=3, 0);
+        write_renamed(&temporary.path().join("b"), "shot-graded_", 1..=3, 0);
+        write_renamed(&temporary.path().join("a"), "delivery_", 1..=3, 0);
+
+        let resolved = resolve_in(&prepared, temporary.path());
+
+        assert_eq!(resolved.state(), ResourceResolutionState::Ambiguous);
+        assert_eq!(resolved.candidates().len(), 3);
+        assert!(
+            resolved
+                .candidates()
+                .iter()
+                .all(|candidate| candidate.sequence_naming().is_some())
+        );
+    }
+
+    #[test]
+    fn incomplete_renamed_group_is_not_a_candidate() {
+        let (temporary, prepared) = import_shot_sequence();
+        fs::remove_dir_all(temporary.path().join("plates")).expect("remove original");
+        write_renamed(&temporary.path().join("graded"), "shot-graded_", 1..=2, 0);
+
+        let resolved = resolve_in(&prepared, temporary.path());
+
+        assert_eq!(resolved.state(), ResourceResolutionState::Offline);
+    }
+
+    #[test]
+    fn without_a_comparable_fingerprint_only_recorded_names_are_offered() {
+        let (temporary, prepared) = import_shot_sequence();
+        fs::remove_dir_all(temporary.path().join("plates")).expect("remove original");
+        write_renamed(&temporary.path().join("moved"), "shot_", 1..=3, 0);
+        write_renamed(&temporary.path().join("graded"), "shot-graded_", 1..=3, 0);
+        let resource = Resource::new(
+            prepared.resources()[0].id(),
+            vec![
+                ResourceFingerprint::new(SEQUENCE_FINGERPRINT_ALGORITHM, 1, vec![7; 32])
+                    .expect("version-one fingerprint"),
+            ],
+            None,
+        );
+
+        let resolved = MediaResolver::default()
+            .resolve(
+                &[ResolutionItem::new(
+                    &resource,
+                    prepared.representation().content_structure(),
+                    prepared.locators(),
+                )],
+                &SearchScope::default().with_search_directory(temporary.path()),
+            )
+            .expect("resolve sequence")
+            .pop()
+            .expect("one result");
+
+        assert_eq!(resolved.state(), ResourceResolutionState::ResolvedProbable);
+        let candidate = &resolved.candidates()[0];
+        assert_eq!(
+            candidate.uri(),
+            canonical_file_uri(temporary.path().join("moved")).expect("moved URI")
+        );
+        assert!(has_evidence(candidate, EvidenceKind::FileNameMatch));
+        assert!(has_evidence(
+            candidate,
+            EvidenceKind::FingerprintNotVerified
+        ));
     }
 
     #[test]
