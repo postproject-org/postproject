@@ -16,6 +16,8 @@ Read the relevant ADR before changing an invariant, a boundary, or a public cont
 - {doc}`ADR 0017 — Portable root identity </adr/0017-portable-root-identity>`
 - {doc}`ADR 0028 — Comparable and foreign fingerprint domains in resolution </adr/0028-comparable-and-foreign-fingerprint-domains>`
 - {doc}`ADR 0030 — Canonical locator spelling for hosts </adr/0030-canonical-locator-spelling>`
+- {doc}`ADR 0037 — Media sources for import and representations </adr/0037-media-sources>`
+- {doc}`ADR 0038 — Image-sequence file names belong to the locator </adr/0038-sequence-names-on-locators>`
 
 ## Knowledge, history, and change
 
@@ -92,4 +94,6 @@ Read the relevant ADR before changing an invariant, a boundary, or a public cont
 /adr/0034-warning-free-cpp-header
 /adr/0035-content-observation-outcome
 /adr/0036-readable-cpp-metadata-values
+/adr/0037-media-sources
+/adr/0038-sequence-names-on-locators
 ```
