@@ -40,7 +40,9 @@ are delivered on every surface. The maintained OpenAssetIO Manager publishes
 rendered media through the job protocol. The
 [Kdenlive pilot](https://github.com/postproject-org/postproject-kdenlive), a
 patch series on Kdenlive `v26.08.1`, relinks renamed clips by content through a
-sidecar production. A tested Flatpak module builds PostProject for it on the
+sidecar production. It records the proxies Kdenlive renders as managed
+artifacts through the job protocol, and rebuilds a proxy whose source was
+replaced. A tested Flatpak module builds PostProject for it on the
 KDE SDK. What the pilot taught is recorded in the
 [integration findings](release-0.4-integration-findings.md).
 

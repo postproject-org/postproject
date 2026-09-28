@@ -25,8 +25,9 @@ about 290 lines.
 
 The experiment met its success criteria. A renamed clip is relinked by content,
 duplicate copies stay with the user, and Kdenlive without PostProject or
-without a sidecar behaves as upstream. Recording Kdenlive's proxies as managed
-artifacts was not started. Its prerequisites are below.
+without a sidecar behaves as upstream. A second experiment, described
+[below](#proxies-as-managed-artifacts), records Kdenlive's proxies as managed
+artifacts.
 
 ## Findings
 
@@ -129,14 +130,68 @@ using search directories instead of invented roots. The adapter grew to about
 375 lines, because it now records Kdenlive's hash and keeps the answers of the
 batched resolution.
 
-## For managed proxies
+## Proxies as managed artifacts
 
-Proxies as managed artifacts needed fingerprint computation, which release 0.4
-now provides through content observation. The rest already existed.
-Kdenlive's proxy task can act as the job worker: it claims a proxy job, renders with its own `melt` or `ffmpeg` settings, and
-completes with the proxy as a derived representation. Artifact evaluation
-would then report a proxy as stale where Kdenlive, which names proxies by the
-source's MD5 and never checks a proxy's content, reports nothing.
+Kdenlive keeps rendering proxies with its own settings, and the sidecar records
+how each proxy was made. When Kdenlive renders a proxy for a clip the sidecar
+knows, it requests an `org.kde.kdenlive:generate-proxy` job and claims it as
+the worker. It renews the claim while `ffmpeg` or `melt` runs. One transaction
+then records the proxy as a proxy representation of the clip's asset, records
+the activity with the tool and its argument list, and completes the job. A
+failed render fails the job with the end of its log. When a project opens,
+PostProject evaluates each recorded proxy. A proxy whose source was replaced
+is reported stale and offered for rebuilding in Kdenlive's relink dialog.
+Kdenlive itself checks a proxied clip's hash only when the proxy is missing, so
+it would keep playing the old proxy.
+
+This needed no change to PostProject. Content observation from release 0.4
+supplied the one missing piece. The pilot's Kdenlive changes grew to about
+120 lines, and the adapter to about 690. Kdenlive's tests cover a recorded
+render, a stale proxy offered for rebuilding, a proxy rendered again at its
+old path, failed and abandoned renders, and proxies made before their clip was
+recorded. In the running application under Xvfb on 2026-09-28:
+
+- the first save of a new project recorded the proxy Kdenlive had already made;
+- after the source was replaced, reopening offered the proxy for rebuilding;
+- the rebuild was recorded as a succeeded job;
+- PostProject then evaluated the old proxy as stale and the new one as current.
+
+**Evaluation sees only observed content.** Artifact evaluation compares recorded
+fingerprints and never reads a file, as designed. To ask whether a proxy is
+stale now, Kdenlive first verifies the source, observes it in a write
+transaction if it differs, and only then evaluates. A host that evaluates
+without observing reports a replaced source's proxy as current. The same
+sequence precedes every render, so that the proxy is recorded against the
+content it was made from.
+
+**A C++ host cannot read metadata values.** The C++ wrapper returns metadata
+values, including regeneration parameters, as opaque `MetadataInput` objects.
+They can be passed to an exact-value query or copied to another target, but
+not read. The C ABI has typed getters. Kdenlive records its render arguments as
+an ordered list on the activity. It cannot read them back to render a proxy
+again from a regeneration plan, although the CLI and Python can. The pilot
+checks their content through the CLI only.
+
+**A host needs a job kind of its own.** Kdenlive's arguments mean something
+only to Kdenlive. A proxy job under the reference executor's
+`org.postproject:generate-proxy` kind could be claimed by `postproject job
+run`, and a regeneration plan derived from Kdenlive's activity would ask that
+executor to interpret them. Kdenlive therefore uses its own kind. Requesting
+and claiming in one transaction keeps other workers from seeing the job as
+requested.
+
+**Work done before a production existed can only be inferred.** Kdenlive
+renders proxies as soon as clips are added, usually before the first save
+creates the sidecar. On save, the pilot records such a proxy only when its file
+name is the clip's present Kdenlive hash, which is how Kdenlive names the
+proxies it renders. That activity names no tool and no parameters.
+PostProject reports it as current but not reproducible, which is accurate.
+
+**The wrapper warns under GCC 15.** Building the pilot at `-O2` with GCC 15.3,
+`evaluateArtifact` in the installed C++ header raises `-Wmaybe-uninitialized`
+for its optional fingerprint values. Both values are initialized before they
+are moved, so the warning is a false positive. It still appears in every
+consumer's build log.
 
 ## Packaging
 
