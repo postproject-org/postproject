@@ -43,7 +43,13 @@ patch series on Kdenlive `v26.08.1`, relinks renamed clips by content through a
 sidecar production. It records the proxies Kdenlive renders as managed
 artifacts through the job protocol, and rebuilds a proxy whose source was
 replaced. A tested Flatpak module builds PostProject for it on the
-KDE SDK. What the pilot taught is recorded in the
+KDE SDK. The
+[Blender pilot](https://github.com/postproject-org/postproject-blender), an
+extension for Blender 5.2 and 5.3, relinks renamed movies, sounds, and image
+sequences by content through a sidecar or Blender project production. It led
+to media sources for importing any content structure, sequence names on
+locators so renamed sequences are found, and platform wheels that carry the
+native library. What the pilots taught is recorded in the
 [integration findings](release-0.4-integration-findings.md).
 
 ## Explicitly later

@@ -1,15 +1,21 @@
 # Release 0.4 integration findings
 
-Release 0.4 adds one maintained integration with a real application, the
-[Kdenlive pilot](https://github.com/postproject-org/postproject-kdenlive). The
-pilot is a patch series on Kdenlive `v26.08.1` that links only the installed
-CMake package. Its [brief](https://github.com/postproject-org/postproject-kdenlive/blob/main/BRIEF.md)
+Release 0.4 adds two maintained integrations with real applications. The
+[Kdenlive pilot](https://github.com/postproject-org/postproject-kdenlive) is a
+patch series on Kdenlive `v26.08.1` that links only the installed CMake
+package. Its [brief](https://github.com/postproject-org/postproject-kdenlive/blob/main/BRIEF.md)
 records Kdenlive's behavior, checked against source on 2026-09-27 and, for
-proxies, on 2026-09-28. This page
-records what the pilot showed about PostProject. The pilot itself is kept only
-to produce these findings.
+proxies, on 2026-09-28. The
+[Blender pilot](https://github.com/postproject-org/postproject-blender) is an
+extension for Blender 5.2 and 5.3 that uses only the Python binding. Its
+[brief](https://github.com/postproject-org/postproject-blender/blob/main/BRIEF.md)
+records Blender's behavior, checked against source for `v5.2.2` and the 5.3
+alpha on 2026-09-28. This page records what the pilots showed about
+PostProject. The pilots themselves are kept only to produce these findings.
 
-## What was built
+## Kdenlive pilot
+
+### What was built
 
 A resolver experiment: Kdenlive keeps its project file and behavior, and
 PostProject only assists relinking. On save, Kdenlive records each
@@ -30,7 +36,7 @@ without a sidecar behaves as upstream. A second experiment, described
 [below](#proxies-as-managed-artifacts), records Kdenlive's proxies as managed
 artifacts.
 
-## Findings
+### Findings
 
 **The C++ wrapper assumes exceptions.** KDE's compiler settings build
 application code with `-fno-exceptions`, and Kdenlive keeps that default.
@@ -87,7 +93,7 @@ locator URI that import would record.
 **Resolution is one asset at a time.** A project opened with many missing clips
 rescans the same roots once per clip. The pilot did not measure the cost.
 
-## Changes made in response
+### Changes made in response
 
 Release 0.4 addresses each finding in general terms, for every host rather than
 for Kdenlive alone. Each change is recorded in an ADR and documented for
@@ -131,7 +137,7 @@ using search directories instead of invented roots. The adapter grew to about
 375 lines, because it now records Kdenlive's hash and keeps the answers of the
 batched resolution.
 
-## Proxies as managed artifacts
+### Proxies as managed artifacts
 
 Kdenlive keeps rendering proxies with its own settings, and the sidecar records
 how each proxy was made. When Kdenlive renders a proxy for a clip the sidecar
@@ -197,7 +203,7 @@ header raises `-Wmaybe-uninitialized` for its optional fingerprint values. Both 
 are moved, so the warning is a false positive. It still appears in every
 consumer's build log.
 
-### Changes made in response
+#### Changes made in response
 
 Each change is recorded in an ADR and applies to every host.
 
@@ -218,10 +224,121 @@ Each change is recorded in an ADR and applies to every host.
 The job kind and the recording of work done before the sidecar existed needed
 no change. The integrator guides describe both.
 
-## Packaging
+### Packaging
 
 Kdenlive ships on Flathub with the KDE 6.10 runtime. PostProject now publishes
 a tested Flatpak module that builds offline from the release source archive
 with the Rust SDK extension, together with its generated Cargo sources. See
 {doc}`/src/integrators/flatpak`. The Rust extension is a build-only dependency,
 and the resulting application ships only the 4.5 MiB shared library.
+
+## Blender pilot
+
+### What was built
+
+A resolver experiment as a Blender extension, with no change to Blender.
+Blender's *Find Missing Files* compares file names only: it cannot find a
+renamed file, and of several files with the same name it takes the largest.
+On every save, the extension records each movie, sound, and image strip in a
+production. Inside a Blender 5.3 project, the production is
+`postproject.pproj` at the project root, shared by every `.blend` file of the
+project. Otherwise it is a sidecar next to the `.blend` file. Blender has no
+durable strip identity, so each strip gets a UUID in a custom property, stored
+as an application identifier with the qualifier `org.blender:strip_uuid`. The
+UUID names the media, so cut and duplicated strips share one asset. *Find
+Missing Media by Content* resolves every missing strip in one call. It
+searches the `.blend` file's folder, the project root and each file-path
+project variable, and the media's former folders. It relinks through
+Blender's `bpy.data.file_path_foreach()` only when PostProject matched exactly
+one file by content, and relinks an image sequence with all its frames or not
+at all. The extension is about 600 lines of Python.
+
+Its tests run in background Blender 5.2.2 and 5.3 alpha, installing the built
+extension. They cover a renamed movie, a relative path, a moved, a renamed,
+and an incomplete image sequence, two identical copies, a different file with
+the same name, a sound strip, cut and duplicated strips, a missing or
+unreadable production, relinking on open, a 5.3 project whose footage moved
+to storage named by a project variable, and the disabled extension.
+
+The brief checked Blender 5.3's new projects, project variables, and the open
+Media Bin design first, so that the extension follows them rather than
+duplicating them. Proxies were not attempted: Blender builds them in-process,
+and the Media Bin design names the bin as the place that will manage them.
+
+### Findings
+
+**Compound media could not be an asset's original.** A Blender image strip is
+an image sequence, and the extension records it as one asset. The native
+surfaces imported only a single file as an asset's original and could add a
+sequence only to an existing asset. The first version imported the first frame
+as the asset's original and added the sequence as a second original, which
+left a one-frame original that no strip used.
+
+**A renamed image sequence could not be found.** Blender users rename graded
+plates and renders, and the pilot's success criterion was to relink such a
+sequence. A sequence's file names were part of its representation, and its
+content fingerprint hashed them. Resolution searched only for a file carrying
+the recorded name of the first frame. ADR 0003 treats a renamed file as a
+locator change that keeps its content identity; a renamed sequence got a new
+identity and could not be recorded at its new place under its new names.
+
+**A sequence that left its directory resolved as an error.** When every frame
+had moved but the directory remained, resolution treated the empty directory as
+the sequence's present location. Content verification then failed with a
+fingerprint mismatch, instead of searching for the moved frames.
+
+**Every module-level Python call loaded the native library again.**
+`file_locator`, `locator_file_path`, `fingerprint_file`, and the production
+constructors each loaded the library and configured all of its declarations,
+about 2 ms per call. A save that checks a few thousand strip paths would have
+spent seconds on that alone.
+
+**A plug-in cannot own its copy of the binding.** Blender installs the wheels
+of all extensions into one `site-packages` and keeps only the newest wheel of
+each name. The pilot bundled the platform-neutral wheel and its own native
+library, as the Python guide described. A second extension bundling a newer
+PostProject would have replaced the binding, and the newer binding would have
+rejected the first extension's library for its ABI version. Setting
+`POSTPROJECT_LIBRARY` is no way out, because it applies to the whole process.
+
+**The Linux library did not load everywhere Blender runs.** The release
+library was built on the newest Ubuntu runner and required glibc 2.34.
+Blender's Linux builds require glibc 2.28.
+
+The pilot also confirmed three parts of the design that needed no change:
+
+- A strip's UUID, stored as an application identifier, is the right key for a
+  sidecar. A host-object binding names one production, and *Save As* next to a
+  new sidecar would have left every strip bound to the old one.
+- A Blender 5.3 project maps onto one production. Its file-path variables are
+  searched as unnamed directories rather than logical roots, because strip
+  paths do not use variables.
+- A moved sequence is matched by a fingerprint sampled over its first, middle,
+  and last frames (ADR 0015). The extension accepts that evidence for
+  sequences, and full-content evidence for single files.
+
+### Changes made in response
+
+- **Media sources (ADR 0037, C ABI 34).** One import and one
+  add-representation operation take a media source: a single file, an image
+  sequence, ordered parts, or a package. Any content structure can be an
+  asset's original on every surface. The extension imports an image strip as
+  one asset whose only original is the sequence.
+- **Sequence names belong to the locator (ADR 0038, C ABI 35, schema 15).** A
+  sequence's prefix, suffix, and padding are part of each locator, and the
+  sequence fingerprint no longer hashes names. Resolution finds a renamed
+  sequence by content, and a candidate reports the names it was found under.
+  Confirming it records them with the new locator, and verifying or observing
+  a sequence's content takes the names to read it by. The extension relinks
+  renamed sequences, and on the next save verifies the new location and
+  records it beside the former one.
+- **Moved sequences are searched for.** A directory holding none of a
+  sequence's frames is no longer its present location.
+- **One load per library.** The Python binding loads and checks each native
+  library once per process, and a module-level call now costs about 0.2 ms.
+- **Platform wheels (ADR 0039).** Each release publishes a wheel per platform
+  that carries the binding and its native library, which the binding loads
+  when no path is given. The Linux package and wheel are built for glibc 2.28.
+  The extension bundles only the platform wheel and names no library, so any
+  newer wheel another extension brings has a matching library. The Python
+  guide describes packaging for plug-ins.
