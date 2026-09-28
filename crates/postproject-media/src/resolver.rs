@@ -1111,7 +1111,12 @@ fn online_sequence_candidate(
         })
         .collect::<Vec<_>>();
     online.sort_by_key(|(uri, _)| *uri);
-    let Some((uri, path)) = online.into_iter().next() else {
+    // A directory holding none of the sequence's frames is where the sequence
+    // was, not where it is: the sequence is searched for like any moved media.
+    let Some((uri, path)) = online
+        .into_iter()
+        .find(|(_, path)| directory_holds_a_frame(path, descriptor))
+    else {
         return Ok(None);
     };
 
@@ -1127,6 +1132,22 @@ fn online_sequence_candidate(
     )
     .map_err(|error| error.to_string())?;
     Ok(Some((candidate, missing_frames)))
+}
+
+fn directory_holds_a_frame(path: &Path, descriptor: &ImageSequenceDescriptor) -> bool {
+    let frames = descriptor.frames();
+    let mut frame = frames.start();
+    loop {
+        if !descriptor.is_known_missing(frame)
+            && path.join(descriptor.pattern().filename(frame)).is_file()
+        {
+            return true;
+        }
+        if frame == frames.end() {
+            return false;
+        }
+        frame += i64::from(frames.step());
+    }
 }
 
 fn sequence_missing_frames(
@@ -1489,6 +1510,54 @@ mod tests {
         assert_eq!(
             resolved.candidates()[0].uri(),
             canonical_file_uri(&relocated).expect("relocated URI")
+        );
+    }
+
+    #[test]
+    fn sequence_gone_from_its_directory_is_searched_for() {
+        let temporary = tempfile::tempdir().expect("create directory");
+        let original = temporary.path().join("plates");
+        let moved = temporary.path().join("day-01");
+        fs::create_dir(&original).expect("create original sequence");
+        fs::create_dir(&moved).expect("create new location");
+        for frame in 1..=3 {
+            fs::write(original.join(format!("shot_{frame:04}.png")), [frame; 8])
+                .expect("write frame");
+        }
+        let prepared = prepare_image_sequence_representation(
+            postproject_core::AssetId::new(),
+            postproject_core::RepresentationKind::Original,
+            &ImageSequenceSource::new(
+                &original,
+                ImageSequencePattern::new("shot_", ".png", 4).expect("pattern"),
+                FrameRange::new(1, 3, 1).expect("range"),
+                RationalRate::new(24, 1).expect("rate"),
+                Vec::new(),
+            ),
+        )
+        .expect("prepare sequence");
+        for frame in 1..=3 {
+            let name = format!("shot_{frame:04}.png");
+            fs::rename(original.join(&name), moved.join(&name)).expect("move frame");
+        }
+        let root =
+            MediaRoot::new(MediaRootId::new(), "work", None, None, 0, true).expect("portable root");
+        let mapping = MediaRootMapping::new("work", temporary.path()).expect("root mapping");
+
+        let resolved = content_resolver()
+            .resolve_resource(
+                &prepared.resources()[0],
+                prepared.representation().content_structure(),
+                prepared.locators(),
+                &[root],
+                &[mapping],
+            )
+            .expect("resolve moved sequence");
+
+        assert_eq!(resolved.state(), ResourceResolutionState::ResolvedProbable);
+        assert_eq!(
+            resolved.candidates()[0].uri(),
+            canonical_file_uri(&moved).expect("moved URI")
         );
     }
 

@@ -171,6 +171,8 @@ Development version: `0.4.0-alpha.1`.
 
 ### Fixed
 
+- An image sequence whose recorded directory no longer holds any of its frames
+  is searched for like other moved media instead of resolving as an error.
 - Regeneration plans repeat the kind and target root of the job that produced
   the artifact, found through a new SQLite schema 14 index (ADR 0023).
 - The C++ header no longer raises `-Wmaybe-uninitialized` in `evaluateArtifact`
