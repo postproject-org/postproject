@@ -50,9 +50,7 @@ def main() -> None:
         # Threads may share one production; calls on it serialize internally.
         with ThreadPoolExecutor(max_workers=4) as pool:
             counts = list(
-                pool.map(
-                    lambda _: len(production.representations[asset_id]), range(4)
-                )
+                pool.map(lambda _: len(production.representations[asset_id]), range(4))
             )
         print(f"representations: {counts[0]}")
 
