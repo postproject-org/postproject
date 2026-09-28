@@ -53,6 +53,7 @@ from ._abi import (
 )
 from ._abi import Fingerprint as NativeFingerprint
 from ._abi import Job as NativeJob
+from ._abi import MediaSource as NativeMediaSource
 from ._abi import (
     MetadataInput as NativeMetadataInput,
 )
@@ -102,13 +103,13 @@ from ._model import (
     ExternalIdentifier,
     ExternalIdentifierAddedEvent,
     ExternalIdentifierRemovedEvent,
-    FileResourceInput,
+    FileSource,
     FilteredRevisionPage,
     Fingerprint,
     FingerprintSnapshot,
     HostObjectBinding,
     ImageSequenceDescriptor,
-    ImageSequenceInput,
+    ImageSequenceSource,
     Job,
     JobCancelledEvent,
     JobClaim,
@@ -134,6 +135,7 @@ from ._model import (
     MediaRootEnabledChangedEvent,
     MediaRootId,
     MediaRootRemovedEvent,
+    MediaSource,
     MetadataAddedOrReplacedEvent,
     MetadataAssertion,
     MetadataBool,
@@ -154,6 +156,7 @@ from ._model import (
     MetadataUri,
     MetadataValue,
     ObjectReference,
+    OrderedPartsSource,
     OriginIdentity,
     ProductionId,
     ProvenanceMatch,
@@ -1940,110 +1943,51 @@ class Transaction:
         self._native.check(status, error)
 
     def import_media(
-        self, path: str | os.PathLike[str], display_name: str | None = None
+        self,
+        source: MediaSource | str | os.PathLike[str],
+        display_name: str | None = None,
     ) -> AssetId:
-        """Prepare and stage one original-media import."""
+        """Stage a new asset whose original representation has the source's
+        structure. A path imports a single file."""
 
         self._require_open()
         asset_id = Uuid()
-        error = ctypes.POINTER(Error)()
-        status = self._native.lib.pp_transaction_import_media(
-            self._handle,
-            _path_bytes(path),
-            _optional_text(display_name),
-            ctypes.byref(asset_id),
-            ctypes.byref(error),
-        )
-        self._native.check(status, error)
+        with _NativeMediaSource(self._native, source) as native_source:
+            error = ctypes.POINTER(Error)()
+            status = self._native.lib.pp_transaction_import_media(
+                self._handle,
+                native_source.handle,
+                _optional_text(display_name),
+                ctypes.byref(asset_id),
+                ctypes.byref(error),
+            )
+            self._native.check(status, error)
         return AssetId(_uuid(asset_id))
 
-    def add_single_file_representation(
+    def add_representation(
         self,
         asset_id: AssetId,
         kind: RepresentationKind,
-        path: str | os.PathLike[str],
+        source: MediaSource | str | os.PathLike[str],
     ) -> RepresentationId:
-        """Stage one single-file representation for an existing asset."""
+        """Stage a representation of ``kind`` with the source's structure for an
+        existing asset. A path adds a single file."""
 
         self._require_open()
         native_asset_id = _native_uuid(asset_id.value)
         representation_id = Uuid()
-        error = ctypes.POINTER(Error)()
-        status = self._native.lib.pp_transaction_add_single_file_representation(
-            self._handle,
-            ctypes.byref(native_asset_id),
-            _native_representation_kind(kind),
-            _path_bytes(path),
-            ctypes.byref(representation_id),
-            ctypes.byref(error),
-        )
-        self._native.check(status, error)
+        with _NativeMediaSource(self._native, source) as native_source:
+            error = ctypes.POINTER(Error)()
+            status = self._native.lib.pp_transaction_add_representation(
+                self._handle,
+                ctypes.byref(native_asset_id),
+                _native_representation_kind(kind),
+                native_source.handle,
+                ctypes.byref(representation_id),
+                ctypes.byref(error),
+            )
+            self._native.check(status, error)
         return RepresentationId(_uuid(representation_id))
-
-    def add_image_sequence_representation(
-        self,
-        asset_id: AssetId,
-        kind: RepresentationKind,
-        source: ImageSequenceInput,
-    ) -> RepresentationId:
-        """Stage one compact image-sequence representation."""
-
-        self._require_open()
-        native_asset_id = _native_uuid(asset_id.value)
-        missing_type = ctypes.c_int64 * len(source.missing_frames)
-        missing_frames = missing_type(*source.missing_frames)
-        representation_id = Uuid()
-        error = ctypes.POINTER(Error)()
-        status = self._native.lib.pp_transaction_add_image_sequence_representation(
-            self._handle,
-            ctypes.byref(native_asset_id),
-            _native_representation_kind(kind),
-            _path_bytes(source.directory),
-            _utf8(source.prefix, "image-sequence prefix"),
-            _utf8(source.suffix, "image-sequence suffix"),
-            source.padding,
-            source.start,
-            source.end,
-            source.step,
-            source.rate_numerator,
-            source.rate_denominator,
-            missing_frames,
-            len(missing_frames),
-            ctypes.byref(representation_id),
-            ctypes.byref(error),
-        )
-        self._native.check(status, error)
-        return RepresentationId(_uuid(representation_id))
-
-    def add_ordered_parts_representation(
-        self,
-        asset_id: AssetId,
-        kind: RepresentationKind,
-        members: tuple[FileResourceInput, ...],
-    ) -> RepresentationId:
-        """Stage an ordered, fully required multi-file representation."""
-
-        return self._add_file_collection_representation(
-            self._native.lib.pp_transaction_add_ordered_parts_representation,
-            asset_id,
-            kind,
-            members,
-        )
-
-    def add_package_representation(
-        self,
-        asset_id: AssetId,
-        kind: RepresentationKind,
-        members: tuple[FileResourceInput, ...],
-    ) -> RepresentationId:
-        """Stage a role-bearing package representation."""
-
-        return self._add_file_collection_representation(
-            self._native.lib.pp_transaction_add_package_representation,
-            asset_id,
-            kind,
-            members,
-        )
 
     def add_media_root(
         self,
@@ -2544,40 +2488,6 @@ class Transaction:
         self._native.check(status, error)
         self._finished = True
 
-    def _add_file_collection_representation(
-        self,
-        function: Callable[..., int],
-        asset_id: AssetId,
-        kind: RepresentationKind,
-        members: tuple[FileResourceInput, ...],
-    ) -> RepresentationId:
-        self._require_open()
-        paths = tuple(_path_bytes(member.path) for member in members)
-        roles = tuple(_utf8(member.role, "resource role") for member in members)
-        array_type = NativeFileResourceInput * len(members)
-        native_members = array_type(
-            *(
-                NativeFileResourceInput(
-                    paths[index], roles[index], int(member.required)
-                )
-                for index, member in enumerate(members)
-            )
-        )
-        native_asset_id = _native_uuid(asset_id.value)
-        representation_id = Uuid()
-        error = ctypes.POINTER(Error)()
-        status = function(
-            self._handle,
-            ctypes.byref(native_asset_id),
-            _native_representation_kind(kind),
-            native_members,
-            len(native_members),
-            ctypes.byref(representation_id),
-            ctypes.byref(error),
-        )
-        self._native.check(status, error)
-        return RepresentationId(_uuid(representation_id))
-
     def _mutate_external_identifier(
         self,
         remove: bool,
@@ -2675,6 +2585,79 @@ class CancelToken:
         """Request cancellation of every operation observing this token."""
 
         self._native.lib.pp_cancel_token_cancel(self.handle)
+
+
+class _NativeMediaSource:
+    """Owned native media source, released when the ``with`` block ends."""
+
+    def __init__(
+        self,
+        native: NativeLibrary,
+        source: MediaSource | str | os.PathLike[str],
+    ) -> None:
+        self._native = native
+        self.handle = ctypes.POINTER(NativeMediaSource)()
+        error = ctypes.POINTER(Error)()
+        if isinstance(source, (str, os.PathLike)):
+            source = FileSource(source)
+        if isinstance(source, FileSource):
+            status = native.lib.pp_media_source_create_file(
+                _path_bytes(source.path), ctypes.byref(self.handle), ctypes.byref(error)
+            )
+        elif isinstance(source, ImageSequenceSource):
+            missing_type = ctypes.c_int64 * len(source.missing_frames)
+            missing_frames = missing_type(*source.missing_frames)
+            status = native.lib.pp_media_source_create_image_sequence(
+                _path_bytes(source.directory),
+                _utf8(source.prefix, "image-sequence prefix"),
+                _utf8(source.suffix, "image-sequence suffix"),
+                source.padding,
+                source.start,
+                source.end,
+                source.step,
+                source.rate_numerator,
+                source.rate_denominator,
+                missing_frames,
+                len(missing_frames),
+                ctypes.byref(self.handle),
+                ctypes.byref(error),
+            )
+        else:
+            members = (
+                source.parts
+                if isinstance(source, OrderedPartsSource)
+                else source.members
+            )
+            function = (
+                native.lib.pp_media_source_create_ordered_parts
+                if isinstance(source, OrderedPartsSource)
+                else native.lib.pp_media_source_create_package
+            )
+            paths = tuple(_path_bytes(member.path) for member in members)
+            roles = tuple(_utf8(member.role, "resource role") for member in members)
+            array_type = NativeFileResourceInput * len(members)
+            native_members = array_type(
+                *(
+                    NativeFileResourceInput(
+                        paths[index], roles[index], int(member.required)
+                    )
+                    for index, member in enumerate(members)
+                )
+            )
+            status = function(
+                native_members,
+                len(native_members),
+                ctypes.byref(self.handle),
+                ctypes.byref(error),
+            )
+        native.check(status, error)
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        self._native.lib.pp_media_source_release(self.handle)
+        self.handle = ctypes.POINTER(NativeMediaSource)()
 
 
 class _ResolutionOptions:

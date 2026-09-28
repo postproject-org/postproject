@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from enum import Enum
 from typing import Generic, TypeAlias, TypeVar
@@ -484,10 +485,26 @@ class ImageSequenceDescriptor:
 
 
 @dataclass(frozen=True, slots=True)
-class ImageSequenceInput:
-    """Filesystem source and compact descriptor for a new image sequence."""
+class FileResourceInput:
+    """Filesystem source and membership semantics for a compound member."""
 
-    directory: str
+    path: str
+    role: str
+    required: bool = True
+
+
+@dataclass(frozen=True, slots=True)
+class FileSource:
+    """Media source for one regular file."""
+
+    path: str | os.PathLike[str]
+
+
+@dataclass(frozen=True, slots=True)
+class ImageSequenceSource:
+    """Media source for one compact image sequence in a directory."""
+
+    directory: str | os.PathLike[str]
     prefix: str
     suffix: str
     padding: int
@@ -500,12 +517,23 @@ class ImageSequenceInput:
 
 
 @dataclass(frozen=True, slots=True)
-class FileResourceInput:
-    """Filesystem source and membership semantics for a compound member."""
+class OrderedPartsSource:
+    """Media source for ordered, fully required files, such as camera spans."""
 
-    path: str
-    role: str
-    required: bool = True
+    parts: tuple[FileResourceInput, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class PackageSource:
+    """Media source for role-bearing required and optional files."""
+
+    members: tuple[FileResourceInput, ...]
+
+
+MediaSource: TypeAlias = (
+    FileSource | ImageSequenceSource | OrderedPartsSource | PackageSource
+)
+"""Content structure of a representation at its present location."""
 
 
 @dataclass(frozen=True, slots=True)

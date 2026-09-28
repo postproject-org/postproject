@@ -34,9 +34,10 @@ from postproject import (
     ExternalIdentifierAddedEvent,
     ExternalIdentifierRemovedEvent,
     FileResourceInput,
+    FileSource,
     Fingerprint,
     HostObjectBinding,
-    ImageSequenceInput,
+    ImageSequenceSource,
     InvalidArgumentError,
     JobCancelledEvent,
     JobClaimedEvent,
@@ -74,7 +75,9 @@ from postproject import (
     MetadataUri,
     NativeLibrary,
     NotFoundError,
+    OrderedPartsSource,
     OriginIdentity,
+    PackageSource,
     Production,
     ProvenanceMatch,
     RepresentationAddedEvent,
@@ -278,10 +281,8 @@ class ProductionTests(unittest.TestCase):
                     completed_job_id, worker, None, 41, 50
                 )
             with production.transaction() as transaction:
-                completed_representation_id = (
-                    transaction.add_single_file_representation(
-                        asset_id, RepresentationKind.PROXY, self.second_media_path
-                    )
+                completed_representation_id = transaction.add_representation(
+                    asset_id, RepresentationKind.PROXY, self.second_media_path
                 )
                 completion_activity_id = transaction.create_activity(
                     ActivitySpec(
@@ -556,42 +557,60 @@ class ProductionTests(unittest.TestCase):
                 asset_id = transaction.import_media(self.media_path)
 
             with production.transaction() as transaction:
-                proxy_id = transaction.add_single_file_representation(
-                    asset_id, RepresentationKind.PROXY, self.second_media_path
+                proxy_id = transaction.add_representation(
+                    asset_id,
+                    RepresentationKind.PROXY,
+                    FileSource(self.second_media_path),
                 )
-                sequence_id = transaction.add_image_sequence_representation(
+                sequence_id = transaction.add_representation(
                     asset_id,
                     RepresentationKind.DERIVED,
-                    ImageSequenceInput(
-                        str(self.root), "frame", ".exr", 4, 1, 1, 1, 24_000, 1_001
+                    ImageSequenceSource(
+                        self.root, "frame", ".exr", 4, 1, 1, 1, 24_000, 1_001
                     ),
                 )
-                ordered_id = transaction.add_ordered_parts_representation(
+                ordered_id = transaction.add_representation(
                     asset_id,
                     RepresentationKind.OPTIMIZED,
-                    (
-                        FileResourceInput(
-                            str(self.media_path),
-                            "org.postproject:essence.first",
-                        ),
-                        FileResourceInput(
-                            str(self.second_media_path),
-                            "org.postproject:essence.second",
-                        ),
+                    OrderedPartsSource(
+                        (
+                            FileResourceInput(
+                                str(self.media_path),
+                                "org.postproject:essence.first",
+                            ),
+                            FileResourceInput(
+                                str(self.second_media_path),
+                                "org.postproject:essence.second",
+                            ),
+                        )
                     ),
                 )
-                package_id = transaction.add_package_representation(
+                package_id = transaction.add_representation(
                     asset_id,
                     RepresentationKind.DERIVED,
-                    (
-                        FileResourceInput(
-                            str(self.media_path), "org.postproject:essence"
-                        ),
-                        FileResourceInput(
-                            str(sidecar), "org.postproject:sidecar", False
-                        ),
+                    PackageSource(
+                        (
+                            FileResourceInput(
+                                str(self.media_path), "org.postproject:essence"
+                            ),
+                            FileResourceInput(
+                                str(sidecar), "org.postproject:sidecar", False
+                            ),
+                        )
                     ),
                 )
+                with self.assertRaises(InvalidArgumentError):
+                    transaction.add_representation(
+                        asset_id,
+                        RepresentationKind.DERIVED,
+                        OrderedPartsSource(
+                            (
+                                FileResourceInput(
+                                    str(sidecar), "org.postproject:sidecar", False
+                                ),
+                            )
+                        ),
+                    )
 
             representations = {
                 representation.id: representation
@@ -619,6 +638,31 @@ class ProductionTests(unittest.TestCase):
                 tuple(member.required for member in package.members), (True, False)
             )
 
+    def test_image_sequence_imports_as_the_only_original(self) -> None:
+        for frame in range(1, 4):
+            (self.root / f"strip_{frame:04}.png").write_bytes(b"frame %d" % frame)
+        with Production.create(
+            self.production_path, library_path=LIBRARY_PATH
+        ) as production:
+            with production.transaction() as transaction:
+                asset_id = transaction.import_media(
+                    ImageSequenceSource(self.root, "strip_", ".png", 4, 1, 3, 1, 24, 1),
+                    "Image strip",
+                )
+
+            representations = production.representations[asset_id]
+            self.assertEqual(len(representations), 1)
+            original = representations[0]
+            self.assertEqual(original.kind, RepresentationKind.ORIGINAL)
+            self.assertEqual(
+                original.structure_kind, ContentStructureKind.IMAGE_SEQUENCE
+            )
+            assert original.image_sequence is not None
+            self.assertEqual(original.image_sequence.prefix, "strip_")
+            self.assertEqual(
+                (original.image_sequence.start, original.image_sequence.end), (1, 3)
+            )
+
     def test_dependency_sets_roundtrip_replace_and_support_reverse_queries(
         self,
     ) -> None:
@@ -629,7 +673,7 @@ class ProductionTests(unittest.TestCase):
                 asset_id = transaction.import_media(self.media_path)
             original = production.representations[asset_id][0]
             with production.transaction() as transaction:
-                proxy_id = transaction.add_single_file_representation(
+                proxy_id = transaction.add_representation(
                     asset_id, RepresentationKind.PROXY, self.second_media_path
                 )
             proxy = next(

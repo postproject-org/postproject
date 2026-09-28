@@ -113,7 +113,7 @@ def run_proxy_job(production: Production, job_id: JobId, output: Path) -> None:
     # Stage the output, the activity, and the completion in one transaction;
     # never commit the representation or activity separately.
     with production.transaction() as transaction:
-        proxy_id = transaction.add_single_file_representation(
+        proxy_id = transaction.add_representation(
             job.output_asset_id, job.output_representation_kind, output
         )
         activity_id = transaction.create_activity(

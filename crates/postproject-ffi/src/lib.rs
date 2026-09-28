@@ -8,6 +8,7 @@ mod artifact;
 mod content;
 mod dependency;
 mod jobs;
+mod media_source;
 mod metadata;
 mod metadata_input;
 mod provenance;
@@ -34,22 +35,20 @@ use postproject_core::{
     Activity, ActivityId, ActivityInput, ActivityKind, ActivityOutput, ActivityOutputQuery,
     ActivityRole, AgentIdentity, ArtifactEvaluationLimits, Asset, AssetId, AvailabilityIssue,
     AvailabilityIssueKind, Dependency, DependencyKind, DependencyQueryLimits, DependencyTarget,
-    Error, ErrorKind, EvidenceKind, ExternalIdentifier, FrameRange, HostObjectBinding,
-    IdentifierScheme, ImageSequencePattern, Job, JobClaimId, JobFailure, JobId, JobKind, JobQuery,
-    JobStateKind, Locator, LocatorAvailability, LocatorId, MAX_ACTIVITY_EDGES, MAX_CONTENT_MEMBERS,
-    MAX_DEPENDENCIES_PER_SET, MAX_JOB_INPUTS, MAX_SEQUENCE_EXCEPTIONS, MediaRoot, MediaRootId,
-    MetadataProperty, MetadataQuery, MetadataValue, ObjectRef, OriginIdentity, OriginalMediaImport,
-    ProductionId, PropertyId, ProvenanceQueryLimits, ProvenanceQueryMatch, QueryCursor,
-    QueryPageRequest, RationalRate, RepresentationAvailability, RepresentationFingerprint,
+    Error, ErrorKind, EvidenceKind, ExternalIdentifier, HostObjectBinding, IdentifierScheme, Job,
+    JobClaimId, JobFailure, JobId, JobKind, JobQuery, JobStateKind, Locator, LocatorAvailability,
+    LocatorId, MAX_ACTIVITY_EDGES, MAX_DEPENDENCIES_PER_SET, MAX_JOB_INPUTS, MediaRoot,
+    MediaRootId, MetadataProperty, MetadataQuery, MetadataValue, ObjectRef, OriginIdentity,
+    OriginalMediaImport, ProductionId, PropertyId, ProvenanceQueryLimits, ProvenanceQueryMatch,
+    QueryCursor, QueryPageRequest, RepresentationAvailability, RepresentationFingerprint,
     RepresentationId, RepresentationImport, RepresentationKind, RepresentationResolution,
     RequestedJobOutput, ResolutionEvidence, ResourceFingerprint, ResourceId,
-    ResourceResolutionState, ResourceRole, RevisionContext, RevisionId, StaleArtifactQuery,
-    Timestamp, ToolIdentity, TransactionLifecycle, VocabularyId,
+    ResourceResolutionState, RevisionContext, RevisionId, StaleArtifactQuery, Timestamp,
+    ToolIdentity, TransactionLifecycle, VocabularyId,
 };
 use postproject_media::{
-    FileResourceSource, ImageSequenceSource, MediaSource, canonical_file_uri, local_file_path,
-    prepare_confirmed_locator, prepare_confirmed_locator_under_root, prepare_original_media,
-    prepare_representation,
+    canonical_file_uri, local_file_path, prepare_confirmed_locator,
+    prepare_confirmed_locator_under_root, prepare_original_media, prepare_representation,
 };
 use postproject_storage_sqlite::SqliteProduction;
 
@@ -60,6 +59,7 @@ pub use artifact::{
 pub use content::PpFingerprint;
 pub use dependency::{PpDependency, PpDependencyMatch, PpDependencyQuerySet, PpDependencySet};
 pub use jobs::{PpJob, PpJobSet, PpRegenerationPlanSet};
+pub use media_source::PpMediaSource;
 use metadata::AbiMetadataValue;
 pub use metadata::{PpMetadataSet, PpMetadataValue};
 pub use metadata_input::PpMetadataInput;
@@ -159,7 +159,7 @@ const PP_REVISION_JOB_FAILED: u32 = 25;
 const PP_REVISION_JOB_CANCELLED: u32 = 26;
 
 /// Current pre-1.0 ABI version.
-pub const ABI_VERSION: u32 = 33;
+pub const ABI_VERSION: u32 = 34;
 
 /// Fixed-layout UUID-compatible public identifier.
 #[repr(C)]
@@ -377,12 +377,6 @@ enum StagedMutation {
     },
     FailJob(JobId, JobClaimId, Timestamp, JobFailure),
     CancelJob(JobId),
-}
-
-#[derive(Clone, Copy)]
-enum FileCollectionShape {
-    OrderedParts,
-    Package,
 }
 
 /// Opaque immutable external-identifier result set owned by the C caller.
@@ -4640,21 +4634,24 @@ pub unsafe extern "C" fn pp_transaction_set_revision_context(
 
 /// Stages an original-media import and returns its stable asset identity.
 ///
+/// The new asset's original representation has the source's content
+/// structure. The source is borrowed only for this call and may be reused.
+///
 /// # Safety
 ///
-/// `transaction` must be a live transaction handle. `path` must be a borrowed
-/// NUL-terminated UTF-8 string; `display_name` may be null or satisfy the same
-/// rule. `out_asset_id` must be writable. `out_error` may be null or writable.
+/// `transaction` must be a live transaction handle and `source` a live media
+/// source. `display_name` may be null or borrowed NUL-terminated UTF-8.
+/// `out_asset_id` must be writable. `out_error` may be null or writable.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn pp_transaction_import_media(
     transaction: *mut PpTransaction,
-    path: *const c_char,
+    source: *const PpMediaSource,
     display_name: *const c_char,
     out_asset_id: *mut PpUuid,
     out_error: *mut *mut PpError,
 ) -> u32 {
-    // SAFETY: Null pointers are rejected before dereference and string inputs
-    // follow the documented borrowed NUL-terminated contract.
+    // SAFETY: Null pointers are rejected before dereference and borrowed
+    // inputs are not retained after this call.
     unsafe {
         initialize_uuid(out_asset_id);
         ffi_call(out_error, || {
@@ -4662,15 +4659,12 @@ pub unsafe extern "C" fn pp_transaction_import_media(
                 .as_mut()
                 .ok_or_else(|| invalid_argument("transaction must not be null"))?;
             transaction.lifecycle.ensure_open()?;
+            let source = media_source::borrowed_source(source)?;
             if out_asset_id.is_null() {
                 return Err(invalid_argument("out_asset_id must not be null"));
             }
-            let path = required_utf8(path, "path")?;
-            if path.is_empty() {
-                return Err(invalid_argument("path must not be empty"));
-            }
             let display_name = optional_utf8(display_name, "display_name")?.map(str::to_owned);
-            let import = prepare_original_media(Path::new(path), display_name, None)?;
+            let import = prepare_original_media(source.clone(), display_name, None)?;
             out_asset_id.write(PpUuid {
                 bytes: import.asset().id().into_bytes(),
             });
@@ -4680,24 +4674,27 @@ pub unsafe extern "C" fn pp_transaction_import_media(
     }
 }
 
-/// Stages one filesystem-backed single-file representation for an existing asset.
+/// Stages a representation of the given kind for an existing asset.
+///
+/// The representation has the source's content structure. The source is
+/// borrowed only for this call and may be reused.
 ///
 /// # Safety
 ///
-/// `transaction`, `asset_id`, and `out_representation_id` must be live/readable
-/// or writable as appropriate. `path` must be borrowed NUL-terminated UTF-8;
+/// `transaction` must be a live transaction handle, `asset_id` readable, and
+/// `source` a live media source. `out_representation_id` must be writable;
 /// `out_error` may be null or writable.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn pp_transaction_add_single_file_representation(
+pub unsafe extern "C" fn pp_transaction_add_representation(
     transaction: *mut PpTransaction,
     asset_id: *const PpUuid,
     kind: u32,
-    path: *const c_char,
+    source: *const PpMediaSource,
     out_representation_id: *mut PpUuid,
     out_error: *mut *mut PpError,
 ) -> u32 {
-    // SAFETY: Null pointers are rejected before dereference and strings are
-    // borrowed only for this call.
+    // SAFETY: Null pointers are rejected before dereference and borrowed
+    // inputs are not retained after this call.
     unsafe {
         initialize_uuid(out_representation_id);
         ffi_call(out_error, || {
@@ -4708,257 +4705,15 @@ pub unsafe extern "C" fn pp_transaction_add_single_file_representation(
             let asset_id = asset_id
                 .as_ref()
                 .ok_or_else(|| invalid_argument("asset_id must not be null"))?;
+            let source = media_source::borrowed_source(source)?;
             if out_representation_id.is_null() {
                 return Err(invalid_argument("out_representation_id must not be null"));
-            }
-            let path = required_utf8(path, "path")?;
-            if path.is_empty() {
-                return Err(invalid_argument("path must not be empty"));
             }
             let import = prepare_representation(
                 AssetId::from_bytes(asset_id.bytes),
                 representation_kind_from_abi(kind)?,
-                Path::new(path),
+                source.clone(),
             )?;
-            out_representation_id.write(PpUuid {
-                bytes: import.representation().id().into_bytes(),
-            });
-            transaction
-                .mutations
-                .push(StagedMutation::Representation(import));
-            Ok(())
-        })
-    }
-}
-
-/// Stages one compact filesystem-backed image-sequence representation.
-///
-/// The missing-frame array is borrowed only for this call and may be null when
-/// its count is zero.
-///
-/// # Safety
-///
-/// Handle, UUID, string, array, and output pointers must satisfy the public
-/// header contract; `out_error` may be null or writable.
-#[unsafe(no_mangle)]
-#[allow(clippy::too_many_arguments)]
-pub unsafe extern "C" fn pp_transaction_add_image_sequence_representation(
-    transaction: *mut PpTransaction,
-    asset_id: *const PpUuid,
-    kind: u32,
-    directory: *const c_char,
-    prefix: *const c_char,
-    suffix: *const c_char,
-    padding: u8,
-    start: i64,
-    end: i64,
-    step: u32,
-    rate_numerator: u32,
-    rate_denominator: u32,
-    missing_frames: *const i64,
-    missing_frame_count: u64,
-    out_representation_id: *mut PpUuid,
-    out_error: *mut *mut PpError,
-) -> u32 {
-    // SAFETY: Null pointers and counts are validated before borrowed values are
-    // read, and no borrow escapes this call.
-    unsafe {
-        initialize_uuid(out_representation_id);
-        ffi_call(out_error, || {
-            let transaction = transaction
-                .as_mut()
-                .ok_or_else(|| invalid_argument("transaction must not be null"))?;
-            transaction.lifecycle.ensure_open()?;
-            let asset_id = asset_id
-                .as_ref()
-                .ok_or_else(|| invalid_argument("asset_id must not be null"))?;
-            if out_representation_id.is_null() {
-                return Err(invalid_argument("out_representation_id must not be null"));
-            }
-            let directory = required_utf8(directory, "directory")?;
-            if directory.is_empty() {
-                return Err(invalid_argument("directory must not be empty"));
-            }
-            let missing_frame_count = usize::try_from(missing_frame_count)
-                .map_err(|_| invalid_argument("missing frame count is too large"))?;
-            if missing_frame_count > MAX_SEQUENCE_EXCEPTIONS {
-                return Err(invalid_argument(format!(
-                    "missing frame count must not exceed {MAX_SEQUENCE_EXCEPTIONS}"
-                )));
-            }
-            let missing_frames = if missing_frame_count == 0 {
-                Vec::new()
-            } else {
-                if missing_frames.is_null() {
-                    return Err(invalid_argument(
-                        "missing_frames must not be null when count is nonzero",
-                    ));
-                }
-                // SAFETY: The caller guarantees the checked count of readable values.
-                std::slice::from_raw_parts(missing_frames, missing_frame_count).to_vec()
-            };
-            let source = ImageSequenceSource::new(
-                Path::new(directory),
-                ImageSequencePattern::new(
-                    required_utf8(prefix, "prefix")?,
-                    required_utf8(suffix, "suffix")?,
-                    padding,
-                )?,
-                FrameRange::new(start, end, step)?,
-                RationalRate::new(rate_numerator, rate_denominator)?,
-                missing_frames,
-            );
-            let import = prepare_representation(
-                AssetId::from_bytes(asset_id.bytes),
-                representation_kind_from_abi(kind)?,
-                source,
-            )?;
-            out_representation_id.write(PpUuid {
-                bytes: import.representation().id().into_bytes(),
-            });
-            transaction
-                .mutations
-                .push(StagedMutation::Representation(import));
-            Ok(())
-        })
-    }
-}
-
-/// Stages an ordered, fully required multi-file representation.
-///
-/// # Safety
-///
-/// Handle, UUID, member-array, member-string, and output pointers must satisfy
-/// the public header contract; `out_error` may be null or writable.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn pp_transaction_add_ordered_parts_representation(
-    transaction: *mut PpTransaction,
-    asset_id: *const PpUuid,
-    kind: u32,
-    members: *const PpFileResourceInput,
-    member_count: u64,
-    out_representation_id: *mut PpUuid,
-    out_error: *mut *mut PpError,
-) -> u32 {
-    // SAFETY: This exported function forwards the same pointer contract.
-    unsafe {
-        transaction_add_file_collection_representation(
-            transaction,
-            asset_id,
-            kind,
-            members,
-            member_count,
-            out_representation_id,
-            out_error,
-            FileCollectionShape::OrderedParts,
-        )
-    }
-}
-
-/// Stages a role-bearing package representation.
-///
-/// # Safety
-///
-/// Pointer rules match [`pp_transaction_add_ordered_parts_representation`].
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn pp_transaction_add_package_representation(
-    transaction: *mut PpTransaction,
-    asset_id: *const PpUuid,
-    kind: u32,
-    members: *const PpFileResourceInput,
-    member_count: u64,
-    out_representation_id: *mut PpUuid,
-    out_error: *mut *mut PpError,
-) -> u32 {
-    // SAFETY: This exported function forwards the same pointer contract.
-    unsafe {
-        transaction_add_file_collection_representation(
-            transaction,
-            asset_id,
-            kind,
-            members,
-            member_count,
-            out_representation_id,
-            out_error,
-            FileCollectionShape::Package,
-        )
-    }
-}
-
-#[allow(clippy::too_many_arguments)]
-unsafe fn transaction_add_file_collection_representation(
-    transaction: *mut PpTransaction,
-    asset_id: *const PpUuid,
-    kind: u32,
-    members: *const PpFileResourceInput,
-    member_count: u64,
-    out_representation_id: *mut PpUuid,
-    out_error: *mut *mut PpError,
-    shape: FileCollectionShape,
-) -> u32 {
-    // SAFETY: Null pointers and counts are validated before borrowed values are
-    // read, and no borrow escapes this call.
-    unsafe {
-        initialize_uuid(out_representation_id);
-        ffi_call(out_error, || {
-            let transaction = transaction
-                .as_mut()
-                .ok_or_else(|| invalid_argument("transaction must not be null"))?;
-            transaction.lifecycle.ensure_open()?;
-            let asset_id = asset_id
-                .as_ref()
-                .ok_or_else(|| invalid_argument("asset_id must not be null"))?;
-            if out_representation_id.is_null() {
-                return Err(invalid_argument("out_representation_id must not be null"));
-            }
-            let member_count = usize::try_from(member_count)
-                .map_err(|_| invalid_argument("member count is too large"))?;
-            if member_count > MAX_CONTENT_MEMBERS {
-                return Err(invalid_argument(format!(
-                    "member count must not exceed {MAX_CONTENT_MEMBERS}"
-                )));
-            }
-            let members = if member_count == 0 {
-                &[]
-            } else {
-                if members.is_null() {
-                    return Err(invalid_argument(
-                        "members must not be null when count is nonzero",
-                    ));
-                }
-                // SAFETY: The caller guarantees the checked count of readable values.
-                std::slice::from_raw_parts(members, member_count)
-            };
-            let sources = members
-                .iter()
-                .map(|member| {
-                    let required = match member.required {
-                        0 => false,
-                        1 => true,
-                        _ => {
-                            return Err(invalid_argument(
-                                "member required flag must be zero or one",
-                            ));
-                        }
-                    };
-                    let path = required_utf8(member.path, "member path")?;
-                    if path.is_empty() {
-                        return Err(invalid_argument("member path must not be empty"));
-                    }
-                    Ok(FileResourceSource::new(
-                        Path::new(path),
-                        ResourceRole::new(required_utf8(member.role, "member role")?)?,
-                        required,
-                    ))
-                })
-                .collect::<Result<Vec<_>, Error>>()?;
-            let asset_id = AssetId::from_bytes(asset_id.bytes);
-            let kind = representation_kind_from_abi(kind)?;
-            let source = match shape {
-                FileCollectionShape::OrderedParts => MediaSource::OrderedParts(sources),
-                FileCollectionShape::Package => MediaSource::Package(sources),
-            };
-            let import = prepare_representation(asset_id, kind, source)?;
             out_representation_id.write(PpUuid {
                 bytes: import.representation().id().into_bytes(),
             });
@@ -7444,13 +7199,25 @@ mod tests {
         // SAFETY: The transaction retains shared ownership of the state.
         unsafe { pp_production_release(production) };
 
+        let mut source = ptr::null_mut();
+        // SAFETY: The path is NUL-terminated and the outputs are writable.
+        assert_eq!(
+            unsafe {
+                media_source::pp_media_source_create_file(
+                    media_path.as_ptr(),
+                    &raw mut source,
+                    &raw mut error,
+                )
+            },
+            PP_OK
+        );
         let mut asset_id = PpUuid { bytes: [0; 16] };
-        // SAFETY: `transaction` is live and inputs/outputs satisfy the contract.
+        // SAFETY: `transaction` and `source` are live and outputs are writable.
         assert_eq!(
             unsafe {
                 pp_transaction_import_media(
                     transaction,
-                    media_path.as_ptr(),
+                    source,
                     ptr::null(),
                     &raw mut asset_id,
                     &raw mut error,
@@ -7458,6 +7225,8 @@ mod tests {
             },
             PP_OK
         );
+        // SAFETY: The live source is released exactly once.
+        unsafe { media_source::pp_media_source_release(source) };
         // SAFETY: `transaction` remains live and exclusively accessed.
         assert_eq!(
             unsafe { pp_transaction_commit(transaction, &raw mut error) },

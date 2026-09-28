@@ -120,9 +120,10 @@ Development version: `0.4.0-alpha.1`.
 
 ### Changed
 
-- Rust media sources describe a single file, image sequence, ordered parts, or
-  package for both importing an asset's original and adding a representation;
-  `prepare_representation` replaces the four per-structure functions (ADR 0037).
+- Media sources describe a single file, image sequence, ordered parts, or
+  package for both importing an asset's original and adding a representation,
+  on every surface; they replace the four per-structure add functions
+  (ADR 0037, C ABI 34).
 - C++ metadata values are readable: `MetadataValue` replaces `MetadataInput`
   for writing and reading (ADR 0036).
 - Observing content reports whether it was unchanged, changed, or observed for

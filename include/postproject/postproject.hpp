@@ -1237,6 +1237,14 @@ struct StringDeleter final {
   void operator()(char *value) const noexcept { pp_string_release(value); }
 };
 
+struct MediaSourceDeleter final {
+  void operator()(pp_media_source_t *source) const noexcept {
+    pp_media_source_release(source);
+  }
+};
+
+using MediaSourceHandle = std::unique_ptr<pp_media_source_t, MediaSourceDeleter>;
+
 using StringHandle = std::unique_ptr<char, StringDeleter>;
 
 // raw_error is read by reference so that check(pp_call(..., &error), error) is
@@ -2718,6 +2726,122 @@ private:
   pp_revision_waiter_t *waiter_ = nullptr;
 };
 
+// The content structure of a representation at its present location: a
+// single file, an image sequence, ordered parts, or a package. The same source
+// serves Transaction::importMedia, which creates an asset whose original has
+// the source's structure, and Transaction::addRepresentation. A UTF-8 path
+// converts implicitly to a single-file source. Inputs are checked when a
+// transaction uses the source.
+class MediaSource final {
+public:
+  // Implicit: a path is a single-file source.
+  MediaSource(std::string_view path) : content_(File{std::string(path)}) {}
+  MediaSource(const std::string &path) : MediaSource(std::string_view(path)) {}
+  MediaSource(const char *path)
+      : MediaSource(path != nullptr ? std::string_view(path)
+                                    : std::string_view()) {}
+
+  [[nodiscard]] static MediaSource file(std::string_view path) {
+    return MediaSource(path);
+  }
+
+  [[nodiscard]] static MediaSource imageSequence(ImageSequenceInput sequence) {
+    return MediaSource(Content(std::move(sequence)));
+  }
+
+  // Parts keep their order and must all be required.
+  [[nodiscard]] static MediaSource
+  orderedParts(std::vector<FileResourceInput> parts) {
+    return MediaSource(Content(Collection{std::move(parts), false}));
+  }
+
+  // A package needs at least one required member; optional members may be
+  // missing without making the representation unavailable.
+  [[nodiscard]] static MediaSource
+  package(std::vector<FileResourceInput> members) {
+    return MediaSource(Content(Collection{std::move(members), true}));
+  }
+
+private:
+  friend class Transaction;
+
+  struct File final {
+    std::string path;
+  };
+
+  struct Collection final {
+    std::vector<FileResourceInput> members;
+    bool package;
+  };
+
+  using Content = std::variant<File, ImageSequenceInput, Collection>;
+
+  explicit MediaSource(Content content) : content_(std::move(content)) {}
+
+  Result<detail::MediaSourceHandle> native() const {
+    pp_media_source_t *raw = nullptr;
+    pp_error_t *error = nullptr;
+    pp_error_code_t status = PP_OK;
+    if (const File *file = std::get_if<File>(&content_)) {
+      POSTPROJECT_TRY_ASSIGN(const std::string path,
+                             detail::checked_string(file->path, "path"));
+      status = pp_media_source_create_file(path.c_str(), &raw, &error);
+    } else if (const ImageSequenceInput *sequence =
+                   std::get_if<ImageSequenceInput>(&content_)) {
+      POSTPROJECT_TRY_ASSIGN(
+          const std::string directory,
+          detail::checked_string(sequence->directory, "directory"));
+      POSTPROJECT_TRY_ASSIGN(const std::string prefix,
+                             detail::checked_string(sequence->prefix, "prefix"));
+      POSTPROJECT_TRY_ASSIGN(const std::string suffix,
+                             detail::checked_string(sequence->suffix, "suffix"));
+      status = pp_media_source_create_image_sequence(
+          directory.c_str(), prefix.c_str(), suffix.c_str(), sequence->padding,
+          sequence->start, sequence->end, sequence->step,
+          sequence->rate_numerator, sequence->rate_denominator,
+          sequence->missing_frames.data(),
+          static_cast<std::uint64_t>(sequence->missing_frames.size()), &raw,
+          &error);
+    } else if (const Collection *collection =
+                   std::get_if<Collection>(&content_)) {
+      std::vector<std::string> paths;
+      paths.reserve(collection->members.size());
+      std::vector<std::string> roles;
+      roles.reserve(collection->members.size());
+      for (const FileResourceInput &member : collection->members) {
+        POSTPROJECT_TRY_ASSIGN(
+            std::string path,
+            detail::checked_string(member.path, "member path"));
+        paths.push_back(std::move(path));
+        POSTPROJECT_TRY_ASSIGN(
+            std::string role,
+            detail::checked_string(member.role, "member role"));
+        roles.push_back(std::move(role));
+      }
+      std::vector<pp_file_resource_input_t> members;
+      members.reserve(collection->members.size());
+      for (std::size_t index = 0; index < collection->members.size();
+           ++index) {
+        members.push_back(
+            {paths[index].c_str(), roles[index].c_str(),
+             static_cast<std::uint8_t>(
+                 collection->members[index].required ? 1 : 0)});
+      }
+      const auto count = static_cast<std::uint64_t>(members.size());
+      status = collection->package
+                   ? pp_media_source_create_package(members.data(), count,
+                                                    &raw, &error)
+                   : pp_media_source_create_ordered_parts(
+                         members.data(), count, &raw, &error);
+    }
+    detail::MediaSourceHandle handle(raw);
+    POSTPROJECT_TRY(detail::check(status, error));
+    return Result<detail::MediaSourceHandle>(std::move(handle));
+  }
+
+  Content content_;
+};
+
 class Transaction final {
 public:
   Result<void> setRevisionContext(const RevisionContext &context) {
@@ -2750,71 +2874,35 @@ public:
     return {};
   }
 
-  Result<Uuid> importMedia(std::string_view path) {
-    return import_media_impl(path, nullptr);
+  // Creates an asset whose original representation has the source's
+  // structure. A path imports a single file.
+  Result<Uuid> importMedia(const MediaSource &source) {
+    return import_media_impl(source, nullptr);
   }
 
-  Result<Uuid> importMedia(std::string_view path,
+  Result<Uuid> importMedia(const MediaSource &source,
                            std::string_view display_name) {
     POSTPROJECT_TRY_ASSIGN(
         const std::string name,
         detail::checked_string(display_name, "display_name"));
-    return import_media_impl(path, name.c_str());
+    return import_media_impl(source, name.c_str());
   }
 
-  Result<Uuid> addSingleFileRepresentation(const Uuid &asset_id,
-                                           RepresentationKind kind,
-                                           std::string_view path) {
+  // Adds a representation of the given kind, with the source's structure, to
+  // an existing asset.
+  Result<Uuid> addRepresentation(const Uuid &asset_id, RepresentationKind kind,
+                                 const MediaSource &source) {
+    POSTPROJECT_TRY_ASSIGN(const detail::MediaSourceHandle native_source,
+                           source.native());
     const pp_uuid_t native_asset_id = detail::native_uuid(asset_id);
-    POSTPROJECT_TRY_ASSIGN(const std::string native_path,
-                           detail::checked_string(path, "path"));
     pp_uuid_t value{};
     pp_error_t *error = nullptr;
-    const pp_error_code_t status =
-        pp_transaction_add_single_file_representation(
-            transaction_, &native_asset_id,
-            static_cast<pp_representation_kind_t>(kind), native_path.c_str(),
-            &value, &error);
+    const pp_error_code_t status = pp_transaction_add_representation(
+        transaction_, &native_asset_id,
+        static_cast<pp_representation_kind_t>(kind), native_source.get(),
+        &value, &error);
     POSTPROJECT_TRY(detail::check(status, error));
     return detail::uuid(value);
-  }
-
-  Result<Uuid> addImageSequenceRepresentation(const Uuid &asset_id,
-                                              RepresentationKind kind,
-                                              const ImageSequenceInput &input) {
-    const pp_uuid_t native_asset_id = detail::native_uuid(asset_id);
-    POSTPROJECT_TRY_ASSIGN(
-        const std::string directory,
-        detail::checked_string(input.directory, "directory"));
-    POSTPROJECT_TRY_ASSIGN(const std::string prefix,
-                           detail::checked_string(input.prefix, "prefix"));
-    POSTPROJECT_TRY_ASSIGN(const std::string suffix,
-                           detail::checked_string(input.suffix, "suffix"));
-    pp_uuid_t value{};
-    pp_error_t *error = nullptr;
-    const pp_error_code_t status =
-        pp_transaction_add_image_sequence_representation(
-            transaction_, &native_asset_id,
-            static_cast<pp_representation_kind_t>(kind), directory.c_str(),
-            prefix.c_str(), suffix.c_str(), input.padding, input.start,
-            input.end, input.step, input.rate_numerator,
-            input.rate_denominator, input.missing_frames.data(),
-            static_cast<std::uint64_t>(input.missing_frames.size()), &value,
-            &error);
-    POSTPROJECT_TRY(detail::check(status, error));
-    return detail::uuid(value);
-  }
-
-  Result<Uuid>
-  addOrderedPartsRepresentation(const Uuid &asset_id, RepresentationKind kind,
-                                const std::vector<FileResourceInput> &members) {
-    return add_file_collection_representation(asset_id, kind, members, false);
-  }
-
-  Result<Uuid>
-  addPackageRepresentation(const Uuid &asset_id, RepresentationKind kind,
-                           const std::vector<FileResourceInput> &members) {
-    return add_file_collection_representation(asset_id, kind, members, true);
   }
 
   Result<Uuid> addMediaRoot(std::string_view name, std::int32_t priority = 0) {
@@ -3291,14 +3379,14 @@ private:
     return detail::checked_string(origin.name, "origin name");
   }
 
-  Result<Uuid> import_media_impl(std::string_view path,
+  Result<Uuid> import_media_impl(const MediaSource &source,
                                  const char *display_name) {
-    POSTPROJECT_TRY_ASSIGN(const std::string native_path,
-                           detail::checked_string(path, "path"));
+    POSTPROJECT_TRY_ASSIGN(const detail::MediaSourceHandle native_source,
+                           source.native());
     pp_uuid_t value{};
     pp_error_t *error = nullptr;
     const pp_error_code_t status = pp_transaction_import_media(
-        transaction_, native_path.c_str(), display_name, &value, &error);
+        transaction_, native_source.get(), display_name, &value, &error);
     POSTPROJECT_TRY(detail::check(status, error));
     return detail::uuid(value);
   }
@@ -3311,48 +3399,6 @@ private:
     pp_error_t *error = nullptr;
     const pp_error_code_t status = pp_transaction_add_media_root(
         transaction_, native_name.c_str(), label, priority, &value, &error);
-    POSTPROJECT_TRY(detail::check(status, error));
-    return detail::uuid(value);
-  }
-
-  Result<Uuid> add_file_collection_representation(
-      const Uuid &asset_id, RepresentationKind kind,
-      const std::vector<FileResourceInput> &members, bool package) {
-    std::vector<std::string> paths;
-    paths.reserve(members.size());
-    std::vector<std::string> roles;
-    roles.reserve(members.size());
-    for (const FileResourceInput &member : members) {
-      POSTPROJECT_TRY_ASSIGN(
-          auto item_6, detail::checked_string(member.path, "member path"));
-      paths.push_back(std::move(item_6));
-      POSTPROJECT_TRY_ASSIGN(
-          auto item_7, detail::checked_string(member.role, "member role"));
-      roles.push_back(std::move(item_7));
-    }
-    std::vector<pp_file_resource_input_t> native_members;
-    native_members.reserve(members.size());
-    for (std::size_t index = 0; index < members.size(); ++index) {
-      native_members.push_back(
-          {paths[index].c_str(), roles[index].c_str(),
-           static_cast<std::uint8_t>(members[index].required ? 1 : 0)});
-    }
-    const pp_uuid_t native_asset_id = detail::native_uuid(asset_id);
-    pp_uuid_t value{};
-    pp_error_t *error = nullptr;
-    const pp_error_code_t status =
-        package ? pp_transaction_add_package_representation(
-                      transaction_, &native_asset_id,
-                      static_cast<pp_representation_kind_t>(kind),
-                      native_members.data(),
-                      static_cast<std::uint64_t>(native_members.size()), &value,
-                      &error)
-                : pp_transaction_add_ordered_parts_representation(
-                      transaction_, &native_asset_id,
-                      static_cast<pp_representation_kind_t>(kind),
-                      native_members.data(),
-                      static_cast<std::uint64_t>(native_members.size()), &value,
-                      &error);
     POSTPROJECT_TRY(detail::check(status, error));
     return detail::uuid(value);
   }

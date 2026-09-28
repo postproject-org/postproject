@@ -433,6 +433,7 @@ static pp_error_code_t create_production(const char *path, const char *media,
                                          pp_error_t **error) {
   pp_production_t *production = NULL;
   pp_transaction_t *transaction = NULL;
+  pp_media_source_t *camera = NULL;
   pp_representation_set_t *representations = NULL;
   pp_error_code_t status =
       pp_production_create(path, "Documentary", &production, error);
@@ -440,9 +441,13 @@ static pp_error_code_t create_production(const char *path, const char *media,
     status = pp_production_begin_transaction(production, &transaction, error);
   }
   if (status == PP_OK) {
-    status = pp_transaction_import_media(transaction, media, "Camera A",
+    status = pp_media_source_create_file(media, &camera, error);
+  }
+  if (status == PP_OK) {
+    status = pp_transaction_import_media(transaction, camera, "Camera A",
                                          out_asset_id, error);
   }
+  pp_media_source_release(camera);
   if (status == PP_OK) {
     status = pp_transaction_commit(transaction, error);
   }

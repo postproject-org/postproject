@@ -220,7 +220,7 @@ def main() -> None:
         original = production.representations[asset_id][0]
         edit_representation = production.representations[edit_asset_id][0]
         with production.transaction() as transaction:
-            proxy_id = transaction.add_single_file_representation(
+            proxy_id = transaction.add_representation(
                 asset_id, RepresentationKind.PROXY, proxy
             )
         # Establish the caller's fingerprint domain before the activity, so

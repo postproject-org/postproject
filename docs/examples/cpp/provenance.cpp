@@ -197,7 +197,7 @@ int main(int argc, char **argv) {
     const auto lead_id = production.representations(lead_asset_id).value().front().id;
     const auto scene_id = production.representations(scene_asset_id).value().front().id;
     auto proxy_setup = production.beginTransaction().value();
-    const auto proxy_id = proxy_setup.addSingleFileRepresentation(
+    const auto proxy_id = proxy_setup.addRepresentation(
         asset_id, postproject::RepresentationKind::proxy,
         (work / "proxies" / "A001_proxy.mov").string()).value();
     proxy_setup.commit().value();

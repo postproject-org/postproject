@@ -22,7 +22,7 @@ from postproject import (
     Dependency,
     EvidenceKind,
     ExternalIdentifier,
-    ImageSequenceInput,
+    ImageSequenceSource,
     JobRequest,
     JobState,
     JobSucceededEvent,
@@ -159,11 +159,11 @@ def add_render_sequence(
     production: Production, asset_id: AssetId, directory: Path
 ) -> RepresentationId:
     with production.transaction() as transaction:
-        sequence_id = transaction.add_image_sequence_representation(
+        sequence_id = transaction.add_representation(
             asset_id,
             RepresentationKind.DERIVED,
-            ImageSequenceInput(
-                directory=str(directory),
+            ImageSequenceSource(
+                directory=directory,
                 prefix="shot010.",
                 suffix=".exr",
                 padding=4,

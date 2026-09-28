@@ -63,6 +63,15 @@ int main(int argc, char **argv) {
   if (!asset_id.has_value()) {
     return 7;
   }
+  // A malformed source is reported by the call that uses it.
+  const auto unsequenced = transaction->importMedia(
+      postproject::MediaSource::imageSequence(
+          {path + ".no-such-directory", "frame", ".exr", 4, 1, 1, 1, 24, 1,
+           {}}));
+  if (unsequenced.has_value() ||
+      unsequenced.error().code() == postproject::ErrorCode::ok) {
+    return 8;
+  }
   // Invalid input is reported by the operation that consumes it.
   const auto invalid = postproject::MetadataValue::decimal("not a number", 2);
   const auto rejected = transaction->addMetadataValue(

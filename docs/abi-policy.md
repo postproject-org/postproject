@@ -1,6 +1,6 @@
 # ABI policy
 
-ABI version 33 is pre-release and may change during the 0.x series, with every
+ABI version 34 is pre-release and may change during the 0.x series, with every
 change recorded in the changelog and ABI tests. `pp_abi_version()` reports the
 implemented version. Exported symbol names are unversioned until the first stable
 release, but removals or signature changes require an explicit ABI-version bump.
@@ -10,7 +10,7 @@ release, but removals or signature changes require an explicit ABI-version bump.
 Productions, transactions, asset sets, media-root sets, representation sets,
 resolution sets, activity sets, external-identifier sets, object-reference sets,
 object-query sets, locator-query sets, dependency-query sets, job sets, metadata
-inputs, revision waiters, and errors are opaque handles. A
+inputs, media sources, revision waiters, and errors are opaque handles. A
 successful creation/open call transfers one production ownership reference to the
 caller, which releases it exactly once with `pp_production_release`. Failed calls
 optionally transfer an error object, released exactly once with
@@ -235,6 +235,18 @@ ABI version 33 adds a required `pp_content_observation_t` output to
 domain PostProject computes, `PP_OBSERVATION_CHANGED` when it differs, and
 `PP_OBSERVATION_FIRST` when no such fingerprint was stored. An unchanged
 observation records no fingerprint.
+
+ABI version 34 replaces the single-file `pp_transaction_import_media` and the
+four `pp_transaction_add_*_representation` functions with media sources
+(ADR 0037). An opaque `pp_media_source_t`, created by
+`pp_media_source_create_file`, `pp_media_source_create_image_sequence`,
+`pp_media_source_create_ordered_parts`, or `pp_media_source_create_package`
+and released with `pp_media_source_release`, describes a single file, an
+image sequence, ordered parts, or a package. `pp_transaction_import_media`
+takes a source and creates an asset whose original representation has its
+structure; `pp_transaction_add_representation` adds a representation of a
+chosen kind with the source's structure. A transaction borrows a source only
+for the call.
 
 ## External identifiers
 

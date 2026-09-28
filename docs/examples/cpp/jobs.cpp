@@ -118,7 +118,7 @@ postproject::Uuid complete_proxy(postproject::Production &production,
 
   // Output, provenance, and the job transition commit together or not at all.
   auto transaction = production.beginTransaction().value();
-  const auto proxy_id = transaction.addSingleFileRepresentation(
+  const auto proxy_id = transaction.addRepresentation(
       job.output_asset_id, job.output_representation_kind, output_path).value();
   postproject::ActivitySpec activity{};
   activity.kind = job.kind;

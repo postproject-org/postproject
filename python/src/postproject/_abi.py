@@ -109,6 +109,10 @@ class ResolutionOptions(ctypes.Structure):
     pass
 
 
+class MediaSource(ctypes.Structure):
+    pass
+
+
 class Error(ctypes.Structure):
     pass
 
@@ -533,6 +537,11 @@ EXPORTED_SYMBOLS = (
     "pp_media_root_set_count",
     "pp_media_root_set_get",
     "pp_media_root_set_release",
+    "pp_media_source_create_file",
+    "pp_media_source_create_image_sequence",
+    "pp_media_source_create_ordered_parts",
+    "pp_media_source_create_package",
+    "pp_media_source_release",
     "pp_metadata_input_create_bool",
     "pp_metadata_input_create_bytes",
     "pp_metadata_input_create_decimal",
@@ -665,12 +674,9 @@ EXPORTED_SYMBOLS = (
     "pp_revision_waiter_wait",
     "pp_string_release",
     "pp_transaction_add_external_identifier",
-    "pp_transaction_add_image_sequence_representation",
     "pp_transaction_add_media_root",
     "pp_transaction_add_metadata_value",
-    "pp_transaction_add_ordered_parts_representation",
-    "pp_transaction_add_package_representation",
-    "pp_transaction_add_single_file_representation",
+    "pp_transaction_add_representation",
     "pp_transaction_cancel_job",
     "pp_transaction_claim_job",
     "pp_transaction_commit",
@@ -1075,18 +1081,22 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_production_begin_transaction.restype = ErrorCode
     lib.pp_production_release.argtypes = [ctypes.POINTER(Production)]
     lib.pp_production_release.restype = None
+    lib.pp_media_source_create_file.argtypes = [ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(MediaSource)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_media_source_create_file.restype = ErrorCode
+    lib.pp_media_source_create_image_sequence.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_uint8, ctypes.c_int64, ctypes.c_int64, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_uint32, ctypes.POINTER(ctypes.c_int64), ctypes.c_uint64, ctypes.POINTER(ctypes.POINTER(MediaSource)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_media_source_create_image_sequence.restype = ErrorCode
+    lib.pp_media_source_create_ordered_parts.argtypes = [ctypes.POINTER(FileResourceInput), ctypes.c_uint64, ctypes.POINTER(ctypes.POINTER(MediaSource)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_media_source_create_ordered_parts.restype = ErrorCode
+    lib.pp_media_source_create_package.argtypes = [ctypes.POINTER(FileResourceInput), ctypes.c_uint64, ctypes.POINTER(ctypes.POINTER(MediaSource)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_media_source_create_package.restype = ErrorCode
+    lib.pp_media_source_release.argtypes = [ctypes.POINTER(MediaSource)]
+    lib.pp_media_source_release.restype = None
     lib.pp_transaction_set_revision_context.argtypes = [ctypes.POINTER(Transaction), ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_transaction_set_revision_context.restype = ErrorCode
-    lib.pp_transaction_import_media.argtypes = [ctypes.POINTER(Transaction), ctypes.c_char_p, ctypes.c_char_p, ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_transaction_import_media.argtypes = [ctypes.POINTER(Transaction), ctypes.POINTER(MediaSource), ctypes.c_char_p, ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_transaction_import_media.restype = ErrorCode
-    lib.pp_transaction_add_single_file_representation.argtypes = [ctypes.POINTER(Transaction), ctypes.POINTER(Uuid), RepresentationKind, ctypes.c_char_p, ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.POINTER(Error))]
-    lib.pp_transaction_add_single_file_representation.restype = ErrorCode
-    lib.pp_transaction_add_image_sequence_representation.argtypes = [ctypes.POINTER(Transaction), ctypes.POINTER(Uuid), RepresentationKind, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_uint8, ctypes.c_int64, ctypes.c_int64, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_uint32, ctypes.POINTER(ctypes.c_int64), ctypes.c_uint64, ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.POINTER(Error))]
-    lib.pp_transaction_add_image_sequence_representation.restype = ErrorCode
-    lib.pp_transaction_add_ordered_parts_representation.argtypes = [ctypes.POINTER(Transaction), ctypes.POINTER(Uuid), RepresentationKind, ctypes.POINTER(FileResourceInput), ctypes.c_uint64, ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.POINTER(Error))]
-    lib.pp_transaction_add_ordered_parts_representation.restype = ErrorCode
-    lib.pp_transaction_add_package_representation.argtypes = [ctypes.POINTER(Transaction), ctypes.POINTER(Uuid), RepresentationKind, ctypes.POINTER(FileResourceInput), ctypes.c_uint64, ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.POINTER(Error))]
-    lib.pp_transaction_add_package_representation.restype = ErrorCode
+    lib.pp_transaction_add_representation.argtypes = [ctypes.POINTER(Transaction), ctypes.POINTER(Uuid), RepresentationKind, ctypes.POINTER(MediaSource), ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_transaction_add_representation.restype = ErrorCode
     lib.pp_transaction_add_media_root.argtypes = [ctypes.POINTER(Transaction), ctypes.c_char_p, ctypes.c_char_p, ctypes.c_int32, ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_transaction_add_media_root.restype = ErrorCode
     lib.pp_transaction_set_media_root_enabled.argtypes = [ctypes.POINTER(Transaction), ctypes.POINTER(Uuid), ctypes.c_uint8, ctypes.POINTER(ctypes.POINTER(Error))]

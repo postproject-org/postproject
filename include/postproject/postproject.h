@@ -45,6 +45,7 @@ typedef struct pp_revision_waiter pp_revision_waiter_t;
 typedef struct pp_fingerprint pp_fingerprint_t;
 typedef struct pp_cancel_token pp_cancel_token_t;
 typedef struct pp_resolution_options pp_resolution_options_t;
+typedef struct pp_media_source pp_media_source_t;
 typedef struct pp_error pp_error_t;
 
 /* Production handles may be moved between threads and called concurrently;
@@ -1099,6 +1100,36 @@ PP_API pp_error_code_t pp_production_begin_transaction(
     pp_error_t **out_error);
 PP_API void pp_production_release(pp_production_t *production);
 
+/* A media source describes the content structure of a representation at its
+ * present location: a single file, an image sequence, ordered parts, or a
+ * package. pp_transaction_import_media() creates an asset whose original
+ * representation has the source's structure; pp_transaction_add_representation()
+ * adds a representation of a chosen kind to an existing asset. Sources are
+ * caller-owned and caller-serialized; a transaction borrows a source only for
+ * the call, so one source may serve many calls. Inputs are copied and checked
+ * against the content-structure rules when the source is created; the files
+ * are inspected and fingerprinted when a transaction uses the source. */
+PP_API pp_error_code_t pp_media_source_create_file(
+    const char *path, pp_media_source_t **out_source, pp_error_t **out_error);
+/* The missing-frame array is borrowed and may be NULL only when its count is
+ * zero. The directory and pattern strings are required borrowed UTF-8. */
+PP_API pp_error_code_t pp_media_source_create_image_sequence(
+    const char *directory, const char *prefix, const char *suffix,
+    uint8_t padding, int64_t start, int64_t end, uint32_t step,
+    uint32_t rate_numerator, uint32_t rate_denominator,
+    const int64_t *missing_frames, uint64_t missing_frame_count,
+    pp_media_source_t **out_source, pp_error_t **out_error);
+/* Member arrays and their strings are borrowed only for the call. Ordered
+ * parts keep their order and must all be required; packages must contain a
+ * required member. */
+PP_API pp_error_code_t pp_media_source_create_ordered_parts(
+    const pp_file_resource_input_t *members, uint64_t member_count,
+    pp_media_source_t **out_source, pp_error_t **out_error);
+PP_API pp_error_code_t pp_media_source_create_package(
+    const pp_file_resource_input_t *members, uint64_t member_count,
+    pp_media_source_t **out_source, pp_error_t **out_error);
+PP_API void pp_media_source_release(pp_media_source_t *source);
+
 /* Mutations remain in memory until commit. Transaction calls require caller-side
  * serialization. Input strings are borrowed UTF-8 without embedded NUL.
  * Nullable names/labels represent absent values. */
@@ -1107,33 +1138,12 @@ PP_API pp_error_code_t pp_transaction_set_revision_context(
     const char *origin_version, const char *origin_uri, const char *message,
     pp_error_t **out_error);
 PP_API pp_error_code_t pp_transaction_import_media(
-    pp_transaction_t *transaction, const char *path, const char *display_name,
-    pp_uuid_t *out_asset_id, pp_error_t **out_error);
-PP_API pp_error_code_t pp_transaction_add_single_file_representation(
+    pp_transaction_t *transaction, const pp_media_source_t *source,
+    const char *display_name, pp_uuid_t *out_asset_id, pp_error_t **out_error);
+PP_API pp_error_code_t pp_transaction_add_representation(
     pp_transaction_t *transaction, const pp_uuid_t *asset_id,
-    pp_representation_kind_t kind, const char *path,
+    pp_representation_kind_t kind, const pp_media_source_t *source,
     pp_uuid_t *out_representation_id, pp_error_t **out_error);
-/* The missing-frame array is borrowed and may be NULL only when its count is
- * zero. The directory and pattern strings are required borrowed UTF-8. */
-PP_API pp_error_code_t pp_transaction_add_image_sequence_representation(
-    pp_transaction_t *transaction, const pp_uuid_t *asset_id,
-    pp_representation_kind_t kind, const char *directory, const char *prefix,
-    const char *suffix, uint8_t padding, int64_t start, int64_t end,
-    uint32_t step, uint32_t rate_numerator, uint32_t rate_denominator,
-    const int64_t *missing_frames, uint64_t missing_frame_count,
-    pp_uuid_t *out_representation_id, pp_error_t **out_error);
-/* Member arrays and their strings are borrowed only for the call. Ordered
- * parts must all be required; packages must contain a required member. */
-PP_API pp_error_code_t pp_transaction_add_ordered_parts_representation(
-    pp_transaction_t *transaction, const pp_uuid_t *asset_id,
-    pp_representation_kind_t kind, const pp_file_resource_input_t *members,
-    uint64_t member_count, pp_uuid_t *out_representation_id,
-    pp_error_t **out_error);
-PP_API pp_error_code_t pp_transaction_add_package_representation(
-    pp_transaction_t *transaction, const pp_uuid_t *asset_id,
-    pp_representation_kind_t kind, const pp_file_resource_input_t *members,
-    uint64_t member_count, pp_uuid_t *out_representation_id,
-    pp_error_t **out_error);
 PP_API pp_error_code_t pp_transaction_add_media_root(
     pp_transaction_t *transaction, const char *name, const char *label,
     int32_t priority, pp_uuid_t *out_root_id, pp_error_t **out_error);

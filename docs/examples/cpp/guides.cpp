@@ -156,8 +156,9 @@ postproject::Uuid add_render_sequence(postproject::Production &production,
   sequence.missing_frames = {1003};
 
   auto transaction = production.beginTransaction().value();
-  const auto sequence_id = transaction.addImageSequenceRepresentation(
-      asset_id, postproject::RepresentationKind::derived, sequence).value();
+  const auto sequence_id = transaction.addRepresentation(
+      asset_id, postproject::RepresentationKind::derived,
+      postproject::MediaSource::imageSequence(sequence)).value();
   transaction.commit().value();
 
   for (const auto &representation : production.representations(asset_id).value()) {

@@ -28,7 +28,7 @@ int main(int argc, char **argv) {
   std::remove(path.c_str());
 
   try {
-    if (postproject::abi_version() != 33) {
+    if (postproject::abi_version() != 34) {
       return 3;
     }
 
@@ -514,25 +514,49 @@ int main(int argc, char **argv) {
       }
     }
     auto additions = reopened.beginTransaction().value();
-    const auto proxy_id = additions.addSingleFileRepresentation(
+    const auto proxy_id = additions.addRepresentation(
         asset_id, postproject::RepresentationKind::proxy, moved_media_path).value();
-    const auto sequence_id = additions.addImageSequenceRepresentation(
-        asset_id, postproject::RepresentationKind::derived,
-        {sequence_frame_path.parent_path().string(), "frame", ".exr", 4, 1,
-         1, 1, 24000, 1001, {}}).value();
-    const std::vector<postproject::FileResourceInput> ordered_members{
+    const auto sequence = postproject::MediaSource::imageSequence(
+        {sequence_frame_path.parent_path().string(), "frame", ".exr", 4, 1, 1,
+         1, 24000, 1001, {}});
+    const auto sequence_id = additions.addRepresentation(
+        asset_id, postproject::RepresentationKind::derived, sequence).value();
+    // The same sequence imported as a new asset is that asset's only original.
+    const auto strip_id = additions.importMedia(sequence, "C++ image strip").value();
+    const auto ordered = postproject::MediaSource::orderedParts({
         {moved_media_path, "org.postproject:essence.first", true},
         {sequence_frame_path.string(), "org.postproject:essence.second", true},
-    };
-    const auto ordered_id = additions.addOrderedPartsRepresentation(
-        asset_id, postproject::RepresentationKind::optimized, ordered_members).value();
-    const std::vector<postproject::FileResourceInput> package_members{
+    });
+    const auto ordered_id = additions.addRepresentation(
+        asset_id, postproject::RepresentationKind::optimized, ordered).value();
+    const auto package = postproject::MediaSource::package({
         {moved_media_path, "org.postproject:essence", true},
         {sequence_frame_path.string(), "org.postproject:sidecar", false},
-    };
-    const auto package_id = additions.addPackageRepresentation(
-        asset_id, postproject::RepresentationKind::derived, package_members).value();
+    });
+    const auto package_id = additions.addRepresentation(
+        asset_id, postproject::RepresentationKind::derived, package).value();
+    const auto optional_part = additions.addRepresentation(
+        asset_id, postproject::RepresentationKind::derived,
+        postproject::MediaSource::orderedParts(
+            {{moved_media_path, "org.postproject:essence", false}}));
+    if (optional_part.has_value() ||
+        optional_part.error().code() !=
+            postproject::ErrorCode::invalid_argument) {
+      return 66;
+    }
     additions.commit().value();
+
+    const auto strip = reopened.representations(strip_id).value();
+    if (strip.size() != 1 ||
+        strip[0].kind != postproject::RepresentationKind::original ||
+        strip[0].structure_kind !=
+            postproject::ContentStructureKind::image_sequence ||
+        !strip[0].image_sequence.has_value() ||
+        strip[0].image_sequence->prefix != "frame" ||
+        strip[0].image_sequence->start != 1 ||
+        strip[0].image_sequence->end != 1) {
+      return 67;
+    }
 
     const auto added_representations = reopened.representations(asset_id).value();
     const auto has_representation = [&](const postproject::Uuid &id,
@@ -712,7 +736,7 @@ int main(int argc, char **argv) {
     completion_claim.commit().value();
     auto completion = reopened.beginTransaction().value();
     const auto completed_representation_id =
-        completion.addSingleFileRepresentation(
+        completion.addRepresentation(
             asset_id, postproject::RepresentationKind::proxy,
             moved_media_path).value();
     const auto completion_activity_id = completion.createActivity(

@@ -24,10 +24,13 @@ from postproject import (
     ContentVerification,
     EvidenceKind,
     FileResourceInput,
+    FileSource,
     Fingerprint,
-    ImageSequenceInput,
+    ImageSequenceSource,
     LocatorMatch,
     MediaRootId,
+    OrderedPartsSource,
+    PackageSource,
     Production,
     Representation,
     RepresentationAvailability,
@@ -46,13 +49,40 @@ from postproject import (
 )
 
 
+# [import-sequence]
+def import_image_strip(production: Production, directory: Path) -> AssetId:
+    # The sequence becomes the new asset's only original representation.
+    strip = ImageSequenceSource(
+        directory,
+        prefix="shot010.",
+        suffix=".exr",
+        padding=4,
+        start=1001,
+        end=1004,
+        step=1,
+        rate_numerator=24,
+        rate_denominator=1,
+        missing_frames=(1003,),
+    )
+    with production.transaction() as transaction:
+        asset_id = transaction.import_media(strip, display_name="shot010 strip")
+
+    representations = production.representations[asset_id]
+    print(f"{len(representations)} representation, {representations[0].structure_kind}")
+    return asset_id
+
+
+# [/import-sequence]
+
+
 # [add-representation]
 def add_proxy(
     production: Production, asset_id: AssetId, proxy: Path
 ) -> RepresentationId:
+    # A plain path is a single-file source too.
     with production.transaction() as transaction:
-        proxy_id = transaction.add_single_file_representation(
-            asset_id, RepresentationKind.PROXY, proxy
+        proxy_id = transaction.add_representation(
+            asset_id, RepresentationKind.PROXY, FileSource(proxy)
         )
     return proxy_id
 
@@ -66,12 +96,18 @@ def add_spanned_clip(
 ) -> RepresentationId:
     # One recording spanned over several files: every part is required and
     # the member order is preserved.
-    parts = (
-        FileResourceInput(str(directory / "CLIP0001.MTS"), "org.postproject:essence"),
-        FileResourceInput(str(directory / "CLIP0002.MTS"), "org.postproject:span-part"),
+    parts = OrderedPartsSource(
+        (
+            FileResourceInput(
+                str(directory / "CLIP0001.MTS"), "org.postproject:essence"
+            ),
+            FileResourceInput(
+                str(directory / "CLIP0002.MTS"), "org.postproject:span-part"
+            ),
+        )
     )
     with production.transaction() as transaction:
-        clip_id = transaction.add_ordered_parts_representation(
+        clip_id = transaction.add_representation(
             asset_id, RepresentationKind.ORIGINAL, parts
         )
     return clip_id
@@ -84,15 +120,17 @@ def add_spanned_clip(
 def add_package(
     production: Production, asset_id: AssetId, directory: Path
 ) -> RepresentationId:
-    members = (
-        FileResourceInput(str(directory / "clip.mxf"), "org.postproject:essence"),
-        # An optional member may go missing without making the package offline.
-        FileResourceInput(
-            str(directory / "clip.xml"), "org.postproject:sidecar", required=False
-        ),
+    members = PackageSource(
+        (
+            FileResourceInput(str(directory / "clip.mxf"), "org.postproject:essence"),
+            # An optional member may go missing without making the package offline.
+            FileResourceInput(
+                str(directory / "clip.xml"), "org.postproject:sidecar", required=False
+            ),
+        )
     )
     with production.transaction() as transaction:
-        package_id = transaction.add_package_representation(
+        package_id = transaction.add_representation(
             asset_id, RepresentationKind.OPTIMIZED, members
         )
     return package_id
@@ -267,11 +305,11 @@ def add_render_sequence(
     production: Production, asset_id: AssetId, directory: Path
 ) -> RepresentationId:
     with production.transaction() as transaction:
-        return transaction.add_image_sequence_representation(
+        return transaction.add_representation(
             asset_id,
             RepresentationKind.DERIVED,
-            ImageSequenceInput(
-                directory=str(directory),
+            ImageSequenceSource(
+                directory=directory,
                 prefix="shot010.",
                 suffix=".exr",
                 padding=4,
@@ -491,6 +529,11 @@ def main() -> None:
         assert sidecar.evidence == (
             ResolutionEvidence(EvidenceKind.MEDIA_ROOT_UNMAPPED, "proxies"),
         )
+
+        strip_id = import_image_strip(production, work / "renders" / "shot010")
+        (strip,) = production.representations[strip_id]
+        assert strip.kind is RepresentationKind.ORIGINAL
+        assert strip.structure_kind is ContentStructureKind.IMAGE_SEQUENCE
 
 
 if __name__ == "__main__":

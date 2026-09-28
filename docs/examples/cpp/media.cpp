@@ -33,13 +33,33 @@ void write_file(const std::filesystem::path &path, const std::string &bytes) {
   require(static_cast<bool>(stream), "write file");
 }
 
+// [import-sequence]
+postproject::Uuid import_image_strip(postproject::Production &production,
+                                     const std::string &directory) {
+  // The sequence becomes the new asset's only original representation.
+  const auto strip = postproject::MediaSource::imageSequence(
+      {directory, "shot010.", ".exr", 4, 1001, 1004, 1, 24, 1, {1003}});
+  auto transaction = production.beginTransaction().value();
+  const auto asset_id = transaction.importMedia(strip, "shot010 strip").value();
+  transaction.commit().value();
+
+  const auto representations = production.representations(asset_id).value();
+  std::cout << representations.size() << " representation, sequence "
+            << representations.front().image_sequence.has_value() << '\n';
+  return asset_id;
+}
+// [/import-sequence]
+
 // [add-representation]
 postproject::Uuid add_proxy(postproject::Production &production,
                             const postproject::Uuid &asset_id,
                             const std::string &proxy_path) {
   auto transaction = production.beginTransaction().value();
-  const auto proxy_id = transaction.addSingleFileRepresentation(
-      asset_id, postproject::RepresentationKind::proxy, proxy_path).value();
+  // A path converts to a single-file source; MediaSource::file says so
+  // explicitly.
+  const auto proxy_id = transaction.addRepresentation(
+      asset_id, postproject::RepresentationKind::proxy,
+      postproject::MediaSource::file(proxy_path)).value();
   transaction.commit().value();
   return proxy_id;
 }
@@ -50,12 +70,12 @@ postproject::Uuid add_spanned_clip(postproject::Production &production,
                                    const postproject::Uuid &asset_id,
                                    const std::string &directory) {
   // Parts are stored in this order; every part of a span is required.
-  const std::vector<postproject::FileResourceInput> parts{
+  const auto parts = postproject::MediaSource::orderedParts({
       {directory + "/CLIP0001.MTS", "org.postproject:essence", true},
       {directory + "/CLIP0002.MTS", "org.postproject:span-part", true},
-  };
+  });
   auto transaction = production.beginTransaction().value();
-  const auto clip_id = transaction.addOrderedPartsRepresentation(
+  const auto clip_id = transaction.addRepresentation(
       asset_id, postproject::RepresentationKind::original, parts).value();
   transaction.commit().value();
   return clip_id;
@@ -67,12 +87,12 @@ postproject::Uuid add_package(postproject::Production &production,
                               const postproject::Uuid &asset_id,
                               const std::string &directory) {
   // A package needs at least one required member; sidecars may be optional.
-  const std::vector<postproject::FileResourceInput> members{
+  const auto members = postproject::MediaSource::package({
       {directory + "/clip.mxf", "org.postproject:essence", true},
       {directory + "/clip.xml", "org.postproject:sidecar", false},
-  };
+  });
   auto transaction = production.beginTransaction().value();
-  const auto package_id = transaction.addPackageRepresentation(
+  const auto package_id = transaction.addRepresentation(
       asset_id, postproject::RepresentationKind::original, members).value();
   transaction.commit().value();
   return package_id;
@@ -354,8 +374,9 @@ postproject::Uuid add_sequence(postproject::Production &production,
   sequence.rate_denominator = 1;
   sequence.missing_frames = {1003};
   auto transaction = production.beginTransaction().value();
-  const auto id = transaction.addImageSequenceRepresentation(
-      asset_id, postproject::RepresentationKind::derived, sequence).value();
+  const auto id = transaction.addRepresentation(
+      asset_id, postproject::RepresentationKind::derived,
+      postproject::MediaSource::imageSequence(sequence)).value();
   transaction.commit().value();
   return id;
 }
@@ -501,6 +522,15 @@ int main(int argc, char **argv) {
                      issue.frames == std::vector<std::int64_t>{1003};
             }),
         "missing frame issue");
+
+    const auto strip_id =
+        import_image_strip(production, (work / "renders" / "shot010").string());
+    const auto strip = production.representations(strip_id).value();
+    require(strip.size() == 1 &&
+                strip.front().kind == postproject::RepresentationKind::original &&
+                strip.front().structure_kind ==
+                    postproject::ContentStructureKind::image_sequence,
+            "image strip is one original sequence");
   } catch (const std::exception &error) {
     std::cerr << error.what() << '\n';
     return 1;

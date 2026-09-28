@@ -23,25 +23,75 @@
 #define make_directory(path) mkdir(path, 0777)
 #endif
 
-/* [add-representation] */
-static pp_error_code_t add_proxy(pp_production_t *production,
-                                 const pp_uuid_t *asset_id,
-                                 const char *proxy_path,
-                                 pp_uuid_t *out_proxy_id, pp_error_t **error) {
+/* [import-sequence] */
+static pp_error_code_t import_image_strip(pp_production_t *production,
+                                          const char *directory,
+                                          pp_uuid_t *out_asset_id,
+                                          pp_content_structure_kind_t *out_kind,
+                                          pp_error_t **error) {
+  const int64_t missing_frames[] = {1003};
+  pp_media_source_t *strip = NULL;
   pp_transaction_t *transaction = NULL;
-  pp_error_code_t status =
-      pp_production_begin_transaction(production, &transaction, error);
+  pp_representation_set_t *representations = NULL;
+  /* The sequence becomes the new asset's only original representation. */
+  pp_error_code_t status = pp_media_source_create_image_sequence(
+      directory, "shot010.", ".exr", 4, 1001, 1004, 1, 24, 1, missing_frames,
+      1, &strip, error);
   if (status == PP_OK) {
-    /* The file is fingerprinted and recorded as one more representation of
-     * the same asset; it never becomes an unrelated asset. */
-    status = pp_transaction_add_single_file_representation(
-        transaction, asset_id, PP_REPRESENTATION_PROXY, proxy_path,
-        out_proxy_id, error);
+    status = pp_production_begin_transaction(production, &transaction, error);
+  }
+  if (status == PP_OK) {
+    status = pp_transaction_import_media(transaction, strip, "shot010 strip",
+                                         out_asset_id, error);
   }
   if (status == PP_OK) {
     status = pp_transaction_commit(transaction, error);
   }
   pp_transaction_release(transaction);
+  pp_media_source_release(strip);
+  if (status == PP_OK) {
+    status = pp_production_representations(production, out_asset_id,
+                                           &representations, error);
+  }
+  if (status == PP_OK) {
+    pp_uuid_t representation_id, owner;
+    pp_representation_kind_t kind;
+    uint64_t members, resources, fingerprints;
+    status = pp_representation_set_get(representations, 0, &representation_id,
+                                       &owner, &kind, out_kind, &members,
+                                       &resources, &fingerprints, error);
+    printf("%llu representation, structure %u\n",
+           (unsigned long long)pp_representation_set_count(representations),
+           status == PP_OK ? *out_kind : 0);
+  }
+  pp_representation_set_release(representations);
+  return status;
+}
+/* [/import-sequence] */
+
+/* [add-representation] */
+static pp_error_code_t add_proxy(pp_production_t *production,
+                                 const pp_uuid_t *asset_id,
+                                 const char *proxy_path,
+                                 pp_uuid_t *out_proxy_id, pp_error_t **error) {
+  pp_media_source_t *proxy = NULL;
+  pp_transaction_t *transaction = NULL;
+  pp_error_code_t status = pp_media_source_create_file(proxy_path, &proxy, error);
+  if (status == PP_OK) {
+    status = pp_production_begin_transaction(production, &transaction, error);
+  }
+  if (status == PP_OK) {
+    /* The file is fingerprinted and recorded as one more representation of
+     * the same asset; it never becomes an unrelated asset. */
+    status = pp_transaction_add_representation(
+        transaction, asset_id, PP_REPRESENTATION_PROXY, proxy, out_proxy_id,
+        error);
+  }
+  if (status == PP_OK) {
+    status = pp_transaction_commit(transaction, error);
+  }
+  pp_transaction_release(transaction);
+  pp_media_source_release(proxy);
   return status;
 }
 /* [/add-representation] */
@@ -56,18 +106,23 @@ add_spanned_clip(pp_production_t *production, const pp_uuid_t *asset_id,
       {first_part, "org.postproject:span-part", UINT8_C(1)},
       {second_part, "org.postproject:span-part", UINT8_C(1)},
   };
+  pp_media_source_t *clip = NULL;
   pp_transaction_t *transaction = NULL;
   pp_error_code_t status =
-      pp_production_begin_transaction(production, &transaction, error);
+      pp_media_source_create_ordered_parts(parts, 2, &clip, error);
   if (status == PP_OK) {
-    status = pp_transaction_add_ordered_parts_representation(
-        transaction, asset_id, PP_REPRESENTATION_OPTIMIZED, parts, 2,
+    status = pp_production_begin_transaction(production, &transaction, error);
+  }
+  if (status == PP_OK) {
+    status = pp_transaction_add_representation(
+        transaction, asset_id, PP_REPRESENTATION_OPTIMIZED, clip,
         out_representation_id, error);
   }
   if (status == PP_OK) {
     status = pp_transaction_commit(transaction, error);
   }
   pp_transaction_release(transaction);
+  pp_media_source_release(clip);
   return status;
 }
 /* [/ordered-parts] */
@@ -84,18 +139,23 @@ static pp_error_code_t add_package(pp_production_t *production,
       {essence, "org.postproject:essence", UINT8_C(1)},
       {sidecar, "org.postproject:sidecar", UINT8_C(0)},
   };
+  pp_media_source_t *package = NULL;
   pp_transaction_t *transaction = NULL;
   pp_error_code_t status =
-      pp_production_begin_transaction(production, &transaction, error);
+      pp_media_source_create_package(members, 2, &package, error);
   if (status == PP_OK) {
-    status = pp_transaction_add_package_representation(
-        transaction, asset_id, PP_REPRESENTATION_DERIVED, members, 2,
+    status = pp_production_begin_transaction(production, &transaction, error);
+  }
+  if (status == PP_OK) {
+    status = pp_transaction_add_representation(
+        transaction, asset_id, PP_REPRESENTATION_DERIVED, package,
         out_representation_id, error);
   }
   if (status == PP_OK) {
     status = pp_transaction_commit(transaction, error);
   }
   pp_transaction_release(transaction);
+  pp_media_source_release(package);
   return status;
 }
 /* [/package-representation] */
@@ -602,23 +662,34 @@ static pp_error_code_t create_production(const char *path, const char *media,
   const int64_t missing_frames[] = {1003};
   pp_production_t *production = NULL;
   pp_transaction_t *transaction = NULL;
+  pp_media_source_t *camera = NULL;
+  pp_media_source_t *sequence = NULL;
   pp_uuid_t root_id;
   pp_uuid_t sequence_id;
   pp_error_code_t status =
       pp_production_create(path, "Documentary", &production, error);
   if (status == PP_OK) {
+    status = pp_media_source_create_file(media, &camera, error);
+  }
+  if (status == PP_OK) {
+    status = pp_media_source_create_image_sequence(
+        renders, "shot010.", ".exr", 4, 1001, 1004, 1, 24000, 1001,
+        missing_frames, 1, &sequence, error);
+  }
+  if (status == PP_OK) {
     status = pp_production_begin_transaction(production, &transaction, error);
   }
   if (status == PP_OK) {
-    status = pp_transaction_import_media(transaction, media, "Camera A",
+    status = pp_transaction_import_media(transaction, camera, "Camera A",
                                          out_asset_id, error);
   }
   if (status == PP_OK) {
-    status = pp_transaction_add_image_sequence_representation(
-        transaction, out_asset_id, PP_REPRESENTATION_DERIVED, renders,
-        "shot010.", ".exr", 4, 1001, 1004, 1, 24000, 1001, missing_frames, 1,
+    status = pp_transaction_add_representation(
+        transaction, out_asset_id, PP_REPRESENTATION_DERIVED, sequence,
         &sequence_id, error);
   }
+  pp_media_source_release(camera);
+  pp_media_source_release(sequence);
   if (status == PP_OK) {
     status = pp_transaction_add_media_root(transaction, "proxies",
                                            "Proxy storage", 5, &root_id, error);
@@ -1092,6 +1163,16 @@ int main(int argc, char **argv) {
                                      &count, &error);
   }
   if (status == PP_OK && (missing_frame != 1003 || count == 0)) {
+    status = PP_ERROR_INTERNAL;
+  }
+
+  pp_uuid_t strip_id;
+  pp_content_structure_kind_t strip_kind = 0;
+  if (status == PP_OK) {
+    status = import_image_strip(production, renders, &strip_id, &strip_kind,
+                                &error);
+  }
+  if (status == PP_OK && strip_kind != PP_CONTENT_IMAGE_SEQUENCE) {
     status = PP_ERROR_INTERNAL;
   }
 

@@ -50,12 +50,13 @@ The surfaces become:
   out_error)` and `pp_transaction_add_representation(transaction, asset_id,
   kind, source, out_representation_id, out_error)` replace the single-file
   import and the four `pp_transaction_add_*_representation` functions. A
-  source is borrowed for the call and can be reused. This bumps the C ABI to
-  version 34.
+  source is borrowed for the call and can be reused. Its inputs are checked
+  against the content-structure rules when it is created; its files are
+  inspected when a transaction uses it. This bumps the C ABI to version 34.
 - C++: a copyable `postproject::MediaSource` value with the named constructors
   `file`, `imageSequence`, `orderedParts`, and `package`. It converts
-  implicitly from a filesystem path to a single-file source, so
-  `importMedia(path)` still reads naturally. `Transaction::importMedia` and
+  implicitly from a UTF-8 path string, the wrapper's form for every path, to a
+  single-file source, so `importMedia(path)` still reads naturally. `Transaction::importMedia` and
   `Transaction::addRepresentation` take a source.
 - Python: `MediaSource` values `FileSource`, `ImageSequenceSource`,
   `OrderedPartsSource`, and `PackageSource`. `Transaction.import_media` accepts
@@ -63,8 +64,8 @@ The surfaces become:
   source)` replaces the four `add_*_representation` methods.
 - CLI: `media add` already imports recognized compound media; it is unchanged.
 - Rust: `prepare_original_media` accepts a `MediaSource` enum whose variants are
-  the existing source types. The `prepare_*_representation` functions become
-  one `prepare_representation`.
+  the existing source types; a path converts to a single-file source. The
+  `prepare_*_representation` functions become one `prepare_representation`.
 
 ## Alternatives considered
 
