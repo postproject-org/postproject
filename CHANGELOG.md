@@ -171,6 +171,8 @@ Development version: `0.4.0-alpha.1`.
 
 ### Fixed
 
+- The Python binding loads and checks each native library once per path
+  instead of on every call of a module-level function.
 - An image sequence whose recorded directory no longer holds any of its frames
   is searched for like other moved media instead of resolving as an error.
 - Regeneration plans repeat the kind and target root of the job that produced

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ctypes
 import os
+import threading
 from _ctypes import _Pointer
 from pathlib import Path
 
@@ -14,18 +15,37 @@ ABI_VERSION = 33
 LIBRARY_ENVIRONMENT_VARIABLE = "POSTPROJECT_LIBRARY"
 
 
-class NativeLibrary:
-    """One explicitly located PostProject shared library."""
+_loaded: dict[Path, NativeLibrary] = {}
+_loading = threading.Lock()
 
-    def __init__(self, path: str | os.PathLike[str] | None = None) -> None:
-        self.path = _library_path(path)
-        self.lib = ctypes.CDLL(str(self.path))
-        configure_api(self.lib)
-        version = int(self.lib.pp_abi_version())
-        if version != ABI_VERSION:
-            raise RuntimeError(
-                f"PostProject ABI {version} is incompatible with required ABI {ABI_VERSION}"
-            )
+
+class NativeLibrary:
+    """One explicitly located PostProject shared library.
+
+    A library is loaded and checked once per resolved path; constructing it
+    again returns the same instance.
+    """
+
+    path: Path
+    lib: ctypes.CDLL
+
+    def __new__(cls, path: str | os.PathLike[str] | None = None) -> NativeLibrary:
+        resolved = _library_path(path)
+        with _loading:
+            library = _loaded.get(resolved)
+            if library is None:
+                library = super().__new__(cls)
+                library.path = resolved
+                library.lib = ctypes.CDLL(str(resolved))
+                configure_api(library.lib)
+                version = int(library.lib.pp_abi_version())
+                if version != ABI_VERSION:
+                    raise RuntimeError(
+                        f"PostProject ABI {version} is incompatible with required "
+                        f"ABI {ABI_VERSION}"
+                    )
+                _loaded[resolved] = library
+        return library
 
     def check(self, status: int, error: _Pointer[Error]) -> None:
         """Release an optional native error and raise its Python equivalent."""

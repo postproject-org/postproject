@@ -72,6 +72,7 @@ from postproject import (
     MetadataTimestamp,
     MetadataU64,
     MetadataUri,
+    NativeLibrary,
     NotFoundError,
     OriginIdentity,
     Production,
@@ -103,6 +104,12 @@ class ProductionTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         if LIBRARY_PATH is None:
             raise RuntimeError("POSTPROJECT_LIBRARY must name the native test library")
+
+    def test_a_library_is_loaded_once_per_path(self) -> None:
+        assert LIBRARY_PATH is not None
+        first = NativeLibrary(LIBRARY_PATH)
+        self.assertIs(NativeLibrary(LIBRARY_PATH), first)
+        self.assertIs(NativeLibrary(Path(LIBRARY_PATH).resolve()), first)
 
     def setUp(self) -> None:
         self.temporary_directory = tempfile.TemporaryDirectory()
