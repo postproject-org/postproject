@@ -14,29 +14,10 @@ python /opt/postproject/share/doc/postproject/examples/python/quickstart.py \
 ```
 
 Applications may instead pass `library_path=` to `Production.create` or
-`Production.open`. The binding resolves that explicit path and does not search
-the working directory or modify the platform loader path. The installed
-quickstart above runs in package CI on Linux, macOS, and Windows.
-
-```python
-from pathlib import Path
-
-from postproject import OriginIdentity, Production
-
-media = Path(
-    "/opt/postproject/share/doc/postproject/examples/fixtures/sample-media.dat"
-)
-with Production.create("production.pproj", "Documentary") as production:
-    with production.transaction(
-        origin=OriginIdentity("com.example.editor", "0.4.0"),
-        message="Import camera original",
-    ) as transaction:
-        asset_id = transaction.import_media(
-            media, display_name="Camera A"
-        )
-
-    assert asset_id in production.assets
-```
+`Production.open`; the quickstart does so when given `--library PATH`. The
+binding resolves that explicit path and does not search the working directory
+or modify the platform loader path. The installed quickstart above runs in
+package CI on Linux, macOS, and Windows.
 
 A transaction context commits only after a clean exit. An exception rolls it
 back. `close()` is idempotent for production and transaction handles, and a
@@ -47,6 +28,12 @@ on one native handle serialize internally. Do not call `close()` concurrently
 with an operation, and do not share a transaction between concurrent callers.
 Open the production again when reads should use a separate native handle during
 a commit.
+
+The quickstart program shows each of these rules:
+
+```{literalinclude} ../../../examples/python/quickstart.py
+:language: python
+```
 
 The current high-level surface covers production lifecycle, transactions,
 original-media import, revision context, iterable asset summaries with identity
