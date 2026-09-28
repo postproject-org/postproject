@@ -1,6 +1,6 @@
 # ADR 0008: Python binding over the C ABI
 
-- Status: Accepted
+- Status: Accepted; amended by ADR 0039
 - Date: 2026-09-20
 
 ## Decision
@@ -22,7 +22,9 @@ The wrapper requires an explicit native-library path, either as an API argument
 or through `POSTPROJECT_LIBRARY`. Paths are expanded and resolved before
 loading; the wrapper does not search the current working directory or mutate
 the platform loader path. Packagers may supply an absolute bundled-library path
-from their own installation layout.
+from their own installation layout. A platform wheel carries its own library,
+which the binding loads when neither an argument nor the variable names one
+(ADR 0039).
 
 Every owned opaque C handle has one Python owner with deterministic `close()`
 and context-manager cleanup plus an idempotent finalizer fallback. Borrowed

@@ -57,13 +57,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
-            link_library: libpostproject.so
-            static_library: libpostproject.a
-            runtime_library: ""
-            cli_executable: postproject
-            artifact: linux-x86_64
-            format: tar.gz
+          # Linux is built for glibc 2.28 by `native-linux`.
           - os: macos-latest
             link_library: libpostproject.dylib
             static_library: libpostproject.a
@@ -71,6 +65,8 @@ jobs:
             cli_executable: postproject
             artifact: macos-native
             format: tar.gz
+            python_library: libpostproject.dylib
+            wheel_platform: macosx_11_0_arm64
           - os: windows-latest
             link_library: postproject.dll.lib
             static_library: postproject.lib
@@ -78,7 +74,11 @@ jobs:
             cli_executable: postproject.exe
             artifact: windows-x86_64
             format: zip
+            python_library: postproject.dll
+            wheel_platform: win_amd64
     runs-on: ${{ matrix.os }}
+    env:
+      MACOSX_DEPLOYMENT_TARGET: "11.0"
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
@@ -124,14 +124,81 @@ jobs:
           fi
           cd "$GITHUB_WORKSPACE/dist"
           cmake -E sha256sum "$archive" > "$archive.sha256"
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Build and test the platform wheel
+        shell: bash
+        env:
+          PYTHON_LIBRARY: ${{ matrix.python_library }}
+          WHEEL_PLATFORM: ${{ matrix.wheel_platform }}
+        run: |
+          python -m pip wheel --no-deps ./python --wheel-dir target/wheel
+          wheel="$(python tools/build_platform_wheel.py target/wheel/*.whl \
+            "target/release/$PYTHON_LIBRARY" "$WHEEL_PLATFORM" --output-dir dist)"
+          python -m venv target/platform-wheel-venv
+          venv_python=target/platform-wheel-venv/bin/python
+          [[ -x "$venv_python" ]] || venv_python=target/platform-wheel-venv/Scripts/python.exe
+          "$venv_python" -m pip install --no-deps "$wheel"
+          "$venv_python" examples/python/quickstart.py \
+            target/platform-wheel-quickstart.pproj examples/fixtures/sample-media.dat
+          cd dist
+          name="$(basename "$wheel")"
+          cmake -E sha256sum "$name" > "$name.sha256"
       - uses: actions/upload-artifact@v4
         with:
           name: release-native-${{ matrix.artifact }}
           path: dist
           if-no-files-found: error
 
+  native-linux:
+    name: Native archive (Linux, glibc 2.28)
+    runs-on: ubuntu-latest
+    container: quay.io/pypa/manylinux_2_28_x86_64
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --release --locked -p postproject-ffi
+      - run: cargo build --release --locked -p postproject-cli
+      - name: Require no glibc newer than 2.28
+        run: tools/check_glibc.sh target/release/libpostproject.so 2.28
+      - name: Install native package
+        run: |
+          cmake -S . -B target/release-package \
+            "-DPOSTPROJECT_LIBRARY=$GITHUB_WORKSPACE/target/release/libpostproject.so" \
+            "-DPOSTPROJECT_STATIC_LIBRARY=$GITHUB_WORKSPACE/target/release/libpostproject.a" \
+            "-DPOSTPROJECT_CLI_EXECUTABLE=$GITHUB_WORKSPACE/target/release/postproject" \
+            "-DCMAKE_INSTALL_PREFIX=$GITHUB_WORKSPACE/target/install" \
+            -DCMAKE_BUILD_TYPE=Release
+          cmake --install target/release-package
+      - name: Build archive and checksum
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          archive="postproject-$version-linux-x86_64.tar.gz"
+          mkdir dist
+          (cd target/install && cmake -E tar cfvz "$GITHUB_WORKSPACE/dist/$archive" .)
+          (cd dist && cmake -E sha256sum "$archive" > "$archive.sha256")
+      - name: Build and test the platform wheel
+        run: |
+          python3.11 -m pip wheel --no-deps ./python --wheel-dir target/wheel
+          wheel="$(python3.11 tools/build_platform_wheel.py target/wheel/*.whl \
+            target/release/libpostproject.so manylinux_2_28_x86_64 --output-dir dist)"
+          python3.11 -m venv target/platform-wheel-venv
+          target/platform-wheel-venv/bin/python -m pip install --no-deps "$wheel"
+          target/platform-wheel-venv/bin/python examples/python/quickstart.py \
+            target/platform-wheel-quickstart.pproj examples/fixtures/sample-media.dat
+          cd dist
+          name="$(basename "$wheel")"
+          cmake -E sha256sum "$name" > "$name.sha256"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-native-linux-x86_64
+          path: dist
+          if-no-files-found: error
+
   wheel:
-    name: Python wheel
+    name: Platform-neutral Python wheel
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -165,7 +232,7 @@ jobs:
 
   publish:
     name: Publish GitHub release
-    needs: [source, native, wheel]
+    needs: [source, native, native-linux, wheel]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v5

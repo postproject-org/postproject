@@ -9,6 +9,8 @@ Development version: `0.4.0-alpha.1`.
 
 ### Added
 
+- Added Python platform wheels that carry the native library, and built the
+  Linux package and wheel for glibc 2.28 (ADR 0039).
 - Added conversion between paths and canonical locator URIs on every surface
   (ADR 0030, C ABI 31).
 - Added content fingerprinting, verification, and observation that recomputes

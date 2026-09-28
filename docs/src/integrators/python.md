@@ -4,7 +4,9 @@ The Python package uses the installed public C ABI through the standard
 library's `ctypes` module. It requires Python 3.11 or newer and does not build
 or import Rust code.
 
-Point the binding at an exact native library:
+Install the platform wheel for your system, and the binding loads the native
+library inside it (see [Install a release](installing-a-release.md)). With the
+platform-neutral wheel, point the binding at an exact native library instead:
 
 ```sh
 export POSTPROJECT_LIBRARY=/opt/postproject/lib/libpostproject.so
@@ -14,10 +16,11 @@ python /opt/postproject/share/doc/postproject/examples/python/quickstart.py \
 ```
 
 Applications may instead pass `library_path=` to `Production.create` or
-`Production.open`; the quickstart does so when given `--library PATH`. The
-binding resolves that explicit path and does not search the working directory
-or modify the platform loader path. The installed quickstart above runs in
-package CI on Linux, macOS, and Windows.
+`Production.open`; the quickstart does so when given `--library PATH`. An
+explicit path wins, then `POSTPROJECT_LIBRARY`, then a platform wheel's own
+library. The binding does not search the working directory or modify the
+platform loader path, and it loads each library once per process. The
+installed quickstart above runs in package CI on Linux, macOS, and Windows.
 
 A transaction context commits only after a clean exit. An exception rolls it
 back. `close()` is idempotent for production and transaction handles, and a
@@ -73,3 +76,21 @@ keyword `limit` and an optional `cursor` and return a `QueryPage` with `items`,
 `provenance_ancestors_page()`, `provenance_descendants_page()`,
 `dependencies()`, `dependents()`, `stale_artifacts()`, `jobs()`, and
 `objects_changed_since()`.
+
+## Plug-ins of a host application
+
+Applications that embed Python, such as Blender, Nuke, Houdini, or Maya, often
+share one Python environment among all their plug-ins. Ship PostProject with a
+plug-in this way:
+
+- **Bundle the platform wheel** and pass no library path. The wheel's binding
+  and library always match.
+- **Expect to share it.** Blender, for example, installs the wheels of all
+  extensions into one `site-packages` and keeps only the newest wheel of each
+  name. Another plug-in may bring a newer PostProject than yours, and before
+  1.0 its Python API may differ from the one you built against.
+- **Never set `POSTPROJECT_LIBRARY`** from a plug-in. The variable is
+  process-wide and would override every other plug-in's library.
+
+The [Blender pilot](https://github.com/postproject-org/postproject-blender)
+is an extension packaged this way.

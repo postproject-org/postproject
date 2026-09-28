@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ctypes
 import os
+import sys
 import threading
 from _ctypes import _Pointer
 from pathlib import Path
@@ -13,6 +14,14 @@ from ._errors import ERROR_TYPES, PostProjectError
 
 ABI_VERSION = 33
 LIBRARY_ENVIRONMENT_VARIABLE = "POSTPROJECT_LIBRARY"
+#: Where a platform wheel installs its native library (ADR 0039).
+BUNDLED_LIBRARY = (
+    Path(__file__).parent
+    / "_lib"
+    / {"win32": "postproject.dll", "darwin": "libpostproject.dylib"}.get(
+        sys.platform, "libpostproject.so"
+    )
+)
 
 
 _loaded: dict[Path, NativeLibrary] = {}
@@ -20,7 +29,11 @@ _loading = threading.Lock()
 
 
 class NativeLibrary:
-    """One explicitly located PostProject shared library.
+    """One located PostProject shared library.
+
+    The library is the explicit ``path``, else ``POSTPROJECT_LIBRARY``, else
+    the one a platform wheel installed inside this package. No other place is
+    searched.
 
     A library is loaded and checked once per resolved path; constructing it
     again returns the same instance.
@@ -65,12 +78,17 @@ class NativeLibrary:
 
 
 def _library_path(path: str | os.PathLike[str] | None) -> Path:
+    """Return the explicit path, else the variable, else the bundled library."""
+
     supplied = (
         path if path is not None else os.environ.get(LIBRARY_ENVIRONMENT_VARIABLE)
     )
     if supplied is None:
+        if BUNDLED_LIBRARY.is_file():
+            return BUNDLED_LIBRARY.resolve()
         raise RuntimeError(
-            "pass library_path or set POSTPROJECT_LIBRARY to the native shared library"
+            "pass library_path, set POSTPROJECT_LIBRARY to the native shared "
+            "library, or install a platform wheel that contains it"
         )
     resolved = Path(supplied).expanduser().resolve(strict=True)
     if not resolved.is_file():

@@ -55,10 +55,10 @@ jobs:
       - run: python tools/check_versions.py
       - run: python tools/check_example_coverage.py
       - run: python tools/flatpak_module.py check
-      - run: python -m unittest tools/test_flatpak_module.py
-      - run: ruff check tools/check_versions.py tools/check_cpp_header_warnings.py tools/check_example_coverage.py tools/check_docs_coverage.py tools/test_check_docs_coverage.py tools/normalize_doxygen_xml.py tools/test_normalize_doxygen_xml.py tools/flatpak_module.py tools/test_flatpak_module.py
-      - run: ruff format --check tools/check_versions.py tools/check_cpp_header_warnings.py tools/check_example_coverage.py tools/check_docs_coverage.py tools/test_check_docs_coverage.py tools/normalize_doxygen_xml.py tools/test_normalize_doxygen_xml.py tools/flatpak_module.py tools/test_flatpak_module.py
-      - run: ty check tools/check_versions.py tools/check_example_coverage.py tools/check_docs_coverage.py tools/test_check_docs_coverage.py tools/normalize_doxygen_xml.py tools/test_normalize_doxygen_xml.py tools/flatpak_module.py tools/test_flatpak_module.py
+      - run: python -m unittest tools/test_flatpak_module.py tools/test_build_platform_wheel.py
+      - run: ruff check tools/check_versions.py tools/check_cpp_header_warnings.py tools/check_example_coverage.py tools/check_docs_coverage.py tools/test_check_docs_coverage.py tools/normalize_doxygen_xml.py tools/test_normalize_doxygen_xml.py tools/flatpak_module.py tools/test_flatpak_module.py tools/build_platform_wheel.py tools/test_build_platform_wheel.py
+      - run: ruff format --check tools/check_versions.py tools/check_cpp_header_warnings.py tools/check_example_coverage.py tools/check_docs_coverage.py tools/test_check_docs_coverage.py tools/normalize_doxygen_xml.py tools/test_normalize_doxygen_xml.py tools/flatpak_module.py tools/test_flatpak_module.py tools/build_platform_wheel.py tools/test_build_platform_wheel.py
+      - run: ty check tools/check_versions.py tools/check_example_coverage.py tools/check_docs_coverage.py tools/test_check_docs_coverage.py tools/normalize_doxygen_xml.py tools/test_normalize_doxygen_xml.py tools/flatpak_module.py tools/test_flatpak_module.py tools/build_platform_wheel.py tools/test_build_platform_wheel.py
       - run: cargo fmt --check
       - run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
       - run: cargo doc --workspace --all-features --no-deps --locked
@@ -188,6 +188,8 @@ jobs:
             runtime_library: ""
             cli_executable: postproject
             artifact: linux-x86_64
+            # The Linux platform wheel is built for glibc 2.28 by `platform-wheel-linux`.
+            wheel_platform: ""
           - os: macos-latest
             link_library: libpostproject.dylib
             python_library: libpostproject.dylib
@@ -195,6 +197,7 @@ jobs:
             runtime_library: ""
             cli_executable: postproject
             artifact: macos-native
+            wheel_platform: macosx_11_0_arm64
           - os: windows-latest
             link_library: postproject.dll.lib
             python_library: postproject.dll
@@ -202,7 +205,10 @@ jobs:
             runtime_library: postproject.dll
             cli_executable: postproject.exe
             artifact: windows-x86_64
+            wheel_platform: win_amd64
     runs-on: ${{ matrix.os }}
+    env:
+      MACOSX_DEPLOYMENT_TARGET: "11.0"
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
@@ -306,6 +312,22 @@ jobs:
           python target/install/share/doc/postproject/examples/python/quickstart.py
           target/python-quickstart.pproj
           target/install/share/doc/postproject/examples/fixtures/sample-media.dat
+      - name: Test the platform wheel without a library path
+        if: matrix.wheel_platform != ''
+        shell: bash
+        env:
+          PYTHON_LIBRARY: ${{ matrix.python_library }}
+          WHEEL_PLATFORM: ${{ matrix.wheel_platform }}
+        run: |
+          python -m pip wheel --disable-pip-version-check --no-deps ./python --wheel-dir target/wheel
+          python tools/build_platform_wheel.py target/wheel/*.whl \
+            "target/release/$PYTHON_LIBRARY" "$WHEEL_PLATFORM" --output-dir target/platform-wheel
+          python -m venv target/platform-wheel-venv
+          venv_python=target/platform-wheel-venv/bin/python
+          [[ -x "$venv_python" ]] || venv_python=target/platform-wheel-venv/Scripts/python.exe
+          "$venv_python" -m pip install --disable-pip-version-check --no-deps target/platform-wheel/*.whl
+          "$venv_python" examples/python/quickstart.py \
+            target/platform-wheel-quickstart.pproj examples/fixtures/sample-media.dat
       - uses: actions/upload-artifact@v4
         with:
           name: postproject-${{ matrix.artifact }}
@@ -332,6 +354,27 @@ jobs:
           POSTPROJECT_LIBRARY="$GITHUB_WORKSPACE/target/release/libpostproject.so" \
             target/wheel-venv/bin/python examples/python/quickstart.py \
             target/wheel-quickstart.pproj examples/fixtures/sample-media.dat
+
+  platform-wheel-linux:
+    name: Linux platform wheel (glibc 2.28)
+    runs-on: ubuntu-latest
+    container: quay.io/pypa/manylinux_2_28_x86_64
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo build --release --locked -p postproject-ffi
+      - name: Require no glibc newer than 2.28
+        run: tools/check_glibc.sh target/release/libpostproject.so 2.28
+      - name: Build and test the platform wheel without a library path
+        run: |
+          python3.11 -m pip wheel --disable-pip-version-check --no-deps ./python --wheel-dir target/wheel
+          python3.11 tools/build_platform_wheel.py target/wheel/*.whl \
+            target/release/libpostproject.so manylinux_2_28_x86_64 --output-dir target/platform-wheel
+          python3.11 -m venv target/platform-wheel-venv
+          target/platform-wheel-venv/bin/python -m pip install --disable-pip-version-check \
+            --no-deps target/platform-wheel/*.whl
+          target/platform-wheel-venv/bin/python examples/python/quickstart.py \
+            target/platform-wheel-quickstart.pproj examples/fixtures/sample-media.dat
 
   sanitizers:
     name: Native ASan and UBSan

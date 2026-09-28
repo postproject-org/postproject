@@ -51,6 +51,7 @@ Read the relevant ADR before changing an invariant, a boundary, or a public cont
 - {doc}`ADR 0033 — Propagating C++ results </adr/0033-cpp-result-propagation>`
 - {doc}`ADR 0034 — A warning-free C++ header in host builds </adr/0034-warning-free-cpp-header>`
 - {doc}`ADR 0036 — Readable C++ metadata values </adr/0036-readable-cpp-metadata-values>`
+- {doc}`ADR 0039 — Platform wheels carrying the native library </adr/0039-platform-wheels>`
 - {doc}`ADR 0016 — Documentation site generator </adr/0016-documentation-site-generator>`
 - {doc}`ADR 0020 — Integration-preview compatibility tier </adr/0020-integration-preview-compatibility>`
 - {doc}`ADR 0026 — Domain query cursors </adr/0026-domain-query-cursors>`
@@ -96,4 +97,5 @@ Read the relevant ADR before changing an invariant, a boundary, or a public cont
 /adr/0036-readable-cpp-metadata-values
 /adr/0037-media-sources
 /adr/0038-sequence-names-on-locators
+/adr/0039-platform-wheels
 ```

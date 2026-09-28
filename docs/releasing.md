@@ -26,13 +26,20 @@ Before tagging a release:
 8. Create a signed `v<package-version>` tag. The release workflow verifies the
    tag against Rust, CMake, and Python package versions before publication.
 9. Confirm the workflow publishes the conventional source tarball, Linux,
-   macOS, and Windows native archives, and Python wheel together with a SHA-256
-   checksum for each artifact. Never rebuild an artifact after tagging.
+   macOS, and Windows native archives, a platform wheel for each of them, and
+   the platform-neutral Python wheel, together with a SHA-256 checksum for
+   each artifact. Never rebuild an artifact after tagging.
 
 Linux, macOS, and Windows package artifacts are produced from
 `cargo build --locked` and the same CMake install rules exercised on every
 push. Windows packaging includes the DLL and its matching import library by
 passing them as `POSTPROJECT_RUNTIME_LIBRARY` and `POSTPROJECT_LIBRARY`; macOS
 packaging must preserve the dylib install name expected by the CMake target.
-The wheel remains platform-neutral and requires one of those native packages;
-it never performs an implicit dynamic-library search.
+The Linux archive and wheel are built in the `manylinux_2_28` container, and
+the workflow fails if the library imports a glibc symbol version newer than
+2.28 (ADR 0039); macOS builds set `MACOSX_DEPLOYMENT_TARGET=11.0`. Each
+platform wheel is the platform-neutral wheel with that build's library added by
+`tools/build_platform_wheel.py`, and is tested by running the quickstart from a
+fresh virtual environment without a library path. The platform-neutral wheel
+still requires a native package; the binding never performs an implicit
+dynamic-library search.
