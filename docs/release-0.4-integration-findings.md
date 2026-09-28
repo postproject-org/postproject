@@ -4,7 +4,8 @@ Release 0.4 adds one maintained integration with a real application, the
 [Kdenlive pilot](https://github.com/postproject-org/postproject-kdenlive). The
 pilot is a patch series on Kdenlive `v26.08.1` that links only the installed
 CMake package. Its [brief](https://github.com/postproject-org/postproject-kdenlive/blob/main/BRIEF.md)
-records Kdenlive's behavior, checked against source on 2026-09-27. This page
+records Kdenlive's behavior, checked against source on 2026-09-27 and, for
+proxies, on 2026-09-28. This page
 records what the pilot showed about PostProject. The pilot itself is kept only
 to produce these findings.
 
@@ -141,15 +142,17 @@ the activity with the tool and its argument list, and completes the job. A
 failed render fails the job with the end of its log. When a project opens,
 PostProject evaluates each recorded proxy. A proxy whose source was replaced
 is reported stale and offered for rebuilding in Kdenlive's relink dialog.
-Kdenlive itself checks a proxied clip's hash only when the proxy is missing, so
+Kdenlive itself never checks a proxied clip's source when a project opens, so
 it would keep playing the old proxy.
 
-This needed no change to PostProject. Content observation from release 0.4
-supplied the one missing piece. The pilot's Kdenlive changes grew to about
-120 lines, and the adapter to about 690. Kdenlive's tests cover a recorded
-render, a stale proxy offered for rebuilding, a proxy rendered again at its
-old path, failed and abandoned renders, and proxies made before their clip was
-recorded. In the running application under Xvfb on 2026-09-28:
+The experiment needed no new PostProject concept: jobs, artifact evaluation,
+and the content observation added for the first experiment were enough. What it
+showed about their use is recorded below. The pilot's Kdenlive changes grew to
+about 120 lines, and the adapter to about 680. Kdenlive's tests cover a
+recorded render with its argument list, a stale proxy offered for rebuilding, a
+proxy rendered again at its old path, failed and abandoned renders, and proxies
+made before their clip was recorded. In the running application under Xvfb on
+2026-09-28:
 
 - the first save of a new project recorded the proxy Kdenlive had already made;
 - after the source was replaced, reopening offered the proxy for rebuilding;
@@ -188,9 +191,9 @@ name is the clip's present Kdenlive hash, which is how Kdenlive names the
 proxies it renders. That activity names no tool and no parameters.
 PostProject reports it as current but not reproducible, which is accurate.
 
-**The wrapper warns under GCC 15.** Building the pilot at `-O2` with GCC 15.3,
-`evaluateArtifact` in the installed C++ header raises `-Wmaybe-uninitialized`
-for its optional fingerprint values. Both values are initialized before they
+**The wrapper warns under GCC 15.** Building the pilot's tests, which enable
+exceptions, at `-O2` with GCC 15.3, `evaluateArtifact` in the installed C++
+header raises `-Wmaybe-uninitialized` for its optional fingerprint values. Both values are initialized before they
 are moved, so the warning is a false positive. It still appears in every
 consumer's build log.
 
