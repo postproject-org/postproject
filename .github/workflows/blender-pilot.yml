@@ -1,0 +1,17 @@
+name: Blender pilot
+
+# The pilot downloads Blender for every run, so it runs nightly and on demand
+# rather than on every pull request.
+on:
+  schedule:
+    - cron: "53 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  blender:
+    uses: postproject-org/postproject-blender/.github/workflows/ci.yml@main
+    with:
+      postproject_ref: ${{ github.sha }}
