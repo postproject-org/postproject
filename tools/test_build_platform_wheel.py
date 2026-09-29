@@ -12,11 +12,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import build_platform_wheel
 
-DIST_INFO = "postproject-0.4.0a1.dist-info"
+DIST_INFO = "postproject-0.5.0a1.dist-info"
 
 
 def neutral_wheel(directory: Path) -> Path:
-    path = directory / "postproject-0.4.0a1-py3-none-any.whl"
+    path = directory / "postproject-0.5.0a1-py3-none-any.whl"
     with zipfile.ZipFile(path, "w") as wheel:
         wheel.writestr("postproject/__init__.py", "")
         wheel.writestr(
@@ -42,7 +42,7 @@ class BuildPlatformWheelTests(unittest.TestCase):
         wheel = build_platform_wheel.build(
             neutral_wheel(self.root), self.library, tag, self.root / "out"
         )
-        self.assertEqual(wheel.name, f"postproject-0.4.0a1-py3-none-{tag}.whl")
+        self.assertEqual(wheel.name, f"postproject-0.5.0a1-py3-none-{tag}.whl")
         return zipfile.ZipFile(wheel)
 
     def test_adds_the_library_under_the_platform_name(self) -> None:
@@ -79,7 +79,7 @@ class BuildPlatformWheelTests(unittest.TestCase):
                 self.assertEqual(int(size), len(data))
 
     def test_rejects_a_platform_wheel_as_input(self) -> None:
-        wheel = self.root / "postproject-0.4.0a1-py3-none-win_amd64.whl"
+        wheel = self.root / "postproject-0.5.0a1-py3-none-win_amd64.whl"
         wheel.write_bytes(b"")
         with self.assertRaises(ValueError):
             build_platform_wheel.build(wheel, self.library, "win_amd64", self.root)
