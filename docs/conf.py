@@ -19,9 +19,12 @@ extensions = [
     "breathe",
     "sphinx.ext.autodoc",
     "sphinx_design",
+    "sphinxcontrib.mermaid",
     "postproject_code",
 ]
 myst_enable_extensions = ["colon_fence", "deflist"]
+# Plain ```mermaid fences render as diagrams here and on GitHub alike.
+myst_fence_as_directive = ["mermaid"]
 # Section headings up to level three get stable anchors for cross-page links.
 myst_heading_anchors = 3
 source_suffix = {".rst": "restructuredtext", ".md": "markdown"}
@@ -94,6 +97,21 @@ html_theme_options = {
     },
 }
 pygments_dark_style = "monokai"
+# Diagrams size to their content and follow Furo's light/dark switch.
+mermaid_version = "11.12.1"
+mermaid_height = "auto"
+mermaid_light_theme = "neutral"
+mermaid_dark_theme = "dark"
+mermaid_init_config = {
+    "startOnLoad": False,
+    "fontFamily": FONT_STACK,
+    # Labels break where the source puts <br/>, not at Mermaid's narrow default.
+    # A fixed pixel size lets the stylesheet shrink a wide diagram to fit but
+    # never enlarge a small one.
+    "flowchart": {"wrappingWidth": 400, "useMaxWidth": False},
+    "sequence": {"useMaxWidth": False},
+    "state": {"useMaxWidth": False},
+}
 html_context = {
     "landing_url": "https://www.postproject.org/",
     "landing_title": "postproject.org",

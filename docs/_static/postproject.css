@@ -82,3 +82,18 @@ h1 {
 .sidebar-search-container > select.sidebar-search {
   padding-left: var(--sidebar-item-spacing-horizontal);
 }
+
+/* Mermaid diagrams: natural size up to the content width, centered. */
+pre.mermaid {
+  margin: 1.25rem 0;
+  padding: 0;
+  background: transparent;
+  text-align: center;
+}
+
+/* The body prefix outranks the width rule sphinxcontrib-mermaid injects. */
+body pre.mermaid > svg {
+  width: auto;
+  height: auto;
+  max-width: 100% !important;
+}
