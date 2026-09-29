@@ -5,6 +5,35 @@ mounted at a different path, or a folder is reorganized. PostProject keeps
 asset and representation identity stable while storage locations change, and
 resolution answers where the content can be reached *now*.
 
+## The relinking flow
+
+A host usually relinks when it opens a project whose media has moved. The
+sections below explain each step; the flow as a whole is:
+
+```mermaid
+flowchart TD
+    open["Host opens its project and reads<br/>the stored asset references"]
+    open --> resolve["Resolve every asset in one call with this machine's<br/>root map and search directories"]
+    resolve --> known{"Content at a<br/>known locator?"}
+    known -- "yes" --> online(["online: use it"])
+    known -- "no" --> search["Search mapped roots, then search directories:<br/>match names or sequence groups, filter by size,<br/>compare fingerprints"]
+    search --> found{"Credible<br/>candidates?"}
+    found -- "none" --> offline(["offline: show as missing,<br/>the identity is kept"])
+    found -- "one exact" --> exact["resolved exact"]
+    found -- "one probable" --> probable["resolved probable"]
+    found -- "several" --> ambiguous["ambiguous"]
+    exact --> decide{"Host policy<br/>or user decision"}
+    probable --> decide
+    ambiguous --> choose["User chooses among the candidates,<br/>shown with confidence and evidence"]
+    choose --> confirm
+    decide -- "accept" --> confirm["Confirm the candidate in a transaction:<br/>adds a locator with its root name<br/>and sequence naming"]
+    decide -- "not now" --> unchanged(["production unchanged"])
+    confirm --> commit["Commit: a LocatorAdded revision tells<br/>every other application about the new location"]
+```
+
+Resolution itself never changes the production. Only the confirmation step
+writes, and never on its own for an ambiguous result.
+
 ## Register a logical media root
 
 A media root is a portable, production-wide name such as `rushes`. It does not

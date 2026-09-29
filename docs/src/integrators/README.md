@@ -4,6 +4,30 @@ This section is for developers adding PostProject to a host application, plugin,
 
 The fastest successful integration is usually **smaller than the whole PostProject feature set**. Begin with durable identity and media resolution, prove that the host can reopen the same production objects, then add richer knowledge only when the application has a use for it.
 
+## Integration depths
+
+An integration can stop at any depth that solves the host's problem. Each depth
+builds on the one before it, and each already pays off on its own:
+
+```mermaid
+flowchart TD
+    d0["<b>Alongside the application</b><br/>CLI and pipeline scripts maintain the production;<br/>the application itself is unchanged"]
+    d1["<b>1 · Identity</b><br/>open a production, import media, store references<br/>to assets and representations in the host document"]
+    d2["<b>2 · Resolution</b><br/>media roots, relinking with explicit confirmation,<br/>verification, sequences, spans, and packages"]
+    d3["<b>3 · Production knowledge</b><br/>external identifiers, metadata, provenance,<br/>dependencies, artifact staleness"]
+    d4["<b>4 · Live coordination</b><br/>revision feed and observers, jobs and workers"]
+    oaio["<b>OpenAssetIO host</b><br/>resolves and publishes through the<br/>PostProject Manager without calling PostProject"]
+    d0 -- "references survive moves<br/>between applications" --> d1
+    d1 -- "offline media found again,<br/>relinked once for all" --> d2
+    d2 -- "trace media origins,<br/>tell what is current" --> d3
+    d3 -- "react to other tools,<br/>hand off work" --> d4
+    oaio -.-> d1
+    oaio -.-> d2
+```
+
+The labels on the arrows name what the host gains by going one depth further.
+The steps below follow the same order.
+
 ## Recommended integration path
 
 ### 1. Install and open a production

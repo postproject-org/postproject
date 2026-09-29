@@ -26,6 +26,72 @@ A PostProject production can remember:
 
 The production database is therefore closer to **shared production memory** than to a folder catalog.
 
+## Why several applications gain from sharing one production
+
+Without shared knowledge, every application keeps its own list of clips. Each
+hand-off is an export that the next application has to re-import and relink,
+and each application relinks moved media on its own. With PostProject, every
+application reads and writes the same production, while its own project file
+stores only references to it:
+
+```mermaid
+flowchart TB
+    subgraph separate["Separate clip lists"]
+        direction LR
+        editor1["Editor<br/>own clip list"] -- "export" --> comp1["Compositor<br/>own clip list"]
+        comp1 -- "render as a path" --> editor1
+        editor1 -- "export" --> sound1["Sound application<br/>own clip list"]
+    end
+    subgraph shared["One shared production"]
+        direction LR
+        editor2["Editor"] <--> production[("production.pproj")]
+        comp2["Compositor"] <--> production
+        production <--> sound2["Sound application"]
+        production <--> ingest2["Ingest and pipeline tools"]
+    end
+    separate ~~~ shared
+```
+
+The benefit grows with every application that takes part:
+
+- **Import once.** Media ingested by one tool has the same identity in every
+  other tool; no application invents its own duplicate clip.
+- **Relink once.** A location confirmed by one application after storage moved
+  is a locator every other application resolves too.
+- **Results arrive as the same media.** A proxy, render, or graded version made
+  by one application is a representation or recorded output that the others
+  can find, not an unrelated file.
+- **History crosses tool boundaries.** Provenance recorded by the compositor
+  explains to the editor where a shot came from and whether it is still
+  current.
+- **Changes are visible.** Every commit is a revision, so one application can
+  react to what another did without rereading the whole production.
+- **Work can be handed off.** One application requests a job, another claims
+  and completes it.
+
+For example, a shot passes through three applications that share one
+production:
+
+```mermaid
+sequenceDiagram
+    participant Ingest as Ingest tool
+    participant P as PostProject production
+    participant Editor
+    participant Comp as Compositor
+    Ingest->>P: import camera original A001
+    P-->>Editor: revision: asset imported
+    Note over Editor: stores the asset reference<br/>in its own project file
+    Comp->>P: resolve A001 on this workstation
+    Comp->>P: record the comp render and the activity<br/>that made it from A001
+    P-->>Editor: revision: representation and activity added
+    Ingest->>P: record a new fingerprint of the replaced A001
+    Editor->>P: evaluate the comp render
+    P-->>Editor: stale, because input A001 changed
+```
+
+None of the three applications had to export, re-import, or relink anything,
+and each one kept its own project format.
+
 ## The most important distinction: identity is not location
 
 Consider a camera original that starts here:
