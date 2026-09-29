@@ -9,8 +9,11 @@ release, but removals or signature changes require an explicit ABI-version bump.
 
 Productions, transactions, asset sets, media-root sets, representation sets,
 resolution sets, activity sets, external-identifier sets, object-reference sets,
-object-query sets, locator-query sets, dependency-query sets, job sets, metadata
-inputs, media sources, revision waiters, and errors are opaque handles. A
+object-query sets, locator-query sets, dependency sets, dependency-query sets,
+job sets, regeneration-plan sets, metadata sets, metadata values, metadata
+inputs, artifact evaluations, reproducibility reports, revision sets,
+revision-event sets, revision waiters, fingerprints, cancellation tokens,
+resolution options, media sources, and errors are opaque handles. A
 successful creation/open call transfers one production ownership reference to the
 caller, which releases it exactly once with `pp_production_release`. Failed calls
 optionally transfer an error object, released exactly once with
@@ -82,6 +85,10 @@ embedded NUL bytes return `ErrorCode::invalid_argument` before C is called.
 `and_then`, `transform`, and `or_else`. `POSTPROJECT_TRY` and
 `POSTPROJECT_TRY_ASSIGN` are public and stay defined after the header; they
 return a failed `Result`'s error from the enclosing function (ADR 0033).
+
+The wrapper adds no domain behavior and exposes no C++ standard-library type
+through exported library symbols. Its source compatibility follows the 0.x
+pre-release policy independently of the C ABI version.
 
 ## Resolution results
 
@@ -269,9 +276,5 @@ External identifiers are staged with a typed object reference, scheme, opaque
 value, and optional qualifier. Add/remove operations are atomic with every other
 transaction mutation. Enumeration returns an owned result-set handle whose
 strings remain borrowed until release. Exact scheme/value lookup returns a
-separate owned object-reference set and does not normalize inputs or contact a
-registry.
-
-The wrapper adds no domain behavior and exposes no C++ standard-library type
-through exported library symbols. Its source compatibility follows the 0.x
-pre-release policy independently of the C ABI version.
+separate owned object-reference set; a NULL qualifier matches any qualifier.
+Lookup does not normalize inputs or contact a registry.
