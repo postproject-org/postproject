@@ -99,13 +99,13 @@ cat > dependencies.json <<EOF
 [
   {
     "kind": "org.example:plate",
-    "target": {"kind": "representation", "id": "$ORIGINAL_ID"},
+    "target": {"kind": "asset", "id": "$ASSET_ID"},
+    "resolved_representation_id": "$ORIGINAL_ID",
     "authored_reference": "rushes/A001.mov"
   },
   {
     "kind": "org.example:preview",
-    "target": {"kind": "asset", "id": "$ASSET_ID"},
-    "resolved_representation_id": "$PROXY_ID",
+    "target": {"kind": "representation", "id": "$PROXY_ID"},
     "required": false,
     "authored_reference": "proxies/A001_proxy.mov"
   }
@@ -135,7 +135,7 @@ DEPENDENCIES=$(postproject --json dependency show provenance.pproj "$COMP_ID")
 test "$(jq -r .status <<<"$DEPENDENCIES")" = needs_extraction
 test "$(jq -r '[.dependencies[].kind] | join(" ")' <<<"$DEPENDENCIES")" = \
   "org.example:plate org.example:preview"
-test "$(jq -r '.dependencies[1] | "\(.required) \(.resolved_representation_id)"' \
+test "$(jq -r '.dependencies[1] | "\(.required) \(.target.id)"' \
   <<<"$DEPENDENCIES")" = "false $PROXY_ID"
 test "$(postproject --json dependency dependencies provenance.pproj "$COMP_ID" \
   --limit 1 | jq -r '.next_cursor != null')" = true
