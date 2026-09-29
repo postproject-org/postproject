@@ -39,7 +39,7 @@ pub struct PpFingerprint {
 ///
 /// `path` must be NUL-terminated UTF-8. `out_fingerprint` must be writable;
 /// `out_error` follows the library error contract.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_fingerprint_file(
     path: *const c_char,
     out_fingerprint: *mut *mut PpFingerprint,
@@ -70,7 +70,7 @@ pub unsafe extern "C" fn pp_fingerprint_file(
 /// # Safety
 ///
 /// `fingerprint` must be a live handle; every output must be writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_fingerprint_get(
     fingerprint: *const PpFingerprint,
     out_algorithm: *mut *const c_char,
@@ -110,7 +110,7 @@ pub unsafe extern "C" fn pp_fingerprint_get(
 /// # Safety
 ///
 /// `fingerprint` must be null or a live handle not used after this call.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_fingerprint_release(fingerprint: *mut PpFingerprint) {
     if fingerprint.is_null() {
         return;
@@ -149,7 +149,7 @@ fn naming_at(
 /// `production` and `resource_id` must be live; `path` must be NUL-terminated
 /// UTF-8; `sequence_naming` must be null or readable with NUL-terminated
 /// strings; `out_verification` must be writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_verify_resource(
     production: *const PpProduction,
     resource_id: *const PpUuid,
@@ -217,7 +217,7 @@ pub unsafe extern "C" fn pp_production_verify_resource(
 /// `transaction` and `resource_id` must be live; `path` must be
 /// NUL-terminated UTF-8; `sequence_naming` must be null or readable with
 /// NUL-terminated strings; `out_outcome` must be writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_transaction_observe_resource_content(
     transaction: *mut PpTransaction,
     resource_id: *const PpUuid,

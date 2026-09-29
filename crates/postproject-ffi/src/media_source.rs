@@ -29,7 +29,7 @@ pub struct PpMediaSource {
 ///
 /// `path` must be borrowed NUL-terminated UTF-8. `out_source` must be
 /// writable; `out_error` may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_media_source_create_file(
     path: *const c_char,
     out_source: *mut *mut PpMediaSource,
@@ -57,7 +57,7 @@ pub unsafe extern "C" fn pp_media_source_create_file(
 /// must point to `missing_frame_count` readable values and may be null only
 /// when the count is zero. `out_source` must be writable; `out_error` may be
 /// null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 #[allow(clippy::too_many_arguments)]
 pub unsafe extern "C" fn pp_media_source_create_image_sequence(
     directory: *const c_char,
@@ -128,7 +128,7 @@ pub unsafe extern "C" fn pp_media_source_create_image_sequence(
 /// `members` must point to `member_count` readable values whose strings are
 /// borrowed NUL-terminated UTF-8; it may be null only when the count is zero.
 /// `out_source` must be writable; `out_error` may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_media_source_create_ordered_parts(
     members: *const PpFileResourceInput,
     member_count: u64,
@@ -144,7 +144,7 @@ pub unsafe extern "C" fn pp_media_source_create_ordered_parts(
 /// # Safety
 ///
 /// Pointer rules match [`pp_media_source_create_ordered_parts`].
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_media_source_create_package(
     members: *const PpFileResourceInput,
     member_count: u64,
@@ -160,7 +160,7 @@ pub unsafe extern "C" fn pp_media_source_create_package(
 /// # Safety
 ///
 /// `source` must be null or a live handle not used after this call.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_media_source_release(source: *mut PpMediaSource) {
     if source.is_null() {
         return;

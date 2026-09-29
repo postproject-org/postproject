@@ -66,6 +66,16 @@ return `PP_REVISION_WAIT_CLOSED`. The ABI never calls back into foreign code.
 The hand-reviewed C header is authoritative. Rust implementation types, SQLite
 types, allocation APIs, and standard-library layouts never cross the ABI.
 
+## Opt-in usage evidence
+
+When `POSTPROJECT_ABI_TRACE` names an output file, every exported operation
+reached in that process is recorded once as a sorted C symbol name. Tracing is
+disabled by default, records no arguments or production data, and never changes
+an ABI result when evidence cannot be written. Concurrent processes use
+separate files. The compatibility report combines those explicit traces with
+the operation families in `docs/compatibility-families.toml`; neither the trace
+nor the generated report is itself a compatibility promise (ADR 0040).
+
 ## C++ wrapper
 
 `postproject.hpp` is a header-only C++17 wrapper over the authoritative C API.

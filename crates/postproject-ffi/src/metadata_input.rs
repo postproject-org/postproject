@@ -41,7 +41,7 @@ unsafe fn create_input(
 /// `text` must be readable NUL-terminated UTF-8, `language` may be null or
 /// readable NUL-terminated UTF-8, `out_input` must be writable, and `out_error`
 /// may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_metadata_input_create_string(
     text: *const c_char,
     language: *const c_char,
@@ -65,7 +65,7 @@ pub unsafe extern "C" fn pp_metadata_input_create_string(
 /// # Safety
 ///
 /// `out_input` must be writable and `out_error` may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_metadata_input_create_i64(
     value: i64,
     out_input: *mut *mut PpMetadataInput,
@@ -80,7 +80,7 @@ pub unsafe extern "C" fn pp_metadata_input_create_i64(
 /// # Safety
 ///
 /// Pointer rules match [`pp_metadata_input_create_i64`].
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_metadata_input_create_u64(
     value: u64,
     out_input: *mut *mut PpMetadataInput,
@@ -96,7 +96,7 @@ pub unsafe extern "C" fn pp_metadata_input_create_u64(
 ///
 /// `coefficient` must be readable NUL-terminated UTF-8. Output pointers follow
 /// [`pp_metadata_input_create_i64`].
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_metadata_input_create_decimal(
     coefficient: *const c_char,
     scale: u32,
@@ -122,7 +122,7 @@ pub unsafe extern "C" fn pp_metadata_input_create_decimal(
 /// # Safety
 ///
 /// Pointer rules match [`pp_metadata_input_create_i64`].
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_metadata_input_create_bool(
     value: u8,
     out_input: *mut *mut PpMetadataInput,
@@ -143,7 +143,7 @@ pub unsafe extern "C" fn pp_metadata_input_create_bool(
 /// # Safety
 ///
 /// Pointer rules match [`pp_metadata_input_create_i64`].
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_metadata_input_create_timestamp(
     unix_micros: i64,
     out_input: *mut *mut PpMetadataInput,
@@ -165,7 +165,7 @@ pub unsafe extern "C" fn pp_metadata_input_create_timestamp(
 ///
 /// `uri` must be readable NUL-terminated UTF-8. Output pointers follow
 /// [`pp_metadata_input_create_i64`].
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_metadata_input_create_uri(
     uri: *const c_char,
     out_input: *mut *mut PpMetadataInput,
@@ -185,7 +185,7 @@ pub unsafe extern "C" fn pp_metadata_input_create_uri(
 ///
 /// `bytes` must address `length` readable bytes when `length` is nonzero.
 /// Output pointers follow [`pp_metadata_input_create_i64`].
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_metadata_input_create_bytes(
     bytes: *const u8,
     length: u64,
@@ -217,7 +217,7 @@ pub unsafe extern "C" fn pp_metadata_input_create_bytes(
 /// # Safety
 ///
 /// Pointer rules match [`pp_metadata_input_create_i64`].
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_metadata_input_create_rational(
     numerator: i64,
     denominator: u64,
@@ -241,7 +241,7 @@ pub unsafe extern "C" fn pp_metadata_input_create_rational(
 ///
 /// `target` must be readable. Output pointers follow
 /// [`pp_metadata_input_create_i64`].
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_metadata_input_create_reference(
     target: *const PpObjectRef,
     out_input: *mut *mut PpMetadataInput,
@@ -264,7 +264,7 @@ pub unsafe extern "C" fn pp_metadata_input_create_reference(
 ///
 /// `items` must address `count` readable live input pointers when `count` is
 /// nonzero. Output pointers follow [`pp_metadata_input_create_i64`].
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_metadata_input_create_list(
     items: *const *const PpMetadataInput,
     count: u64,
@@ -286,7 +286,7 @@ pub unsafe extern "C" fn pp_metadata_input_create_list(
 /// `names` and `values` must each address `count` readable pointers when
 /// `count` is nonzero. Names are NUL-terminated UTF-8 and values are live input
 /// handles. Output pointers follow [`pp_metadata_input_create_i64`].
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_metadata_input_create_struct(
     names: *const *const c_char,
     values: *const *const PpMetadataInput,
@@ -365,7 +365,7 @@ fn input_count(count: u64) -> Result<usize, Error> {
 ///
 /// A non-null pointer must have been returned by a metadata-input constructor
 /// and not previously released.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_metadata_input_release(input: *mut PpMetadataInput) {
     if input.is_null() {
         return;

@@ -35,7 +35,7 @@ pub struct PpResolutionOptions {
 /// # Safety
 ///
 /// `out_token` must be writable; `out_error` may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_cancel_token_create(
     out_token: *mut *mut PpCancelToken,
     out_error: *mut *mut PpError,
@@ -58,7 +58,7 @@ pub unsafe extern "C" fn pp_cancel_token_create(
 /// # Safety
 ///
 /// `token` must be null or live for the duration of the call.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_cancel_token_cancel(token: *const PpCancelToken) {
     let _ = catch_unwind(AssertUnwindSafe(|| {
         // SAFETY: A non-null token is live for this call by the caller contract.
@@ -73,7 +73,7 @@ pub unsafe extern "C" fn pp_cancel_token_cancel(token: *const PpCancelToken) {
 /// # Safety
 ///
 /// `token` must be null or a live handle that no other thread is using.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_cancel_token_release(token: *mut PpCancelToken) {
     if token.is_null() {
         return;
@@ -90,7 +90,7 @@ pub unsafe extern "C" fn pp_cancel_token_release(token: *mut PpCancelToken) {
 /// # Safety
 ///
 /// `out_options` must be writable; `out_error` may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_resolution_options_create(
     out_options: *mut *mut PpResolutionOptions,
     out_error: *mut *mut PpError,
@@ -111,7 +111,7 @@ pub unsafe extern "C" fn pp_resolution_options_create(
 /// # Safety
 ///
 /// `options` must be null or a live handle not used after this call.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_resolution_options_release(options: *mut PpResolutionOptions) {
     if options.is_null() {
         return;
@@ -127,7 +127,7 @@ pub unsafe extern "C" fn pp_resolution_options_release(options: *mut PpResolutio
 /// # Safety
 ///
 /// `options` must be live; `name` and `directory` must be NUL-terminated UTF-8.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_resolution_options_add_root_mapping(
     options: *mut PpResolutionOptions,
     name: *const c_char,
@@ -165,7 +165,7 @@ pub unsafe extern "C" fn pp_resolution_options_add_root_mapping(
 /// # Safety
 ///
 /// `options` must be live; `directory` must be NUL-terminated UTF-8.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_resolution_options_add_search_directory(
     options: *mut PpResolutionOptions,
     directory: *const c_char,
@@ -192,7 +192,7 @@ pub unsafe extern "C" fn pp_resolution_options_add_search_directory(
 /// # Safety
 ///
 /// `options` must be live.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_resolution_options_set_verification(
     options: *mut PpResolutionOptions,
     verification: u32,
@@ -219,7 +219,7 @@ pub unsafe extern "C" fn pp_resolution_options_set_verification(
 /// # Safety
 ///
 /// `options` must be live.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_resolution_options_set_limits(
     options: *mut PpResolutionOptions,
     max_depth: u32,
@@ -252,7 +252,7 @@ pub unsafe extern "C" fn pp_resolution_options_set_limits(
 /// # Safety
 ///
 /// `options` must be live; `token` must be null or live for this call.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_resolution_options_set_cancel_token(
     options: *mut PpResolutionOptions,
     token: *const PpCancelToken,
@@ -277,7 +277,7 @@ pub unsafe extern "C" fn pp_resolution_options_set_cancel_token(
 /// `production` must be live; `asset_ids` must point to `asset_count`
 /// readable IDs (it may be null only when the count is zero); `options` must
 /// be null or live; `out_resolutions` must be writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_resolve_assets(
     production: *const PpProduction,
     asset_ids: *const PpUuid,

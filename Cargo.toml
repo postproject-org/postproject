@@ -3,6 +3,7 @@ members = [
   "crates/postproject-cli",
   "crates/postproject-core",
   "crates/postproject-ffi",
+  "crates/postproject-ffi-macros",
   "crates/postproject-media",
   "crates/postproject-storage-sqlite",
   "docs/examples/rust",

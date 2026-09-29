@@ -695,9 +695,18 @@ name = "postproject-ffi"
 version = "0.5.0-alpha.1"
 dependencies = [
  "postproject-core",
+ "postproject-ffi-macros",
  "postproject-media",
  "postproject-storage-sqlite",
  "tempfile",
+]
+
+[[package]]
+name = "postproject-ffi-macros"
+version = "0.5.0-alpha.1"
+dependencies = [
+ "quote",
+ "syn 2.0.119",
 ]
 
 [[package]]

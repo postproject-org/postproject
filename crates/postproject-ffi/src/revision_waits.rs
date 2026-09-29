@@ -50,7 +50,7 @@ pub struct PpRevisionWaiter {
 ///
 /// `production` must be live; `kinds` must point to `kind_count` readable
 /// values; outputs must be writable; and `out_error` may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 #[allow(clippy::too_many_arguments)]
 pub unsafe extern "C" fn pp_production_changes_since_filtered(
     production: *const PpProduction,
@@ -107,7 +107,7 @@ pub unsafe extern "C" fn pp_production_changes_since_filtered(
 /// `production` must be live, `out_waiter` writable, and `out_error` null or
 /// writable. A successful waiter must be released exactly once with
 /// [`pp_revision_waiter_release`].
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_revision_waiter_create(
     production: *const PpProduction,
     out_waiter: *mut *mut PpRevisionWaiter,
@@ -138,7 +138,7 @@ pub unsafe extern "C" fn pp_revision_waiter_create(
 ///
 /// `waiter` must be live and not released during the call; outputs must be
 /// writable; and `out_error` may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_revision_waiter_wait(
     waiter: *mut PpRevisionWaiter,
     after_sequence: u64,
@@ -209,7 +209,7 @@ pub unsafe extern "C" fn pp_revision_waiter_wait(
 /// # Safety
 ///
 /// A non-null `waiter` must be live for the duration of the call.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_revision_waiter_cancel(waiter: *mut PpRevisionWaiter) {
     let _ = catch_unwind(AssertUnwindSafe(|| {
         // SAFETY: Only a shared reference is formed; the caller keeps it live.
@@ -225,7 +225,7 @@ pub unsafe extern "C" fn pp_revision_waiter_cancel(waiter: *mut PpRevisionWaiter
 ///
 /// A non-null pointer must be live, released exactly once, and not used by
 /// another thread during or after this call.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_revision_waiter_release(waiter: *mut PpRevisionWaiter) {
     if waiter.is_null() {
         return;

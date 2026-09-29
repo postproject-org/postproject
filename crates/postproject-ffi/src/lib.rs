@@ -4,6 +4,7 @@
 //! numeric codes plus owned error objects. Native consumers should include the
 //! shipped `postproject.h` rather than depending on Rust declarations.
 
+mod abi_trace;
 mod artifact;
 mod content;
 mod dependency;
@@ -463,7 +464,7 @@ pub struct PpError {
 }
 
 /// Returns the ABI version implemented by this shared library.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub extern "C" fn pp_abi_version() -> u32 {
     ABI_VERSION
 }
@@ -475,7 +476,7 @@ pub extern "C" fn pp_abi_version() -> u32 {
 /// `production_id` and `object` must be readable. `out_binding` must be
 /// writable and receives a string that must be released exactly once with
 /// [`pp_string_release`]. `out_error` may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_host_binding_format(
     production_id: *const PpUuid,
     object: *const PpObjectRef,
@@ -510,7 +511,7 @@ pub unsafe extern "C" fn pp_host_binding_format(
 ///
 /// `binding` must be NUL-terminated UTF-8 for this call. Both value outputs
 /// must be writable. `out_error` may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_host_binding_parse(
     binding: *const c_char,
     out_production_id: *mut PpUuid,
@@ -540,7 +541,7 @@ pub unsafe extern "C" fn pp_host_binding_parse(
 /// `path` must be NUL-terminated UTF-8. `out_uri` must be writable and receives
 /// a string that must be released exactly once with [`pp_string_release`].
 /// `out_error` may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_file_path_to_locator(
     path: *const c_char,
     out_uri: *mut *mut c_char,
@@ -566,7 +567,7 @@ pub unsafe extern "C" fn pp_file_path_to_locator(
 /// `uri` must be NUL-terminated UTF-8. `out_path` must be writable and receives
 /// a string that must be released exactly once with [`pp_string_release`].
 /// `out_error` may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_locator_to_file_path(
     uri: *const c_char,
     out_path: *mut *mut c_char,
@@ -593,7 +594,7 @@ pub unsafe extern "C" fn pp_locator_to_file_path(
 ///
 /// `value` must be null or a live string returned through an owned `char **`
 /// output of this library that has not already been released.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_string_release(value: *mut c_char) {
     if !value.is_null() {
         // SAFETY: The caller contract requires the exact pointer and ownership
@@ -610,7 +611,7 @@ pub unsafe extern "C" fn pp_string_release(value: *mut c_char) {
 /// call. `display_name` may be null or must satisfy the same rule. `out_production`
 /// must be a writable pointer. `out_error` may be null or writable. Successful
 /// handles must be released exactly once with [`pp_production_release`].
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_create(
     path: *const c_char,
     display_name: *const c_char,
@@ -644,7 +645,7 @@ pub unsafe extern "C" fn pp_production_create(
 /// `path` must point to a NUL-terminated byte string for the duration of the
 /// call. `out_production` must be writable. `out_error` may be null or writable.
 /// Successful handles must be released exactly once with [`pp_production_release`].
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_open(
     path: *const c_char,
     out_production: *mut *mut PpProduction,
@@ -676,7 +677,7 @@ pub unsafe extern "C" fn pp_production_open(
 /// `production` must be a live handle returned by this library. `out_id` must be
 /// writable. `out_error` may be null or writable. The production must not be used
 /// concurrently by another thread during the call.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_id(
     production: *const PpProduction,
     out_id: *mut PpUuid,
@@ -705,7 +706,7 @@ pub unsafe extern "C" fn pp_production_id(
 ///
 /// `production` must be a live handle returned by this library. `asset_id` must be
 /// readable and `out_exists` writable. `out_error` may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_asset_exists(
     production: *const PpProduction,
     asset_id: *const PpUuid,
@@ -743,7 +744,7 @@ pub unsafe extern "C" fn pp_production_asset_exists(
 ///
 /// `production` must be live, `out_assets` writable, and `out_error` null or
 /// writable. The returned set is caller-owned.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_assets(
     production: *const PpProduction,
     out_assets: *mut *mut PpAssetSet,
@@ -779,7 +780,7 @@ pub unsafe extern "C" fn pp_production_assets(
 ///
 /// `production` and `asset_id` must be live, `out_assets` must be writable, and
 /// `out_error` may be null or writable. The returned set is caller-owned.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_asset(
     production: *const PpProduction,
     asset_id: *const PpUuid,
@@ -814,7 +815,7 @@ pub unsafe extern "C" fn pp_production_asset(
 ///
 /// `production` must be live; `cursor` must be null or NUL-terminated UTF-8;
 /// `out_assets` must be writable; and `out_error` may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_assets_page(
     production: *const PpProduction,
     limit: u32,
@@ -850,7 +851,7 @@ pub unsafe extern "C" fn pp_production_assets_page(
 /// # Safety
 ///
 /// `assets` must be null or a live asset set.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_asset_set_next_cursor(assets: *const PpAssetSet) -> *const c_char {
     catch_unwind(AssertUnwindSafe(|| unsafe {
         assets.as_ref().map_or(ptr::null(), |set| {
@@ -867,7 +868,7 @@ pub unsafe extern "C" fn pp_asset_set_next_cursor(assets: *const PpAssetSet) -> 
 /// # Safety
 ///
 /// A non-null pointer must be a live asset set returned by this library.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_asset_set_count(assets: *const PpAssetSet) -> u64 {
     // SAFETY: A non-null pointer is guaranteed live by the caller.
     unsafe {
@@ -884,7 +885,7 @@ pub unsafe extern "C" fn pp_asset_set_count(assets: *const PpAssetSet) -> u64 {
 ///
 /// The set and every output pointer must be live. String outputs remain valid
 /// until the set is released; `out_error` may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 #[allow(clippy::too_many_arguments)]
 pub unsafe extern "C" fn pp_asset_set_get(
     assets: *const PpAssetSet,
@@ -944,7 +945,7 @@ pub unsafe extern "C" fn pp_asset_set_get(
 ///
 /// A non-null pointer must be an owned asset set returned by this library and
 /// must not be used after this call.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_asset_set_release(assets: *mut PpAssetSet) {
     if !assets.is_null() {
         // SAFETY: Non-null pointers must originate from `pp_production_assets`.
@@ -958,7 +959,7 @@ pub unsafe extern "C" fn pp_asset_set_release(assets: *mut PpAssetSet) {
 ///
 /// `production` must be live, `out_roots` writable, and `out_error` null or
 /// writable. The returned set is caller-owned.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_media_roots(
     production: *const PpProduction,
     out_roots: *mut *mut PpMediaRootSet,
@@ -990,7 +991,7 @@ pub unsafe extern "C" fn pp_production_media_roots(
 /// # Safety
 ///
 /// A non-null pointer must be a live media-root set returned by this library.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_media_root_set_count(roots: *const PpMediaRootSet) -> u64 {
     // SAFETY: A non-null pointer is guaranteed live by the caller.
     unsafe {
@@ -1007,7 +1008,7 @@ pub unsafe extern "C" fn pp_media_root_set_count(roots: *const PpMediaRootSet) -
 ///
 /// The set and every output pointer must be live. String outputs remain valid
 /// until the set is released; `out_error` may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 #[allow(clippy::too_many_arguments)]
 pub unsafe extern "C" fn pp_media_root_set_get(
     roots: *const PpMediaRootSet,
@@ -1066,7 +1067,7 @@ pub unsafe extern "C" fn pp_media_root_set_get(
 /// # Safety
 ///
 /// A non-null pointer must be an owned media-root set returned by this library.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_media_root_set_release(roots: *mut PpMediaRootSet) {
     if !roots.is_null() {
         // SAFETY: Non-null pointers must originate from `pp_production_media_roots`.
@@ -1083,7 +1084,7 @@ pub unsafe extern "C" fn pp_media_root_set_release(roots: *mut PpMediaRootSet) {
 ///
 /// `production` and `target` must be readable live values. `out_identifiers` must
 /// be writable. `out_error` may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_external_identifiers(
     production: *const PpProduction,
     target: *const PpObjectRef,
@@ -1126,7 +1127,7 @@ pub unsafe extern "C" fn pp_production_external_identifiers(
 /// `production` must be live; `scheme` and `value` must be borrowed NUL-terminated
 /// UTF-8 strings; `qualifier` must be null or such a string; `out_objects` must be
 /// writable; and `out_error` may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_find_by_external_identifier(
     production: *const PpProduction,
     scheme: *const c_char,
@@ -1166,7 +1167,7 @@ pub unsafe extern "C" fn pp_production_find_by_external_identifier(
 /// # Safety
 ///
 /// `identifiers` must be null or a live handle returned by this library.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_external_identifier_set_count(
     identifiers: *const PpExternalIdentifierSet,
 ) -> u64 {
@@ -1185,7 +1186,7 @@ pub unsafe extern "C" fn pp_external_identifier_set_count(
 ///
 /// `identifiers` must be live; outputs must be writable; and `out_error` may be
 /// null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_external_identifier_set_get(
     identifiers: *const PpExternalIdentifierSet,
     index: u64,
@@ -1225,7 +1226,7 @@ pub unsafe extern "C" fn pp_external_identifier_set_get(
 /// # Safety
 ///
 /// A non-null handle must be live and released exactly once.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_external_identifier_set_release(
     identifiers: *mut PpExternalIdentifierSet,
 ) {
@@ -1244,7 +1245,7 @@ pub unsafe extern "C" fn pp_external_identifier_set_release(
 /// # Safety
 ///
 /// `objects` must be null or a live handle returned by this library.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_object_ref_set_count(objects: *const PpObjectRefSet) -> u64 {
     catch_unwind(AssertUnwindSafe(|| {
         // SAFETY: A non-null handle is live by the caller contract.
@@ -1261,7 +1262,7 @@ pub unsafe extern "C" fn pp_object_ref_set_count(objects: *const PpObjectRefSet)
 ///
 /// `objects` must be live; `out_object` must be writable; and `out_error` may
 /// be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_object_ref_set_get(
     objects: *const PpObjectRefSet,
     index: u64,
@@ -1287,7 +1288,7 @@ pub unsafe extern "C" fn pp_object_ref_set_get(
 /// # Safety
 ///
 /// A non-null handle must be live and released exactly once.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_object_ref_set_release(objects: *mut PpObjectRefSet) {
     if objects.is_null() {
         return;
@@ -1303,7 +1304,7 @@ pub unsafe extern "C" fn pp_object_ref_set_release(objects: *mut PpObjectRefSet)
 /// # Safety
 ///
 /// `objects` must be null or a live object-query set.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_object_query_set_count(objects: *const PpObjectQuerySet) -> u64 {
     catch_unwind(AssertUnwindSafe(|| unsafe {
         objects.as_ref().map_or(0, |set| {
@@ -1318,7 +1319,7 @@ pub unsafe extern "C" fn pp_object_query_set_count(objects: *const PpObjectQuery
 /// # Safety
 ///
 /// `objects` must be live, outputs writable, and `out_error` null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_object_query_set_get(
     objects: *const PpObjectQuerySet,
     index: u64,
@@ -1348,7 +1349,7 @@ pub unsafe extern "C" fn pp_object_query_set_get(
 /// # Safety
 ///
 /// `objects` must be null or a live object-query set.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_object_query_set_next_cursor(
     objects: *const PpObjectQuerySet,
 ) -> *const c_char {
@@ -1367,7 +1368,7 @@ pub unsafe extern "C" fn pp_object_query_set_next_cursor(
 /// # Safety
 ///
 /// `objects` must be null or a live object-query set.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_object_query_set_traversal_truncated(
     objects: *const PpObjectQuerySet,
 ) -> u8 {
@@ -1384,7 +1385,7 @@ pub unsafe extern "C" fn pp_object_query_set_traversal_truncated(
 /// # Safety
 ///
 /// A non-null pointer must be live and released exactly once.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_object_query_set_release(objects: *mut PpObjectQuerySet) {
     if !objects.is_null() {
         let _ = catch_unwind(AssertUnwindSafe(|| unsafe {
@@ -1398,7 +1399,7 @@ pub unsafe extern "C" fn pp_object_query_set_release(objects: *mut PpObjectQuery
 /// # Safety
 ///
 /// `locators` must be null or a live locator-query set.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_locator_query_set_count(locators: *const PpLocatorQuerySet) -> u64 {
     catch_unwind(AssertUnwindSafe(|| unsafe {
         locators.as_ref().map_or(0, |set| {
@@ -1413,7 +1414,7 @@ pub unsafe extern "C" fn pp_locator_query_set_count(locators: *const PpLocatorQu
 /// # Safety
 ///
 /// `locators` must be live, outputs writable, and `out_error` null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 #[allow(clippy::too_many_arguments)]
 pub unsafe extern "C" fn pp_locator_query_set_get(
     locators: *const PpLocatorQuerySet,
@@ -1485,7 +1486,7 @@ pub unsafe extern "C" fn pp_locator_query_set_get(
 /// # Safety
 ///
 /// `locators` must be null or a live locator-query set.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_locator_query_set_next_cursor(
     locators: *const PpLocatorQuerySet,
 ) -> *const c_char {
@@ -1504,7 +1505,7 @@ pub unsafe extern "C" fn pp_locator_query_set_next_cursor(
 /// # Safety
 ///
 /// A non-null pointer must be live and released exactly once.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_locator_query_set_release(locators: *mut PpLocatorQuerySet) {
     if !locators.is_null() {
         let _ = catch_unwind(AssertUnwindSafe(|| unsafe {
@@ -1519,7 +1520,7 @@ pub unsafe extern "C" fn pp_locator_query_set_release(locators: *mut PpLocatorQu
 ///
 /// `production` and `representation_id` must be live, `cursor` null or UTF-8,
 /// `out_objects` writable, and `out_error` null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_resources_page(
     production: *const PpProduction,
     representation_id: *const PpUuid,
@@ -1560,7 +1561,7 @@ pub unsafe extern "C" fn pp_production_resources_page(
 /// # Safety
 ///
 /// Pointer rules match [`pp_production_resources_page`].
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_locators_page(
     production: *const PpProduction,
     resource_id: *const PpUuid,
@@ -1597,7 +1598,7 @@ pub unsafe extern "C" fn pp_production_locators_page(
 ///
 /// `production` must be live, `cursor` null or UTF-8, `out_objects` writable,
 /// and `out_error` null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_unresolved_media(
     production: *const PpProduction,
     limit: u32,
@@ -1632,7 +1633,7 @@ pub unsafe extern "C" fn pp_production_unresolved_media(
 ///
 /// `kind` is required UTF-8; other pointer rules match
 /// [`pp_production_unresolved_media`].
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_outputs_by_activity_kind(
     production: *const PpProduction,
     kind: *const c_char,
@@ -1669,7 +1670,7 @@ pub unsafe extern "C" fn pp_production_outputs_by_activity_kind(
 ///
 /// `name` is required UTF-8; `version`, `uri`, and `cursor` may be null or
 /// UTF-8; outputs follow [`pp_production_unresolved_media`].
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_outputs_by_tool(
     production: *const PpProduction,
     name: *const c_char,
@@ -1711,7 +1712,7 @@ pub unsafe extern "C" fn pp_production_outputs_by_tool(
 /// # Safety
 ///
 /// Pointer rules match [`pp_production_resources_page`].
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_activities_producing_page(
     production: *const PpProduction,
     representation_id: *const PpUuid,
@@ -1738,7 +1739,7 @@ pub unsafe extern "C" fn pp_production_activities_producing_page(
 /// # Safety
 ///
 /// Pointer rules match [`pp_production_activities_producing_page`].
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_activities_consuming_page(
     production: *const PpProduction,
     representation_id: *const PpUuid,
@@ -1765,7 +1766,7 @@ pub unsafe extern "C" fn pp_production_activities_consuming_page(
 /// # Safety
 ///
 /// Pointer rules match [`pp_production_resources_page`].
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_provenance_ancestors_page(
     production: *const PpProduction,
     representation_id: *const PpUuid,
@@ -1796,7 +1797,7 @@ pub unsafe extern "C" fn pp_production_provenance_ancestors_page(
 /// # Safety
 ///
 /// Pointer rules match [`pp_production_provenance_ancestors_page`].
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_provenance_descendants_page(
     production: *const PpProduction,
     representation_id: *const PpUuid,
@@ -1830,7 +1831,7 @@ pub unsafe extern "C" fn pp_production_provenance_descendants_page(
 ///
 /// `production` must be live; optional pointers must be null or readable;
 /// result pointers must be writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_stale_artifacts(
     production: *const PpProduction,
     source_representation_id: *const PpUuid,
@@ -1877,7 +1878,7 @@ pub unsafe extern "C" fn pp_production_stale_artifacts(
 /// # Safety
 ///
 /// Pointer rules match [`pp_production_unresolved_media`].
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_objects_changed_since(
     production: *const PpProduction,
     sequence: u64,
@@ -1915,7 +1916,7 @@ pub unsafe extern "C" fn pp_production_objects_changed_since(
 ///
 /// `production` and `target` must be readable live values. `out_metadata` must be
 /// writable and `out_error` may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_metadata(
     production: *const PpProduction,
     target: *const PpObjectRef,
@@ -1948,7 +1949,7 @@ pub unsafe extern "C" fn pp_production_metadata(
 ///
 /// `production` must be live, strings must be borrowed NUL-terminated UTF-8,
 /// `out_metadata` must be writable, and `out_error` may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_find_metadata(
     production: *const PpProduction,
     vocabulary: *const c_char,
@@ -1984,7 +1985,7 @@ pub unsafe extern "C" fn pp_production_find_metadata(
 /// `production` must be live; strings must be NUL-terminated UTF-8;
 /// `exact_value` must be null or a live metadata input; `cursor` must be null or
 /// UTF-8; `out_metadata` must be writable; and `out_error` may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 #[allow(
     clippy::too_many_arguments,
     reason = "the C ABI exposes filter and pagination inputs explicitly"
@@ -2026,7 +2027,7 @@ pub unsafe extern "C" fn pp_production_query_metadata(
 /// # Safety
 ///
 /// `metadata` must be null or a live result-set handle.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_metadata_set_count(metadata: *const PpMetadataSet) -> u64 {
     catch_unwind(AssertUnwindSafe(|| {
         // SAFETY: A non-null handle is live by the caller contract.
@@ -2042,7 +2043,7 @@ pub unsafe extern "C" fn pp_metadata_set_count(metadata: *const PpMetadataSet) -
 /// # Safety
 ///
 /// `metadata` must be null or a live metadata set.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_metadata_set_next_cursor(
     metadata: *const PpMetadataSet,
 ) -> *const c_char {
@@ -2062,7 +2063,7 @@ pub unsafe extern "C" fn pp_metadata_set_next_cursor(
 ///
 /// `metadata` must be live. Every output must be writable and `out_error` may
 /// be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_metadata_set_get(
     metadata: *const PpMetadataSet,
     index: u64,
@@ -2102,7 +2103,7 @@ pub unsafe extern "C" fn pp_metadata_set_get(
 ///
 /// A non-null pointer must be live and released exactly once. No borrowed value
 /// or string from the set may be used after this call.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_metadata_set_release(metadata: *mut PpMetadataSet) {
     if metadata.is_null() {
         return;
@@ -2119,7 +2120,7 @@ pub unsafe extern "C" fn pp_metadata_set_release(metadata: *mut PpMetadataSet) {
 ///
 /// `production` and `representation_id` must be live readable values,
 /// `out_dependencies` must be writable, and `out_error` may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_dependency_set(
     production: *const PpProduction,
     representation_id: *const PpUuid,
@@ -2153,7 +2154,7 @@ pub unsafe extern "C" fn pp_production_dependency_set(
 ///
 /// `dependencies` must be live, all outputs must be writable, and `out_error`
 /// may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 #[allow(
     clippy::too_many_arguments,
     reason = "the C ABI exposes each summary field as an explicit output"
@@ -2201,7 +2202,7 @@ pub unsafe extern "C" fn pp_dependency_set_get(
 ///
 /// `dependencies` must be live, `out_dependency` writable, and `out_error`
 /// may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_dependency_set_get_dependency(
     dependencies: *const PpDependencySet,
     index: u64,
@@ -2232,7 +2233,7 @@ pub unsafe extern "C" fn pp_dependency_set_get_dependency(
 /// # Safety
 ///
 /// A non-null pointer must be live and released exactly once.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_dependency_set_release(dependencies: *mut PpDependencySet) {
     if dependencies.is_null() {
         return;
@@ -2250,7 +2251,7 @@ pub unsafe extern "C" fn pp_dependency_set_release(dependencies: *mut PpDependen
 /// `production` and `target` must be live readable values, `cursor` must be
 /// null or NUL-terminated UTF-8 for this call, `out_matches`
 /// must be writable, and `out_error` may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_dependents(
     production: *const PpProduction,
     target: *const PpObjectRef,
@@ -2305,7 +2306,7 @@ pub unsafe extern "C" fn pp_production_dependents(
 /// `production` and `representation_id` must be live readable values, `cursor`
 /// must be null or NUL-terminated UTF-8 for this call, `out_matches` must be
 /// writable, and `out_error` may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_dependencies(
     production: *const PpProduction,
     representation_id: *const PpUuid,
@@ -2349,7 +2350,7 @@ pub unsafe extern "C" fn pp_production_dependencies(
 /// # Safety
 ///
 /// `matches` must be null or a live query-set handle.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_dependency_query_set_count(
     matches: *const PpDependencyQuerySet,
 ) -> u64 {
@@ -2366,7 +2367,7 @@ pub unsafe extern "C" fn pp_dependency_query_set_count(
 ///
 /// `matches` must be live, `out_match` writable, and `out_error` may be null
 /// or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_dependency_query_set_get(
     matches: *const PpDependencyQuerySet,
     index: u64,
@@ -2407,7 +2408,7 @@ pub unsafe extern "C" fn pp_dependency_query_set_get(
 /// # Safety
 ///
 /// `matches` must be null or a live query-set handle.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_dependency_query_set_next_cursor(
     matches: *const PpDependencyQuerySet,
 ) -> *const c_char {
@@ -2423,7 +2424,7 @@ pub unsafe extern "C" fn pp_dependency_query_set_next_cursor(
 /// # Safety
 ///
 /// `matches` must be null or a live query-set handle.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_dependency_query_set_traversal_truncated(
     matches: *const PpDependencyQuerySet,
 ) -> u8 {
@@ -2439,7 +2440,7 @@ pub unsafe extern "C" fn pp_dependency_query_set_traversal_truncated(
 /// # Safety
 ///
 /// A non-null handle must be live and released exactly once.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_dependency_query_set_release(matches: *mut PpDependencyQuerySet) {
     if matches.is_null() {
         return;
@@ -2456,7 +2457,7 @@ pub unsafe extern "C" fn pp_dependency_query_set_release(matches: *mut PpDepende
 ///
 /// `production` and `representation_id` must be readable live values,
 /// `out_evaluation` must be writable, and `out_error` may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_evaluate_artifact(
     production: *const PpProduction,
     representation_id: *const PpUuid,
@@ -2495,7 +2496,7 @@ pub unsafe extern "C" fn pp_production_evaluate_artifact(
 ///
 /// `evaluation` must be live. Every output must be writable and `out_error`
 /// may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_artifact_evaluation_get(
     evaluation: *const PpArtifactEvaluation,
     out_representation_id: *mut PpUuid,
@@ -2539,7 +2540,7 @@ pub unsafe extern "C" fn pp_artifact_evaluation_get(
 ///
 /// `evaluation` must be live, `out_reason` must be writable, and `out_error`
 /// may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_artifact_evaluation_get_reason(
     evaluation: *const PpArtifactEvaluation,
     index: u64,
@@ -2566,7 +2567,7 @@ pub unsafe extern "C" fn pp_artifact_evaluation_get_reason(
 /// # Safety
 ///
 /// A non-null pointer must be live and released exactly once.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_artifact_evaluation_release(evaluation: *mut PpArtifactEvaluation) {
     if evaluation.is_null() {
         return;
@@ -2582,7 +2583,7 @@ pub unsafe extern "C" fn pp_artifact_evaluation_release(evaluation: *mut PpArtif
 /// # Safety
 ///
 /// Pointer rules match [`pp_production_evaluate_artifact`].
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_artifact_reproducibility(
     production: *const PpProduction,
     representation_id: *const PpUuid,
@@ -2616,7 +2617,7 @@ pub unsafe extern "C" fn pp_production_artifact_reproducibility(
 ///
 /// `report` must be live. Every output must be writable and `out_error` may be
 /// null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 #[allow(clippy::too_many_arguments, reason = "flat C outputs are ABI-safe")]
 pub unsafe extern "C" fn pp_artifact_reproducibility_get(
     report: *const PpArtifactReproducibility,
@@ -2671,7 +2672,7 @@ pub unsafe extern "C" fn pp_artifact_reproducibility_get(
 ///
 /// `report` must be live, `out_issue` must be writable, and `out_error` may be
 /// null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_artifact_reproducibility_get_issue(
     report: *const PpArtifactReproducibility,
     index: u64,
@@ -2701,7 +2702,7 @@ pub unsafe extern "C" fn pp_artifact_reproducibility_get_issue(
 /// # Safety
 ///
 /// A non-null pointer must be live and released exactly once.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_artifact_reproducibility_release(
     report: *mut PpArtifactReproducibility,
 ) {
@@ -2720,7 +2721,7 @@ pub unsafe extern "C" fn pp_artifact_reproducibility_release(
 ///
 /// `production` must be live, `out_activities` must be writable, and `out_error`
 /// may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_activities(
     production: *const PpProduction,
     out_activities: *mut *mut PpActivitySet,
@@ -2748,7 +2749,7 @@ pub unsafe extern "C" fn pp_production_activities(
 ///
 /// All pointers must follow the same rules as [`pp_production_activities`], and
 /// `representation_id` must be readable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_activities_producing(
     production: *const PpProduction,
     representation_id: *const PpUuid,
@@ -2772,7 +2773,7 @@ pub unsafe extern "C" fn pp_production_activities_producing(
 /// # Safety
 ///
 /// Pointer rules match [`pp_production_activities_producing`].
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_activities_consuming(
     production: *const PpProduction,
     representation_id: *const PpUuid,
@@ -2797,7 +2798,7 @@ pub unsafe extern "C" fn pp_production_activities_consuming(
 ///
 /// `production` and `representation_id` must be readable live values,
 /// `out_representations` must be writable, and `out_error` may be null.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_provenance_ancestors(
     production: *const PpProduction,
     representation_id: *const PpUuid,
@@ -2821,7 +2822,7 @@ pub unsafe extern "C" fn pp_production_provenance_ancestors(
 /// # Safety
 ///
 /// Pointer rules match [`pp_production_provenance_ancestors`].
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_provenance_descendants(
     production: *const PpProduction,
     representation_id: *const PpUuid,
@@ -2845,7 +2846,7 @@ pub unsafe extern "C" fn pp_production_provenance_descendants(
 /// # Safety
 ///
 /// `activities` must be null or a live result-set handle.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_activity_set_count(activities: *const PpActivitySet) -> u64 {
     catch_unwind(AssertUnwindSafe(|| {
         // SAFETY: A non-null handle is live by the caller contract.
@@ -2861,7 +2862,7 @@ pub unsafe extern "C" fn pp_activity_set_count(activities: *const PpActivitySet)
 /// # Safety
 ///
 /// `activities` must be null or a live activity set.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_activity_set_next_cursor(
     activities: *const PpActivitySet,
 ) -> *const c_char {
@@ -2884,7 +2885,7 @@ pub unsafe extern "C" fn pp_activity_set_next_cursor(
 ///
 /// `activities` must be live. Every output must be writable and `out_error`
 /// may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 #[allow(
     clippy::too_many_arguments,
     reason = "flat C output parameters are ABI-safe"
@@ -2950,7 +2951,7 @@ pub unsafe extern "C" fn pp_activity_set_get(
 ///
 /// `activities` must be live. Every output must be writable and `out_error`
 /// may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_activity_set_get_input(
     activities: *const PpActivitySet,
     activity_index: u64,
@@ -2982,7 +2983,7 @@ pub unsafe extern "C" fn pp_activity_set_get_input(
 ///
 /// `activities` must be live. Every output must be writable and `out_error`
 /// may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_activity_set_get_output(
     activities: *const PpActivitySet,
     activity_index: u64,
@@ -3016,7 +3017,7 @@ pub unsafe extern "C" fn pp_activity_set_get_output(
 ///
 /// `activities` must be live. Every output must be writable and `out_error`
 /// may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_activity_set_get_input_snapshot(
     activities: *const PpActivitySet,
     activity_index: u64,
@@ -3051,7 +3052,7 @@ pub unsafe extern "C" fn pp_activity_set_get_input_snapshot(
 /// # Safety
 ///
 /// All pointers follow the rules documented above.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_activity_set_get_output_snapshot(
     activities: *const PpActivitySet,
     activity_index: u64,
@@ -3087,7 +3088,7 @@ pub unsafe extern "C" fn pp_activity_set_get_output_snapshot(
 ///
 /// `activities` must be live. Every output must be writable and `out_error`
 /// may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 #[allow(clippy::too_many_arguments, reason = "flat C outputs are ABI-safe")]
 pub unsafe extern "C" fn pp_activity_set_get_input_snapshot_fingerprint(
     activities: *const PpActivitySet,
@@ -3132,7 +3133,7 @@ pub unsafe extern "C" fn pp_activity_set_get_input_snapshot_fingerprint(
 /// # Safety
 ///
 /// All pointers follow the rules documented above.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 #[allow(clippy::too_many_arguments, reason = "flat C outputs are ABI-safe")]
 pub unsafe extern "C" fn pp_activity_set_get_output_snapshot_fingerprint(
     activities: *const PpActivitySet,
@@ -3178,7 +3179,7 @@ pub unsafe extern "C" fn pp_activity_set_get_output_snapshot_fingerprint(
 ///
 /// `activities` must be live. Every output must be writable and `out_error`
 /// may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_activity_set_get_tool(
     activities: *const PpActivitySet,
     index: u64,
@@ -3227,7 +3228,7 @@ pub unsafe extern "C" fn pp_activity_set_get_tool(
 ///
 /// `activities` must be live. Every output must be writable and `out_error`
 /// may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_activity_set_get_agent(
     activities: *const PpActivitySet,
     index: u64,
@@ -3288,7 +3289,7 @@ pub unsafe extern "C" fn pp_activity_set_get_agent(
 /// # Safety
 ///
 /// A non-null handle must be live and released exactly once.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_activity_set_release(activities: *mut PpActivitySet) {
     if activities.is_null() {
         return;
@@ -3305,7 +3306,7 @@ pub unsafe extern "C" fn pp_activity_set_release(activities: *mut PpActivitySet)
 ///
 /// `production` and `job_id` must be live, `out_jobs` must be writable, and
 /// `out_error` may be null or writable. The returned set is caller-owned.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_job(
     production: *const PpProduction,
     job_id: *const PpUuid,
@@ -3337,7 +3338,7 @@ pub unsafe extern "C" fn pp_production_job(
 /// `production` must be live; `kind` and `cursor` must each be null or
 /// NUL-terminated UTF-8 for this call; `out_jobs` must be writable; and
 /// `out_error` may be null or writable. State zero means any state.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_jobs(
     production: *const PpProduction,
     state: u32,
@@ -3378,7 +3379,7 @@ pub unsafe extern "C" fn pp_production_jobs(
 /// # Safety
 ///
 /// `jobs` must be null or a live result-set handle.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_job_set_next_cursor(jobs: *const PpJobSet) -> *const c_char {
     catch_unwind(AssertUnwindSafe(|| {
         // SAFETY: A non-null handle is live by the caller contract.
@@ -3392,7 +3393,7 @@ pub unsafe extern "C" fn pp_job_set_next_cursor(jobs: *const PpJobSet) -> *const
 /// # Safety
 ///
 /// `jobs` must be null or a live result-set handle.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_job_set_count(jobs: *const PpJobSet) -> u64 {
     catch_unwind(AssertUnwindSafe(|| {
         // SAFETY: A non-null handle is live by the caller contract.
@@ -3407,7 +3408,7 @@ pub unsafe extern "C" fn pp_job_set_count(jobs: *const PpJobSet) -> u64 {
 ///
 /// `jobs` must be live, `out_job` must be writable, and `out_error` may be null
 /// or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_job_set_get(
     jobs: *const PpJobSet,
     index: u64,
@@ -3439,7 +3440,7 @@ pub unsafe extern "C" fn pp_job_set_get(
 ///
 /// `jobs` must be live, `out_representation_id` must be writable, and
 /// `out_error` may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_job_set_get_input(
     jobs: *const PpJobSet,
     job_index: u64,
@@ -3473,7 +3474,7 @@ pub unsafe extern "C" fn pp_job_set_get_input(
 /// # Safety
 ///
 /// A non-null handle must be live and released exactly once.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_job_set_release(jobs: *mut PpJobSet) {
     if jobs.is_null() {
         return;
@@ -3491,7 +3492,7 @@ pub unsafe extern "C" fn pp_job_set_release(jobs: *mut PpJobSet) {
 /// `production` must be live; the artifact array must contain `artifact_count`
 /// readable UUIDs (or be null for zero); `out_plans` must be writable; and
 /// `out_error` may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_plan_regeneration(
     production: *const PpProduction,
     artifact_representation_ids: *const PpUuid,
@@ -3536,7 +3537,7 @@ pub unsafe extern "C" fn pp_production_plan_regeneration(
 /// # Safety
 ///
 /// `plans` must be null or a live result-set handle.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_regeneration_plan_set_count(
     plans: *const PpRegenerationPlanSet,
 ) -> u64 {
@@ -3556,7 +3557,7 @@ pub unsafe extern "C" fn pp_regeneration_plan_set_count(
 ///
 /// `plans` must be live; every output must be writable; and `out_error` may be
 /// null or writable. Each returned set must be released exactly once.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_regeneration_plan_set_get(
     plans: *const PpRegenerationPlanSet,
     index: u64,
@@ -3608,7 +3609,7 @@ pub unsafe extern "C" fn pp_regeneration_plan_set_get(
 /// # Safety
 ///
 /// A non-null handle must be live and released exactly once.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_regeneration_plan_set_release(plans: *mut PpRegenerationPlanSet) {
     if plans.is_null() {
         return;
@@ -3625,7 +3626,7 @@ pub unsafe extern "C" fn pp_regeneration_plan_set_release(plans: *mut PpRegenera
 ///
 /// `production` must be live, `out_revisions` must be writable, and `out_error`
 /// may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_latest_revision(
     production: *const PpProduction,
     out_revisions: *mut *mut PpRevisionSet,
@@ -3652,7 +3653,7 @@ pub unsafe extern "C" fn pp_production_latest_revision(
 /// # Safety
 ///
 /// Pointer rules match [`pp_production_latest_revision`].
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_changes_since(
     production: *const PpProduction,
     sequence: u64,
@@ -3681,7 +3682,7 @@ pub unsafe extern "C" fn pp_production_changes_since(
 /// # Safety
 ///
 /// `revisions` must be null or a live result-set handle.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_revision_set_count(revisions: *const PpRevisionSet) -> u64 {
     catch_unwind(AssertUnwindSafe(|| {
         // SAFETY: A non-null handle is live by the caller contract.
@@ -3698,7 +3699,7 @@ pub unsafe extern "C" fn pp_revision_set_count(revisions: *const PpRevisionSet) 
 ///
 /// `revisions` must be live. Every output must be writable and `out_error` may
 /// be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 #[allow(
     clippy::too_many_arguments,
     reason = "flat C output parameters are ABI-safe"
@@ -3781,7 +3782,7 @@ pub unsafe extern "C" fn pp_revision_set_get(
 /// # Safety
 ///
 /// A non-null handle must be live and released exactly once.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_revision_set_release(revisions: *mut PpRevisionSet) {
     if revisions.is_null() {
         return;
@@ -3798,7 +3799,7 @@ pub unsafe extern "C" fn pp_revision_set_release(revisions: *mut PpRevisionSet) 
 ///
 /// `production` and `revision_id` must be readable live values,
 /// `out_events` must be writable, and `out_error` may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_revision_events(
     production: *const PpProduction,
     revision_id: *const PpUuid,
@@ -3829,7 +3830,7 @@ pub unsafe extern "C" fn pp_production_revision_events(
 /// # Safety
 ///
 /// `events` must be null or a live result-set handle.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_revision_event_set_count(events: *const PpRevisionEventSet) -> u64 {
     catch_unwind(AssertUnwindSafe(|| {
         // SAFETY: A non-null handle is live by the caller contract.
@@ -3845,7 +3846,7 @@ pub unsafe extern "C" fn pp_revision_event_set_count(events: *const PpRevisionEv
 ///
 /// `events` must be live, `out_event` must be writable, and `out_error` may be
 /// null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_revision_event_set_get(
     events: *const PpRevisionEventSet,
     index: u64,
@@ -3871,7 +3872,7 @@ pub unsafe extern "C" fn pp_revision_event_set_get(
 /// # Safety
 ///
 /// A non-null handle must be live and released exactly once.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_revision_event_set_release(events: *mut PpRevisionEventSet) {
     if events.is_null() {
         return;
@@ -3887,7 +3888,7 @@ pub unsafe extern "C" fn pp_revision_event_set_release(events: *mut PpRevisionEv
 /// # Safety
 ///
 /// `value` must be null or borrowed from a live metadata result set.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_metadata_value_kind(value: *const PpMetadataValue) -> u32 {
     catch_unwind(AssertUnwindSafe(|| {
         // SAFETY: A non-null value is live by the caller contract.
@@ -3902,7 +3903,7 @@ pub unsafe extern "C" fn pp_metadata_value_kind(value: *const PpMetadataValue) -
 ///
 /// `value` must be borrowed and live. Outputs must be writable and `out_error`
 /// may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_metadata_value_get_string(
     value: *const PpMetadataValue,
     out_text: *mut *const c_char,
@@ -3933,7 +3934,7 @@ pub unsafe extern "C" fn pp_metadata_value_get_string(
 ///
 /// `value` must be borrowed and live. `out_value` must be writable and
 /// `out_error` may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_metadata_value_get_i64(
     value: *const PpMetadataValue,
     out_value: *mut i64,
@@ -3953,7 +3954,7 @@ pub unsafe extern "C" fn pp_metadata_value_get_i64(
 /// # Safety
 ///
 /// Pointer rules match [`pp_metadata_value_get_i64`].
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_metadata_value_get_u64(
     value: *const PpMetadataValue,
     out_value: *mut u64,
@@ -3974,7 +3975,7 @@ pub unsafe extern "C" fn pp_metadata_value_get_u64(
 ///
 /// `value` must be borrowed and live. Outputs must be writable and `out_error`
 /// may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_metadata_value_get_decimal(
     value: *const PpMetadataValue,
     out_coefficient: *mut *const c_char,
@@ -4005,7 +4006,7 @@ pub unsafe extern "C" fn pp_metadata_value_get_decimal(
 ///
 /// `value` must be borrowed and live. `out_value` must be writable and
 /// `out_error` may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_metadata_value_get_bool(
     value: *const PpMetadataValue,
     out_value: *mut u8,
@@ -4025,7 +4026,7 @@ pub unsafe extern "C" fn pp_metadata_value_get_bool(
 /// # Safety
 ///
 /// Pointer rules match [`pp_metadata_value_get_i64`].
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_metadata_value_get_timestamp(
     value: *const PpMetadataValue,
     out_unix_micros: *mut i64,
@@ -4048,7 +4049,7 @@ pub unsafe extern "C" fn pp_metadata_value_get_timestamp(
 ///
 /// `value` must be borrowed and live. `out_uri` must be writable and
 /// `out_error` may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_metadata_value_get_uri(
     value: *const PpMetadataValue,
     out_uri: *mut *const c_char,
@@ -4075,7 +4076,7 @@ pub unsafe extern "C" fn pp_metadata_value_get_uri(
 ///
 /// `value` must be borrowed and live. Outputs must be writable and `out_error`
 /// may be null or writable. The byte pointer remains valid with the result set.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_metadata_value_get_bytes(
     value: *const PpMetadataValue,
     out_bytes: *mut *const u8,
@@ -4106,7 +4107,7 @@ pub unsafe extern "C" fn pp_metadata_value_get_bytes(
 ///
 /// `value` must be borrowed and live. Outputs must be writable and `out_error`
 /// may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_metadata_value_get_rational(
     value: *const PpMetadataValue,
     out_numerator: *mut i64,
@@ -4139,7 +4140,7 @@ pub unsafe extern "C" fn pp_metadata_value_get_rational(
 /// # Safety
 ///
 /// `value` must be null or borrowed from a live metadata result set.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_metadata_value_list_count(value: *const PpMetadataValue) -> u64 {
     catch_unwind(AssertUnwindSafe(|| {
         // SAFETY: A non-null value is live by the caller contract.
@@ -4157,7 +4158,7 @@ pub unsafe extern "C" fn pp_metadata_value_list_count(value: *const PpMetadataVa
 ///
 /// `value` must be borrowed and live. `out_item` must be writable and
 /// `out_error` may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_metadata_value_list_get(
     value: *const PpMetadataValue,
     index: u64,
@@ -4184,7 +4185,7 @@ pub unsafe extern "C" fn pp_metadata_value_list_get(
 /// # Safety
 ///
 /// `value` must be null or borrowed from a live metadata result set.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_metadata_value_struct_count(value: *const PpMetadataValue) -> u64 {
     catch_unwind(AssertUnwindSafe(|| {
         // SAFETY: A non-null value is live by the caller contract.
@@ -4202,7 +4203,7 @@ pub unsafe extern "C" fn pp_metadata_value_struct_count(value: *const PpMetadata
 ///
 /// `value` must be borrowed and live. Outputs must be writable and `out_error`
 /// may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_metadata_value_struct_get(
     value: *const PpMetadataValue,
     index: u64,
@@ -4235,7 +4236,7 @@ pub unsafe extern "C" fn pp_metadata_value_struct_get(
 ///
 /// `value` must be borrowed and live. `out_reference` must be writable and
 /// `out_error` may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_metadata_value_get_reference(
     value: *const PpMetadataValue,
     out_reference: *mut PpObjectRef,
@@ -4258,7 +4259,7 @@ pub unsafe extern "C" fn pp_metadata_value_get_reference(
 /// # Safety
 ///
 /// `resolutions` must be null or a live handle returned by this library.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_resolution_set_representation_count(
     resolutions: *const PpResolutionSet,
 ) -> u64 {
@@ -4277,7 +4278,7 @@ pub unsafe extern "C" fn pp_resolution_set_representation_count(
 ///
 /// `resolutions` must be live. Every output must be writable, and `out_error`
 /// may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_resolution_set_get_representation(
     resolutions: *const PpResolutionSet,
     representation_index: u64,
@@ -4322,7 +4323,7 @@ pub unsafe extern "C" fn pp_resolution_set_get_representation(
 ///
 /// `resolutions` must be live. Every output must be writable, and `out_error`
 /// may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_resolution_set_get_resource(
     resolutions: *const PpResolutionSet,
     representation_index: u64,
@@ -4363,7 +4364,7 @@ pub unsafe extern "C" fn pp_resolution_set_get_resource(
 ///
 /// `resolutions` must be live. Every output must be writable, and `out_error`
 /// may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_resolution_set_get_issue(
     resolutions: *const PpResolutionSet,
     representation_index: u64,
@@ -4404,7 +4405,7 @@ pub unsafe extern "C" fn pp_resolution_set_get_issue(
 ///
 /// `resolutions` must be live. `out_frame` must be writable, and `out_error`
 /// may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_resolution_set_get_issue_frame(
     resolutions: *const PpResolutionSet,
     representation_index: u64,
@@ -4435,7 +4436,7 @@ pub unsafe extern "C" fn pp_resolution_set_get_issue_frame(
 ///
 /// `resolutions` must be live. Every output must be writable, and `out_error`
 /// may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_resolution_set_get_candidate(
     resolutions: *const PpResolutionSet,
     representation_index: u64,
@@ -4491,7 +4492,7 @@ pub unsafe extern "C" fn pp_resolution_set_get_candidate(
 ///
 /// `resolutions` must be live. Outputs must be writable, and `out_error` may be
 /// null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_resolution_set_get_resource_evidence(
     resolutions: *const PpResolutionSet,
     representation_index: u64,
@@ -4519,7 +4520,7 @@ pub unsafe extern "C" fn pp_resolution_set_get_resource_evidence(
 ///
 /// `resolutions` must be live. Outputs must be writable, and `out_error` may be
 /// null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_resolution_set_get_candidate_evidence(
     resolutions: *const PpResolutionSet,
     representation_index: u64,
@@ -4549,7 +4550,7 @@ pub unsafe extern "C" fn pp_resolution_set_get_candidate_evidence(
 ///
 /// A non-null pointer must have been returned by this library and not previously
 /// released. No borrowed strings may be used after this call.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_resolution_set_release(resolutions: *mut PpResolutionSet) {
     if resolutions.is_null() {
         return;
@@ -4570,7 +4571,7 @@ pub unsafe extern "C" fn pp_resolution_set_release(resolutions: *mut PpResolutio
 ///
 /// `production` must be a live handle returned by this library. `out_transaction`
 /// must be writable. `out_error` may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_begin_transaction(
     production: *mut PpProduction,
     out_transaction: *mut *mut PpTransaction,
@@ -4618,7 +4619,7 @@ pub unsafe extern "C" fn pp_production_begin_transaction(
 ///
 /// `transaction` must be live. Every non-null string must be NUL-terminated
 /// UTF-8 for the duration of the call. `out_error` may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_transaction_set_revision_context(
     transaction: *mut PpTransaction,
     origin_name: *const c_char,
@@ -4669,7 +4670,7 @@ pub unsafe extern "C" fn pp_transaction_set_revision_context(
 /// `transaction` must be a live transaction handle and `source` a live media
 /// source. `display_name` may be null or borrowed NUL-terminated UTF-8.
 /// `out_asset_id` must be writable. `out_error` may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_transaction_import_media(
     transaction: *mut PpTransaction,
     source: *const PpMediaSource,
@@ -4711,7 +4712,7 @@ pub unsafe extern "C" fn pp_transaction_import_media(
 /// `transaction` must be a live transaction handle, `asset_id` readable, and
 /// `source` a live media source. `out_representation_id` must be writable;
 /// `out_error` may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_transaction_add_representation(
     transaction: *mut PpTransaction,
     asset_id: *const PpUuid,
@@ -4759,7 +4760,7 @@ pub unsafe extern "C" fn pp_transaction_add_representation(
 /// `transaction` must be a live transaction handle. `path` must be a borrowed
 /// NUL-terminated UTF-8 string; `label` may be null or satisfy the same rule.
 /// `out_root_id` must be writable. `out_error` may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_transaction_add_media_root(
     transaction: *mut PpTransaction,
     name: *const c_char,
@@ -4800,7 +4801,7 @@ pub unsafe extern "C" fn pp_transaction_add_media_root(
 ///
 /// `transaction` must be live, `root_id` readable, `enabled` exactly zero or
 /// one, and `out_error` null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_transaction_set_media_root_enabled(
     transaction: *mut PpTransaction,
     root_id: *const PpUuid,
@@ -4839,7 +4840,7 @@ pub unsafe extern "C" fn pp_transaction_set_media_root_enabled(
 ///
 /// `transaction` must be live, `root_id` readable, and `out_error` null or
 /// writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_transaction_remove_media_root(
     transaction: *mut PpTransaction,
     root_id: *const PpUuid,
@@ -4880,7 +4881,7 @@ pub unsafe extern "C" fn pp_transaction_remove_media_root(
 /// readable, `uri` must be a NUL-terminated string, `root_name` null or
 /// NUL-terminated, `sequence_naming` null or readable with NUL-terminated
 /// strings, and `out_error` may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_transaction_confirm_locator(
     transaction: *mut PpTransaction,
     resource_id: *const PpUuid,
@@ -4924,7 +4925,7 @@ pub unsafe extern "C" fn pp_transaction_confirm_locator(
 ///
 /// `transaction` must be live, `locator_id` readable, and `out_error` null or
 /// writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_transaction_retire_locator(
     transaction: *mut PpTransaction,
     locator_id: *const PpUuid,
@@ -4958,7 +4959,7 @@ pub unsafe extern "C" fn pp_transaction_retire_locator(
 /// `transaction` must be live, `resource_id` readable, `algorithm` borrowed
 /// NUL-terminated UTF-8, `value` readable for `value_length` bytes, and
 /// `out_error` null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_transaction_record_resource_fingerprint(
     transaction: *mut PpTransaction,
     resource_id: *const PpUuid,
@@ -5003,7 +5004,7 @@ pub unsafe extern "C" fn pp_transaction_record_resource_fingerprint(
 ///
 /// All pointers follow the rules documented above, with `representation_id`
 /// naming the representation to update.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_transaction_record_representation_fingerprint(
     transaction: *mut PpTransaction,
     representation_id: *const PpUuid,
@@ -5048,7 +5049,7 @@ pub unsafe extern "C" fn pp_transaction_record_representation_fingerprint(
 ///
 /// `transaction` and `representation_id` must be live, every dependency and
 /// string must be readable for this call, and `out_error` may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_transaction_record_dependency_set(
     transaction: *mut PpTransaction,
     representation_id: *const PpUuid,
@@ -5087,7 +5088,7 @@ pub unsafe extern "C" fn pp_transaction_record_dependency_set(
 ///
 /// `transaction` must be live, `target` readable, string pointers must satisfy
 /// the rules above, and `out_error` may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_transaction_add_external_identifier(
     transaction: *mut PpTransaction,
     target: *const PpObjectRef,
@@ -5122,7 +5123,7 @@ pub unsafe extern "C" fn pp_transaction_add_external_identifier(
 ///
 /// The pointer and UTF-8 contracts are identical to
 /// [`pp_transaction_add_external_identifier`].
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_transaction_remove_external_identifier(
     transaction: *mut PpTransaction,
     target: *const PpObjectRef,
@@ -5160,7 +5161,7 @@ pub unsafe extern "C" fn pp_transaction_remove_external_identifier(
 ///
 /// `transaction`, `target`, and `input` must be live; vocabulary/property must
 /// be borrowed NUL-terminated UTF-8; and `out_error` may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_transaction_add_metadata_value(
     transaction: *mut PpTransaction,
     target: *const PpObjectRef,
@@ -5200,7 +5201,7 @@ pub unsafe extern "C" fn pp_transaction_add_metadata_value(
 ///
 /// `transaction` must be live, `target` readable, vocabulary/property must be
 /// borrowed NUL-terminated UTF-8, and `out_error` may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_transaction_remove_metadata_property(
     transaction: *mut PpTransaction,
     target: *const PpObjectRef,
@@ -5239,7 +5240,7 @@ pub unsafe extern "C" fn pp_transaction_remove_metadata_property(
 /// the input array must contain `input_count` readable UUIDs (or be null when
 /// the count is zero), `out_job_id` must be writable, and `out_error` may be
 /// null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 #[allow(
     clippy::too_many_arguments,
     reason = "the C ABI keeps the requested output fields explicit"
@@ -5317,7 +5318,7 @@ pub unsafe extern "C" fn pp_transaction_request_job(
 /// `transaction` must be live, `job_id` readable, `tool_name` valid UTF-8,
 /// `out_claim_id` writable, and `out_error` null or writable. Other strings
 /// may be null or must follow the same UTF-8 contract.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 #[allow(
     clippy::too_many_arguments,
     reason = "the C ABI keeps worker attribution fields explicit"
@@ -5381,7 +5382,7 @@ pub unsafe extern "C" fn pp_transaction_claim_job(
 ///
 /// The transaction must be live; both IDs must be readable; `out_error` may be
 /// null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_transaction_renew_job_claim(
     transaction: *mut PpTransaction,
     job_id: *const PpUuid,
@@ -5415,7 +5416,7 @@ pub unsafe extern "C" fn pp_transaction_renew_job_claim(
 ///
 /// The transaction must be live; both IDs must be readable; `out_error` may be
 /// null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_transaction_release_job_claim(
     transaction: *mut PpTransaction,
     job_id: *const PpUuid,
@@ -5447,7 +5448,7 @@ pub unsafe extern "C" fn pp_transaction_release_job_claim(
 ///
 /// The transaction must be live; all four IDs must be readable; `out_error`
 /// may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_transaction_complete_job(
     transaction: *mut PpTransaction,
     job_id: *const PpUuid,
@@ -5530,7 +5531,7 @@ pub unsafe extern "C" fn pp_transaction_complete_job(
 ///
 /// The transaction must be live; both IDs and `diagnostic` must be readable;
 /// `out_error` may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_transaction_fail_job(
     transaction: *mut PpTransaction,
     job_id: *const PpUuid,
@@ -5564,7 +5565,7 @@ pub unsafe extern "C" fn pp_transaction_fail_job(
 ///
 /// The transaction must be live, `job_id` readable, and `out_error` null or
 /// writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_transaction_cancel_job(
     transaction: *mut PpTransaction,
     job_id: *const PpUuid,
@@ -5599,7 +5600,7 @@ pub unsafe extern "C" fn pp_transaction_cancel_job(
 /// `transaction` must be live, `kind` and non-empty edge arrays must be
 /// readable, `out_activity_id` must be writable, and every non-null string must
 /// remain valid for the call. `out_error` may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 #[allow(
     clippy::too_many_arguments,
     reason = "the C ABI keeps optional provenance fields explicit"
@@ -5705,7 +5706,7 @@ pub unsafe extern "C" fn pp_transaction_create_activity(
 ///
 /// `transaction` must be a live transaction handle and `out_error` may be null
 /// or writable. A closed transaction remains valid only for release.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_transaction_commit(
     transaction: *mut PpTransaction,
     out_error: *mut *mut PpError,
@@ -5728,7 +5729,7 @@ pub unsafe extern "C" fn pp_transaction_commit(
 ///
 /// `transaction` must be a live transaction handle and `out_error` may be null
 /// or writable. A closed transaction remains valid only for release.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_transaction_rollback(
     transaction: *mut PpTransaction,
     out_error: *mut *mut PpError,
@@ -5752,7 +5753,7 @@ pub unsafe extern "C" fn pp_transaction_rollback(
 ///
 /// A non-null pointer must have been returned by this library and not previously
 /// released. No other thread may use it during or after this call.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_transaction_release(transaction: *mut PpTransaction) {
     if transaction.is_null() {
         return;
@@ -5770,7 +5771,7 @@ pub unsafe extern "C" fn pp_transaction_release(transaction: *mut PpTransaction)
 ///
 /// A non-null pointer must have been returned by this library and not previously
 /// released. No other thread may use it during or after this call.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_release(production: *mut PpProduction) {
     if production.is_null() {
         return;
@@ -5787,7 +5788,7 @@ pub unsafe extern "C" fn pp_production_release(production: *mut PpProduction) {
 /// # Safety
 ///
 /// `error` must be null or a live error returned by this library.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_error_code(error: *const PpError) -> u32 {
     // SAFETY: A non-null pointer is required to reference a live error by the
     // caller contract and is only borrowed for this call.
@@ -5802,7 +5803,7 @@ pub unsafe extern "C" fn pp_error_code(error: *const PpError) -> u32 {
 /// # Safety
 ///
 /// `error` must be null or a live error returned by this library.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_error_message(error: *const PpError) -> *const c_char {
     // SAFETY: A non-null pointer is required to reference a live error by the
     // caller contract and is only borrowed for this call.
@@ -5819,7 +5820,7 @@ pub unsafe extern "C" fn pp_error_message(error: *const PpError) -> *const c_cha
 ///
 /// A non-null pointer must have been returned by this library and not previously
 /// released.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_error_release(error: *mut PpError) {
     if error.is_null() {
         return;

@@ -88,7 +88,7 @@ struct AbiLocator {
 ///
 /// All input pointers must be live and readable. `out_representations` must be
 /// writable. `out_error` may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_representations(
     production: *const PpProduction,
     asset_id: *const PpUuid,
@@ -133,7 +133,7 @@ pub unsafe extern "C" fn pp_production_representations(
 ///
 /// Input handles and IDs must be live, `cursor` must be null or NUL-terminated
 /// UTF-8, outputs must be writable, and `out_error` may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_representations_page(
     production: *const PpProduction,
     asset_id: *const PpUuid,
@@ -172,7 +172,7 @@ pub unsafe extern "C" fn pp_production_representations_page(
 ///
 /// `production` and `representation_id` must be live, `out_representations`
 /// must be writable, and `out_error` may be null or writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_representation(
     production: *const PpProduction,
     representation_id: *const PpUuid,
@@ -208,7 +208,7 @@ pub unsafe extern "C" fn pp_production_representation(
 ///
 /// Pointer rules match [`pp_production_representations_page`]; `resource_id`
 /// must be live.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_representations_using_resource(
     production: *const PpProduction,
     resource_id: *const PpUuid,
@@ -249,7 +249,7 @@ pub unsafe extern "C" fn pp_production_representations_using_resource(
 ///
 /// Pointer rules match [`pp_production_representations_page`]; `root_name` is
 /// required NUL-terminated UTF-8.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_representations_under_media_root(
     production: *const PpProduction,
     root_name: *const c_char,
@@ -284,7 +284,7 @@ pub unsafe extern "C" fn pp_production_representations_under_media_root(
 /// # Safety
 ///
 /// `representations` must be null or a live representation set.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_representation_set_next_cursor(
     representations: *const PpRepresentationSet,
 ) -> *const c_char {
@@ -301,7 +301,7 @@ pub unsafe extern "C" fn pp_representation_set_next_cursor(
 /// # Safety
 ///
 /// `representations` must be null or a live result-set handle.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_representation_set_count(
     representations: *const PpRepresentationSet,
 ) -> u64 {
@@ -319,7 +319,7 @@ pub unsafe extern "C" fn pp_representation_set_count(
 /// # Safety
 ///
 /// The set must be live and every output pointer must be writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_representation_set_get(
     representations: *const PpRepresentationSet,
     index: u64,
@@ -378,7 +378,7 @@ pub unsafe extern "C" fn pp_representation_set_get(
 /// # Safety
 ///
 /// The set must be live and every output pointer must be writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_representation_set_get_fingerprint(
     representations: *const PpRepresentationSet,
     representation_index: u64,
@@ -427,7 +427,7 @@ pub unsafe extern "C" fn pp_representation_set_get_fingerprint(
 /// # Safety
 ///
 /// The set must be live and every output pointer must be writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_representation_set_get_member(
     representations: *const PpRepresentationSet,
     representation_index: u64,
@@ -472,7 +472,7 @@ pub unsafe extern "C" fn pp_representation_set_get_member(
 /// # Safety
 ///
 /// The set must be live and every output pointer must be writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_representation_set_get_sequence(
     representations: *const PpRepresentationSet,
     representation_index: u64,
@@ -525,7 +525,7 @@ pub unsafe extern "C" fn pp_representation_set_get_sequence(
 /// # Safety
 ///
 /// The set must be live and `out_frame` writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_representation_set_get_sequence_missing_frame(
     representations: *const PpRepresentationSet,
     representation_index: u64,
@@ -562,7 +562,7 @@ pub unsafe extern "C" fn pp_representation_set_get_sequence_missing_frame(
 /// # Safety
 ///
 /// The set must be live and every output pointer must be writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_representation_set_get_resource(
     representations: *const PpRepresentationSet,
     representation_index: u64,
@@ -620,7 +620,7 @@ pub unsafe extern "C" fn pp_representation_set_get_resource(
 /// # Safety
 ///
 /// The set must be live and every output pointer must be writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_representation_set_get_resource_fingerprint(
     representations: *const PpRepresentationSet,
     representation_index: u64,
@@ -666,7 +666,7 @@ pub unsafe extern "C" fn pp_representation_set_get_resource_fingerprint(
 /// # Safety
 ///
 /// The set must be live and every output pointer must be writable.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_representation_set_get_locator(
     representations: *const PpRepresentationSet,
     representation_index: u64,
@@ -723,7 +723,7 @@ pub unsafe extern "C" fn pp_representation_set_get_locator(
 /// # Safety
 ///
 /// A non-null pointer must be an unreleased result-set handle.
-#[unsafe(no_mangle)]
+#[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_representation_set_release(representations: *mut PpRepresentationSet) {
     let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         if !representations.is_null() {
