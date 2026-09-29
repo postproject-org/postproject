@@ -17,8 +17,9 @@
 - A **MediaRoot** is an ordered, optional search boundary used by the resolver.
 - A **ResourceFingerprint** and a **RepresentationFingerprint** are separate,
   versioned evidence domains. Neither replaces object identity.
-- A **Resolution** aggregates required content into online, partial, offline, or
-  ambiguous representation availability and retains resource-level evidence.
+- A **Resolution** aggregates required content into online, partial, offline,
+  ambiguous, or error representation availability and retains resource-level
+  evidence.
 - An **Activity** is a complete provenance fact connecting input and output
   representations with storage-captured fingerprint snapshots.
 - A **Dependency** is a live authored reference from a representation to an

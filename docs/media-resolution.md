@@ -87,8 +87,9 @@ with multiple unassociated profiles, and mismatches simply omit this evidence.
 
 Representation availability is then aggregated from its content structure.
 Every required member online is `Online`; a mix of online and offline required
-members is `Partial`; no resolvable required members is `Offline`; and an
-ambiguous required member makes the representation `Ambiguous`. Optional
+members is `Partial`; no resolvable required members is `Offline`; an
+ambiguous required member makes the representation `Ambiguous`; and a required
+member whose resolution failed makes it `Error`, which takes precedence. Optional
 package members produce diagnostics without reducing availability. Known
 missing image-sequence frames make an otherwise online sequence `Partial`, with
 the exact frames retained in the diagnostic.

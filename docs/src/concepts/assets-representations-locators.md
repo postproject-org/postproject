@@ -41,8 +41,9 @@ Content structures distinguish:
 
 Availability is evaluated for the complete representation. All required
 content being resolvable is **online**; some required content being available is
-**partial**; none being available is **offline**; and multiple plausible
-resolutions are **ambiguous**. Missing optional package members can be reported
+**partial**; none being available is **offline**; multiple plausible
+resolutions are **ambiguous**; and a required resource whose resolution failed
+makes the representation **error**. Missing optional package members can be reported
 without making otherwise usable media partial.
 
 This separation is why PostProject can retain an asset's identity and metadata
