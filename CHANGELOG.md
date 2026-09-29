@@ -7,6 +7,37 @@ All notable changes to PostProject will be documented here. The project uses
 
 Development version: `0.4.0-alpha.1`.
 
+### Migrating from 0.3
+
+The integration-preview subset of ADR 0020 ended with the `0.3.x` series; every
+API of `0.4.x` is experimental. These changes affect code written against the
+`0.3.x` subset:
+
+- `pp_production_resolve_asset` is replaced by `pp_production_resolve_assets`,
+  which takes an array of assets and a nullable `pp_resolution_options_t`
+  holding the root mappings, search directories, verification mode, budgets,
+  and cancellation token. C++ `resolveAsset` takes a `ResolutionOptions`
+  instead of root mappings, and Python `Production.resolve` accepts one asset
+  or several.
+- `pp_resolution_set_get_representation` also returns the asset, and
+  `pp_resolution_set_get_candidate` the candidate's media root and sequence
+  naming.
+- An image sequence's prefix, suffix, and padding moved from
+  `pp_representation_set_get_sequence` to `pp_representation_set_get_locator`,
+  and from the C++ and Python sequence structure to each locator's
+  `SequenceNaming`. Missing frames are read with
+  `pp_representation_set_get_sequence_missing_frame`.
+- `pp_transaction_confirm_locator` takes a nullable media-root name and a
+  sequence naming, which an image-sequence resource requires and any other
+  resource must leave `NULL`; pass the naming the chosen candidate reports.
+- Release a formatted host-object reference with `pp_string_release` instead
+  of `pp_host_binding_release`.
+- C++ subset operations return `postproject::Result<T>`; call `value()` to keep
+  throwing, or test the result when exceptions are disabled.
+- Productions from any 0.3 release migrate to SQLite schema 15 when opened.
+  Version 1 sequence fingerprints are no longer computed; observe the sequence
+  again before comparing it.
+
 ### Added
 
 - Added Python platform wheels that carry the native library, and built the
@@ -122,6 +153,8 @@ Development version: `0.4.0-alpha.1`.
 
 ### Changed
 
+- Ended the integration-preview subset with the 0.3.x series; every 0.4 API is
+  experimental (ADR 0020).
 - Image-sequence file names belong to each locator, so a renamed sequence is
   found by content and confirmed under its new naming, on every surface
   (ADR 0038, C ABI 35, schema 15). Version 1 sequence and representation

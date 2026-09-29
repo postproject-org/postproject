@@ -39,6 +39,13 @@ All other APIs remain experimental. The SQLite schema may advance within `0.3.x`
 provided every released `0.3.x` production has a tested forward migration and no
 production knowledge is silently discarded.
 
+The tier ends with the `0.3.x` series. Release 0.4 names no subset: every API
+of the `0.4.x` series is experimental and may change within it. Changes to
+operations of the former subset are still documented with migration notes in
+the changelog, so code written against `0.3.x` can be updated. A later release
+may name a subset again once maintained consumers show which operations have
+settled.
+
 ## Alternatives considered
 
 - **Keep unrestricted pre-1.0 breakage.** This transfers integration churn to
