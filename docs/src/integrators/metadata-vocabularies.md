@@ -9,12 +9,14 @@ data.
 ## Add and read metadata
 
 A metadata assertion attaches a typed value to a production, asset,
-representation, resource, or activity under an exact vocabulary and property.
-Every surface can:
+representation, resource, activity, or job under an exact vocabulary and
+property. Every surface can:
 
 - append a value, so a property can hold several ordered values;
-- remove every value of a property from a target;
-- read every assertion on a target; and
+- remove every value of a property from a target (except the C++ wrapper; see
+  below);
+- read every assertion on a target (except the C++ wrapper; see
+  [availability](#availability)); and
 - find every assertion that uses an exact vocabulary and property, as one
   [bounded page](bounded-queries.md) at a time and optionally restricted to an
   exact scalar value.
@@ -62,9 +64,10 @@ revision event:
 
 ```{code-variants} remove-metadata
 :::{no-variant} cpp
-The C++ wrapper does not wrap property removal. Call
-`pp_transaction_remove_metadata_property` on the native transaction, or remove
-the property from another surface.
+The C++ wrapper does not wrap property removal and does not expose its native
+transaction handle. Call `pp_transaction_remove_metadata_property` in a
+transaction begun through the C API, or remove the property from another
+surface.
 :::
 ```
 
@@ -111,8 +114,10 @@ keeps unknown and application-specific metadata fully round-trippable.
 The typed domain model, optional vocabulary registry, and SQLite persistence
 back every surface. C, Python, Rust, and the CLI read and write every value
 kind. The C++ wrapper writes every value kind and reads property queries with
-`queryMetadata`, but does not wrap reading every assertion on one target; C++
-integrations call `pp_production_metadata` for that. Activity metadata
+`queryMetadata`, but does not wrap reading every assertion on one target or
+removing a property, and does not expose its native handles; C++ integrations
+call `pp_production_metadata` and `pp_transaction_remove_metadata_property`
+through the C API for that. Activity metadata
 is writable after the activity is created in the same or an earlier
 transaction.
 
