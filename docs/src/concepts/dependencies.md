@@ -17,6 +17,22 @@ A changed dependency therefore does not make the referencing representation
 stale. It can make an artifact produced *from* that representation stale,
 because the activity used a previous state of the dependency closure.
 
+In the following example, a compositing script is one input of a render, and
+the script reads a LUT at render time:
+
+```mermaid
+flowchart LR
+    file["script file<br/>resource"] -- "membership" --> script["compositing script<br/>representation"]
+    script -. "dependency" .-> lut["LUT<br/>representation"]
+    plate["plate<br/>representation"] -- "input" --> render{{"render activity"}}
+    script -- "input" --> render
+    render -- "output" --> comp["comp render<br/>representation"]
+```
+
+A new LUT does not make the script stale; the script still reads whichever LUT
+is current. It makes the comp render stale, because the render activity
+captured the LUT that the script read when the render was made.
+
 ## Edge model
 
 Every edge records:

@@ -2,6 +2,25 @@
 
 ## Boundaries and dependency direction
 
+```mermaid
+flowchart TD
+    cpp["postproject.hpp<br/>header-only C++17 wrapper"] --> ffi
+    python["Python package<br/>ctypes over the C ABI"] --> ffi
+    ffi["postproject-ffi<br/>C ABI: postproject.h"]
+    cli["postproject-cli<br/>demonstrator CLI"]
+    ffi --> storage["postproject-storage-sqlite<br/>migrations, transactions"]
+    ffi --> media["postproject-media<br/>fingerprints, discovery, resolution"]
+    cli --> storage
+    cli --> media
+    storage --> core["postproject-core<br/>IDs, domain values, store contracts"]
+    media --> core
+    storage --- pproj[(".pproj<br/>SQLite file")]
+    media --- files[("media files<br/>and roots")]
+```
+
+Arrows point toward dependencies; `postproject-ffi` and `postproject-cli` also
+depend on `postproject-core` directly.
+
 `postproject-core` owns stable IDs, domain values, errors, transaction semantics,
 and domain-oriented service contracts. It has no dependency on SQLite, C/C++, Qt,
 or any editor. Every other component may depend on core; core never depends on an

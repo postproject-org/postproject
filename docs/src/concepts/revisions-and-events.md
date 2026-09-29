@@ -9,6 +9,15 @@ changes, revision, and ordered semantic events are atomic: consumers see all of
 them or none of them. Empty transactions, rollbacks, and failed mutations do
 not advance the revision sequence.
 
+```mermaid
+flowchart LR
+    tx["Transaction<br/>staged changes"] -- "commit" --> revision["Revision n<br/>sequence, origin, message"]
+    revision --> e1["event 1"]
+    revision --> e2["event 2"]
+    revision --> e3["event …"]
+    tx -. "rollback, empty, or failed" .-> none(["no revision"])
+```
+
 ## Revision identity and origin
 
 A revision contains:

@@ -29,6 +29,17 @@ default. A directory that exceeds its entry limit is searched partially and
 reported with `SearchTruncated` evidence, and the other directories and the
 candidates found so far are still used. A cancellation token stops the call.
 
+```mermaid
+flowchart TD
+    known{"Known locator present?"}
+    known -- "yes" --> aggregate
+    known -- "no" --> discover["<b>Discovery</b><br/>one shared walk of mapped roots and search directories"]
+    discover --> filter["<b>Cheap filtering</b><br/>file name or sequence group, file size"]
+    filter --> verify["<b>Verification</b><br/>fingerprints in domains the resolver can compute"]
+    verify --> score["<b>Scoring</b><br/>evidence and confidence per candidate"]
+    score --> aggregate["<b>Aggregation</b><br/>representation availability from its content structure"]
+```
+
 Presence and verification remain separate as required by ADR 0015. Normal
 resolution checks that a known locator and its declared members exist. An
 image-sequence locator is checked under its own naming; a directory holding none

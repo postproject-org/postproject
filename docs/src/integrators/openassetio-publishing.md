@@ -67,6 +67,22 @@ CI, including an observer in a second process.
 
 ## What PostProject records
 
+```mermaid
+sequenceDiagram
+    participant Host as OpenAssetIO host
+    participant M as PostProject Manager
+    participant P as Production
+    Host->>M: managementPolicy for the trait set
+    Host->>M: preflight the target reference
+    M->>P: request an openassetio-publish job
+    M-->>Host: working reference naming the job
+    Note over Host: writes the media
+    Host->>M: register traits against the working reference
+    M->>P: one transaction: claim, stage the representation,<br/>metadata, and activity, complete the job
+    M-->>Host: final reference
+    Note over P: one revision that other<br/>applications can observe
+```
+
 `preflight` requests a job of kind `org.postproject:openassetio-publish` for a
 new representation of the target's asset; the working reference names that
 job. `register` claims and completes the job in one transaction. The result is

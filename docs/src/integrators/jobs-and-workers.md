@@ -4,6 +4,31 @@ PostProject persists the production meaning of requested work. Your host,
 service, or script remains responsible for choosing jobs, starting processes,
 managing resources, and applying retry policy.
 
+The protocol between a host that wants work and a worker that does it:
+
+```mermaid
+sequenceDiagram
+    participant Host as Requesting host
+    participant P as Production
+    participant Worker
+    Host->>P: request a job: inputs, output target, parameters
+    Worker->>P: list requested jobs of a kind it understands
+    Worker->>P: claim with tool identity, current time, lease expiry
+    P-->>Worker: claim token
+    loop while the work outlasts the lease
+        Worker->>P: renew with the token
+    end
+    alt the tool succeeds
+        Worker->>P: one transaction: stage the output,<br/>record its activity, complete with the token
+    else the tool fails
+        Worker->>P: fail with the token and a bounded diagnostic
+    end
+    P-->>Host: revision with JobSucceeded or JobFailed
+```
+
+Each arrow into the production is a committed transaction; the sections below
+describe them in order.
+
 ## Request work
 
 Create the job and any parameter metadata in one transaction. The request names

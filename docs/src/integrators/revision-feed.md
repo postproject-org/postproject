@@ -6,6 +6,22 @@ committed transaction becomes one revision with a production-local sequence
 number and an ordered list of semantic events. Store the last fully processed
 sequence as the local cursor.
 
+```mermaid
+sequenceDiagram
+    participant Other as Another application
+    participant P as Production
+    participant You as Your integration
+    Other->>P: commit a transaction
+    Note over P: one new revision<br/>with ordered events
+    You->>P: wait, or read changes after the cursor
+    P-->>You: bounded page of revisions
+    loop each revision, in order
+        You->>P: read the revision's events
+        You->>P: re-query the objects the events name
+        Note over You: store the revision's sequence as the cursor
+    end
+```
+
 ## Polling safely
 
 1. Request the revisions after the cursor with a bounded page size.

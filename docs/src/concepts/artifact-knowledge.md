@@ -25,6 +25,20 @@ activity input. A changed dependency path or fingerprint can therefore make a
 generated artifact stale without classifying the referencing source itself as
 stale.
 
+When several conditions apply at once, the most severe state wins, in the
+order the questions are asked here:
+
+```mermaid
+flowchart TD
+    own["Does the artifact's own fingerprint differ<br/>from the output captured at commit?"]
+    own -- "yes" --> diverged(["diverged"])
+    own -- "no" --> changed["Did an input or a required dependency change,<br/>or is a managed upstream artifact stale or diverged?"]
+    changed -- "yes" --> stale(["stale"])
+    changed -- "no" --> missing["Is evidence missing, is an upstream artifact indeterminate,<br/>or was a traversal bound reached?"]
+    missing -- "yes" --> indeterminate(["indeterminate"])
+    missing -- "no" --> current(["current"])
+```
+
 ## Explanations and bounds
 
 Every non-current evaluation includes structured reasons. Depending on the

@@ -31,6 +31,17 @@ with the naming of the files there: their prefix, suffix, and frame-number
 padding. Renaming a sequence therefore changes only its locator, and a copy of
 the sequence under other names is another locator of the same resource.
 
+```mermaid
+flowchart TD
+    asset["Asset"] --> representation["Representation"]
+    representation -- "one of" --> single["single resource<br/>a movie file"]
+    representation -- "one of" --> sequence["image sequence<br/>one patterned resource"]
+    representation -- "one of" --> ordered["ordered resources<br/>parts of a spanned recording"]
+    representation -- "one of" --> package["package<br/>required and optional members"]
+    sequence --> original["locator<br/>directory + naming sh010.####.exr"]
+    sequence --> renamed["locator<br/>directory + naming sh010_grade.####.exr"]
+```
+
 Content structures distinguish:
 
 - one resource;

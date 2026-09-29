@@ -18,6 +18,8 @@ Development version: `0.4.0-alpha.1`.
 - Added a tested Flatpak module that builds PostProject offline from the release
   source archive, published with its Cargo sources on each release.
 - Documented publishing media through the OpenAssetIO Manager (ADR 0010).
+- Added Mermaid diagrams of the model, integration depths, relinking, jobs,
+  revisions, and artifact evaluation to the documentation.
 - Added point reads for assets, representations, and jobs, and a page of the
   representations using a resource, on every surface (C ABI 27).
 - Added tested documentation examples for every public operation. Every C
