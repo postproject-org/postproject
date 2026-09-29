@@ -24,7 +24,7 @@ OpenAssetIO and OTIO integration demonstrations, and a published unified API
 site. The delivered scope and remaining constraints are recorded in the
 [acceptance report](release-0.3-report.md).
 
-## Release 0.4 — in progress
+## Release 0.4 — complete
 
 Add managed-artifact knowledge, dependency-aware staleness, durable production
 jobs, scalable domain queries, cross-process change delivery, publishing, and a
@@ -50,7 +50,9 @@ sequences by content through a sidecar or Blender project production. It led
 to media sources for importing any content structure, sequence names on
 locators so renamed sequences are found, and platform wheels that carry the
 native library. What the pilots taught is recorded in the
-[integration findings](release-0.4-integration-findings.md).
+[integration findings](release-0.4-integration-findings.md), and the delivered
+scope and remaining constraints in the
+[acceptance report](release-0.4-report.md).
 
 ## Explicitly later
 

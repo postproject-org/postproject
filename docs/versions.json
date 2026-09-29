@@ -1,8 +1,13 @@
 [
   {
     "version": "latest",
-    "title": "Latest · 0.3.0-alpha.2 (ABI 15)",
+    "title": "Latest · 0.4.0-alpha.1 (ABI 35)",
     "url": "https://docs.postproject.org/latest/"
+  },
+  {
+    "version": "0.4.0-alpha.1",
+    "title": "0.4.0-alpha.1 (ABI 35)",
+    "url": "https://docs.postproject.org/0.4.0-alpha.1/"
   },
   {
     "version": "0.3.0-alpha.2",
@@ -16,7 +21,7 @@
   },
   {
     "version": "main",
-    "title": "Development · 0.4.0-alpha.1 (ABI 16)",
+    "title": "Development · 0.4.0-alpha.1 (ABI 35)",
     "url": "https://docs.postproject.org/"
   }
 ]

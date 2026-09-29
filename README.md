@@ -144,7 +144,7 @@ Use <https://docs.postproject.org> for the published documentation.
 
 ## Project status and compatibility
 
-PostProject is in alpha development; the current development version is `0.4.0-alpha.1` with C ABI version 35. ADR 0020 names an integration-preview subset that stayed compatible within the 0.3.x series and that the 0.4 series may revise with documented migration; other APIs are experimental. Consumers should pin a release series or exact commit and check the ABI policy before depending on a particular interface.
+PostProject is in alpha development; the current release is `0.4.0-alpha.1` with C ABI version 35 and SQLite schema 15. Every API is experimental and may change within the 0.4.x series; the integration-preview subset of ADR 0020 ended with the 0.3.x series, and the changelog describes how it changed. Consumers should pin an exact release or commit and check the ABI policy before depending on a particular interface.
 
 The important distinction is intentional: **production data should be durable even while APIs are still being refined.** Compatibility promises are therefore documented explicitly rather than implied by version numbers alone.
 
