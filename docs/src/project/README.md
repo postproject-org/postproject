@@ -29,6 +29,7 @@ Use these pages when the implementation itself is relevant:
 - {doc}`../../persistence`
 - {doc}`../../testing`
 - {doc}`../../benchmarks`
+- {doc}`../../compatibility-evidence`
 - {doc}`../../fuzzing`
 
 These are engineering references. Application integrators should prefer the integrator and concept guides unless they are diagnosing implementation behavior.
@@ -59,6 +60,7 @@ When a change touches an area that maps to an external standard, consult the sta
 /persistence
 /testing
 /benchmarks
+/compatibility-evidence
 /fuzzing
 releases
 decisions

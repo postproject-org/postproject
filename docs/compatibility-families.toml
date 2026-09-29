@@ -1,0 +1,183 @@
+format_version = 1
+baseline_release = "0.4.0-alpha.1"
+candidate_release = "0.5.0-alpha.1"
+release_order = [
+  "0.1.0-alpha.1",
+  "0.2.0-alpha.1",
+  "0.3.0-alpha.1",
+  "0.3.0-alpha.2",
+  "0.4.0-alpha.1",
+  "0.5.0-alpha.1",
+]
+
+# Families describe evidence units, not compatibility promises. A family is
+# eligible only as a whole, and the release decision remains an ADR change.
+
+[[families]]
+id = "production-lifecycle"
+introduced_release = "0.1.0-alpha.1"
+last_changed_release = "0.4.0-alpha.1"
+last_changed_abi = 32
+c_operations = [
+  "pp_production_create",
+  "pp_production_open",
+  "pp_production_id",
+  "pp_production_release",
+]
+cpp_operations = ["Production::create", "Production::open", "Production::id"]
+python_operations = ["Production.create", "Production.open", "Production.id"]
+
+[[families]]
+id = "transaction-lifecycle"
+introduced_release = "0.1.0-alpha.1"
+last_changed_release = "0.4.0-alpha.1"
+last_changed_abi = 32
+c_operations = [
+  "pp_production_begin_transaction",
+  "pp_transaction_set_revision_context",
+  "pp_transaction_commit",
+  "pp_transaction_rollback",
+  "pp_transaction_release",
+]
+cpp_operations = [
+  "Production::beginTransaction",
+  "Transaction::setRevisionContext",
+  "Transaction::commit",
+  "Transaction::rollback",
+]
+python_operations = [
+  "Production.begin_transaction",
+  "Transaction.set_revision_context",
+  "Transaction.commit",
+  "Transaction.rollback",
+]
+
+[[families]]
+id = "asset-point-read"
+introduced_release = "0.4.0-alpha.1"
+last_changed_release = "0.4.0-alpha.1"
+last_changed_abi = 26
+c_operations = [
+  "pp_production_asset",
+  "pp_asset_set_count",
+  "pp_asset_set_get",
+  "pp_asset_set_release",
+]
+cpp_operations = ["Production::asset"]
+python_operations = ["Production.asset"]
+
+[[families]]
+id = "external-identifiers"
+introduced_release = "0.2.0-alpha.1"
+last_changed_release = "0.4.0-alpha.1"
+last_changed_abi = 30
+c_operations = [
+  "pp_production_external_identifiers",
+  "pp_production_find_by_external_identifier",
+  "pp_external_identifier_set_count",
+  "pp_external_identifier_set_get",
+  "pp_external_identifier_set_release",
+  "pp_object_ref_set_count",
+  "pp_object_ref_set_get",
+  "pp_object_ref_set_release",
+  "pp_transaction_add_external_identifier",
+]
+cpp_operations = [
+  "Production::externalIdentifiers",
+  "Production::findByExternalIdentifier",
+  "Transaction::addExternalIdentifier",
+]
+python_operations = [
+  "Production.external_identifiers",
+  "Production.find_by_external_identifier",
+  "Transaction.add_external_identifier",
+]
+
+[[families]]
+id = "locator-inspection"
+introduced_release = "0.2.0-alpha.1"
+last_changed_release = "0.4.0-alpha.1"
+last_changed_abi = 35
+c_operations = [
+  "pp_production_locators_page",
+  "pp_locator_query_set_count",
+  "pp_locator_query_set_get",
+  "pp_locator_query_set_next_cursor",
+  "pp_locator_query_set_release",
+]
+cpp_operations = ["Production::locators"]
+python_operations = ["Production.locators"]
+
+[[families]]
+id = "resolution"
+introduced_release = "0.1.0-alpha.1"
+last_changed_release = "0.4.0-alpha.1"
+last_changed_abi = 35
+c_operations = [
+  "pp_production_resolve_assets",
+  "pp_resolution_set_representation_count",
+  "pp_resolution_set_get_representation",
+  "pp_resolution_set_get_resource",
+  "pp_resolution_set_release",
+]
+cpp_operations = ["Production::resolveAssets"]
+python_operations = ["Production.resolve"]
+
+[[families]]
+id = "revision-feed"
+introduced_release = "0.2.0-alpha.1"
+last_changed_release = "0.4.0-alpha.1"
+last_changed_abi = 28
+c_operations = [
+  "pp_production_latest_revision",
+  "pp_production_changes_since",
+  "pp_revision_set_count",
+  "pp_revision_set_get",
+  "pp_revision_set_release",
+  "pp_production_revision_events",
+  "pp_revision_event_set_count",
+  "pp_revision_event_set_get",
+  "pp_revision_event_set_release",
+]
+cpp_operations = [
+  "Production::latestRevision",
+  "Production::changesSince",
+  "Production::revisionEvents",
+]
+python_operations = [
+  "Production.latest_revision",
+  "Production.changes_since",
+  "Production.revision_events",
+]
+
+[[families]]
+id = "content-verification"
+introduced_release = "0.4.0-alpha.1"
+last_changed_release = "0.4.0-alpha.1"
+last_changed_abi = 29
+c_operations = ["pp_production_verify_resource"]
+cpp_operations = ["Production::verifyResource"]
+python_operations = ["Production.verify_resource"]
+
+[[families]]
+id = "host-object-binding"
+introduced_release = "0.2.0-alpha.1"
+last_changed_release = "0.4.0-alpha.1"
+last_changed_abi = 32
+c_operations = [
+  "pp_host_binding_format",
+  "pp_host_binding_parse",
+  "pp_string_release",
+]
+cpp_operations = ["HostObjectBinding::format", "HostObjectBinding::parse"]
+python_operations = ["HostObjectBinding.format", "HostObjectBinding.parse"]
+
+[[families]]
+id = "cpp-result-propagation"
+introduced_release = "0.4.0-alpha.1"
+last_changed_release = "0.4.0-alpha.1"
+last_changed_abi = 32
+c_operations = []
+cpp_operations = ["Result<T>", "POSTPROJECT_TRY", "POSTPROJECT_TRY_ASSIGN"]
+python_operations = []
+projection_only = true

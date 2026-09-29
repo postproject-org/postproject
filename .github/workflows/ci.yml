@@ -55,10 +55,10 @@ jobs:
       - run: python tools/check_versions.py
       - run: python tools/check_example_coverage.py
       - run: python tools/flatpak_module.py check
-      - run: python -m unittest tools/test_flatpak_module.py tools/test_build_platform_wheel.py
-      - run: ruff check tools/check_versions.py tools/check_cpp_header_warnings.py tools/check_example_coverage.py tools/check_docs_coverage.py tools/test_check_docs_coverage.py tools/normalize_doxygen_xml.py tools/test_normalize_doxygen_xml.py tools/flatpak_module.py tools/test_flatpak_module.py tools/build_platform_wheel.py tools/test_build_platform_wheel.py
-      - run: ruff format --check tools/check_versions.py tools/check_cpp_header_warnings.py tools/check_example_coverage.py tools/check_docs_coverage.py tools/test_check_docs_coverage.py tools/normalize_doxygen_xml.py tools/test_normalize_doxygen_xml.py tools/flatpak_module.py tools/test_flatpak_module.py tools/build_platform_wheel.py tools/test_build_platform_wheel.py
-      - run: ty check tools/check_versions.py tools/check_example_coverage.py tools/check_docs_coverage.py tools/test_check_docs_coverage.py tools/normalize_doxygen_xml.py tools/test_normalize_doxygen_xml.py tools/flatpak_module.py tools/test_flatpak_module.py tools/build_platform_wheel.py tools/test_build_platform_wheel.py
+      - run: python -m unittest tools/test_flatpak_module.py tools/test_build_platform_wheel.py tools/test_compatibility_usage.py
+      - run: ruff check tools/check_versions.py tools/check_cpp_header_warnings.py tools/check_example_coverage.py tools/check_docs_coverage.py tools/test_check_docs_coverage.py tools/compatibility_usage.py tools/test_compatibility_usage.py tools/normalize_doxygen_xml.py tools/test_normalize_doxygen_xml.py tools/flatpak_module.py tools/test_flatpak_module.py tools/build_platform_wheel.py tools/test_build_platform_wheel.py
+      - run: ruff format --check tools/check_versions.py tools/check_cpp_header_warnings.py tools/check_example_coverage.py tools/check_docs_coverage.py tools/test_check_docs_coverage.py tools/compatibility_usage.py tools/test_compatibility_usage.py tools/normalize_doxygen_xml.py tools/test_normalize_doxygen_xml.py tools/flatpak_module.py tools/test_flatpak_module.py tools/build_platform_wheel.py tools/test_build_platform_wheel.py
+      - run: ty check tools/check_versions.py tools/check_example_coverage.py tools/check_docs_coverage.py tools/test_check_docs_coverage.py tools/compatibility_usage.py tools/test_compatibility_usage.py tools/normalize_doxygen_xml.py tools/test_normalize_doxygen_xml.py tools/flatpak_module.py tools/test_flatpak_module.py tools/build_platform_wheel.py tools/test_build_platform_wheel.py
       - run: cargo fmt --check
       - run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
       - run: cargo doc --workspace --all-features --no-deps --locked

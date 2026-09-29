@@ -5,6 +5,8 @@ All notable changes to PostProject will be documented here. The project uses
 
 ## Unreleased
 
+- Added opt-in C ABI usage traces and mechanical compatibility-family reports.
+
 ## 0.4.0-alpha.1 - 2026-09-29
 
 ### Migrating from 0.3
