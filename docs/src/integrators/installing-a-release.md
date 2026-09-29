@@ -11,12 +11,12 @@ from the [GitHub release](https://github.com/postproject-org/postproject/release
 For example, on Linux:
 
 ```sh
-sha256sum --check postproject-0.3.0-alpha.2-linux-x86_64.tar.gz.sha256
-mkdir postproject-0.3.0-alpha.2
-tar -xzf postproject-0.3.0-alpha.2-linux-x86_64.tar.gz \
-  -C postproject-0.3.0-alpha.2
-export PATH="$PWD/postproject-0.3.0-alpha.2/bin:$PATH"
-export LD_LIBRARY_PATH="$PWD/postproject-0.3.0-alpha.2/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+sha256sum --check postproject-0.4.0-alpha.1-linux-x86_64.tar.gz.sha256
+mkdir postproject-0.4.0-alpha.1
+tar -xzf postproject-0.4.0-alpha.1-linux-x86_64.tar.gz \
+  -C postproject-0.4.0-alpha.1
+export PATH="$PWD/postproject-0.4.0-alpha.1/bin:$PATH"
+export LD_LIBRARY_PATH="$PWD/postproject-0.4.0-alpha.1/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 postproject --version
 ```
 

@@ -61,7 +61,7 @@ short message on the resulting revision; it does not authenticate anyone.
 
 Every surface reports the same stable error categories — invalid argument, not
 found, already exists, I/O, storage, migration, conflict, ambiguous resolution,
-fingerprint, unsupported, and internal — in its own idiom. Branch on the
+fingerprint, unsupported, cancelled, and internal — in its own idiom. Branch on the
 category, never on message text, which is diagnostic and may change:
 
 ```{code-variants} error-handling
