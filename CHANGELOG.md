@@ -5,7 +5,7 @@ All notable changes to PostProject will be documented here. The project uses
 
 ## Unreleased
 
-Development version: `0.4.0-alpha.1`.
+## 0.4.0-alpha.1 - 2026-09-29
 
 ### Migrating from 0.3
 
