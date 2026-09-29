@@ -5,7 +5,7 @@ cmake_minimum_required(VERSION 3.21)
 # Rust listings run as the postproject-doc-examples workspace test.
 project(postproject_doc_examples LANGUAGES C CXX)
 
-find_package(PostProject 0.3 REQUIRED CONFIG)
+find_package(PostProject 0.4 REQUIRED CONFIG)
 find_package(Python3 3.11 COMPONENTS Interpreter)
 find_program(POSTPROJECT_EXECUTABLE postproject)
 find_program(BASH_EXECUTABLE bash)

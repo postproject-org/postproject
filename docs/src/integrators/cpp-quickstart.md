@@ -18,15 +18,15 @@ ctest --test-dir build/postproject-cpp-example \
 ```
 
 The test creates `cpp-example.pproj`, imports the installed
-`sample-media.dat`, commits through the RAII transaction wrapper, and verifies
-that the asset owns one representation. It then shows that invalid metadata
+`sample-media.dat`, commits through the RAII transaction wrapper, and prints
+the asset's representation count. It then shows that invalid metadata
 input is reported by the operation that consumes it. Its production path must
 not already exist.
 
 Use the exported package target from an application:
 
 ```cmake
-find_package(PostProject 0.3 REQUIRED CONFIG)
+find_package(PostProject 0.4 REQUIRED CONFIG)
 target_link_libraries(my_application PRIVATE PostProject::postproject)
 target_compile_features(my_application PRIVATE cxx_std_17)
 ```

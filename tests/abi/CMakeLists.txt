@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.21)
 
 project(postproject_native_consumers LANGUAGES C CXX)
 
-find_package(PostProject 0.3 REQUIRED CONFIG)
+find_package(PostProject 0.4 REQUIRED CONFIG)
 
 add_executable(postproject-cpp-smoke cpp_smoke.cpp)
 target_compile_features(postproject-cpp-smoke PRIVATE cxx_std_17)

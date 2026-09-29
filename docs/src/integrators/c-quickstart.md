@@ -19,13 +19,14 @@ ctest --test-dir build/postproject-c-example \
 ```
 
 The test creates `c-example.pproj`, imports the installed
-`sample-media.dat`, commits the transaction, and verifies that the asset owns
-one representation. Its production path must not already exist.
+`sample-media.dat`, commits the transaction, and prints the asset ID, its
+representation count, and the location of its original. Its production path
+must not already exist.
 
 For an application target, consume the same package normally:
 
 ```cmake
-find_package(PostProject 0.3 REQUIRED CONFIG)
+find_package(PostProject 0.4 REQUIRED CONFIG)
 target_link_libraries(my_application PRIVATE PostProject::postproject)
 ```
 
