@@ -72,7 +72,7 @@ The Rust crates remain useful for contributors and Rust-native experimentation, 
 
 ## Try the workflow from the command line
 
-The CLI is the quickest way to understand the model without writing an integration. The following examples are intentionally kept from the existing documentation.
+The CLI is the quickest way to understand the model without writing an integration. `ASSET_ID` stands for an ID printed by `media add` or `media list`; `--inspect` needs `ffprobe`, and every `--root-map` directory must exist on the local machine.
 
 ```sh
 cargo run -p postproject-cli -- init production.pproj --name "Documentary"
@@ -90,7 +90,7 @@ For a guided explanation of what each step means, see the **Portable production 
 
 ## Integrate a native application
 
-Release packages are intended to be consumable without Cargo. When developing the package locally, the existing build flow is:
+Release packages are consumed without Cargo. To build and install the native package from a source checkout on Linux:
 
 ```sh
 cargo build --release --locked -p postproject-ffi
@@ -139,14 +139,14 @@ mkdir -p target/doxygen
 doxygen Doxyfile
 python tools/normalize_doxygen_xml.py target/doxygen/xml
 python tools/check_docs_coverage.py include/postproject/postproject.h target/doxygen/xml
-sphinx-build --fail-on-warning -b html docs target/postproject
+sphinx-build --fail-on-warning --keep-going -b html docs target/postproject
 ```
 
 Use <https://docs.postproject.org> for the published documentation.
 
 ## Project status and compatibility
 
-PostProject is in alpha development. The named integration-preview subset remains compatible within the 0.3.x series; other APIs are experimental. Consumers should pin a release series or exact commit and check the ABI policy before depending on a particular interface.
+PostProject is in alpha development; the current development version is `0.4.0-alpha.1` with C ABI version 35. ADR 0020 names an integration-preview subset that stayed compatible within the 0.3.x series and that the 0.4 series may revise with documented migration; other APIs are experimental. Consumers should pin a release series or exact commit and check the ABI policy before depending on a particular interface.
 
 The important distinction is intentional: **production data should be durable even while APIs are still being refined.** Compatibility promises are therefore documented explicitly rather than implied by version numbers alone.
 
