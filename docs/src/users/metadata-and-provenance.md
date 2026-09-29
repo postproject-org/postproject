@@ -5,11 +5,9 @@ PostProject stores both descriptive knowledge and production history, but it kee
 - **Metadata** answers questions such as “what do we know about this asset or representation?”
 - **Provenance** answers questions such as “what activity used these inputs and produced these outputs?”
 
-The existing command example is preserved below.
-
 ## Technical inspection
 
-When an inspector is available, media can be imported with technical inspection enabled:
+When `ffprobe` is available, media can be imported with technical inspection enabled (`--ffprobe PATH` selects another executable):
 
 ```sh
 postproject media add production.pproj camera.mov --inspect

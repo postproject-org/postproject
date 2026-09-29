@@ -2,8 +2,6 @@
 
 This walkthrough shows the central PostProject idea with the CLI: create a production, add media, move that media somewhere else, and resolve the same production identities in the new environment.
 
-The commands below are preserved from the existing documentation.
-
 ## 1. Create a production and a logical media root
 
 ```sh
@@ -14,7 +12,7 @@ postproject media add documentary.pproj /media/A001.mov --name "A001" --inspect
 
 The `.pproj` file stores production knowledge. The root named `originals` is a logical storage concept; it is deliberately different from one machine's absolute path.
 
-Adding the media creates durable production objects for the logical asset and its stored representation. `--inspect` can add technical observations when the relevant inspector is available.
+Adding the media creates durable production objects for the logical asset and its stored representation. `--inspect` adds technical observations when `ffprobe` is available; without it the import still succeeds and reports the inspection as unavailable.
 
 ## 2. Import real and compound media
 
@@ -41,7 +39,15 @@ postproject media resolve documentary.pproj MOV_ASSET_ID \
 
 The root mapping is machine-specific. The production's identity model is not.
 
-If resolution produces one supported result, the host can continue with that resource. If several candidates remain plausible, ambiguity should be shown to the user or handled explicitly by the host rather than guessed away.
+If resolution produces one supported result, the host can continue with that resource. If several candidates remain plausible, ambiguity should be shown to the user or handled explicitly by the host rather than guessed away. Resolution never changes the production; `--confirm URI` records the chosen candidate as a new locator:
+
+```sh
+postproject media resolve documentary.pproj MOV_ASSET_ID \
+  --root-map originals=/mnt/documentary \
+  --confirm file:///mnt/documentary/A001.mov
+```
+
+Media that is not under any configured root can be searched with `--search-dir PATH`; such directories are used for this call only and never recorded in the production.
 
 ## 4. Detect damage and inspect the inventory
 

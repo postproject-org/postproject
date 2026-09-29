@@ -2,11 +2,9 @@
 
 Post-production media is often larger than a single file. An EXR sequence may contain thousands of frames; camera media may be split across several physical files or stored as a directory package. PostProject models those as **compound representations**, so applications do not need to pretend every file is an independent asset.
 
-The command examples below are preserved from the existing documentation.
-
 ## Image sequences
 
-A numbered image sequence can be added as one representation with sequence timing information:
+A directory of numbered EXR, DPX, or TIFF frames can be added as one representation. The CLI requires the exact frame rate of a recognized sequence:
 
 ```sh
 postproject media add production.pproj renders/shot010 --sequence-rate 24000/1001
@@ -16,6 +14,22 @@ The representation carries the compact structure of the sequence. Consumers can 
 
 This is important for relocation: the host wants to find *the representation*, not independently relink thousands of unrelated assets.
 
+The file names of a sequence — prefix, suffix, and frame-number padding — are recorded with its location, not with its identity. A sequence that was moved or renamed, for example by grading or delivery, is therefore found again by its content. Each candidate reports the naming its files have now, and confirming one records that naming with the new location:
+
+```sh
+postproject media resolve production.pproj SEQUENCE_ASSET_ID \
+  --search-dir /mnt/graded --confirm file:///mnt/graded \
+  --confirm-naming 'shot010-graded_%04d.exr'
+```
+
+`--search-dir` adds a machine-local directory to the search without recording it in the production. `--confirm-naming` is needed only when several namings were found in the same directory.
+
+If a directory holds several unrelated numbered groups, `media add` reports how many it found instead of choosing one; add a path that identifies one layout.
+
+## Spanned recordings
+
+Numbered MOV, MXF, MP4, or MTS files in one directory are recognized as one recording split into ordered parts, so the spans stay one representation in their recorded order.
+
 ## Camera cards and package-like media
 
 A directory containing structured camera media can be recognized as one meaningful media package instead of being flattened into a loose file list:
@@ -24,11 +38,11 @@ A directory containing structured camera media can be recognized as one meaningf
 postproject media add production.pproj /Volumes/CARD
 ```
 
-The exact structure recognized depends on the available media adapter and the format. PostProject stores the resulting representation/resource structure; it does not replace the format-specific reader or decoder.
+The built-in recognizer knows the AVCHD card layout (`PRIVATE/AVCHD/BDMV`): stream files become required members and clip information, playlists, and navigation files optional ones. Other formats need a host or adapter that describes them. PostProject stores the resulting representation/resource structure; it does not replace the format-specific reader or decoder.
 
 ## Companion files
 
-Some media has sidecars or companion files that should be recognized together with the main item. Recognition can be requested explicitly:
+Some media has sidecars or companion files that should be recognized together with the main item. Recognition of same-stem `.xmp`, `.xml`, or `.json` sidecars beside a file can be requested explicitly:
 
 ```sh
 postproject media add production.pproj clip.mov --recognize-companions
