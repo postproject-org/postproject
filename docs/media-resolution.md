@@ -114,7 +114,9 @@ owned `RepresentationResolution` values. Native confirmation remains a separate
 explicit transaction operation.
 
 The demonstrator exposes the expensive tier as `media resolve --verify`, with
-an optional `--ffprobe PATH` override for technical candidate evidence. Direct
-verification is currently available through the Rust media adapter and CLI,
-not as a separate C, C++, or Python operation; all native and Python surfaces
-retain presence resolution and explicit confirmation unchanged.
+an optional `--ffprobe PATH` override for technical candidate evidence, and
+direct comparison of present content as `media verify-content`. The C ABI
+selects the tier per call with `pp_resolution_options_set_verification()` and
+compares one resource's present content with `pp_production_verify_resource()`;
+the C++ wrapper and Python binding expose both. Technical-inspection candidate
+evidence is computed only by the Rust media adapter and the CLI.
