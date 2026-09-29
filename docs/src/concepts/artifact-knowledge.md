@@ -50,11 +50,11 @@ PostProject never fabricates historical evidence from current values.
 
 Artifact knowledge does not include file availability or job state:
 
-```text
-knowledge      current · stale · indeterminate · diverged
-availability   online · partial · offline · ambiguous · error
-work           pending · failed · none
-```
+| Dimension | Answers | Values |
+| --- | --- | --- |
+| Knowledge | Does the artifact still match what produced it? | current · stale · indeterminate · diverged |
+| Availability | Can its content be reached on this machine? | online · partial · offline · ambiguous · error |
+| Work | Is work on it wanted or did it fail? | pending · failed · none |
 
 For example, a stale proxy may still be online, while a current render may be
 offline on this machine. Read resolution results and job state separately when

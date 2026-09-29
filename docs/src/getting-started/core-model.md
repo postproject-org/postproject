@@ -16,12 +16,13 @@ A representation is one concrete realization of the asset.
 
 For one asset, a production might know about:
 
-```text
-Asset: interview take 17
-├── original camera media
-├── editing proxy
-├── optimized intermediate
-└── graded output
+```mermaid
+flowchart LR
+    asset["Asset<br/>interview take 17"]
+    asset --> original["original camera media"]
+    asset --> proxy["editing proxy"]
+    asset --> intermediate["optimized intermediate"]
+    asset --> graded["graded output"]
 ```
 
 Representations make it possible to say “these files are different forms of the same logical media” without flattening them into one path.
@@ -47,12 +48,14 @@ A locator describes a place where a resource can be reached. A resource may have
 
 Moving media therefore changes location knowledge rather than identity:
 
-```text
-same Asset
-  └── same Representation
-      └── same Resource
-          ├── old Locator: offline
-          └── new Locator: online
+```mermaid
+flowchart LR
+    asset["same Asset"] --> representation["same Representation"]
+    representation --> resource["same Resource"]
+    resource -.-> old["old Locator<br/>/Volumes/RAID/…/A001.mov<br/>offline"]
+    resource --> new["new Locator<br/>/mnt/archive/…/A001.mov<br/>online"]
+    classDef offline stroke-dasharray: 4 4
+    class old offline
 ```
 
 Portable media roots add another useful level. Instead of baking one machine's absolute path into production meaning, a production can name a logical storage root and let each environment map that root locally.
@@ -86,18 +89,15 @@ A consumer advances its cursor only after it has completely processed a revision
 
 Managed artifacts and jobs build on the same foundation:
 
-```text
-source representation(s)
-        │
-        ▼
-     activity
-        │
-        ├── dependency knowledge
-        ▼
-managed representation
-        │
-        ├── freshness / staleness knowledge
-        └── reproducibility knowledge
+```mermaid
+flowchart TD
+    job["Job<br/>work that is wanted or in progress"]
+    source["Source representations"] -- "inputs" --> activity{{"Activity<br/>tool, parameters, input snapshots"}}
+    dependencies["Dependencies of the inputs"] -. "captured with the inputs" .-> activity
+    job -. "a worker completes it with" .-> activity
+    activity -- "output" --> artifact["Managed representation"]
+    artifact --> freshness["freshness and staleness knowledge"]
+    artifact --> reproducibility["reproducibility knowledge"]
 ```
 
 A job records durable production knowledge that work is wanted or in progress. A worker or host application decides how work is scheduled and executed. This preserves a useful boundary: **PostProject can know about work without becoming the scheduler or media-processing engine.**

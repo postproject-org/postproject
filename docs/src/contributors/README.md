@@ -20,17 +20,25 @@ A feature that crosses these categories usually needs coordinated updates rather
 
 The project is intentionally layered:
 
-```text
-application-facing adapters
-C ABI / C++ / Python / CLI
-            │
-            ▼
-       domain model
-            │
-      ┌─────┴─────┐
-      ▼           ▼
- persistence   media/filesystem services
+```mermaid
+flowchart TD
+    subgraph adapters["Application-facing adapters"]
+        direction LR
+        cpp["C++17 wrapper<br/>postproject.hpp"] --> ffi["C ABI<br/>postproject-ffi"]
+        python["Python binding"] --> ffi
+        cli["CLI<br/>postproject-cli"]
+    end
+    ffi --> storage["Persistence<br/>postproject-storage-sqlite"]
+    ffi --> media["Media and filesystem services<br/>postproject-media"]
+    cli --> storage
+    cli --> media
+    storage --> core["Domain model<br/>postproject-core"]
+    media --> core
 ```
+
+Arrows point from a component to what it depends on. The C ABI and the CLI
+also use the domain model directly; nothing depends on an adapter, and the
+domain model depends on no other component.
 
 The domain layer should remain framework-neutral. SQLite implements persistence contracts rather than defining the domain. Filesystem/media services discover and inspect external state; they do not become the source of logical identity. Public adapters translate those semantics without leaking Rust layouts or backend handles across the ABI.
 

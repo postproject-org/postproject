@@ -12,16 +12,14 @@ PostProject does **not** replace an editor, compositor, timeline format, decoder
 
 ## The idea in one picture
 
-```text
-Editing app ─────┐
-Compositing app ─┼──── PostProject production (.pproj)
-Sound app ───────┤             │
-Pipeline tools ──┘             ├── stable media identity
-                               ├── representations and resources
-                               ├── portable locations
-                               ├── metadata and external identifiers
-                               ├── provenance and dependencies
-                               └── revision history
+```mermaid
+flowchart LR
+    edit["Editing app"] <--> prod
+    comp["Compositing app"] <--> prod
+    sound["Sound app"] <--> prod
+    pipe["Pipeline tools"] <--> prod
+    prod[("PostProject production<br/>.pproj")] --- knowledge
+    knowledge["stable media identity<br/>representations and resources<br/>portable locations<br/>metadata and external identifiers<br/>provenance and dependencies<br/>revision history"]
 ```
 
 A PostProject **asset** is the logical thing people and applications mean when they say “this clip,” “this still,” or “this piece of media.” A file path is only one place where one representation of that asset happens to be reachable.

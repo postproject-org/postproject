@@ -3,10 +3,11 @@
 Provenance records how a representation was produced. PostProject stores the
 operation as an activity between its inputs and outputs:
 
-```text
-camera original ──┐
-                  ├── transcode activity ── editing proxy
-external audio ───┘
+```mermaid
+flowchart LR
+    camera["camera original"] -- "input" --> transcode{{"transcode activity<br/>tool, agent, parameters"}}
+    audio["external audio"] -- "input" --> transcode
+    transcode -- "output" --> proxy["editing proxy"]
 ```
 
 This keeps the operation itself available. A consumer can inspect the kind of

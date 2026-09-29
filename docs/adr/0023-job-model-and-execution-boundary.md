@@ -29,12 +29,15 @@ A job is persisted production knowledge with:
 
 The lifecycle is:
 
-```text
-requested -> claimed -> succeeded
-                     -> failed
-                     -> cancelled
-claimed   -> requested  (release)
-requested -> cancelled
+```mermaid
+stateDiagram-v2
+    direction LR
+    requested --> claimed
+    claimed --> succeeded
+    claimed --> failed
+    claimed --> cancelled
+    claimed --> requested: release
+    requested --> cancelled
 ```
 
 An expired claim may be replaced atomically by another claimant. Expiry is

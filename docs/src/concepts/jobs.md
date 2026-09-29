@@ -18,13 +18,25 @@ Unknown valid job kinds and metadata vocabularies round-trip unchanged.
 
 ## Lifecycle
 
-```text
-requested ── claim ──> claimed ── complete ──> succeeded
-    │                     ├────── fail ──────> failed
-    │                     ├────── cancel ────> cancelled
-    │                     └────── release or expired lease ──> requested
-    └──────────────────── cancel ────────────> cancelled
+```mermaid
+stateDiagram-v2
+    direction LR
+    [*] --> requested: request
+    requested --> claimed: claim
+    claimed --> claimed: renew, or claim after the lease expired
+    claimed --> requested: release
+    claimed --> succeeded: complete
+    claimed --> failed: fail
+    claimed --> cancelled: cancel
+    requested --> cancelled: cancel
+    succeeded --> [*]
+    failed --> [*]
+    cancelled --> [*]
 ```
+
+An expired lease does not change the stored state by itself: the job stays
+claimed until the worker renews, releases, or finishes it, or until another
+worker claims it with a later current time and receives a new token.
 
 A claim carries descriptive tool and optional agent identity, a lease expiry,
 and a random claim token. Renewing, releasing, completing, or failing the job

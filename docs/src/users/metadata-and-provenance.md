@@ -33,10 +33,11 @@ A UMID, EIDR identifier, camera identifier, or host-application object ID is the
 
 Production history is represented with activities and explicit inputs/outputs:
 
-```text
-source representation ─┐
-                       ├── activity ──> output representation
-other input ───────────┘
+```mermaid
+flowchart LR
+    source["source representation"] -- "input" --> activity{{"activity<br/>tool and parameters"}}
+    other["other input"] -- "input" --> activity
+    activity -- "output" --> output["output representation"]
 ```
 
 An activity can identify the tool and parameters involved where that information is available. This is more useful than trying to infer history from filenames such as `final_v7_REAL.mov`.

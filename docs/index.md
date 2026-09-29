@@ -32,17 +32,16 @@ Start with {doc}`src/contributors/README` and {doc}`src/project/README`. Archite
 
 ## A useful mental model
 
-```text
-A production (.pproj)
-│
-├── Asset                         the logical media item
-│   └── Representation            one usable form of that asset
-│       └── Resource(s)           the stored pieces that make it up
-│           └── Locator(s)        places those pieces can be reached
-│
-├── Metadata + external IDs       what is known about production objects
-├── Activities + dependencies     how media and artifacts relate
-└── Revisions                     what changed in the production model
+```mermaid
+flowchart TD
+    production[("A production<br/>.pproj")]
+    production --> asset["<b>Asset</b><br/>the logical media item"]
+    asset --> representation["<b>Representation</b><br/>one usable form of that asset"]
+    representation --> resource["<b>Resources</b><br/>the stored pieces that make it up"]
+    resource --> locator["<b>Locators</b><br/>places those pieces can be reached"]
+    production --> metadata["<b>Metadata and external IDs</b><br/>what is known about production objects"]
+    production --> activity["<b>Activities and dependencies</b><br/>how media and artifacts relate"]
+    production --> revision["<b>Revisions</b><br/>what changed in the production model"]
 ```
 
 A path is deliberately **not** the identity of an asset. Moving a file should change where it is found, not what it is.

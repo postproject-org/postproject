@@ -46,11 +46,11 @@ This is the foundation for portable productions and deterministic relinking.
 
 ## Four objects explain most of the model
 
-```text
-Asset
-└── Representation
-    └── Resource
-        └── Locator
+```mermaid
+flowchart LR
+    asset["Asset"] -- "realized as" --> representation["Representation"]
+    representation -- "made of" --> resource["Resource"]
+    resource -- "reachable at" --> locator["Locator"]
 ```
 
 - An **asset** is the logical media item.
@@ -66,14 +66,14 @@ Read {doc}`core-model` for the model in more detail.
 
 Once identity and representation are stable, other knowledge can attach to them:
 
-```text
-identity + representations + locations
-                 │
-                 ├── metadata and external identifiers
-                 ├── provenance activities
-                 ├── dependencies and artifact knowledge
-                 ├── host-object bindings
-                 └── revisions
+```mermaid
+flowchart LR
+    core["identity<br/>representations<br/>locations"]
+    core --- metadata["metadata and<br/>external identifiers"]
+    core --- provenance["provenance<br/>activities"]
+    core --- artifacts["dependencies and<br/>artifact knowledge"]
+    core --- bindings["host-object<br/>bindings"]
+    core --- revisions["revisions"]
 ```
 
 This is why PostProject separates the concepts instead of treating a media item as a row containing a path and some tags.

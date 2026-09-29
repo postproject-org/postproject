@@ -69,11 +69,14 @@ For compound media, availability can be richer than a simple yes/no. A represent
 
 After the move, the important production meaning should still be the same:
 
-```text
-asset identity
-  └── representation identity
-      └── resource identity
-          └── new or confirmed locator
+```mermaid
+flowchart LR
+    subgraph stable["Unchanged by the move"]
+        direction LR
+        asset["asset identity"] --> representation["representation identity"]
+        representation --> resource["resource identity"]
+    end
+    resource --> locator["new or confirmed locator"]
 ```
 
 That stable chain is what lets application project files store a PostProject identity instead of treating an absolute path as the only truth.
