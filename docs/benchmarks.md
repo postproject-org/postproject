@@ -29,6 +29,43 @@ committed. Published numbers must record the commit, Rust version, operating
 system, CPU, storage device/filesystem, power policy, and full Criterion command.
 Results are not release gates yet; they exist to make regressions measurable.
 
+## 0.5 interactive latency targets
+
+The following are engineering targets for local productions on a supported
+desktop, warm filesystem cache, release build, and the representative
+10,000-asset fixture. They describe the latency a host should normally be able
+to keep off its user's critical path; they are not CI or release gates.
+
+| Interactive operation | Target |
+| --- | ---: |
+| Open a production | 50 ms |
+| First page of a bounded structural, metadata, provenance, job, or revision query | 50 ms |
+| First page of the whole-production stale-artifact query | 250 ms |
+| Evaluate one artifact's staleness | 25 ms |
+| Read one filtered revision page | 50 ms |
+| Wake a waiter after another local process commits | 250 ms |
+| Find known media by current locator or fingerprint | 25 ms |
+| Check 100 touched optimistic-conflict keys during commit | 10 ms added commit time |
+
+The waiter target begins when SQLite commits and ends when the waiting process
+receives a non-empty revision page. It is not a transaction-duration target.
+Lookup excludes hashing files: it measures lookup of already recorded locator
+or fingerprint evidence. Conflict checking excludes the domain writes and
+journal append that the transaction would perform without a base revision.
+
+Measurements must report the fixture generator version, page size, result
+count, cache state, commit, Rust version, operating system, CPU, storage, and
+power policy. New operations first receive a benchmark and several CI/local
+observations. A target becomes a hard regression limit only through a separate
+documented change with evidence that normal runner variance will not produce
+false failures.
+
+There are currently **no hard performance limits in CI**. Functional bounds
+such as maximum page size, traversal depth, and result count are correctness
+limits, not performance thresholds. CI benchmark smoke runs may fail when an
+operation is wrong or unbounded, but they do not compare elapsed time to the
+targets above.
+
 ## Release 0.4 scale fixture
 
 The `large_fixture` benchmark target is a deterministic generator rather than

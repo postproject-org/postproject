@@ -51,6 +51,7 @@ Inventory caches and machine-local discovery data are operational helpers. They 
 2. {doc}`portable-production-workflow` — create a production, add media, move storage, resolve it again.
 3. {doc}`image-sequences-and-spanned-media` — compound media.
 4. {doc}`metadata-and-provenance` — inspection, metadata, and history.
+5. {doc}`why-output-is-stale` — why a derived output may need rebuilding.
 
 If you are writing an application rather than using one, continue with {doc}`../integrators/README`.
 
@@ -60,4 +61,5 @@ If you are writing an application rather than using one, continue with {doc}`../
 portable-production-workflow
 image-sequences-and-spanned-media
 metadata-and-provenance
+why-output-is-stale
 ```
