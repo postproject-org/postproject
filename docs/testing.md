@@ -27,8 +27,8 @@ atomic CLI completion without depending on FFmpeg being installed.
 
 Tests use real temporary SQLite databases and filesystems, a checked-in schema-0
 migration fixture, and the complete multi-asset relocation scenario. Dedicated
-fuzz targets cover production opening, fingerprint input, C strings/errors, and ID
-parsing outside standard CI. Tests must not require network access, user locale,
+fuzz targets cover production opening, fingerprint input, C strings/errors,
+external-identifier validation, and ID parsing outside standard CI. Tests must not require network access, user locale,
 or wall-clock timing.
 
 `cargo-deny` rejects wildcard dependencies, unknown sources, known advisories, and

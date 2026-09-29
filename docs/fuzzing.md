@@ -7,6 +7,8 @@ Boundary-heavy inputs have dedicated `cargo-fuzz` targets:
 - `fingerprint_input` exercises algorithm, version, and opaque-value validation;
 - `c_abi_strings` passes arbitrary NUL-terminated bytes through the C string and
   error boundary, then releases every returned handle;
+- `external_identifier_validation` splits arbitrary bytes into a scheme, value,
+  and qualifier and exercises external-identifier validation;
 - `id_parsing` exercises all strong-ID text parsers.
 
 Install `cargo-fuzz`, then run one target with a nightly Rust toolchain:
@@ -20,7 +22,8 @@ List all targets with `cargo +nightly fuzz list`. Corpora and crash artifacts ar
 local under `fuzz/corpus` and `fuzz/artifacts` and are ignored until a minimized
 regression input is deliberately promoted into a normal test fixture. Fuzzing is
 not part of standard CI because sanitizer-driven campaigns are intentionally
-long-running; the package is compile-checked during release audits.
+long-running; CI format-checks the fuzz package and lints its targets with
+Clippy on every change.
 
 `libfuzzer-sys` is used rather than a custom harness. Its combined permissive
 license expression is `(MIT OR Apache-2.0) AND NCSA`. The isolated fuzz package
