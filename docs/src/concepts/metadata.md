@@ -13,7 +13,8 @@ type into plain text. This design lets PostProject retain standardized and
 application-specific metadata without inventing a broad media vocabulary of its
 own.
 
-An assertion can target a production, asset, representation, resource, or activity.
+An assertion can target a production, asset, representation, resource, activity,
+or job.
 Metadata is not copied automatically between these identity levels.
 
 ## Repetition and structure

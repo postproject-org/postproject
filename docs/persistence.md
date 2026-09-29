@@ -52,8 +52,9 @@ their completion activity, so a regeneration plan finds the job that produced an
 artifact without scanning the job table.
 
 External identifiers and metadata assertions use polymorphic typed targets.
-Jobs are valid targets alongside production, asset, representation, resource,
-and activity objects. SQLite triggers clean up attachments because one target
+External identifiers target asset, representation, resource, and activity
+objects; metadata assertions may also target the production and jobs. SQLite
+triggers clean up attachments because one target
 column cannot carry foreign keys to several domain tables.
 
 ## Migrations and durability

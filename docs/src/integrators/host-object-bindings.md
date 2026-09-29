@@ -9,7 +9,7 @@ https://postproject.org/ref/v1/<production UUID>/<object kind>/<object UUID>
 ```
 
 The supported object-kind tokens are `production`, `asset`, `representation`,
-`resource`, and `activity`. Treat the serialized value as opaque identity text.
+`resource`, `activity`, and `job`. Treat the serialized value as opaque identity text.
 Its project-controlled HTTPS namespace can point to documentation, but parsing
 and using a binding never performs a network request.
 
