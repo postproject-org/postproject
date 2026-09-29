@@ -55,9 +55,11 @@ represented only by jobs.
 ## Regeneration plans
 
 For an existing artifact with exactly one producing activity, regeneration
-planning derives a new requested job from that activity's kind, inputs, and
-typed parameter metadata. The proposed output targets the existing artifact's
-asset and representation kind.
+planning derives a new requested job from that activity's inputs and typed
+parameter metadata. When the activity completed a job, the plan repeats that
+job's kind and target media root; otherwise it uses the activity's kind and no
+target root. The proposed output targets the existing artifact's asset and
+representation kind.
 
 Planning is read-only. It deduplicates repeated artifact IDs, does not persist
 the proposed jobs, does not advance the revision feed, and never runs a tool.
