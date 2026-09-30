@@ -24,6 +24,7 @@ from ._abi import (
     Error,
     ExternalIdentifierSet,
     JobSet,
+    KnownMediaSet,
     LocatorQuerySet,
     MediaRootSet,
     MetadataSet,
@@ -124,10 +125,12 @@ from ._model import (
     JobRequestedEvent,
     JobState,
     JobSucceededEvent,
+    KnownMediaMatch,
     Locator,
     LocatorAddedEvent,
     LocatorAvailability,
     LocatorId,
+    LocatorIdentity,
     LocatorMatch,
     LocatorRetiredEvent,
     MediaRoot,
@@ -1012,6 +1015,67 @@ class Production:
         finally:
             self._native.lib.pp_locator_query_set_release(handle)
 
+    def find_known_media_by_locator(
+        self,
+        locator: LocatorIdentity,
+        *,
+        limit: int,
+        cursor: str | None = None,
+    ) -> QueryPage[KnownMediaMatch]:
+        """Find every current ownership candidate at an exact locator.
+
+        The query is read-only. For an image sequence, ``locator`` must carry
+        its exact directory naming; directory-only lookup does not match it.
+        """
+
+        self._require_open()
+        handle = ctypes.POINTER(KnownMediaSet)()
+        error = ctypes.POINTER(Error)()
+        status = self._native.lib.pp_production_find_known_media_by_locator(
+            self._handle,
+            _utf8(locator.uri, "locator URI"),
+            _native_naming(locator.sequence_naming),
+            limit,
+            _optional_text(cursor),
+            ctypes.byref(handle),
+            ctypes.byref(error),
+        )
+        self._native.check(status, error)
+        return self._known_media_page(handle)
+
+    def find_known_media_by_fingerprint(
+        self,
+        fingerprint: Fingerprint,
+        *,
+        limit: int,
+        cursor: str | None = None,
+    ) -> QueryPage[KnownMediaMatch]:
+        """Find resources with this exact current effective fingerprint.
+
+        Every candidate is returned; content equality does not prove logical
+        asset identity and the query never adopts or merges media.
+        """
+
+        self._require_open()
+        value = (ctypes.c_uint8 * len(fingerprint.value)).from_buffer_copy(
+            fingerprint.value
+        )
+        handle = ctypes.POINTER(KnownMediaSet)()
+        error = ctypes.POINTER(Error)()
+        status = self._native.lib.pp_production_find_known_media_by_fingerprint(
+            self._handle,
+            _utf8(fingerprint.algorithm, "fingerprint algorithm"),
+            fingerprint.version,
+            value,
+            len(fingerprint.value),
+            limit,
+            _optional_text(cursor),
+            ctypes.byref(handle),
+            ctypes.byref(error),
+        )
+        self._native.check(status, error)
+        return self._known_media_page(handle)
+
     def unresolved_media(
         self, *, limit: int, cursor: str | None = None
     ) -> QueryPage[RepresentationId]:
@@ -1396,6 +1460,25 @@ class Production:
             )
         finally:
             self._native.lib.pp_object_ref_set_release(handle)
+
+    def _known_media_page(
+        self, handle: _Pointer[KnownMediaSet]
+    ) -> QueryPage[KnownMediaMatch]:
+        if not handle:
+            raise RuntimeError("native known-media query returned no result set")
+        try:
+            count = self._native.lib.pp_known_media_set_count(handle)
+            return QueryPage(
+                tuple(
+                    _known_media_match_at(self._native, handle, index)
+                    for index in range(int(count))
+                ),
+                _decode_optional(
+                    self._native.lib.pp_known_media_set_next_cursor(handle)
+                ),
+            )
+        finally:
+            self._native.lib.pp_known_media_set_release(handle)
 
     def _metadata(self, target: ObjectReference) -> tuple[MetadataAssertion, ...]:
         self._require_open()
@@ -3294,6 +3377,29 @@ def _locator_match_at(
             _sequence_naming(has_naming, naming),
         ),
         _decode_optional(media_root.value),
+    )
+
+
+def _known_media_match_at(
+    native: NativeLibrary, matches: _Pointer[KnownMediaSet], index: int
+) -> KnownMediaMatch:
+    asset_id = Uuid()
+    representation_id = Uuid()
+    resource_id = Uuid()
+    error = ctypes.POINTER(Error)()
+    status = native.lib.pp_known_media_set_get(
+        matches,
+        index,
+        ctypes.byref(asset_id),
+        ctypes.byref(representation_id),
+        ctypes.byref(resource_id),
+        ctypes.byref(error),
+    )
+    native.check(status, error)
+    return KnownMediaMatch(
+        AssetId(_uuid(asset_id)),
+        RepresentationId(_uuid(representation_id)),
+        ResourceId(_uuid(resource_id)),
     )
 
 

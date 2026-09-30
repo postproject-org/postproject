@@ -49,8 +49,10 @@ from postproject import (
     JobRequestedEvent,
     JobState,
     JobSucceededEvent,
+    KnownMediaMatch,
     LocatorAddedEvent,
     LocatorAvailability,
+    LocatorIdentity,
     LocatorMatch,
     LocatorRetiredEvent,
     MediaRootEnabledChangedEvent,
@@ -404,6 +406,41 @@ class ProductionTests(unittest.TestCase):
         self.assertEqual(len(resource.locators), 1)
         self.assertEqual(resource.locators[0].availability, LocatorAvailability.ONLINE)
         self.assertIsNotNone(resource.locators[0].last_seen_unix_micros)
+
+    def test_known_media_lookup_is_exact_ambiguous_and_paginated(self) -> None:
+        with Production.create(
+            self.production_path, library_path=LIBRARY_PATH
+        ) as production:
+            with production.transaction() as transaction:
+                first_asset_id = transaction.import_media(self.media_path)
+                second_asset_id = transaction.import_media(self.media_path)
+
+            first = production.representations[first_asset_id][0]
+            second = production.representations[second_asset_id][0]
+            first_resource = first.resources[0]
+            second_resource = second.resources[0]
+            expected = {
+                KnownMediaMatch(first_asset_id, first.id, first_resource.id),
+                KnownMediaMatch(second_asset_id, second.id, second_resource.id),
+            }
+
+            locator_page = production.find_known_media_by_locator(
+                LocatorIdentity(first_resource.locators[0].uri), limit=10
+            )
+            self.assertEqual(set(locator_page.items), expected)
+            self.assertIsNone(locator_page.next_cursor)
+
+            fingerprint = first_resource.fingerprints[0]
+            first_page = production.find_known_media_by_fingerprint(
+                fingerprint, limit=1
+            )
+            self.assertEqual(len(first_page.items), 1)
+            self.assertIsNotNone(first_page.next_cursor)
+            second_page = production.find_known_media_by_fingerprint(
+                fingerprint, limit=1, cursor=first_page.next_cursor
+            )
+            self.assertEqual(set(first_page.items + second_page.items), expected)
+            self.assertIsNone(second_page.next_cursor)
 
     def test_fingerprint_observations_are_explicit_and_idempotent(self) -> None:
         with Production.create(

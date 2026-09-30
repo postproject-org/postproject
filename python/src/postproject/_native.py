@@ -12,7 +12,7 @@ from pathlib import Path
 from ._abi import Error, configure_api
 from ._errors import ERROR_TYPES, PostProjectError
 
-ABI_VERSION = 35
+ABI_VERSION = 36
 LIBRARY_ENVIRONMENT_VARIABLE = "POSTPROJECT_LIBRARY"
 #: Where a platform wheel installs its native library (ADR 0039).
 BUNDLED_LIBRARY = (

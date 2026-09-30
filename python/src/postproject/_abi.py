@@ -45,6 +45,10 @@ class LocatorQuerySet(ctypes.Structure):
     pass
 
 
+class KnownMediaSet(ctypes.Structure):
+    pass
+
+
 class MetadataSet(ctypes.Structure):
     pass
 
@@ -540,6 +544,10 @@ EXPORTED_SYMBOLS = (
     "pp_job_set_get_input",
     "pp_job_set_next_cursor",
     "pp_job_set_release",
+    "pp_known_media_set_count",
+    "pp_known_media_set_get",
+    "pp_known_media_set_next_cursor",
+    "pp_known_media_set_release",
     "pp_locator_query_set_count",
     "pp_locator_query_set_get",
     "pp_locator_query_set_next_cursor",
@@ -613,6 +621,8 @@ EXPORTED_SYMBOLS = (
     "pp_production_evaluate_artifact",
     "pp_production_external_identifiers",
     "pp_production_find_by_external_identifier",
+    "pp_production_find_known_media_by_fingerprint",
+    "pp_production_find_known_media_by_locator",
     "pp_production_find_metadata",
     "pp_production_id",
     "pp_production_job",
@@ -829,6 +839,18 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_locator_query_set_next_cursor.restype = ctypes.c_char_p
     lib.pp_locator_query_set_release.argtypes = [ctypes.POINTER(LocatorQuerySet)]
     lib.pp_locator_query_set_release.restype = None
+    lib.pp_production_find_known_media_by_locator.argtypes = [ctypes.POINTER(Production), ctypes.c_char_p, ctypes.POINTER(SequenceNaming), ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(KnownMediaSet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_production_find_known_media_by_locator.restype = ErrorCode
+    lib.pp_production_find_known_media_by_fingerprint.argtypes = [ctypes.POINTER(Production), ctypes.c_char_p, ctypes.c_uint16, ctypes.POINTER(ctypes.c_uint8), ctypes.c_uint64, ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(KnownMediaSet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_production_find_known_media_by_fingerprint.restype = ErrorCode
+    lib.pp_known_media_set_count.argtypes = [ctypes.POINTER(KnownMediaSet)]
+    lib.pp_known_media_set_count.restype = ctypes.c_uint64
+    lib.pp_known_media_set_next_cursor.argtypes = [ctypes.POINTER(KnownMediaSet)]
+    lib.pp_known_media_set_next_cursor.restype = ctypes.c_char_p
+    lib.pp_known_media_set_get.argtypes = [ctypes.POINTER(KnownMediaSet), ctypes.c_uint64, ctypes.POINTER(Uuid), ctypes.POINTER(Uuid), ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_known_media_set_get.restype = ErrorCode
+    lib.pp_known_media_set_release.argtypes = [ctypes.POINTER(KnownMediaSet)]
+    lib.pp_known_media_set_release.restype = None
     lib.pp_production_unresolved_media.argtypes = [ctypes.POINTER(Production), ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(ObjectQuerySet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_production_unresolved_media.restype = ErrorCode
     lib.pp_production_objects_changed_since.argtypes = [ctypes.POINTER(Production), ctypes.c_uint64, ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(ObjectQuerySet)), ctypes.POINTER(ctypes.POINTER(Error))]

@@ -491,6 +491,18 @@ class SequenceNaming:
 
 
 @dataclass(frozen=True, slots=True)
+class LocatorIdentity:
+    """Exact current locator evidence used to find known media.
+
+    Image-sequence identities include the directory URI and naming. A
+    directory URI without naming does not match a sequence.
+    """
+
+    uri: str
+    sequence_naming: SequenceNaming | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class ImageSequenceDescriptor:
     """What an image sequence is: frames, rate, and known gaps.
 
@@ -576,6 +588,15 @@ class LocatorMatch:
     resource_id: ResourceId
     locator: Locator
     media_root: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class KnownMediaMatch:
+    """One matching resource and its owning representation and asset."""
+
+    asset_id: AssetId
+    representation_id: RepresentationId
+    resource_id: ResourceId
 
 
 @dataclass(frozen=True, slots=True)
