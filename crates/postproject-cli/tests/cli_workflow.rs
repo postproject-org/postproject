@@ -774,6 +774,88 @@ fn manages_media_root_lifecycle() {
 }
 
 #[test]
+fn base_revision_merges_additions_and_reports_structured_conflicts() {
+    let directory = tempfile::tempdir().expect("create test directory");
+    let production = directory.path().join("conflict.pproj");
+    let production = production.to_str().expect("UTF-8 production path");
+    run_json(&["init", production]);
+    let root = run_json(&["root", "add", production, "rushes"]);
+    let root_id = root["id"].as_str().expect("media-root ID");
+
+    let additive_base = run_json(&["revisions", "latest", production]);
+    let additive_base_id = additive_base["id"].as_str().expect("base revision ID");
+    run_json(&[
+        "--base-revision",
+        additive_base_id,
+        "root",
+        "add",
+        production,
+        "plates",
+    ]);
+    run_json(&[
+        "--base-revision",
+        additive_base_id,
+        "root",
+        "add",
+        production,
+        "audio",
+    ]);
+    assert_eq!(
+        run_json(&["root", "list", production])
+            .as_array()
+            .expect("root array")
+            .len(),
+        3
+    );
+
+    let base = run_json(&["revisions", "latest", production]);
+    let base_id = base["id"].as_str().expect("base revision ID");
+    run_json(&[
+        "--base-revision",
+        base_id,
+        "root",
+        "disable",
+        production,
+        root_id,
+    ]);
+    let superseding = run_json(&["revisions", "latest", production]);
+
+    let assertion = cargo_bin_cmd!("postproject")
+        .args([
+            "--json",
+            "--base-revision",
+            base_id,
+            "root",
+            "enable",
+            production,
+            root_id,
+        ])
+        .assert()
+        .failure();
+    let error: Value = serde_json::from_slice(&assertion.get_output().stderr)
+        .expect("conflict emits JSON on stderr");
+    let conflict = &error["error"]["transaction_conflict"];
+    assert_eq!(conflict["key"]["kind"], "media_root");
+    assert_eq!(conflict["key"]["target_kind"], "media_root");
+    assert_eq!(conflict["key"]["target_id"], root_id);
+    assert_eq!(conflict["base_revision_id"], base_id);
+    assert_eq!(conflict["base_revision_sequence"], base["sequence"]);
+    assert_eq!(conflict["superseding_revision_id"], superseding["id"]);
+    assert_eq!(
+        conflict["superseding_revision_sequence"],
+        superseding["sequence"]
+    );
+    let roots = run_json(&["root", "list", production]);
+    let conflicted_root = roots
+        .as_array()
+        .expect("root array")
+        .iter()
+        .find(|root| root["id"] == root_id)
+        .expect("conflicted root");
+    assert_eq!(conflicted_root["enabled"], false);
+}
+
+#[test]
 fn retires_resource_locator() {
     let directory = tempfile::tempdir().expect("create test directory");
     let production = directory.path().join("locators.pproj");

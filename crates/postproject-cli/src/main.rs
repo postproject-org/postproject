@@ -29,8 +29,8 @@ use postproject_core::{
     RepresentationResolution, RequestedJobOutput, ResolutionEvidence, Resource,
     ResourceFingerprint, ResourceId, ResourceResolution, ResourceResolutionState, ResourceRole,
     Revision, RevisionContext, RevisionEvent, RevisionEventFilter, RevisionEventKind,
-    RevisionEventType, RevisionId, RevisionWaitOutcome, SequenceNaming, StaleArtifactQuery,
-    Timestamp, ToolIdentity, VocabularyId,
+    RevisionEventType, RevisionId, RevisionWaitOutcome, SemanticConflictKey, SequenceNaming,
+    StaleArtifactQuery, Timestamp, ToolIdentity, TransactionConflict, VocabularyId,
 };
 use postproject_media::{
     ContentObservationOutcome, ContentVerification, EXECUTOR_PARAMETER_VOCABULARY,
@@ -1372,6 +1372,37 @@ struct EvidenceView {
 }
 
 #[derive(Debug, Serialize)]
+struct ErrorView {
+    error: ErrorDetailView,
+}
+
+#[derive(Debug, Serialize)]
+struct ErrorDetailView {
+    message: String,
+    transaction_conflict: TransactionConflictView,
+}
+
+#[derive(Debug, Serialize)]
+struct TransactionConflictView {
+    key: ConflictKeyView,
+    base_revision_id: String,
+    base_revision_sequence: u64,
+    superseding_revision_id: String,
+    superseding_revision_sequence: u64,
+}
+
+#[derive(Debug, Serialize)]
+struct ConflictKeyView {
+    kind: &'static str,
+    target_kind: &'static str,
+    target_id: String,
+    namespace_name: Option<String>,
+    local_name: Option<String>,
+    qualifier: Option<String>,
+    version: Option<u16>,
+}
+
+#[derive(Debug, Serialize)]
 struct ExternalIdentifierView {
     target_kind: &'static str,
     target_id: String,
@@ -1907,10 +1938,14 @@ enum ProvenanceDirection {
 }
 
 fn main() -> ExitCode {
-    match execute(Cli::parse()) {
+    let cli = Cli::parse();
+    let json = cli.json;
+    match execute(cli) {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
-            eprintln!("error: {error:#}");
+            if !json || !print_conflict_json(&error) {
+                eprintln!("error: {error:#}");
+            }
             ExitCode::FAILURE
         }
     }
@@ -5905,6 +5940,146 @@ fn cli_revision_context(message: &str) -> Result<RevisionContext> {
     .context("build CLI revision origin")?;
     RevisionContext::new(Some(origin), Some(message.to_owned()))
         .context("build CLI revision context")
+}
+
+fn print_conflict_json(error: &anyhow::Error) -> bool {
+    let Some(transaction_conflict) = error
+        .chain()
+        .find_map(|cause| cause.downcast_ref::<postproject_core::Error>())
+        .and_then(postproject_core::Error::transaction_conflict_detail)
+        .map(transaction_conflict_view)
+    else {
+        return false;
+    };
+    let view = ErrorView {
+        error: ErrorDetailView {
+            message: format!("{error:#}"),
+            transaction_conflict,
+        },
+    };
+    if serde_json::to_writer_pretty(std::io::stderr().lock(), &view).is_ok() {
+        eprintln!();
+        true
+    } else {
+        false
+    }
+}
+
+fn transaction_conflict_view(conflict: &TransactionConflict) -> TransactionConflictView {
+    TransactionConflictView {
+        key: conflict_key_view(conflict.key()),
+        base_revision_id: conflict.base_revision().to_string(),
+        base_revision_sequence: conflict.base_sequence(),
+        superseding_revision_id: conflict.superseding_revision().to_string(),
+        superseding_revision_sequence: conflict.superseding_sequence(),
+    }
+}
+
+fn conflict_key_view(key: &SemanticConflictKey) -> ConflictKeyView {
+    match key {
+        SemanticConflictKey::LocatorSet(id) => {
+            simple_conflict_key("locator_set", "resource", id.to_string())
+        }
+        SemanticConflictKey::MetadataProperty { target, property } => {
+            let (target_kind, target_id) = conflict_object_target(*target);
+            ConflictKeyView {
+                kind: "metadata_property",
+                target_kind,
+                target_id,
+                namespace_name: Some(property.vocabulary().as_str().to_owned()),
+                local_name: Some(property.property().as_str().to_owned()),
+                qualifier: None,
+                version: None,
+            }
+        }
+        SemanticConflictKey::DependencySet(id) => {
+            simple_conflict_key("dependency_set", "representation", id.to_string())
+        }
+        SemanticConflictKey::MediaRoot(id) => {
+            simple_conflict_key("media_root", "media_root", id.to_string())
+        }
+        SemanticConflictKey::ExternalIdentifier { target, identifier } => {
+            let (target_kind, target_id) = conflict_object_target(*target);
+            ConflictKeyView {
+                kind: "external_identifier",
+                target_kind,
+                target_id,
+                namespace_name: Some(identifier.scheme().as_str().to_owned()),
+                local_name: Some(identifier.value().to_owned()),
+                qualifier: identifier.qualifier().map(str::to_owned),
+                version: None,
+            }
+        }
+        SemanticConflictKey::ResourceFingerprint {
+            resource_id,
+            algorithm,
+            version,
+        } => fingerprint_conflict_key(
+            "resource_fingerprint",
+            "resource",
+            resource_id.to_string(),
+            algorithm,
+            *version,
+        ),
+        SemanticConflictKey::RepresentationFingerprint {
+            representation_id,
+            algorithm,
+            version,
+        } => fingerprint_conflict_key(
+            "representation_fingerprint",
+            "representation",
+            representation_id.to_string(),
+            algorithm,
+            *version,
+        ),
+        _ => simple_conflict_key("unknown", "unknown", String::new()),
+    }
+}
+
+fn conflict_object_target(target: ObjectRef) -> (&'static str, String) {
+    match target {
+        ObjectRef::Production(id) => ("production", id.to_string()),
+        ObjectRef::Asset(id) => ("asset", id.to_string()),
+        ObjectRef::Representation(id) => ("representation", id.to_string()),
+        ObjectRef::Resource(id) => ("resource", id.to_string()),
+        ObjectRef::Activity(id) => ("activity", id.to_string()),
+        ObjectRef::Job(id) => ("job", id.to_string()),
+        _ => ("unknown", String::new()),
+    }
+}
+
+fn simple_conflict_key(
+    kind: &'static str,
+    target_kind: &'static str,
+    target_id: String,
+) -> ConflictKeyView {
+    ConflictKeyView {
+        kind,
+        target_kind,
+        target_id,
+        namespace_name: None,
+        local_name: None,
+        qualifier: None,
+        version: None,
+    }
+}
+
+fn fingerprint_conflict_key(
+    kind: &'static str,
+    target_kind: &'static str,
+    target_id: String,
+    algorithm: &str,
+    version: u16,
+) -> ConflictKeyView {
+    ConflictKeyView {
+        kind,
+        target_kind,
+        target_id,
+        namespace_name: Some(algorithm.to_owned()),
+        local_name: None,
+        qualifier: None,
+        version: Some(version),
+    }
 }
 
 fn print_json(value: &impl Serialize) -> Result<()> {
