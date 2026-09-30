@@ -7,7 +7,7 @@ SQLite's per-connection value-length limit is reduced to 16 MiB before migration
 or queries run. This bounds allocations for strings, blobs, and result rows read
 from an untrusted production file while leaving ample room for production metadata.
 
-## Schema version 15
+## Schema version 16
 
 The current development schema stores a singleton production record plus assets,
 representations, content structures, resources, memberships, locators, typed
@@ -50,6 +50,11 @@ revision pages read at most one page of keys per requested kind, however long
 the run of unrelated revisions after the cursor. Schema 14 indexes jobs by
 their completion activity, so a regeneration plan finds the job that produced an
 artifact without scanning the job table.
+Schema 16 adds lookup indexes beginning with canonical locator URI and with
+resource fingerprint algorithm, version, and value. Known-media queries use
+those indexes to find current ownership candidates without scanning the full
+locator or fingerprint tables. Retired locators and superseded fingerprint
+observations remain outside the normal lookup path (ADR 0041).
 
 External identifiers and metadata assertions use polymorphic typed targets.
 External identifiers target asset, representation, resource, and activity

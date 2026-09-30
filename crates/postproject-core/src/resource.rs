@@ -1,8 +1,8 @@
 //! Storage-level resource identity and access values.
 
 use crate::{
-    Error, ErrorKind, LocatorId, MediaRoot, ResourceId, Result, SequenceNaming, Timestamp,
-    uri::normalize_uri,
+    Asset, Error, ErrorKind, LocatorId, MediaRoot, Representation, ResourceId, Result,
+    SequenceNaming, Timestamp, uri::normalize_uri,
 };
 
 /// Cheap filesystem facts observed for one resource.
@@ -234,6 +234,83 @@ impl Resource {
             .collect::<Vec<_>>();
         fingerprints.push(fingerprint.clone());
         Self::new(self.id, fingerprints, self.file_facts)
+    }
+}
+
+/// Canonical current locator identity used to find known media.
+///
+/// A single-file identity has no sequence naming. An image-sequence identity
+/// combines its directory URI with the exact naming descriptor, so different
+/// sequences in one directory remain distinct.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct LocatorIdentity {
+    uri: String,
+    sequence_naming: Option<SequenceNaming>,
+}
+
+impl LocatorIdentity {
+    /// Creates a canonical locator identity.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when `uri` is invalid or relative.
+    pub fn new(uri: impl Into<String>, sequence_naming: Option<SequenceNaming>) -> Result<Self> {
+        Ok(Self {
+            uri: normalize_uri(uri, "locator identity")?,
+            sequence_naming,
+        })
+    }
+
+    /// Returns the canonical UTF-8 URI.
+    #[must_use]
+    pub fn uri(&self) -> &str {
+        &self.uri
+    }
+
+    /// Returns the exact sequence naming, when this identifies an image
+    /// sequence.
+    #[must_use]
+    pub const fn sequence_naming(&self) -> Option<&SequenceNaming> {
+        self.sequence_naming.as_ref()
+    }
+}
+
+/// One owning path from known storage evidence to logical production media.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct KnownMediaMatch {
+    asset: Asset,
+    representation: Representation,
+    resource: Resource,
+}
+
+impl KnownMediaMatch {
+    /// Creates a known-media ownership match.
+    #[doc(hidden)]
+    #[must_use]
+    pub fn new(asset: Asset, representation: Representation, resource: Resource) -> Self {
+        Self {
+            asset,
+            representation,
+            resource,
+        }
+    }
+
+    /// Returns the owning logical asset.
+    #[must_use]
+    pub const fn asset(&self) -> &Asset {
+        &self.asset
+    }
+
+    /// Returns the parent representation that uses the resource.
+    #[must_use]
+    pub const fn representation(&self) -> &Representation {
+        &self.representation
+    }
+
+    /// Returns the matching storage resource.
+    #[must_use]
+    pub const fn resource(&self) -> &Resource {
+        &self.resource
     }
 }
 

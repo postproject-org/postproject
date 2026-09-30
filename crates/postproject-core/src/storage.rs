@@ -5,10 +5,10 @@ use crate::{
     ArtifactReproducibilityReport, Asset, AssetId, Dependency, DependencyQueryLimits,
     DependencyQueryMatch, DependencySet, DependencyTarget, ExternalIdentifier, FileFacts,
     FilteredRevisionPage, IdentifierScheme, Job, JobClaim, JobClaimId, JobFailure, JobId, JobQuery,
-    Locator, MediaRoot, MetadataAssertion, MetadataMatch, MetadataProperty, MetadataQuery,
-    MetadataValue, ObjectRef, OriginalMediaImport, Production, ProvenanceQueryLimits,
-    ProvenanceQueryMatch, QueryPage, QueryPageRequest, RegenerationJobPlan, Representation,
-    RepresentationFingerprint, RepresentationId, RepresentationImport, Resource,
+    KnownMediaMatch, Locator, LocatorIdentity, MediaRoot, MetadataAssertion, MetadataMatch,
+    MetadataProperty, MetadataQuery, MetadataValue, ObjectRef, OriginalMediaImport, Production,
+    ProvenanceQueryLimits, ProvenanceQueryMatch, QueryPage, QueryPageRequest, RegenerationJobPlan,
+    Representation, RepresentationFingerprint, RepresentationId, RepresentationImport, Resource,
     ResourceFingerprint, ResourceId, Result, Revision, RevisionContext, RevisionEvent,
     RevisionEventFilter, RevisionId, StaleArtifactQuery, Timestamp, ToolIdentity, TransactionId,
     TransactionState,
@@ -113,6 +113,36 @@ pub trait ProductionRead {
         resource_id: ResourceId,
         page: &QueryPageRequest,
     ) -> Result<QueryPage<Locator>>;
+
+    /// Finds current resources and their owning production objects by exact
+    /// canonical locator identity.
+    ///
+    /// The operation is read-only. It returns every candidate and never adopts,
+    /// relinks, or merges media implicitly.
+    ///
+    /// # Errors
+    ///
+    /// Returns a domain error for an invalid cursor or unreadable storage.
+    fn find_known_media_by_locator(
+        &self,
+        locator: &LocatorIdentity,
+        page: &QueryPageRequest,
+    ) -> Result<QueryPage<KnownMediaMatch>>;
+
+    /// Finds resources whose current effective fingerprint exactly matches,
+    /// together with every owning representation and asset.
+    ///
+    /// Historical fingerprint observations are not searched. The operation is
+    /// read-only and returns every candidate without inferring logical identity.
+    ///
+    /// # Errors
+    ///
+    /// Returns a domain error for an invalid cursor or unreadable storage.
+    fn find_known_media_by_fingerprint(
+        &self,
+        fingerprint: &ResourceFingerprint,
+        page: &QueryPageRequest,
+    ) -> Result<QueryPage<KnownMediaMatch>>;
 
     /// Queries representations with a locator recorded under a logical root.
     ///

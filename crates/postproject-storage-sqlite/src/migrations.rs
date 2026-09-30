@@ -4,7 +4,7 @@ use postproject_core::{Error, ErrorKind, Result, Timestamp};
 use rusqlite::{Connection, Transaction, TransactionBehavior, params};
 
 /// The newest schema understood by this build.
-pub const CURRENT_SCHEMA_VERSION: u32 = 15;
+pub const CURRENT_SCHEMA_VERSION: u32 = 16;
 
 struct Migration {
     version: u32,
@@ -71,6 +71,10 @@ const MIGRATIONS: &[Migration] = &[
     Migration {
         version: 15,
         sql: include_str!("migrations/015_locator_sequence_namings.sql"),
+    },
+    Migration {
+        version: 16,
+        sql: include_str!("migrations/016_known_media_lookup.sql"),
     },
 ];
 
@@ -149,7 +153,8 @@ fn migration_error(version: u32, action: &'static str) -> impl FnOnce(rusqlite::
 mod tests {
     use super::*;
     use postproject_core::{
-        ArtifactEvaluationLimits, ArtifactKnowledgeReason, ArtifactKnowledgeState, RepresentationId,
+        ArtifactEvaluationLimits, ArtifactKnowledgeReason, ArtifactKnowledgeState, LocatorIdentity,
+        QueryPageRequest, RepresentationId, ResourceFingerprint,
     };
 
     use crate::{SqliteProduction, load_production};
@@ -174,7 +179,10 @@ mod tests {
             .expect("query migration history")
             .collect::<std::result::Result<_, _>>()
             .expect("read migration history");
-        assert_eq!(applied, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
+        assert_eq!(
+            applied,
+            [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+        );
         for table in [
             "productions",
             "assets",
@@ -221,6 +229,61 @@ mod tests {
                 .expect("query migrated table");
             assert_eq!(count, 1, "missing migrated table {table}");
         }
+    }
+
+    #[test]
+    fn schema_fifteen_fixture_gains_indexed_known_media_lookup() {
+        let mut connection = Connection::open_in_memory().expect("open in-memory database");
+        for migration in &MIGRATIONS[..15] {
+            apply_migration(&mut connection, migration).expect("apply released migration");
+        }
+        connection
+            .execute_batch(include_str!(
+                "../../../tests/fixtures/schema-015-known-media.sql"
+            ))
+            .expect("load schema-fifteen fixture");
+
+        migrate(&mut connection).expect("migrate schema-fifteen fixture");
+
+        for index in [
+            "locators_by_uri_resource",
+            "resource_fingerprints_by_value_resource",
+        ] {
+            let count: u32 = connection
+                .query_row(
+                    "SELECT count(*) FROM sqlite_schema WHERE type = 'index' AND name = ?1",
+                    [index],
+                    |row| row.get(0),
+                )
+                .expect("inspect lookup index");
+            assert_eq!(count, 1, "missing {index}");
+        }
+
+        let production = load_production(&connection).expect("load migrated production");
+        let production =
+            SqliteProduction::from_parts(std::path::PathBuf::new(), connection, production);
+        let page = QueryPageRequest::new(10, None).expect("page request");
+        let locator =
+            LocatorIdentity::new("file:///schema-15/known.mov", None).expect("locator identity");
+        let fingerprint =
+            ResourceFingerprint::new("fixture-host", 9, b"fixture-fingerprint".to_vec())
+                .expect("fingerprint");
+        assert_eq!(
+            production
+                .find_known_media_by_locator(&locator, &page)
+                .expect("find migrated locator")
+                .items()
+                .len(),
+            1
+        );
+        assert_eq!(
+            production
+                .find_known_media_by_fingerprint(&fingerprint, &page)
+                .expect("find migrated fingerprint")
+                .items()
+                .len(),
+            1
+        );
     }
 
     #[test]

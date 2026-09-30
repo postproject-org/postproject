@@ -97,8 +97,8 @@ pub use resolution::{
     ResourceResolutionState,
 };
 pub use resource::{
-    FileFacts, FingerprintSnapshot, Locator, LocatorAvailability, RepresentationFingerprint,
-    Resource, ResourceFingerprint,
+    FileFacts, FingerprintSnapshot, KnownMediaMatch, Locator, LocatorAvailability, LocatorIdentity,
+    RepresentationFingerprint, Resource, ResourceFingerprint,
 };
 pub use revision::{
     FilteredRevisionPage, MAX_REVISION_MESSAGE_BYTES, MAX_REVISION_PAGE_SIZE, MAX_REVISION_WAIT,

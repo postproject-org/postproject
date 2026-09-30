@@ -30,10 +30,10 @@ use postproject_core::{
     DependencySetStatus, DependencyTarget, Error, ErrorKind, ExternalIdentifier, FileFacts,
     FilteredRevisionPage, FingerprintSnapshot, FrameRange, IdentifierScheme,
     ImageSequenceDescriptor, Job, JobClaim, JobClaimId, JobCompletion, JobFailure, JobId, JobKind,
-    JobQuery, JobState, Locator, LocatorAvailability, LocatorId, MAX_REGENERATION_PLANS,
-    MAX_REVISION_PAGE_SIZE, MediaRoot, MediaRootId, MetadataAssertion, MetadataMatch,
-    MetadataProperty, MetadataQuery, MetadataValue, ObjectRef, OriginIdentity, Production,
-    ProductionId, ProductionRead, ProductionStore, PropertyId, ProvenanceQueryLimits,
+    JobQuery, JobState, KnownMediaMatch, Locator, LocatorAvailability, LocatorId, LocatorIdentity,
+    MAX_REGENERATION_PLANS, MAX_REVISION_PAGE_SIZE, MediaRoot, MediaRootId, MetadataAssertion,
+    MetadataMatch, MetadataProperty, MetadataQuery, MetadataValue, ObjectRef, OriginIdentity,
+    Production, ProductionId, ProductionRead, ProductionStore, PropertyId, ProvenanceQueryLimits,
     ProvenanceQueryMatch, QueryCursor, QueryPage, QueryPageRequest, RationalRate,
     RegenerationJobPlan, Representation, RepresentationFingerprint, RepresentationId,
     RepresentationKind, RequestedJobOutput, Resource, ResourceFingerprint, ResourceId,
@@ -428,6 +428,24 @@ impl SqliteProduction {
         .collect()
     }
 
+    fn load_resource_by_id(&self, resource_id: ResourceId) -> Result<Resource> {
+        let stored = self
+            .connection
+            .query_row(
+                "SELECT file_size_bytes, modified_at_micros FROM resources WHERE id = ?1",
+                params![resource_id.as_bytes().as_slice()],
+                |row| Ok((row.get::<_, Option<i64>>(0)?, row.get::<_, Option<i64>>(1)?)),
+            )
+            .optional()
+            .map_err(sqlite_error("load resource"))?
+            .ok_or_else(|| Error::new(ErrorKind::NotFound, "resource does not exist"))?;
+        Ok(Resource::new(
+            resource_id,
+            self.load_resource_fingerprints(resource_id)?,
+            decode_file_facts(stored.0, stored.1)?,
+        ))
+    }
+
     /// Loads known locators for `resource_id` in stable identity order.
     ///
     /// # Errors
@@ -677,6 +695,172 @@ impl SqliteProduction {
             None
         };
         Ok(QueryPage::new(locators, next_cursor, false))
+    }
+
+    /// Finds current resources and their owning objects by exact locator
+    /// identity.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error for an invalid cursor or malformed stored data.
+    pub fn find_known_media_by_locator(
+        &self,
+        locator: &LocatorIdentity,
+        page: &QueryPageRequest,
+    ) -> Result<QueryPage<KnownMediaMatch>> {
+        let naming = locator.sequence_naming();
+        let naming_marker = if naming.is_some() { [1_u8] } else { [0_u8] };
+        let prefix = naming.map_or("", SequenceNaming::prefix);
+        let suffix = naming.map_or("", SequenceNaming::suffix);
+        let padding = naming.map_or(0, SequenceNaming::padding);
+        let padding_bytes = padding.to_be_bytes();
+        let signature = query_cursor::signature(&[
+            locator.uri().as_bytes(),
+            &naming_marker,
+            prefix.as_bytes(),
+            suffix.as_bytes(),
+            &padding_bytes,
+        ]);
+        let position = query_cursor::id_pair_position::<RepresentationId, ResourceId>(
+            page,
+            "known-media-locator",
+            &signature,
+        )?;
+        let (representation_position, resource_position) = position.unwrap_or(([0; 16], [0; 16]));
+        let mut statement = self
+            .connection
+            .prepare(
+                "SELECT rr.representation_id, rr.resource_id
+                 FROM locators l
+                 LEFT JOIN locator_sequence_namings lsn ON lsn.locator_id = l.id
+                 JOIN representation_resources rr ON rr.resource_id = l.resource_id
+                 WHERE l.uri = ?1
+                   AND ((?2 = 0 AND lsn.locator_id IS NULL)
+                     OR (?2 = 1 AND lsn.prefix = ?3 AND lsn.suffix = ?4 AND lsn.padding = ?5))
+                   AND (rr.representation_id > ?6
+                     OR (rr.representation_id = ?6 AND rr.resource_id > ?7))
+                 ORDER BY rr.representation_id, rr.resource_id LIMIT ?8",
+            )
+            .map_err(sqlite_error("prepare known-media locator query"))?;
+        let ids = statement
+            .query_map(
+                params![
+                    locator.uri(),
+                    i64::from(naming.is_some()),
+                    prefix,
+                    suffix,
+                    i64::from(padding),
+                    representation_position.as_slice(),
+                    resource_position.as_slice(),
+                    i64::from(page.limit()) + 1,
+                ],
+                |row| Ok((row.get::<_, Vec<u8>>(0)?, row.get::<_, Vec<u8>>(1)?)),
+            )
+            .map_err(sqlite_error("query known media by locator"))?
+            .map(|row| {
+                let (representation, resource) =
+                    row.map_err(sqlite_error("read known-media locator row"))?;
+                Ok((
+                    RepresentationId::from_bytes(id_bytes(representation, "representation")?),
+                    ResourceId::from_bytes(id_bytes(resource, "resource")?),
+                ))
+            })
+            .collect::<Result<Vec<_>>>()?;
+        self.known_media_page_from_ids(ids, page, "known-media-locator", &signature)
+    }
+
+    /// Finds resources with an exact current effective fingerprint and their
+    /// owning objects.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error for an invalid cursor or malformed stored data.
+    pub fn find_known_media_by_fingerprint(
+        &self,
+        fingerprint: &ResourceFingerprint,
+        page: &QueryPageRequest,
+    ) -> Result<QueryPage<KnownMediaMatch>> {
+        let version_bytes = fingerprint.version().to_be_bytes();
+        let signature = query_cursor::signature(&[
+            fingerprint.algorithm().as_bytes(),
+            &version_bytes,
+            fingerprint.value(),
+        ]);
+        let position = query_cursor::id_pair_position::<RepresentationId, ResourceId>(
+            page,
+            "known-media-fingerprint",
+            &signature,
+        )?;
+        let (representation_position, resource_position) = position.unwrap_or(([0; 16], [0; 16]));
+        let mut statement = self
+            .connection
+            .prepare(
+                "SELECT rr.representation_id, rr.resource_id
+                 FROM resource_fingerprints rf
+                 JOIN representation_resources rr ON rr.resource_id = rf.resource_id
+                 WHERE rf.algorithm = ?1 AND rf.algorithm_version = ?2 AND rf.value = ?3
+                   AND (rr.representation_id > ?4
+                     OR (rr.representation_id = ?4 AND rr.resource_id > ?5))
+                 ORDER BY rr.representation_id, rr.resource_id LIMIT ?6",
+            )
+            .map_err(sqlite_error("prepare known-media fingerprint query"))?;
+        let ids = statement
+            .query_map(
+                params![
+                    fingerprint.algorithm(),
+                    fingerprint.version(),
+                    fingerprint.value(),
+                    representation_position.as_slice(),
+                    resource_position.as_slice(),
+                    i64::from(page.limit()) + 1,
+                ],
+                |row| Ok((row.get::<_, Vec<u8>>(0)?, row.get::<_, Vec<u8>>(1)?)),
+            )
+            .map_err(sqlite_error("query known media by fingerprint"))?
+            .map(|row| {
+                let (representation, resource) =
+                    row.map_err(sqlite_error("read known-media fingerprint row"))?;
+                Ok((
+                    RepresentationId::from_bytes(id_bytes(representation, "representation")?),
+                    ResourceId::from_bytes(id_bytes(resource, "resource")?),
+                ))
+            })
+            .collect::<Result<Vec<_>>>()?;
+        self.known_media_page_from_ids(ids, page, "known-media-fingerprint", &signature)
+    }
+
+    fn known_media_page_from_ids(
+        &self,
+        mut ids: Vec<(RepresentationId, ResourceId)>,
+        page: &QueryPageRequest,
+        query: &str,
+        signature: &str,
+    ) -> Result<QueryPage<KnownMediaMatch>> {
+        let has_more = ids.len() > page.limit() as usize;
+        ids.truncate(page.limit() as usize);
+        let next_cursor = if has_more {
+            ids.last()
+                .map(|(representation, resource)| {
+                    query_cursor::cursor(
+                        query,
+                        signature,
+                        &[representation.to_string(), resource.to_string()],
+                    )
+                })
+                .transpose()?
+        } else {
+            None
+        };
+        let matches = ids
+            .into_iter()
+            .map(|(representation_id, resource_id)| {
+                let representation = self.load_representation_by_id(representation_id)?;
+                let asset = self.asset(representation.asset_id())?;
+                let resource = self.load_resource_by_id(resource_id)?;
+                Ok(KnownMediaMatch::new(asset, representation, resource))
+            })
+            .collect::<Result<Vec<_>>>()?;
+        Ok(QueryPage::new(matches, next_cursor, false))
     }
 
     /// Queries representations that use a resource, in identity order.
@@ -3220,6 +3404,22 @@ impl ProductionRead for SqliteProduction {
         page: &QueryPageRequest,
     ) -> Result<QueryPage<Locator>> {
         SqliteProduction::locators_page(self, resource_id, page)
+    }
+
+    fn find_known_media_by_locator(
+        &self,
+        locator: &LocatorIdentity,
+        page: &QueryPageRequest,
+    ) -> Result<QueryPage<KnownMediaMatch>> {
+        SqliteProduction::find_known_media_by_locator(self, locator, page)
+    }
+
+    fn find_known_media_by_fingerprint(
+        &self,
+        fingerprint: &ResourceFingerprint,
+        page: &QueryPageRequest,
+    ) -> Result<QueryPage<KnownMediaMatch>> {
+        SqliteProduction::find_known_media_by_fingerprint(self, fingerprint, page)
     }
 
     fn representations_under_media_root(

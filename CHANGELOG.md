@@ -6,6 +6,7 @@ All notable changes to PostProject will be documented here. The project uses
 ## Unreleased
 
 - Added opt-in C ABI usage traces and mechanical compatibility-family reports.
+- Added bounded current-locator and resource-fingerprint lookup for explicit known-media adoption.
 
 ## 0.4.0-alpha.1 - 2026-09-29
 

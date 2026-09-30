@@ -61,6 +61,25 @@ where
         .transpose()
 }
 
+pub(crate) fn id_pair_position<A, B>(
+    page: &QueryPageRequest,
+    query: &str,
+    query_signature: &str,
+) -> Result<Option<([u8; 16], [u8; 16])>>
+where
+    A: FromStr<Err = Error> + Display + IntoIdBytes,
+    B: FromStr<Err = Error> + Display + IntoIdBytes,
+{
+    position_fields(page, query, query_signature, 2)?
+        .map(|fields| {
+            Ok((
+                parse_id::<A>(fields[0])?.into_id_bytes(),
+                parse_id::<B>(fields[1])?.into_id_bytes(),
+            ))
+        })
+        .transpose()
+}
+
 pub(crate) trait IntoIdBytes {
     fn into_id_bytes(self) -> [u8; 16];
 }
