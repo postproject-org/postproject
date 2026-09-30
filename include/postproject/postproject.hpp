@@ -888,6 +888,13 @@ struct SequenceNaming final {
   }
 };
 
+// Exact current locator evidence used to search for known media. Sequence
+// identities include their naming; a directory URI alone is not equivalent.
+struct LocatorIdentity final {
+  std::string uri;
+  std::optional<SequenceNaming> sequence_naming;
+};
+
 // What an image sequence is: its frames, rate, and known gaps. Its file names
 // belong to each locator.
 struct ImageSequenceDescriptor final {
@@ -932,6 +939,13 @@ struct ResourceLocator final {
   Uuid resource_id;
   Locator locator;
   std::optional<std::string> media_root;
+};
+
+// One storage match and its owning representation and logical asset.
+struct KnownMediaMatch final {
+  Uuid asset_id;
+  Uuid representation_id;
+  Uuid resource_id;
 };
 
 struct Resource final {
@@ -1165,6 +1179,15 @@ struct LocatorQuerySetDeleter final {
 
 using LocatorQuerySetHandle =
     std::unique_ptr<pp_locator_query_set_t, LocatorQuerySetDeleter>;
+
+struct KnownMediaSetDeleter final {
+  void operator()(pp_known_media_set_t *matches) const noexcept {
+    pp_known_media_set_release(matches);
+  }
+};
+
+using KnownMediaSetHandle =
+    std::unique_ptr<pp_known_media_set_t, KnownMediaSetDeleter>;
 
 struct DependencySetDeleter final {
   void operator()(pp_dependency_set_t *dependencies) const noexcept {
@@ -1898,6 +1921,28 @@ representation_page(RepresentationSetHandle representations) {
   const char *cursor = pp_representation_set_next_cursor(representations.get());
   return QueryPage<Representation>{std::move(items), optional_string(cursor),
                                    false};
+}
+
+inline Result<QueryPage<KnownMediaMatch>>
+known_media_page(KnownMediaSetHandle matches) {
+  std::vector<KnownMediaMatch> items;
+  const std::uint64_t count = pp_known_media_set_count(matches.get());
+  items.reserve(static_cast<std::size_t>(count));
+  for (std::uint64_t index = 0; index < count; ++index) {
+    pp_uuid_t asset_id{};
+    pp_uuid_t representation_id{};
+    pp_uuid_t resource_id{};
+    pp_error_t *error = nullptr;
+    const pp_error_code_t status = pp_known_media_set_get(
+        matches.get(), index, &asset_id, &representation_id, &resource_id,
+        &error);
+    POSTPROJECT_TRY(check(status, error));
+    items.push_back(
+        {uuid(asset_id), uuid(representation_id), uuid(resource_id)});
+  }
+  const char *cursor = pp_known_media_set_next_cursor(matches.get());
+  return QueryPage<KnownMediaMatch>{std::move(items), optional_string(cursor),
+                                    false};
 }
 
 inline Result<QueryPage<Activity>> activity_page(ActivitySetHandle activities) {
@@ -3959,6 +4004,51 @@ public:
     const char *next_cursor = pp_locator_query_set_next_cursor(locators.get());
     return QueryPage<ResourceLocator>{
         std::move(items), detail::optional_string(next_cursor), false};
+  }
+
+  // Finds every current resource ownership candidate at this exact canonical
+  // locator identity. The query is read-only and does not adopt media.
+  [[nodiscard]] Result<QueryPage<KnownMediaMatch>> findKnownMediaByLocator(
+      const LocatorIdentity &locator, std::uint32_t limit,
+      std::optional<std::string_view> cursor = std::nullopt) const {
+    POSTPROJECT_TRY_ASSIGN(const std::string uri,
+                           detail::checked_string(locator.uri, "locator URI"));
+    POSTPROJECT_TRY_ASSIGN(
+        detail::NativeNaming naming,
+        detail::NativeNaming::make(locator.sequence_naming));
+    POSTPROJECT_TRY_ASSIGN(const std::optional<std::string> checked_cursor,
+                           detail::checked_cursor(cursor));
+    pp_known_media_set_t *raw_matches = nullptr;
+    pp_error_t *error = nullptr;
+    const pp_error_code_t status = pp_production_find_known_media_by_locator(
+        production_, uri.c_str(), naming.get(), limit,
+        detail::optional_c_str(checked_cursor), &raw_matches, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    return detail::known_media_page(
+        detail::KnownMediaSetHandle(raw_matches));
+  }
+
+  // Finds every resource whose current effective fingerprint exactly matches.
+  // Content equality produces candidates; it does not prove logical identity.
+  [[nodiscard]] Result<QueryPage<KnownMediaMatch>> findKnownMediaByFingerprint(
+      const Fingerprint &fingerprint, std::uint32_t limit,
+      std::optional<std::string_view> cursor = std::nullopt) const {
+    POSTPROJECT_TRY_ASSIGN(
+        const std::string algorithm,
+        detail::checked_string(fingerprint.algorithm, "fingerprint algorithm"));
+    POSTPROJECT_TRY_ASSIGN(const std::optional<std::string> checked_cursor,
+                           detail::checked_cursor(cursor));
+    pp_known_media_set_t *raw_matches = nullptr;
+    pp_error_t *error = nullptr;
+    const pp_error_code_t status =
+        pp_production_find_known_media_by_fingerprint(
+            production_, algorithm.c_str(), fingerprint.version,
+            fingerprint.value.data(),
+            static_cast<std::uint64_t>(fingerprint.value.size()), limit,
+            detail::optional_c_str(checked_cursor), &raw_matches, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    return detail::known_media_page(
+        detail::KnownMediaSetHandle(raw_matches));
   }
 
   // Representations with a required resource that has no locator knowledge.

@@ -254,6 +254,29 @@ int main(int argc, char **argv) {
              .last_seen_unix_micros.has_value()) {
       return 17;
     }
+    const auto by_locator = production
+                                .findKnownMediaByLocator(
+                                    {representations[0]
+                                         .resources[0]
+                                         .locators[0]
+                                         .uri,
+                                     std::nullopt},
+                                    1)
+                                .value();
+    const auto by_fingerprint =
+        production
+            .findKnownMediaByFingerprint(
+                representations[0].resources[0].fingerprints[0], 1)
+            .value();
+    for (const auto *matches : {&by_locator, &by_fingerprint}) {
+      if (matches->items.size() != 1 || matches->next_cursor.has_value() ||
+          matches->traversal_truncated ||
+          matches->items[0].asset_id != asset_id ||
+          matches->items[0].representation_id != representations[0].id ||
+          matches->items[0].resource_id != representations[0].resources[0].id) {
+        return 73;
+      }
+    }
     if (production.dependencySet(representations[0].id).value().has_value() ||
         !production.dependents(asset_ref, 1, 1000, 1000).value().items.empty()) {
       return 30;
