@@ -20,14 +20,15 @@ use postproject_core::{
     AvailabilityIssueKind, DecimalValue, Dependency, DependencyKind, DependencyQueryLimits,
     DependencySet, DependencySetStatus, DependencyTarget, EvidenceKind, ExternalIdentifier,
     FrameRange, IdentifierScheme, Job, JobClaimId, JobFailure, JobId, JobKind, JobQuery, JobState,
-    JobStateKind, Locator, LocatorAvailability, LocatorId, MAX_JOB_DIAGNOSTIC_BYTES, MediaRoot,
-    MediaRootId, MetadataAssertion, MetadataField, MetadataProperty, MetadataQuery, MetadataValue,
-    MetadataValueKind, ObjectRef, OriginIdentity, OriginalMediaImport, ProductionId,
-    ProductionStoreTransaction, PropertyId, ProvenanceQueryLimits, QueryCursor, QueryPage,
-    QueryPageRequest, RationalRate, RationalValue, Representation, RepresentationAvailability,
-    RepresentationId, RepresentationKind, RepresentationResolution, RequestedJobOutput,
-    ResolutionEvidence, Resource, ResourceId, ResourceResolution, ResourceResolutionState,
-    ResourceRole, Revision, RevisionContext, RevisionEvent, RevisionEventFilter, RevisionEventKind,
+    JobStateKind, Locator, LocatorAvailability, LocatorId, LocatorIdentity,
+    MAX_JOB_DIAGNOSTIC_BYTES, MediaRoot, MediaRootId, MetadataAssertion, MetadataField,
+    MetadataProperty, MetadataQuery, MetadataValue, MetadataValueKind, ObjectRef, OriginIdentity,
+    OriginalMediaImport, ProductionId, ProductionStoreTransaction, PropertyId,
+    ProvenanceQueryLimits, QueryCursor, QueryPage, QueryPageRequest, RationalRate, RationalValue,
+    Representation, RepresentationAvailability, RepresentationId, RepresentationKind,
+    RepresentationResolution, RequestedJobOutput, ResolutionEvidence, Resource,
+    ResourceFingerprint, ResourceId, ResourceResolution, ResourceResolutionState, ResourceRole,
+    Revision, RevisionContext, RevisionEvent, RevisionEventFilter, RevisionEventKind,
     RevisionEventType, RevisionId, RevisionWaitOutcome, SequenceNaming, StaleArtifactQuery,
     Timestamp, ToolIdentity, VocabularyId,
 };
@@ -129,6 +130,10 @@ enum MediaCommand {
     ///
     /// Knowledge-only: only locators confirmed with root knowledge match.
     UnderRoot(MediaUnderRootArgs),
+    /// Find current production media by exact locator identity.
+    FindByLocator(MediaFindByLocatorArgs),
+    /// Find current production media by exact fingerprint evidence.
+    FindByFingerprint(MediaFindByFingerprintArgs),
 }
 
 #[derive(Debug, Args)]
@@ -155,6 +160,31 @@ struct MediaUnderRootArgs {
     production: PathBuf,
     /// Logical media root name.
     root: String,
+    #[command(flatten)]
+    page: QueryPageArgs,
+}
+
+#[derive(Debug, Args)]
+struct MediaFindByLocatorArgs {
+    production: PathBuf,
+    /// Canonical locator URI to match.
+    uri: String,
+    /// Exact image-sequence naming, such as `shot_%04d.exr`.
+    #[arg(long, value_name = "PATTERN")]
+    sequence_naming: Option<SequenceNamingArg>,
+    #[command(flatten)]
+    page: QueryPageArgs,
+}
+
+#[derive(Debug, Args)]
+struct MediaFindByFingerprintArgs {
+    production: PathBuf,
+    /// Fingerprint algorithm/domain.
+    algorithm: String,
+    /// Fingerprint algorithm version.
+    version: u16,
+    /// Fingerprint value encoded as hexadecimal.
+    value_hex: String,
     #[command(flatten)]
     page: QueryPageArgs,
 }
@@ -1534,6 +1564,16 @@ struct RepresentationSummaryView {
 }
 
 #[derive(Debug, Serialize)]
+struct KnownMediaView {
+    #[serde(rename = "asset_id")]
+    asset: String,
+    #[serde(rename = "representation_id")]
+    representation: String,
+    #[serde(rename = "resource_id")]
+    resource: String,
+}
+
+#[derive(Debug, Serialize)]
 struct ResourceSummaryView {
     id: String,
     fingerprints: Vec<FingerprintView>,
@@ -1885,6 +1925,8 @@ fn execute(cli: Cli) -> Result<()> {
             MediaCommand::VerifyContent(args) => media_verify_content(&args, cli.json),
             MediaCommand::Unresolved(args) => media_unresolved(&args, cli.json),
             MediaCommand::UnderRoot(args) => media_under_root(&args, cli.json),
+            MediaCommand::FindByLocator(args) => media_find_by_locator(&args, cli.json),
+            MediaCommand::FindByFingerprint(args) => media_find_by_fingerprint(&args, cli.json),
         },
         Command::Representation(args) => match args.command {
             RepresentationCommand::Add(args) => representation_add(&args, cli.json),
@@ -2401,6 +2443,46 @@ fn media_under_root(args: &MediaUnderRootArgs, json: bool) -> Result<()> {
         Ok(representation_summary_view(representation))
     })?;
     print_query_page(&view, json, false, print_representation_summary)
+}
+
+fn media_find_by_locator(args: &MediaFindByLocatorArgs, json: bool) -> Result<()> {
+    let locator = LocatorIdentity::new(
+        &args.uri,
+        args.sequence_naming.as_ref().map(|naming| naming.0.clone()),
+    )
+    .context("validate locator identity")?;
+    let production = SqliteProduction::open(&args.production).context("open production")?;
+    let page = production
+        .find_known_media_by_locator(&locator, &query_page_request(&args.page)?)
+        .context("find known media by locator")?;
+    print_known_media_page(&page, json)
+}
+
+fn media_find_by_fingerprint(args: &MediaFindByFingerprintArgs, json: bool) -> Result<()> {
+    let value = hex::decode(&args.value_hex).context("decode fingerprint value")?;
+    let fingerprint = ResourceFingerprint::new(&args.algorithm, args.version, value)
+        .context("validate fingerprint")?;
+    let production = SqliteProduction::open(&args.production).context("open production")?;
+    let page = production
+        .find_known_media_by_fingerprint(&fingerprint, &query_page_request(&args.page)?)
+        .context("find known media by fingerprint")?;
+    print_known_media_page(&page, json)
+}
+
+fn print_known_media_page(
+    page: &QueryPage<postproject_core::KnownMediaMatch>,
+    json: bool,
+) -> Result<()> {
+    let view = query_page_view(page, |item| {
+        Ok(KnownMediaView {
+            asset: item.asset().id().to_string(),
+            representation: item.representation().id().to_string(),
+            resource: item.resource().id().to_string(),
+        })
+    })?;
+    print_query_page(&view, json, false, |item| {
+        println!("{}\t{}\t{}", item.asset, item.representation, item.resource);
+    })
 }
 
 fn representation_list(args: &RepresentationListArgs, json: bool) -> Result<()> {

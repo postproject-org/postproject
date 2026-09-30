@@ -149,6 +149,50 @@ fn pages_media_structure() {
 }
 
 #[test]
+fn finds_every_known_media_candidate_by_locator_and_fingerprint() {
+    let directory = tempfile::tempdir().expect("create test directory");
+    let production = directory.path().join("known-media.pproj");
+    let production = production.to_str().expect("UTF-8 production path");
+    run_json(&["init", production]);
+    let first = import(production, directory.path(), "shared.mov", b"same bytes");
+    let second = import(production, directory.path(), "shared.mov", b"same bytes");
+    let uri = first["uri"].as_str().expect("locator URI");
+
+    let by_locator = collect_pages(&["media", "find-by-locator", production, uri]);
+    assert_eq!(by_locator.len(), 2);
+    for imported in [&first, &second] {
+        assert!(by_locator.iter().any(|candidate| {
+            candidate["asset_id"] == imported["asset_id"]
+                && candidate["representation_id"] == imported["representation_id"]
+                && candidate["resource_id"] == imported["resource_id"]
+        }));
+    }
+
+    let shown = run_json(&[
+        "media",
+        "show",
+        production,
+        first["asset_id"].as_str().expect("asset ID"),
+    ]);
+    let fingerprint = &shown["representations"][0]["resources"][0]["fingerprints"][0];
+    let version = fingerprint["version"]
+        .as_u64()
+        .expect("fingerprint version");
+    let version = version.to_string();
+    let by_fingerprint = collect_pages(&[
+        "media",
+        "find-by-fingerprint",
+        production,
+        fingerprint["algorithm"].as_str().expect("algorithm"),
+        &version,
+        fingerprint["value_hex"]
+            .as_str()
+            .expect("fingerprint value"),
+    ]);
+    assert_eq!(by_fingerprint, by_locator);
+}
+
+#[test]
 fn queries_media_knowledge_by_root_and_resolution() {
     let directory = tempfile::tempdir().expect("create test directory");
     let production = directory.path().join("roots.pproj");
