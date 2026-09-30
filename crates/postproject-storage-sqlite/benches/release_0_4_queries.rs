@@ -7,9 +7,10 @@
 use std::{env, hint::black_box, path::PathBuf, time::Instant};
 
 use postproject_core::{
-    ActivityKind, ActivityOutputQuery, ArtifactEvaluationLimits, AssetId, MetadataProperty,
-    MetadataQuery, MetadataValue, PropertyId, ProvenanceQueryLimits, QueryPage, QueryPageRequest,
-    RepresentationId, ResourceId, StaleArtifactQuery, ToolIdentity, VocabularyId,
+    ActivityKind, ActivityOutputQuery, ArtifactEvaluationLimits, AssetId, LocatorIdentity,
+    MetadataProperty, MetadataQuery, MetadataValue, PropertyId, ProvenanceQueryLimits, QueryPage,
+    QueryPageRequest, RepresentationId, ResourceFingerprint, ResourceId, StaleArtifactQuery,
+    ToolIdentity, VocabularyId,
 };
 use postproject_storage_sqlite::SqliteProduction;
 
@@ -70,6 +71,23 @@ fn main() {
     });
     measure("locators_of_resource", runs, &path, |production| {
         production.locators_page(last_resource, &page)
+    });
+    let known_locator =
+        LocatorIdentity::new("root://media/099998/0.mov", None).expect("known locator identity");
+    measure("known_media_by_locator", runs, &path, |production| {
+        production.find_known_media_by_locator(&known_locator, &page)
+    });
+    let known_resource_index = (ASSET_COUNT * REPRESENTATIONS_PER_ASSET - 2) * 2;
+    let known_fingerprint = ResourceFingerprint::new(
+        "pp-blake3-full-file",
+        1,
+        blake3::hash(format!("{seed}:resource:{known_resource_index}").as_bytes())
+            .as_bytes()
+            .to_vec(),
+    )
+    .expect("known resource fingerprint");
+    measure("known_media_by_fingerprint", runs, &path, |production| {
+        production.find_known_media_by_fingerprint(&known_fingerprint, &page)
     });
     measure(
         "representations_under_media_root",
