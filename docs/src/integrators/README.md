@@ -53,6 +53,10 @@ Implement {doc}`media-resolution` before building elaborate metadata features. A
 
 The host should surface ambiguity rather than silently accepting the first candidate. {doc}`fingerprints-and-verification` covers what to do when content itself changes: recording a new fingerprint, verifying content during resolution, and scanning storage for media the production does not know yet.
 
+When several hosts share a production, {doc}`known-media-adoption` shows how a
+host finds an existing asset by current locator or fingerprint evidence before
+creating another logical asset.
+
 ### 4. Support the media structures your application actually uses
 
 If the host handles VFX or camera media, continue with {doc}`compound-media` so sequences, spans, packages, and proxies remain one representation each instead of becoming one logical asset per file.
@@ -127,6 +131,7 @@ host-object-bindings
 
 media-resolution
 fingerprints-and-verification
+known-media-adoption
 compound-media
 ```
 

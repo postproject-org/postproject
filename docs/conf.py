@@ -45,7 +45,7 @@ breathe_default_project = "PostProject"
 breathe_domain_by_extension = {"h": "c", "hpp": "cpp"}
 
 html_theme = "furo"
-html_title = f"PostProject {release} · ABI 35"
+html_title = f"PostProject {release} · ABI 36"
 html_static_path = ["_static"]
 html_css_files = ["postproject.css"]
 templates_path = ["_templates"]
