@@ -1,5 +1,47 @@
 """Structured exceptions translated from stable C ABI error codes."""
 
+from __future__ import annotations
+
+from dataclasses import dataclass
+from enum import IntEnum
+
+from ._model import MediaRootId, ObjectReference, RevisionId
+
+
+class ConflictKeyKind(IntEnum):
+    """Stable category of a semantic transaction conflict key."""
+
+    LOCATOR_SET = 1
+    METADATA_PROPERTY = 2
+    DEPENDENCY_SET = 3
+    MEDIA_ROOT = 4
+    EXTERNAL_IDENTIFIER = 5
+    RESOURCE_FINGERPRINT = 6
+    REPRESENTATION_FINGERPRINT = 7
+
+
+@dataclass(frozen=True, slots=True)
+class ConflictKey:
+    """One non-mergeable semantic fact changed after a transaction base."""
+
+    kind: ConflictKeyKind
+    target: ObjectReference | MediaRootId
+    namespace_name: str | None = None
+    local_name: str | None = None
+    qualifier: str | None = None
+    version: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class TransactionConflict:
+    """Machine-readable detail for one optimistic transaction conflict."""
+
+    key: ConflictKey
+    base_revision_id: RevisionId
+    base_revision_sequence: int
+    superseding_revision_id: RevisionId
+    superseding_revision_sequence: int
+
 
 class PostProjectError(RuntimeError):
     """Base error reported by the native PostProject library."""
@@ -35,6 +77,15 @@ class MigrationError(PostProjectError):
 
 class ConflictError(PostProjectError):
     """An operation conflicts with current transaction or production state."""
+
+    def __init__(
+        self,
+        code: int,
+        message: str,
+        conflict: TransactionConflict | None = None,
+    ) -> None:
+        super().__init__(code, message)
+        self.conflict = conflict
 
 
 class UnsupportedError(PostProjectError):

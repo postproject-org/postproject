@@ -1636,17 +1636,32 @@ class Production:
     def transaction(
         self,
         *,
+        base_revision: RevisionId | None = None,
         origin: OriginIdentity | str | None = None,
         message: str | None = None,
     ) -> Transaction:
-        """Begin a transaction that commits on a clean context-manager exit."""
+        """Begin a transaction that commits on a clean context-manager exit.
+
+        ``base_revision`` identifies the durable production state from which
+        the caller made its decisions. A stale non-mergeable write raises
+        :class:`postproject.ConflictError` with structured ``conflict`` detail.
+        """
 
         self._require_open()
         handle = ctypes.POINTER(NativeTransaction)()
         error = ctypes.POINTER(Error)()
-        status = self._native.lib.pp_production_begin_transaction(
-            self._handle, ctypes.byref(handle), ctypes.byref(error)
-        )
+        if base_revision is None:
+            status = self._native.lib.pp_production_begin_transaction(
+                self._handle, ctypes.byref(handle), ctypes.byref(error)
+            )
+        else:
+            native_base = _native_uuid(base_revision.value)
+            status = self._native.lib.pp_production_begin_transaction_at(
+                self._handle,
+                ctypes.byref(native_base),
+                ctypes.byref(handle),
+                ctypes.byref(error),
+            )
         self._native.check(status, error)
         if not handle:
             raise RuntimeError("native transaction creation returned no handle")

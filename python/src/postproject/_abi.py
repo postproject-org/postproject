@@ -129,6 +129,10 @@ class ObjectRef(ctypes.Structure):
     pass
 
 
+class TransactionConflict(ctypes.Structure):
+    pass
+
+
 class DependencyMatch(ctypes.Structure):
     pass
 
@@ -184,6 +188,7 @@ DependencySetStatus = ctypes.c_uint32
 ArtifactTraversalLimit = ctypes.c_uint32
 ArtifactReproducibilityIssueKind = ctypes.c_uint32
 MetadataValueKind = ctypes.c_uint32
+ConflictKeyKind = ctypes.c_uint32
 ErrorCode = ctypes.c_uint32
 RepresentationAvailability = ctypes.c_uint32
 ResourceResolutionState = ctypes.c_uint32
@@ -293,6 +298,13 @@ PP_METADATA_RATIONAL = 10
 PP_METADATA_LIST = 11
 PP_METADATA_STRUCT = 12
 PP_METADATA_REFERENCE = 13
+PP_CONFLICT_LOCATOR_SET = 1
+PP_CONFLICT_METADATA_PROPERTY = 2
+PP_CONFLICT_DEPENDENCY_SET = 3
+PP_CONFLICT_MEDIA_ROOT = 4
+PP_CONFLICT_EXTERNAL_IDENTIFIER = 5
+PP_CONFLICT_RESOURCE_FINGERPRINT = 6
+PP_CONFLICT_REPRESENTATION_FINGERPRINT = 7
 PP_OK = 0
 PP_ERROR_INVALID_ARGUMENT = 1
 PP_ERROR_NOT_FOUND = 2
@@ -353,6 +365,19 @@ Uuid._fields_ = [
 ObjectRef._fields_ = [
     ("kind", ObjectKind),
     ("id", Uuid),
+]
+
+TransactionConflict._fields_ = [
+    ("kind", ConflictKeyKind),
+    ("target", ObjectRef),
+    ("namespace_name", ctypes.c_char_p),
+    ("local_name", ctypes.c_char_p),
+    ("qualifier", ctypes.c_char_p),
+    ("version", ctypes.c_uint16),
+    ("base_revision_id", Uuid),
+    ("base_revision_sequence", ctypes.c_uint64),
+    ("superseding_revision_id", Uuid),
+    ("superseding_revision_sequence", ctypes.c_uint64),
 ]
 
 DependencyMatch._fields_ = [
@@ -479,6 +504,7 @@ SequenceNaming._fields_ = [
 PUBLIC_STRUCTS = {
     "pp_uuid_t": (Uuid, ("bytes",)),
     "pp_object_ref_t": (ObjectRef, ("kind", "id")),
+    "pp_transaction_conflict_t": (TransactionConflict, ("kind", "target", "namespace_name", "local_name", "qualifier", "version", "base_revision_id", "base_revision_sequence", "superseding_revision_id", "superseding_revision_sequence")),
     "pp_dependency_match_t": (DependencyMatch, ("target", "depth")),
     "pp_revision_event_t": (RevisionEvent, ("kind", "position", "asset_id", "representation_id", "resource_id", "locator_id", "media_root_id", "activity_id", "job_id", "target", "structural_position", "enabled", "identifier_scheme", "identifier_value", "identifier_qualifier", "vocabulary", "property", "activity_kind", "role", "fingerprint_algorithm", "fingerprint_version")),
     "pp_activity_edge_t": (ActivityEdge, ("representation_id", "role")),
@@ -530,6 +556,7 @@ EXPORTED_SYMBOLS = (
     "pp_error_code",
     "pp_error_message",
     "pp_error_release",
+    "pp_error_transaction_conflict",
     "pp_external_identifier_set_count",
     "pp_external_identifier_set_get",
     "pp_external_identifier_set_release",
@@ -612,6 +639,7 @@ EXPORTED_SYMBOLS = (
     "pp_production_assets",
     "pp_production_assets_page",
     "pp_production_begin_transaction",
+    "pp_production_begin_transaction_at",
     "pp_production_changes_since",
     "pp_production_changes_since_filtered",
     "pp_production_create",
@@ -1111,6 +1139,8 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_resolution_set_release.restype = None
     lib.pp_production_begin_transaction.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(ctypes.POINTER(Transaction)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_production_begin_transaction.restype = ErrorCode
+    lib.pp_production_begin_transaction_at.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.POINTER(Transaction)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_production_begin_transaction_at.restype = ErrorCode
     lib.pp_production_release.argtypes = [ctypes.POINTER(Production)]
     lib.pp_production_release.restype = None
     lib.pp_media_source_create_file.argtypes = [ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(MediaSource)), ctypes.POINTER(ctypes.POINTER(Error))]
@@ -1181,5 +1211,7 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_error_code.restype = ErrorCode
     lib.pp_error_message.argtypes = [ctypes.POINTER(Error)]
     lib.pp_error_message.restype = ctypes.c_char_p
+    lib.pp_error_transaction_conflict.argtypes = [ctypes.POINTER(Error), ctypes.POINTER(TransactionConflict)]
+    lib.pp_error_transaction_conflict.restype = ctypes.c_uint8
     lib.pp_error_release.argtypes = [ctypes.POINTER(Error)]
     lib.pp_error_release.restype = None

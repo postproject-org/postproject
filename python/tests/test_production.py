@@ -23,6 +23,8 @@ from postproject import (
     AvailabilityIssueKind,
     CancelledError,
     CancelToken,
+    ConflictError,
+    ConflictKeyKind,
     ContentObservationOutcome,
     ContentStructureKind,
     ContentVerification,
@@ -957,6 +959,41 @@ class ProductionTests(unittest.TestCase):
 
             with self.assertRaises(InvalidArgumentError):
                 production.changes_since(0, 0)
+
+    def test_stale_locator_write_reports_structured_conflict(self) -> None:
+        with Production.create(
+            self.production_path, library_path=LIBRARY_PATH
+        ) as production:
+            with production.transaction() as transaction:
+                asset_id = transaction.import_media(self.media_path)
+
+            base = production.latest_revision
+            assert base is not None
+            resource_id = production.representations[asset_id][0].resources[0].id
+
+            with production.transaction(base_revision=base.id) as transaction:
+                transaction.confirm_locator(resource_id, "file:///first.mov")
+
+            superseding = production.latest_revision
+            assert superseding is not None
+            stale = production.transaction(base_revision=base.id)
+            try:
+                stale.confirm_locator(resource_id, "file:///stale.mov")
+                with self.assertRaises(ConflictError) as raised:
+                    stale.commit()
+            finally:
+                stale.close()
+
+            conflict = raised.exception.conflict
+            assert conflict is not None
+            self.assertEqual(conflict.key.kind, ConflictKeyKind.LOCATOR_SET)
+            self.assertEqual(conflict.key.target, resource_id)
+            self.assertEqual(conflict.base_revision_id, base.id)
+            self.assertEqual(conflict.base_revision_sequence, base.sequence)
+            self.assertEqual(conflict.superseding_revision_id, superseding.id)
+            self.assertEqual(
+                conflict.superseding_revision_sequence, superseding.sequence
+            )
 
     def test_revision_events_are_typed_ordered_and_copied(self) -> None:
         with Production.create(

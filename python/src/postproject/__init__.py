@@ -5,6 +5,8 @@ from ._errors import (
     AmbiguousResolutionError,
     CancelledError,
     ConflictError,
+    ConflictKey,
+    ConflictKeyKind,
     FingerprintError,
     InternalError,
     InvalidArgumentError,
@@ -13,6 +15,7 @@ from ._errors import (
     NotFoundError,
     PostProjectError,
     StorageError,
+    TransactionConflict,
     UnsupportedError,
 )
 from ._model import (
@@ -189,6 +192,8 @@ __all__ = [
     "CancelToken",
     "CancelledError",
     "ConflictError",
+    "ConflictKey",
+    "ConflictKeyKind",
     "ContentObservationOutcome",
     "ContentStructureKind",
     "ContentVerification",
@@ -303,6 +308,7 @@ __all__ = [
     "StorageError",
     "ToolIdentity",
     "Transaction",
+    "TransactionConflict",
     "TransactionId",
     "UnsupportedError",
     "VerificationMode",
