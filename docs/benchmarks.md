@@ -7,7 +7,8 @@ cover the four scale-sensitive workflows named in the acceptance criteria:
 - opening and enumerating a SQLite production containing 10,000 assets with
   resource and representation fingerprints;
 - resolving relocated media beneath a root containing 3,000 decoys;
-- committing repeated single-import transactions.
+- committing repeated single-import transactions;
+- comparing 100-key commits with and without optimistic base checks.
 
 Run them with an optimized build:
 
@@ -28,6 +29,10 @@ Criterion reports are local artifacts under `target/criterion` and are not
 committed. Published numbers must record the commit, Rust version, operating
 system, CPU, storage device/filesystem, power policy, and full Criterion command.
 Results are not release gates yet; they exist to make regressions measurable.
+The two `transaction_commit/100_locator_keys` measurements perform identical
+domain writes and conflict-version updates. Their difference estimates the
+added cost of the 100 indexed base-revision checks without depending on revision
+history length.
 
 ## 0.5 interactive latency targets
 

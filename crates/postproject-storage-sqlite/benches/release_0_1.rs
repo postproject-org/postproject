@@ -26,6 +26,7 @@ fn benchmarks(criterion: &mut Criterion) {
     benchmark_large_production_load(criterion);
     benchmark_resolver_scan(criterion);
     benchmark_transaction_commit(criterion);
+    benchmark_conflict_checks(criterion);
 }
 
 fn benchmark_bulk_import(criterion: &mut Criterion) {
@@ -168,6 +169,86 @@ fn benchmark_transaction_commit(criterion: &mut Criterion) {
             transaction.commit().expect("commit benchmark transaction");
         });
     });
+}
+
+fn benchmark_conflict_checks(criterion: &mut Criterion) {
+    let (directory, mut unbased, unbased_resources) = conflict_fixture("unbased");
+    let mut unbased_index = 0_u64;
+    let mut group = criterion.benchmark_group("transaction_commit/100_locator_keys");
+    group.sample_size(20);
+    group.bench_function("without_base", |bencher| {
+        bencher.iter(|| {
+            commit_locator_batch(&mut unbased, &unbased_resources, unbased_index, None);
+            unbased_index = unbased_index.wrapping_add(1);
+        });
+    });
+
+    let (_based_directory, mut based, based_resources) = conflict_fixture("based");
+    let mut based_index = 0_u64;
+    group.bench_function("with_current_base", |bencher| {
+        bencher.iter(|| {
+            let base = based
+                .latest_revision()
+                .expect("load benchmark base")
+                .expect("benchmark base revision")
+                .id();
+            commit_locator_batch(&mut based, &based_resources, based_index, Some(base));
+            based_index = based_index.wrapping_add(1);
+        });
+    });
+    group.finish();
+    black_box(directory);
+}
+
+fn conflict_fixture(name: &str) -> (TempDir, SqliteProduction, Vec<ResourceId>) {
+    const KEY_COUNT: usize = 100;
+    let directory = tempfile::tempdir().expect("create conflict fixture");
+    let mut production =
+        SqliteProduction::create(directory.path().join(format!("{name}.pproj")), None)
+            .expect("create conflict production");
+    let imports: Vec<_> = (0..KEY_COUNT).map(synthetic_import).collect();
+    let resources = imports
+        .iter()
+        .map(|import| import.resources()[0].id())
+        .collect();
+    let mut transaction = production
+        .begin_transaction()
+        .expect("begin conflict fixture");
+    for import in &imports {
+        transaction
+            .import_original(import)
+            .expect("stage conflict fixture import");
+    }
+    transaction.commit().expect("commit conflict fixture");
+    drop(transaction);
+    (directory, production, resources)
+}
+
+fn commit_locator_batch(
+    production: &mut SqliteProduction,
+    resources: &[ResourceId],
+    iteration: u64,
+    base: Option<postproject_core::RevisionId>,
+) {
+    let mut transaction = match base {
+        Some(base) => production.begin_transaction_at(base),
+        None => production.begin_transaction(),
+    }
+    .expect("begin locator batch");
+    for (position, resource_id) in resources.iter().enumerate() {
+        let locator = Locator::new(
+            LocatorId::new(),
+            *resource_id,
+            format!("file:///benchmark/conflicts/{iteration}/{position}.mov"),
+            None,
+            LocatorAvailability::Unknown,
+        )
+        .expect("construct conflict benchmark locator");
+        transaction
+            .add_locator(&locator)
+            .expect("stage conflict benchmark locator");
+    }
+    transaction.commit().expect("commit locator batch");
 }
 
 fn media_fixture(count: usize, prefix: &str) -> (TempDir, Vec<PathBuf>) {
