@@ -11,6 +11,70 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* [known-media-adoption] */
+static pp_error_code_t find_known_media(pp_production_t *production,
+                                        const char *media_path,
+                                        const pp_uuid_t *expected_asset,
+                                        pp_error_t **error) {
+  char *uri = NULL;
+  pp_fingerprint_t *fingerprint = NULL;
+  pp_known_media_set_t *by_locator = NULL;
+  pp_known_media_set_t *by_content = NULL;
+  const char *algorithm = NULL;
+  const uint8_t *value = NULL;
+  uint16_t version = 0;
+  uint64_t value_length = 0;
+  pp_uuid_t asset, representation, resource;
+
+  pp_error_code_t status = pp_file_path_to_locator(media_path, &uri, error);
+  if (status == PP_OK) {
+    status = pp_production_find_known_media_by_locator(
+        production, uri, NULL, 100, NULL, &by_locator, error);
+  }
+  if (status == PP_OK &&
+      (pp_known_media_set_count(by_locator) != 1 ||
+       pp_known_media_set_next_cursor(by_locator) != NULL)) {
+    status = PP_ERROR_INTERNAL;
+  }
+  if (status == PP_OK) {
+    status = pp_known_media_set_get(by_locator, 0, &asset, &representation,
+                                    &resource, error);
+  }
+  if (status == PP_OK && memcmp(&asset, expected_asset, sizeof asset) != 0) {
+    status = PP_ERROR_INTERNAL;
+  }
+
+  if (status == PP_OK) {
+    status = pp_fingerprint_file(media_path, &fingerprint, error);
+  }
+  if (status == PP_OK) {
+    status = pp_fingerprint_get(fingerprint, &algorithm, &version, &value,
+                                &value_length, error);
+  }
+  if (status == PP_OK) {
+    status = pp_production_find_known_media_by_fingerprint(
+        production, algorithm, version, value, value_length, 100, NULL,
+        &by_content, error);
+  }
+  if (status == PP_OK && pp_known_media_set_count(by_content) == 1) {
+    status = pp_known_media_set_get(by_content, 0, &asset, &representation,
+                                    &resource, error);
+  } else if (status == PP_OK) {
+    /* Multiple matches are candidates; the host must never guess one. */
+    status = PP_ERROR_INTERNAL;
+  }
+  if (status == PP_OK && memcmp(&asset, expected_asset, sizeof asset) != 0) {
+    status = PP_ERROR_INTERNAL;
+  }
+
+  pp_string_release(uri);
+  pp_fingerprint_release(fingerprint);
+  pp_known_media_set_release(by_locator);
+  pp_known_media_set_release(by_content);
+  return status;
+}
+/* [/known-media-adoption] */
+
 /* [remove-identifier] */
 static pp_error_code_t replace_identifiers(pp_production_t *production,
                                            const pp_uuid_t *asset_id,
@@ -522,6 +586,9 @@ int main(int argc, char **argv) {
   pp_error_code_t status =
       create_production(production_path, media, &production, &asset_id,
                         &representation_id, &error);
+  if (status == PP_OK) {
+    status = find_known_media(production, media, &asset_id, &error);
+  }
   if (status == PP_OK) {
     status = replace_identifiers(production, &asset_id, &count, &error);
   }

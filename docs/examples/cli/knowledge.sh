@@ -18,6 +18,24 @@ postproject --json media add knowledge.pproj rushes/A001.mov > import.json
 ASSET_ID=$(jq -r .asset_id import.json)
 ORIGINAL_ID=$(jq -r .representation_id import.json)
 
+# [known-media-adoption]
+# Another host or process receives the same explicit production path.
+LOCATOR_URI=$(jq -r .uri import.json)
+postproject --json media find-by-locator knowledge.pproj "$LOCATOR_URI" \
+  --limit 100
+
+FINGERPRINT=$(postproject --json media show knowledge.pproj "$ASSET_ID" |
+  jq -c '.representations[0].resources[0].fingerprints[0]')
+postproject --json media find-by-fingerprint knowledge.pproj \
+  "$(jq -r .algorithm <<<"$FINGERPRINT")" \
+  "$(jq -r .version <<<"$FINGERPRINT")" \
+  "$(jq -r .value_hex <<<"$FINGERPRINT")" --limit 100
+# Both commands return every candidate; the host decides whether to adopt one.
+# [/known-media-adoption]
+
+test "$(postproject --json media find-by-locator knowledge.pproj "$LOCATOR_URI" |
+  jq -r '.items[0].asset_id')" = "$ASSET_ID"
+
 # [remove-identifier]
 postproject identifier add knowledge.pproj asset "$ASSET_ID" \
   com.example.camera.serial A-0007

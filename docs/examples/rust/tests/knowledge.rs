@@ -7,12 +7,33 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use postproject_core::{
-    AssetId, DecimalValue, ExternalIdentifier, IdentifierScheme, MetadataField, MetadataMatch,
-    MetadataProperty, MetadataQuery, MetadataValue, MetadataValueKind, ObjectRef, PropertyId,
-    QueryPageRequest, RationalValue, RepresentationId, Result, Timestamp, VocabularyId,
+    AssetId, DecimalValue, ExternalIdentifier, IdentifierScheme, LocatorIdentity, MetadataField,
+    MetadataMatch, MetadataProperty, MetadataQuery, MetadataValue, MetadataValueKind, ObjectRef,
+    PropertyId, QueryPageRequest, RationalValue, RepresentationId, ResourceFingerprint, Result,
+    Timestamp, VocabularyId,
 };
 use postproject_media::prepare_original_media;
 use postproject_storage_sqlite::SqliteProduction;
+
+// [known-media-adoption]
+fn find_known_media(
+    production_path: &Path,
+    locator_uri: &str,
+    fingerprint: &ResourceFingerprint,
+) -> Result<AssetId> {
+    // Another host or process opens the same production explicitly.
+    let production = SqliteProduction::open(production_path)?;
+    let page = QueryPageRequest::new(100, None)?;
+    let locator = LocatorIdentity::new(locator_uri, None)?;
+    let by_locator = production.find_known_media_by_locator(&locator, &page)?;
+    let by_content = production.find_known_media_by_fingerprint(fingerprint, &page)?;
+
+    // Never silently choose when either query returns several candidates.
+    assert_eq!(by_locator.items(), by_content.items());
+    assert_eq!(by_locator.items().len(), 1);
+    Ok(by_locator.items()[0].asset().id())
+}
+// [/known-media-adoption]
 
 // [remove-identifier]
 fn replace_reel_identifier(production: &mut SqliteProduction, asset_id: AssetId) -> Result<()> {
@@ -201,7 +222,8 @@ fn knowledge_examples_run_in_order() -> Result<()> {
     fs::create_dir_all(&rushes).expect("rushes directory");
     fs::copy(fixture(), rushes.join("A001.mov")).expect("media fixture");
 
-    let mut production = SqliteProduction::create(work.path().join("knowledge.pproj"), None)?;
+    let production_path = work.path().join("knowledge.pproj");
+    let mut production = SqliteProduction::create(&production_path, None)?;
     let import = prepare_original_media(rushes.join("A001.mov"), None, None)?;
     let asset_id = import.asset().id();
     let original_id = import.representation().id();
@@ -210,6 +232,13 @@ fn knowledge_examples_run_in_order() -> Result<()> {
         transaction.import_original(&import)?;
         transaction.commit()?;
     }
+
+    let found = find_known_media(
+        &production_path,
+        import.locators()[0].uri(),
+        &import.resources()[0].fingerprints()[0],
+    )?;
+    assert_eq!(found, asset_id);
 
     replace_reel_identifier(&mut production, asset_id)?;
     let remaining = production.external_identifiers(ObjectRef::Asset(asset_id))?;

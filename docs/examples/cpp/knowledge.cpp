@@ -24,6 +24,29 @@ void require(bool condition, const char *message) {
   }
 }
 
+// [known-media-adoption]
+postproject::Uuid find_known_media(const std::string &production_path,
+                                   const std::string &media_path) {
+  // A second host or process opens the same production explicitly.
+  const auto production = postproject::Production::open(production_path).value();
+  const postproject::LocatorIdentity locator{
+      postproject::fileLocator(media_path).value(), std::nullopt};
+  const auto fingerprint = postproject::fingerprintFile(media_path).value();
+  const auto by_locator =
+      production.findKnownMediaByLocator(locator, 100).value();
+  const auto by_content =
+      production.findKnownMediaByFingerprint(fingerprint, 100).value();
+
+  // Several results are candidates for the host to present, never a winner.
+  require(by_locator.items.size() == 1 && by_content.items.size() == 1,
+          "one known-media candidate");
+  require(by_locator.items.front().asset_id ==
+              by_content.items.front().asset_id,
+          "locator and content identify the same asset");
+  return by_locator.items.front().asset_id;
+}
+// [/known-media-adoption]
+
 // [remove-identifier]
 std::vector<postproject::ExternalIdentifier>
 replace_reel_name(postproject::Production &production,
@@ -148,11 +171,14 @@ int main(int argc, char **argv) {
   const std::string work = argv[1];
 
   try {
-    auto production =
-        postproject::Production::create(work + "/knowledge.pproj", "Knowledge").value();
+    const std::string production_path = work + "/knowledge.pproj";
+    const std::string media_path = work + "/rushes/A001.mov";
+    auto production = postproject::Production::create(production_path, "Knowledge").value();
     auto setup = production.beginTransaction().value();
-    const auto asset_id = setup.importMedia(work + "/rushes/A001.mov").value();
+    const auto asset_id = setup.importMedia(media_path).value();
     setup.commit().value();
+    require(find_known_media(production_path, media_path) == asset_id,
+            "second handle found imported asset");
     const auto representation_id =
         production.representations(asset_id).value().front().id;
     const postproject::ObjectRef asset{postproject::ObjectKind::asset,

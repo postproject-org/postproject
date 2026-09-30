@@ -16,6 +16,8 @@ from pathlib import Path
 from postproject import (
     AssetId,
     ExternalIdentifier,
+    Fingerprint,
+    LocatorIdentity,
     MetadataAssertion,
     MetadataBool,
     MetadataBytes,
@@ -36,9 +38,30 @@ from postproject import (
     ObjectReference,
     Production,
     RepresentationId,
+    file_locator,
+    fingerprint_file,
 )
 
 EDITORIAL = "https://example.com/ns/editorial/1"
+
+
+# [known-media-adoption]
+def find_known_media(
+    production_path: Path, media_path: Path, fingerprint: Fingerprint
+) -> AssetId:
+    # A second host or process opens the same production explicitly.
+    with Production.open(production_path) as production:
+        locator = LocatorIdentity(file_locator(media_path))
+        by_locator = production.find_known_media_by_locator(locator, limit=100)
+        by_content = production.find_known_media_by_fingerprint(fingerprint, limit=100)
+
+        # Several results are candidates for the host to present, never a winner.
+        assert by_locator.items == by_content.items
+        assert len(by_locator.items) == 1
+        return by_locator.items[0].asset_id
+
+
+# [/known-media-adoption]
 
 
 # [remove-identifier]
@@ -168,11 +191,17 @@ def main() -> None:
     if len(sys.argv) != 2:
         sys.exit("usage: knowledge.py WORK_DIRECTORY")
     work = Path(sys.argv[1])
+    production_path = work / "knowledge.pproj"
+    media_path = work / "rushes" / "A001.mov"
 
-    with Production.create(work / "knowledge.pproj", "Knowledge") as production:
+    with Production.create(production_path, "Knowledge") as production:
         with production.transaction() as transaction:
-            asset_id = transaction.import_media(work / "rushes" / "A001.mov")
+            asset_id = transaction.import_media(media_path)
         original_id = production.representations[asset_id][0].id
+        assert (
+            find_known_media(production_path, media_path, fingerprint_file(media_path))
+            == asset_id
+        )
 
         remaining = replace_tape_identifier(production, asset_id)
         assert remaining == (ExternalIdentifier("com.example.camera.serial", "A-0007"),)
