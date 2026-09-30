@@ -41,18 +41,26 @@ enum class ErrorCode : std::uint32_t {
   internal = PP_ERROR_INTERNAL,
 };
 
+struct TransactionConflict;
+
 // A failure reported by PostProject: a stable code and a diagnostic message.
 class Error final {
 public:
-  Error(ErrorCode code, std::string message)
-      : code_(code), message_(std::move(message)) {}
+  Error(ErrorCode code, std::string message,
+        std::shared_ptr<const TransactionConflict> transaction_conflict = {})
+      : code_(code), message_(std::move(message)),
+        transaction_conflict_(std::move(transaction_conflict)) {}
 
   [[nodiscard]] ErrorCode code() const noexcept { return code_; }
   [[nodiscard]] const std::string &message() const noexcept { return message_; }
+  [[nodiscard]] const TransactionConflict *transactionConflict() const noexcept {
+    return transaction_conflict_.get();
+  }
 
 private:
   ErrorCode code_;
   std::string message_;
+  std::shared_ptr<const TransactionConflict> transaction_conflict_;
 };
 
 #if defined(__cpp_exceptions) || defined(_CPPUNWIND)
@@ -395,6 +403,34 @@ struct ObjectRef final {
                                    const ObjectRef &right) noexcept {
     return left.kind == right.kind && left.id == right.id;
   }
+};
+
+enum class ConflictKeyKind : std::uint32_t {
+  locator_set = PP_CONFLICT_LOCATOR_SET,
+  metadata_property = PP_CONFLICT_METADATA_PROPERTY,
+  dependency_set = PP_CONFLICT_DEPENDENCY_SET,
+  media_root = PP_CONFLICT_MEDIA_ROOT,
+  external_identifier = PP_CONFLICT_EXTERNAL_IDENTIFIER,
+  resource_fingerprint = PP_CONFLICT_RESOURCE_FINGERPRINT,
+  representation_fingerprint = PP_CONFLICT_REPRESENTATION_FINGERPRINT,
+};
+
+struct ConflictKey final {
+  ConflictKeyKind kind;
+  Uuid target_id;
+  std::optional<ObjectKind> target_kind;
+  std::optional<std::string> namespace_name;
+  std::optional<std::string> local_name;
+  std::optional<std::string> qualifier;
+  std::optional<std::uint16_t> version;
+};
+
+struct TransactionConflict final {
+  ConflictKey key;
+  Uuid base_revision_id;
+  std::uint64_t base_revision_sequence;
+  Uuid superseding_revision_id;
+  std::uint64_t superseding_revision_sequence;
 };
 
 struct HostObjectBinding final {
@@ -1292,6 +1328,9 @@ using MediaSourceHandle = std::unique_ptr<pp_media_source_t, MediaSourceDeleter>
 
 using StringHandle = std::unique_ptr<char, StringDeleter>;
 
+inline Uuid uuid(const pp_uuid_t &value);
+inline std::optional<std::string> optional_string(const char *value);
+
 // raw_error is read by reference so that check(pp_call(..., &error), error) is
 // correct whichever argument the compiler evaluates first.
 inline Result<void> check(pp_error_code_t status,
@@ -1303,7 +1342,30 @@ inline Result<void> check(pp_error_code_t status,
   const char *raw_message = error ? pp_error_message(error.get()) : nullptr;
   std::string message =
       raw_message != nullptr ? raw_message : "PostProject operation failed";
-  return Error(static_cast<ErrorCode>(status), std::move(message));
+  std::shared_ptr<const TransactionConflict> transaction_conflict;
+  pp_transaction_conflict_t native{};
+  if (error && pp_error_transaction_conflict(error.get(), &native) != 0) {
+    const auto kind = static_cast<ConflictKeyKind>(native.kind);
+    const bool fingerprint =
+        kind == ConflictKeyKind::resource_fingerprint ||
+        kind == ConflictKeyKind::representation_fingerprint;
+    std::optional<ObjectKind> target_kind;
+    if (native.target.kind != 0) {
+      target_kind = static_cast<ObjectKind>(native.target.kind);
+    }
+    transaction_conflict = std::make_shared<TransactionConflict>(
+        TransactionConflict{
+            {kind, uuid(native.target.id), target_kind,
+             optional_string(native.namespace_name),
+             optional_string(native.local_name), optional_string(native.qualifier),
+             fingerprint ? std::optional<std::uint16_t>(native.version)
+                         : std::nullopt},
+            uuid(native.base_revision_id), native.base_revision_sequence,
+            uuid(native.superseding_revision_id),
+            native.superseding_revision_sequence});
+  }
+  return Error(static_cast<ErrorCode>(status), std::move(message),
+               std::move(transaction_conflict));
 }
 
 inline Result<std::string> checked_string(std::string_view value,
@@ -4976,6 +5038,16 @@ public:
     pp_error_t *error = nullptr;
     const pp_error_code_t status =
         pp_production_begin_transaction(production_, &transaction, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    return Transaction(transaction);
+  }
+
+  [[nodiscard]] Result<Transaction> beginTransaction(const Uuid &base_revision) {
+    const pp_uuid_t native_base = detail::native_uuid(base_revision);
+    pp_transaction_t *transaction = nullptr;
+    pp_error_t *error = nullptr;
+    const pp_error_code_t status = pp_production_begin_transaction_at(
+        production_, &native_base, &transaction, &error);
     POSTPROJECT_TRY(detail::check(status, error));
     return Transaction(transaction);
   }

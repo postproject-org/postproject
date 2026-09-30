@@ -254,6 +254,36 @@ int main(int argc, char **argv) {
              .last_seen_unix_micros.has_value()) {
       return 17;
     }
+    const auto conflict_resource_id = representations[0].resources[0].id;
+    auto first_writer = production.beginTransaction(latest_revision->id).value();
+    first_writer
+        .confirmLocator(conflict_resource_id,
+                        "file:///cpp-smoke/conflict-first.mov")
+        .value();
+    first_writer.commit().value();
+    const auto superseding_revision = production.latestRevision().value();
+    auto stale_writer = production.beginTransaction(latest_revision->id).value();
+    stale_writer
+        .confirmLocator(conflict_resource_id,
+                        "file:///cpp-smoke/conflict-stale.mov")
+        .value();
+    const auto stale_commit = stale_writer.commit();
+    if (stale_commit.has_value() || !superseding_revision.has_value()) {
+      return 140;
+    }
+    const auto *conflict = stale_commit.error().transactionConflict();
+    if (stale_commit.error().code() != postproject::ErrorCode::conflict ||
+        conflict == nullptr ||
+        conflict->key.kind != postproject::ConflictKeyKind::locator_set ||
+        conflict->key.target_id != conflict_resource_id ||
+        conflict->key.target_kind != postproject::ObjectKind::resource ||
+        conflict->base_revision_id != latest_revision->id ||
+        conflict->base_revision_sequence != latest_revision->sequence ||
+        conflict->superseding_revision_id != superseding_revision->id ||
+        conflict->superseding_revision_sequence !=
+            superseding_revision->sequence) {
+      return 141;
+    }
     const auto by_locator = production
                                 .findKnownMediaByLocator(
                                     {representations[0]
