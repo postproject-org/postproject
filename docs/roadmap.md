@@ -54,6 +54,21 @@ native library. What the pilots taught is recorded in the
 scope and remaining constraints in the
 [acceptance report](release-0.4-report.md).
 
+## Release 0.5 — in progress
+
+Make one local production useful to multiple host processes. Exact locator and
+fingerprint lookup lets a host explicitly adopt media already recorded by
+another host. Optional transaction base revisions and typed semantic conflicts
+prevent silent overwrites while independent additive facts continue to merge.
+The public C ABI, C++ wrapper, Python binding, Rust API, and CLI expose the same
+conflict key and superseding-revision information.
+
+The release will validate those capabilities in a maintained Kdenlive and
+Blender shared-production scenario, regenerate usage evidence, and apply the
+documented compatibility-family criterion. Shared access remains one local
+SQLite file on one machine; services, network filesystems, permissions, and
+distributed merging are outside this release.
+
 ## Explicitly later
 
 - full IPTC VMH and EBUCorePlus mapping packages;
@@ -63,7 +78,7 @@ scope and remaining constraints in the
 - OTIO adapters beyond a possible media-linker proof;
 - collections, asset groups, and package models;
 - persistent filesystem indexing and background job execution;
-- PostgreSQL, a network daemon, collaboration, locking, and conflict handling;
+- PostgreSQL, a network daemon, distributed collaboration, and locking;
 - timeline/editorial models, GObject/Qt adapters, extraction, transcription, and
   semantic search;
 - remote object storage, undo/redo, and distributed revision merging.

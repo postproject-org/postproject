@@ -103,11 +103,12 @@ mechanism, not a replay log that replaces the production database.
 
 The journal is not undo/redo. It does not store inverse operations.
 
-The journal is not itself multi-user collaboration. It has no distributed
-merge, base-revision conflict protocol, authenticated authorship, network
-subscription transport, or remote ordering. Waiting is local to processes that
-can open the same production file. Those capabilities can build on the durable
-semantic cursor later without changing what existing revisions mean.
+The journal is not itself multi-user collaboration. Local transactions may use
+a base revision for {doc}`semantic optimistic conflicts
+<../integrators/semantic-conflicts>`, but the journal has no distributed merge,
+authenticated authorship, network subscription transport, or remote ordering.
+Waiting and shared writes are local to processes that can open the same
+production file.
 
 ## Across public surfaces
 

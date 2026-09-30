@@ -70,7 +70,8 @@ category, never on message text, which is diagnostic and may change:
 When a staging call fails inside a transaction, roll the transaction back
 unless the integration deliberately continues with the rest of the change.
 `conflict` also reports lifecycle misuse, such as a second open transaction or
-a call on a closed transaction.
+a call on a closed transaction. A transaction with a base revision may instead
+carry structured {doc}`semantic conflict <semantic-conflicts>` detail.
 
 ## Handles, errors, and lifetimes
 

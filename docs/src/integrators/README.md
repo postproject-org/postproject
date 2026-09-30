@@ -55,7 +55,8 @@ The host should surface ambiguity rather than silently accepting the first candi
 
 When several hosts share a production, {doc}`known-media-adoption` shows how a
 host finds an existing asset by current locator or fingerprint evidence before
-creating another logical asset.
+creating another logical asset. Use {doc}`semantic-conflicts` for writes based
+on state another local process may change.
 
 ### 4. Support the media structures your application actually uses
 
@@ -154,5 +155,6 @@ jobs-and-workers
 reference-executor
 bounded-queries
 revision-feed
+semantic-conflicts
 openassetio-publishing
 ```
