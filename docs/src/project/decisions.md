@@ -57,6 +57,7 @@ Read the relevant ADR before changing an invariant, a boundary, or a public cont
 - {doc}`ADR 0026 — Domain query cursors </adr/0026-domain-query-cursors>`
 - {doc}`ADR 0040 — ABI usage evidence and compatibility families </adr/0040-usage-evidence-and-compatibility-families>`
 - {doc}`ADR 0041 — Known-media adoption </adr/0041-known-media-adoption>`
+- {doc}`ADR 0042 — Semantic optimistic write conflicts </adr/0042-semantic-write-conflicts>`
 
 ```{toctree}
 :hidden:
@@ -102,4 +103,5 @@ Read the relevant ADR before changing an invariant, a boundary, or a public cont
 /adr/0039-platform-wheels
 /adr/0040-usage-evidence-and-compatibility-families
 /adr/0041-known-media-adoption
+/adr/0042-semantic-write-conflicts
 ```
