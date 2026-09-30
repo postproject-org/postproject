@@ -52,7 +52,6 @@ The public conflict key variants are:
 - dependency set for one representation;
 - one media root;
 - one exact external-identifier attachment on one object;
-- file facts for one resource;
 - one resource-fingerprint algorithm/version on one resource; and
 - one representation-fingerprint algorithm/version on one representation.
 
@@ -80,7 +79,7 @@ transactions may commit; `existing-guard` names a stronger existing invariant.
 | replace or remove metadata property | conflict(object and property) |
 | create activity and edges | merge (new activity identity) |
 | replace dependency set | conflict(source representation) |
-| record resource file facts | conflict(resource file facts) |
+| record resource file facts | merge (non-identity observation filter) |
 | record resource fingerprint | conflict(resource, algorithm, version) |
 | record representation fingerprint | conflict(representation, algorithm, version) |
 | request job | merge (new job identity) |

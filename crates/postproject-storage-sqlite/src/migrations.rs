@@ -4,7 +4,7 @@ use postproject_core::{Error, ErrorKind, Result, Timestamp};
 use rusqlite::{Connection, Transaction, TransactionBehavior, params};
 
 /// The newest schema understood by this build.
-pub const CURRENT_SCHEMA_VERSION: u32 = 16;
+pub const CURRENT_SCHEMA_VERSION: u32 = 17;
 
 struct Migration {
     version: u32,
@@ -75,6 +75,10 @@ const MIGRATIONS: &[Migration] = &[
     Migration {
         version: 16,
         sql: include_str!("migrations/016_known_media_lookup.sql"),
+    },
+    Migration {
+        version: 17,
+        sql: include_str!("migrations/017_conflict_versions.sql"),
     },
 ];
 
@@ -181,7 +185,7 @@ mod tests {
             .expect("read migration history");
         assert_eq!(
             applied,
-            [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+            [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
         );
         for table in [
             "productions",
@@ -219,6 +223,8 @@ mod tests {
             "unresolved_memberships",
             "activity_output_keys",
             "revision_event_kinds",
+            "conflict_versions",
+            "conflict_migration_baseline",
         ] {
             let count: u32 = connection
                 .query_row(
@@ -284,6 +290,52 @@ mod tests {
                 .len(),
             1
         );
+    }
+
+    #[test]
+    fn schema_sixteen_records_latest_revision_as_conflict_baseline() {
+        let mut connection = Connection::open_in_memory().expect("open in-memory database");
+        for migration in &MIGRATIONS[..16] {
+            apply_migration(&mut connection, migration).expect("apply released migration");
+        }
+        connection
+            .execute_batch(
+                "PRAGMA foreign_keys = ON;
+                 INSERT INTO productions (
+                    singleton, id, schema_version, created_at_micros, display_name
+                 ) VALUES (1, zeroblob(16), 16, 0, NULL);
+                 INSERT INTO revisions (
+                    id, sequence, transaction_id, committed_at_micros
+                 ) VALUES (
+                    x'01010101010101010101010101010101', 1,
+                    x'11111111111111111111111111111111', 0
+                 );
+                 INSERT INTO revisions (
+                    id, sequence, transaction_id, committed_at_micros
+                 ) VALUES (
+                    x'02020202020202020202020202020202', 2,
+                    x'12121212121212121212121212121212', 0
+                 );",
+            )
+            .expect("insert schema-sixteen production and revisions");
+
+        migrate(&mut connection).expect("migrate schema-sixteen production");
+
+        let baseline: (Vec<u8>, i64) = connection
+            .query_row(
+                "SELECT revision_id, revision_sequence
+                 FROM conflict_migration_baseline WHERE singleton = 1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .expect("read conflict migration baseline");
+        assert_eq!(baseline, (vec![2_u8; 16], 2));
+        let version_count: u32 = connection
+            .query_row("SELECT count(*) FROM conflict_versions", [], |row| {
+                row.get(0)
+            })
+            .expect("count conflict versions");
+        assert_eq!(version_count, 0);
     }
 
     #[test]

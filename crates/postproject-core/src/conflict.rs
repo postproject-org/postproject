@@ -19,8 +19,6 @@ pub enum ConflictKeyKind {
     MediaRoot,
     /// One exact external-identifier attachment.
     ExternalIdentifier,
-    /// Current file facts for one resource.
-    ResourceFileFacts,
     /// One current resource-fingerprint domain.
     ResourceFingerprint,
     /// One current representation-fingerprint domain.
@@ -37,7 +35,6 @@ impl ConflictKeyKind {
             Self::DependencySet => "dependency_set",
             Self::MediaRoot => "media_root",
             Self::ExternalIdentifier => "external_identifier",
-            Self::ResourceFileFacts => "resource_file_facts",
             Self::ResourceFingerprint => "resource_fingerprint",
             Self::RepresentationFingerprint => "representation_fingerprint",
         }
@@ -68,8 +65,6 @@ pub enum SemanticConflictKey {
         /// Exact external identifier.
         identifier: ExternalIdentifier,
     },
-    /// Current file size and modification time for one resource.
-    ResourceFileFacts(ResourceId),
     /// One current resource-fingerprint algorithm and version.
     ResourceFingerprint {
         /// Resource carrying the fingerprint.
@@ -100,7 +95,6 @@ impl SemanticConflictKey {
             Self::DependencySet(_) => ConflictKeyKind::DependencySet,
             Self::MediaRoot(_) => ConflictKeyKind::MediaRoot,
             Self::ExternalIdentifier { .. } => ConflictKeyKind::ExternalIdentifier,
-            Self::ResourceFileFacts(_) => ConflictKeyKind::ResourceFileFacts,
             Self::ResourceFingerprint { .. } => ConflictKeyKind::ResourceFingerprint,
             Self::RepresentationFingerprint { .. } => ConflictKeyKind::RepresentationFingerprint,
         }

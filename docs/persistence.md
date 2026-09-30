@@ -7,7 +7,7 @@ SQLite's per-connection value-length limit is reduced to 16 MiB before migration
 or queries run. This bounds allocations for strings, blobs, and result rows read
 from an untrusted production file while leaving ample room for production metadata.
 
-## Schema version 16
+## Schema version 17
 
 The current development schema stores a singleton production record plus assets,
 representations, content structures, resources, memberships, locators, typed
@@ -55,6 +55,11 @@ resource fingerprint algorithm, version, and value. Known-media queries use
 those indexes to find current ownership candidates without scanning the full
 locator or fingerprint tables. Retired locators and superseded fingerprint
 observations remain outside the normal lookup path (ADR 0041).
+Schema 17 adds a derived semantic conflict-version table used by transactions
+that declare a base revision. A one-row migration baseline makes bases from
+before schema 17 conservative without scanning the revision journal during
+normal commits. Conflict versions, domain rows, and revision events update in
+one SQLite transaction (ADR 0042).
 
 External identifiers and metadata assertions use polymorphic typed targets.
 External identifiers target asset, representation, resource, and activity
