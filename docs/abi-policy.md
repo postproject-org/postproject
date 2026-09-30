@@ -1,6 +1,6 @@
 # ABI policy
 
-ABI version 36 is pre-release and may change during the 0.x series, with every
+ABI version 37 is pre-release and may change during the 0.x series, with every
 change recorded in the changelog and ABI tests. `pp_abi_version()` reports the
 implemented version. Exported symbol names are unversioned until the first stable
 release, but removals or signature changes require an explicit ABI-version bump.
@@ -285,6 +285,11 @@ identity or current effective resource fingerprint. The owned result set lends
 asset, representation, and resource UUIDs plus its continuation cursor. Lookup
 returns every candidate and never performs adoption or another mutation
 (ADR 0041).
+
+ABI version 37 adds transactions with an optional durable base revision and
+borrowed structured semantic-conflict detail on the owned error object. A
+conflict identifies its key, affected object, base revision, and superseding
+revision without requiring callers to parse diagnostic text (ADR 0042).
 
 ## External identifiers
 

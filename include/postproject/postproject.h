@@ -212,6 +212,35 @@ typedef struct pp_object_ref {
   pp_uuid_t id;
 } pp_object_ref_t;
 
+typedef uint32_t pp_conflict_key_kind_t;
+
+#define PP_CONFLICT_LOCATOR_SET UINT32_C(1)
+#define PP_CONFLICT_METADATA_PROPERTY UINT32_C(2)
+#define PP_CONFLICT_DEPENDENCY_SET UINT32_C(3)
+#define PP_CONFLICT_MEDIA_ROOT UINT32_C(4)
+#define PP_CONFLICT_EXTERNAL_IDENTIFIER UINT32_C(5)
+#define PP_CONFLICT_RESOURCE_FINGERPRINT UINT32_C(6)
+#define PP_CONFLICT_REPRESENTATION_FINGERPRINT UINT32_C(7)
+
+/* Structured optimistic-conflict detail borrowed from one pp_error_t. The
+ * target ID names the affected resource, representation, metadata/identifier
+ * object, or media root. Media-root targets have object kind zero. Namespace
+ * is a vocabulary, identifier scheme, or fingerprint algorithm; local_name is
+ * a metadata property or external-identifier value. Unused fields are zero or
+ * NULL. */
+typedef struct pp_transaction_conflict {
+  pp_conflict_key_kind_t kind;
+  pp_object_ref_t target;
+  const char *namespace_name;
+  const char *local_name;
+  const char *qualifier;
+  uint16_t version;
+  pp_uuid_t base_revision_id;
+  uint64_t base_revision_sequence;
+  pp_uuid_t superseding_revision_id;
+  uint64_t superseding_revision_sequence;
+} pp_transaction_conflict_t;
+
 typedef struct pp_dependency_match {
   pp_object_ref_t target;
   uint32_t depth;
@@ -1142,6 +1171,11 @@ PP_API void pp_resolution_set_release(pp_resolution_set_t *resolutions);
 PP_API pp_error_code_t pp_production_begin_transaction(
     pp_production_t *production, pp_transaction_t **out_transaction,
     pp_error_t **out_error);
+/* The base revision must exist. It identifies the durable state from which the
+ * caller made its decisions; it is not a lock or reservation. */
+PP_API pp_error_code_t pp_production_begin_transaction_at(
+    pp_production_t *production, const pp_uuid_t *base_revision,
+    pp_transaction_t **out_transaction, pp_error_t **out_error);
 PP_API void pp_production_release(pp_production_t *production);
 
 /* A media source describes the content structure of a representation at its
@@ -1324,6 +1358,11 @@ PP_API void pp_transaction_release(pp_transaction_t *transaction);
 PP_API pp_error_code_t pp_error_code(const pp_error_t *error);
 /* The returned string is borrowed and valid until pp_error_release(error). */
 PP_API const char *pp_error_message(const pp_error_t *error);
+/* Returns one and writes borrowed structured detail for an optimistic
+ * transaction conflict, or zero and a zeroed value for every other error.
+ * The output's strings remain valid until pp_error_release(error). */
+PP_API uint8_t pp_error_transaction_conflict(
+    const pp_error_t *error, pp_transaction_conflict_t *out_conflict);
 PP_API void pp_error_release(pp_error_t *error);
 
 #ifdef __cplusplus

@@ -46,8 +46,8 @@ use postproject_core::{
     QueryCursor, QueryPageRequest, RepresentationAvailability, RepresentationFingerprint,
     RepresentationId, RepresentationImport, RepresentationKind, RepresentationResolution,
     RequestedJobOutput, ResolutionEvidence, ResourceFingerprint, ResourceId,
-    ResourceResolutionState, RevisionContext, RevisionId, StaleArtifactQuery, Timestamp,
-    ToolIdentity, TransactionLifecycle, VocabularyId,
+    ResourceResolutionState, RevisionContext, RevisionId, SemanticConflictKey, StaleArtifactQuery,
+    Timestamp, ToolIdentity, TransactionConflict, TransactionLifecycle, VocabularyId,
 };
 use postproject_media::{
     canonical_file_uri, local_file_path, prepare_confirmed_locator, prepare_original_media,
@@ -134,6 +134,14 @@ const PP_OBJECT_RESOURCE: u32 = 4;
 const PP_OBJECT_ACTIVITY: u32 = 5;
 const PP_OBJECT_JOB: u32 = 6;
 
+const PP_CONFLICT_LOCATOR_SET: u32 = 1;
+const PP_CONFLICT_METADATA_PROPERTY: u32 = 2;
+const PP_CONFLICT_DEPENDENCY_SET: u32 = 3;
+const PP_CONFLICT_MEDIA_ROOT: u32 = 4;
+const PP_CONFLICT_EXTERNAL_IDENTIFIER: u32 = 5;
+const PP_CONFLICT_RESOURCE_FINGERPRINT: u32 = 6;
+const PP_CONFLICT_REPRESENTATION_FINGERPRINT: u32 = 7;
+
 const PP_REPRESENTATION_ORIGINAL: u32 = 1;
 const PP_REPRESENTATION_PROXY: u32 = 2;
 const PP_REPRESENTATION_OPTIMIZED: u32 = 3;
@@ -167,7 +175,7 @@ const PP_REVISION_JOB_FAILED: u32 = 25;
 const PP_REVISION_JOB_CANCELLED: u32 = 26;
 
 /// Current pre-1.0 ABI version.
-pub const ABI_VERSION: u32 = 36;
+pub const ABI_VERSION: u32 = 37;
 
 /// Fixed-layout UUID-compatible public identifier.
 #[repr(C)]
@@ -185,6 +193,32 @@ pub struct PpObjectRef {
     pub kind: u32,
     /// Stable ID whose interpretation is selected by `kind`.
     pub id: PpUuid,
+}
+
+/// Borrowed fixed-layout detail for one optimistic transaction conflict.
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct PpTransactionConflict {
+    /// One of the `PP_CONFLICT_*` constants from the public header.
+    pub kind: u32,
+    /// Primary affected object. Media-root keys use kind zero and put the root ID here.
+    pub target: PpObjectRef,
+    /// Vocabulary, identifier scheme, or fingerprint algorithm when applicable.
+    pub namespace_name: *const c_char,
+    /// Metadata property or external-identifier value when applicable.
+    pub local_name: *const c_char,
+    /// External-identifier qualifier when present.
+    pub qualifier: *const c_char,
+    /// Fingerprint algorithm version, or zero when not applicable.
+    pub version: u16,
+    /// Base revision supplied by the caller.
+    pub base_revision_id: PpUuid,
+    /// Production-local base revision sequence.
+    pub base_revision_sequence: u64,
+    /// Revision that changed the key after the base.
+    pub superseding_revision_id: PpUuid,
+    /// Production-local superseding revision sequence.
+    pub superseding_revision_sequence: u64,
 }
 
 /// Borrowed activity edge supplied by a C caller.
@@ -278,6 +312,7 @@ pub struct PpTransaction {
     state: Arc<ProductionState>,
     lifecycle: TransactionLifecycle,
     revision_context: RevisionContext,
+    base_revision: Option<RevisionId>,
     mutations: Vec<StagedMutation>,
 }
 
@@ -463,6 +498,114 @@ struct AbiEvidence {
 pub struct PpError {
     code: u32,
     message: CString,
+    transaction_conflict: Option<AbiTransactionConflict>,
+}
+
+struct AbiTransactionConflict {
+    kind: u32,
+    target: PpObjectRef,
+    namespace_name: Option<CString>,
+    local_name: Option<CString>,
+    qualifier: Option<CString>,
+    version: u16,
+    base_revision_id: PpUuid,
+    base_revision_sequence: u64,
+    superseding_revision_id: PpUuid,
+    superseding_revision_sequence: u64,
+}
+
+impl AbiTransactionConflict {
+    fn from_domain(conflict: &TransactionConflict) -> Option<Self> {
+        let mut value = Self {
+            kind: 0,
+            target: empty_object_ref(),
+            namespace_name: None,
+            local_name: None,
+            qualifier: None,
+            version: 0,
+            base_revision_id: PpUuid {
+                bytes: conflict.base_revision().into_bytes(),
+            },
+            base_revision_sequence: conflict.base_sequence(),
+            superseding_revision_id: PpUuid {
+                bytes: conflict.superseding_revision().into_bytes(),
+            },
+            superseding_revision_sequence: conflict.superseding_sequence(),
+        };
+        match conflict.key() {
+            SemanticConflictKey::LocatorSet(resource_id) => {
+                value.kind = PP_CONFLICT_LOCATOR_SET;
+                value.target = resource_target(*resource_id);
+            }
+            SemanticConflictKey::MetadataProperty { target, property } => {
+                value.kind = PP_CONFLICT_METADATA_PROPERTY;
+                value.target = object_ref_to_abi(*target).ok()?;
+                value.namespace_name = Some(lossy_cstring(property.vocabulary().as_str()));
+                value.local_name = Some(lossy_cstring(property.property().as_str()));
+            }
+            SemanticConflictKey::DependencySet(representation_id) => {
+                value.kind = PP_CONFLICT_DEPENDENCY_SET;
+                value.target = representation_target(*representation_id);
+            }
+            SemanticConflictKey::MediaRoot(root_id) => {
+                value.kind = PP_CONFLICT_MEDIA_ROOT;
+                value.target.id.bytes = root_id.into_bytes();
+            }
+            SemanticConflictKey::ExternalIdentifier { target, identifier } => {
+                value.kind = PP_CONFLICT_EXTERNAL_IDENTIFIER;
+                value.target = object_ref_to_abi(*target).ok()?;
+                value.namespace_name = Some(lossy_cstring(identifier.scheme().as_str()));
+                value.local_name = Some(lossy_cstring(identifier.value()));
+                value.qualifier = identifier.qualifier().map(lossy_cstring);
+            }
+            SemanticConflictKey::ResourceFingerprint {
+                resource_id,
+                algorithm,
+                version,
+            } => {
+                value.kind = PP_CONFLICT_RESOURCE_FINGERPRINT;
+                value.target = resource_target(*resource_id);
+                value.namespace_name = Some(lossy_cstring(algorithm));
+                value.version = *version;
+            }
+            SemanticConflictKey::RepresentationFingerprint {
+                representation_id,
+                algorithm,
+                version,
+            } => {
+                value.kind = PP_CONFLICT_REPRESENTATION_FINGERPRINT;
+                value.target = representation_target(*representation_id);
+                value.namespace_name = Some(lossy_cstring(algorithm));
+                value.version = *version;
+            }
+            _ => return None,
+        }
+        Some(value)
+    }
+
+    fn borrowed(&self) -> PpTransactionConflict {
+        PpTransactionConflict {
+            kind: self.kind,
+            target: self.target,
+            namespace_name: self
+                .namespace_name
+                .as_ref()
+                .map_or(ptr::null(), |value| value.as_ptr()),
+            local_name: self
+                .local_name
+                .as_ref()
+                .map_or(ptr::null(), |value| value.as_ptr()),
+            qualifier: self
+                .qualifier
+                .as_ref()
+                .map_or(ptr::null(), |value| value.as_ptr()),
+            version: self.version,
+            base_revision_id: self.base_revision_id,
+            base_revision_sequence: self.base_revision_sequence,
+            superseding_revision_id: self.superseding_revision_id,
+            superseding_revision_sequence: self.superseding_revision_sequence,
+        }
+    }
 }
 
 /// Returns the ABI version implemented by this shared library.
@@ -4590,23 +4733,39 @@ pub unsafe extern "C" fn pp_production_begin_transaction(
             if out_transaction.is_null() {
                 return Err(invalid_argument("out_transaction must not be null"));
             }
-            if production
-                .state
-                .transaction_open
-                .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
-                .is_err()
-            {
-                return Err(Error::new(
-                    ErrorKind::Conflict,
-                    "production already has an open transaction",
-                ));
-            }
-            out_transaction.write(Box::into_raw(Box::new(PpTransaction {
-                state: Arc::clone(&production.state),
-                lifecycle: TransactionLifecycle::new(),
-                revision_context: RevisionContext::default(),
-                mutations: Vec::new(),
-            })));
+            out_transaction.write(begin_transaction_handle(production, None)?);
+            Ok(())
+        })
+    }
+}
+
+/// Begins a transaction whose decisions were made from `base_revision`.
+///
+/// # Safety
+///
+/// `production` must be a live handle. `base_revision` and `out_transaction`
+/// must be readable and writable respectively. `out_error` may be null or
+/// writable.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_production_begin_transaction_at(
+    production: *mut PpProduction,
+    base_revision: *const PpUuid,
+    out_transaction: *mut *mut PpTransaction,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: Outputs are initialized and all pointers checked before use.
+    unsafe {
+        initialize_output(out_transaction);
+        ffi_call(out_error, || {
+            let production = production
+                .as_ref()
+                .ok_or_else(|| invalid_argument("production must not be null"))?;
+            let base_revision = base_revision
+                .as_ref()
+                .ok_or_else(|| invalid_argument("base_revision must not be null"))?;
+            require_output(out_transaction, "out_transaction")?;
+            let base_revision = RevisionId::from_bytes(base_revision.bytes);
+            out_transaction.write(begin_transaction_handle(production, Some(base_revision))?);
             Ok(())
         })
     }
@@ -5816,6 +5975,37 @@ pub unsafe extern "C" fn pp_error_message(error: *const PpError) -> *const c_cha
     }
 }
 
+/// Copies borrowed structured transaction-conflict detail from an error.
+///
+/// Returns one when detail is present and zero otherwise. String pointers in
+/// the output remain valid until `error` is released.
+///
+/// # Safety
+///
+/// `error` must be null or live. `out_conflict` must be null or writable.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_error_transaction_conflict(
+    error: *const PpError,
+    out_conflict: *mut PpTransactionConflict,
+) -> u8 {
+    if out_conflict.is_null() {
+        return 0;
+    }
+    // SAFETY: The caller contract requires a non-null output to be writable
+    // and a non-null error to reference a live error object.
+    unsafe {
+        out_conflict.write(empty_transaction_conflict());
+        let Some(conflict) = error
+            .as_ref()
+            .and_then(|error| error.transaction_conflict.as_ref())
+        else {
+            return 0;
+        };
+        out_conflict.write(conflict.borrowed());
+    }
+    1
+}
+
 /// Releases an error object. Passing null is a no-op.
 ///
 /// # Safety
@@ -5846,14 +6036,17 @@ unsafe fn ffi_call(
         Ok(Err(error)) => {
             let code = error_code(error.kind());
             let message = error.to_string();
+            let transaction_conflict = error
+                .transaction_conflict_detail()
+                .and_then(AbiTransactionConflict::from_domain);
             // SAFETY: Same output-pointer contract as above.
-            unsafe { write_error(out_error, code, &message) };
+            unsafe { write_error(out_error, code, &message, transaction_conflict) };
             code
         }
         Err(payload) => {
             let message = panic_message(payload.as_ref());
             // SAFETY: Same output-pointer contract as above.
-            unsafe { write_error(out_error, PP_ERROR_INTERNAL, &message) };
+            unsafe { write_error(out_error, PP_ERROR_INTERNAL, &message, None) };
             PP_ERROR_INTERNAL
         }
     }
@@ -6279,12 +6472,21 @@ unsafe fn write_snapshot_fingerprint(
     }
 }
 
-unsafe fn write_error(output: *mut *mut PpError, code: u32, message: &str) {
+unsafe fn write_error(
+    output: *mut *mut PpError,
+    code: u32,
+    message: &str,
+    transaction_conflict: Option<AbiTransactionConflict>,
+) {
     if output.is_null() {
         return;
     }
     let message = CString::new(message.replace('\0', "�")).unwrap_or_default();
-    let error = Box::new(PpError { code, message });
+    let error = Box::new(PpError {
+        code,
+        message,
+        transaction_conflict,
+    });
     // SAFETY: Non-null output pointers are required to be writable by every
     // exported caller contract using this helper.
     unsafe { output.write(Box::into_raw(error)) };
@@ -6669,6 +6871,50 @@ pub(crate) fn object_ref_to_abi(value: ObjectRef) -> Result<PpObjectRef, Error> 
     })
 }
 
+const fn empty_object_ref() -> PpObjectRef {
+    PpObjectRef {
+        kind: 0,
+        id: PpUuid { bytes: [0; 16] },
+    }
+}
+
+const fn empty_transaction_conflict() -> PpTransactionConflict {
+    PpTransactionConflict {
+        kind: 0,
+        target: empty_object_ref(),
+        namespace_name: ptr::null(),
+        local_name: ptr::null(),
+        qualifier: ptr::null(),
+        version: 0,
+        base_revision_id: PpUuid { bytes: [0; 16] },
+        base_revision_sequence: 0,
+        superseding_revision_id: PpUuid { bytes: [0; 16] },
+        superseding_revision_sequence: 0,
+    }
+}
+
+const fn resource_target(resource_id: ResourceId) -> PpObjectRef {
+    PpObjectRef {
+        kind: PP_OBJECT_RESOURCE,
+        id: PpUuid {
+            bytes: resource_id.into_bytes(),
+        },
+    }
+}
+
+const fn representation_target(representation_id: RepresentationId) -> PpObjectRef {
+    PpObjectRef {
+        kind: PP_OBJECT_REPRESENTATION,
+        id: PpUuid {
+            bytes: representation_id.into_bytes(),
+        },
+    }
+}
+
+fn lossy_cstring(value: &str) -> CString {
+    CString::new(value.replace('\0', "�")).unwrap_or_default()
+}
+
 const fn error_code(kind: ErrorKind) -> u32 {
     match kind {
         ErrorKind::InvalidArgument => PP_ERROR_INVALID_ARGUMENT,
@@ -6988,12 +7234,42 @@ fn apply_staged_mutation(
     Ok(())
 }
 
+fn begin_transaction_handle(
+    production: &PpProduction,
+    base_revision: Option<RevisionId>,
+) -> Result<*mut PpTransaction, Error> {
+    if let Some(base_revision) = base_revision {
+        lock_production(&production.state).events_for_revision(base_revision)?;
+    }
+    if production
+        .state
+        .transaction_open
+        .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+        .is_err()
+    {
+        return Err(Error::new(
+            ErrorKind::Conflict,
+            "production already has an open transaction",
+        ));
+    }
+    Ok(Box::into_raw(Box::new(PpTransaction {
+        state: Arc::clone(&production.state),
+        lifecycle: TransactionLifecycle::new(),
+        revision_context: RevisionContext::default(),
+        base_revision,
+        mutations: Vec::new(),
+    })))
+}
+
 impl PpTransaction {
     fn commit(&mut self) -> Result<(), Error> {
         self.lifecycle.ensure_open()?;
         let result = (|| {
             let mut production = lock_production(&self.state);
-            let mut transaction = production.begin_transaction()?;
+            let mut transaction = match self.base_revision {
+                Some(base_revision) => production.begin_transaction_at(base_revision)?,
+                None => production.begin_transaction()?,
+            };
             transaction.set_revision_context(self.revision_context.clone())?;
             for mutation in &self.mutations {
                 apply_staged_mutation(&mut transaction, mutation)?;

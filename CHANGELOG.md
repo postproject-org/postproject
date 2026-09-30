@@ -7,7 +7,7 @@ All notable changes to PostProject will be documented here. The project uses
 
 - Added opt-in C ABI usage traces and mechanical compatibility-family reports.
 - Added bounded current-locator and resource-fingerprint lookup for explicit known-media adoption (ADR 0041, C ABI 36, schema 16).
-- Added optional base revisions and structured semantic write conflicts (ADR 0042, schema 17).
+- Added optional base revisions and structured semantic write conflicts (ADR 0042, C ABI 37, schema 17).
 
 ## 0.4.0-alpha.1 - 2026-09-29
 

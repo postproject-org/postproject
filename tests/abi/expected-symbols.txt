@@ -35,6 +35,7 @@ pp_dependency_set_release
 pp_error_code
 pp_error_message
 pp_error_release
+pp_error_transaction_conflict
 pp_external_identifier_set_count
 pp_external_identifier_set_get
 pp_external_identifier_set_release
@@ -117,6 +118,7 @@ pp_production_asset_exists
 pp_production_assets
 pp_production_assets_page
 pp_production_begin_transaction
+pp_production_begin_transaction_at
 pp_production_changes_since
 pp_production_changes_since_filtered
 pp_production_create

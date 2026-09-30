@@ -337,7 +337,7 @@ int main(int argc, char **argv) {
     return 64;
   }
   (void)remove(argv[1]);
-  if (pp_abi_version() != UINT32_C(36)) {
+  if (pp_abi_version() != UINT32_C(37)) {
     return 1;
   }
   pp_error_code_t status =
@@ -2527,6 +2527,71 @@ int main(int argc, char **argv) {
   pp_revision_waiter_release(waiter);
   pp_revision_waiter_cancel(NULL);
   pp_revision_waiter_release(NULL);
+
+  production = NULL;
+  if (pp_production_open(argv[1], &production, &error) != PP_OK) {
+    pp_error_release(error);
+    return 140;
+  }
+  revisions = NULL;
+  if (pp_production_latest_revision(production, &revisions, &error) != PP_OK ||
+      pp_revision_set_get(revisions, UINT64_C(0), &revision_id,
+                          &revision_sequence, &revision_transaction_id,
+                          &revision_committed_at, &revision_origin_name,
+                          &revision_origin_version, &revision_origin_uri,
+                          &revision_message, &error) != PP_OK) {
+    pp_revision_set_release(revisions);
+    pp_production_release(production);
+    pp_error_release(error);
+    return 141;
+  }
+  pp_revision_set_release(revisions);
+  revisions = NULL;
+  if (pp_production_begin_transaction_at(production, &revision_id, &transaction,
+                                         &error) != PP_OK ||
+      pp_transaction_confirm_locator(transaction, &resource_id,
+                                     "file:///c-smoke/conflict-first.mov", NULL,
+                                     NULL, &error) != PP_OK ||
+      pp_transaction_commit(transaction, &error) != PP_OK) {
+    pp_transaction_release(transaction);
+    pp_production_release(production);
+    pp_error_release(error);
+    return 142;
+  }
+  pp_transaction_release(transaction);
+  transaction = NULL;
+  if (pp_production_begin_transaction_at(production, &revision_id, &transaction,
+                                         &error) != PP_OK ||
+      pp_transaction_confirm_locator(
+          transaction, &resource_id, "file:///c-smoke/conflict-stale.mov",
+          NULL, NULL, &error) != PP_OK) {
+    pp_transaction_release(transaction);
+    pp_production_release(production);
+    pp_error_release(error);
+    return 143;
+  }
+  status = pp_transaction_commit(transaction, &error);
+  pp_transaction_release(transaction);
+  transaction = NULL;
+  pp_transaction_conflict_t conflict = {0};
+  if (status != PP_ERROR_CONFLICT || error == NULL ||
+      pp_error_transaction_conflict(error, &conflict) != UINT8_C(1) ||
+      conflict.kind != PP_CONFLICT_LOCATOR_SET ||
+      conflict.target.kind != PP_OBJECT_RESOURCE ||
+      memcmp(conflict.target.id.bytes, resource_id.bytes,
+             sizeof(resource_id.bytes)) != 0 ||
+      memcmp(conflict.base_revision_id.bytes, revision_id.bytes,
+             sizeof(revision_id.bytes)) != 0 ||
+      conflict.base_revision_sequence != revision_sequence ||
+      conflict.superseding_revision_sequence <= revision_sequence) {
+    pp_production_release(production);
+    pp_error_release(error);
+    return 144;
+  }
+  pp_error_release(error);
+  error = NULL;
+  pp_production_release(production);
+  production = NULL;
 
   status = pp_production_open(NULL, &production, &error);
   if (status != PP_ERROR_INVALID_ARGUMENT || error == NULL ||
