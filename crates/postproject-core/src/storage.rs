@@ -832,4 +832,19 @@ pub trait ProductionStore: ProductionRead {
     ///
     /// Returns a storage-domain error when a transaction cannot be started.
     fn begin_transaction(&mut self) -> Result<Self::Transaction<'_>>;
+
+    /// Begins a transaction whose decisions were made from `base_revision`.
+    ///
+    /// Independent additive work may still commit. A commit that touches a
+    /// non-mergeable semantic fact changed after the base fails atomically
+    /// with structured conflict detail.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::ErrorKind::NotFound`] when the base revision does not exist,
+    /// or a storage-domain error when a transaction cannot be started.
+    fn begin_transaction_at(
+        &mut self,
+        base_revision: crate::RevisionId,
+    ) -> Result<Self::Transaction<'_>>;
 }

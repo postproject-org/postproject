@@ -214,6 +214,20 @@ impl SqliteProduction {
         SqliteTransaction::begin(connection, production, &self.revision_signal)
     }
 
+    /// Begins a transaction based on one durable production revision.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ErrorKind::NotFound`] when `base_revision` is absent, or a
+    /// storage error when SQLite cannot start the transaction.
+    pub fn begin_transaction_at(
+        &mut self,
+        base_revision: RevisionId,
+    ) -> Result<SqliteTransaction<'_>> {
+        let (connection, production) = (&mut self.connection, &mut self.production);
+        SqliteTransaction::begin_at(connection, production, &self.revision_signal, base_revision)
+    }
+
     /// Creates a waiter for revisions committed to this production file.
     ///
     /// The waiter opens its own read connection. Commits through this
@@ -3645,6 +3659,10 @@ impl ProductionStore for SqliteProduction {
 
     fn begin_transaction(&mut self) -> Result<Self::Transaction<'_>> {
         SqliteProduction::begin_transaction(self)
+    }
+
+    fn begin_transaction_at(&mut self, base_revision: RevisionId) -> Result<Self::Transaction<'_>> {
+        SqliteProduction::begin_transaction_at(self, base_revision)
     }
 }
 

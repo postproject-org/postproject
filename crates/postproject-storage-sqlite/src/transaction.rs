@@ -1,5 +1,7 @@
 //! Explicit SQLite-backed domain transactions.
 
+use std::collections::BTreeMap;
+
 use postproject_core::{
     Activity, AgentIdentity, ContentStructure, ContentStructureKind, Dependency,
     DependencySetStatus, DependencyTarget, Error, ErrorKind, ExternalIdentifier, FileFacts, Job,
@@ -8,8 +10,8 @@ use postproject_core::{
     OriginalMediaImport, Production, ProductionStoreTransaction, Representation,
     RepresentationFingerprint, RepresentationId, RepresentationImport, RepresentationKind,
     Resource, ResourceFingerprint, ResourceId, Result, RevisionContext, RevisionEventKind,
-    RevisionId, SequenceNaming, Timestamp, ToolIdentity, TransactionId, TransactionLifecycle,
-    TransactionState,
+    RevisionId, SemanticConflictKey, SequenceNaming, Timestamp, ToolIdentity, TransactionConflict,
+    TransactionId, TransactionLifecycle, TransactionState,
 };
 use rusqlite::{
     Connection, ErrorCode, OptionalExtension, Transaction, TransactionBehavior, params,
@@ -33,6 +35,8 @@ pub struct SqliteTransaction<'production> {
     pending_roots: Vec<MediaRoot>,
     revision_context: RevisionContext,
     pending_events: Vec<RevisionEventKind>,
+    base_revision: Option<(RevisionId, u64)>,
+    pending_conflict_keys: BTreeMap<Vec<u8>, SemanticConflictKey>,
     revision_signal: &'production RevisionSignal,
 }
 
@@ -42,9 +46,49 @@ impl<'production> SqliteTransaction<'production> {
         production: &'production mut Production,
         revision_signal: &'production RevisionSignal,
     ) -> Result<Self> {
+        Self::begin_with_base(connection, production, revision_signal, None)
+    }
+
+    pub(crate) fn begin_at(
+        connection: &'production mut Connection,
+        production: &'production mut Production,
+        revision_signal: &'production RevisionSignal,
+        base_revision: RevisionId,
+    ) -> Result<Self> {
+        Self::begin_with_base(connection, production, revision_signal, Some(base_revision))
+    }
+
+    fn begin_with_base(
+        connection: &'production mut Connection,
+        production: &'production mut Production,
+        revision_signal: &'production RevisionSignal,
+        base_revision: Option<RevisionId>,
+    ) -> Result<Self> {
         let transaction = connection
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(sqlite_error("begin domain transaction"))?;
+        let base_revision = base_revision
+            .map(|revision_id| {
+                transaction
+                    .query_row(
+                        "SELECT sequence FROM revisions WHERE id = ?1",
+                        [revision_id.as_bytes().as_slice()],
+                        |row| row.get::<_, i64>(0),
+                    )
+                    .optional()
+                    .map_err(sqlite_error("load transaction base revision"))?
+                    .ok_or_else(|| {
+                        Error::new(
+                            ErrorKind::NotFound,
+                            "transaction base revision does not exist",
+                        )
+                    })
+                    .and_then(|sequence| {
+                        crate::stored_u64(sequence, "transaction base revision sequence")
+                    })
+                    .map(|sequence| (revision_id, sequence))
+            })
+            .transpose()?;
         let pending_roots = production.media_roots().to_vec();
         Ok(Self {
             transaction: Some(transaction),
@@ -53,6 +97,8 @@ impl<'production> SqliteTransaction<'production> {
             pending_roots,
             revision_context: RevisionContext::default(),
             pending_events: Vec::new(),
+            base_revision,
+            pending_conflict_keys: BTreeMap::new(),
             revision_signal,
         })
     }
@@ -712,6 +758,7 @@ impl<'production> SqliteTransaction<'production> {
     /// persistence failures.
     pub fn add_locator(&mut self, locator: &Locator) -> Result<()> {
         persist_locator(self.open_transaction()?, locator)?;
+        self.record_conflict_key(SemanticConflictKey::LocatorSet(locator.resource_id()))?;
         self.pending_events.push(RevisionEventKind::LocatorAdded {
             resource_id: locator.resource_id(),
             locator_id: locator.id(),
@@ -746,6 +793,7 @@ impl<'production> SqliteTransaction<'production> {
                 params![locator_id.as_bytes().as_slice()],
             )
             .map_err(mutation_error("retire resource locator"))?;
+        self.record_conflict_key(SemanticConflictKey::LocatorSet(resource_id))?;
         self.pending_events.push(RevisionEventKind::LocatorRetired {
             resource_id,
             locator_id,
@@ -821,6 +869,7 @@ impl<'production> SqliteTransaction<'production> {
             )
             .map_err(mutation_error("update media root"))?;
         self.pending_roots[index] = replacement;
+        self.record_conflict_key(SemanticConflictKey::MediaRoot(root_id))?;
         self.pending_events
             .push(RevisionEventKind::MediaRootEnabledChanged {
                 media_root_id: root_id,
@@ -847,6 +896,7 @@ impl<'production> SqliteTransaction<'production> {
             )
             .map_err(mutation_error("remove media root"))?;
         self.pending_roots.retain(|root| root.id() != root_id);
+        self.record_conflict_key(SemanticConflictKey::MediaRoot(root_id))?;
         self.pending_events
             .push(RevisionEventKind::MediaRootRemoved {
                 media_root_id: root_id,
@@ -889,6 +939,10 @@ impl<'production> SqliteTransaction<'production> {
                 ],
             )
             .map_err(mutation_error("persist external identifier"))?;
+        self.record_conflict_key(SemanticConflictKey::ExternalIdentifier {
+            target,
+            identifier: identifier.clone(),
+        })?;
         self.pending_events
             .push(RevisionEventKind::ExternalIdentifierAdded {
                 target,
@@ -931,6 +985,10 @@ impl<'production> SqliteTransaction<'production> {
                 "external identifier attachment does not exist",
             ));
         }
+        self.record_conflict_key(SemanticConflictKey::ExternalIdentifier {
+            target,
+            identifier: identifier.clone(),
+        })?;
         self.pending_events
             .push(RevisionEventKind::ExternalIdentifierRemoved {
                 target,
@@ -1012,6 +1070,10 @@ impl<'production> SqliteTransaction<'production> {
         }
         if values.is_empty() {
             if removed > 0 {
+                self.record_conflict_key(SemanticConflictKey::MetadataProperty {
+                    target,
+                    property: property.clone(),
+                })?;
                 self.pending_events
                     .push(RevisionEventKind::MetadataRemoved {
                         target,
@@ -1019,6 +1081,10 @@ impl<'production> SqliteTransaction<'production> {
                     });
             }
         } else {
+            self.record_conflict_key(SemanticConflictKey::MetadataProperty {
+                target,
+                property: property.clone(),
+            })?;
             self.pending_events
                 .push(RevisionEventKind::MetadataAddedOrReplaced {
                     target,
@@ -1049,6 +1115,10 @@ impl<'production> SqliteTransaction<'production> {
                 "metadata property does not exist on target",
             ));
         }
+        self.record_conflict_key(SemanticConflictKey::MetadataProperty {
+            target,
+            property: property.clone(),
+        })?;
         self.pending_events
             .push(RevisionEventKind::MetadataRemoved {
                 target,
@@ -1197,6 +1267,11 @@ impl<'production> SqliteTransaction<'production> {
                 algorithm: fingerprint.algorithm().to_owned(),
                 version: fingerprint.version(),
             });
+        self.record_conflict_key(SemanticConflictKey::ResourceFingerprint {
+            resource_id,
+            algorithm: fingerprint.algorithm().to_owned(),
+            version: fingerprint.version(),
+        })?;
         Ok(true)
     }
 
@@ -1325,6 +1400,11 @@ impl<'production> SqliteTransaction<'production> {
                 algorithm: fingerprint.algorithm().to_owned(),
                 version: fingerprint.version(),
             });
+        self.record_conflict_key(SemanticConflictKey::RepresentationFingerprint {
+            representation_id,
+            algorithm: fingerprint.algorithm().to_owned(),
+            version: fingerprint.version(),
+        })?;
         Ok(true)
     }
 
@@ -1511,6 +1591,7 @@ impl<'production> SqliteTransaction<'production> {
             .map_err(mutation_error("finish dependency-set replacement"))?;
         self.pending_events
             .push(RevisionEventKind::DependencySetRecorded { representation_id });
+        self.record_conflict_key(SemanticConflictKey::DependencySet(representation_id))?;
         Ok(true)
     }
 
@@ -1522,13 +1603,32 @@ impl<'production> SqliteTransaction<'production> {
     /// [`ErrorKind::Storage`] if SQLite cannot commit.
     pub fn commit(&mut self) -> Result<()> {
         self.lifecycle.ensure_open()?;
+        let conflict_keys = self.pending_conflict_keys.clone();
+        if let Some(base_revision) = self.base_revision {
+            let conflict =
+                find_transaction_conflict(self.open_transaction()?, base_revision, &conflict_keys)?;
+            if let Some(conflict) = conflict {
+                let kind = conflict.key().kind().as_str();
+                self.take_transaction()?
+                    .rollback()
+                    .map_err(sqlite_error("roll back conflicted domain transaction"))?;
+                self.lifecycle.mark_rolled_back()?;
+                self.pending_roots.clear();
+                self.pending_events.clear();
+                self.pending_conflict_keys.clear();
+                return Err(Error::transaction_conflict(
+                    conflict,
+                    format!("semantic fact changed after transaction base: {kind}"),
+                ));
+            }
+        }
         if !self.pending_events.is_empty() {
             let revision_id = RevisionId::new();
             let transaction_id = self.id();
             let committed_at = Timestamp::now()?;
             let context = self.revision_context.clone();
             let events = self.pending_events.clone();
-            persist_revision(
+            let revision_sequence = persist_revision(
                 self.open_transaction()?,
                 revision_id,
                 transaction_id,
@@ -1536,6 +1636,17 @@ impl<'production> SqliteTransaction<'production> {
                 &context,
                 &events,
             )?;
+            persist_conflict_versions(
+                self.open_transaction()?,
+                &conflict_keys,
+                revision_id,
+                revision_sequence,
+            )?;
+        } else if !conflict_keys.is_empty() {
+            return Err(Error::new(
+                ErrorKind::Internal,
+                "semantic conflict keys require a revision event",
+            ));
         }
         let transaction = self.take_transaction()?;
         if let Err(error) = transaction.commit() {
@@ -1549,6 +1660,7 @@ impl<'production> SqliteTransaction<'production> {
             self.revision_signal.notify_commit();
         }
         self.pending_events.clear();
+        self.pending_conflict_keys.clear();
         Ok(())
     }
 
@@ -1567,6 +1679,13 @@ impl<'production> SqliteTransaction<'production> {
         self.lifecycle.mark_rolled_back()?;
         self.pending_roots.clear();
         self.pending_events.clear();
+        self.pending_conflict_keys.clear();
+        Ok(())
+    }
+
+    fn record_conflict_key(&mut self, key: SemanticConflictKey) -> Result<()> {
+        let encoded = encode_conflict_key(&key)?;
+        self.pending_conflict_keys.insert(encoded, key);
         Ok(())
     }
 
@@ -1588,6 +1707,170 @@ impl<'production> SqliteTransaction<'production> {
             )
         })
     }
+}
+
+fn find_transaction_conflict(
+    transaction: &Transaction<'_>,
+    (base_revision, base_sequence): (RevisionId, u64),
+    keys: &BTreeMap<Vec<u8>, SemanticConflictKey>,
+) -> Result<Option<TransactionConflict>> {
+    let baseline = transaction
+        .query_row(
+            "SELECT revision_id, revision_sequence
+             FROM conflict_migration_baseline WHERE singleton = 1",
+            [],
+            |row| Ok((row.get::<_, Vec<u8>>(0)?, row.get::<_, i64>(1)?)),
+        )
+        .optional()
+        .map_err(mutation_error("load conflict migration baseline"))?;
+    for (encoded, key) in keys {
+        let changed = transaction
+            .query_row(
+                "SELECT last_changed_revision_id, last_changed_revision_sequence
+                 FROM conflict_versions WHERE conflict_key = ?1",
+                [encoded],
+                |row| Ok((row.get::<_, Vec<u8>>(0)?, row.get::<_, i64>(1)?)),
+            )
+            .optional()
+            .map_err(mutation_error("load semantic conflict version"))?;
+        let superseding = changed
+            .as_ref()
+            .or(baseline.as_ref().filter(|_| changed.is_none()));
+        let Some((revision_id, sequence)) = superseding else {
+            continue;
+        };
+        let sequence = crate::stored_u64(*sequence, "semantic conflict revision sequence")?;
+        if sequence <= base_sequence {
+            continue;
+        }
+        let revision_id = RevisionId::from_bytes(crate::id_bytes(
+            revision_id.clone(),
+            "semantic conflict revision",
+        )?);
+        return Ok(Some(TransactionConflict::new(
+            key.clone(),
+            base_revision,
+            base_sequence,
+            revision_id,
+            sequence,
+        )));
+    }
+    Ok(None)
+}
+
+fn persist_conflict_versions(
+    transaction: &Transaction<'_>,
+    keys: &BTreeMap<Vec<u8>, SemanticConflictKey>,
+    revision_id: RevisionId,
+    revision_sequence: u64,
+) -> Result<()> {
+    let revision_sequence = i64::try_from(revision_sequence).map_err(|error| {
+        Error::new(
+            ErrorKind::Unsupported,
+            format!("conflict revision sequence cannot be stored: {error}"),
+        )
+    })?;
+    for encoded in keys.keys() {
+        transaction
+            .execute(
+                "INSERT INTO conflict_versions (
+                    conflict_key, last_changed_revision_id,
+                    last_changed_revision_sequence
+                 ) VALUES (?1, ?2, ?3)
+                 ON CONFLICT(conflict_key) DO UPDATE SET
+                    last_changed_revision_id = excluded.last_changed_revision_id,
+                    last_changed_revision_sequence = excluded.last_changed_revision_sequence",
+                params![
+                    encoded,
+                    revision_id.as_bytes().as_slice(),
+                    revision_sequence,
+                ],
+            )
+            .map_err(mutation_error("persist semantic conflict version"))?;
+    }
+    Ok(())
+}
+
+fn encode_conflict_key(key: &SemanticConflictKey) -> Result<Vec<u8>> {
+    let mut encoded = Vec::new();
+    match key {
+        SemanticConflictKey::LocatorSet(resource_id) => {
+            encoded.push(1);
+            encoded.extend_from_slice(resource_id.as_bytes());
+        }
+        SemanticConflictKey::MetadataProperty { target, property } => {
+            encoded.push(2);
+            append_object_ref(&mut encoded, target)?;
+            append_text(&mut encoded, property.vocabulary().as_str())?;
+            append_text(&mut encoded, property.property().as_str())?;
+        }
+        SemanticConflictKey::DependencySet(representation_id) => {
+            encoded.push(3);
+            encoded.extend_from_slice(representation_id.as_bytes());
+        }
+        SemanticConflictKey::MediaRoot(root_id) => {
+            encoded.push(4);
+            encoded.extend_from_slice(root_id.as_bytes());
+        }
+        SemanticConflictKey::ExternalIdentifier { target, identifier } => {
+            encoded.push(5);
+            append_object_ref(&mut encoded, target)?;
+            append_text(&mut encoded, identifier.scheme().as_str())?;
+            append_text(&mut encoded, identifier.value())?;
+            if let Some(qualifier) = identifier.qualifier() {
+                encoded.push(1);
+                append_text(&mut encoded, qualifier)?;
+            } else {
+                encoded.push(0);
+            }
+        }
+        SemanticConflictKey::ResourceFingerprint {
+            resource_id,
+            algorithm,
+            version,
+        } => {
+            encoded.push(6);
+            encoded.extend_from_slice(resource_id.as_bytes());
+            append_text(&mut encoded, algorithm)?;
+            encoded.extend_from_slice(&version.to_be_bytes());
+        }
+        SemanticConflictKey::RepresentationFingerprint {
+            representation_id,
+            algorithm,
+            version,
+        } => {
+            encoded.push(7);
+            encoded.extend_from_slice(representation_id.as_bytes());
+            append_text(&mut encoded, algorithm)?;
+            encoded.extend_from_slice(&version.to_be_bytes());
+        }
+        _ => {
+            return Err(Error::new(
+                ErrorKind::Unsupported,
+                "semantic conflict key is not supported by this storage version",
+            ));
+        }
+    }
+    Ok(encoded)
+}
+
+fn append_object_ref(encoded: &mut Vec<u8>, target: &ObjectRef) -> Result<()> {
+    let (kind, id) = encode_metadata_target(target)?;
+    encoded.extend_from_slice(&kind.to_be_bytes());
+    encoded.extend_from_slice(id);
+    Ok(())
+}
+
+fn append_text(encoded: &mut Vec<u8>, value: &str) -> Result<()> {
+    let length = u32::try_from(value.len()).map_err(|error| {
+        Error::new(
+            ErrorKind::Unsupported,
+            format!("semantic conflict key text is too long: {error}"),
+        )
+    })?;
+    encoded.extend_from_slice(&length.to_be_bytes());
+    encoded.extend_from_slice(value.as_bytes());
+    Ok(())
 }
 
 struct StoredEvent<'event> {
@@ -1614,7 +1897,7 @@ fn persist_revision(
     committed_at: Timestamp,
     context: &RevisionContext,
     events: &[RevisionEventKind],
-) -> Result<()> {
+) -> Result<u64> {
     let sequence: i64 = transaction
         .query_row(
             "SELECT coalesce(max(sequence), 0) + 1 FROM revisions",
@@ -1692,7 +1975,7 @@ fn persist_revision(
             .map_err(mutation_error("clean failed revision"))?;
         return Err(error);
     }
-    Ok(())
+    crate::stored_u64(sequence, "persisted revision sequence")
 }
 
 #[allow(
