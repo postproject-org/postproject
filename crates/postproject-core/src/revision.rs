@@ -394,6 +394,42 @@ impl RevisionEventType {
             Self::JobCancelled => "job_cancelled",
         }
     }
+
+    /// Returns the explicit optimistic-concurrency policy for this event type.
+    #[must_use]
+    pub const fn concurrency_classification(self) -> crate::ConcurrencyClassification {
+        use crate::ConcurrencyClassification::{
+            Conflict, ExistingGuard, Merge, OperationDependent,
+        };
+        match self {
+            Self::AssetImported
+            | Self::RepresentationAdded
+            | Self::ResourceAdded
+            | Self::RepresentationResourceAdded
+            | Self::ActivityCreated
+            | Self::ActivityInputAdded
+            | Self::ActivityOutputAdded
+            | Self::JobRequested => Merge,
+            Self::LocatorAdded
+            | Self::LocatorRetired
+            | Self::MediaRootEnabledChanged
+            | Self::MediaRootRemoved
+            | Self::ExternalIdentifierAdded
+            | Self::ExternalIdentifierRemoved
+            | Self::MetadataRemoved
+            | Self::ResourceFingerprintObserved
+            | Self::RepresentationFingerprintObserved
+            | Self::DependencySetRecorded => Conflict,
+            Self::MediaRootAdded
+            | Self::JobClaimed
+            | Self::JobClaimRenewed
+            | Self::JobClaimReleased
+            | Self::JobSucceeded
+            | Self::JobFailed
+            | Self::JobCancelled => ExistingGuard,
+            Self::MetadataAddedOrReplaced => OperationDependent,
+        }
+    }
 }
 
 impl fmt::Display for RevisionEventType {
@@ -835,6 +871,23 @@ mod tests {
             .event_type(),
             RevisionEventType::JobSucceeded
         );
+    }
+
+    #[test]
+    fn every_event_type_has_an_explicit_concurrency_classification() {
+        use crate::ConcurrencyClassification::{
+            Conflict, ExistingGuard, Merge, OperationDependent,
+        };
+
+        let classifications: Vec<_> = RevisionEventType::ALL
+            .iter()
+            .map(|event| event.concurrency_classification())
+            .collect();
+        assert_eq!(classifications.len(), 26);
+        assert!(classifications.contains(&Merge));
+        assert!(classifications.contains(&Conflict));
+        assert!(classifications.contains(&ExistingGuard));
+        assert!(classifications.contains(&OperationDependent));
     }
 
     #[test]

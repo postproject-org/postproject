@@ -1,5 +1,7 @@
 //! Domain-level errors that do not expose backend implementation details.
 
+use crate::TransactionConflict;
+
 /// Stable categories shared by core services and external adapters.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 #[non_exhaustive]
@@ -36,6 +38,7 @@ pub enum ErrorKind {
 pub struct Error {
     kind: ErrorKind,
     message: String,
+    transaction_conflict: Option<Box<TransactionConflict>>,
 }
 
 impl Error {
@@ -45,6 +48,18 @@ impl Error {
         Self {
             kind,
             message: message.into(),
+            transaction_conflict: None,
+        }
+    }
+
+    /// Creates a typed optimistic transaction conflict.
+    #[doc(hidden)]
+    #[must_use]
+    pub fn transaction_conflict(conflict: TransactionConflict, message: impl Into<String>) -> Self {
+        Self {
+            kind: ErrorKind::Conflict,
+            message: message.into(),
+            transaction_conflict: Some(Box::new(conflict)),
         }
     }
 
@@ -58,6 +73,12 @@ impl Error {
     #[must_use]
     pub fn message(&self) -> &str {
         &self.message
+    }
+
+    /// Returns machine-readable optimistic-conflict details, when present.
+    #[must_use]
+    pub fn transaction_conflict_detail(&self) -> Option<&TransactionConflict> {
+        self.transaction_conflict.as_deref()
     }
 }
 

@@ -7,6 +7,7 @@
 
 mod artifact;
 mod cancel;
+mod conflict;
 mod content;
 mod dependency;
 mod error;
@@ -33,6 +34,9 @@ pub use artifact::{
     ArtifactReproducibilityIssue, ArtifactReproducibilityReport, ArtifactTraversalLimitKind,
 };
 pub use cancel::CancellationToken;
+pub use conflict::{
+    ConcurrencyClassification, ConflictKeyKind, SemanticConflictKey, TransactionConflict,
+};
 pub use content::{
     ContentStructure, ContentStructureKind, FrameRange, ImageSequenceDescriptor,
     MAX_CONTENT_MEMBERS, MAX_FRAME_PADDING, MAX_RESOURCE_ROLE_BYTES, MAX_SEQUENCE_EXCEPTIONS,
