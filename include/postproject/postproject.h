@@ -29,6 +29,7 @@ typedef struct pp_external_identifier_set pp_external_identifier_set_t;
 typedef struct pp_object_ref_set pp_object_ref_set_t;
 typedef struct pp_object_query_set pp_object_query_set_t;
 typedef struct pp_locator_query_set pp_locator_query_set_t;
+typedef struct pp_known_media_set pp_known_media_set_t;
 typedef struct pp_metadata_set pp_metadata_set_t;
 typedef struct pp_metadata_value pp_metadata_value_t;
 typedef struct pp_metadata_input pp_metadata_input_t;
@@ -631,6 +632,30 @@ PP_API pp_error_code_t pp_locator_query_set_get(
 PP_API const char *pp_locator_query_set_next_cursor(
     const pp_locator_query_set_t *locators);
 PP_API void pp_locator_query_set_release(pp_locator_query_set_t *locators);
+/* Finds current storage evidence only. Locator identity is the canonical URI
+ * plus sequence_naming for an image sequence; a directory URI without naming
+ * does not match a sequence. Fingerprint domains are open strings and values
+ * are exact opaque bytes. Queries are read-only and return every ownership
+ * candidate without adopting, relinking, or merging it. */
+PP_API pp_error_code_t pp_production_find_known_media_by_locator(
+    const pp_production_t *production, const char *uri,
+    const pp_sequence_naming_t *sequence_naming, uint32_t limit,
+    const char *cursor, pp_known_media_set_t **out_matches,
+    pp_error_t **out_error);
+PP_API pp_error_code_t pp_production_find_known_media_by_fingerprint(
+    const pp_production_t *production, const char *algorithm, uint16_t version,
+    const uint8_t *value, uint64_t value_length, uint32_t limit,
+    const char *cursor, pp_known_media_set_t **out_matches,
+    pp_error_t **out_error);
+PP_API uint64_t pp_known_media_set_count(
+    const pp_known_media_set_t *matches);
+PP_API const char *pp_known_media_set_next_cursor(
+    const pp_known_media_set_t *matches);
+PP_API pp_error_code_t pp_known_media_set_get(
+    const pp_known_media_set_t *matches, uint64_t index,
+    pp_uuid_t *out_asset_id, pp_uuid_t *out_representation_id,
+    pp_uuid_t *out_resource_id, pp_error_t **out_error);
+PP_API void pp_known_media_set_release(pp_known_media_set_t *matches);
 PP_API pp_error_code_t pp_production_unresolved_media(
     const pp_production_t *production, uint32_t limit, const char *cursor,
     pp_object_query_set_t **out_objects, pp_error_t **out_error);

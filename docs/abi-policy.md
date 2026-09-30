@@ -1,6 +1,6 @@
 # ABI policy
 
-ABI version 35 is pre-release and may change during the 0.x series, with every
+ABI version 36 is pre-release and may change during the 0.x series, with every
 change recorded in the changelog and ABI tests. `pp_abi_version()` reports the
 implemented version. Exported symbol names are unversioned until the first stable
 release, but removals or signature changes require an explicit ABI-version bump.
@@ -13,7 +13,7 @@ object-query sets, locator-query sets, dependency sets, dependency-query sets,
 job sets, regeneration-plan sets, metadata sets, metadata values, metadata
 inputs, artifact evaluations, reproducibility reports, revision sets,
 revision-event sets, revision waiters, fingerprints, cancellation tokens,
-resolution options, media sources, and errors are opaque handles. A
+resolution options, media sources, known-media sets, and errors are opaque handles. A
 successful creation/open call transfers one production ownership reference to the
 caller, which releases it exactly once with `pp_production_release`. Failed calls
 optionally transfer an error object, released exactly once with
@@ -279,6 +279,12 @@ naming, required exactly for a sequence resource, and replaces
 `pp_sequence_naming_t`, and `pp_production_verify_resource` and
 `pp_transaction_observe_resource_content` take a nullable naming for a
 sequence directory, where NULL means the naming recorded for that directory.
+
+ABI version 36 adds bounded known-media lookup by exact current locator
+identity or current effective resource fingerprint. The owned result set lends
+asset, representation, and resource UUIDs plus its continuation cursor. Lookup
+returns every candidate and never performs adoption or another mutation
+(ADR 0041).
 
 ## External identifiers
 

@@ -337,7 +337,7 @@ int main(int argc, char **argv) {
     return 64;
   }
   (void)remove(argv[1]);
-  if (pp_abi_version() != UINT32_C(35)) {
+  if (pp_abi_version() != UINT32_C(36)) {
     return 1;
   }
   pp_error_code_t status =
@@ -806,6 +806,52 @@ int main(int argc, char **argv) {
     pp_error_release(error);
     return 120;
   }
+  pp_known_media_set_t *known_media = NULL;
+  pp_uuid_t known_asset_id = {{0}};
+  pp_uuid_t known_representation_id = {{0}};
+  pp_uuid_t known_resource_id = {{0}};
+  status = pp_production_find_known_media_by_locator(
+      production, locator_uri, NULL, UINT32_C(1), NULL, &known_media, &error);
+  if (status != PP_OK || known_media == NULL ||
+      pp_known_media_set_count(known_media) != UINT64_C(1) ||
+      pp_known_media_set_next_cursor(known_media) != NULL ||
+      pp_known_media_set_get(known_media, 0, &known_asset_id,
+                             &known_representation_id, &known_resource_id,
+                             &error) != PP_OK ||
+      memcmp(known_asset_id.bytes, asset_id.bytes, sizeof(asset_id.bytes)) != 0 ||
+      memcmp(known_representation_id.bytes, representation_id.bytes,
+             sizeof(representation_id.bytes)) != 0 ||
+      memcmp(known_resource_id.bytes, resource_id.bytes,
+             sizeof(resource_id.bytes)) != 0) {
+    pp_known_media_set_release(known_media);
+    pp_representation_set_release(representations);
+    pp_production_release(production);
+    pp_error_release(error);
+    return 181;
+  }
+  pp_known_media_set_release(known_media);
+  known_media = NULL;
+  status = pp_production_find_known_media_by_fingerprint(
+      production, fingerprint_algorithm, fingerprint_version,
+      fingerprint_value, fingerprint_value_length, UINT32_C(1), NULL,
+      &known_media, &error);
+  if (status != PP_OK || known_media == NULL ||
+      pp_known_media_set_count(known_media) != UINT64_C(1) ||
+      pp_known_media_set_get(known_media, 0, &known_asset_id,
+                             &known_representation_id, &known_resource_id,
+                             &error) != PP_OK ||
+      memcmp(known_asset_id.bytes, asset_id.bytes, sizeof(asset_id.bytes)) != 0 ||
+      memcmp(known_representation_id.bytes, representation_id.bytes,
+             sizeof(representation_id.bytes)) != 0 ||
+      memcmp(known_resource_id.bytes, resource_id.bytes,
+             sizeof(resource_id.bytes)) != 0) {
+    pp_known_media_set_release(known_media);
+    pp_representation_set_release(representations);
+    pp_production_release(production);
+    pp_error_release(error);
+    return 182;
+  }
+  pp_known_media_set_release(known_media);
   pp_representation_set_release(representations);
   pp_external_identifier_set_t *identifiers = NULL;
   status = pp_production_external_identifiers(production, &asset_ref, &identifiers,

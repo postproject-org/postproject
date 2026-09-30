@@ -9,6 +9,7 @@ mod artifact;
 mod content;
 mod dependency;
 mod jobs;
+mod known_media;
 mod media_source;
 mod metadata;
 mod metadata_input;
@@ -61,6 +62,7 @@ pub use artifact::{
 pub use content::PpFingerprint;
 pub use dependency::{PpDependency, PpDependencyMatch, PpDependencyQuerySet, PpDependencySet};
 pub use jobs::{PpJob, PpJobSet, PpRegenerationPlanSet};
+pub use known_media::PpKnownMediaSet;
 pub use media_source::PpMediaSource;
 use metadata::AbiMetadataValue;
 pub use metadata::{PpMetadataSet, PpMetadataValue};
@@ -165,7 +167,7 @@ const PP_REVISION_JOB_FAILED: u32 = 25;
 const PP_REVISION_JOB_CANCELLED: u32 = 26;
 
 /// Current pre-1.0 ABI version.
-pub const ABI_VERSION: u32 = 35;
+pub const ABI_VERSION: u32 = 36;
 
 /// Fixed-layout UUID-compatible public identifier.
 #[repr(C)]

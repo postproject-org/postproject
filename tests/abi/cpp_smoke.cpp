@@ -140,7 +140,7 @@ int main(int argc, char **argv) {
   std::remove(path.c_str());
 
   try {
-    if (postproject::abi_version() != 35) {
+    if (postproject::abi_version() != 36) {
       return 3;
     }
 
