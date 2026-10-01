@@ -47,54 +47,37 @@ breathe_domain_by_extension = {"h": "c", "hpp": "cpp"}
 html_theme = "furo"
 html_title = f"PostProject {release} · ABI 37"
 html_static_path = ["_static"]
-html_css_files = ["postproject.css"]
+html_css_files = ["theme.css", "postproject.css"]
+html_favicon = "_static/logo.svg"
 templates_path = ["_templates"]
 html_extra_path = ["CNAME", "versions.json"]
-# Fonts and colors follow the landing page (https://www.postproject.org/). Its
-# dark palette is used as-is; light mode keeps the fonts with a paper tone and
-# a darker signal green that stays readable on a light background.
+# theme.css and the licensed Inter font are shared with the landing page.
 FONT_STACK = "Inter, ui-sans-serif, system-ui, sans-serif"
+THEME_VARIABLES = {
+    "font-stack": FONT_STACK,
+    "font-stack--headings": FONT_STACK,
+    "font-stack--monospace": "ui-monospace, SFMono-Regular, Menlo, monospace",
+    "color-foreground-primary": "var(--ink)",
+    "color-foreground-secondary": "var(--muted)",
+    "color-foreground-muted": "var(--subtle)",
+    "color-foreground-border": "var(--line)",
+    "color-background-primary": "var(--paper)",
+    "color-background-secondary": "var(--panel)",
+    "color-background-hover": "var(--hover)",
+    "color-background-border": "var(--line)",
+    "color-brand-primary": "var(--ink)",
+    "color-brand-content": "var(--signal)",
+    "color-brand-visited": "var(--signal)",
+    "color-highlighted-background": "var(--highlight)",
+    "color-inline-code-background": "var(--code)",
+    "color-code-background": "var(--panel)",
+}
 html_theme_options = {
     "source_repository": "https://github.com/postproject-org/postproject/",
     "source_branch": "main",
     "source_directory": "docs/",
-    "light_css_variables": {
-        "font-stack": FONT_STACK,
-        "font-stack--headings": FONT_STACK,
-        "font-stack--monospace": "ui-monospace, SFMono-Regular, Menlo, monospace",
-        "color-foreground-primary": "#101211",
-        "color-foreground-secondary": "#4a4f4b",
-        "color-foreground-muted": "#6b706c",
-        "color-foreground-border": "#c9c6bc",
-        "color-background-primary": "#fbfaf6",
-        "color-background-secondary": "#f2f0e9",
-        "color-background-hover": "#e8e5dc",
-        "color-background-border": "#dcd9cf",
-        "color-brand-primary": "#101211",
-        "color-brand-content": "#3b6a00",
-        "color-brand-visited": "#3b6a00",
-        "color-highlighted-background": "#e6f5cc",
-        "color-inline-code-background": "#efece4",
-    },
-    "dark_css_variables": {
-        "font-stack": FONT_STACK,
-        "font-stack--headings": FONT_STACK,
-        "font-stack--monospace": "ui-monospace, SFMono-Regular, Menlo, monospace",
-        "color-foreground-primary": "#f5f1e8",
-        "color-foreground-secondary": "#b8b4aa",
-        "color-foreground-muted": "#8e8a82",
-        "color-foreground-border": "#4a514b",
-        "color-background-primary": "#101211",
-        "color-background-secondary": "#191c1a",
-        "color-background-hover": "#232724",
-        "color-background-border": "#343a35",
-        "color-brand-primary": "#f5f1e8",
-        "color-brand-content": "#b9ff66",
-        "color-brand-visited": "#b9ff66",
-        "color-highlighted-background": "#33412b",
-        "color-inline-code-background": "#191c1a",
-        "color-code-background": "#191c1a",
-    },
+    "light_css_variables": THEME_VARIABLES,
+    "dark_css_variables": THEME_VARIABLES,
 }
 pygments_dark_style = "monokai"
 # Diagrams size to their content and follow Furo's light/dark switch.

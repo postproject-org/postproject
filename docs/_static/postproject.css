@@ -40,7 +40,7 @@
   color: var(--color-brand-content);
 }
 
-/* Landing-page typography: tight wordmark and headings, monospace eyebrows. */
+/* Landing-page typography: tight wordmark and headings, Inter eyebrows. */
 .sidebar-brand-text {
   font-weight: 800;
   letter-spacing: -0.04em;
@@ -59,7 +59,7 @@ h1 {
 .sidebar-tree .caption,
 .toc-title {
   color: var(--color-brand-content);
-  font: 700 0.72rem/1.2 var(--font-stack--monospace);
+  font: 700 0.72rem/1.2 var(--font-stack);
   letter-spacing: 0.14em;
   text-transform: uppercase;
 }

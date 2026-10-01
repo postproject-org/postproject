@@ -1,0 +1,60 @@
+@font-face {
+  font-family: Inter;
+  src: url("fonts/InterVariable.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+  --ink: #101211;
+  --muted: #4a4f4b;
+  --subtle: #6b706c;
+  --paper: #fbfaf6;
+  --panel: #f2f0e9;
+  --hover: #e8e5dc;
+  --line: #dcd9cf;
+  --signal: #3b6a00;
+  --signal-ink: #fbfaf6;
+  --highlight: #e6f5cc;
+  --code: #efece4;
+  --hero-glow: #e6f5cc;
+  --font: Inter, ui-sans-serif, system-ui, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --ink: #f5f1e8;
+    --muted: #b8b4aa;
+    --subtle: #8e8a82;
+    --paper: #101211;
+    --panel: #191c1a;
+    --hover: #232724;
+    --line: #343a35;
+    --signal: #b9ff66;
+    --signal-ink: #101211;
+    --highlight: #33412b;
+    --code: #191c1a;
+    --hero-glow: #33412b;
+  }
+}
+
+[data-theme="dark"],
+[data-theme="ayu"] {
+  color-scheme: dark;
+  --ink: #f5f1e8;
+  --muted: #b8b4aa;
+  --subtle: #8e8a82;
+  --paper: #101211;
+  --panel: #191c1a;
+  --hover: #232724;
+  --line: #343a35;
+  --signal: #b9ff66;
+  --signal-ink: #101211;
+  --highlight: #33412b;
+  --code: #191c1a;
+  --hero-glow: #33412b;
+}
