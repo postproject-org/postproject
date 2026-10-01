@@ -38,11 +38,14 @@ approval.
 2. **Projection gaps:** only Kdenlive supplies real-host C++ projection
    evidence. Blender and the Manager exercise Python. Direct C remains limited
    to repository consumers and smoke tests rather than a maintained host.
-3. **`pkg-config`:** no maintained host uses the installed file.
-4. **Exception-oriented C++:** no maintained evidence specifically validates
-   the wrapper in an application's normal exception-based error style.
-5. **Non-Linux host:** no maintained real-host scenario runs on macOS or
-   Windows. Core native packages and examples do run there.
+3. **`pkg-config`:** the selected Ardour resolver now compiles its executable
+   policy through the installed file without pilot-specific package changes.
+4. **Exception-oriented C++:** the Ardour boundary uses `Result<T>::value()`
+   and catches `postproject::Exception` in the application's normal
+   exception-enabled build. Its executable scenario verifies the typed throw.
+5. **Non-Linux host:** a macOS installed-package resolver job is defined, but
+   no remotely run result is recorded. Core native packages and examples do run
+   there.
 6. **Job terminal paths:** Kdenlive exercises a real proxy worker and the
    OpenAssetIO Manager completes publishes, but a second host does not exercise
    renew, fail, and cancel together. Those paths are not members of a proposed
@@ -55,20 +58,20 @@ approval.
    revisions, semantic conflicts, provenance snapshots, and artifact
    evaluation represented the workflow.
 
-## Minimum pilot decision
+## Pilot decision and outcome
 
-Select the Ardour resolver pilot only. Its verified seam can add three evidence
-routes that remain materially absent: the installed `postproject.pc`, a second
-C++ desktop application using normal exceptions, and an audio-domain host. A
-macOS compile is included if the host build remains practical; a Linux resolver
-scenario remains the behavioral acceptance path.
+The review selected the Ardour resolver pilot only. The maintained patch series
+and executable Linux scenario now exercise the installed `postproject.pc`, a
+second C++ desktop application's exception boundary, and audio-domain media.
+The exact evidence and its limits are recorded in
+{doc}`release-0.5-ardour-pilot`.
 
-Do not select Shotcut. Its strongest unique additions are a Windows host and a
-second complete proxy-worker lifecycle. Neither is required to decide the two
-currently eligible families, and the shared-production scenario revealed no
-job-model uncertainty that justifies another editor patch.
+Shotcut was not selected. Its strongest unique additions were a Windows host
+and a second complete proxy-worker lifecycle. Neither was required to decide
+the two eligible families, and the shared-production scenario exposed no
+job-model uncertainty requiring another editor patch.
 
-Keep the GES/Pitivi raw-C experiment closed. The maintained application hook is
-a Python plugin; manufacturing a native shim would test PostProject rather than
-a normal host integration. Repository C consumers remain the proportionate
-coverage for this release.
+The GES/Pitivi raw-C experiment remained closed. The maintained application
+hook is a Python plugin; a manufactured native shim would test PostProject
+rather than a normal host integration. Repository C consumers remain the
+proportionate coverage for this release.

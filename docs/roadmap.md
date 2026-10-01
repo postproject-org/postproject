@@ -68,10 +68,13 @@ production in an automated scenario: Blender adopts Kdenlive's asset, records a
 derived render, observes a Kdenlive locator change, and wins a deliberate
 same-base locator conflict whose structured result reaches Kdenlive. The
 OpenAssetIO Manager resolves the render, and replacing the source makes both
-hosts' derived outputs stale. The remaining release work is the mechanical
-evidence review and compatibility-family decision. Shared access remains one
-local SQLite file on one machine; services, network filesystems, permissions,
-and distributed merging are outside this release.
+hosts' derived outputs stale. The evidence review selected only an
+[Ardour resolver pilot](release-0.5-ardour-pilot.md), which now exercises the
+installed `pkg-config` package, exception-enabled C++ use, and realistic audio
+recovery without assigning job semantics to waveform caches. The remaining
+release work is the compatibility-family decision and release verification.
+Shared access remains one local SQLite file on one machine; services, network
+filesystems, permissions, and distributed merging are outside this release.
 
 ## Explicitly later
 
