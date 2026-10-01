@@ -10,6 +10,7 @@ These pages describe what each release delivered, how it was verified, and which
 
 ## Release records
 
+- {doc}`/release-0.5-report` — release 0.5 acceptance report.
 - {doc}`/release-0.5-integration-findings` — evidence and limitations from the maintained shared-production scenario.
 - {doc}`/release-0.5-evidence-review` — compatibility-family matrix findings and the minimum-pilot decision.
 - {doc}`/release-0.5-compatibility-evidence` — generated family-to-host usage matrix.
@@ -29,6 +30,7 @@ These pages describe what each release delivered, how it was verified, and which
 /abi-policy
 /releasing
 /roadmap
+/release-0.5-report
 /release-0.5-integration-findings
 /release-0.5-evidence-review
 /release-0.5-compatibility-evidence

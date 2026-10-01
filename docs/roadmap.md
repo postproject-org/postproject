@@ -54,7 +54,7 @@ native library. What the pilots taught is recorded in the
 scope and remaining constraints in the
 [acceptance report](release-0.4-report.md).
 
-## Release 0.5 — in progress
+## Release 0.5 — shared local productions
 
 Make one local production useful to multiple host processes. Exact locator and
 fingerprint lookup lets a host explicitly adopt media already recorded by
@@ -73,8 +73,9 @@ hosts' derived outputs stale. The evidence review selected only an
 installed `pkg-config` package, exception-enabled C++ use, and realistic audio
 recovery without assigning job semantics to waveform caches. The accepted
 compatibility review names no 0.5 subset because the mechanically eligible
-leaf families lack qualified lifecycle dependencies. Release verification
-remains in progress.
+leaf families lack qualified lifecycle dependencies. The delivered scope and
+verification evidence are recorded in the
+[acceptance report](release-0.5-report.md).
 Shared access remains one local SQLite file on one machine; services, network
 filesystems, permissions, and distributed merging are outside this release.
 
