@@ -1,0 +1,61 @@
+@import url("postproject-theme.css");
+
+/* Match both rustdoc's theme selectors and its optional font setting. */
+:root[data-theme],
+:root.sans-serif-fonts {
+  --font-family: var(--font);
+  --main-background-color: var(--paper);
+  --main-color: var(--ink);
+  --sidebar-background-color: var(--panel);
+  --sidebar-background-color-hover: var(--hover);
+  --sidebar-current-link-background-color: var(--highlight);
+  --sidebar-link-color: var(--ink);
+  --sidebar-border-color: var(--line);
+  --border-color: var(--line);
+  --headings-border-bottom-color: var(--line);
+  --link-color: var(--signal);
+  --type-link-color: var(--signal);
+  --trait-link-color: var(--signal);
+  --function-link-color: var(--signal);
+  --mod-link-color: var(--signal);
+  --macro-link-color: var(--signal);
+  --assoc-item-link-color: var(--signal);
+  --attribute-link-color: var(--signal);
+  --keyword-link-color: var(--signal);
+  --search-color: var(--ink);
+  --search-input-focused-border-color: var(--signal);
+  --search-result-border-color: var(--line);
+  --search-result-link-focus-background-color: var(--highlight);
+  --search-results-grey-color: var(--muted);
+  --search-tab-button-selected-background: var(--paper);
+  --search-tab-button-not-selected-background: var(--panel);
+  --search-tab-button-selected-border-top-color: var(--signal);
+  --search-tab-button-not-selected-border-top-color: var(--line);
+  --settings-input-color: var(--ink);
+  --settings-input-border-color: var(--line);
+  --button-background-color: var(--panel);
+  --code-block-background-color: var(--panel);
+  --table-alt-row-background-color: var(--panel);
+  --stab-background-color: var(--panel);
+  --stab-code-color: var(--ink);
+  --right-side-color: var(--muted);
+  --target-background-color: var(--highlight);
+  --target-border-color: var(--signal);
+}
+
+#crate-search, h1, h2, h3, h4, h5, h6, .sidebar, rustdoc-topbar,
+.search-input, .search-results .result-name, .item-table dt > a,
+.out-of-band, .sub-heading, span.since, a.src, rustdoc-toolbar,
+summary.hideme, .scraped-example-list, .rustdoc-breadcrumbs,
+.search-switcher, ul.all-items, .deprecated-count {
+  font-family: var(--font);
+}
+
+h1, h2, h3 { letter-spacing: -.035em; }
+h1 { font-weight: 800; }
+
+:root[data-theme] .sidebar .current,
+:root[data-theme] .sidebar .current a,
+:root[data-theme] .sidebar a:hover {
+  color: var(--signal);
+}

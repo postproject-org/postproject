@@ -10,6 +10,13 @@ cargo doc --workspace --all-features --no-deps
 cargo deny check
 ```
 
+The published API documentation uses the landing page's self-hosted Inter font
+and light/dark palette. Sphinx copies `docs/_static/` into its output. Build the
+matching Rust reference with `python tools/build_rustdoc.py`; it preserves
+existing Rustdoc flags and bundles the theme and licensed font in `target/doc/`.
+Keep `docs/_static/theme.css` and its font assets synchronized with the landing
+repository's `theme.css` and `fonts/`. Code listings retain monospace fonts.
+
 On Windows, test `postproject-ffi` in a separate Cargo invocation from the rest
 of the workspace. The public CLI executable and native library intentionally
 share the installed name `postproject`, and concurrent MSVC links otherwise race

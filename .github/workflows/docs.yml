@@ -31,7 +31,7 @@ jobs:
       - run: python tools/normalize_doxygen_xml.py target/doxygen/xml
       - run: python tools/check_docs_coverage.py include/postproject/postproject.h target/doxygen/xml
       - run: sphinx-build --fail-on-warning --keep-going -b html docs target/site
-      - run: cargo doc --workspace --all-features --no-deps --locked
+      - run: python tools/build_rustdoc.py
       - name: Add Rust reference
         shell: bash
         run: |
