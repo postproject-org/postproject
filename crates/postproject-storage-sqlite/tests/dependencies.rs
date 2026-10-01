@@ -377,7 +377,7 @@ fn complete_dependency_sets_replace_atomically_and_are_journaled() {
         .dependency_set(source.representation().id())
         .expect("read empty set")
         .expect("known empty set");
-    assert!(empty.dependencies().is_empty());
+    assert_eq!(empty.dependencies(), []);
     assert_eq!(empty.recorded_at_revision(), 3);
 }
 

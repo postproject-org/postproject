@@ -211,7 +211,7 @@ mod tests {
         let title = property(IPTC_VMH_JSON_VOCABULARY, "title");
         let definition = metadata_property_definition(&title).expect("known property");
         assert_eq!(definition.label(), "Title");
-        assert!(!definition.description().is_empty());
+        assert_ne!(definition.description(), "");
         assert_eq!(definition.cardinality(), MetadataCardinality::Single);
         assert_eq!(
             definition.accepted_kinds(),

@@ -156,12 +156,7 @@ fn metadata_mutations_are_atomic_and_validate_targets() {
             .expect("stage metadata");
         transaction.rollback().expect("roll back metadata");
     }
-    assert!(
-        production
-            .metadata_values(target, &title)
-            .unwrap()
-            .is_empty()
-    );
+    assert_eq!(production.metadata_values(target, &title).unwrap(), []);
 
     {
         let mut transaction = production.begin_transaction().unwrap();

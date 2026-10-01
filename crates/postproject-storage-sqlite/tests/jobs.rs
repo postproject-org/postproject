@@ -415,7 +415,7 @@ fn invalid_job_references_leave_no_partial_request() {
     assert_eq!(error.kind(), ErrorKind::NotFound);
     transaction.commit().expect("commit empty transaction");
     drop(transaction);
-    assert!(all_jobs(&production).is_empty());
+    assert_eq!(all_jobs(&production), []);
     assert!(matches!(missing_root.state(), JobState::Requested));
 }
 
@@ -567,7 +567,7 @@ fn claims_use_tokens_and_caller_supplied_lease_time() {
         production.job(job.id()).expect("load failed job").state(),
         JobState::Failed(stored) if stored == &failure
     ));
-    assert!(production.activities().expect("load activities").is_empty());
+    assert_eq!(production.activities().expect("load activities"), []);
     assert_eq!(
         production
             .representations(source.asset().id())
@@ -753,7 +753,7 @@ fn completion_is_atomic_and_records_output_activity_and_snapshots() {
             .len(),
         1
     );
-    assert!(production.activities().expect("load activities").is_empty());
+    assert_eq!(production.activities().expect("load activities"), []);
 
     let output = proxy_import(&source, output_id, ResourceId::from_bytes([21; 16]));
     {
@@ -932,7 +932,7 @@ fn regeneration_planning_copies_producer_inputs_kind_and_parameters_without_enqu
     assert_eq!(plan.parameters().len(), 1);
     assert_eq!(plan.parameters()[0].property(), &property);
     assert_eq!(plan.parameters()[0].value(), &value);
-    assert!(all_jobs(&production).is_empty());
+    assert_eq!(all_jobs(&production), []);
     assert_eq!(
         production
             .latest_revision()

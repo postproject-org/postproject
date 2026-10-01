@@ -56,12 +56,7 @@ fn imported_media_creates_a_durable_contextual_revision() {
     let locator_id = media.locators()[0].id();
     let mut production = SqliteProduction::create(&path, None).expect("create production");
     assert_eq!(production.latest_revision().expect("query journal"), None);
-    assert!(
-        production
-            .changes_since(0, 10)
-            .expect("query feed")
-            .is_empty()
-    );
+    assert_eq!(production.changes_since(0, 10).expect("query feed"), []);
 
     let transaction_id;
     {
@@ -337,11 +332,9 @@ fn only_successful_nonempty_transactions_advance_the_feed() {
         );
         transaction.commit().expect("commit after failed mutation");
     }
-    assert!(
-        production
-            .changes_since(0, 10)
-            .expect("query empty feed")
-            .is_empty()
+    assert_eq!(
+        production.changes_since(0, 10).expect("query empty feed"),
+        []
     );
 
     for label in [50, 60, 70] {
@@ -368,17 +361,12 @@ fn only_successful_nonempty_transactions_advance_the_feed() {
             .collect::<Vec<_>>(),
         [3]
     );
-    assert!(
-        production
-            .changes_since(3, 2)
-            .expect("load feed end")
-            .is_empty()
-    );
-    assert!(
+    assert_eq!(production.changes_since(3, 2).expect("load feed end"), []);
+    assert_eq!(
         production
             .changes_since(u64::MAX, 2)
-            .expect("load beyond storage range")
-            .is_empty()
+            .expect("load beyond storage range"),
+        []
     );
 }
 
@@ -402,7 +390,7 @@ fn filtered_pages_select_matching_revisions_and_advance_past_the_rest() {
     let empty = production
         .changes_since_filtered(0, &imported, 10)
         .expect("filter empty journal");
-    assert!(empty.revisions().is_empty());
+    assert_eq!(empty.revisions(), []);
     assert_eq!(empty.through_sequence(), 0);
 
     for label in [10, 20, 30] {
@@ -449,7 +437,7 @@ fn filtered_pages_select_matching_revisions_and_advance_past_the_rest() {
     let drained = production
         .changes_since_filtered(second.through_sequence(), &imported, 2)
         .expect("drained imported page");
-    assert!(drained.revisions().is_empty());
+    assert_eq!(drained.revisions(), []);
     assert_eq!(drained.through_sequence(), 5);
 
     let metadata_or_roots = RevisionEventFilter::new([
@@ -479,7 +467,7 @@ fn filtered_pages_select_matching_revisions_and_advance_past_the_rest() {
     let beyond = production
         .changes_since_filtered(99, &imported, 10)
         .expect("cursor beyond journal");
-    assert!(beyond.revisions().is_empty());
+    assert_eq!(beyond.revisions(), []);
     assert_eq!(beyond.through_sequence(), 99);
     let unrepresentable = production
         .changes_since_filtered(u64::MAX, &imported, 10)

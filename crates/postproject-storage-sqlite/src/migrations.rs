@@ -497,12 +497,12 @@ mod tests {
                 params![vec![21_u8; 16], vec![13_u8; 16]],
             )
             .expect("locate second resource");
-        assert!(unresolved(&connection).is_empty());
+        assert_eq!(unresolved(&connection), Vec::<Vec<u8>>::new());
         connection
             .execute("DELETE FROM locators WHERE id = ?1", [vec![20_u8; 16]])
             .expect("retire first locator");
         assert_eq!(unresolved(&connection), [vec![2_u8; 16]]);
-        assert!(rooted(&connection).is_empty());
+        assert_eq!(rooted(&connection), []);
 
         connection
             .execute(
@@ -754,7 +754,7 @@ mod tests {
                 [vec![12_u8; 16]],
             )
             .expect("retire sequence locators");
-        assert!(namings(&connection).is_empty());
+        assert_eq!(namings(&connection), []);
         let unresolved: u32 = connection
             .query_row("SELECT count(*) FROM unresolved_memberships", [], |row| {
                 row.get(0)

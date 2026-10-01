@@ -1822,7 +1822,7 @@ mod tests {
         let resolved = resolve_in(&prepared, temporary.path());
 
         assert_eq!(resolved.state(), ResourceResolutionState::Offline);
-        assert!(resolved.candidates().is_empty());
+        assert_eq!(resolved.candidates(), []);
     }
 
     #[test]

@@ -148,11 +148,11 @@ fn identifier_mutations_are_atomic_and_validate_targets() {
             .expect("stage identifier");
         transaction.rollback().expect("roll back identifier");
     }
-    assert!(
+    assert_eq!(
         production
             .external_identifiers(target)
-            .expect("load identifiers")
-            .is_empty()
+            .expect("load identifiers"),
+        []
     );
 
     {

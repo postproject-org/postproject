@@ -162,7 +162,7 @@ fn explicit_and_implicit_rollback_leave_no_partial_import() {
         transaction.rollback().expect("roll back transaction");
         assert_eq!(transaction.state(), TransactionState::RolledBack);
     }
-    assert!(production.assets().expect("load assets").is_empty());
+    assert_eq!(production.assets().expect("load assets"), []);
 
     {
         let mut transaction = production.begin_transaction().expect("begin transaction");
@@ -170,7 +170,7 @@ fn explicit_and_implicit_rollback_leave_no_partial_import() {
             .import_original(&prepared)
             .expect("stage original import");
     }
-    assert!(production.assets().expect("load assets").is_empty());
+    assert_eq!(production.assets().expect("load assets"), []);
 }
 
 #[test]
@@ -191,7 +191,7 @@ fn duplicate_media_root_is_explicit_and_can_be_rolled_back() {
     transaction.rollback().expect("roll back transaction");
     drop(transaction);
 
-    assert!(production.production().media_roots().is_empty());
+    assert_eq!(production.production().media_roots(), []);
 }
 
 #[test]
@@ -235,12 +235,7 @@ fn roots_and_locators_have_a_complete_lifecycle() {
     }
 
     assert!(!production.production().media_roots()[0].is_enabled());
-    assert!(
-        production
-            .locators(resource_id)
-            .expect("load locators")
-            .is_empty()
-    );
+    assert_eq!(production.locators(resource_id).expect("load locators"), []);
     let revision = production
         .latest_revision()
         .expect("load revision")
@@ -265,11 +260,11 @@ fn roots_and_locators_have_a_complete_lifecycle() {
         transaction.remove_media_root(root_id).expect("remove root");
         transaction.commit().expect("commit root removal");
     }
-    assert!(production.production().media_roots().is_empty());
+    assert_eq!(production.production().media_roots(), []);
     drop(production);
 
     let reopened = SqliteProduction::open(production_path).expect("reopen production");
-    assert!(reopened.production().media_roots().is_empty());
+    assert_eq!(reopened.production().media_roots(), []);
     let revision = reopened.latest_revision().expect("load revision").unwrap();
     let events = reopened
         .events_for_revision(revision.id())

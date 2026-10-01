@@ -202,17 +202,17 @@ fn lookup_uses_only_current_locator_and_fingerprint_state() {
         transaction.commit().expect("commit update");
     }
 
-    assert!(
+    assert_eq!(
         production
             .find_known_media_by_locator(
                 &LocatorIdentity::new(uri, None).expect("locator identity"),
                 &page(10),
             )
             .expect("query retired locator")
-            .items()
-            .is_empty()
+            .items(),
+        []
     );
-    assert!(
+    assert_eq!(
         production
             .find_known_media_by_fingerprint(
                 &ResourceFingerprint::new("foreign-host", 7, b"old".to_vec())
@@ -220,8 +220,8 @@ fn lookup_uses_only_current_locator_and_fingerprint_state() {
                 &page(10),
             )
             .expect("query historical fingerprint")
-            .items()
-            .is_empty()
+            .items(),
+        []
     );
     assert_eq!(
         production
@@ -272,12 +272,12 @@ fn sequence_lookup_requires_the_exact_directory_and_naming() {
         )
         .expect("other sequence identity"),
     ] {
-        assert!(
+        assert_eq!(
             production
                 .find_known_media_by_locator(&identity, &page(10))
                 .expect("find nonmatching sequence")
-                .items()
-                .is_empty()
+                .items(),
+            []
         );
     }
 }
@@ -294,17 +294,17 @@ fn simultaneous_first_encounters_may_create_distinct_logical_assets() {
     let mut second_host = SqliteProduction::open(&path).expect("open second handle");
 
     for host in [&first_host, &second_host] {
-        assert!(
+        assert_eq!(
             host.find_known_media_by_locator(&locator, &page(10))
                 .expect("initial locator lookup")
-                .items()
-                .is_empty()
+                .items(),
+            []
         );
-        assert!(
+        assert_eq!(
             host.find_known_media_by_fingerprint(&fingerprint, &page(10))
                 .expect("initial fingerprint lookup")
-                .items()
-                .is_empty()
+                .items(),
+            []
         );
     }
 
