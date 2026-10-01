@@ -28,7 +28,9 @@ The single-consumer or unused families are:
 
 This is evidence, not a compatibility promise. The release decision still
 requires applying the complete semantic and projection criteria and maintainer
-approval.
+approval. The {doc}`release-0.5-compatibility-proposal` records that review and
+recommends no named subset because neither eligible leaf family has a qualified
+foundational dependency closure.
 
 ## Coverage questions
 
