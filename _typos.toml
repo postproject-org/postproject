@@ -5,8 +5,10 @@ extend-ignore-re = ["\\{frame:0[0-9N]d\\}"]
 [default.extend-words]
 EBUCore = "EBUCore"
 FIMS = "FIMS"
+GES = "GES"
 ISAN = "ISAN"
 MovieLabs = "MovieLabs"
 OTIO = "OTIO"
 PostProject = "PostProject"
+Shotcut = "Shotcut"
 UMID = "UMID"
