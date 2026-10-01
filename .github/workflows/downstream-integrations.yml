@@ -34,3 +34,8 @@ jobs:
     uses: postproject-org/postproject-cpp-nle/.github/workflows/ci.yml@main
     with:
       postproject_ref: ${{ github.sha }}
+
+  ardour:
+    uses: postproject-org/postproject-ardour/.github/workflows/ci.yml@main
+    with:
+      postproject_ref: ${{ github.sha }}
