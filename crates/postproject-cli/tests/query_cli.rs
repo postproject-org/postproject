@@ -47,7 +47,7 @@ fn import(production: &str, directory: &Path, name: &str, content: &[u8]) -> Val
     ])
 }
 
-fn items(page: &Value) -> &Vec<Value> {
+fn items(page: &Value) -> &[Value] {
     page["items"].as_array().expect("page items")
 }
 
@@ -208,7 +208,10 @@ fn queries_media_knowledge_by_root_and_resolution() {
     ]);
     let asset_id = imported["asset_id"].as_str().expect("asset ID");
     let representation_id = imported["representation_id"].as_str().expect("rep ID");
-    assert!(items(&run_json(&["media", "unresolved", production])).is_empty());
+    assert_eq!(
+        items(&run_json(&["media", "unresolved", production])),
+        Vec::<Value>::new()
+    );
 
     run_json(&[
         "locator",
@@ -228,7 +231,10 @@ fn queries_media_knowledge_by_root_and_resolution() {
     fs::create_dir(&relocated).expect("create relocated root");
     fs::write(relocated.join("original.mov"), b"root query fixture").expect("relocate fixture");
     run_json(&["root", "add", production, "archive"]);
-    assert!(items(&run_json(&["media", "under-root", production, "archive"])).is_empty());
+    assert_eq!(
+        items(&run_json(&["media", "under-root", production, "archive"])),
+        Vec::<Value>::new()
+    );
     let mapping = format!("archive={}", relocated.to_str().expect("UTF-8 root"));
     let resolved = run_json(&[
         "media",
@@ -263,7 +269,10 @@ fn queries_media_knowledge_by_root_and_resolution() {
     let under_root = run_json(&["media", "under-root", production, "archive"]);
     assert_eq!(items(&under_root).len(), 1);
     assert_eq!(items(&under_root)[0]["id"], representation_id);
-    assert!(items(&run_json(&["media", "unresolved", production])).is_empty());
+    assert_eq!(
+        items(&run_json(&["media", "unresolved", production])),
+        Vec::<Value>::new()
+    );
     let error = run_failure(&["media", "under-root", production, "missing"]);
     assert!(error.starts_with("error:"), "{error}");
 }
@@ -508,7 +517,10 @@ fn queries_stale_artifacts_and_changed_objects() {
         &rep(&other_proxy),
         &[],
     );
-    assert!(items(&run_json(&["artifact", "stale", production])).is_empty());
+    assert_eq!(
+        items(&run_json(&["artifact", "stale", production])),
+        Vec::<Value>::new()
+    );
     let latest = run_json(&["revisions", "latest", production]);
     let sequence = latest["sequence"].as_u64().expect("sequence").to_string();
 

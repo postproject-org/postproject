@@ -206,7 +206,7 @@ fn remove_keywords(production: &mut SqliteProduction, asset_id: AssetId) -> Resu
         transaction.remove_metadata_property(target, &keywords)?;
         transaction.commit()?;
     }
-    assert!(production.metadata_values(target, &keywords)?.is_empty());
+    assert_eq!(production.metadata_values(target, &keywords)?, []);
     Ok(())
 }
 // [/remove-metadata]
@@ -246,10 +246,9 @@ fn knowledge_examples_run_in_order() -> Result<()> {
     assert_eq!(remaining[0].scheme().as_str(), "com.example.camera.serial");
     assert_eq!(remaining[0].qualifier(), Some("body"));
     let reel = IdentifierScheme::new("com.example.reel")?;
-    assert!(
-        production
-            .find_by_external_identifier(&reel, "R-12", None)?
-            .is_empty()
+    assert_eq!(
+        production.find_by_external_identifier(&reel, "R-12", None)?,
+        []
     );
 
     add_typed_metadata(&mut production, asset_id, original_id)?;

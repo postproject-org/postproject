@@ -78,7 +78,10 @@ fn wait_times_out_or_returns_revisions_from_another_process() {
     run_json(&["init", production]);
     let timed_out = run_json(&["revisions", "wait", production, "--timeout-ms", "0"]);
     assert_eq!(timed_out["result"], "timed_out");
-    assert!(timed_out["revisions"].as_array().expect("array").is_empty());
+    assert_eq!(
+        timed_out["revisions"].as_array().expect("array").as_slice(),
+        Vec::<Value>::new()
+    );
 
     let waiting = Command::new(env!("CARGO_BIN_EXE_postproject"))
         .args(["--json", "revisions", "wait", production, "--after", "0"])

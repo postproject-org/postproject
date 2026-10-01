@@ -296,7 +296,7 @@ fn provenance_examples_run_in_order() -> Result<()> {
         Some("Render node 4")
     );
     let input_snapshot = activity.inputs()[0].snapshot().expect("input snapshot");
-    assert!(!input_snapshot.fingerprints().is_empty());
+    assert_ne!(input_snapshot.fingerprints(), []);
     assert!(activity.outputs()[0].snapshot().is_some());
     assert_eq!(
         production.activities_consuming(original_id)?[0].id(),

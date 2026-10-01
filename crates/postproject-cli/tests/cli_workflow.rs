@@ -765,11 +765,12 @@ fn manages_media_root_lifecycle() {
     let events = latest_revision_events(production);
     assert_eq!(events[0]["kind"], "media_root_removed");
     assert_eq!(events[0]["media_root_id"], root_id);
-    assert!(
+    assert_eq!(
         run_json(&["root", "list", production])
             .as_array()
             .expect("root array")
-            .is_empty()
+            .as_slice(),
+        Vec::<Value>::new()
     );
 }
 
@@ -879,11 +880,12 @@ fn retires_resource_locator() {
     assert_eq!(events[0]["locator_id"], locator_id);
 
     let shown = run_json(&["media", "show", production, asset_id]);
-    assert!(
+    assert_eq!(
         shown["representations"][0]["resources"][0]["locators"]
             .as_array()
             .expect("locator array")
-            .is_empty()
+            .as_slice(),
+        Vec::<Value>::new()
     );
 }
 

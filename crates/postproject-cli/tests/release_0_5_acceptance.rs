@@ -197,11 +197,12 @@ fn published_cli_story_runs_with_a_fake_executor() {
     assert!(waited.status.success());
     let waited: Value = serde_json::from_slice(&waited.stdout).expect("wait JSON");
     assert_eq!(waited["result"], "revisions");
-    assert!(
-        !waited["revisions"]
+    assert_ne!(
+        waited["revisions"]
             .as_array()
             .expect("revisions")
-            .is_empty()
+            .as_slice(),
+        Vec::<Value>::new()
     );
     let producing = run_json(&["activity", "producing", production, &proxy_id]);
     assert_eq!(page_items(&producing).len(), 1);

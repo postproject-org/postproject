@@ -697,7 +697,7 @@ fn guide_examples_run_in_order() -> Result<()> {
         vec![ObjectRef::Asset(asset_id)]
     );
     query_render_lineage(&production, original_id, sequence_id)?;
-    assert!(stale_descendants(&production, original_id)?.is_empty());
+    assert_eq!(stale_descendants(&production, original_id)?, []);
     assert!(
         objects_changed_after(&production, before_render)?
             .contains(&ObjectRef::Representation(sequence_id))
@@ -720,9 +720,9 @@ fn guide_examples_run_in_order() -> Result<()> {
             .map(|revision| revision.sequence())
     );
     let (media_revisions, through) = new_media_revisions(&production, 0)?;
-    assert!(!media_revisions.is_empty());
+    assert_ne!(media_revisions, []);
     assert_eq!(through, cursor);
-    assert!(!wait_for_changes(&production, 0)?.is_empty());
+    assert_ne!(wait_for_changes(&production, 0)?, []);
 
     let binding = bind_representation(production.production().id(), sequence_id)?;
     assert!(binding.starts_with("https://postproject.org/ref/v1/"));
