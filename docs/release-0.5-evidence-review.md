@@ -7,6 +7,13 @@ per-process shared-scenario traces on 2026-10-01. The generated
 {doc}`release-0.5-compatibility-evidence` report records every required C
 operation and the all-or-nothing family result.
 
+The release audit regenerated that report from the successful CI artifacts for
+[Kdenlive and the shared scenario](https://github.com/postproject-org/postproject-kdenlive/actions/runs/36847303316),
+[Blender 5.2 and 5.3](https://github.com/postproject-org/postproject-blender/actions/runs/36848109149),
+and the [OpenAssetIO Manager](https://github.com/postproject-org/postproject-openassetio-manager/actions/runs/36838046823).
+The per-host unions and Kdenlive projection evidence reproduce the committed
+matrix byte-for-byte.
+
 ## Family evidence
 
 Two families have complete normal-path ABI evidence from at least two
@@ -45,9 +52,11 @@ dependency closure.
 4. **Exception-oriented C++:** the Ardour boundary uses `Result<T>::value()`
    and catches `postproject::Exception` in the application's normal
    exception-enabled build. Its executable scenario verifies the typed throw.
-5. **Non-Linux host:** a macOS installed-package resolver job is defined, but
-   no remotely run result is recorded. Core native packages and examples do run
-   there.
+5. **Non-Linux route:** the Ardour pilot's macOS installed-package resolver
+   scenario passed in the
+   [maintained downstream workflow](https://github.com/postproject-org/postproject-ardour/actions/runs/36840953154).
+   This verifies the resolver and package route, not an interactive macOS
+   Ardour session. Core native packages and examples also run there.
 6. **Job terminal paths:** Kdenlive exercises a real proxy worker and the
    OpenAssetIO Manager completes publishes, but a second host does not exercise
    renew, fail, and cancel together. Those paths are not members of a proposed

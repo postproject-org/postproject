@@ -90,6 +90,12 @@ locations, external identity/origin, and typed exceptions. The adapter
 translation unit compiles against the pinned Ardour headers and installed
 PostProject package.
 
+Remote CI on 2026-10-01 passed the
+[Kdenlive builds and shared-production scenario](https://github.com/postproject-org/postproject-kdenlive/actions/runs/36847303316)
+and the [Ardour builds and resolver scenarios](https://github.com/postproject-org/postproject-ardour/actions/runs/36840953154).
+Ardour compiled with and without PostProject on Linux, and its installed-package
+resolver passed on Linux and macOS. These runs used PostProject `934b0fe`.
+
 ## Verification summary
 
 The release candidate passes locally:
@@ -134,8 +140,9 @@ publication remain maintainer-operated.
   worker or a complete reproducible recipe.
 - The full pinned Ardour application was not configured in this Gentoo
   workspace because its system dependency set lacks `liblo`. The resolver
-  executable and actual adapter translation unit were compiled separately;
-  interactive Ardour recovery and the defined macOS host job were not run.
+  executable and actual adapter translation unit were compiled separately.
+  Full Linux builds and the macOS resolver scenario passed remotely;
+  interactive Ardour recovery was not exercised.
 - No maintained application uses the raw C ABI directly. Installed consumers
   and examples validate its ownership, lifetime, and error mechanics.
 - No second host exercises job renew, fail, and cancel together. Those

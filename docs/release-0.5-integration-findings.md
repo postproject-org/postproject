@@ -36,6 +36,14 @@ surfaces. It does not edit SQLite directly, scan for another host's outputs, or
 read another host's project format. The scenario is part of the Kdenlive pilot
 CI, and the three integrations retain their independent suites.
 
+The [2026-10-01 CI run](https://github.com/postproject-org/postproject-kdenlive/actions/runs/36847303316)
+passed both full Kdenlive builds and the shared-production scenario at pilot
+revision `b0102cf`, against PostProject `934b0fe`. The Arch container uses the
+installed `uv` executable to create an isolated Python 3.13 Manager environment:
+the system Python is externally managed, and OpenAssetIO 1.0.2 has no CPython
+3.14 wheel. The scenario receives the same interpreter used to install its
+dependencies.
+
 ## What was awkward
 
 - Kdenlive's explicit shared-production selector is currently a launch option;

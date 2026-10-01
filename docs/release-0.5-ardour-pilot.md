@@ -72,10 +72,13 @@ The actual adapter translation unit also compiled against the pinned Ardour
 headers in the local source tree. Replaying the exported patch series from the
 pin produced the same nested tree. The complete Waf build could not be run in
 this Gentoo workspace because its system dependency set lacks Ardour's
-mandatory `liblo` development package. The maintained downstream workflow
-defines full Arch Linux builds with and without PostProject and a macOS
-installed-package resolver job; those definitions are not counted here as
-remotely executed evidence.
+mandatory `liblo` development package. On 2026-10-01, the
+[maintained downstream workflow](https://github.com/postproject-org/postproject-ardour/actions/runs/36840953154)
+passed full Arch Linux builds with and without PostProject, the Linux
+installed-package resolver scenario, and the macOS installed-package resolver
+scenario. The verified pilot revision is `7ec34c2`, against PostProject
+`934b0fe`. Waf runs from the pinned source tree with tagged version history and
+an explicit C++17 build.
 
 The resolver scenario uses the exact production policy compiled into Ardour,
 but it is not an interactive application path. Its ABI trace is therefore not
@@ -95,4 +98,3 @@ Waveform peak files remain private caches without a per-output claim, progress,
 failure, or cancellation lifecycle. The pilot does not present them as managed
 artifacts or jobs. It likewise makes no inferred recipe claim for bounces,
 freezes, or consolidated audio.
-
