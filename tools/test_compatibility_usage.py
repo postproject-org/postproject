@@ -27,6 +27,20 @@ class CompatibilityUsageTests(unittest.TestCase):
             manifest, ROOT / "include" / "postproject" / "postproject.h"
         )
 
+    def test_resolution_family_covers_search_and_candidate_inspection(self) -> None:
+        manifest = USAGE.load_manifest(ROOT / "docs" / "compatibility-families.toml")
+        resolution = next(
+            family for family in manifest.families if family.identifier == "resolution"
+        )
+
+        self.assertIn(
+            "pp_resolution_options_add_search_directory", resolution.c_operations
+        )
+        self.assertIn("pp_resolution_set_get_candidate", resolution.c_operations)
+        self.assertIn(
+            "pp_resolution_set_get_candidate_evidence", resolution.c_operations
+        )
+
     def test_complete_family_use_requires_every_operation(self) -> None:
         family = USAGE.Family(
             identifier="example",

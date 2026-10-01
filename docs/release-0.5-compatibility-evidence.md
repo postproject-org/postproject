@@ -33,7 +33,7 @@ C ABI: `pp_production_begin_transaction`, `pp_transaction_set_revision_context`,
 
 C++ projection: `Production::beginTransaction`, `Transaction::setRevisionContext`, `Transaction::commit`, `Transaction::rollback`
 
-Python projection: `Production.begin_transaction`, `Transaction.set_revision_context`, `Transaction.commit`, `Transaction.rollback`
+Python projection: `Production.transaction`, `Transaction.set_revision_context`, `Transaction.commit`, `Transaction.rollback`
 
 Hosts with complete mechanical use evidence: `kdenlive`
 
@@ -57,7 +57,7 @@ C ABI: `pp_production_external_identifiers`, `pp_production_find_by_external_ide
 
 C++ projection: `Production::externalIdentifiers`, `Production::findByExternalIdentifier`, `Transaction::addExternalIdentifier`
 
-Python projection: `Production.external_identifiers`, `Production.find_by_external_identifier`, `Transaction.add_external_identifier`
+Python projection: `Production.external_identifiers`, `Production.objects_by_external_identifier`, `Transaction.add_external_identifier`
 
 Hosts with complete mechanical use evidence: `blender`, `kdenlive`
 
@@ -69,7 +69,7 @@ C ABI: `pp_production_locators_page`, `pp_locator_query_set_count`, `pp_locator_
 
 C++ projection: `Production::locators`
 
-Python projection: `Production.locators`
+Python projection: `Production.locators_page`
 
 Hosts with complete mechanical use evidence: none
 
@@ -77,9 +77,9 @@ Eligibility checks: existed at baseline=yes, unchanged after baseline=yes, indep
 
 ## resolution
 
-C ABI: `pp_production_resolve_assets`, `pp_resolution_set_representation_count`, `pp_resolution_set_get_representation`, `pp_resolution_set_get_resource`, `pp_resolution_set_release`
+C ABI: `pp_resolution_options_create`, `pp_resolution_options_add_search_directory`, `pp_resolution_options_release`, `pp_production_resolve_assets`, `pp_resolution_set_representation_count`, `pp_resolution_set_get_representation`, `pp_resolution_set_get_resource`, `pp_resolution_set_get_candidate`, `pp_resolution_set_get_candidate_evidence`, `pp_resolution_set_release`
 
-C++ projection: `Production::resolveAssets`
+C++ projection: `ResolutionOptions::addSearchDirectory`, `Production::resolveAssets`
 
 Python projection: `Production.resolve`
 
@@ -115,9 +115,9 @@ Eligibility checks: existed at baseline=yes, unchanged after baseline=yes, indep
 
 C ABI: `pp_host_binding_format`, `pp_host_binding_parse`, `pp_string_release`
 
-C++ projection: `HostObjectBinding::format`, `HostObjectBinding::parse`
+C++ projection: `HostObjectBinding::toString`, `HostObjectBinding::fromString`
 
-Python projection: `HostObjectBinding.format`, `HostObjectBinding.parse`
+Python projection: `Production.host_bindings`, `Production.host_bindings.parse`
 
 Hosts with complete mechanical use evidence: `openassetio-manager`
 

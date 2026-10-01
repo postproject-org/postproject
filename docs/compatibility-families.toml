@@ -46,7 +46,7 @@ cpp_operations = [
   "Transaction::rollback",
 ]
 python_operations = [
-  "Production.begin_transaction",
+  "Production.transaction",
   "Transaction.set_revision_context",
   "Transaction.commit",
   "Transaction.rollback",
@@ -89,7 +89,7 @@ cpp_operations = [
 ]
 python_operations = [
   "Production.external_identifiers",
-  "Production.find_by_external_identifier",
+  "Production.objects_by_external_identifier",
   "Transaction.add_external_identifier",
 ]
 
@@ -106,7 +106,7 @@ c_operations = [
   "pp_locator_query_set_release",
 ]
 cpp_operations = ["Production::locators"]
-python_operations = ["Production.locators"]
+python_operations = ["Production.locators_page"]
 
 [[families]]
 id = "resolution"
@@ -114,13 +114,21 @@ introduced_release = "0.1.0-alpha.1"
 last_changed_release = "0.4.0-alpha.1"
 last_changed_abi = 35
 c_operations = [
+  "pp_resolution_options_create",
+  "pp_resolution_options_add_search_directory",
+  "pp_resolution_options_release",
   "pp_production_resolve_assets",
   "pp_resolution_set_representation_count",
   "pp_resolution_set_get_representation",
   "pp_resolution_set_get_resource",
+  "pp_resolution_set_get_candidate",
+  "pp_resolution_set_get_candidate_evidence",
   "pp_resolution_set_release",
 ]
-cpp_operations = ["Production::resolveAssets"]
+cpp_operations = [
+  "ResolutionOptions::addSearchDirectory",
+  "Production::resolveAssets",
+]
 python_operations = ["Production.resolve"]
 
 [[families]]
@@ -169,8 +177,8 @@ c_operations = [
   "pp_host_binding_parse",
   "pp_string_release",
 ]
-cpp_operations = ["HostObjectBinding::format", "HostObjectBinding::parse"]
-python_operations = ["HostObjectBinding.format", "HostObjectBinding.parse"]
+cpp_operations = ["HostObjectBinding::toString", "HostObjectBinding::fromString"]
+python_operations = ["Production.host_bindings", "Production.host_bindings.parse"]
 
 [[families]]
 id = "cpp-result-propagation"
