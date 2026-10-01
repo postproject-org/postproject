@@ -3,6 +3,7 @@ name: Publish documentation
 on:
   push:
     branches: [main]
+    tags: ["v*"]
   workflow_dispatch:
 
 permissions:
@@ -36,6 +37,17 @@ jobs:
         run: |
           mkdir -p target/site/rustdoc
           cp -a target/doc/. target/site/rustdoc/
+      - name: Preserve the audited 0.5 release candidate
+        run: cmake -E copy_directory target/site target/release-candidate-docs-0.5-alpha1
+      - name: Find the signed 0.5 release tag
+        id: release_0_5
+        shell: bash
+        run: |
+          if git ls-remote --exit-code --tags origin refs/tags/v0.5.0-alpha.1 >/dev/null; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
       - uses: actions/checkout@v7
         with:
           ref: v0.3.0-alpha.1
@@ -64,7 +76,7 @@ jobs:
         with:
           ref: v0.4.0-alpha.1
           path: target/released-docs-source-0.4-alpha1
-      - name: Build latest immutable release documentation
+      - name: Build 0.4.0-alpha.1 release documentation
         working-directory: target/released-docs-source-0.4-alpha1
         run: |
           mkdir -p target/doxygen
@@ -72,7 +84,26 @@ jobs:
           python "$GITHUB_WORKSPACE/tools/normalize_doxygen_xml.py" target/doxygen/xml
           python tools/check_docs_coverage.py include/postproject/postproject.h target/doxygen/xml
           sphinx-build --fail-on-warning --keep-going -b html docs "$GITHUB_WORKSPACE/target/site/0.4.0-alpha.1"
-          cmake -E copy_directory "$GITHUB_WORKSPACE/target/site/0.4.0-alpha.1" "$GITHUB_WORKSPACE/target/site/latest"
+      - uses: actions/checkout@v7
+        if: steps.release_0_5.outputs.available == 'true'
+        with:
+          ref: v0.5.0-alpha.1
+          path: target/released-docs-source-0.5-alpha1
+      - name: Build 0.5.0-alpha.1 release documentation from its tag
+        if: steps.release_0_5.outputs.available == 'true'
+        working-directory: target/released-docs-source-0.5-alpha1
+        run: |
+          mkdir -p target/doxygen
+          doxygen Doxyfile
+          python "$GITHUB_WORKSPACE/tools/normalize_doxygen_xml.py" target/doxygen/xml
+          python tools/check_docs_coverage.py include/postproject/postproject.h target/doxygen/xml
+          sphinx-build --fail-on-warning --keep-going -b html docs "$GITHUB_WORKSPACE/target/site/0.5.0-alpha.1"
+          cmake -E copy_directory "$GITHUB_WORKSPACE/target/site/0.5.0-alpha.1" "$GITHUB_WORKSPACE/target/site/latest"
+      - name: Publish the audited 0.5 release candidate before tagging
+        if: steps.release_0_5.outputs.available == 'false'
+        run: |
+          cmake -E copy_directory target/release-candidate-docs-0.5-alpha1 target/site/0.5.0-alpha.1
+          cmake -E copy_directory target/release-candidate-docs-0.5-alpha1 target/site/latest
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v4
         with:

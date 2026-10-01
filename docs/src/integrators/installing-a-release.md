@@ -11,12 +11,12 @@ from the [GitHub release](https://github.com/postproject-org/postproject/release
 For example, on Linux:
 
 ```sh
-sha256sum --check postproject-0.4.0-alpha.1-linux-x86_64.tar.gz.sha256
-mkdir postproject-0.4.0-alpha.1
-tar -xzf postproject-0.4.0-alpha.1-linux-x86_64.tar.gz \
-  -C postproject-0.4.0-alpha.1
-export PATH="$PWD/postproject-0.4.0-alpha.1/bin:$PATH"
-export LD_LIBRARY_PATH="$PWD/postproject-0.4.0-alpha.1/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+sha256sum --check postproject-0.5.0-alpha.1-linux-x86_64.tar.gz.sha256
+mkdir postproject-0.5.0-alpha.1
+tar -xzf postproject-0.5.0-alpha.1-linux-x86_64.tar.gz \
+  -C postproject-0.5.0-alpha.1
+export PATH="$PWD/postproject-0.5.0-alpha.1/bin:$PATH"
+export LD_LIBRARY_PATH="$PWD/postproject-0.5.0-alpha.1/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 postproject --version
 ```
 
@@ -34,12 +34,12 @@ x86-64 Linux with that glibc or newer. The macOS package and wheel need
 macOS 11 on Apple silicon; the Windows ones need 64-bit Windows.
 
 A platform wheel, such as
-`postproject-0.4.0a1-py3-none-manylinux_2_28_x86_64.whl`, contains the
+`postproject-0.5.0a1-py3-none-manylinux_2_28_x86_64.whl`, contains the
 binding and the native library of the same build. Install it, and the binding
 loads that library with no further configuration:
 
 ```sh
-python -m pip install postproject-0.4.0a1-py3-none-manylinux_2_28_x86_64.whl
+python -m pip install postproject-0.5.0a1-py3-none-manylinux_2_28_x86_64.whl
 ```
 
 ```python
@@ -48,7 +48,7 @@ from postproject import Production
 production = Production.open("production.pproj")
 ```
 
-The platform-neutral wheel, `postproject-0.4.0a1-py3-none-any.whl`, contains
+The platform-neutral wheel, `postproject-0.5.0a1-py3-none-any.whl`, contains
 only the binding. Install it beside a native package and give Python the
 absolute library path when opening or creating a production:
 
