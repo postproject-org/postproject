@@ -71,8 +71,10 @@ OpenAssetIO Manager resolves the render, and replacing the source makes both
 hosts' derived outputs stale. The evidence review selected only an
 [Ardour resolver pilot](release-0.5-ardour-pilot.md), which now exercises the
 installed `pkg-config` package, exception-enabled C++ use, and realistic audio
-recovery without assigning job semantics to waveform caches. The remaining
-release work is the compatibility-family decision and release verification.
+recovery without assigning job semantics to waveform caches. The accepted
+compatibility review names no 0.5 subset because the mechanically eligible
+leaf families lack qualified lifecycle dependencies. Release verification
+remains in progress.
 Shared access remains one local SQLite file on one machine; services, network
 filesystems, permissions, and distributed merging are outside this release.
 

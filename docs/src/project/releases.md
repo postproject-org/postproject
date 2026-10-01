@@ -13,7 +13,7 @@ These pages describe what each release delivered, how it was verified, and which
 - {doc}`/release-0.5-integration-findings` — evidence and limitations from the maintained shared-production scenario.
 - {doc}`/release-0.5-evidence-review` — compatibility-family matrix findings and the minimum-pilot decision.
 - {doc}`/release-0.5-compatibility-evidence` — generated family-to-host usage matrix.
-- {doc}`/release-0.5-compatibility-proposal` — semantic review and proposed release-series decision.
+- {doc}`/release-0.5-compatibility-decision` — semantic review and accepted release-series decision.
 - {doc}`/release-0.5-ardour-pilot` — installed-package, C++ exception, and audio-resolver evidence.
 - {doc}`/release-0.4-report` — release 0.4 acceptance report.
 - {doc}`/release-0.4-integration-findings` — what the Kdenlive and Blender pilots taught during release 0.4.
@@ -32,7 +32,7 @@ These pages describe what each release delivered, how it was verified, and which
 /release-0.5-integration-findings
 /release-0.5-evidence-review
 /release-0.5-compatibility-evidence
-/release-0.5-compatibility-proposal
+/release-0.5-compatibility-decision
 /release-0.5-ardour-pilot
 /release-0.4-report
 /release-0.4-integration-findings

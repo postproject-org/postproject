@@ -2,6 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-09-23
+- Amended: 2026-10-01
 
 ## Context
 
@@ -45,6 +46,24 @@ operations of the former subset are still documented with migration notes in
 the changelog, so code written against `0.3.x` can be updated. A later release
 may name a subset again once maintained consumers show which operations have
 settled.
+
+### Release 0.5 series
+
+Release 0.5 names no compatibility subset. All APIs in the `0.5.x` series
+remain experimental and may change within the series, with migration notes for
+operations used by maintained integrations.
+
+ADR 0040 evidence found the external-identifier and resolution operation
+families mechanically eligible across the 0.4-to-0.5 boundary. They are not
+named as a compatibility promise because each depends on production lifecycle,
+and external-identifier mutation also depends on transaction lifecycle; those
+foundational families did not have complete normal-path evidence from two
+independent hosts. Publishing only the eligible leaf families would therefore
+be misleadingly narrow.
+
+Released production schemas continue to receive tested forward migrations
+under the repository's pre-1.0 migration policy. This decision creates no ABI
+or schema compatibility promise beyond that policy.
 
 ## Alternatives considered
 

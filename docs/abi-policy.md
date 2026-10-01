@@ -5,6 +5,12 @@ change recorded in the changelog and ABI tests. `pp_abi_version()` reports the
 implemented version. Exported symbol names are unversioned until the first stable
 release, but removals or signature changes require an explicit ABI-version bump.
 
+Release 0.5 names no compatibility subset (ADR 0020). Every API in the `0.5.x`
+series remains experimental and may change within the series. The mechanically
+eligible external-identifier and resolution families are not promised in
+isolation because their production and transaction lifecycle dependencies lack
+the required complete evidence from two independent hosts (ADR 0040).
+
 ## Types and ownership
 
 Productions, transactions, asset sets, media-root sets, representation sets,

@@ -1,13 +1,12 @@
-# PostProject 0.5 compatibility decision proposal
+# PostProject 0.5 compatibility decision
 
-This proposal applies ADR 0040 to the `0.5.0-alpha.1` release candidate and
-stops before changing the accepted compatibility policy. The maintainer makes
-the release decision. The generated
+This decision applies ADR 0040 to the `0.5.0-alpha.1` release candidate. The
+maintainer accepted the no-subset recommendation on 2026-10-01. The generated
 {doc}`release-0.5-compatibility-evidence` report is the mechanical input; this
 page records the semantic, projection, and usefulness review that the report
 cannot decide.
 
-## Recommendation
+## Decision
 
 Release the 0.5 series with **no named compatibility subset**.
 
@@ -68,10 +67,9 @@ same resolver policy compiled into the patched host and proves installed
 execute the complete operation family through a normal interactive Ardour
 callback in this environment.
 
-## Proposed ADR 0020 amendment
+## ADR 0020 amendment
 
-If the maintainer accepts the recommendation, append the following release
-series decision to ADR 0020:
+The accepted amendment records this release-series decision in ADR 0020:
 
 ```text
 ## Release 0.5 series
@@ -93,6 +91,5 @@ under the repository's pre-1.0 migration policy. This decision creates no ABI
 or schema compatibility promise beyond that policy.
 ```
 
-On approval, the same outcome must be stated in `docs/abi-policy.md`, the 0.5
-release report, and release notes before the maintainer creates the signed tag.
-Until then, this page is decision material rather than a compatibility promise.
+The same outcome is stated in `docs/abi-policy.md` and the release notes. The
+0.5 release report records it as part of the completed release policy.
