@@ -522,7 +522,7 @@ impl RevisionEventFilter {
     }
 
     /// Returns the selected event types in catalog order.
-    #[must_use]
+    #[must_use = "event types are only visited when the iterator is consumed"]
     pub fn types(&self) -> impl ExactSizeIterator<Item = RevisionEventType> + '_ {
         self.types.iter().copied()
     }
