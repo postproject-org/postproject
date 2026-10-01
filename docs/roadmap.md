@@ -63,11 +63,15 @@ prevent silent overwrites while independent additive facts continue to merge.
 The public C ABI, C++ wrapper, Python binding, Rust API, and CLI expose the same
 conflict key and superseding-revision information.
 
-The release will validate those capabilities in a maintained Kdenlive and
-Blender shared-production scenario, regenerate usage evidence, and apply the
-documented compatibility-family criterion. Shared access remains one local
-SQLite file on one machine; services, network filesystems, permissions, and
-distributed merging are outside this release.
+The maintained Kdenlive and Blender paths now use one explicitly selected
+production in an automated scenario: Blender adopts Kdenlive's asset, records a
+derived render, observes a Kdenlive locator change, and wins a deliberate
+same-base locator conflict whose structured result reaches Kdenlive. The
+OpenAssetIO Manager resolves the render, and replacing the source makes both
+hosts' derived outputs stale. The remaining release work is the mechanical
+evidence review and compatibility-family decision. Shared access remains one
+local SQLite file on one machine; services, network filesystems, permissions,
+and distributed merging are outside this release.
 
 ## Explicitly later
 
