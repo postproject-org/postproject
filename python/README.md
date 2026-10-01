@@ -15,7 +15,7 @@ the loader path.
 
 The package is pre-1.0 and tracks the current PostProject ABI without backward
 compatibility guarantees: it refuses a native library that reports a C ABI
-version other than the one it was built for (currently 35).
+version other than the one it was built for (currently 37).
 
 ```python
 from pathlib import Path

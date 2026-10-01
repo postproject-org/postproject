@@ -19,18 +19,22 @@ Requires-Dist: ty==0.0.82; extra == "dev"
 
 # PostProject Python binding
 
-This package wraps the installed PostProject C ABI with standard-library
-`ctypes`. Set `POSTPROJECT_LIBRARY` to the absolute shared-library path, or pass
-an explicit library path when opening a production. Python 3.11 or newer is
-required.
+This package wraps the PostProject C ABI with standard-library `ctypes`.
+Python 3.11 or newer is required.
 
-Tagged GitHub releases include a pure-Python wheel and separate native archives
-for Linux, macOS, and Windows. Install the wheel, unpack the matching native
-archive, and point `POSTPROJECT_LIBRARY` at its shared library. The wheel does
-not search loader paths or bundle a platform binary.
+Tagged GitHub releases include platform wheels for Linux, macOS, and Windows
+that carry the native library of the same build, a platform-neutral wheel with
+only the binding, and separate native archives. With a platform wheel the
+binding loads its own library with no further configuration. With the
+platform-neutral wheel, pass `library_path=` when creating or opening a
+production, or set `POSTPROJECT_LIBRARY` to the shared library of a native
+package. An explicit `library_path` wins, then `POSTPROJECT_LIBRARY`, then a
+platform wheel's library; the binding does not search the working directory or
+the loader path.
 
 The package is pre-1.0 and tracks the current PostProject ABI without backward
-compatibility guarantees.
+compatibility guarantees: it refuses a native library that reports a C ABI
+version other than the one it was built for (currently 37).
 
 ```python
 from pathlib import Path
