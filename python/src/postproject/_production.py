@@ -83,6 +83,7 @@ from ._model import (
     ActivityId,
     ActivityInputAddedEvent,
     ActivityOutputAddedEvent,
+    ActivityRef,
     ActivitySpec,
     AgentIdentity,
     ArtifactEvaluation,
@@ -90,6 +91,7 @@ from ._model import (
     Asset,
     AssetId,
     AssetImportedEvent,
+    AssetRef,
     AvailabilityIssue,
     AvailabilityIssueKind,
     CommitReceipt,
@@ -124,6 +126,7 @@ from ._model import (
     JobCompletion,
     JobFailedEvent,
     JobId,
+    JobRef,
     JobRequest,
     JobRequestedEvent,
     JobState,
@@ -165,6 +168,7 @@ from ._model import (
     OrderedPartsSource,
     OriginIdentity,
     ProductionId,
+    ProductionRef,
     ProvenanceMatch,
     QueryPage,
     RegenerationJobPlan,
@@ -175,6 +179,7 @@ from ._model import (
     RepresentationId,
     RepresentationKind,
     RepresentationMember,
+    RepresentationRef,
     RepresentationResolution,
     RepresentationResourceAddedEvent,
     ResolutionCandidate,
@@ -183,6 +188,7 @@ from ._model import (
     ResourceAddedEvent,
     ResourceFingerprintObservedEvent,
     ResourceId,
+    ResourceRef,
     ResourceResolution,
     ResourceResolutionState,
     Revision,
@@ -207,9 +213,9 @@ class _Assets:
         self._production = production
 
     def __contains__(self, asset_id: object) -> bool:
-        if not isinstance(asset_id, AssetId):
+        if not isinstance(asset_id, UUID):
             return False
-        return self._production._contains_asset(asset_id)
+        return self._production._contains_asset(AssetId(asset_id))
 
     def __iter__(self) -> Iterator[Asset]:
         return iter(self._production._assets())
@@ -309,7 +315,7 @@ class _HostBindings:
         self._production = production
 
     def __getitem__(self, target: ObjectReference) -> str:
-        production_id = _native_uuid(self._production.id.value)
+        production_id = _native_uuid(self._production.id)
         native_target = _native_object_reference(target)
         binding = ctypes.c_char_p()
         error = ctypes.POINTER(Error)()
@@ -457,7 +463,7 @@ class Production:
         """Return one durable job, raising ``NotFoundError`` when absent."""
 
         self._require_open()
-        native_id = _native_uuid(job_id.value)
+        native_id = _native_uuid(job_id)
         handle = ctypes.POINTER(JobSet)()
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_production_job(
@@ -520,7 +526,7 @@ class Production:
         self._require_open()
         artifact_ids = tuple(artifact_representation_ids)
         native_ids = (Uuid * len(artifact_ids))(
-            *(_native_uuid(artifact_id.value) for artifact_id in artifact_ids)
+            *(_native_uuid(artifact_id) for artifact_id in artifact_ids)
         )
         handle = ctypes.POINTER(RegenerationPlanSet)()
         error = ctypes.POINTER(Error)()
@@ -634,7 +640,7 @@ class Production:
         """
 
         self._require_open()
-        native_id = _native_uuid(resource_id.value)
+        native_id = _native_uuid(resource_id)
         verification = ctypes.c_uint32()
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_production_verify_resource(
@@ -667,7 +673,7 @@ class Production:
         asset order. A cancelled ``cancel_token`` raises ``CancelledError``.
         """
 
-        ids = (asset_ids,) if isinstance(asset_ids, AssetId) else tuple(asset_ids)
+        ids = (AssetId(asset_ids),) if isinstance(asset_ids, UUID) else tuple(asset_ids)
         options = _ResolutionOptions(self._native)
         for name, directory in sorted((root_mappings or {}).items()):
             options.add_root_mapping(name, directory)
@@ -689,7 +695,7 @@ class Production:
         """Evaluate stored artifact evidence without accessing media files."""
 
         self._require_open()
-        native_id = _native_uuid(representation_id.value)
+        native_id = _native_uuid(representation_id)
         handle = ctypes.POINTER(NativeArtifactEvaluation)()
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_production_evaluate_artifact(
@@ -714,7 +720,7 @@ class Production:
         """Report whether stored knowledge is sufficient to reproduce an artifact."""
 
         self._require_open()
-        native_id = _native_uuid(representation_id.value)
+        native_id = _native_uuid(representation_id)
         handle = ctypes.POINTER(NativeArtifactReproducibility)()
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_production_artifact_reproducibility(
@@ -744,7 +750,7 @@ class Production:
         """Return recorded dependency knowledge, preserving absent versus empty."""
 
         self._require_open()
-        native_id = _native_uuid(representation_id.value)
+        native_id = _native_uuid(representation_id)
         handle = ctypes.POINTER(NativeDependencySet)()
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_production_dependency_set(
@@ -799,7 +805,7 @@ class Production:
         """Return one bounded page of direct or transitive dependencies."""
 
         self._require_open()
-        native_id = _native_uuid(representation_id.value)
+        native_id = _native_uuid(representation_id)
         handle = ctypes.POINTER(DependencyQuerySet)()
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_production_dependencies(
@@ -822,7 +828,7 @@ class Production:
 
     def dependents(
         self,
-        target: AssetId | RepresentationId,
+        target: AssetRef | RepresentationRef,
         *,
         max_depth: int,
         max_representations: int,
@@ -857,7 +863,7 @@ class Production:
         """Return one asset, raising ``NotFoundError`` when it is absent."""
 
         self._require_open()
-        native_id = _native_uuid(asset_id.value)
+        native_id = _native_uuid(asset_id)
         handle = ctypes.POINTER(AssetSet)()
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_production_asset(
@@ -880,7 +886,7 @@ class Production:
         """Return one representation, raising ``NotFoundError`` when absent."""
 
         self._require_open()
-        native_id = _native_uuid(representation_id.value)
+        native_id = _native_uuid(representation_id)
         page = self._representation_page(
             self._native.lib.pp_production_representation,
             self._handle,
@@ -898,7 +904,7 @@ class Production:
         """Return one bounded page of representations that use a resource."""
 
         self._require_open()
-        native_id = _native_uuid(resource_id.value)
+        native_id = _native_uuid(resource_id)
         return self._representation_page(
             self._native.lib.pp_production_representations_using_resource,
             self._handle,
@@ -941,7 +947,7 @@ class Production:
         """Return one bounded page of representations belonging to an asset."""
 
         self._require_open()
-        native_id = _native_uuid(asset_id.value)
+        native_id = _native_uuid(asset_id)
         return self._representation_page(
             self._native.lib.pp_production_representations_page,
             self._handle,
@@ -974,7 +980,7 @@ class Production:
         """Return one bounded page of resources in representation order."""
 
         self._require_open()
-        native_id = _native_uuid(representation_id.value)
+        native_id = _native_uuid(representation_id)
         return self._object_query_page(
             self._native.lib.pp_production_resources_page,
             _resource_match,
@@ -990,7 +996,7 @@ class Production:
         """Return one bounded page of locators belonging to a resource."""
 
         self._require_open()
-        native_id = _native_uuid(resource_id.value)
+        native_id = _native_uuid(resource_id)
         handle = ctypes.POINTER(LocatorQuerySet)()
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_production_locators_page(
@@ -1164,7 +1170,7 @@ class Production:
         """Return one bounded page of activities producing a representation."""
 
         self._require_open()
-        native_id = _native_uuid(representation_id.value)
+        native_id = _native_uuid(representation_id)
         return self._activity_page(
             self._native.lib.pp_production_activities_producing_page,
             self._handle,
@@ -1183,7 +1189,7 @@ class Production:
         """Return one bounded page of activities consuming a representation."""
 
         self._require_open()
-        native_id = _native_uuid(representation_id.value)
+        native_id = _native_uuid(representation_id)
         return self._activity_page(
             self._native.lib.pp_production_activities_consuming_page,
             self._handle,
@@ -1236,7 +1242,7 @@ class Production:
         """Return one bounded page of shortest-depth provenance ancestors."""
 
         self._require_open()
-        native_id = _native_uuid(representation_id.value)
+        native_id = _native_uuid(representation_id)
         return self._object_query_page(
             self._native.lib.pp_production_provenance_ancestors_page,
             _provenance_match,
@@ -1260,7 +1266,7 @@ class Production:
         """Return one bounded page of shortest-depth provenance descendants."""
 
         self._require_open()
-        native_id = _native_uuid(representation_id.value)
+        native_id = _native_uuid(representation_id)
         return self._object_query_page(
             self._native.lib.pp_production_provenance_descendants_page,
             _provenance_match,
@@ -1288,7 +1294,7 @@ class Production:
         """
 
         self._require_open()
-        native_source = None if source is None else _native_uuid(source.value)
+        native_source = None if source is None else _native_uuid(source)
         return self._object_query_page(
             self._native.lib.pp_production_stale_artifacts,
             _representation_match,
@@ -1311,7 +1317,7 @@ class Production:
         """Return whether an asset identity belongs to this production."""
 
         self._require_open()
-        native_id = _native_uuid(asset_id.value)
+        native_id = _native_uuid(asset_id)
         exists = ctypes.c_uint8()
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_production_asset_exists(
@@ -1343,7 +1349,7 @@ class Production:
 
     def _representations(self, asset_id: AssetId) -> tuple[Representation, ...]:
         self._require_open()
-        native_id = _native_uuid(asset_id.value)
+        native_id = _native_uuid(asset_id)
         handle = ctypes.POINTER(RepresentationSet)()
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_production_representations(
@@ -1372,7 +1378,7 @@ class Production:
             "producing": self._native.lib.pp_production_activities_producing,
             "consuming": self._native.lib.pp_production_activities_consuming,
         }[direction]
-        native_id = _native_uuid(representation_id.value)
+        native_id = _native_uuid(representation_id)
         return self._activity_set(function, self._handle, ctypes.byref(native_id))
 
     def _provenance_representations(
@@ -1383,7 +1389,7 @@ class Production:
             "ancestors": self._native.lib.pp_production_provenance_ancestors,
             "descendants": self._native.lib.pp_production_provenance_descendants,
         }[direction]
-        native_id = _native_uuid(representation_id.value)
+        native_id = _native_uuid(representation_id)
         handle = ctypes.POINTER(ObjectRefSet)()
         error = ctypes.POINTER(Error)()
         status = function(
@@ -1400,11 +1406,11 @@ class Production:
             result: list[RepresentationId] = []
             for index in range(int(count)):
                 reference = _object_reference_at(self._native, handle, index)
-                if not isinstance(reference, RepresentationId):
+                if not isinstance(reference, RepresentationRef):
                     raise RuntimeError(
                         "native provenance query returned a non-representation"
                     )
-                result.append(reference)
+                result.append(reference.id)
             return tuple(result)
         finally:
             self._native.lib.pp_object_ref_set_release(handle)
@@ -1586,7 +1592,7 @@ class Production:
         """Return the ordered semantic events for one revision."""
 
         self._require_open()
-        native_id = _native_uuid(revision_id.value)
+        native_id = _native_uuid(revision_id)
         handle = ctypes.POINTER(RevisionEventSet)()
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_production_revision_events(
@@ -1612,7 +1618,7 @@ class Production:
     ) -> tuple[RepresentationResolution, ...]:
         self._require_open()
         native_ids = (Uuid * len(asset_ids))(
-            *(_native_uuid(asset_id.value) for asset_id in asset_ids)
+            *(_native_uuid(asset_id) for asset_id in asset_ids)
         )
         handle = ctypes.POINTER(ResolutionSet)()
         error = ctypes.POINTER(Error)()
@@ -1651,7 +1657,7 @@ class Production:
         """Begin an explicit-commit edit from detached production-scoped context."""
         self._require_open()
         value = _abi.DecisionBase()
-        value.production_id = _native_uuid(base.production_id.value)
+        value.production_id = _native_uuid(base.production_id)
         if base.revision is not None:
             if (
                 type(base.revision.sequence) is not int
@@ -1659,7 +1665,7 @@ class Production:
             ):
                 raise ValueError("decision sequence must be a positive uint64")
             value.has_revision = 1
-            value.revision_id = _native_uuid(base.revision.id.value)
+            value.revision_id = _native_uuid(base.revision.id)
             value.revision_sequence = base.revision.sequence
         handle = ctypes.POINTER(NativeTransaction)()
         error = ctypes.POINTER(Error)()
@@ -1691,7 +1697,7 @@ class Production:
                 self._handle, ctypes.byref(handle), ctypes.byref(error)
             )
         else:
-            native_base = _native_uuid(base_revision.value)
+            native_base = _native_uuid(base_revision)
             status = self._native.lib.pp_production_begin_transaction_at(
                 self._handle,
                 ctypes.byref(native_base),
@@ -1918,7 +1924,7 @@ class ReadSession:
         """Return one asset, raising ``NotFoundError`` when it is absent."""
 
         self._require_open()
-        native_id = _native_uuid(asset_id.value)
+        native_id = _native_uuid(asset_id)
         handle = ctypes.POINTER(AssetSet)()
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_read_session_asset(
@@ -1941,7 +1947,7 @@ class ReadSession:
         """Return one representation, raising ``NotFoundError`` when absent."""
 
         self._require_open()
-        native_id = _native_uuid(representation_id.value)
+        native_id = _native_uuid(representation_id)
         page = self._representation_page(
             self._native.lib.pp_read_session_representation,
             self._handle,
@@ -1987,7 +1993,7 @@ class ReadSession:
         """Return one bounded page of representations belonging to an asset."""
 
         self._require_open()
-        native_id = _native_uuid(asset_id.value)
+        native_id = _native_uuid(asset_id)
         return self._representation_page(
             self._native.lib.pp_read_session_representations_page,
             self._handle,
@@ -2285,7 +2291,7 @@ class Transaction:
         existing asset. A path adds a single file."""
 
         self._require_open()
-        native_asset_id = _native_uuid(asset_id.value)
+        native_asset_id = _native_uuid(asset_id)
         representation_id = Uuid()
         with _NativeMediaSource(self._native, source) as native_source:
             error = ctypes.POINTER(Error)()
@@ -2326,7 +2332,7 @@ class Transaction:
         """Stage a resolver root's enabled state."""
 
         self._require_open()
-        native_id = _native_uuid(root_id.value)
+        native_id = _native_uuid(root_id)
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_transaction_set_media_root_enabled(
             self._handle,
@@ -2340,7 +2346,7 @@ class Transaction:
         """Stage removal of one resolver root."""
 
         self._require_open()
-        native_id = _native_uuid(root_id.value)
+        native_id = _native_uuid(root_id)
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_transaction_remove_media_root(
             self._handle, ctypes.byref(native_id), ctypes.byref(error)
@@ -2366,7 +2372,7 @@ class Transaction:
         """
 
         self._require_open()
-        native_id = _native_uuid(resource_id.value)
+        native_id = _native_uuid(resource_id)
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_transaction_confirm_locator(
             self._handle,
@@ -2382,7 +2388,7 @@ class Transaction:
         """Stage retirement of one superseded resource locator."""
 
         self._require_open()
-        native_id = _native_uuid(locator_id.value)
+        native_id = _native_uuid(locator_id)
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_transaction_retire_locator(
             self._handle, ctypes.byref(native_id), ctypes.byref(error)
@@ -2395,7 +2401,7 @@ class Transaction:
         """Stage an explicit content-fingerprint observation for one resource."""
 
         self._require_open()
-        native_id = _native_uuid(resource_id.value)
+        native_id = _native_uuid(resource_id)
         value = (ctypes.c_uint8 * len(fingerprint.value)).from_buffer_copy(
             fingerprint.value
         )
@@ -2427,7 +2433,7 @@ class Transaction:
         """
 
         self._require_open()
-        native_id = _native_uuid(resource_id.value)
+        native_id = _native_uuid(resource_id)
         outcome = ctypes.c_uint32()
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_transaction_observe_resource_content(
@@ -2447,7 +2453,7 @@ class Transaction:
         """Stage a structure-aware fingerprint observation for a representation."""
 
         self._require_open()
-        native_id = _native_uuid(representation_id.value)
+        native_id = _native_uuid(representation_id)
         value = (ctypes.c_uint8 * len(fingerprint.value)).from_buffer_copy(
             fingerprint.value
         )
@@ -2482,7 +2488,7 @@ class Transaction:
                 NativeDependency(
                     int(value.source_resource_id is not None),
                     (
-                        _native_uuid(value.source_resource_id.value)
+                        _native_uuid(value.source_resource_id)
                         if value.source_resource_id is not None
                         else Uuid()
                     ),
@@ -2490,7 +2496,7 @@ class Transaction:
                     _native_object_reference(value.target),
                     int(value.resolved_representation_id is not None),
                     (
-                        _native_uuid(value.resolved_representation_id.value)
+                        _native_uuid(value.resolved_representation_id)
                         if value.resolved_representation_id is not None
                         else Uuid()
                     ),
@@ -2500,7 +2506,7 @@ class Transaction:
                 for index, value in enumerate(dependencies)
             )
         )
-        native_id = _native_uuid(representation_id.value)
+        native_id = _native_uuid(representation_id)
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_transaction_record_dependency_set(
             self._handle,
@@ -2555,8 +2561,8 @@ class Transaction:
 
         self._require_open()
         input_type = Uuid * len(request.inputs)
-        inputs = input_type(*(_native_uuid(value.value) for value in request.inputs))
-        output_asset_id = _native_uuid(request.output_asset_id.value)
+        inputs = input_type(*(_native_uuid(value) for value in request.inputs))
+        output_asset_id = _native_uuid(request.output_asset_id)
         job_id = Uuid()
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_transaction_request_job(
@@ -2584,7 +2590,7 @@ class Transaction:
         """Stage an atomic claim and return its capability token."""
 
         self._require_open()
-        native_job_id = _native_uuid(job_id.value)
+        native_job_id = _native_uuid(job_id)
         identifier = agent.identifier if agent is not None else None
         claim_id = Uuid()
         error = ctypes.POINTER(Error)()
@@ -2616,8 +2622,8 @@ class Transaction:
         """Stage renewal of an active job claim."""
 
         self._require_open()
-        native_job_id = _native_uuid(job_id.value)
-        native_claim_id = _native_uuid(claim_id.value)
+        native_job_id = _native_uuid(job_id)
+        native_claim_id = _native_uuid(claim_id)
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_transaction_renew_job_claim(
             self._handle,
@@ -2633,8 +2639,8 @@ class Transaction:
         """Stage release of an active job claim."""
 
         self._require_open()
-        native_job_id = _native_uuid(job_id.value)
-        native_claim_id = _native_uuid(claim_id.value)
+        native_job_id = _native_uuid(job_id)
+        native_claim_id = _native_uuid(claim_id)
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_transaction_release_job_claim(
             self._handle,
@@ -2655,10 +2661,10 @@ class Transaction:
         """Bind a staged representation and activity into one completion."""
 
         self._require_open()
-        native_job_id = _native_uuid(job_id.value)
-        native_claim_id = _native_uuid(claim_id.value)
-        native_output_id = _native_uuid(output_representation_id.value)
-        native_activity_id = _native_uuid(activity_id.value)
+        native_job_id = _native_uuid(job_id)
+        native_claim_id = _native_uuid(claim_id)
+        native_output_id = _native_uuid(output_representation_id)
+        native_activity_id = _native_uuid(activity_id)
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_transaction_complete_job(
             self._handle,
@@ -2681,8 +2687,8 @@ class Transaction:
         """Stage failure of an active, unexpired job claim."""
 
         self._require_open()
-        native_job_id = _native_uuid(job_id.value)
-        native_claim_id = _native_uuid(claim_id.value)
+        native_job_id = _native_uuid(job_id)
+        native_claim_id = _native_uuid(claim_id)
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_transaction_fail_job(
             self._handle,
@@ -2698,7 +2704,7 @@ class Transaction:
         """Stage administrative cancellation of a requested or claimed job."""
 
         self._require_open()
-        native_job_id = _native_uuid(job_id.value)
+        native_job_id = _native_uuid(job_id)
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_transaction_cancel_job(
             self._handle,
@@ -3166,6 +3172,8 @@ def _uuid(value: Uuid) -> UUID:
 
 
 def _native_uuid(value: UUID) -> Uuid:
+    if not isinstance(value, UUID):
+        raise TypeError("identity must be a uuid.UUID")
     native = Uuid()
     native.bytes[:] = value.bytes
     return native
@@ -3178,7 +3186,7 @@ def _native_activity_edges(
     return array_type(
         *(
             NativeActivityEdge(
-                _native_uuid(edge.representation_id.value), _optional_text(edge.role)
+                _native_uuid(edge.representation_id), _optional_text(edge.role)
             )
             for edge in edges
         )
@@ -3191,21 +3199,21 @@ def _optional_i64(value: int | None) -> ctypes.c_int64 | None:
 
 def _native_object_reference(value: ObjectReference) -> _abi.ObjectRef:
     native = _abi.ObjectRef()
-    if isinstance(value, ProductionId):
+    if isinstance(value, ProductionRef):
         native.kind = _abi.PP_OBJECT_PRODUCTION
-    elif isinstance(value, AssetId):
+    elif isinstance(value, AssetRef):
         native.kind = _abi.PP_OBJECT_ASSET
-    elif isinstance(value, RepresentationId):
+    elif isinstance(value, RepresentationRef):
         native.kind = _abi.PP_OBJECT_REPRESENTATION
-    elif isinstance(value, ResourceId):
+    elif isinstance(value, ResourceRef):
         native.kind = _abi.PP_OBJECT_RESOURCE
-    elif isinstance(value, ActivityId):
+    elif isinstance(value, ActivityRef):
         native.kind = _abi.PP_OBJECT_ACTIVITY
-    elif isinstance(value, JobId):
+    elif isinstance(value, JobRef):
         native.kind = _abi.PP_OBJECT_JOB
     else:
         raise TypeError("unsupported object reference")
-    native.id = _native_uuid(value.value)
+    native.id = _native_uuid(value.id)
     return native
 
 
@@ -3450,7 +3458,7 @@ def _dependency_at(
     )
     native.check(status, error)
     target = _object_reference(value.target)
-    if not isinstance(target, (AssetId, RepresentationId)):
+    if not isinstance(target, (AssetRef, RepresentationRef)):
         raise RuntimeError("native dependency has an unsupported target")
     return Dependency(
         kind=_decode_required(value.kind, "dependency kind"),
@@ -3560,7 +3568,7 @@ def _dependency_query_page(
         )
         native.check(status, error)
         target = _object_reference(value.target)
-        if not isinstance(target, (AssetId, RepresentationId)):
+        if not isinstance(target, (AssetRef, RepresentationRef)):
             raise RuntimeError("native dependency query returned an invalid target")
         items.append(DependencyMatch(target, int(value.depth)))
     return QueryPage(
@@ -3571,15 +3579,15 @@ def _dependency_query_page(
 
 
 def _resource_match(reference: ObjectReference, _depth: int) -> ResourceId:
-    if not isinstance(reference, ResourceId):
+    if not isinstance(reference, ResourceRef):
         raise RuntimeError("native resource query returned a non-resource")
-    return reference
+    return reference.id
 
 
 def _representation_match(reference: ObjectReference, _depth: int) -> RepresentationId:
-    if not isinstance(reference, RepresentationId):
+    if not isinstance(reference, RepresentationRef):
         raise RuntimeError("native representation query returned a non-representation")
-    return reference
+    return reference.id
 
 
 def _object_match(reference: ObjectReference, _depth: int) -> ObjectReference:
@@ -3587,9 +3595,9 @@ def _object_match(reference: ObjectReference, _depth: int) -> ObjectReference:
 
 
 def _provenance_match(reference: ObjectReference, depth: int) -> ProvenanceMatch:
-    if not isinstance(reference, RepresentationId):
+    if not isinstance(reference, RepresentationRef):
         raise RuntimeError("native provenance query returned a non-representation")
-    return ProvenanceMatch(reference, depth)
+    return ProvenanceMatch(reference.id, depth)
 
 
 def _locator_match_at(
@@ -3690,7 +3698,7 @@ def _regeneration_plan_at(
                 int(native.lib.pp_metadata_set_count(parameters))
             )
         )
-        if any(assertion.target != job.id for assertion in assertions):
+        if any(assertion.target != JobRef(job.id) for assertion in assertions):
             raise RuntimeError(
                 "native regeneration parameter target does not match its job"
             )
@@ -4864,17 +4872,17 @@ def _object_reference(value: _abi.ObjectRef) -> ObjectReference:
     object_id = _uuid(value.id)
     kind = int(value.kind)
     if kind == _abi.PP_OBJECT_PRODUCTION:
-        return ProductionId(object_id)
+        return ProductionRef(ProductionId(object_id))
     if kind == _abi.PP_OBJECT_ASSET:
-        return AssetId(object_id)
+        return AssetRef(AssetId(object_id))
     if kind == _abi.PP_OBJECT_REPRESENTATION:
-        return RepresentationId(object_id)
+        return RepresentationRef(RepresentationId(object_id))
     if kind == _abi.PP_OBJECT_RESOURCE:
-        return ResourceId(object_id)
+        return ResourceRef(ResourceId(object_id))
     if kind == _abi.PP_OBJECT_ACTIVITY:
-        return ActivityId(object_id)
+        return ActivityRef(ActivityId(object_id))
     if kind == _abi.PP_OBJECT_JOB:
-        return JobId(object_id)
+        return JobRef(JobId(object_id))
     raise RuntimeError("revision event has an unknown object-reference kind")
 
 

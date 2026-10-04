@@ -23,12 +23,18 @@ from ._errors import (
 )
 from ._model import (
     ActivityId,
+    ActivityRef,
     AssetId,
+    AssetRef,
     JobId,
+    JobRef,
     MediaRootId,
     ProductionId,
+    ProductionRef,
     RepresentationId,
+    RepresentationRef,
     ResourceId,
+    ResourceRef,
     RevisionId,
 )
 
@@ -114,12 +120,14 @@ def _transaction_conflict(native: NativeTransactionConflict) -> TransactionConfl
         target = MediaRootId(identifier)
     else:
         target_types = {
-            _abi.PP_OBJECT_PRODUCTION: ProductionId,
-            _abi.PP_OBJECT_ASSET: AssetId,
-            _abi.PP_OBJECT_REPRESENTATION: RepresentationId,
-            _abi.PP_OBJECT_RESOURCE: ResourceId,
-            _abi.PP_OBJECT_ACTIVITY: ActivityId,
-            _abi.PP_OBJECT_JOB: JobId,
+            _abi.PP_OBJECT_PRODUCTION: lambda value: ProductionRef(ProductionId(value)),
+            _abi.PP_OBJECT_ASSET: lambda value: AssetRef(AssetId(value)),
+            _abi.PP_OBJECT_REPRESENTATION: lambda value: RepresentationRef(
+                RepresentationId(value)
+            ),
+            _abi.PP_OBJECT_RESOURCE: lambda value: ResourceRef(ResourceId(value)),
+            _abi.PP_OBJECT_ACTIVITY: lambda value: ActivityRef(ActivityId(value)),
+            _abi.PP_OBJECT_JOB: lambda value: JobRef(JobId(value)),
         }
         target_type = target_types.get(int(native.target.kind))
         if target_type is None:

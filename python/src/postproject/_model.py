@@ -8,25 +8,19 @@ from enum import Enum
 from typing import Generic, TypeAlias, TypeVar
 from uuid import UUID
 
-
-@dataclass(frozen=True, slots=True)
-class _TypedId:
-    value: UUID
-
-    def __str__(self) -> str:
-        return str(self.value)
-
-
-class ProductionId(_TypedId):
-    """Stable identity of one PostProject production."""
-
-    __slots__ = ()
-
-
-class AssetId(_TypedId):
-    """Stable identity of one logical asset."""
-
-    __slots__ = ()
+from ._ids import (
+    ActivityId,
+    AssetId,
+    JobClaimId,
+    JobId,
+    LocatorId,
+    MediaRootId,
+    ProductionId,
+    RepresentationId,
+    ResourceId,
+    RevisionId,
+    TransactionId,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,30 +33,6 @@ class Asset:
     import_source: str | None
 
 
-class RepresentationId(_TypedId):
-    """Stable identity of one usable asset representation."""
-
-    __slots__ = ()
-
-
-class ResourceId(_TypedId):
-    """Stable identity of one storage resource."""
-
-    __slots__ = ()
-
-
-class LocatorId(_TypedId):
-    """Stable identity of one resource locator."""
-
-    __slots__ = ()
-
-
-class MediaRootId(_TypedId):
-    """Stable identity of one configured media root."""
-
-    __slots__ = ()
-
-
 @dataclass(frozen=True, slots=True)
 class MediaRoot:
     """Immutable configured resolver root."""
@@ -73,36 +43,6 @@ class MediaRoot:
     legacy_uri: str | None
     priority: int
     enabled: bool
-
-
-class ActivityId(_TypedId):
-    """Stable identity of one provenance activity."""
-
-    __slots__ = ()
-
-
-class JobId(_TypedId):
-    """Stable identity of one durable production job."""
-
-    __slots__ = ()
-
-
-class JobClaimId(_TypedId):
-    """Capability identifying one active job claim."""
-
-    __slots__ = ()
-
-
-class RevisionId(_TypedId):
-    """Stable identity of one committed revision."""
-
-    __slots__ = ()
-
-
-class TransactionId(_TypedId):
-    """Stable identity of the transaction that produced a revision."""
-
-    __slots__ = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -129,8 +69,74 @@ class CommitReceipt:
     revision: CommittedRevision | None
 
 
+@dataclass(frozen=True, slots=True)
+class ProductionRef:
+    """Explicit production target for polymorphic operations."""
+
+    id: ProductionId
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.id, UUID):
+            raise TypeError("reference identity must be a uuid.UUID")
+
+
+@dataclass(frozen=True, slots=True)
+class AssetRef:
+    """Explicit asset target for polymorphic operations."""
+
+    id: AssetId
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.id, UUID):
+            raise TypeError("reference identity must be a uuid.UUID")
+
+
+@dataclass(frozen=True, slots=True)
+class RepresentationRef:
+    """Explicit representation target for polymorphic operations."""
+
+    id: RepresentationId
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.id, UUID):
+            raise TypeError("reference identity must be a uuid.UUID")
+
+
+@dataclass(frozen=True, slots=True)
+class ResourceRef:
+    """Explicit resource target for polymorphic operations."""
+
+    id: ResourceId
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.id, UUID):
+            raise TypeError("reference identity must be a uuid.UUID")
+
+
+@dataclass(frozen=True, slots=True)
+class ActivityRef:
+    """Explicit activity target for polymorphic operations."""
+
+    id: ActivityId
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.id, UUID):
+            raise TypeError("reference identity must be a uuid.UUID")
+
+
+@dataclass(frozen=True, slots=True)
+class JobRef:
+    """Explicit job target for polymorphic operations."""
+
+    id: JobId
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.id, UUID):
+            raise TypeError("reference identity must be a uuid.UUID")
+
+
 ObjectReference: TypeAlias = (
-    ProductionId | AssetId | RepresentationId | ResourceId | ActivityId | JobId
+    ProductionRef | AssetRef | RepresentationRef | ResourceRef | ActivityRef | JobRef
 )
 
 QueryItem = TypeVar("QueryItem")
@@ -174,7 +180,7 @@ class Dependency:
     """One exact authored dependency edge."""
 
     kind: str
-    target: AssetId | RepresentationId
+    target: AssetRef | RepresentationRef
     authored_reference: str
     required: bool = True
     source_resource_id: ResourceId | None = None
@@ -195,7 +201,7 @@ class DependencySet:
 class DependencyMatch:
     """One dependency-query target and its shortest observed depth."""
 
-    target: AssetId | RepresentationId
+    target: AssetRef | RepresentationRef
     depth: int
 
 

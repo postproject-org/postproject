@@ -30,8 +30,10 @@ from ._model import (
     ArtifactReproducibilityIssueKind,
     ArtifactTraversalLimit,
     AssetId,
+    AssetRef,
     ObjectReference,
     RepresentationId,
+    RepresentationRef,
     ResourceId,
 )
 from ._native import NativeLibrary
@@ -179,9 +181,9 @@ def _dependency_path_segment(
 
 def _dependency_target(value: NativeObjectRef) -> ObjectReference:
     if value.kind == _abi.PP_OBJECT_ASSET:
-        return AssetId(_uuid(value.id))
+        return AssetRef(AssetId(_uuid(value.id)))
     if value.kind == _abi.PP_OBJECT_REPRESENTATION:
-        return RepresentationId(_uuid(value.id))
+        return RepresentationRef(RepresentationId(_uuid(value.id)))
     raise RuntimeError("artifact dependency path has an unknown target kind")
 
 
