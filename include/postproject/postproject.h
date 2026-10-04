@@ -492,6 +492,22 @@ PP_API pp_error_code_t pp_production_begin_edit(
     pp_transaction_t **out_transaction, pp_error_t **out_error);
 PP_API void pp_read_session_release(pp_read_session_t *session);
 
+/* Read values and pages from the pinned view. Result sets own their data.
+ * Cursor lifetime follows the existing owned sets; session scope is required. */
+PP_API pp_error_code_t pp_read_session_assets_page(
+    const pp_read_session_t *session, uint32_t limit, const char *cursor,
+    pp_asset_set_t **out_assets, pp_error_t **out_error);
+PP_API pp_error_code_t pp_read_session_asset(
+    const pp_read_session_t *session, const pp_uuid_t *asset_id,
+    pp_asset_set_t **out_assets, pp_error_t **out_error);
+PP_API pp_error_code_t pp_read_session_representations_page(
+    const pp_read_session_t *session, const pp_uuid_t *asset_id, uint32_t limit,
+    const char *cursor, pp_representation_set_t **out_representations,
+    pp_error_t **out_error);
+PP_API pp_error_code_t pp_read_session_representation(
+    const pp_read_session_t *session, const pp_uuid_t *representation_id,
+    pp_representation_set_t **out_representations, pp_error_t **out_error);
+
 PP_API uint32_t pp_abi_version(void);
 /* Host bindings are pure value operations and perform no network access.
  * Inputs are borrowed. On success, *out_binding is caller-owned and must be
@@ -519,6 +535,10 @@ PP_API pp_error_code_t pp_locator_to_file_path(const char *uri,
 /* Releases a string returned through an owned char ** output. Accepts NULL.
  * Strings borrowed from result sets must never be passed here. */
 PP_API void pp_string_release(char *value);
+/* Inputs are borrowed UTF-8 without embedded NUL. A NULL display name is
+ * absent. On success, *out_production is caller-owned and *out_error is NULL. On
+ * failure, *out_production is NULL and a non-NULL *out_error is caller-owned.
+ * out_error may itself be NULL when diagnostic text is not required. */
 PP_API pp_error_code_t pp_production_create(const char *path,
                                          const char *display_name,
                                          pp_production_t **out_production,

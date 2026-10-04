@@ -715,9 +715,13 @@ EXPORTED_SYMBOLS = (
     "pp_production_stale_artifacts",
     "pp_production_unresolved_media",
     "pp_production_verify_resource",
+    "pp_read_session_asset",
+    "pp_read_session_assets_page",
     "pp_read_session_begin_edit",
     "pp_read_session_decision_base",
     "pp_read_session_release",
+    "pp_read_session_representation",
+    "pp_read_session_representations_page",
     "pp_regeneration_plan_set_count",
     "pp_regeneration_plan_set_get",
     "pp_regeneration_plan_set_release",
@@ -803,6 +807,14 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_production_begin_edit.restype = ErrorCode
     lib.pp_read_session_release.argtypes = [ctypes.POINTER(ReadSession)]
     lib.pp_read_session_release.restype = None
+    lib.pp_read_session_assets_page.argtypes = [ctypes.POINTER(ReadSession), ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(AssetSet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_read_session_assets_page.restype = ErrorCode
+    lib.pp_read_session_asset.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.POINTER(AssetSet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_read_session_asset.restype = ErrorCode
+    lib.pp_read_session_representations_page.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(Uuid), ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(RepresentationSet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_read_session_representations_page.restype = ErrorCode
+    lib.pp_read_session_representation.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.POINTER(RepresentationSet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_read_session_representation.restype = ErrorCode
     lib.pp_abi_version.argtypes = []
     lib.pp_abi_version.restype = ctypes.c_uint32
     lib.pp_host_binding_format.argtypes = [ctypes.POINTER(Uuid), ctypes.POINTER(ObjectRef), ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.POINTER(Error))]

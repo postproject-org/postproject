@@ -2,10 +2,9 @@ use std::{ffi::CString, os::raw::c_char, ptr};
 
 use postproject_core::{
     AssetId, ContentStructure, ContentStructureKind, Error, ErrorKind, Locator,
-    LocatorAvailability, LocatorId, QueryCursor, Representation, RepresentationId,
+    LocatorAvailability, LocatorId, ProductionRead, QueryCursor, Representation, RepresentationId,
     RepresentationKind, Resource, ResourceId,
 };
-use postproject_storage_sqlite::SqliteProduction;
 
 use crate::{
     PpError, PpProduction, PpSequenceNaming, PpUuid, exact_cstring, ffi_call,
@@ -157,7 +156,7 @@ pub unsafe extern "C" fn pp_production_representations_page(
             let page =
                 inner.representations_page(AssetId::from_bytes(asset_id.bytes), &page_request)?;
             out_representations.write(Box::into_raw(Box::new(PpRepresentationSet::new_page(
-                &inner,
+                &*inner,
                 page.items(),
                 page.next_cursor(),
             )?)));
@@ -193,7 +192,7 @@ pub unsafe extern "C" fn pp_production_representation(
             let representation =
                 inner.representation(RepresentationId::from_bytes(representation_id.bytes))?;
             out_representations.write(Box::into_raw(Box::new(PpRepresentationSet::new_page(
-                &inner,
+                &*inner,
                 &[representation],
                 None,
             )?)));
@@ -234,7 +233,7 @@ pub unsafe extern "C" fn pp_production_representations_using_resource(
                 &page_request,
             )?;
             out_representations.write(Box::into_raw(Box::new(PpRepresentationSet::new_page(
-                &inner,
+                &*inner,
                 page.items(),
                 page.next_cursor(),
             )?)));
@@ -270,7 +269,7 @@ pub unsafe extern "C" fn pp_production_representations_under_media_root(
             let inner = lock_production(&production.state);
             let page = inner.representations_under_media_root(root_name, &page_request)?;
             out_representations.write(Box::into_raw(Box::new(PpRepresentationSet::new_page(
-                &inner,
+                &*inner,
                 page.items(),
                 page.next_cursor(),
             )?)));
@@ -735,7 +734,7 @@ pub unsafe extern "C" fn pp_representation_set_release(representations: *mut PpR
 
 impl PpRepresentationSet {
     pub(crate) fn new_page(
-        production: &SqliteProduction,
+        production: &dyn ProductionRead,
         values: &[Representation],
         next_cursor: Option<&QueryCursor>,
     ) -> Result<Self, Error> {

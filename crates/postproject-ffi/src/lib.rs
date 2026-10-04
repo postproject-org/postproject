@@ -14,6 +14,7 @@ mod media_source;
 mod metadata;
 mod metadata_input;
 mod provenance;
+mod read_queries;
 mod read_session;
 mod representations;
 mod resolution;
