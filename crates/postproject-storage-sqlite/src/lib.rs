@@ -11,6 +11,7 @@ mod dependency_snapshot;
 mod metadata_codec;
 mod migrations;
 mod query_cursor;
+mod read_session;
 mod revision_wait;
 mod transaction;
 
@@ -46,6 +47,7 @@ use rusqlite::{
 };
 
 pub use migrations::CURRENT_SCHEMA_VERSION;
+pub use read_session::SqliteReadSession;
 pub use revision_wait::{RevisionWaitCanceller, SqliteRevisionWaiter};
 pub use transaction::SqliteTransaction;
 
@@ -212,6 +214,15 @@ impl SqliteProduction {
     pub fn begin_transaction(&mut self) -> Result<SqliteTransaction<'_>> {
         let (connection, production) = (&mut self.connection, &mut self.production);
         SqliteTransaction::begin(connection, production, &self.revision_signal)
+    }
+
+    /// Opens a coherent view with its revision captured from that same view.
+    ///
+    /// # Errors
+    ///
+    /// Returns storage errors or conflict if the file's production was replaced.
+    pub fn read_session(&self) -> Result<SqliteReadSession> {
+        SqliteReadSession::open(self)
     }
 
     /// Begins a transaction based on one durable production revision.
