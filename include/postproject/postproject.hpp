@@ -679,6 +679,11 @@ struct CommittedRevision final {
   std::uint64_t sequence;
 };
 
+struct DecisionBase final {
+  Uuid production_id;
+  std::optional<CommittedRevision> revision;
+};
+
 struct CommitReceipt final {
   Uuid production_id;
   std::optional<CommittedRevision> revision;
@@ -3569,6 +3574,7 @@ public:
 
 private:
   friend class Production;
+  friend class ReadSession;
 
   explicit Transaction(pp_transaction_t *transaction) noexcept
       : transaction_(transaction) {}
@@ -3775,6 +3781,109 @@ private:
   std::optional<Error> error_;
 };
 
+class ReadSession final {
+public:
+  ReadSession(const ReadSession &) = delete;
+  ReadSession &operator=(const ReadSession &) = delete;
+  ReadSession(ReadSession &&other) noexcept : session_(std::exchange(other.session_, nullptr)) {}
+  ReadSession &operator=(ReadSession &&other) noexcept {
+    if (this != &other) { pp_read_session_release(session_); session_ = std::exchange(other.session_, nullptr); }
+    return *this;
+  }
+  ~ReadSession() { pp_read_session_release(session_); }
+
+  [[nodiscard]] Result<DecisionBase> decisionBase() const {
+    pp_decision_base_t base{};
+    pp_error_t *error = nullptr;
+    const auto status = pp_read_session_decision_base(session_, &base, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    DecisionBase result{detail::uuid(base.production_id), std::nullopt};
+    if (base.has_revision) result.revision = CommittedRevision{detail::uuid(base.revision_id), base.revision_sequence};
+    return result;
+  }
+  [[nodiscard]] Result<Transaction> edit() const {
+    pp_transaction_t *transaction = nullptr;
+    pp_error_t *error = nullptr;
+    const auto status = pp_read_session_begin_edit(session_, &transaction, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    return Transaction(transaction);
+  }
+  [[nodiscard]] Result<QueryPage<Asset>>
+  assets(std::uint32_t limit,
+         std::optional<std::string_view> cursor = std::nullopt) const {
+    POSTPROJECT_TRY_ASSIGN(const std::optional<std::string> checked_cursor,
+                           detail::checked_cursor(cursor));
+    pp_asset_set_t *raw_assets = nullptr;
+    pp_error_t *error = nullptr;
+    const pp_error_code_t status = pp_read_session_assets_page(
+        session_, limit, detail::optional_c_str(checked_cursor), &raw_assets,
+        &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    detail::AssetSetHandle assets(raw_assets);
+
+    std::vector<Asset> items;
+    const std::uint64_t count = pp_asset_set_count(assets.get());
+    items.reserve(static_cast<std::size_t>(count));
+    for (std::uint64_t index = 0; index < count; ++index) {
+      POSTPROJECT_TRY_ASSIGN(auto item_9, detail::asset(assets.get(), index));
+      items.push_back(std::move(item_9));
+    }
+    const char *next_cursor = pp_asset_set_next_cursor(assets.get());
+    return QueryPage<Asset>{std::move(items),
+                            detail::optional_string(next_cursor), false};
+  }
+
+  [[nodiscard]] Result<Asset> asset(const Uuid &asset_id) const {
+    const pp_uuid_t native_asset_id = detail::native_uuid(asset_id);
+    pp_asset_set_t *raw_assets = nullptr;
+    pp_error_t *error = nullptr;
+    const pp_error_code_t status =
+        pp_read_session_asset(session_, &native_asset_id, &raw_assets, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    detail::AssetSetHandle assets(raw_assets);
+    if (pp_asset_set_count(assets.get()) != 1) {
+      return Error(ErrorCode::internal, "asset read returned no single asset");
+    }
+    return detail::asset(assets.get(), 0);
+  }
+
+  [[nodiscard]] Result<QueryPage<Representation>>
+  representations(const Uuid &asset_id, std::uint32_t limit,
+                  std::optional<std::string_view> cursor = std::nullopt) const {
+    const pp_uuid_t native_asset_id = detail::native_uuid(asset_id);
+    POSTPROJECT_TRY_ASSIGN(const std::optional<std::string> checked_cursor,
+                           detail::checked_cursor(cursor));
+    pp_representation_set_t *raw_representations = nullptr;
+    pp_error_t *error = nullptr;
+    const pp_error_code_t status = pp_read_session_representations_page(
+        session_, &native_asset_id, limit,
+        detail::optional_c_str(checked_cursor), &raw_representations, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    return detail::representation_page(
+        detail::RepresentationSetHandle(raw_representations));
+  }
+
+  [[nodiscard]] Result<Representation>
+  representation(const Uuid &representation_id) const {
+    const pp_uuid_t native_id = detail::native_uuid(representation_id);
+    pp_representation_set_t *raw_representations = nullptr;
+    pp_error_t *error = nullptr;
+    const pp_error_code_t status = pp_read_session_representation(
+        session_, &native_id, &raw_representations, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    detail::RepresentationSetHandle representations(raw_representations);
+    if (pp_representation_set_count(representations.get()) != 1) {
+      return Error(ErrorCode::internal,
+                   "representation read returned no single representation");
+    }
+    return detail::representation(representations.get(), 0);
+  }
+private:
+  friend class Production;
+  explicit ReadSession(pp_read_session_t *session) noexcept : session_(session) {}
+  pp_read_session_t *session_ = nullptr;
+};
+
 class Production final {
 public:
   static Result<Production> create(std::string_view path) {
@@ -3815,6 +3924,29 @@ public:
   }
 
   ~Production() { pp_production_release(production_); }
+
+  [[nodiscard]] Result<ReadSession> readSession() const {
+    pp_read_session_t *session = nullptr;
+    pp_error_t *error = nullptr;
+    const auto status = pp_production_read_session(production_, &session, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    return ReadSession(session);
+  }
+
+  [[nodiscard]] Result<Transaction> edit(const DecisionBase &base) const {
+    pp_decision_base_t native{};
+    native.production_id = detail::native_uuid(base.production_id);
+    if (base.revision) {
+      native.has_revision = 1;
+      native.revision_id = detail::native_uuid(base.revision->id);
+      native.revision_sequence = base.revision->sequence;
+    }
+    pp_transaction_t *transaction = nullptr;
+    pp_error_t *error = nullptr;
+    const auto status = pp_production_begin_edit(production_, &native, &transaction, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    return Transaction(transaction);
+  }
 
   [[nodiscard]] Result<Uuid> id() const {
     pp_uuid_t value{};
