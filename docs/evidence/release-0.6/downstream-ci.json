@@ -1,78 +1,68 @@
 {
-  "source_commit": "d133613b12aca73215cac641dae7d3f087509f5f",
-  "selection": "Unchanged Ardour builds from the original run; affected consumers from the corrected run",
-  "source_runs": [
-    {
-      "url": "https://github.com/postproject-org/postproject/actions/runs/37194261634",
-      "status": "completed",
-      "conclusion": "failure"
-    },
-    {
-      "url": "https://github.com/postproject-org/postproject/actions/runs/37202457126",
-      "status": "in_progress",
-      "conclusion": ""
-    }
-  ],
+  "conclusion": "success",
   "jobs": [
-    {
-      "conclusion": "success",
-      "name": "ardour / Installed pkg-config resolver on macOS",
-      "status": "completed",
-      "url": "https://github.com/postproject-org/postproject/actions/runs/37194261634/job/111412719040"
-    },
-    {
-      "conclusion": "success",
-      "name": "ardour / Ardour with PostProject",
-      "status": "completed",
-      "url": "https://github.com/postproject-org/postproject/actions/runs/37194261634/job/111412719156"
-    },
-    {
-      "conclusion": "success",
-      "name": "ardour / Ardour without PostProject",
-      "status": "completed",
-      "url": "https://github.com/postproject-org/postproject/actions/runs/37194261634/job/111412719172"
-    },
-    {
-      "conclusion": "success",
-      "name": "otio-openassetio / test",
-      "status": "completed",
-      "url": "https://github.com/postproject-org/postproject/actions/runs/37202457126/job/111436750427"
-    },
-    {
-      "conclusion": "success",
-      "name": "cpp-nle / test",
-      "status": "completed",
-      "url": "https://github.com/postproject-org/postproject/actions/runs/37202457126/job/111436750491"
-    },
     {
       "conclusion": "success",
       "name": "openassetio-manager / test",
       "status": "completed",
-      "url": "https://github.com/postproject-org/postproject/actions/runs/37202457126/job/111436750547"
-    },
-    {
-      "conclusion": "success",
-      "name": "python-host / test",
-      "status": "completed",
-      "url": "https://github.com/postproject-org/postproject/actions/runs/37202457126/job/111436750566"
+      "url": "https://github.com/postproject-org/postproject/actions/runs/37210056858/job/111459239019"
     },
     {
       "conclusion": "success",
       "name": "openassetio-publishing / test",
       "status": "completed",
-      "url": "https://github.com/postproject-org/postproject/actions/runs/37202457126/job/111436750599"
+      "url": "https://github.com/postproject-org/postproject/actions/runs/37210056858/job/111459239063"
+    },
+    {
+      "conclusion": "success",
+      "name": "ardour / Ardour with PostProject",
+      "status": "completed",
+      "url": "https://github.com/postproject-org/postproject/actions/runs/37210056858/job/111459239097"
+    },
+    {
+      "conclusion": "success",
+      "name": "otio-openassetio / test",
+      "status": "completed",
+      "url": "https://github.com/postproject-org/postproject/actions/runs/37210056858/job/111459239133"
+    },
+    {
+      "conclusion": "success",
+      "name": "ardour / Ardour without PostProject",
+      "status": "completed",
+      "url": "https://github.com/postproject-org/postproject/actions/runs/37210056858/job/111459239216"
+    },
+    {
+      "conclusion": "success",
+      "name": "python-host / test",
+      "status": "completed",
+      "url": "https://github.com/postproject-org/postproject/actions/runs/37210056858/job/111459239220"
+    },
+    {
+      "conclusion": "success",
+      "name": "ardour / Installed pkg-config resolver on macOS",
+      "status": "completed",
+      "url": "https://github.com/postproject-org/postproject/actions/runs/37210056858/job/111459239252"
+    },
+    {
+      "conclusion": "success",
+      "name": "cpp-nle / test",
+      "status": "completed",
+      "url": "https://github.com/postproject-org/postproject/actions/runs/37210056858/job/111459239271"
     },
     {
       "conclusion": "success",
       "name": "natron / contract",
       "status": "completed",
-      "url": "https://github.com/postproject-org/postproject/actions/runs/37202457126/job/111436750655"
+      "url": "https://github.com/postproject-org/postproject/actions/runs/37210056858/job/111459239356"
     },
     {
       "conclusion": "success",
       "name": "obs / contract",
       "status": "completed",
-      "url": "https://github.com/postproject-org/postproject/actions/runs/37202457126/job/111436750683"
+      "url": "https://github.com/postproject-org/postproject/actions/runs/37210056858/job/111459239388"
     }
-  ]
+  ],
+  "source_commit": "e3d7bd75cc48b9d71add4d92249428e2aaaea54e",
+  "status": "completed",
+  "url": "https://github.com/postproject-org/postproject/actions/runs/37210056858"
 }

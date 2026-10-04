@@ -161,6 +161,10 @@ no playable-output claim or upstream repair is made for that failure.
 
 ## Natron decisions and conflicts
 
+The pilot's [own brief](https://github.com/postproject-org/postproject-natron/blob/main/BRIEF.md)
+and the [OBS brief](https://github.com/postproject-org/postproject-obs/blob/main/BRIEF.md)
+retain source seams and acceptance boundaries beside their adapters.
+
 The pinned host loads the native C++ extension in embedded CPython 3.10.
 Its two genuine padded PNG sequences share a directory; explicit adoption
 preserves both producer identities and unknown metadata. Named-root movement,
@@ -176,6 +180,17 @@ public-API writer invalidates the old locator decision: structured conflict
 information reaches the bridge, the transaction closes, and the Reader keeps
 its fallback. Partial frames, ambiguous candidates, close/cancel and copied
 result values have separate negative evidence.
+
+The candidate audit found that the bridge tested whether a script name existed,
+then dereferenced its retained Reader wrapper. Pinned `Engine/PyNodeGroup.cpp`
+returns a fresh wrapper on lookup, while `Engine/PyNode.cpp` retains a weak
+native reference. Names can be reused. Deterministic tests reproduced stale
+wrapper access and applying an older request after a newer one began.
+The bridge now uses a nonpersistent generation parameter and looks up the
+current Reader after native work completes. Three regressions and a real-host
+replacement-name case pass, alongside the complete normal, negative and
+dependency-free fallback renderer acceptance. This is an adapter lifetime
+repair; no public PostProject contract or family last-change date changes.
 
 The guide's former read-then-base recipe could attach a new base to stale facts.
 The corrected recipe uses a before/after revision fence, documents empty

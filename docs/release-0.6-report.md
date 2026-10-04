@@ -13,11 +13,14 @@ Two complementary pilots consume installed public packages:
 | Pilot | Host pin | Accepted route | Adapter revision |
 |---|---|---|---|
 | [OBS](https://github.com/postproject-org/postproject-obs) | 32.2.2 | C11 registration, C++17 frontend/worker plugin | `384fe5f86d06eba144f1353c95bf39d2ddf8409c` |
-| [Natron](https://github.com/postproject-org/postproject-natron) | 2.5.0 | Native C++17 extension in embedded CPython, Reader/menu bridge | `3d4fa73cfadfb424e3c9fc6546b62101f4891ac8` |
+| [Natron](https://github.com/postproject-org/postproject-natron) | 2.5.0 | Native C++17 extension in embedded CPython, Reader/menu bridge | `4694e97a65ab59954a3ef32c7984ed6ccd53a97f` |
 
 Both repositories contain exact upstream pins, optional-dependency behavior,
 fixtures, reproduction commands and fast installed-package CI. Their consumers
 never invoke Cargo. The separate CI producer builds and installs PostProject.
+Both pilots also carry their own source-checked
+[OBS brief](https://github.com/postproject-org/postproject-obs/blob/main/BRIEF.md)
+and [Natron brief](https://github.com/postproject-org/postproject-natron/blob/main/BRIEF.md).
 Audacity 3.7.7 and Krita 5.2.13 were not selected under the minimum-pilot gate;
 all four source-checked briefs and decisions are in the
 {doc}`release-0.6-integration-findings`. Neither no-go is a failed build or a
@@ -51,6 +54,13 @@ structured locator conflict. A third process reopened/rendered the fallback
 without loading the optional native adapter. The Linux runtime archive SHA-256
 is `1b423f983e89f6e3811fdabcf08caced3367ca24568dfdfe48a3a86c1ae95fa1`.
 
+The candidate audit additionally reproduced stale-wrapper access and acceptance
+of superseded requests in deterministic bridge tests. A transient generation
+parameter rejects a replacement Reader reusing the script name and checks
+the current generation after native work finishes. Three bridge regressions
+and the real normal/negative/fallback renderer runs pass. The native C++
+implementation and normal-path symbol trace remain unchanged.
+
 The incremental **OBS → Blender** handoff passed using Blender 5.2.2 LTS and
 the maintained extension rebuilt with the candidate wheel. Blender's ordinary
 save integration adopted OBS's original asset, retained capture provenance
@@ -72,7 +82,7 @@ acceptance is claimed.
 ## Interface and package verification
 
 The native library was built in release mode from `6fe0088`, the version bump
-plus lifetime repair; subsequent changes affect tools/docs/CI only. Its SHA-256
+plus lifetime repair; subsequent changes affect verification/docs/CI only. Its SHA-256
 is `1ec0cb38e1f17acbba82d9b295a34d2ba2364c5e9dabfd636f88a96eed185c76`.
 The authoritative headers and Python binding implementation are unchanged
 from released 0.5. The closed-transaction guard defect is fixed by ADR 0044;
@@ -85,7 +95,7 @@ Clippy with denied warnings, workspace/all-feature tests, no-dependency
 rustdoc and cargo-deny. Installed C smoke, exact exported-symbol comparison,
 compiler/ctypes layout comparison, generated Python signatures, C++ exception
 and no-exception consumers, example coverage and strict documentation build
-passed. The Python binding suite passed 44 tests with one documented skip;
+passed. The Python binding suite passed all 44 tests with the installed CLI;
 the tool suite and focused family/dependency tests passed. OBS's actual C
 adapter and both contract fixtures passed ASan/UBSan with leak detection;
 the linked Rust library was not sanitizer-instrumented.
@@ -98,24 +108,23 @@ SameMajorVersion rule accepts 0.6.
 The two OTIO linker suites pass with an upstream unversioned-trait deprecation
 warning; warning-as-error execution does not pass that upstream dependency.
 The same producer/installed-consumer jobs are retained on Linux, macOS and
-Windows. [Candidate core CI](https://github.com/postproject-org/postproject/actions/runs/37194261178)
-passed all 16 jobs at `d133613`, including native packages and tests on all three
-platforms, strict documentation, MSRV, sanitizers and the glibc 2.28 wheel.
-Subsequent changes to this candidate concern evidence/docs only; native source,
-headers and binding implementation remain identical to that run.
+Windows. [Candidate core CI](https://github.com/postproject-org/postproject/actions/runs/37215908827)
+passed all 16 jobs at `ee8ae1d`, including native packages, Rust/C/ctypes size,
+alignment and field-offset comparisons on all three platforms, strict docs,
+MSRV, sanitizers and the glibc 2.28 wheel. The architecture gate rejects reversed
+production dependencies and relaxed unsafe lints. Installed C++ tests also
+assert exclusive ownership of native handles inside and outside `Result`.
 
-The ten downstream acceptance jobs have completed passing evidence in
-{download}`the CI record <evidence/release-0.6/downstream-ci.json>`:
-Ardour's unchanged Linux builds with/without PostProject and macOS resolver
-come from the original candidate run; the other consumers come from the
-[corrected run](https://github.com/postproject-org/postproject/actions/runs/37202457126).
+All ten downstream acceptance jobs passed together in
+the [completed run](https://github.com/postproject-org/postproject/actions/runs/37210056858)
+at `e3d7bd7`, recorded in
+{download}`the CI record <evidence/release-0.6/downstream-ci.json>`.
 The original aggregate failed because Python host CI collected the nested
 producer's tests. Commit `98e7ee1` scopes collection to its own host module,
-which now passes. The corrected run's redundant full Ardour builds were
-still running when this evidence snapshot was taken; their pending status
-is not represented as another pass. All jobs use the same candidate native
-source. {download}`Core CI metadata <evidence/release-0.6/core-ci.json>`
-retains the exact source commit and sixteen successful jobs.
+which now passes. The record includes both complete Linux Ardour builds and
+its macOS resolver; it combines no jobs from older runs. All jobs use the same
+candidate native implementation. {download}`Core CI metadata <evidence/release-0.6/core-ci.json>`
+retains its exact source commit and sixteen successful jobs.
 
 No hard pilot latency gate is introduced. Existing performance policy has
 no calibrated hard release threshold. Actual OBS callback/shutdown and Natron

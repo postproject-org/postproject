@@ -87,23 +87,23 @@
       "trace": "natron-normal.txt",
       "kind": "normal",
       "scenario": "Native adoption, named-root move, verification, refresh, save/reopen",
-      "adapter_commit": "3d4fa73cfadfb424e3c9fc6546b62101f4891ac8",
+      "adapter_commit": "4694e97a65ab59954a3ef32c7984ed6ccd53a97f",
       "host_version": "2.5.0",
       "independence_group": "natron",
       "inputs": [
-        "/tmp/postproject-natron-publication-evidence/normal/natron-normal.txt"
+        "/tmp/postproject-natron-boundary-final/normal/natron-normal.txt"
       ]
     },
     {
       "host": "natron",
       "trace": "natron-failure.txt",
       "kind": "failure",
-      "scenario": "Partial, ambiguity, cancellation, obsolete filename and independent-writer conflict",
-      "adapter_commit": "3d4fa73cfadfb424e3c9fc6546b62101f4891ac8",
+      "scenario": "Partial, ambiguity, cancellation, obsolete filename, replaced Reader generation and independent-writer conflict",
+      "adapter_commit": "4694e97a65ab59954a3ef32c7984ed6ccd53a97f",
       "host_version": "2.5.0",
       "independence_group": "natron",
       "inputs": [
-        "/tmp/postproject-natron-publication-evidence/negative/natron-negative.txt"
+        "/tmp/postproject-natron-boundary-final/negative/natron-negative.txt"
       ]
     },
     {
