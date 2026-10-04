@@ -47,6 +47,19 @@ The C ABI job builds the optimized shared library, compiles a standalone C11
 consumer using only the public header, runs create/open/error operations, and
 compares the exported dynamic symbols against `tests/abi/expected-symbols.txt`.
 
+The native package matrix also compares size, alignment and every field offset
+of all public structs across the C compiler, Rust implementation and generated
+`ctypes` declarations. Both probes derive their field lists from the
+authoritative header; a test rejects a stale committed Rust probe. The C probe
+compiles only against the install prefix. These comparisons run on Linux,
+macOS and Windows and do not establish a cross-series binary replacement promise.
+
+`tools/check_architecture.py` checks production dependency edges and the unsafe
+boundary. Its negative fixtures reject reversed optional/renamed/platform
+edges, unreviewed core libraries and relaxed unsafe lints. Installed C++ tests
+also assert that owning handles cannot be copied, move without throwing and
+remain exclusive when carried in `Result`; `MediaSource` is a copyable value.
+
 The native package matrix installs the platform library, optional static archive,
 C and C++ headers, CMake package files, and `pkg-config` metadata into temporary
 prefixes on Linux, macOS, and Windows. It then configures a separate C11/C++17
@@ -76,6 +89,13 @@ scripts need `bash` and `jq` and are skipped on Windows.
 header, a public member function of a C++ wrapper class, or a public method of
 a Python handle class appears in no example program, so a new operation cannot
 ship without a tested demonstration.
+
+This is a source-name coverage gate. Passing it does not prove every branch,
+ownership rule or combination of domain values. The topic programs assert
+observable results; storage/domain regressions test invariants, and native
+contract tests check errors and lifetimes. Host traces establish executed
+integration paths separately. In particular, one example or one traced symbol
+does not qualify an entire compatibility family.
 
 Hosts compile the header-only C++ wrapper with their own compilers and flags.
 `tools/check_cpp_header_warnings.py` compiles every C++ program against

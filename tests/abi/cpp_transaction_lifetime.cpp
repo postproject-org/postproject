@@ -1,7 +1,24 @@
 #include <postproject/postproject.hpp>
 
 #include <cstdio>
+#include <type_traits>
 #include <utility>
+
+// Native ownership must remain enforced by the type system, including when
+// an owning handle is carried inside Result rather than stored directly.
+template <typename... Owners>
+constexpr bool exclusive_owners =
+    ((!std::is_copy_constructible_v<Owners> &&
+      !std::is_copy_assignable_v<Owners> &&
+      std::is_nothrow_move_constructible_v<Owners> &&
+      std::is_nothrow_move_assignable_v<Owners>) && ...);
+static_assert(exclusive_owners<postproject::Production, postproject::Transaction,
+                               postproject::RevisionWaiter,
+                               postproject::CancelToken,
+                               postproject::ResolutionOptions>);
+static_assert(!std::is_copy_constructible_v<
+              postproject::Result<postproject::Production>>);
+static_assert(std::is_copy_constructible_v<postproject::MediaSource>);
 
 int main(int argc, char **argv) {
   if (argc != 2)

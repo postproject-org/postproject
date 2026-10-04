@@ -26,6 +26,13 @@ and domain-oriented service contracts. It has no dependency on SQLite, C/C++, Qt
 or any editor. Every other component may depend on core; core never depends on an
 adapter.
 
+`tools/check_architecture.py` enforces production dependency direction in CI,
+including optional, renamed and platform-specific dependencies. Core's direct
+libraries are explicitly reviewed. Every crate outside the FFI adapter must
+inherit the workspace's compiler-enforced prohibition on unsafe code.
+Test-only dependencies are separate: storage tests may use media services to
+exercise the backend through domain operations.
+
 `postproject-storage-sqlite` owns production-file migrations and transactional
 persistence. It implements the core `ProductionRead`, `ProductionStore`, and
 `ProductionStoreTransaction` contracts, which describe domain operations rather
