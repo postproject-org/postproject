@@ -30,6 +30,10 @@ add_executable(postproject-c-transaction-lifetime c_transaction_lifetime.c)
 target_compile_features(postproject-c-transaction-lifetime PRIVATE c_std_11)
 target_link_libraries(postproject-c-transaction-lifetime PRIVATE PostProject::postproject)
 
+add_executable(postproject-c-read-sessions c_read_sessions.c)
+target_compile_features(postproject-c-read-sessions PRIVATE c_std_11)
+target_link_libraries(postproject-c-read-sessions PRIVATE PostProject::postproject)
+
 add_executable(postproject-cpp-transaction-lifetime cpp_transaction_lifetime.cpp)
 target_compile_features(postproject-cpp-transaction-lifetime PRIVATE cxx_std_17)
 target_link_libraries(postproject-cpp-transaction-lifetime PRIVATE PostProject::postproject)
@@ -38,6 +42,7 @@ if(WIN32)
     foreach(consumer IN ITEMS postproject-c-smoke postproject-cpp-smoke
                              postproject-cpp-no-exceptions
                              postproject-c-transaction-lifetime
+                             postproject-c-read-sessions
                              postproject-cpp-transaction-lifetime)
         add_custom_command(
             TARGET "${consumer}"
@@ -62,6 +67,7 @@ else()
 endif()
 
 foreach(consumer IN ITEMS postproject-c-transaction-lifetime
+                          postproject-c-read-sessions
                           postproject-cpp-transaction-lifetime)
     if(MSVC)
         target_compile_options(${consumer} PRIVATE /W4 /WX)
@@ -72,6 +78,8 @@ foreach(consumer IN ITEMS postproject-c-transaction-lifetime
 endforeach()
 
 enable_testing()
+add_test(NAME postproject-c-read-sessions
+    COMMAND postproject-c-read-sessions "${CMAKE_CURRENT_BINARY_DIR}/c-read-sessions.pproj")
 add_test(NAME postproject-c-transaction-lifetime
     COMMAND postproject-c-transaction-lifetime "${CMAKE_CURRENT_BINARY_DIR}/c-lifetime.pproj")
 add_test(NAME postproject-cpp-transaction-lifetime
