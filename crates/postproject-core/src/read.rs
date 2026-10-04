@@ -1,6 +1,6 @@
 //! Production-scoped bases for decisions made from coherent read views.
 
-use crate::{Error, ErrorKind, ProductionId, ProductionRead, Result, RevisionId};
+use crate::{Error, ErrorKind, ProductionId, ProductionRead, ProductionStore, Result, RevisionId};
 
 /// Detached optimistic context; it does not retain a read view or a lock.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -63,4 +63,18 @@ pub trait ProductionReadSession {
 
     /// Detaches the view's production-scoped decision context.
     fn decision_base(&self) -> DecisionBase;
+
+    /// Begins an edit carrying this view's decision base automatically.
+    ///
+    /// The store owns a fresh write transaction, not an upgraded read view.
+    ///
+    /// # Errors
+    ///
+    /// Rejects wrong production scope, invalid revisions or storage failures.
+    fn edit<'production, Store: ProductionStore>(
+        &self,
+        store: &'production mut Store,
+    ) -> Result<Store::Transaction<'production>> {
+        store.begin_edit(self.decision_base())
+    }
 }

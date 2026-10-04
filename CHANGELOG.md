@@ -5,7 +5,7 @@ All notable changes to PostProject will be documented here. The project uses
 
 ## Unreleased
 
-- Added atomic commit receipts and terminal cleanup for failed journal preparation (ADR 0045).
+- Added coherent Rust read views, scoped edits, atomic commit receipts and terminal commit cleanup (ADR 0045, C ABI 38).
 
 ## 0.6.0-alpha.1 - 2026-10-04
 

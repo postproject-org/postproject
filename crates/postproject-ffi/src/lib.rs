@@ -245,7 +245,9 @@ pub struct PpTransactionConflict {
     pub qualifier: *const c_char,
     /// Fingerprint algorithm version, or zero when not applicable.
     pub version: u16,
-    /// Base revision supplied by the caller.
+    /// Whether a base revision exists (zero for an empty-journal decision).
+    pub has_base_revision: u8,
+    /// Base revision supplied by the caller when present.
     pub base_revision_id: PpUuid,
     /// Production-local base revision sequence.
     pub base_revision_sequence: u64,
@@ -558,7 +560,9 @@ impl AbiTransactionConflict {
             qualifier: None,
             version: 0,
             base_revision_id: PpUuid {
-                bytes: conflict.base_revision().into_bytes(),
+                bytes: conflict
+                    .base_revision()
+                    .map_or([0; 16], RevisionId::into_bytes),
             },
             base_revision_sequence: conflict.base_sequence(),
             superseding_revision_id: PpUuid {
@@ -634,6 +638,7 @@ impl AbiTransactionConflict {
                 .as_ref()
                 .map_or(ptr::null(), |value| value.as_ptr()),
             version: self.version,
+            has_base_revision: u8::from(self.base_revision_sequence != 0),
             base_revision_id: self.base_revision_id,
             base_revision_sequence: self.base_revision_sequence,
             superseding_revision_id: self.superseding_revision_id,
@@ -6955,6 +6960,7 @@ const fn empty_transaction_conflict() -> PpTransactionConflict {
         local_name: ptr::null(),
         qualifier: ptr::null(),
         version: 0,
+        has_base_revision: 0,
         base_revision_id: PpUuid { bytes: [0; 16] },
         base_revision_sequence: 0,
         superseding_revision_id: PpUuid { bytes: [0; 16] },

@@ -38,6 +38,7 @@ fn main() {
         local_name,
         qualifier,
         version,
+        has_base_revision,
         base_revision_id,
         base_revision_sequence,
         superseding_revision_id,

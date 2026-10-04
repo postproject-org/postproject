@@ -2,16 +2,17 @@
 
 use crate::{
     Activity, ActivityOutputQuery, AgentIdentity, ArtifactEvaluation, ArtifactEvaluationLimits,
-    ArtifactReproducibilityReport, Asset, AssetId, CommitReceipt, Dependency,
+    ArtifactReproducibilityReport, Asset, AssetId, CommitReceipt, DecisionBase, Dependency,
     DependencyQueryLimits, DependencyQueryMatch, DependencySet, DependencyTarget,
     ExternalIdentifier, FileFacts, FilteredRevisionPage, IdentifierScheme, Job, JobClaim,
     JobClaimId, JobFailure, JobId, JobQuery, KnownMediaMatch, Locator, LocatorIdentity, MediaRoot,
     MetadataAssertion, MetadataMatch, MetadataProperty, MetadataQuery, MetadataValue, ObjectRef,
-    OriginalMediaImport, Production, ProvenanceQueryLimits, ProvenanceQueryMatch, QueryPage,
-    QueryPageRequest, RegenerationJobPlan, Representation, RepresentationFingerprint,
-    RepresentationId, RepresentationImport, Resource, ResourceFingerprint, ResourceId, Result,
-    Revision, RevisionContext, RevisionEvent, RevisionEventFilter, RevisionId, StaleArtifactQuery,
-    Timestamp, ToolIdentity, TransactionId, TransactionState,
+    OriginalMediaImport, Production, ProductionReadSession, ProvenanceQueryLimits,
+    ProvenanceQueryMatch, QueryPage, QueryPageRequest, RegenerationJobPlan, Representation,
+    RepresentationFingerprint, RepresentationId, RepresentationImport, Resource,
+    ResourceFingerprint, ResourceId, Result, Revision, RevisionContext, RevisionEvent,
+    RevisionEventFilter, RevisionId, StaleArtifactQuery, Timestamp, ToolIdentity, TransactionId,
+    TransactionState,
 };
 
 /// Read operations required from a production persistence backend.
@@ -831,6 +832,22 @@ pub trait ProductionStoreTransaction {
 
 /// A production persistence backend with explicit domain transactions.
 pub trait ProductionStore: ProductionRead {
+    /// Independently owned coherent read view.
+    type ReadSession: ProductionReadSession;
+
+    /// Opens a coherent view and captures its decision base.
+    ///
+    /// # Errors
+    ///
+    /// Returns storage errors or a changed-production conflict.
+    fn read_session(&self) -> Result<Self::ReadSession>;
+
+    /// Begins a short write guarded by a production-scoped decision base.
+    ///
+    /// # Errors
+    ///
+    /// Rejects wrong scope and invalid revisions, or returns storage errors.
+    fn begin_edit(&mut self, base: DecisionBase) -> Result<Self::Transaction<'_>>;
     /// Backend-specific transaction implementation borrowing this store.
     type Transaction<'production>: ProductionStoreTransaction
     where

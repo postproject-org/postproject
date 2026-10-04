@@ -37,7 +37,7 @@ class TransactionConflict:
     """Machine-readable detail for one optimistic transaction conflict."""
 
     key: ConflictKey
-    base_revision_id: RevisionId
+    base_revision_id: RevisionId | None
     base_revision_sequence: int
     superseding_revision_id: RevisionId
     superseding_revision_sequence: int

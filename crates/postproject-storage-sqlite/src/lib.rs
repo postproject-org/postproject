@@ -27,9 +27,9 @@ use postproject_core::{
     Activity, ActivityEdgeSnapshot, ActivityId, ActivityInput, ActivityKind, ActivityOutput,
     ActivityOutputQuery, ActivityRole, AgentIdentity, ArtifactEvaluation, ArtifactEvaluationLimits,
     ArtifactKnowledgeState, ArtifactReproducibilityReport, Asset, AssetId, ContentStructure,
-    Dependency, DependencyKind, DependencyQueryLimits, DependencyQueryMatch, DependencySet,
-    DependencySetStatus, DependencyTarget, Error, ErrorKind, ExternalIdentifier, FileFacts,
-    FilteredRevisionPage, FingerprintSnapshot, FrameRange, IdentifierScheme,
+    DecisionBase, Dependency, DependencyKind, DependencyQueryLimits, DependencyQueryMatch,
+    DependencySet, DependencySetStatus, DependencyTarget, Error, ErrorKind, ExternalIdentifier,
+    FileFacts, FilteredRevisionPage, FingerprintSnapshot, FrameRange, IdentifierScheme,
     ImageSequenceDescriptor, Job, JobClaim, JobClaimId, JobCompletion, JobFailure, JobId, JobKind,
     JobQuery, JobState, KnownMediaMatch, Locator, LocatorAvailability, LocatorId, LocatorIdentity,
     MAX_REGENERATION_PLANS, MAX_REVISION_PAGE_SIZE, MediaRoot, MediaRootId, MetadataAssertion,
@@ -223,6 +223,21 @@ impl SqliteProduction {
     /// Returns storage errors or conflict if the file's production was replaced.
     pub fn read_session(&self) -> Result<SqliteReadSession> {
         SqliteReadSession::open(self)
+    }
+
+    /// Begins a short write guarded by a coherent view's detached decision base.
+    ///
+    /// # Errors
+    ///
+    /// Rejects wrong productions or inconsistent revision/sequence values;
+    /// returns not found for an absent revision or storage errors on begin.
+    pub fn begin_edit(&mut self, base: DecisionBase) -> Result<SqliteTransaction<'_>> {
+        SqliteTransaction::begin_decision(
+            &mut self.connection,
+            &mut self.production,
+            &self.revision_signal,
+            base,
+        )
     }
 
     /// Begins a transaction based on one durable production revision.
@@ -3667,6 +3682,15 @@ impl Drop for SqliteProduction {
 
 impl ProductionStore for SqliteProduction {
     type Transaction<'production> = SqliteTransaction<'production>;
+    type ReadSession = SqliteReadSession;
+
+    fn read_session(&self) -> Result<Self::ReadSession> {
+        SqliteProduction::read_session(self)
+    }
+
+    fn begin_edit(&mut self, base: DecisionBase) -> Result<Self::Transaction<'_>> {
+        SqliteProduction::begin_edit(self, base)
+    }
 
     fn begin_transaction(&mut self) -> Result<Self::Transaction<'_>> {
         SqliteProduction::begin_transaction(self)

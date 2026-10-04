@@ -105,7 +105,7 @@ impl SemanticConflictKey {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TransactionConflict {
     key: SemanticConflictKey,
-    base_revision: RevisionId,
+    base_revision: Option<RevisionId>,
     base_sequence: u64,
     superseding_revision: RevisionId,
     superseding_sequence: u64,
@@ -117,7 +117,7 @@ impl TransactionConflict {
     #[must_use]
     pub const fn new(
         key: SemanticConflictKey,
-        base_revision: RevisionId,
+        base_revision: Option<RevisionId>,
         base_sequence: u64,
         superseding_revision: RevisionId,
         superseding_sequence: u64,
@@ -137,9 +137,9 @@ impl TransactionConflict {
         &self.key
     }
 
-    /// Returns the revision supplied as the transaction base.
+    /// Returns the base revision, or `None` for a decision from an empty journal.
     #[must_use]
-    pub const fn base_revision(&self) -> RevisionId {
+    pub const fn base_revision(&self) -> Option<RevisionId> {
         self.base_revision
     }
 

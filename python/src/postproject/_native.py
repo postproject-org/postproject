@@ -138,7 +138,11 @@ def _transaction_conflict(native: NativeTransactionConflict) -> TransactionConfl
             qualifier=_optional_text(native.qualifier),
             version=int(native.version) if fingerprint else None,
         ),
-        base_revision_id=RevisionId(UUID(bytes=bytes(native.base_revision_id.bytes))),
+        base_revision_id=(
+            RevisionId(UUID(bytes=bytes(native.base_revision_id.bytes)))
+            if native.has_base_revision
+            else None
+        ),
         base_revision_sequence=int(native.base_revision_sequence),
         superseding_revision_id=RevisionId(
             UUID(bytes=bytes(native.superseding_revision_id.bytes))

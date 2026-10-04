@@ -249,6 +249,7 @@ typedef struct pp_transaction_conflict {
   const char *local_name;
   const char *qualifier;
   uint16_t version;
+  uint8_t has_base_revision;
   pp_uuid_t base_revision_id;
   uint64_t base_revision_sequence;
   pp_uuid_t superseding_revision_id;

@@ -1,6 +1,9 @@
 //! Coherent point reads and pages with deterministic intervening writes (T04).
 
-use postproject_core::{MediaRoot, MediaRootId, QueryPageRequest};
+use postproject_core::{
+    DecisionBase, ErrorKind, MediaRoot, MediaRootId, ProductionReadSession, QueryPageRequest,
+    RevisionId,
+};
 use postproject_media::prepare_original_media;
 use postproject_storage_sqlite::SqliteProduction;
 
@@ -92,4 +95,71 @@ fn pages_and_point_reads_use_one_view_and_drop_releases_checkpoint() {
     assert_eq!(busy, 0);
     let fresh = writer.read_session().unwrap();
     assert!(fresh.read().asset(newer.asset().id()).is_ok());
+}
+
+#[test]
+fn detached_bases_check_scope_pairing_empty_conflicts_and_additive_merge() {
+    let directory = tempfile::tempdir().unwrap();
+    let mut writer = SqliteProduction::create(directory.path().join("edit.pproj"), None).unwrap();
+    let view = writer.read_session().unwrap();
+    let empty = view.decision_base();
+    let root_id = MediaRootId::new();
+    {
+        let mut edit = view.edit(&mut writer).unwrap();
+        edit.add_media_root(MediaRoot::new(root_id, "rushes", None, None, 0, true).unwrap())
+            .unwrap();
+        edit.commit_with_receipt().unwrap();
+    }
+    drop(view);
+    {
+        let mut stale = writer.begin_edit(empty).unwrap();
+        stale.set_media_root_enabled(root_id, false).unwrap();
+        let error = stale.commit_with_receipt().unwrap_err();
+        let conflict = error.transaction_conflict_detail().unwrap();
+        assert_eq!(conflict.base_revision(), None);
+        assert_eq!(conflict.base_sequence(), 0);
+        assert_eq!(conflict.superseding_sequence(), 1);
+    }
+    {
+        let mut additive = writer.begin_edit(empty).unwrap();
+        additive
+            .add_media_root(
+                MediaRoot::new(MediaRootId::new(), "renders", None, None, 0, true).unwrap(),
+            )
+            .unwrap();
+        additive.commit_with_receipt().unwrap();
+    }
+    let current = writer.read_session().unwrap().decision_base();
+    let mut other = SqliteProduction::create(directory.path().join("other.pproj"), None).unwrap();
+    assert_eq!(
+        other.begin_edit(current).err().unwrap().kind(),
+        ErrorKind::InvalidArgument
+    );
+    let forged = DecisionBase::new(
+        current.production_id(),
+        current.revision_id(),
+        current.sequence() + 1,
+    )
+    .unwrap();
+    assert_eq!(
+        writer.begin_edit(forged).err().unwrap().kind(),
+        ErrorKind::InvalidArgument
+    );
+    let missing = DecisionBase::new(current.production_id(), Some(RevisionId::new()), 42).unwrap();
+    assert_eq!(
+        writer.begin_edit(missing).err().unwrap().kind(),
+        ErrorKind::NotFound
+    );
+    assert!(DecisionBase::new(current.production_id(), None, 1).is_err());
+    assert!(DecisionBase::new(current.production_id(), current.revision_id(), 0).is_err());
+    // Failed begin did not retain a write lock or poison the next valid edit.
+    assert!(
+        writer
+            .begin_edit(current)
+            .unwrap()
+            .commit_with_receipt()
+            .unwrap()
+            .revision()
+            .is_none()
+    );
 }

@@ -27,6 +27,10 @@ ABI 38 adds `pp_transaction_commit_with_receipt` and the stack-owned
 are initialized on failure, and no failure result claims a successful commit.
 Every commit attempt is terminal. Existing void commit calls remain available
 during the coordinated consumer migration; no published 0.6 artifact changes.
+Conflict details now have `has_base_revision`: zero represents an empty-journal
+decision, rather than a fabricated UUID. C++/Python project that field as an
+optional revision and CLI JSON uses null. This changes the conflict-record
+layout and requires recompilation with the ABI 38 header.
 
 Productions, transactions, asset sets, media-root sets, representation sets,
 resolution sets, activity sets, external-identifier sets, object-reference sets,

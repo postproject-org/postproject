@@ -1385,7 +1385,7 @@ struct ErrorDetailView {
 #[derive(Debug, Serialize)]
 struct TransactionConflictView {
     key: ConflictKeyView,
-    base_revision_id: String,
+    base_revision_id: Option<String>,
     base_revision_sequence: u64,
     superseding_revision_id: String,
     superseding_revision_sequence: u64,
@@ -5968,7 +5968,7 @@ fn print_conflict_json(error: &anyhow::Error) -> bool {
 fn transaction_conflict_view(conflict: &TransactionConflict) -> TransactionConflictView {
     TransactionConflictView {
         key: conflict_key_view(conflict.key()),
-        base_revision_id: conflict.base_revision().to_string(),
+        base_revision_id: conflict.base_revision().map(|id| id.to_string()),
         base_revision_sequence: conflict.base_sequence(),
         superseding_revision_id: conflict.superseding_revision().to_string(),
         superseding_revision_sequence: conflict.superseding_sequence(),

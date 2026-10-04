@@ -30,7 +30,7 @@ fn update_from_a_base_revision(production: &mut SqliteProduction) -> Result<()> 
             .expect("structured conflict detail");
         assert_eq!(conflict.key().kind(), ConflictKeyKind::MediaRoot);
         assert_eq!(conflict.key(), &SemanticConflictKey::MediaRoot(root_id));
-        assert_eq!(conflict.base_revision(), base.id());
+        assert_eq!(conflict.base_revision(), Some(base.id()));
         assert_eq!(conflict.superseding_revision(), superseding.id());
     }
 

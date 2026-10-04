@@ -117,7 +117,7 @@ fn stale_locator_write_rolls_back_with_structured_conflict() {
         .transaction_conflict_detail()
         .expect("structured conflict detail");
     assert_eq!(detail.key(), &SemanticConflictKey::LocatorSet(resource_id));
-    assert_eq!(detail.base_revision(), base.id());
+    assert_eq!(detail.base_revision(), Some(base.id()));
     assert_eq!(detail.base_sequence(), base.sequence());
     assert_eq!(detail.superseding_revision(), superseding.id());
     assert_eq!(detail.superseding_sequence(), superseding.sequence());

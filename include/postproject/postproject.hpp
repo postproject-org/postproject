@@ -427,7 +427,7 @@ struct ConflictKey final {
 
 struct TransactionConflict final {
   ConflictKey key;
-  Uuid base_revision_id;
+  std::optional<Uuid> base_revision_id;
   std::uint64_t base_revision_sequence;
   Uuid superseding_revision_id;
   std::uint64_t superseding_revision_sequence;
@@ -1370,7 +1370,9 @@ inline Result<void> check(pp_error_code_t status,
              optional_string(native.local_name), optional_string(native.qualifier),
              fingerprint ? std::optional<std::uint16_t>(native.version)
                          : std::nullopt},
-            uuid(native.base_revision_id), native.base_revision_sequence,
+            native.has_base_revision ? std::optional<Uuid>(uuid(native.base_revision_id))
+                                     : std::nullopt,
+            native.base_revision_sequence,
             uuid(native.superseding_revision_id),
             native.superseding_revision_sequence});
   }

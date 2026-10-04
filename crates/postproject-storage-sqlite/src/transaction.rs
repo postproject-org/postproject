@@ -3,15 +3,16 @@
 use std::collections::BTreeMap;
 
 use postproject_core::{
-    Activity, AgentIdentity, CommitReceipt, ContentStructure, ContentStructureKind, Dependency,
-    DependencySetStatus, DependencyTarget, Error, ErrorKind, ExternalIdentifier, FileFacts, Job,
-    JobClaim, JobClaimId, JobFailure, JobId, JobState, Locator, LocatorAvailability, LocatorId,
-    MAX_DEPENDENCIES_PER_SET, MediaRoot, MediaRootId, MetadataProperty, MetadataValue, ObjectRef,
-    OriginalMediaImport, Production, ProductionStoreTransaction, Representation,
-    RepresentationFingerprint, RepresentationId, RepresentationImport, RepresentationKind,
-    Resource, ResourceFingerprint, ResourceId, Result, Revision, RevisionContext,
-    RevisionEventKind, RevisionId, SemanticConflictKey, SequenceNaming, Timestamp, ToolIdentity,
-    TransactionConflict, TransactionId, TransactionLifecycle, TransactionState,
+    Activity, AgentIdentity, CommitReceipt, ContentStructure, ContentStructureKind, DecisionBase,
+    Dependency, DependencySetStatus, DependencyTarget, Error, ErrorKind, ExternalIdentifier,
+    FileFacts, Job, JobClaim, JobClaimId, JobFailure, JobId, JobState, Locator,
+    LocatorAvailability, LocatorId, MAX_DEPENDENCIES_PER_SET, MediaRoot, MediaRootId,
+    MetadataProperty, MetadataValue, ObjectRef, OriginalMediaImport, Production,
+    ProductionStoreTransaction, Representation, RepresentationFingerprint, RepresentationId,
+    RepresentationImport, RepresentationKind, Resource, ResourceFingerprint, ResourceId, Result,
+    Revision, RevisionContext, RevisionEventKind, RevisionId, SemanticConflictKey, SequenceNaming,
+    Timestamp, ToolIdentity, TransactionConflict, TransactionId, TransactionLifecycle,
+    TransactionState,
 };
 use rusqlite::{
     Connection, ErrorCode, OptionalExtension, Transaction, TransactionBehavior, params,
@@ -35,7 +36,7 @@ pub struct SqliteTransaction<'production> {
     pending_roots: Vec<MediaRoot>,
     revision_context: RevisionContext,
     pending_events: Vec<RevisionEventKind>,
-    base_revision: Option<(RevisionId, u64)>,
+    base_revision: Option<(Option<RevisionId>, u64)>,
     pending_conflict_keys: BTreeMap<Vec<u8>, SemanticConflictKey>,
     revision_signal: &'production RevisionSignal,
 }
@@ -56,6 +57,32 @@ impl<'production> SqliteTransaction<'production> {
         base_revision: RevisionId,
     ) -> Result<Self> {
         Self::begin_with_base(connection, production, revision_signal, Some(base_revision))
+    }
+
+    pub(crate) fn begin_decision(
+        connection: &'production mut Connection,
+        production: &'production mut Production,
+        revision_signal: &'production RevisionSignal,
+        base: DecisionBase,
+    ) -> Result<Self> {
+        if base.production_id() != production.id() {
+            return Err(Error::new(
+                ErrorKind::InvalidArgument,
+                "decision base belongs to another production",
+            ));
+        }
+        let mut edit =
+            Self::begin_with_base(connection, production, revision_signal, base.revision_id())?;
+        let sequence = edit.base_revision.map_or(0, |(_, sequence)| sequence);
+        if sequence != base.sequence() {
+            return Err(Error::new(
+                ErrorKind::InvalidArgument,
+                "decision revision and sequence do not match",
+            ));
+        }
+        // A protected empty base differs from the legacy unbased write path.
+        edit.base_revision = Some((base.revision_id(), base.sequence()));
+        Ok(edit)
     }
 
     fn begin_with_base(
@@ -86,10 +113,17 @@ impl<'production> SqliteTransaction<'production> {
                     .and_then(|sequence| {
                         crate::stored_u64(sequence, "transaction base revision sequence")
                     })
-                    .map(|sequence| (revision_id, sequence))
+                    .map(|sequence| (Some(revision_id), sequence))
             })
             .transpose()?;
-        let pending_roots = production.media_roots().to_vec();
+        let current = crate::load_production(&transaction)?;
+        if current.id() != production.id() {
+            return Err(Error::new(
+                ErrorKind::Conflict,
+                "production identity changed",
+            ));
+        }
+        let pending_roots = current.media_roots().to_vec();
         Ok(Self {
             transaction: Some(transaction),
             lifecycle: TransactionLifecycle::new(),
@@ -830,6 +864,9 @@ impl<'production> SqliteTransaction<'production> {
             .sort_by_key(|item| (item.priority(), item.id()));
         self.pending_events
             .push(RevisionEventKind::MediaRootAdded { media_root_id });
+        // New identities still merge independently; recording their initial
+        // version protects later updates made from an older, possibly empty view.
+        self.record_conflict_key(SemanticConflictKey::MediaRoot(media_root_id))?;
         Ok(())
     }
 
@@ -1741,7 +1778,7 @@ impl<'production> SqliteTransaction<'production> {
 
 fn find_transaction_conflict(
     transaction: &Transaction<'_>,
-    (base_revision, base_sequence): (RevisionId, u64),
+    (base_revision, base_sequence): (Option<RevisionId>, u64),
     keys: &BTreeMap<Vec<u8>, SemanticConflictKey>,
 ) -> Result<Option<TransactionConflict>> {
     let baseline = transaction
