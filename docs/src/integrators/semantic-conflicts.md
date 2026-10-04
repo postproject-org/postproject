@@ -11,7 +11,12 @@ ordinary serialized-write behavior.
 
 ## Use a base for read–decide–write flows
 
-The host flow is:
+Start with {doc}`coherent-reads`: retain one read view, copy the facts needed for
+the decision, then edit from its scoped base. This also protects decisions made
+from the initial empty journal. The older revision-ID recipe below remains
+available during migration:
+
+The legacy host flow is:
 
 1. retain the latest revision before reading the relevant objects, then read
    the latest revision again and discard the reads if it changed;
