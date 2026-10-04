@@ -33,6 +33,7 @@ def expected_layout(module: ModuleType) -> dict[str, int]:
     expected: dict[str, int] = {}
     for c_name, (structure, fields) in public_structs.items():
         expected[f"{c_name}.size"] = ctypes.sizeof(structure)
+        expected[f"{c_name}.alignment"] = ctypes.alignment(structure)
         for field in fields:
             expected[f"{c_name}.{field}"] = getattr(structure, field).offset
     return expected

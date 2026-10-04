@@ -312,6 +312,9 @@ def render_layout_c(header: Header) -> str:
         lines.append(
             f'  printf("{struct.alias}.size=%zu\\n", sizeof({struct.alias}));'
         )
+        lines.append(
+            f'  printf("{struct.alias}.alignment=%zu\\n", _Alignof({struct.alias}));'
+        )
         for field in struct.fields:
             lines.append(
                 f'  printf("{struct.alias}.{field.name}=%zu\\n", '
@@ -319,6 +322,41 @@ def render_layout_c(header: Header) -> str:
             )
     lines.extend(["  return 0;", "}"])
     return "\n".join(lines) + "\n"
+
+
+def render_layout_rust(header: Header) -> str:
+    """Probe the implementation's types using the authoritative header fields."""
+    types = [
+        "".join(part.title() for part in struct.tag.split("_"))
+        for struct in header.structs
+        if struct.fields is not None
+    ]
+    lines = [
+        "//! Generated implementation layout probe; do not edit manually.",
+        "use postproject::{" + ", ".join(sorted(types)) + ",};",
+        "use std::mem::{align_of, offset_of, size_of};",
+        "",
+        "macro_rules! layout {",
+        "    ($ty:ty, $name:literal, $($field:ident),+) => {{",
+        '        println!(concat!($name, ".size={}"), size_of::<$ty>());',
+        '        println!(concat!($name, ".alignment={}"), align_of::<$ty>());',
+        '        $(println!(concat!($name, ".", stringify!($field), "={}"),',
+        "                   offset_of!($ty, $field));)+",
+        "    }};",
+        "}",
+        "",
+        "// One generated invocation per public struct keeps the probe auditable.",
+        "#[allow(clippy::too_many_lines)]",
+        "fn main() {",
+    ]
+    for struct in header.structs:
+        if struct.fields is None:
+            continue
+        rust_type = "".join(part.title() for part in struct.tag.split("_"))
+        fields = ", ".join(field.name for field in struct.fields)
+        lines.append(f'    layout!({rust_type}, "{struct.alias}", {fields});')
+    lines.extend(["}", ""])
+    return "\n".join(lines)
 
 
 def _render_ctype(ctype: CType) -> str:
@@ -353,6 +391,7 @@ def main() -> int:
     output = parser.add_mutually_exclusive_group()
     output.add_argument("--symbols", action="store_true")
     output.add_argument("--layout-c", action="store_true")
+    output.add_argument("--layout-rust", action="store_true")
     arguments = parser.parse_args()
     try:
         header = parse_header(arguments.header.read_text(encoding="utf-8"))
@@ -362,6 +401,8 @@ def main() -> int:
         rendered = render_symbols(header)
     elif arguments.layout_c:
         rendered = render_layout_c(header)
+    elif arguments.layout_rust:
+        rendered = render_layout_rust(header)
     else:
         rendered = render_python(header, str(arguments.header))
     sys.stdout.write(rendered)

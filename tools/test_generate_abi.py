@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import re
 import sys
 import unittest
 from pathlib import Path
@@ -53,8 +54,25 @@ class GenerateAbiTests(unittest.TestCase):
             if struct.fields is None:
                 continue
             self.assertIn(f"sizeof({struct.alias})", probe)
+            self.assertIn(f"_Alignof({struct.alias})", probe)
             for field in struct.fields:
                 self.assertIn(f"offsetof({struct.alias}, {field.name})", probe)
+
+    def test_rust_layout_probe_covers_same_fields_and_skips_opaque_handles(self) -> None:
+        source = """
+        typedef struct pp_uuid { uint8_t bytes[16]; } pp_uuid_t;
+        typedef struct pp_production pp_production_t;
+        PP_API void pp_use_uuid(pp_uuid_t value);
+        """
+        probe = GENERATOR.render_layout_rust(GENERATOR.parse_header(source))
+        self.assertIn('layout!(PpUuid, "pp_uuid_t", bytes);', probe)
+        self.assertNotIn("PpProduction", probe)
+
+    def test_committed_rust_probe_matches_header(self) -> None:
+        probe = GENERATOR.render_layout_rust(self.header)
+        committed = (ROOT / "crates/postproject-ffi/examples/abi_layout.rs").read_text()
+        # rustfmt wraps long macro invocations; compare the generated tokens.
+        self.assertEqual(re.sub(r"\s+", "", probe), re.sub(r"\s+", "", committed))
 
 
 if __name__ == "__main__":

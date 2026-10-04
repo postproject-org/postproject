@@ -42,6 +42,13 @@ class CheckAbiLayoutTests(unittest.TestCase):
         with self.assertRaisesRegex(CHECKER.LayoutError, "missing compiler value"):
             CHECKER.verify_layout(self.expected, actual)
 
+    def test_alignment_mismatch_is_rejected(self) -> None:
+        actual = dict(self.expected)
+        key = next(key for key in actual if key.endswith(".alignment"))
+        actual[key] *= 2
+        with self.assertRaisesRegex(CHECKER.LayoutError, "layout mismatch"):
+            CHECKER.verify_layout(self.expected, actual)
+
     def test_duplicate_value_is_rejected(self) -> None:
         with self.assertRaisesRegex(CHECKER.LayoutError, "invalid layout line"):
             CHECKER.parse_layout(["pp_uuid_t.size=16\n", "pp_uuid_t.size=16\n"])
