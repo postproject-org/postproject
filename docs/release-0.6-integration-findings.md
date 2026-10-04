@@ -131,3 +131,77 @@ host. Family dependencies have validated acyclic closure and deterministic
 proposal output. Tests cover incomplete Result helpers and the historical
 identifiers/resolution-without-foundations case. Historical 0.5 reports are
 unchanged. Mechanical eligibility does not establish maintainer approval.
+
+## OBS readback and shutdown
+
+The initial C recipe assumed representation row zero was the imported
+original. A public-API fixture added a proxy between media import and capture
+registration and reproduced capture provenance attached to that proxy.
+Representation ordering does not express original identity. The adapter now
+examines a bounded set, selects a unique original single-resource representation
+and refuses ambiguity. The C regression verifies activity outputs on both
+original and proxy. This is host policy; no shared API or schema changed.
+
+The successful output callback copies bounded facts only. One joined worker
+owns probe/hash/staging/commit and cleanup, with one pending attempt and explicit
+retry of the latest retained attempt. Accepted failure and shutdown runs keep
+fully decodable recordings. Already running fingerprint I/O remains a shutdown
+latency limitation. The final normal run measured 0.012 ms callback enqueue,
+134.226 ms worker elapsed, 0.648 ms staging and 2.644 ms commit calls. Close during
+work measured 0.017 ms enqueue and 130.562 ms worker elapsed before cancellation
+and join. These tiny fixtures provide informational observations, not budgets.
+
+## Natron decisions and conflicts
+
+The pinned host loads the native C++ extension in embedded CPython 3.10.
+Its two genuine padded PNG sequences share a directory; explicit adoption
+preserves both producer identities and unknown metadata. Named-root movement,
+verification, bounded recorded-locator display, revision refresh, save/reopen,
+and dependency-free filename fallback pass through real Reader/Writer runs.
+The bridge never substitutes PostProject's Python binding for native calls.
+
+A decision reads its base before the facts and checks the revision again after
+resolution. Host object, association and filename checks discard obsolete
+asynchronous results before application. Already recorded locations are
+read-only no-ops; new confirmation uses the retained base. An independent
+public-API writer invalidates the old locator decision: structured conflict
+information reaches the bridge, the transaction closes, and the Reader keeps
+its fallback. Partial frames, ambiguous candidates, close/cancel and copied
+result values have separate negative evidence.
+
+The guide's former read-then-base recipe could attach a new base to stale facts.
+The corrected recipe uses a before/after revision fence, documents empty
+productions without a base, and never calls a later latest revision its own
+commit receipt. This is a documentation repair to existing contracts.
+
+The actual native lookup path averaged 2.452 ms for 100 queries with two assets
+and 2.727 ms with 202 assets. This single Linux observation tests the real
+naming-aware path and is informational. It does not calibrate a hard CI limit.
+
+## Usability, collaboration and standards review
+
+The {doc}`src/integrators/native-host-actions` links runnable installed C/C++
+recipes for ordinary success, partial acquisition cleanup, terminal transactions,
+retained decisions, no-op confirmation, ownership and stale/conflict handling.
+C owns every handle and copies bounded outputs; C++ uses owning values and all
+Result propagation helpers. No host allocator releases native memory.
+
+Both pilots retain canonical production/object identity and ordinary host
+filename fallback. Origin is application/version, not authenticated person
+identity. Mutations remain explicit and atomic; durable revisions support
+refresh without pretending to observe file changes automatically. OBS's two
+commits are independently retryable facts, not a claimed atomic capture-plus-
+import transaction. Sequence frame number, playback rate and naming remain
+separate. Missing/ambiguous media is never silently remapped.
+
+The C header, C++ wrapper and Python implementation remain byte-for-byte
+unchanged from released 0.5. No new domain primitive was necessary. Under the
+standards policy, local cleanup, host scheduling, existing binding strings,
+qualified host identifiers and observation activities add no normative
+standards mapping. Unknown metadata remains verbatim. ADR 0044 records the
+shared lifetime correction; the evidence tool's clarification stays in ADR 0040.
+
+No render worker extension was selected. Natron's bounded Reader path supplies
+no trustworthy job renew/fail/cancel lifecycle, and neither pilot claims job
+coverage. Audacity and Krita remain documented no-go decisions; neither is
+represented as an accepted host workflow.
