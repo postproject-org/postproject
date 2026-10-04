@@ -170,7 +170,7 @@ class ChangeDeliveryTests(unittest.TestCase):
                 event.payload for event in waiting.revision_events[succeeded.id]
             ]
             job_ids = [
-                str(payload.job_id.value)
+                str(payload.job_id)
                 for payload in payloads
                 if isinstance(payload, JobSucceededEvent)
             ]

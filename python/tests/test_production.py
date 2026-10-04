@@ -13,6 +13,7 @@ from postproject import (
     ActivityEdge,
     ActivityInputAddedEvent,
     ActivityOutputAddedEvent,
+    ActivityRef,
     ActivitySpec,
     AgentIdentity,
     ArtifactEdgeKind,
@@ -20,6 +21,7 @@ from postproject import (
     ArtifactReasonKind,
     AssetId,
     AssetImportedEvent,
+    AssetRef,
     AvailabilityIssueKind,
     CancelledError,
     CancelToken,
@@ -47,6 +49,7 @@ from postproject import (
     JobClaimRenewedEvent,
     JobFailedEvent,
     JobId,
+    JobRef,
     JobRequest,
     JobRequestedEvent,
     JobState,
@@ -83,16 +86,19 @@ from postproject import (
     OriginIdentity,
     PackageSource,
     Production,
+    ProductionRef,
     ProvenanceMatch,
     RepresentationAddedEvent,
     RepresentationAvailability,
     RepresentationFingerprintObservedEvent,
     RepresentationId,
     RepresentationKind,
+    RepresentationRef,
     RepresentationResourceAddedEvent,
     ResourceAddedEvent,
     ResourceFingerprintObservedEvent,
     ResourceId,
+    ResourceRef,
     ResourceResolutionState,
     RevisionContext,
     RevisionId,
@@ -374,7 +380,10 @@ class ProductionTests(unittest.TestCase):
             self.assertIsNone(production.dependency_set(representations[0].id))
             self.assertEqual(
                 production.dependents(
-                    asset_id, max_depth=1, max_representations=1000, limit=1000
+                    AssetRef(asset_id),
+                    max_depth=1,
+                    max_representations=1000,
+                    limit=1000,
                 ).items,
                 (),
             )
@@ -818,7 +827,7 @@ class ProductionTests(unittest.TestCase):
             )
             dependency = Dependency(
                 kind="org.postproject:reference.character",
-                target=asset_id,
+                target=AssetRef(asset_id),
                 authored_reference="../Characters/Lead A.blend#Rig",
                 source_resource_id=proxy.resources[0].id,
                 resolved_representation_id=original.id,
@@ -840,17 +849,19 @@ class ProductionTests(unittest.TestCase):
             self.assertEqual(recorded.status, DependencySetStatus.CURRENT)
             self.assertEqual(recorded.dependencies, (dependency,))
             dependents = production.dependents(
-                asset_id, max_depth=1, max_representations=1000, limit=1000
+                AssetRef(asset_id), max_depth=1, max_representations=1000, limit=1000
             )
             self.assertEqual(
-                tuple(match.target for match in dependents.items), (proxy_id,)
+                tuple(match.target for match in dependents.items),
+                (RepresentationRef(proxy_id),),
             )
             self.assertEqual(tuple(match.depth for match in dependents.items), (1,))
             dependencies = production.dependencies(
                 proxy_id, max_depth=2, max_representations=1000, limit=1000
             )
             self.assertEqual(
-                tuple(match.target for match in dependencies.items), (asset_id,)
+                tuple(match.target for match in dependencies.items),
+                (AssetRef(asset_id),),
             )
 
             with production.transaction() as transaction:
@@ -862,7 +873,10 @@ class ProductionTests(unittest.TestCase):
             self.assertEqual(empty.dependencies, ())
             self.assertEqual(
                 production.dependents(
-                    asset_id, max_depth=1, max_representations=1000, limit=1000
+                    AssetRef(asset_id),
+                    max_depth=1,
+                    max_representations=1000,
+                    limit=1000,
                 ).items,
                 (),
             )
@@ -874,11 +888,11 @@ class ProductionTests(unittest.TestCase):
             with production.transaction() as transaction:
                 asset_id = transaction.import_media(self.media_path)
 
-            encoded = production.host_bindings[asset_id]
+            encoded = production.host_bindings[AssetRef(asset_id)]
             self.assertTrue(encoded.startswith("https://postproject.org/ref/v1/"))
             self.assertEqual(
                 production.host_bindings.parse(encoded),
-                HostObjectBinding(production.id, asset_id),
+                HostObjectBinding(production.id, AssetRef(asset_id)),
             )
             with self.assertRaises(InvalidArgumentError):
                 production.host_bindings.parse("postproject:v1:obsolete")
@@ -987,7 +1001,7 @@ class ProductionTests(unittest.TestCase):
             conflict = raised.exception.conflict
             assert conflict is not None
             self.assertEqual(conflict.key.kind, ConflictKeyKind.LOCATOR_SET)
-            self.assertEqual(conflict.key.target, resource_id)
+            self.assertEqual(conflict.key.target, ResourceRef(resource_id))
             self.assertEqual(conflict.base_revision_id, base.id)
             self.assertEqual(conflict.base_revision_sequence, base.sequence)
             self.assertEqual(conflict.superseding_revision_id, superseding.id)
@@ -1038,23 +1052,24 @@ class ProductionTests(unittest.TestCase):
                 asset_id = transaction.import_media(self.media_path)
 
             with production.transaction() as transaction:
-                transaction.add_external_identifier(asset_id, camera_id)
-                transaction.add_external_identifier(asset_id, umid)
+                transaction.add_external_identifier(AssetRef(asset_id), camera_id)
+                transaction.add_external_identifier(AssetRef(asset_id), umid)
 
             self.assertEqual(
-                set(production.external_identifiers[asset_id]), {camera_id, umid}
+                set(production.external_identifiers[AssetRef(asset_id)]),
+                {camera_id, umid},
             )
             self.assertEqual(
                 production.objects_by_external_identifier[
                     camera_id.scheme, camera_id.value
                 ],
-                (asset_id,),
+                (AssetRef(asset_id),),
             )
             self.assertEqual(
                 production.objects_by_external_identifier[
                     camera_id.scheme, camera_id.value, "primary"
                 ],
-                (asset_id,),
+                (AssetRef(asset_id),),
             )
             self.assertEqual(
                 production.objects_by_external_identifier[
@@ -1073,9 +1088,11 @@ class ProductionTests(unittest.TestCase):
             )
 
             with production.transaction() as transaction:
-                transaction.remove_external_identifier(asset_id, camera_id)
+                transaction.remove_external_identifier(AssetRef(asset_id), camera_id)
 
-            self.assertEqual(production.external_identifiers[asset_id], (umid,))
+            self.assertEqual(
+                production.external_identifiers[AssetRef(asset_id)], (umid,)
+            )
             self.assertEqual(
                 production.objects_by_external_identifier[
                     camera_id.scheme, camera_id.value
@@ -1088,7 +1105,7 @@ class ProductionTests(unittest.TestCase):
             self.assertEqual(len(removed), 1)
             payload = removed[0].payload
             assert isinstance(payload, ExternalIdentifierRemovedEvent)
-            self.assertEqual(payload.target, asset_id)
+            self.assertEqual(payload.target, AssetRef(asset_id))
             self.assertEqual(payload.identifier, camera_id)
 
     def test_resolution_results_are_typed_and_keyed_by_asset(self) -> None:
@@ -1206,7 +1223,8 @@ class ProductionTests(unittest.TestCase):
         ):
             with production.transaction() as transaction:
                 transaction.add_external_identifier(
-                    production.id, ExternalIdentifier("invalid\0scheme", "value")
+                    ProductionRef(production.id),
+                    ExternalIdentifier("invalid\0scheme", "value"),
                 )
 
     def test_text_metadata_is_typed_repeatable_searchable_and_removable(self) -> None:
@@ -1220,14 +1238,14 @@ class ProductionTests(unittest.TestCase):
                 asset_id = transaction.import_media(self.media_path)
 
             with production.transaction() as transaction:
-                transaction.add_metadata(asset_id, title, plain)
-                transaction.add_metadata(asset_id, title, localized)
+                transaction.add_metadata(AssetRef(asset_id), title, plain)
+                transaction.add_metadata(AssetRef(asset_id), title, localized)
 
             expected = (
-                MetadataAssertion(asset_id, title, plain),
-                MetadataAssertion(asset_id, title, localized),
+                MetadataAssertion(AssetRef(asset_id), title, plain),
+                MetadataAssertion(AssetRef(asset_id), title, localized),
             )
-            self.assertEqual(production.metadata[asset_id], expected)
+            self.assertEqual(production.metadata[AssetRef(asset_id)], expected)
             self.assertEqual(production.metadata_by_property[title], expected)
             revision = production.latest_revision
             assert revision is not None
@@ -1240,9 +1258,9 @@ class ProductionTests(unittest.TestCase):
             )
 
             with production.transaction() as transaction:
-                transaction.remove_metadata_property(asset_id, title)
+                transaction.remove_metadata_property(AssetRef(asset_id), title)
 
-            self.assertEqual(production.metadata[asset_id], ())
+            self.assertEqual(production.metadata[AssetRef(asset_id)], ())
             self.assertEqual(production.metadata_by_property[title], ())
             revision = production.latest_revision
             assert revision is not None
@@ -1250,7 +1268,7 @@ class ProductionTests(unittest.TestCase):
             self.assertEqual(len(removed), 1)
             payload = removed[0].payload
             assert isinstance(payload, MetadataRemovedEvent)
-            self.assertEqual(payload.target, asset_id)
+            self.assertEqual(payload.target, AssetRef(asset_id))
             self.assertEqual(payload.property, title)
 
     def test_recursive_typed_metadata_write_roundtrips(self) -> None:
@@ -1275,7 +1293,7 @@ class ProductionTests(unittest.TestCase):
                     ),
                     MetadataStructField("payload", MetadataBytes(b"\x00\xff")),
                     MetadataStructField("rate", MetadataRational(24_000, 1_001)),
-                    MetadataStructField("asset", MetadataReference(asset_id)),
+                    MetadataStructField("asset", MetadataReference(AssetRef(asset_id))),
                     MetadataStructField(
                         "labels",
                         MetadataList(
@@ -1288,11 +1306,11 @@ class ProductionTests(unittest.TestCase):
                 )
             )
             with production.transaction() as transaction:
-                transaction.add_metadata(asset_id, property, value)
+                transaction.add_metadata(AssetRef(asset_id), property, value)
 
             self.assertEqual(
-                production.metadata[asset_id],
-                (MetadataAssertion(asset_id, property, value),),
+                production.metadata[AssetRef(asset_id)],
+                (MetadataAssertion(AssetRef(asset_id), property, value),),
             )
 
     def test_provenance_activity_roundtrips_and_supports_graph_queries(self) -> None:
@@ -1410,7 +1428,9 @@ class ProductionTests(unittest.TestCase):
                     )
                 )
                 transaction.add_metadata(
-                    activity_id, parameter, MetadataString("editorial-proxy")
+                    ActivityRef(activity_id),
+                    parameter,
+                    MetadataString("editorial-proxy"),
                 )
 
             current = production.evaluate_artifact(output.id)
@@ -1526,11 +1546,11 @@ class ProductionTests(unittest.TestCase):
 
             changed = production.objects_changed_since(imported.sequence, limit=1000)
             self.assertIsNone(changed.next_cursor)
-            self.assertIn(resource.id, changed.items)
+            self.assertIn(ResourceRef(resource.id), changed.items)
             self.assertNotIn(second_asset, changed.items)
             everything = production.objects_changed_since(0, limit=1000).items
-            self.assertIn(first_asset, everything)
-            self.assertIn(second_asset, everything)
+            self.assertIn(AssetRef(first_asset), everything)
+            self.assertIn(AssetRef(second_asset), everything)
             first_change = production.objects_changed_since(0, limit=1)
             assert first_change.next_cursor is not None
             rest = production.objects_changed_since(
@@ -1559,9 +1579,13 @@ class ProductionTests(unittest.TestCase):
                 first_asset = transaction.import_media(self.media_path)
                 second_asset = transaction.import_media(self.second_media_path)
             with production.transaction() as transaction:
-                transaction.add_metadata(first_asset, scene, MetadataString("12A"))
-                transaction.add_metadata(second_asset, scene, MetadataString("14"))
-                transaction.add_metadata(second_asset, scene, MetadataU64(12))
+                transaction.add_metadata(
+                    AssetRef(first_asset), scene, MetadataString("12A")
+                )
+                transaction.add_metadata(
+                    AssetRef(second_asset), scene, MetadataString("14")
+                )
+                transaction.add_metadata(AssetRef(second_asset), scene, MetadataU64(12))
 
             everything = production.query_metadata(scene, limit=1000)
             self.assertIsNone(everything.next_cursor)
@@ -1583,11 +1607,16 @@ class ProductionTests(unittest.TestCase):
             )
             self.assertEqual(
                 exact.items,
-                (MetadataAssertion(first_asset, scene, MetadataString("12A")),),
+                (
+                    MetadataAssertion(
+                        AssetRef(first_asset), scene, MetadataString("12A")
+                    ),
+                ),
             )
             typed = production.query_metadata(scene, limit=1000, value=MetadataU64(12))
             self.assertEqual(
-                typed.items, (MetadataAssertion(second_asset, scene, MetadataU64(12)),)
+                typed.items,
+                (MetadataAssertion(AssetRef(second_asset), scene, MetadataU64(12)),),
             )
             self.assertEqual(
                 production.query_metadata(
@@ -1729,7 +1758,9 @@ class ProductionTests(unittest.TestCase):
                     )
                 )
                 transaction.add_metadata(
-                    activity_id, parameter, MetadataString("editorial-proxy")
+                    ActivityRef(activity_id),
+                    parameter,
+                    MetadataString("editorial-proxy"),
                 )
             revision = production.latest_revision
 
@@ -1749,7 +1780,9 @@ class ProductionTests(unittest.TestCase):
                 plan.parameters,
                 (
                     MetadataAssertion(
-                        plan.job.id, parameter, MetadataString("editorial-proxy")
+                        JobRef(plan.job.id),
+                        parameter,
+                        MetadataString("editorial-proxy"),
                     ),
                 ),
             )

@@ -52,6 +52,7 @@ jobs:
       - run: ruff check python/src python/tests examples/python docs/examples/python docs/_ext
       - run: ruff format --check python/src python/tests examples/python docs/examples/python docs/_ext
       - run: ty check --project python python/src python/tests examples/python docs/examples/python
+      - run: python tools/check_python_id_typing.py
       - run: python tools/check_versions.py
       - run: python tools/check_architecture.py
       - run: python -m unittest tools/test_check_architecture.py
