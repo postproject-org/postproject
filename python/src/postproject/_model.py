@@ -114,6 +114,14 @@ class CommittedRevision:
 
 
 @dataclass(frozen=True, slots=True)
+class DecisionBase:
+    """Detached production-scoped decision context, without a retained view."""
+
+    production_id: ProductionId
+    revision: CommittedRevision | None
+
+
+@dataclass(frozen=True, slots=True)
 class CommitReceipt:
     """Atomic commit outcome; no revision means no new journal entry."""
 

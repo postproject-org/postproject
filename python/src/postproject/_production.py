@@ -97,6 +97,7 @@ from ._model import (
     ContentObservationOutcome,
     ContentStructureKind,
     ContentVerification,
+    DecisionBase,
     Dependency,
     DependencyMatch,
     DependencySet,
@@ -1635,6 +1636,39 @@ class Production:
         finally:
             self._native.lib.pp_resolution_set_release(handle)
 
+    def read_session(self) -> ReadSession:
+        """Open a pinned view with its production and revision captured together."""
+        self._require_open()
+        handle = ctypes.POINTER(_abi.ReadSession)()
+        error = ctypes.POINTER(Error)()
+        status = self._native.lib.pp_production_read_session(
+            self._handle, ctypes.byref(handle), ctypes.byref(error)
+        )
+        self._native.check(status, error)
+        return ReadSession(self._native, handle)
+
+    def edit(self, base: DecisionBase) -> Edit:
+        """Begin an explicit-commit edit from detached production-scoped context."""
+        self._require_open()
+        value = _abi.DecisionBase()
+        value.production_id = _native_uuid(base.production_id.value)
+        if base.revision is not None:
+            if (
+                type(base.revision.sequence) is not int
+                or not 0 < base.revision.sequence <= 2**64 - 1
+            ):
+                raise ValueError("decision sequence must be a positive uint64")
+            value.has_revision = 1
+            value.revision_id = _native_uuid(base.revision.id.value)
+            value.revision_sequence = base.revision.sequence
+        handle = ctypes.POINTER(NativeTransaction)()
+        error = ctypes.POINTER(Error)()
+        status = self._native.lib.pp_production_begin_edit(
+            self._handle, ctypes.byref(value), ctypes.byref(handle), ctypes.byref(error)
+        )
+        self._native.check(status, error)
+        return Edit(self._native, handle)
+
     def transaction(
         self,
         *,
@@ -1836,6 +1870,175 @@ _WAIT_RESULTS = {
     _abi.PP_REVISION_WAIT_CLOSED: RevisionWaitResult.CLOSED,
     _abi.PP_REVISION_WAIT_CANCELLED: RevisionWaitResult.CANCELLED,
 }
+
+
+class ReadSession:
+    """Owned pinned view; copied results outlive close, further reads reject."""
+
+    def __init__(
+        self, native: NativeLibrary, handle: _Pointer[_abi.ReadSession]
+    ) -> None:
+        self._native = native
+        self._handle = handle
+        self._finalizer = weakref.finalize(
+            self, native.lib.pp_read_session_release, handle
+        )
+
+    @property
+    def decision_base(self) -> DecisionBase:
+        """Detach the revision and production captured with this view."""
+        self._require_open()
+        value = _abi.DecisionBase()
+        error = ctypes.POINTER(Error)()
+        status = self._native.lib.pp_read_session_decision_base(
+            self._handle, ctypes.byref(value), ctypes.byref(error)
+        )
+        self._native.check(status, error)
+        revision = (
+            CommittedRevision(
+                RevisionId(_uuid(value.revision_id)), int(value.revision_sequence)
+            )
+            if value.has_revision
+            else None
+        )
+        return DecisionBase(ProductionId(_uuid(value.production_id)), revision)
+
+    def edit(self) -> Edit:
+        """Create an explicit-commit edit carrying this view's base."""
+        self._require_open()
+        handle = ctypes.POINTER(NativeTransaction)()
+        error = ctypes.POINTER(Error)()
+        status = self._native.lib.pp_read_session_begin_edit(
+            self._handle, ctypes.byref(handle), ctypes.byref(error)
+        )
+        self._native.check(status, error)
+        return Edit(self._native, handle)
+
+    def asset(self, asset_id: AssetId) -> Asset:
+        """Return one asset, raising ``NotFoundError`` when it is absent."""
+
+        self._require_open()
+        native_id = _native_uuid(asset_id.value)
+        handle = ctypes.POINTER(AssetSet)()
+        error = ctypes.POINTER(Error)()
+        status = self._native.lib.pp_read_session_asset(
+            self._handle,
+            ctypes.byref(native_id),
+            ctypes.byref(handle),
+            ctypes.byref(error),
+        )
+        self._native.check(status, error)
+        if not handle:
+            raise RuntimeError("native asset read returned no result set")
+        try:
+            if self._native.lib.pp_asset_set_count(handle) != 1:
+                raise RuntimeError("native asset read returned no single asset")
+            return _asset_at(self._native, handle, 0)
+        finally:
+            self._native.lib.pp_asset_set_release(handle)
+
+    def representation(self, representation_id: RepresentationId) -> Representation:
+        """Return one representation, raising ``NotFoundError`` when absent."""
+
+        self._require_open()
+        native_id = _native_uuid(representation_id.value)
+        page = self._representation_page(
+            self._native.lib.pp_read_session_representation,
+            self._handle,
+            ctypes.byref(native_id),
+        )
+        if len(page.items) != 1:
+            raise RuntimeError(
+                "native representation read returned no single representation"
+            )
+        return page.items[0]
+
+    def assets_page(self, *, limit: int, cursor: str | None = None) -> QueryPage[Asset]:
+        """Return one bounded asset page in creation and identity order."""
+
+        self._require_open()
+        handle = ctypes.POINTER(AssetSet)()
+        error = ctypes.POINTER(Error)()
+        status = self._native.lib.pp_read_session_assets_page(
+            self._handle,
+            limit,
+            _optional_text(cursor),
+            ctypes.byref(handle),
+            ctypes.byref(error),
+        )
+        self._native.check(status, error)
+        if not handle:
+            raise RuntimeError("native asset query returned no result set")
+        try:
+            count = self._native.lib.pp_asset_set_count(handle)
+            return QueryPage(
+                tuple(
+                    _asset_at(self._native, handle, index)
+                    for index in range(int(count))
+                ),
+                _decode_optional(self._native.lib.pp_asset_set_next_cursor(handle)),
+            )
+        finally:
+            self._native.lib.pp_asset_set_release(handle)
+
+    def representations_page(
+        self, asset_id: AssetId, *, limit: int, cursor: str | None = None
+    ) -> QueryPage[Representation]:
+        """Return one bounded page of representations belonging to an asset."""
+
+        self._require_open()
+        native_id = _native_uuid(asset_id.value)
+        return self._representation_page(
+            self._native.lib.pp_read_session_representations_page,
+            self._handle,
+            ctypes.byref(native_id),
+            limit,
+            _optional_text(cursor),
+        )
+
+    def _representation_page(
+        self, function: Callable[..., int], *arguments: object
+    ) -> QueryPage[Representation]:
+        handle = ctypes.POINTER(RepresentationSet)()
+        error = ctypes.POINTER(Error)()
+        status = function(*arguments, ctypes.byref(handle), ctypes.byref(error))
+        self._native.check(status, error)
+        if not handle:
+            raise RuntimeError("native representation query returned no result set")
+        try:
+            count = self._native.lib.pp_representation_set_count(handle)
+            return QueryPage(
+                tuple(
+                    _representation_at(self._native, handle, index)
+                    for index in range(int(count))
+                ),
+                _decode_optional(
+                    self._native.lib.pp_representation_set_next_cursor(handle)
+                ),
+            )
+        finally:
+            self._native.lib.pp_representation_set_release(handle)
+
+    def close(self) -> None:
+        """Release the pinned view; repeated calls are harmless."""
+        self._finalizer()
+        self._handle = ctypes.POINTER(_abi.ReadSession)()
+
+    def _require_open(self) -> None:
+        if not self._finalizer.alive:
+            raise RuntimeError("read session is closed")
+
+    def __enter__(self) -> Self:
+        self._require_open()
+        return self
+
+    def __exit__(
+        self,
+        exception_type: type[BaseException] | None,
+        exception: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        self.close()
 
 
 class RevisionWaiter:
@@ -2646,6 +2849,22 @@ class Transaction:
             raise RuntimeError("transaction is closed")
         if self._finished:
             raise RuntimeError("transaction is already finished")
+
+
+class Edit(Transaction):
+    """A read-bound edit. Explicit commit is required; exit rolls back otherwise."""
+
+    def __exit__(
+        self,
+        exception_type: type[BaseException] | None,
+        exception: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        try:
+            if not self._finished:
+                self.rollback()
+        finally:
+            self.close()
 
 
 def fingerprint_file(
