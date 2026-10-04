@@ -1,0 +1,137 @@
+{
+  "format_version": 1,
+  "package": "0.6.0-alpha.1",
+  "abi": 37,
+  "symbols": 230,
+  "schema": 17,
+  "postproject_native_source": "6fe0088",
+  "postproject_build": "release, installed Linux x86_64",
+  "library_sha256": "1ec0cb38e1f17acbba82d9b295a34d2ba2364c5e9dabfd636f88a96eed185c76",
+  "baseline_tag": "v0.5.0-alpha.1",
+  "baseline_commit": "c0c9a1a8a20c10f5c7401dda6758dce7f0ce2c58",
+  "baseline_runs": [
+    36847303316,
+    36848109149,
+    36838046823
+  ],
+  "records": [
+    {
+      "host": "kdenlive",
+      "trace": "kdenlive.txt",
+      "kind": "inherited-acceptance",
+      "scenario": "Maintained suite and shared-production scenario; includes accepted failure branches",
+      "adapter_commit": "2eb45f9019cdb48fdc35606768c9ecc164943b8f",
+      "host_version": "26.08.1",
+      "independence_group": "kdenlive",
+      "inputs": [
+        "/tmp/postproject-shared-0.6-final/kdenlive-suite.txt",
+        "/tmp/postproject-shared-0.6-final/kdenlive-abi.txt"
+      ]
+    },
+    {
+      "host": "blender",
+      "trace": "blender.txt",
+      "kind": "inherited-acceptance",
+      "scenario": "Maintained suite and shared-production scenario; includes accepted failure branches",
+      "adapter_commit": "8c62d4ca6243446219ce82383dd3ed823f850c3c",
+      "host_version": "5.2.2",
+      "independence_group": "blender",
+      "inputs": [
+        "/tmp/postproject-shared-0.6-final/blender-suite.txt",
+        "/tmp/postproject-shared-0.6-final/blender-abi.txt",
+        "/tmp/postproject-obs-accepted-final-0.6/normal/blender-handoff.txt"
+      ]
+    },
+    {
+      "host": "openassetio-manager",
+      "trace": "openassetio-manager.txt",
+      "kind": "inherited-acceptance",
+      "scenario": "Maintained suite and shared-production scenario; includes accepted failure branches",
+      "adapter_commit": "796631907817695cf33ca6a0276bb243bc54a099",
+      "host_version": "0.3.0",
+      "independence_group": "openassetio-test-host",
+      "inputs": [
+        "/tmp/postproject-shared-0.6-final/manager-suite.txt",
+        "/tmp/postproject-shared-0.6-final/openassetio-manager.txt"
+      ]
+    },
+    {
+      "host": "obs",
+      "trace": "obs-normal.txt",
+      "kind": "normal",
+      "scenario": "Finalized recording plus explicit menu retry",
+      "adapter_commit": "d32c782016db301acccf3b2ebe07c5e3768560eb",
+      "host_version": "32.2.2",
+      "independence_group": "obs",
+      "inputs": [
+        "/tmp/postproject-obs-accepted-final-0.6/normal/obs-normal.txt",
+        "/tmp/postproject-obs-accepted-final-0.6/retry/obs-retry.txt"
+      ]
+    },
+    {
+      "host": "obs",
+      "trace": "obs-failure.txt",
+      "kind": "failure",
+      "scenario": "Production unavailable and close during work",
+      "adapter_commit": "d32c782016db301acccf3b2ebe07c5e3768560eb",
+      "host_version": "32.2.2",
+      "independence_group": "obs",
+      "inputs": [
+        "/tmp/postproject-obs-accepted-final-0.6/failure/obs-failure.txt",
+        "/tmp/postproject-obs-accepted-final-0.6/shutdown/obs-shutdown.txt"
+      ]
+    },
+    {
+      "host": "natron",
+      "trace": "natron-normal.txt",
+      "kind": "normal",
+      "scenario": "Native adoption, named-root move, verification, refresh, save/reopen",
+      "adapter_commit": "3d4fa73cfadfb424e3c9fc6546b62101f4891ac8",
+      "host_version": "2.5.0",
+      "independence_group": "natron",
+      "inputs": [
+        "/tmp/postproject-natron-publication-evidence/normal/natron-normal.txt"
+      ]
+    },
+    {
+      "host": "natron",
+      "trace": "natron-failure.txt",
+      "kind": "failure",
+      "scenario": "Partial, ambiguity, cancellation, obsolete filename and independent-writer conflict",
+      "adapter_commit": "3d4fa73cfadfb424e3c9fc6546b62101f4891ac8",
+      "host_version": "2.5.0",
+      "independence_group": "natron",
+      "inputs": [
+        "/tmp/postproject-natron-publication-evidence/negative/natron-negative.txt"
+      ]
+    },
+    {
+      "host": "obs",
+      "trace": "obs-contract.txt",
+      "kind": "contract-test",
+      "scenario": "Installed adapter recipe",
+      "adapter_commit": "d32c782016db301acccf3b2ebe07c5e3768560eb",
+      "host_version": "32.2.2",
+      "independence_group": "obs",
+      "inputs": [
+        "/tmp/postproject-obs-contract-final.txt"
+      ]
+    },
+    {
+      "host": "natron",
+      "trace": "natron-contract.txt",
+      "kind": "contract-test",
+      "scenario": "Installed adapter recipe",
+      "adapter_commit": "3d4fa73cfadfb424e3c9fc6546b62101f4891ac8",
+      "host_version": "2.5.0",
+      "independence_group": "natron",
+      "inputs": [
+        "/tmp/postproject-natron-contract-final.txt"
+      ]
+    }
+  ],
+  "projection_evidence": {
+    "kdenlive": "compiled patched host; all three helpers in actual adapter source",
+    "natron": "compiled association.cpp and resolution.cpp; all three helpers used in-host"
+  }
+}
