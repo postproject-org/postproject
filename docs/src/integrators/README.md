@@ -58,6 +58,8 @@ host finds an existing asset by current locator or fingerprint evidence before
 creating another logical asset. Use {doc}`semantic-conflicts` for writes based
 on state another local process may change. {doc}`shared-productions` combines
 those operations into one local multi-application workflow.
+{doc}`native-host-actions` shows installed C/C++ ownership, terminal transactions
+and retained sequence decisions in real host adapters.
 
 ### 4. Support the media structures your application actually uses
 
@@ -158,5 +160,6 @@ bounded-queries
 revision-feed
 semantic-conflicts
 shared-productions
+native-host-actions
 openassetio-publishing
 ```

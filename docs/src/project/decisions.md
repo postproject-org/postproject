@@ -59,6 +59,7 @@ Read the relevant ADR before changing an invariant, a boundary, or a public cont
 - {doc}`ADR 0041 — Known-media adoption </adr/0041-known-media-adoption>`
 - {doc}`ADR 0042 — Semantic optimistic write conflicts </adr/0042-semantic-write-conflicts>`
 - {doc}`ADR 0043 — Local shared productions </adr/0043-local-shared-productions>`
+- {doc}`ADR 0044 — Closed transaction guard ownership </adr/0044-closed-transaction-guard-ownership>`
 
 ```{toctree}
 :hidden:
@@ -106,4 +107,5 @@ Read the relevant ADR before changing an invariant, a boundary, or a public cont
 /adr/0041-known-media-adoption
 /adr/0042-semantic-write-conflicts
 /adr/0043-local-shared-productions
+/adr/0044-closed-transaction-guard-ownership
 ```

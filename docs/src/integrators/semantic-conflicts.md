@@ -13,12 +13,26 @@ ordinary serialized-write behavior.
 
 The host flow is:
 
-1. read the relevant objects and retain the latest revision;
+1. retain the latest revision before reading the relevant objects, then read
+   the latest revision again and discard the reads if it changed;
 2. let the application or user decide what to change;
 3. begin a transaction at that revision;
 4. stage and commit the change;
 5. on conflict, inspect the structured detail and re-read current state; and
 6. retry in a new transaction only after making the decision again.
+
+A base is not a read snapshot. Fetching it only after reading can label an old
+decision with another writer's newer revision. The two revision reads provide
+a conservative fence; they do not lock the UI decision interval. Keep the
+first base through that interval and use it when committing. In an empty
+production there is no base: an independent first import can use an ordinary
+transaction. A decision requiring existing committed objects must first have
+those objects and a retained revision.
+
+Commit reports success, not the identity of the committing revision. A later
+latest-revision read can belong to another writer. Use it as a feed watermark
+or current-state observation, never as your transaction's receipt. The
+{doc}`native-host-actions` recipes demonstrate these boundaries in host code.
 
 ```mermaid
 sequenceDiagram
