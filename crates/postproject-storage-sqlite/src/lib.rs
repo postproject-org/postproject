@@ -223,6 +223,7 @@ impl SqliteProduction {
     ///
     /// Returns [`ErrorKind::Storage`] if SQLite cannot start the transaction.
     pub fn begin_transaction(&mut self) -> Result<SqliteTransaction<'_>> {
+        self.require_live_store()?;
         let (connection, production) = (&mut self.connection, &mut self.production);
         SqliteTransaction::begin(connection, production, &self.revision_signal)
     }
@@ -233,6 +234,7 @@ impl SqliteProduction {
     ///
     /// Returns storage errors or conflict if the file's production was replaced.
     pub fn read_session(&self) -> Result<SqliteReadSession> {
+        self.require_live_store()?;
         SqliteReadSession::open(self)
     }
 
@@ -243,6 +245,7 @@ impl SqliteProduction {
     /// Rejects wrong productions or inconsistent revision/sequence values;
     /// returns not found for an absent revision or storage errors on begin.
     pub fn begin_edit(&mut self, base: DecisionBase) -> Result<SqliteTransaction<'_>> {
+        self.require_live_store()?;
         SqliteTransaction::begin_decision(
             &mut self.connection,
             &mut self.production,
@@ -261,6 +264,7 @@ impl SqliteProduction {
         &mut self,
         base_revision: RevisionId,
     ) -> Result<SqliteTransaction<'_>> {
+        self.require_live_store()?;
         let (connection, production) = (&mut self.connection, &mut self.production);
         SqliteTransaction::begin_at(connection, production, &self.revision_signal, base_revision)
     }
@@ -276,6 +280,7 @@ impl SqliteProduction {
     /// Returns [`ErrorKind::Storage`] when the file cannot be opened, or
     /// [`ErrorKind::Conflict`] when it no longer holds this production.
     pub fn revision_waiter(&self) -> Result<SqliteRevisionWaiter> {
+        self.require_live_store()?;
         SqliteRevisionWaiter::open(
             &self.path,
             self.production.id(),
@@ -290,6 +295,22 @@ impl SqliteProduction {
     /// production does the same.
     pub fn close_revision_waiters(&self) {
         self.revision_signal.close();
+    }
+
+    /// Reports whether this adapter retains a pinned, read-only view.
+    #[must_use]
+    pub const fn is_read_only(&self) -> bool {
+        self.read_scope.is_some()
+    }
+
+    fn require_live_store(&self) -> Result<()> {
+        if self.is_read_only() {
+            return Err(Error::new(
+                ErrorKind::InvalidArgument,
+                "a pinned read view cannot write, open another view or wait for live changes",
+            ));
+        }
+        Ok(())
     }
 
     /// Loads all assets in deterministic creation/identity order.

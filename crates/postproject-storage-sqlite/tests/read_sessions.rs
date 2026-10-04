@@ -227,3 +227,47 @@ fn cursors_cannot_escape_their_production_or_pinned_view() {
         ErrorKind::InvalidArgument
     );
 }
+
+#[test]
+fn adapter_facade_stays_pinned_and_rejects_write_and_live_operations() {
+    let directory = tempfile::tempdir().unwrap();
+    let mut writer =
+        SqliteProduction::create(directory.path().join("adapter.pproj"), None).unwrap();
+    let session = writer.read_session().unwrap();
+    let base = session.decision_base();
+    let mut reader = session.into_read_only();
+    assert!(reader.is_read_only());
+    let mut edit = writer.begin_edit(base).unwrap();
+    edit.add_media_root(MediaRoot::new(MediaRootId::new(), "rushes", None, None, 0, true).unwrap())
+        .unwrap();
+    let receipt = edit.commit_with_receipt().unwrap();
+    drop(edit);
+    assert!(reader.latest_revision().unwrap().is_none());
+    assert!(reader.production().media_roots().is_empty());
+    assert_eq!(
+        reader.begin_transaction().err().unwrap().kind(),
+        ErrorKind::InvalidArgument
+    );
+    assert_eq!(
+        reader.begin_edit(base).err().unwrap().kind(),
+        ErrorKind::InvalidArgument
+    );
+    assert_eq!(
+        reader
+            .begin_transaction_at(receipt.revision().unwrap().id())
+            .err()
+            .unwrap()
+            .kind(),
+        ErrorKind::InvalidArgument
+    );
+    assert_eq!(
+        reader.read_session().err().unwrap().kind(),
+        ErrorKind::InvalidArgument
+    );
+    assert_eq!(
+        reader.revision_waiter().err().unwrap().kind(),
+        ErrorKind::InvalidArgument
+    );
+    drop(writer);
+    assert!(reader.latest_revision().unwrap().is_none());
+}

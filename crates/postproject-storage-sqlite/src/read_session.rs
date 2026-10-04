@@ -64,6 +64,16 @@ impl SqliteReadSession {
         &self.reader
     }
 
+    /// Transfers the pinned connection to a read-only adapter facade.
+    ///
+    /// Every read retains this view and its cursor scope. Write transactions,
+    /// nested sessions and live waiters are rejected. Detach the decision base
+    /// first when the adapter also needs to begin edits on the original store.
+    #[must_use]
+    pub fn into_read_only(self) -> SqliteProduction {
+        self.reader
+    }
+
     /// Returns a detached base that remains usable after this session is dropped.
     #[must_use]
     pub const fn decision_base(&self) -> DecisionBase {
