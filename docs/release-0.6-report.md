@@ -12,7 +12,7 @@ Two complementary pilots consume installed public packages:
 
 | Pilot | Host pin | Accepted route | Adapter revision |
 |---|---|---|---|
-| [OBS](https://github.com/postproject-org/postproject-obs) | 32.2.2 | C11 registration, C++17 frontend/worker plugin | `d32c782016db301acccf3b2ebe07c5e3768560eb` |
+| [OBS](https://github.com/postproject-org/postproject-obs) | 32.2.2 | C11 registration, C++17 frontend/worker plugin | `384fe5f86d06eba144f1353c95bf39d2ddf8409c` |
 | [Natron](https://github.com/postproject-org/postproject-natron) | 2.5.0 | Native C++17 extension in embedded CPython, Reader/menu bridge | `3d4fa73cfadfb424e3c9fc6546b62101f4891ac8` |
 
 Both repositories contain exact upstream pins, optional-dependency behavior,
@@ -26,11 +26,16 @@ claimed acceptance pass.
 ## Real-host acceptance
 
 OBS ran under isolated Xvfb with real normal recording actions and a finalized
-Matroska output. All seven serial scenarios passed process exit and full FFmpeg
+Matroska output. Seven success/fallback scenarios passed process exit and full FFmpeg
 decode: registration, real-menu retry, unavailable production, close during
 work, absent plugin, absent library and no chosen production. Independent
 public readback found one asset and one capture activity; retry reused the
-same facts. C contract regressions additionally passed failed staging/rollback,
+same facts. An eighth scenario killed the real muxer after it opened the
+recording. This pinned OBS build still reported a successful stop, but output
+validation rejected the aborted file; public readback found an empty production
+without a revision. No playable-output claim is made for that failed recording.
+Recording-validation diagnostics are distinct from database registration errors.
+C contract regressions additionally passed failed staging/rollback,
 repeated notification/lost acknowledgement and proxy-safe original readback.
 Callback enqueue, worker, staging and commit timing remain separate.
 
@@ -93,8 +98,24 @@ SameMajorVersion rule accepts 0.6.
 The two OTIO linker suites pass with an upstream unversioned-trait deprecation
 warning; warning-as-error execution does not pass that upstream dependency.
 The same producer/installed-consumer jobs are retained on Linux, macOS and
-Windows. Remote candidate runs are recorded
-separately when complete; local Linux checks do not imply cross-platform passes.
+Windows. [Candidate core CI](https://github.com/postproject-org/postproject/actions/runs/37194261178)
+passed all 16 jobs at `d133613`, including native packages and tests on all three
+platforms, strict documentation, MSRV, sanitizers and the glibc 2.28 wheel.
+Subsequent changes to this candidate concern evidence/docs only; native source,
+headers and binding implementation remain identical to that run.
+
+The ten downstream acceptance jobs have completed passing evidence in
+{download}`the CI record <evidence/release-0.6/downstream-ci.json>`:
+Ardour's unchanged Linux builds with/without PostProject and macOS resolver
+come from the original candidate run; the other consumers come from the
+[corrected run](https://github.com/postproject-org/postproject/actions/runs/37202457126).
+The original aggregate failed because Python host CI collected the nested
+producer's tests. Commit `98e7ee1` scopes collection to its own host module,
+which now passes. The corrected run's redundant full Ardour builds were
+still running when this evidence snapshot was taken; their pending status
+is not represented as another pass. All jobs use the same candidate native
+source. {download}`Core CI metadata <evidence/release-0.6/core-ci.json>`
+retains the exact source commit and sixteen successful jobs.
 
 No hard pilot latency gate is introduced. Existing performance policy has
 no calibrated hard release threshold. Actual OBS callback/shutdown and Natron
@@ -148,6 +169,9 @@ archive and SHA-256 manifest. The local Linux platform wheel is tagged
 `linux_x86_64`; it is not asserted to meet manylinux glibc 2.28. Existing CI
 retains the dedicated glibc 2.28 wheel build and all three native platforms.
 Artifacts are candidate builds, not published releases.
+Extracted native C/C++ quickstarts passed without Cargo. The platform-wheel
+quickstart passed in a fresh environment without library search variables,
+and its embedded library hash matches the real-host evidence.
 
 Support remains a local SQLite production on one machine. Network storage,
 authentication and distributed collaboration are outside scope. OBS supports

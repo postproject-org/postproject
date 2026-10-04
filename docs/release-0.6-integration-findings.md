@@ -146,10 +146,18 @@ The successful output callback copies bounded facts only. One joined worker
 owns probe/hash/staging/commit and cleanup, with one pending attempt and explicit
 retry of the latest retained attempt. Accepted failure and shutdown runs keep
 fully decodable recordings. Already running fingerprint I/O remains a shutdown
-latency limitation. The final normal run measured 0.012 ms callback enqueue,
-134.226 ms worker elapsed, 0.648 ms staging and 2.644 ms commit calls. Close during
-work measured 0.017 ms enqueue and 130.562 ms worker elapsed before cancellation
+latency limitation. The final normal run measured 0.024 ms callback enqueue,
+140.468 ms worker elapsed, 1.949 ms staging and 2.713 ms commit calls. Close during
+work measured 0.021 ms enqueue and 128.722 ms worker elapsed before cancellation
 and join. These tiny fixtures provide informational observations, not budgets.
+
+A separate real recording-failure fixture kills the test host's own muxer
+after it opens its output. The pinned OBS build reports a successful stop even
+for this aborted, empty file. The adapter's independent output validation
+rejects it before any import, leaving an empty production without a revision.
+Recording-validation and database-registration failures have distinct
+diagnostics. This reproduces why completion status alone is insufficient;
+no playable-output claim or upstream repair is made for that failure.
 
 ## Natron decisions and conflicts
 
