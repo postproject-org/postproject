@@ -40,8 +40,13 @@ impl SqliteReadSession {
                 "production identity changed",
             ));
         }
-        let reader =
+        let nonce: Vec<u8> = connection
+            .query_row("SELECT randomblob(16)", [], |row| row.get(0))
+            .map_err(sqlite_error("create read cursor scope"))?;
+        let nonce = crate::id_bytes(nonce, "read cursor scope")?;
+        let mut reader =
             SqliteProduction::from_parts(production.path().to_path_buf(), connection, metadata);
+        reader.read_scope = Some(nonce);
         let revision = reader.latest_revision()?;
         let base = DecisionBase::new(
             reader.production().id(),

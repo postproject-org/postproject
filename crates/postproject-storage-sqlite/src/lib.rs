@@ -62,6 +62,7 @@ pub struct SqliteProduction {
     connection: Connection,
     production: Production,
     revision_signal: Arc<RevisionSignal>,
+    read_scope: Option<[u8; 16]>,
 }
 
 struct StoredActivity {
@@ -191,7 +192,17 @@ impl SqliteProduction {
             connection,
             production,
             revision_signal: Arc::default(),
+            read_scope: None,
         }
+    }
+
+    fn cursor_scope(&self) -> String {
+        query_cursor::signature(&[
+            self.production.id().as_bytes(),
+            self.read_scope
+                .as_ref()
+                .map_or(&[], |scope| scope.as_slice()),
+        ])
     }
 
     /// Returns the production-file path used by this backend.
@@ -518,17 +529,18 @@ impl SqliteProduction {
     ///
     /// Returns an error for an invalid cursor or unreadable stored data.
     pub fn assets_page(&self, page: &QueryPageRequest) -> Result<QueryPage<Asset>> {
-        let position = query_cursor::position_fields(page, "assets", "all", 2)?
-            .map(|fields| {
-                let created_at = fields[0]
-                    .parse::<i64>()
-                    .map_err(|_| invalid_query_cursor())?;
-                let id = fields[1]
-                    .parse::<AssetId>()
-                    .map_err(|_| invalid_query_cursor())?;
-                Ok((created_at, id.into_bytes()))
-            })
-            .transpose()?;
+        let position =
+            query_cursor::position_fields(&self.cursor_scope(), page, "assets", "all", 2)?
+                .map(|fields| {
+                    let created_at = fields[0]
+                        .parse::<i64>()
+                        .map_err(|_| invalid_query_cursor())?;
+                    let id = fields[1]
+                        .parse::<AssetId>()
+                        .map_err(|_| invalid_query_cursor())?;
+                    Ok((created_at, id.into_bytes()))
+                })
+                .transpose()?;
         let mut parameters = Vec::<Value>::new();
         let predicate = if let Some((created_at, id)) = position {
             parameters.push(Value::Integer(created_at));
@@ -574,6 +586,7 @@ impl SqliteProduction {
                 .last()
                 .map(|asset| {
                     query_cursor::cursor(
+                        &self.cursor_scope(),
                         "assets",
                         "all",
                         &[
@@ -602,8 +615,12 @@ impl SqliteProduction {
     ) -> Result<QueryPage<Representation>> {
         self.ensure_asset_exists(asset_id)?;
         let signature = query_cursor::signature(&[asset_id.as_bytes()]);
-        let position =
-            query_cursor::id_position::<RepresentationId>(page, "representations", &signature)?;
+        let position = query_cursor::id_position::<RepresentationId>(
+            &self.cursor_scope(),
+            page,
+            "representations",
+            &signature,
+        )?;
         let ids = self.query_representation_ids(
             "SELECT id FROM representations
              WHERE asset_id = ?1 AND id > ?2 ORDER BY id LIMIT ?3",
@@ -628,9 +645,10 @@ impl SqliteProduction {
     ) -> Result<QueryPage<Resource>> {
         self.ensure_representation_exists(representation_id)?;
         let signature = query_cursor::signature(&[representation_id.as_bytes()]);
-        let position = query_cursor::position_fields(page, "resources", &signature, 1)?
-            .map(|fields| fields[0].parse::<i64>().map_err(|_| invalid_query_cursor()))
-            .transpose()?;
+        let position =
+            query_cursor::position_fields(&self.cursor_scope(), page, "resources", &signature, 1)?
+                .map(|fields| fields[0].parse::<i64>().map_err(|_| invalid_query_cursor()))
+                .transpose()?;
         let mut statement = self
             .connection
             .prepare(
@@ -677,7 +695,12 @@ impl SqliteProduction {
         let next_cursor = if has_more {
             last_position
                 .map(|position| {
-                    query_cursor::cursor("resources", &signature, &[position.to_string()])
+                    query_cursor::cursor(
+                        &self.cursor_scope(),
+                        "resources",
+                        &signature,
+                        &[position.to_string()],
+                    )
                 })
                 .transpose()?
         } else {
@@ -699,7 +722,12 @@ impl SqliteProduction {
     ) -> Result<QueryPage<Locator>> {
         self.ensure_resource_exists(resource_id)?;
         let signature = query_cursor::signature(&[resource_id.as_bytes()]);
-        let position = query_cursor::id_position::<LocatorId>(page, "locators", &signature)?;
+        let position = query_cursor::id_position::<LocatorId>(
+            &self.cursor_scope(),
+            page,
+            "locators",
+            &signature,
+        )?;
         let mut statement = self
             .connection
             .prepare(&format!(
@@ -728,7 +756,12 @@ impl SqliteProduction {
             locators
                 .last()
                 .map(|locator| {
-                    query_cursor::cursor("locators", &signature, &[locator.id().to_string()])
+                    query_cursor::cursor(
+                        &self.cursor_scope(),
+                        "locators",
+                        &signature,
+                        &[locator.id().to_string()],
+                    )
                 })
                 .transpose()?
         } else {
@@ -762,6 +795,7 @@ impl SqliteProduction {
             &padding_bytes,
         ]);
         let position = query_cursor::id_pair_position::<RepresentationId, ResourceId>(
+            &self.cursor_scope(),
             page,
             "known-media-locator",
             &signature,
@@ -827,6 +861,7 @@ impl SqliteProduction {
             fingerprint.value(),
         ]);
         let position = query_cursor::id_pair_position::<RepresentationId, ResourceId>(
+            &self.cursor_scope(),
             page,
             "known-media-fingerprint",
             &signature,
@@ -882,6 +917,7 @@ impl SqliteProduction {
             ids.last()
                 .map(|(representation, resource)| {
                     query_cursor::cursor(
+                        &self.cursor_scope(),
                         query,
                         signature,
                         &[representation.to_string(), resource.to_string()],
@@ -917,6 +953,7 @@ impl SqliteProduction {
         self.ensure_resource_exists(resource_id)?;
         let signature = query_cursor::signature(&[resource_id.as_bytes()]);
         let position = query_cursor::id_position::<RepresentationId>(
+            &self.cursor_scope(),
             page,
             "representations-resource",
             &signature,
@@ -948,6 +985,7 @@ impl SqliteProduction {
         self.ensure_media_root_exists(root_name)?;
         let signature = query_cursor::signature(&[root_name.as_bytes()]);
         let position = query_cursor::id_position::<RepresentationId>(
+            &self.cursor_scope(),
             page,
             "representations-root",
             &signature,
@@ -985,8 +1023,12 @@ impl SqliteProduction {
     ///
     /// Returns an error for an invalid cursor or unreadable stored data.
     pub fn unresolved_media(&self, page: &QueryPageRequest) -> Result<QueryPage<RepresentationId>> {
-        let position =
-            query_cursor::id_position::<RepresentationId>(page, "unresolved-media", "all")?;
+        let position = query_cursor::id_position::<RepresentationId>(
+            &self.cursor_scope(),
+            page,
+            "unresolved-media",
+            "all",
+        )?;
         let mut statement = self
             .connection
             .prepare(
@@ -1015,7 +1057,14 @@ impl SqliteProduction {
         ids.truncate(page.limit() as usize);
         let next_cursor = if has_more {
             ids.last()
-                .map(|id| query_cursor::cursor("unresolved-media", "all", &[id.to_string()]))
+                .map(|id| {
+                    query_cursor::cursor(
+                        &self.cursor_scope(),
+                        "unresolved-media",
+                        "all",
+                        &[id.to_string()],
+                    )
+                })
                 .transpose()?
         } else {
             None
@@ -1423,21 +1472,7 @@ impl SqliteProduction {
             encoded_value.as_deref().unwrap_or_default(),
             &[u8::from(encoded_value.is_some())],
         ]);
-        let position = query_cursor::position_fields(page, "metadata", &signature, 4)?
-            .map(|fields| {
-                let kind = fields[0]
-                    .parse::<i64>()
-                    .map_err(|_| invalid_query_cursor())?;
-                let id = parse_metadata_cursor_id(kind, fields[1])?;
-                let value_position = fields[2]
-                    .parse::<i64>()
-                    .map_err(|_| invalid_query_cursor())?;
-                let row_id = fields[3]
-                    .parse::<i64>()
-                    .map_err(|_| invalid_query_cursor())?;
-                Ok((kind, id, value_position, row_id))
-            })
-            .transpose()?;
+        let position = metadata_cursor_position(&self.cursor_scope(), page, &signature)?;
         let mut clauses = vec!["vocabulary = ?", "property = ?"];
         let mut parameters = vec![
             Value::Text(query.property().vocabulary().as_str().to_owned()),
@@ -1487,6 +1522,7 @@ impl SqliteProduction {
                 .map(|(kind, id, position, row_id, _)| {
                     let target = decode_metadata_target(*kind, id.clone())?;
                     query_cursor::cursor(
+                        &self.cursor_scope(),
                         "metadata",
                         &signature,
                         &[
@@ -1658,8 +1694,12 @@ impl SqliteProduction {
                 ));
             }
         };
-        let position =
-            query_cursor::id_position::<RepresentationId>(page, "activity-outputs", &signature)?;
+        let position = query_cursor::id_position::<RepresentationId>(
+            &self.cursor_scope(),
+            page,
+            "activity-outputs",
+            &signature,
+        )?;
         if let Some(position) = position {
             parameters.push(Value::Blob(position.to_vec()));
         } else {
@@ -1685,7 +1725,13 @@ impl SqliteProduction {
                     .map(RepresentationId::from_bytes)
             })
             .collect::<Result<Vec<_>>>()?;
-        id_page(&mut ids, page, "activity-outputs", &signature)
+        id_page(
+            &self.cursor_scope(),
+            &mut ids,
+            page,
+            "activity-outputs",
+            &signature,
+        )
     }
 
     /// Queries a bounded page of producing activities.
@@ -1829,7 +1875,12 @@ impl SqliteProduction {
             &limits.max_depth().to_be_bytes(),
             &limits.max_representations().to_be_bytes(),
         ]);
-        let position = query_cursor::id_position::<RepresentationId>(page, direction, &signature)?;
+        let position = query_cursor::id_position::<RepresentationId>(
+            &self.cursor_scope(),
+            page,
+            direction,
+            &signature,
+        )?;
         let mut visited = BTreeSet::from([representation_id]);
         let mut pending = VecDeque::from([(representation_id, 0_u32)]);
         let mut matches = BTreeMap::<RepresentationId, u32>::new();
@@ -1870,7 +1921,14 @@ impl SqliteProduction {
         let next_cursor = if has_more {
             selected
                 .last()
-                .map(|(id, _)| query_cursor::cursor(direction, &signature, &[id.to_string()]))
+                .map(|(id, _)| {
+                    query_cursor::cursor(
+                        &self.cursor_scope(),
+                        direction,
+                        &signature,
+                        &[id.to_string()],
+                    )
+                })
                 .transpose()?
         } else {
             None
@@ -1946,7 +2004,8 @@ impl SqliteProduction {
         page: &QueryPageRequest,
     ) -> Result<QueryPage<DependencyQueryMatch>> {
         self.ensure_representation_exists(source)?;
-        let position = query_cursor::dependency_position(page, source, limits)?;
+        let position =
+            query_cursor::dependency_position(&self.cursor_scope(), page, source, limits)?;
         let mut visited = BTreeSet::from([source]);
         let mut pending = VecDeque::from([(source, 0_u32)]);
         let mut matches = BTreeMap::<(u8, [u8; 16]), (DependencyTarget, u32)>::new();
@@ -2000,7 +2059,7 @@ impl SqliteProduction {
         }
 
         dependency_page(matches, position, page, traversal_truncated, |key| {
-            query_cursor::dependency_cursor(source, limits, key)
+            query_cursor::dependency_cursor(&self.cursor_scope(), source, limits, key)
         })
     }
 
@@ -2078,7 +2137,8 @@ impl SqliteProduction {
         limits: DependencyQueryLimits,
         page: &QueryPageRequest,
     ) -> Result<QueryPage<DependencyQueryMatch>> {
-        let position = query_cursor::dependent_position(page, target, limits)?;
+        let position =
+            query_cursor::dependent_position(&self.cursor_scope(), page, target, limits)?;
         let mut visited = BTreeSet::new();
         if let DependencyTarget::Representation(id) = target {
             visited.insert(id);
@@ -2122,7 +2182,7 @@ impl SqliteProduction {
             position.map(|id| (2, id)),
             page,
             traversal_truncated,
-            |key| query_cursor::dependent_cursor(target, limits, key.1),
+            |key| query_cursor::dependent_cursor(&self.cursor_scope(), target, limits, key.1),
         )
     }
 
@@ -2148,8 +2208,12 @@ impl SqliteProduction {
             &limits.max_depth().to_be_bytes(),
             &limits.max_representations().to_be_bytes(),
         ]);
-        let position =
-            query_cursor::id_position::<RepresentationId>(page, "stale-artifacts", &signature)?;
+        let position = query_cursor::id_position::<RepresentationId>(
+            &self.cursor_scope(),
+            page,
+            "stale-artifacts",
+            &signature,
+        )?;
         let mut parameters = vec![Value::Blob(position.unwrap_or([0; 16]).to_vec())];
         let (restriction, traversal_truncated) = if let Some(source) = source {
             let provenance_limits = ProvenanceQueryLimits::new(
@@ -2210,10 +2274,16 @@ impl SqliteProduction {
                     .map(RepresentationId::from_bytes)
             })
             .collect::<Result<Vec<_>>>()?;
-        let has_more = candidates.len() > page.limit() as usize;
-        candidates.truncate(page.limit() as usize);
-        let last_examined = candidates.last().copied();
+        let candidates = id_page(
+            &self.cursor_scope(),
+            &mut candidates,
+            page,
+            "stale-artifacts",
+            &signature,
+        )?;
+        let next_cursor = candidates.next_cursor().cloned();
         let stale = candidates
+            .into_items()
             .into_iter()
             .map(|id| Ok((id, self.evaluate_artifact(id, limits)?)))
             .filter_map(|result: Result<_>| match result {
@@ -2224,13 +2294,6 @@ impl SqliteProduction {
                 Err(error) => Some(Err(error)),
             })
             .collect::<Result<Vec<_>>>()?;
-        let next_cursor = if has_more {
-            last_examined
-                .map(|id| query_cursor::cursor("stale-artifacts", &signature, &[id.to_string()]))
-                .transpose()?
-        } else {
-            None
-        };
         Ok(QueryPage::new(stale, next_cursor, traversal_truncated))
     }
 
@@ -2241,7 +2304,7 @@ impl SqliteProduction {
     /// Returns [`ErrorKind::InvalidArgument`] for a cursor from another query,
     /// or [`ErrorKind::Storage`] when persisted job data is malformed.
     pub fn jobs(&self, query: &JobQuery, page: &QueryPageRequest) -> Result<QueryPage<Job>> {
-        let position = query_cursor::job_position(page, query)?;
+        let position = query_cursor::job_position(&self.cursor_scope(), page, query)?;
         let mut clauses = Vec::new();
         let mut parameters = Vec::<Value>::new();
         if let Some(state) = query.state() {
@@ -2289,7 +2352,7 @@ impl SqliteProduction {
                 .last()
                 .map(|job| {
                     id_bytes(job.id.clone(), "job")
-                        .and_then(|id| query_cursor::job_cursor(query, id))
+                        .and_then(|id| query_cursor::job_cursor(&self.cursor_scope(), query, id))
                 })
                 .transpose()?
         } else {
@@ -2605,14 +2668,20 @@ impl SqliteProduction {
         page: &QueryPageRequest,
     ) -> Result<QueryPage<ObjectRef>> {
         let signature = query_cursor::signature(&[&sequence.to_be_bytes()]);
-        let position = query_cursor::position_fields(page, "objects-changed", &signature, 2)?
-            .map(|fields| {
-                let kind = fields[0]
-                    .parse::<i64>()
-                    .map_err(|_| invalid_query_cursor())?;
-                Ok((kind, parse_metadata_cursor_id(kind, fields[1])?))
-            })
-            .transpose()?;
+        let position = query_cursor::position_fields(
+            &self.cursor_scope(),
+            page,
+            "objects-changed",
+            &signature,
+            2,
+        )?
+        .map(|fields| {
+            let kind = fields[0]
+                .parse::<i64>()
+                .map_err(|_| invalid_query_cursor())?;
+            Ok((kind, parse_metadata_cursor_id(kind, fields[1])?))
+        })
+        .transpose()?;
         let sequence = i64::try_from(sequence).unwrap_or(i64::MAX);
         let (kind, id) = position.unwrap_or((-1, [0; 16]));
         let mut statement = self
@@ -2665,6 +2734,7 @@ impl SqliteProduction {
                 .map(|(kind, id)| {
                     let target = decode_metadata_target(*kind, id.clone())?;
                     query_cursor::cursor(
+                        &self.cursor_scope(),
                         "objects-changed",
                         &signature,
                         &[kind.to_string(), object_ref_id_string(target)],
@@ -2812,6 +2882,7 @@ impl SqliteProduction {
             ids.last()
                 .map(|id| {
                     query_cursor::cursor(
+                        &self.cursor_scope(),
                         query,
                         signature,
                         &[RepresentationId::from_bytes(*id).to_string()],
@@ -3125,7 +3196,8 @@ impl SqliteProduction {
     ) -> Result<QueryPage<Activity>> {
         self.ensure_representation_exists(representation_id)?;
         let signature = query_cursor::signature(&[representation_id.as_bytes()]);
-        let position = query_cursor::id_position::<ActivityId>(page, query, &signature)?;
+        let position =
+            query_cursor::id_position::<ActivityId>(&self.cursor_scope(), page, query, &signature)?;
         let mut ids =
             self.activity_ids_for_relation(table, representation_id, position, page.limit())?;
         let has_more = ids.len() > page.limit() as usize;
@@ -3134,6 +3206,7 @@ impl SqliteProduction {
             ids.last()
                 .map(|id| {
                     query_cursor::cursor(
+                        &self.cursor_scope(),
                         query,
                         &signature,
                         &[ActivityId::from_bytes(*id).to_string()],
@@ -4812,6 +4885,7 @@ where
 }
 
 fn id_page(
+    scope: &str,
     ids: &mut Vec<RepresentationId>,
     page: &QueryPageRequest,
     query: &str,
@@ -4821,7 +4895,7 @@ fn id_page(
     ids.truncate(page.limit() as usize);
     let next_cursor = if has_more {
         ids.last()
-            .map(|id| query_cursor::cursor(query, signature, &[id.to_string()]))
+            .map(|id| query_cursor::cursor(scope, query, signature, &[id.to_string()]))
             .transpose()?
     } else {
         None
@@ -4855,6 +4929,30 @@ fn object_ref_id_string(target: ObjectRef) -> String {
         ObjectRef::Job(id) => id.to_string(),
         _ => String::new(),
     }
+}
+
+type MetadataCursorPosition = (i64, [u8; 16], i64, i64);
+
+fn metadata_cursor_position(
+    scope: &str,
+    page: &QueryPageRequest,
+    signature: &str,
+) -> Result<Option<MetadataCursorPosition>> {
+    query_cursor::position_fields(scope, page, "metadata", signature, 4)?
+        .map(|fields| {
+            let kind = fields[0]
+                .parse::<i64>()
+                .map_err(|_| invalid_query_cursor())?;
+            let id = parse_metadata_cursor_id(kind, fields[1])?;
+            let value_position = fields[2]
+                .parse::<i64>()
+                .map_err(|_| invalid_query_cursor())?;
+            let row_id = fields[3]
+                .parse::<i64>()
+                .map_err(|_| invalid_query_cursor())?;
+            Ok((kind, id, value_position, row_id))
+        })
+        .transpose()
 }
 
 fn parse_metadata_cursor_id(kind: i64, value: &str) -> Result<[u8; 16]> {

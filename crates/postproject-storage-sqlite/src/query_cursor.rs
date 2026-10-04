@@ -5,7 +5,7 @@ use postproject_core::{
     QueryPageRequest, RepresentationId, Result,
 };
 
-const CURSOR_VERSION: &str = "ppq1";
+const CURSOR_VERSION: &str = "ppq2";
 
 pub(crate) fn signature(parts: &[&[u8]]) -> String {
     let mut hasher = blake3::Hasher::new();
@@ -16,16 +16,28 @@ pub(crate) fn signature(parts: &[&[u8]]) -> String {
     hasher.finalize().to_hex().to_string()
 }
 
+fn scoped_fields<'a>(page: &'a QueryPageRequest, scope: &str) -> Result<Option<Vec<&'a str>>> {
+    let Some(cursor) = page.cursor() else {
+        return Ok(None);
+    };
+    let mut fields = cursor.as_str().split('|').collect::<Vec<_>>();
+    if fields.get(1).copied() != Some(scope) {
+        return Err(invalid_cursor());
+    }
+    fields.remove(1);
+    Ok(Some(fields))
+}
+
 pub(crate) fn position_fields<'a>(
+    scope: &str,
     page: &'a QueryPageRequest,
     query: &str,
     query_signature: &str,
     key_fields: usize,
 ) -> Result<Option<Vec<&'a str>>> {
-    let Some(cursor) = page.cursor() else {
+    let Some(fields) = scoped_fields(page, scope)? else {
         return Ok(None);
     };
-    let fields = cursor.as_str().split('|').collect::<Vec<_>>();
     if fields.len() != key_fields + 3
         || fields[0] != CURSOR_VERSION
         || fields[1] != query
@@ -37,17 +49,19 @@ pub(crate) fn position_fields<'a>(
 }
 
 pub(crate) fn cursor(
+    scope: &str,
     query: &str,
     query_signature: &str,
     key_fields: &[String],
 ) -> Result<QueryCursor> {
     QueryCursor::new(format!(
-        "{CURSOR_VERSION}|{query}|{query_signature}|{}",
+        "{CURSOR_VERSION}|{scope}|{query}|{query_signature}|{}",
         key_fields.join("|")
     ))
 }
 
 pub(crate) fn id_position<T>(
+    scope: &str,
     page: &QueryPageRequest,
     query: &str,
     query_signature: &str,
@@ -56,12 +70,13 @@ where
     T: FromStr<Err = Error> + Display,
     T: IntoIdBytes,
 {
-    position_fields(page, query, query_signature, 1)?
+    position_fields(scope, page, query, query_signature, 1)?
         .map(|fields| parse_id::<T>(fields[0]).map(IntoIdBytes::into_id_bytes))
         .transpose()
 }
 
 pub(crate) fn id_pair_position<A, B>(
+    scope: &str,
     page: &QueryPageRequest,
     query: &str,
     query_signature: &str,
@@ -70,7 +85,7 @@ where
     A: FromStr<Err = Error> + Display + IntoIdBytes,
     B: FromStr<Err = Error> + Display + IntoIdBytes,
 {
-    position_fields(page, query, query_signature, 2)?
+    position_fields(scope, page, query, query_signature, 2)?
         .map(|fields| {
             Ok((
                 parse_id::<A>(fields[0])?.into_id_bytes(),
@@ -101,14 +116,14 @@ id_bytes!(
 );
 
 pub(crate) fn dependency_position(
+    scope: &str,
     page: &QueryPageRequest,
     source: RepresentationId,
     limits: DependencyQueryLimits,
 ) -> Result<Option<(u8, [u8; 16])>> {
-    let Some(cursor) = page.cursor() else {
+    let Some(fields) = scoped_fields(page, scope)? else {
         return Ok(None);
     };
-    let fields = cursor.as_str().split('|').collect::<Vec<_>>();
     if fields.len() != 7
         || fields[0] != CURSOR_VERSION
         || fields[1] != "dependencies"
@@ -124,12 +139,13 @@ pub(crate) fn dependency_position(
 }
 
 pub(crate) fn dependency_cursor(
+    scope: &str,
     source: RepresentationId,
     limits: DependencyQueryLimits,
     key: (u8, [u8; 16]),
 ) -> Result<QueryCursor> {
     QueryCursor::new(format!(
-        "{CURSOR_VERSION}|dependencies|{source}|{}|{}|{}|{}",
+        "{CURSOR_VERSION}|{scope}|dependencies|{source}|{}|{}|{}|{}",
         limits.max_depth(),
         limits.max_representations(),
         key.0,
@@ -138,14 +154,14 @@ pub(crate) fn dependency_cursor(
 }
 
 pub(crate) fn dependent_position(
+    scope: &str,
     page: &QueryPageRequest,
     target: DependencyTarget,
     limits: DependencyQueryLimits,
 ) -> Result<Option<[u8; 16]>> {
-    let Some(cursor) = page.cursor() else {
+    let Some(fields) = scoped_fields(page, scope)? else {
         return Ok(None);
     };
-    let fields = cursor.as_str().split('|').collect::<Vec<_>>();
     let (target_kind, target_id) = target_parts(target);
     if fields.len() != 7
         || fields[0] != CURSOR_VERSION
@@ -161,24 +177,28 @@ pub(crate) fn dependent_position(
 }
 
 pub(crate) fn dependent_cursor(
+    scope: &str,
     target: DependencyTarget,
     limits: DependencyQueryLimits,
     id: [u8; 16],
 ) -> Result<QueryCursor> {
     let (target_kind, target_id) = target_parts(target);
     QueryCursor::new(format!(
-        "{CURSOR_VERSION}|dependents|{target_kind}|{target_id}|{}|{}|{}",
+        "{CURSOR_VERSION}|{scope}|dependents|{target_kind}|{target_id}|{}|{}|{}",
         limits.max_depth(),
         limits.max_representations(),
         RepresentationId::from_bytes(id),
     ))
 }
 
-pub(crate) fn job_position(page: &QueryPageRequest, query: &JobQuery) -> Result<Option<[u8; 16]>> {
-    let Some(cursor) = page.cursor() else {
+pub(crate) fn job_position(
+    scope: &str,
+    page: &QueryPageRequest,
+    query: &JobQuery,
+) -> Result<Option<[u8; 16]>> {
+    let Some(fields) = scoped_fields(page, scope)? else {
         return Ok(None);
     };
-    let fields = cursor.as_str().split('|').collect::<Vec<_>>();
     let state = query.state().map_or(0, job_state_code);
     let kind = query.kind().map_or("*", |kind| kind.as_str());
     if fields.len() != 5
@@ -192,11 +212,11 @@ pub(crate) fn job_position(page: &QueryPageRequest, query: &JobQuery) -> Result<
     Ok(Some(parse_id::<JobId>(fields[4])?.into_bytes()))
 }
 
-pub(crate) fn job_cursor(query: &JobQuery, id: [u8; 16]) -> Result<QueryCursor> {
+pub(crate) fn job_cursor(scope: &str, query: &JobQuery, id: [u8; 16]) -> Result<QueryCursor> {
     let state = query.state().map_or(0, job_state_code);
     let kind = query.kind().map_or("*", |kind| kind.as_str());
     QueryCursor::new(format!(
-        "{CURSOR_VERSION}|jobs|{state}|{kind}|{}",
+        "{CURSOR_VERSION}|{scope}|jobs|{state}|{kind}|{}",
         JobId::from_bytes(id),
     ))
 }
