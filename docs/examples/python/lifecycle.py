@@ -16,6 +16,7 @@ from pathlib import Path
 from postproject import (
     Asset,
     AssetId,
+    AssetRef,
     ExternalIdentifier,
     NotFoundError,
     OriginIdentity,
@@ -62,7 +63,8 @@ def tag_then_discard(production: Production, asset_id: AssetId) -> None:
             )
         )
         transaction.add_external_identifier(
-            asset_id, ExternalIdentifier("com.example.camera.serial", "A-0007")
+            AssetRef(asset_id),
+            ExternalIdentifier("com.example.camera.serial", "A-0007"),
         )
         transaction.commit()
     finally:
@@ -72,7 +74,7 @@ def tag_then_discard(production: Production, asset_id: AssetId) -> None:
     transaction = production.transaction()
     try:
         transaction.add_external_identifier(
-            asset_id, ExternalIdentifier("com.example.tape", "T-0012")
+            AssetRef(asset_id), ExternalIdentifier("com.example.tape", "T-0012")
         )
         transaction.rollback()
     finally:
@@ -82,7 +84,7 @@ def tag_then_discard(production: Production, asset_id: AssetId) -> None:
 
     # A rollback creates no revision and leaves no staged change behind.
     assert production.latest_revision == before
-    assert len(production.external_identifiers[asset_id]) == 1
+    assert len(production.external_identifiers[AssetRef(asset_id)]) == 1
 
 
 # [/transaction-lifecycle]
@@ -129,7 +131,7 @@ def main() -> None:
         assert revision is not None and revision.sequence == 2
         assert revision.message == "Tag camera serial"
         assert revision.origin == OriginIdentity("com.example.editor", "0.4.0")
-        assert production.external_identifiers[asset_id] == (
+        assert production.external_identifiers[AssetRef(asset_id)] == (
             ExternalIdentifier("com.example.camera.serial", "A-0007"),
         )
 

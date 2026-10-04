@@ -26,6 +26,7 @@ from postproject import (
     ArtifactReproducibility,
     ArtifactReproducibilityIssueKind,
     AssetId,
+    AssetRef,
     Dependency,
     DependencyMatch,
     DependencySet,
@@ -36,6 +37,7 @@ from postproject import (
     Representation,
     RepresentationId,
     RepresentationKind,
+    RepresentationRef,
     ToolIdentity,
 )
 
@@ -163,13 +165,13 @@ def record_edit_dependencies(
     dependencies = (
         Dependency(
             "org.example:clip-reference",
-            camera_asset_id,
+            AssetRef(camera_asset_id),
             "rushes/A001.mov",
             resolved_representation_id=original_id,
         ),
         Dependency(
             "org.example:offline-proxy",
-            proxy_id,
+            RepresentationRef(proxy_id),
             "proxies/A001_proxy.mov",
             required=False,
         ),
@@ -274,8 +276,8 @@ def main() -> None:
             match.target
             for match in all_dependencies(production, edit_representation.id)
         ] == [
-            asset_id,
-            proxy_id,
+            AssetRef(asset_id),
+            RepresentationRef(proxy_id),
         ]
 
         # A newer content observation of the edit invalidates its dependency set.

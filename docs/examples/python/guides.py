@@ -19,6 +19,7 @@ from postproject import (
     ActivityEdge,
     ActivitySpec,
     AssetId,
+    AssetRef,
     Dependency,
     ExternalIdentifier,
     ImageSequenceSource,
@@ -33,6 +34,7 @@ from postproject import (
     RepresentationAddedEvent,
     RepresentationId,
     RepresentationKind,
+    RepresentationRef,
     RepresentationResolution,
     Revision,
     RevisionEvent,
@@ -63,14 +65,14 @@ def create_production(path: Path, media: Path) -> tuple[Production, AssetId]:
 def tag_camera_serial(production: Production, asset_id: AssetId) -> None:
     identifier = ExternalIdentifier("com.example.camera.serial", "A-0007")
     with production.transaction() as transaction:
-        transaction.add_external_identifier(asset_id, identifier)
+        transaction.add_external_identifier(AssetRef(asset_id), identifier)
 
-    attached = production.external_identifiers[asset_id]
+    attached = production.external_identifiers[AssetRef(asset_id)]
     matches = production.objects_by_external_identifier[
         identifier.scheme, identifier.value
     ]
     assert attached == (identifier,)
-    assert matches == (asset_id,)
+    assert matches == (AssetRef(asset_id),)
 
 
 # [/external-identifiers]
@@ -84,10 +86,10 @@ def add_title(production: Production, asset_id: AssetId) -> None:
     )
     with production.transaction() as transaction:
         transaction.add_metadata(
-            asset_id, title, MetadataLanguageString("Interview", "en-US")
+            AssetRef(asset_id), title, MetadataLanguageString("Interview", "en-US")
         )
 
-    for assertion in production.metadata[asset_id]:
+    for assertion in production.metadata[AssetRef(asset_id)]:
         print(f"{assertion.property.property}: {assertion.value}")
     assert len(production.metadata_by_property[title]) == 1
 
@@ -239,7 +241,7 @@ def record_and_query_dependencies(
 ) -> None:
     dependency = Dependency(
         kind="org.example:character-reference",
-        target=target_asset_id,
+        target=AssetRef(target_asset_id),
         authored_reference="characters/lead.usd",
         resolved_representation_id=resolved_id,
     )
@@ -254,9 +256,9 @@ def record_and_query_dependencies(
     assert not dependencies.traversal_truncated
 
     dependents = production.dependents(
-        target_asset_id, max_depth=4, max_representations=1000, limit=100
+        AssetRef(target_asset_id), max_depth=4, max_representations=1000, limit=100
     )
-    assert dependents.items[0].target == source_id
+    assert dependents.items[0].target == RepresentationRef(source_id)
 
 
 # [/dependency-queries]
@@ -507,11 +509,11 @@ def watch_new_media(
 def bind_representation(
     production: Production, representation_id: RepresentationId
 ) -> str:
-    stored = production.host_bindings[representation_id]
+    stored = production.host_bindings[RepresentationRef(representation_id)]
 
     binding = production.host_bindings.parse(stored)
     assert binding.production_id == production.id
-    assert binding.object == representation_id
+    assert binding.object == RepresentationRef(representation_id)
     return stored
 
 
@@ -550,10 +552,12 @@ def main() -> None:
         print_recorded_locators(production)
         assert list_media_knowledge(production) == (original_id,)
         read_known_objects(production, asset_id, original_id)
-        assert find_interview_titles(production) == (asset_id,)
+        assert find_interview_titles(production) == (AssetRef(asset_id),)
         query_render_lineage(production, original_id, sequence_id)
         assert stale_descendants(production, original_id) == []
-        assert sequence_id in objects_changed_after(production, before_render.sequence)
+        assert RepresentationRef(sequence_id) in objects_changed_after(
+            production, before_render.sequence
+        )
 
         cursor = process_changes(production, 0)
         latest = production.latest_revision

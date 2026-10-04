@@ -25,6 +25,16 @@ installed quickstart above runs in package CI on Linux, macOS, and Windows.
 A transaction context commits only after a clean exit. An exception rolls it
 back. `close()` is idempotent for production and transaction handles, and a
 finalizer is a fallback for handles that were not closed explicitly.
+The new {doc}`coherent-reads` recipe uses `Edit` contexts, which require explicit
+commit and always discard uncommitted work on exit.
+
+Identity annotations such as `AssetId` are `NewType` hints over ordinary
+`uuid.UUID` values. Use `parse_id(text, AssetId)` to parse text, standard UUID
+operations at serialization boundaries, and optional type checking to catch
+wrong-kind arguments. Use explicit `AssetRef(asset_id)` or
+`RepresentationRef(representation_id)` variants for metadata, dependency,
+external-identifier, and host-binding targets. A runtime UUID does not retain
+its nominal type; the store checks existence and production membership.
 
 Production operations may run concurrently from multiple Python threads; calls
 on one native handle serialize internally. Do not call `close()` concurrently

@@ -15,6 +15,7 @@ from pathlib import Path
 
 from postproject import (
     AssetId,
+    AssetRef,
     ExternalIdentifier,
     Fingerprint,
     LocatorIdentity,
@@ -38,6 +39,7 @@ from postproject import (
     ObjectReference,
     Production,
     RepresentationId,
+    RepresentationRef,
     file_locator,
     fingerprint_file,
 )
@@ -71,10 +73,10 @@ def replace_tape_identifier(
     serial = ExternalIdentifier("com.example.camera.serial", "A-0007")
     tape = ExternalIdentifier("com.example.tape", "T-0012", qualifier="reel")
     with production.transaction() as transaction:
-        transaction.add_external_identifier(asset_id, serial)
-        transaction.add_external_identifier(asset_id, tape)
+        transaction.add_external_identifier(AssetRef(asset_id), serial)
+        transaction.add_external_identifier(AssetRef(asset_id), tape)
 
-    for identifier in production.external_identifiers[asset_id]:
+    for identifier in production.external_identifiers[AssetRef(asset_id)]:
         print(
             f"{identifier.scheme}: {identifier.value} ({identifier.qualifier or '-'})"
         )
@@ -85,8 +87,8 @@ def replace_tape_identifier(
 
     # Removal matches the exact scheme, value, and qualifier.
     with production.transaction() as transaction:
-        transaction.remove_external_identifier(asset_id, tape)
-    return production.external_identifiers[asset_id]
+        transaction.remove_external_identifier(AssetRef(asset_id), tape)
+    return production.external_identifiers[AssetRef(asset_id)]
 
 
 # [/remove-identifier]
@@ -116,11 +118,13 @@ def add_editorial_metadata(
                 MetadataStructField("focal-length-mm", MetadataU64(35)),
             )
         ),
-        "selected-take": MetadataReference(original_id),
+        "selected-take": MetadataReference(RepresentationRef(original_id)),
     }
     with production.transaction() as transaction:
         for name, value in values.items():
-            transaction.add_metadata(asset_id, MetadataProperty(EDITORIAL, name), value)
+            transaction.add_metadata(
+                AssetRef(asset_id), MetadataProperty(EDITORIAL, name), value
+            )
 
 
 def describe(value: MetadataValue) -> str:
@@ -179,7 +183,7 @@ def clear_keywords(production: Production, asset_id: AssetId) -> None:
     keywords = MetadataProperty(EDITORIAL, "keywords")
     # Removes every value of the property on this target in one change.
     with production.transaction() as transaction:
-        transaction.remove_metadata_property(asset_id, keywords)
+        transaction.remove_metadata_property(AssetRef(asset_id), keywords)
 
     assert production.metadata_by_property[keywords] == ()
 
@@ -211,18 +215,20 @@ def main() -> None:
         )
         assert production.objects_by_external_identifier[
             "com.example.camera.serial", "A-0007"
-        ] == (asset_id,)
+        ] == (AssetRef(asset_id),)
 
         add_editorial_metadata(production, asset_id, original_id)
-        print_metadata(production, asset_id)
+        print_metadata(production, AssetRef(asset_id))
         stored = {
             assertion.property.property: assertion.value
-            for assertion in production.metadata[asset_id]
+            for assertion in production.metadata[AssetRef(asset_id)]
         }
         assert len(stored) == 13
         assert stored["gain-db"] == MetadataDecimal(-125, 1)
         assert stored["frame-rate"] == MetadataRational(24_000, 1_001)
-        assert stored["selected-take"] == MetadataReference(original_id)
+        assert stored["selected-take"] == MetadataReference(
+            RepresentationRef(original_id)
+        )
         assert stored["lens"] == MetadataStruct(
             (
                 MetadataStructField("model", MetadataString("Example 35mm")),
@@ -233,25 +239,28 @@ def main() -> None:
 
         approved = MetadataProperty(EDITORIAL, "approved")
         with production.transaction() as transaction:
-            transaction.add_metadata(original_id, approved, MetadataBool(True))
+            transaction.add_metadata(
+                RepresentationRef(original_id), approved, MetadataBool(True)
+            )
         first_page = production.query_metadata(
             approved, limit=1, value=MetadataBool(True)
         )
         assert first_page.next_cursor is not None
-        assert sorted(map(str, find_approved(production))) == sorted(
-            [str(asset_id), str(original_id)]
-        )
+        assert set(find_approved(production)) == {
+            AssetRef(asset_id),
+            RepresentationRef(original_id),
+        }
 
         keywords = MetadataProperty(EDITORIAL, "keywords")
         assert len(production.metadata_by_property[keywords]) == 1
         clear_keywords(production, asset_id)
         assert all(
             assertion.property != keywords
-            for assertion in production.metadata[asset_id]
+            for assertion in production.metadata[AssetRef(asset_id)]
         )
         assert (
-            MetadataAssertion(asset_id, approved, MetadataBool(True))
-            in (production.metadata[asset_id])
+            MetadataAssertion(AssetRef(asset_id), approved, MetadataBool(True))
+            in (production.metadata[AssetRef(asset_id)])
         )
 
 

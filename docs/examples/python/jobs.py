@@ -15,6 +15,7 @@ from pathlib import Path
 
 from postproject import (
     ActivityEdge,
+    ActivityRef,
     ActivitySpec,
     AgentIdentity,
     AssetId,
@@ -22,6 +23,7 @@ from postproject import (
     Job,
     JobClaimId,
     JobId,
+    JobRef,
     JobRequest,
     JobState,
     MetadataAssertion,
@@ -64,7 +66,7 @@ def request_proxy(
     # The job and its typed parameters commit together.
     with production.transaction() as transaction:
         job_id = transaction.request_job(request)
-        transaction.add_metadata(job_id, PROFILE, MetadataString("proxy-720p"))
+        transaction.add_metadata(JobRef(job_id), PROFILE, MetadataString("proxy-720p"))
 
     page = production.jobs(
         limit=100, state=JobState.REQUESTED, kind="org.postproject:generate-proxy"
@@ -74,7 +76,7 @@ def request_proxy(
     print(
         f"{job.kind} {job.state.name}: {inputs} -> {job.output_representation_kind.name}"
     )
-    for parameter in production.metadata[job_id]:
+    for parameter in production.metadata[JobRef(job_id)]:
         print(f"  {parameter.property.property} = {parameter.value}")
     return job_id
 
@@ -126,8 +128,10 @@ def run_proxy_job(production: Production, job_id: JobId, output: Path) -> None:
             )
         )
         # Copy the job parameters so the activity can be reproduced.
-        for parameter in production.metadata[job_id]:
-            transaction.add_metadata(activity_id, parameter.property, parameter.value)
+        for parameter in production.metadata[JobRef(job_id)]:
+            transaction.add_metadata(
+                ActivityRef(activity_id), parameter.property, parameter.value
+            )
         transaction.complete_job(job_id, claim_id, now + MINUTE, proxy_id, activity_id)
 
 
@@ -181,7 +185,9 @@ def plan_and_enqueue(
         )
         # The planned parameters target the proposal; retarget them.
         for parameter in plan.parameters:
-            transaction.add_metadata(job_id, parameter.property, parameter.value)
+            transaction.add_metadata(
+                JobRef(job_id), parameter.property, parameter.value
+            )
     return plan, job_id
 
 
@@ -209,8 +215,8 @@ def main() -> None:
         assert job.output_asset_id == asset_id
         assert job.output_representation_kind is RepresentationKind.PROXY
         assert job.target_root == "proxies"
-        assert production.metadata[job_id] == (
-            MetadataAssertion(job_id, PROFILE, parameter),
+        assert production.metadata[JobRef(job_id)] == (
+            MetadataAssertion(JobRef(job_id), PROFILE, parameter),
         )
 
         claim_renew_release(production, job_id)
@@ -223,8 +229,8 @@ def main() -> None:
         (producer,) = production.activities_producing[job.completion.representation_id]
         assert producer.id == job.completion.activity_id
         assert producer.tool == WORKER and producer.agent == AGENT
-        assert production.metadata[producer.id] == (
-            MetadataAssertion(producer.id, PROFILE, parameter),
+        assert production.metadata[ActivityRef(producer.id)] == (
+            MetadataAssertion(ActivityRef(producer.id), PROFILE, parameter),
         )
         proxy_id = job.completion.representation_id
 
@@ -246,15 +252,17 @@ def main() -> None:
         assert plan.job.state is JobState.REQUESTED
         assert plan.job.inputs == (source_id,)
         assert plan.job.target_root == "proxies"
-        assert plan.parameters == (MetadataAssertion(plan.job.id, PROFILE, parameter),)
+        assert plan.parameters == (
+            MetadataAssertion(JobRef(plan.job.id), PROFILE, parameter),
+        )
         latest = production.latest_revision
         assert revision is not None and latest is not None
         assert latest.sequence == revision.sequence + 1
         enqueued = job_by_id(production, enqueued_id)
         assert enqueued.state is JobState.REQUESTED
         assert enqueued.target_root == "proxies"
-        assert production.metadata[enqueued_id] == (
-            MetadataAssertion(enqueued_id, PROFILE, parameter),
+        assert production.metadata[JobRef(enqueued_id)] == (
+            MetadataAssertion(JobRef(enqueued_id), PROFILE, parameter),
         )
         requested = production.jobs(limit=100, state=JobState.REQUESTED).items
         assert [item.id for item in requested] == [enqueued_id]
