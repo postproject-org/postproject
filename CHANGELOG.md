@@ -8,6 +8,7 @@ All notable changes to PostProject will be documented here. The project uses
 - Named the C++ Result propagation protocol as source-compatible within `0.6.x` (ADR 0020).
 - Fixed release of closed transaction handles clearing a newer transaction's guard; no caller migration is required.
 - Added installed C OBS and native C++ Natron pilots, host-action recipes, and complete compatibility-family evidence checks.
+- Enforced crate dependency boundaries and checked Rust/C/ctypes struct layouts on all native CI platforms.
 
 ## 0.5.0-alpha.1 - 2026-10-01
 

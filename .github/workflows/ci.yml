@@ -53,6 +53,10 @@ jobs:
       - run: ruff format --check python/src python/tests examples/python docs/examples/python docs/_ext
       - run: ty check --project python python/src python/tests examples/python docs/examples/python
       - run: python tools/check_versions.py
+      - run: python tools/check_architecture.py
+      - run: python -m unittest tools/test_check_architecture.py
+      - run: ruff check tools/check_architecture.py tools/test_check_architecture.py
+      - run: ruff format --check tools/check_architecture.py tools/test_check_architecture.py
       - run: python tools/check_example_coverage.py
       - run: python tools/flatpak_module.py check
       - run: python -m unittest tools/test_flatpak_module.py tools/test_build_platform_wheel.py tools/test_compatibility_usage.py
@@ -254,12 +258,25 @@ jobs:
         run: pkg-config --validate target/install/lib/pkgconfig/postproject.pc
       - name: Configure consumer without Cargo
         shell: bash
-        run: >-
-          cmake -S tests/abi -B target/cpp-consumer
-          -DCMAKE_PREFIX_PATH="$GITHUB_WORKSPACE/target/install"
-          -DCMAKE_BUILD_TYPE=Release
+        run: |
+          python tools/generate_abi.py include/postproject/postproject.h \
+            --layout-c > target/abi-layout.c
+          cargo run --locked -p postproject-ffi --example abi_layout > target/rust-abi-layout.txt
+          python tools/check_abi_layout.py python/src/postproject/_abi.py target/rust-abi-layout.txt
+          cmake -S tests/abi -B target/cpp-consumer \
+            -DCMAKE_PREFIX_PATH="$GITHUB_WORKSPACE/target/install" \
+            -DPOSTPROJECT_ABI_LAYOUT_SOURCE="$GITHUB_WORKSPACE/target/abi-layout.c" \
+            -DCMAKE_BUILD_TYPE=Release
       - run: cmake --build target/cpp-consumer --config Release --parallel
       - run: ctest --test-dir target/cpp-consumer --build-config Release --output-on-failure
+      - name: Compare C compiler layouts with Rust and ctypes
+        shell: bash
+        run: |
+          probe=target/cpp-consumer/postproject-abi-layout
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            probe=target/cpp-consumer/Release/postproject-abi-layout.exe
+          fi
+          "$probe" | python tools/check_abi_layout.py python/src/postproject/_abi.py
       - name: Configure guide examples without Cargo
         shell: bash
         run: >-

@@ -4,6 +4,15 @@ project(postproject_native_consumers LANGUAGES C CXX)
 
 find_package(PostProject 0.5 REQUIRED CONFIG)
 
+# The producer generates this source from the public header. This consumer
+# compiles it against the install prefix and never invokes Cargo.
+set(POSTPROJECT_ABI_LAYOUT_SOURCE "" CACHE FILEPATH "Generated C layout probe")
+if(POSTPROJECT_ABI_LAYOUT_SOURCE)
+    add_executable(postproject-abi-layout "${POSTPROJECT_ABI_LAYOUT_SOURCE}")
+    target_compile_features(postproject-abi-layout PRIVATE c_std_11)
+    target_link_libraries(postproject-abi-layout PRIVATE PostProject::postproject)
+endif()
+
 add_executable(postproject-cpp-smoke cpp_smoke.cpp)
 target_compile_features(postproject-cpp-smoke PRIVATE cxx_std_17)
 target_link_libraries(postproject-cpp-smoke PRIVATE PostProject::postproject)
