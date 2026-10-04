@@ -12,9 +12,9 @@ publish = false
 [dependencies]
 
 [dev-dependencies]
-postproject-core = { version = "0.5.0-alpha.1", path = "../../../crates/postproject-core" }
-postproject-media = { version = "0.5.0-alpha.1", path = "../../../crates/postproject-media" }
-postproject-storage-sqlite = { version = "0.5.0-alpha.1", path = "../../../crates/postproject-storage-sqlite" }
+postproject-core = { version = "0.6.0-alpha.1", path = "../../../crates/postproject-core" }
+postproject-media = { version = "0.6.0-alpha.1", path = "../../../crates/postproject-media" }
+postproject-storage-sqlite = { version = "0.6.0-alpha.1", path = "../../../crates/postproject-storage-sqlite" }
 tempfile = "3"
 
 [lints]
