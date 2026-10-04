@@ -113,6 +113,9 @@ Read these before changing the relevant subsystem:
 - {doc}`standards-policy`
 
 For repository-wide engineering detail, continue with {doc}`../project/README`.
+The development {doc}`API safety audit </api-safety-audit>` and
+{doc}`repository migration inventory </api-safety-repositories>` record the
+current cross-surface work and verification gaps.
 
 ```{toctree}
 :hidden:
@@ -121,4 +124,6 @@ content-structure-invariants
 metadata-model
 provenance-model
 standards-policy
+/api-safety-audit
+/api-safety-repositories
 ```

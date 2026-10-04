@@ -60,6 +60,9 @@ Read the relevant ADR before changing an invariant, a boundary, or a public cont
 - {doc}`ADR 0042 — Semantic optimistic write conflicts </adr/0042-semantic-write-conflicts>`
 - {doc}`ADR 0043 — Local shared productions </adr/0043-local-shared-productions>`
 - {doc}`ADR 0044 — Closed transaction guard ownership </adr/0044-closed-transaction-guard-ownership>`
+- {doc}`ADR 0045 — Coherent reads and commit receipts </adr/0045-read-views-and-commit-receipts>`
+- {doc}`ADR 0046 — Python UUID hints and explicit references </adr/0046-python-identities-and-object-references>`
+- {doc}`ADR 0047 — Local cursor scope and lifetime </adr/0047-local-query-cursor-scopes>`
 
 ```{toctree}
 :hidden:
@@ -108,4 +111,7 @@ Read the relevant ADR before changing an invariant, a boundary, or a public cont
 /adr/0042-semantic-write-conflicts
 /adr/0043-local-shared-productions
 /adr/0044-closed-transaction-guard-ownership
+/adr/0045-read-views-and-commit-receipts
+/adr/0046-python-identities-and-object-references
+/adr/0047-local-query-cursor-scopes
 ```
