@@ -64,14 +64,17 @@ update_from_a_base_revision(pp_production_t *production, pp_error_t **error) {
                                                    error);
   }
   if (status == PP_OK) {
-    status = pp_transaction_commit(transaction, error);
+    pp_commit_receipt_t receipt;
+    status = pp_transaction_commit_with_receipt(transaction, &receipt, error);
+    if (status == PP_OK && receipt.outcome != PP_COMMIT_REVISION_CREATED)
+      status = PP_ERROR_INTERNAL;
+    if (status == PP_OK) {
+      superseding_id = receipt.revision_id;
+      superseding_sequence = receipt.revision_sequence;
+    }
   }
   pp_transaction_release(transaction);
   transaction = NULL;
-  if (status == PP_OK) {
-    status = latest_revision(production, &superseding_id,
-                             &superseding_sequence, error);
-  }
 
   if (status == PP_OK) {
     status = pp_production_begin_transaction_at(production, &base_id,

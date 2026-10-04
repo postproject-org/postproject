@@ -92,6 +92,8 @@ from ._model import (
     AssetImportedEvent,
     AvailabilityIssue,
     AvailabilityIssueKind,
+    CommitReceipt,
+    CommittedRevision,
     ContentObservationOutcome,
     ContentStructureKind,
     ContentVerification,
@@ -2554,10 +2556,27 @@ class Transaction:
         )
         self._native.check(status, error)
 
-    def commit(self) -> None:
-        """Atomically persist every staged mutation."""
+    def commit(self) -> CommitReceipt:
+        """Persist staged mutations and return this commit's atomic receipt.
 
-        self._finish(self._native.lib.pp_transaction_commit)
+        The attempt is terminal, including failure. A receipt with no revision
+        creates no journal entry and does not identify another writer's head.
+        """
+
+        self._require_open()
+        receipt = _abi.CommitReceipt()
+        error = ctypes.POINTER(Error)()
+        status = self._native.lib.pp_transaction_commit_with_receipt(
+            self._handle, ctypes.byref(receipt), ctypes.byref(error)
+        )
+        self._finished = True
+        self._native.check(status, error)
+        revision = None
+        if receipt.outcome == _abi.PP_COMMIT_REVISION_CREATED:
+            revision = CommittedRevision(
+                RevisionId(_uuid(receipt.revision_id)), int(receipt.revision_sequence)
+            )
+        return CommitReceipt(ProductionId(_uuid(receipt.production_id)), revision)
 
     def rollback(self) -> None:
         """Discard every staged mutation."""
@@ -2593,8 +2612,8 @@ class Transaction:
         self._require_open()
         error = ctypes.POINTER(Error)()
         status = function(self._handle, ctypes.byref(error))
-        self._native.check(status, error)
         self._finished = True
+        self._native.check(status, error)
 
     def _mutate_external_identifier(
         self,

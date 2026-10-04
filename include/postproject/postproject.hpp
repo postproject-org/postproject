@@ -674,6 +674,16 @@ struct Revision final {
   std::optional<std::string> message;
 };
 
+struct CommittedRevision final {
+  Uuid id;
+  std::uint64_t sequence;
+};
+
+struct CommitReceipt final {
+  Uuid production_id;
+  std::optional<CommittedRevision> revision;
+};
+
 struct AssetImportedEvent final {
   Uuid asset_id;
 };
@@ -3511,6 +3521,20 @@ public:
     const pp_error_code_t status = pp_transaction_commit(transaction_, &error);
     POSTPROJECT_TRY(detail::check(status, error));
     return {};
+  }
+
+  [[nodiscard]] Result<CommitReceipt> commitWithReceipt() {
+    pp_commit_receipt_t receipt{};
+    pp_error_t *error = nullptr;
+    const pp_error_code_t status =
+        pp_transaction_commit_with_receipt(transaction_, &receipt, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    CommitReceipt result{detail::uuid(receipt.production_id), std::nullopt};
+    if (receipt.outcome == PP_COMMIT_REVISION_CREATED) {
+      result.revision = CommittedRevision{detail::uuid(receipt.revision_id),
+                                         receipt.revision_sequence};
+    }
+    return result;
   }
 
   Result<void> rollback() {

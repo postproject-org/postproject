@@ -17,8 +17,10 @@ def update_from_a_base_revision(production: Production) -> None:
     assert base is not None
     with production.transaction(base_revision=base.id) as first_writer:
         first_writer.set_media_root_enabled(root_id, False)
+        receipt = first_writer.commit()
 
-    superseding = production.latest_revision
+    assert receipt.production_id == production.id
+    superseding = receipt.revision
     assert superseding is not None
     stale_writer = production.transaction(base_revision=base.id)
     try:

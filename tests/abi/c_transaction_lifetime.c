@@ -1,6 +1,7 @@
 #include <postproject/postproject.h>
 
 #include <stdio.h>
+#include <string.h>
 
 /* Closed A may outlive open B, but must never release B's production guard. */
 static int check_terminal_state(pp_production_t *production, int terminal) {
@@ -8,6 +9,7 @@ static int check_terminal_state(pp_production_t *production, int terminal) {
   pp_transaction_t *b = NULL;
   pp_transaction_t *c = NULL;
   pp_error_t *error = NULL;
+  pp_commit_receipt_t receipt;
   int result = 1;
   if (pp_production_begin_transaction(production, &a, &error) != PP_OK)
     goto cleanup;
@@ -20,9 +22,21 @@ static int check_terminal_state(pp_production_t *production, int terminal) {
       goto cleanup;
     pp_error_release(error);
     error = NULL;
-  } else if ((terminal == 0 ? pp_transaction_commit(a, &error)
+  } else if ((terminal == 0 ? pp_transaction_commit_with_receipt(a, &receipt, &error)
                             : pp_transaction_rollback(a, &error)) != PP_OK) {
     goto cleanup;
+  }
+  if (terminal == 0) {
+    pp_uuid_t production_id;
+    if (receipt.outcome != PP_COMMIT_NO_CHANGE || receipt.revision_sequence != 0 ||
+        pp_production_id(production, &production_id, &error) != PP_OK ||
+        memcmp(receipt.production_id.bytes, production_id.bytes, 16) != 0)
+      goto cleanup;
+    if (pp_transaction_commit_with_receipt(a, &receipt, &error) != PP_ERROR_CONFLICT ||
+        receipt.revision_sequence != 0)
+      goto cleanup;
+    pp_error_release(error);
+    error = NULL;
   }
 
   if (pp_production_begin_transaction(production, &b, &error) != PP_OK)

@@ -14,13 +14,13 @@ fn update_from_a_base_revision(production: &mut SqliteProduction) -> Result<()> 
     }
 
     let base = production.latest_revision()?.expect("setup revision");
-    {
+    let receipt = {
         let mut first_writer = production.begin_transaction_at(base.id())?;
         first_writer.set_media_root_enabled(root_id, false)?;
-        first_writer.commit()?;
-    }
-
-    let superseding = production.latest_revision()?.expect("first update");
+        first_writer.commit_with_receipt()?
+    };
+    assert_eq!(receipt.production_id(), production.production().id());
+    let superseding = receipt.revision().expect("first update");
     {
         let mut stale_writer = production.begin_transaction_at(base.id())?;
         stale_writer.set_media_root_enabled(root_id, true)?;

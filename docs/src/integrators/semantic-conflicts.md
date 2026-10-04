@@ -29,10 +29,12 @@ production there is no base: an independent first import can use an ordinary
 transaction. A decision requiring existing committed objects must first have
 those objects and a retained revision.
 
-Commit reports success, not the identity of the committing revision. A later
-latest-revision read can belong to another writer. Use it as a feed watermark
-or current-state observation, never as your transaction's receipt. The
-{doc}`native-host-actions` recipes demonstrate these boundaries in host code.
+Commit receipts identify the production and the revision created by that
+transaction. An absent revision explicitly means no new journal entry. C uses
+`pp_transaction_commit_with_receipt`, C++ uses `commitWithReceipt`, Rust uses
+`commit_with_receipt`, and Python `commit()` returns the receipt. The legacy
+void commit operations remain available during migration. A later head read
+can belong to another writer; use the atomic receipt for attribution.
 
 ```mermaid
 sequenceDiagram

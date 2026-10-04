@@ -105,6 +105,22 @@ class TransactionId(_TypedId):
     __slots__ = ()
 
 
+@dataclass(frozen=True, slots=True)
+class CommittedRevision:
+    """Identity and sequence produced by one successful commit."""
+
+    id: RevisionId
+    sequence: int
+
+
+@dataclass(frozen=True, slots=True)
+class CommitReceipt:
+    """Atomic commit outcome; no revision means no new journal entry."""
+
+    production_id: ProductionId
+    revision: CommittedRevision | None
+
+
 ObjectReference: TypeAlias = (
     ProductionId | AssetId | RepresentationId | ResourceId | ActivityId | JobId
 )
