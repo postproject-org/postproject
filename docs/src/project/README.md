@@ -42,6 +42,10 @@ Historical reports should remain available because they are useful evidence, but
 
 The candidate's {doc}`../../release-0.6-integration-findings` records the
 source-checked pilot selection and reproduced interface defects.
+The {doc}`../../release-0.6-report` records acceptance and artifact scope;
+the {doc}`../../release-0.6-compatibility-evidence` and
+{doc}`../../release-0.6-compatibility-decision` distinguish measured use from
+the proposed compatibility promise.
 
 ## Architecture Decision Records
 
@@ -66,6 +70,5 @@ When a change touches an area that maps to an external standard, consult the sta
 /compatibility-evidence
 /fuzzing
 releases
-/release-0.6-integration-findings
 decisions
 ```

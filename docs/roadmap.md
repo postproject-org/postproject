@@ -79,6 +79,24 @@ verification evidence are recorded in the
 Shared access remains one local SQLite file on one machine; services, network
 filesystems, permissions, and distributed merging are outside this release.
 
+## Release 0.6 — native integration candidate
+
+Add a direct-C OBS finalized-recording plugin and a native C++ Natron Reader
+adapter against installed public packages. OBS records capture knowledge off
+its processing callbacks; Blender adopts and resolves that recording through
+its maintained integration. Natron explicitly adopts compact sequences,
+preserves its filename fallback, and handles missing frames, ambiguity,
+obsolete asynchronous results and an independent writer's conflict.
+
+A closed-transaction destruction defect is repaired. Compatibility evidence
+checks complete projections and dependency closure across released 0.5 and
+the 0.6 candidate. The C++ Result propagation family has a concrete proposal;
+no new promise is enacted without maintainer approval. Audacity and Krita were
+not selected under the documented minimum-pilot gate. The
+[acceptance report](release-0.6-report.md) records exact verification and
+release-scoped limitations. Package release tagging and publication remain
+outside this candidate handoff.
+
 ## Explicitly later
 
 - full IPTC VMH and EBUCorePlus mapping packages;
