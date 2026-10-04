@@ -14,6 +14,7 @@ mod media_source;
 mod metadata;
 mod metadata_input;
 mod provenance;
+mod read_session;
 mod representations;
 mod resolution;
 mod revision_events;
@@ -37,18 +38,18 @@ use std::{
 use postproject_core::{
     Activity, ActivityId, ActivityInput, ActivityKind, ActivityOutput, ActivityOutputQuery,
     ActivityRole, AgentIdentity, ArtifactEvaluationLimits, Asset, AssetId, AvailabilityIssue,
-    AvailabilityIssueKind, CommitReceipt, Dependency, DependencyKind, DependencyQueryLimits,
-    DependencyTarget, Error, ErrorKind, EvidenceKind, ExternalIdentifier, HostObjectBinding,
-    IdentifierScheme, Job, JobClaimId, JobFailure, JobId, JobKind, JobQuery, JobStateKind, Locator,
-    LocatorAvailability, LocatorId, MAX_ACTIVITY_EDGES, MAX_DEPENDENCIES_PER_SET, MAX_JOB_INPUTS,
-    MediaRoot, MediaRootId, MetadataProperty, MetadataQuery, MetadataValue, ObjectRef,
-    OriginIdentity, OriginalMediaImport, ProductionId, PropertyId, ProvenanceQueryLimits,
-    ProvenanceQueryMatch, QueryCursor, QueryPageRequest, RepresentationAvailability,
-    RepresentationFingerprint, RepresentationId, RepresentationImport, RepresentationKind,
-    RepresentationResolution, RequestedJobOutput, ResolutionEvidence, ResourceFingerprint,
-    ResourceId, ResourceResolutionState, RevisionContext, RevisionId, SemanticConflictKey,
-    StaleArtifactQuery, Timestamp, ToolIdentity, TransactionConflict, TransactionLifecycle,
-    VocabularyId,
+    AvailabilityIssueKind, CommitReceipt, DecisionBase, Dependency, DependencyKind,
+    DependencyQueryLimits, DependencyTarget, Error, ErrorKind, EvidenceKind, ExternalIdentifier,
+    HostObjectBinding, IdentifierScheme, Job, JobClaimId, JobFailure, JobId, JobKind, JobQuery,
+    JobStateKind, Locator, LocatorAvailability, LocatorId, MAX_ACTIVITY_EDGES,
+    MAX_DEPENDENCIES_PER_SET, MAX_JOB_INPUTS, MediaRoot, MediaRootId, MetadataProperty,
+    MetadataQuery, MetadataValue, ObjectRef, OriginIdentity, OriginalMediaImport, ProductionId,
+    PropertyId, ProvenanceQueryLimits, ProvenanceQueryMatch, QueryCursor, QueryPageRequest,
+    RepresentationAvailability, RepresentationFingerprint, RepresentationId, RepresentationImport,
+    RepresentationKind, RepresentationResolution, RequestedJobOutput, ResolutionEvidence,
+    ResourceFingerprint, ResourceId, ResourceResolutionState, RevisionContext, RevisionId,
+    SemanticConflictKey, StaleArtifactQuery, Timestamp, ToolIdentity, TransactionConflict,
+    TransactionLifecycle, VocabularyId,
 };
 use postproject_media::{
     canonical_file_uri, local_file_path, prepare_confirmed_locator, prepare_original_media,
@@ -70,6 +71,7 @@ pub use metadata::{PpMetadataSet, PpMetadataValue};
 pub use metadata_input::PpMetadataInput;
 pub use provenance::PpActivitySet;
 use provenance::{AbiActivityEdge, AbiActivityEdgeSnapshot, AbiFingerprintSnapshot};
+pub use read_session::{PpDecisionBase, PpReadSession};
 pub use representations::PpRepresentationSet;
 pub use resolution::{PpCancelToken, PpResolutionOptions};
 pub use revision_events::PpRevisionEventSet;
@@ -349,6 +351,7 @@ pub struct PpTransaction {
     lifecycle: TransactionLifecycle,
     revision_context: RevisionContext,
     base_revision: Option<RevisionId>,
+    decision_base: Option<DecisionBase>,
     mutations: Vec<StagedMutation>,
 }
 
@@ -4772,7 +4775,7 @@ pub unsafe extern "C" fn pp_production_begin_transaction(
             if out_transaction.is_null() {
                 return Err(invalid_argument("out_transaction must not be null"));
             }
-            out_transaction.write(begin_transaction_handle(production, None)?);
+            out_transaction.write(begin_transaction_handle(&production.state, None, None)?);
             Ok(())
         })
     }
@@ -4804,7 +4807,11 @@ pub unsafe extern "C" fn pp_production_begin_transaction_at(
                 .ok_or_else(|| invalid_argument("base_revision must not be null"))?;
             require_output(out_transaction, "out_transaction")?;
             let base_revision = RevisionId::from_bytes(base_revision.bytes);
-            out_transaction.write(begin_transaction_handle(production, Some(base_revision))?);
+            out_transaction.write(begin_transaction_handle(
+                &production.state,
+                Some(base_revision),
+                None,
+            )?);
             Ok(())
         })
     }
@@ -7310,14 +7317,18 @@ fn apply_staged_mutation(
 }
 
 fn begin_transaction_handle(
-    production: &PpProduction,
+    state: &Arc<ProductionState>,
     base_revision: Option<RevisionId>,
+    decision_base: Option<DecisionBase>,
 ) -> Result<*mut PpTransaction, Error> {
     if let Some(base_revision) = base_revision {
-        lock_production(&production.state).events_for_revision(base_revision)?;
+        lock_production(state).events_for_revision(base_revision)?;
     }
-    if production
-        .state
+    if let Some(base) = decision_base {
+        // Validate scope and revision pairing now and again at actual commit.
+        lock_production(state).begin_edit(base)?;
+    }
+    if state
         .transaction_open
         .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
         .is_err()
@@ -7328,10 +7339,11 @@ fn begin_transaction_handle(
         ));
     }
     Ok(Box::into_raw(Box::new(PpTransaction {
-        state: Arc::clone(&production.state),
+        state: Arc::clone(state),
         lifecycle: TransactionLifecycle::new(),
         revision_context: RevisionContext::default(),
         base_revision,
+        decision_base,
         mutations: Vec::new(),
     })))
 }
@@ -7341,9 +7353,10 @@ impl PpTransaction {
         self.lifecycle.ensure_open()?;
         let result = (|| {
             let mut production = lock_production(&self.state);
-            let mut transaction = match self.base_revision {
-                Some(base_revision) => production.begin_transaction_at(base_revision)?,
-                None => production.begin_transaction()?,
+            let mut transaction = match (self.decision_base, self.base_revision) {
+                (Some(base), _) => production.begin_edit(base)?,
+                (None, Some(base_revision)) => production.begin_transaction_at(base_revision)?,
+                (None, None) => production.begin_transaction()?,
             };
             transaction.set_revision_context(self.revision_context.clone())?;
             for mutation in &self.mutations {

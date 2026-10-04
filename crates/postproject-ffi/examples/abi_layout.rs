@@ -1,8 +1,8 @@
 //! Generated implementation layout probe; do not edit manually.
 use postproject::{
     PpActivityEdge, PpArtifactDependencyPathSegment, PpArtifactReason,
-    PpArtifactReproducibilityIssue, PpCommitReceipt, PpDependency, PpDependencyMatch,
-    PpFileResourceInput, PpJob, PpObjectRef, PpRevisionEvent, PpSequenceNaming,
+    PpArtifactReproducibilityIssue, PpCommitReceipt, PpDecisionBase, PpDependency,
+    PpDependencyMatch, PpFileResourceInput, PpJob, PpObjectRef, PpRevisionEvent, PpSequenceNaming,
     PpTransactionConflict, PpUuid,
 };
 use std::mem::{align_of, offset_of, size_of};
@@ -25,6 +25,14 @@ fn main() {
         "pp_commit_receipt_t",
         production_id,
         outcome,
+        revision_id,
+        revision_sequence
+    );
+    layout!(
+        PpDecisionBase,
+        "pp_decision_base_t",
+        production_id,
+        has_revision,
         revision_id,
         revision_sequence
     );

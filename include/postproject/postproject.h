@@ -20,6 +20,7 @@ extern "C" {
 #endif
 
 typedef struct pp_production pp_production_t;
+typedef struct pp_read_session pp_read_session_t;
 typedef struct pp_transaction pp_transaction_t;
 typedef struct pp_asset_set pp_asset_set_t;
 typedef struct pp_media_root_set pp_media_root_set_t;
@@ -75,6 +76,14 @@ typedef struct pp_commit_receipt {
   uint64_t revision_sequence;
 } pp_commit_receipt_t;
 
+/* Detached optimistic context. No revision with sequence zero means an empty
+ * journal; it still protects edits. This value retains no view or lock. */
+typedef struct pp_decision_base {
+  pp_uuid_t production_id;
+  uint8_t has_revision;
+  pp_uuid_t revision_id;
+  uint64_t revision_sequence;
+} pp_decision_base_t;
 typedef uint32_t pp_object_kind_t;
 
 #define PP_OBJECT_PRODUCTION UINT32_C(1)
@@ -466,10 +475,23 @@ typedef uint32_t pp_content_observation_t;
 #define PP_OBSERVATION_CHANGED UINT32_C(2)
 #define PP_OBSERVATION_FIRST UINT32_C(3)
 
-/* Inputs are borrowed UTF-8 without embedded NUL. A NULL display name is
- * absent. On success, *out_production is caller-owned and *out_error is NULL. On
- * failure, *out_production is NULL and a non-NULL *out_error is caller-owned.
- * out_error may itself be NULL when diagnostic text is not required. */
+/* Sessions own a pinned read connection and retain their production for edits.
+ * All session calls are caller-serialized. Returned sets own their copied
+ * values and survive session release. Release accepts NULL, exactly once. */
+PP_API pp_error_code_t pp_production_read_session(
+    const pp_production_t *production, pp_read_session_t **out_session,
+    pp_error_t **out_error);
+PP_API pp_error_code_t pp_read_session_decision_base(
+    const pp_read_session_t *session, pp_decision_base_t *out_base,
+    pp_error_t **out_error);
+PP_API pp_error_code_t pp_read_session_begin_edit(
+    const pp_read_session_t *session, pp_transaction_t **out_transaction,
+    pp_error_t **out_error);
+PP_API pp_error_code_t pp_production_begin_edit(
+    const pp_production_t *production, const pp_decision_base_t *base,
+    pp_transaction_t **out_transaction, pp_error_t **out_error);
+PP_API void pp_read_session_release(pp_read_session_t *session);
+
 PP_API uint32_t pp_abi_version(void);
 /* Host bindings are pure value operations and perform no network access.
  * Inputs are borrowed. On success, *out_binding is caller-owned and must be

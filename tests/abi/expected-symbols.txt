@@ -117,6 +117,7 @@ pp_production_asset
 pp_production_asset_exists
 pp_production_assets
 pp_production_assets_page
+pp_production_begin_edit
 pp_production_begin_transaction
 pp_production_begin_transaction_at
 pp_production_changes_since
@@ -148,6 +149,7 @@ pp_production_provenance_ancestors_page
 pp_production_provenance_descendants
 pp_production_provenance_descendants_page
 pp_production_query_metadata
+pp_production_read_session
 pp_production_release
 pp_production_representation
 pp_production_representations
@@ -160,6 +162,9 @@ pp_production_revision_events
 pp_production_stale_artifacts
 pp_production_unresolved_media
 pp_production_verify_resource
+pp_read_session_begin_edit
+pp_read_session_decision_base
+pp_read_session_release
 pp_regeneration_plan_set_count
 pp_regeneration_plan_set_get
 pp_regeneration_plan_set_release

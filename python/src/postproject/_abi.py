@@ -9,6 +9,10 @@ class Production(ctypes.Structure):
     pass
 
 
+class ReadSession(ctypes.Structure):
+    pass
+
+
 class Transaction(ctypes.Structure):
     pass
 
@@ -126,6 +130,10 @@ class Uuid(ctypes.Structure):
 
 
 class CommitReceipt(ctypes.Structure):
+    pass
+
+
+class DecisionBase(ctypes.Structure):
     pass
 
 
@@ -376,6 +384,13 @@ CommitReceipt._fields_ = [
     ("revision_sequence", ctypes.c_uint64),
 ]
 
+DecisionBase._fields_ = [
+    ("production_id", Uuid),
+    ("has_revision", ctypes.c_uint8),
+    ("revision_id", Uuid),
+    ("revision_sequence", ctypes.c_uint64),
+]
+
 ObjectRef._fields_ = [
     ("kind", ObjectKind),
     ("id", Uuid),
@@ -519,6 +534,7 @@ SequenceNaming._fields_ = [
 PUBLIC_STRUCTS = {
     "pp_uuid_t": (Uuid, ("bytes",)),
     "pp_commit_receipt_t": (CommitReceipt, ("production_id", "outcome", "revision_id", "revision_sequence")),
+    "pp_decision_base_t": (DecisionBase, ("production_id", "has_revision", "revision_id", "revision_sequence")),
     "pp_object_ref_t": (ObjectRef, ("kind", "id")),
     "pp_transaction_conflict_t": (TransactionConflict, ("kind", "target", "namespace_name", "local_name", "qualifier", "version", "has_base_revision", "base_revision_id", "base_revision_sequence", "superseding_revision_id", "superseding_revision_sequence")),
     "pp_dependency_match_t": (DependencyMatch, ("target", "depth")),
@@ -654,6 +670,7 @@ EXPORTED_SYMBOLS = (
     "pp_production_asset_exists",
     "pp_production_assets",
     "pp_production_assets_page",
+    "pp_production_begin_edit",
     "pp_production_begin_transaction",
     "pp_production_begin_transaction_at",
     "pp_production_changes_since",
@@ -685,6 +702,7 @@ EXPORTED_SYMBOLS = (
     "pp_production_provenance_descendants",
     "pp_production_provenance_descendants_page",
     "pp_production_query_metadata",
+    "pp_production_read_session",
     "pp_production_release",
     "pp_production_representation",
     "pp_production_representations",
@@ -697,6 +715,9 @@ EXPORTED_SYMBOLS = (
     "pp_production_stale_artifacts",
     "pp_production_unresolved_media",
     "pp_production_verify_resource",
+    "pp_read_session_begin_edit",
+    "pp_read_session_decision_base",
+    "pp_read_session_release",
     "pp_regeneration_plan_set_count",
     "pp_regeneration_plan_set_get",
     "pp_regeneration_plan_set_release",
@@ -772,6 +793,16 @@ EXPORTED_SYMBOLS = (
 def configure_api(lib: ctypes.CDLL) -> None:
     """Configure every function declared by the public C header."""
 
+    lib.pp_production_read_session.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(ctypes.POINTER(ReadSession)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_production_read_session.restype = ErrorCode
+    lib.pp_read_session_decision_base.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(DecisionBase), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_read_session_decision_base.restype = ErrorCode
+    lib.pp_read_session_begin_edit.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(ctypes.POINTER(Transaction)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_read_session_begin_edit.restype = ErrorCode
+    lib.pp_production_begin_edit.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(DecisionBase), ctypes.POINTER(ctypes.POINTER(Transaction)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_production_begin_edit.restype = ErrorCode
+    lib.pp_read_session_release.argtypes = [ctypes.POINTER(ReadSession)]
+    lib.pp_read_session_release.restype = None
     lib.pp_abi_version.argtypes = []
     lib.pp_abi_version.restype = ctypes.c_uint32
     lib.pp_host_binding_format.argtypes = [ctypes.POINTER(Uuid), ctypes.POINTER(ObjectRef), ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.POINTER(Error))]
