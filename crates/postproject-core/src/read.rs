@@ -1,5 +1,7 @@
 //! Production-scoped bases for decisions made from coherent read views.
 
+use std::{fmt, str::FromStr};
+
 use crate::{Error, ErrorKind, ProductionId, ProductionRead, ProductionStore, Result, RevisionId};
 
 /// Detached optimistic context; it does not retain a read view or a lock.
@@ -8,6 +10,51 @@ pub struct DecisionBase {
     production_id: ProductionId,
     revision_id: Option<RevisionId>,
     sequence: u64,
+}
+
+impl fmt::Display for DecisionBase {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(formatter, "ppdb1:{}:", self.production_id)?;
+        if let Some(revision) = self.revision_id {
+            write!(formatter, "{revision}")?;
+        } else {
+            formatter.write_str("empty")?;
+        }
+        write!(formatter, ":{}", self.sequence)
+    }
+}
+
+impl FromStr for DecisionBase {
+    type Err = Error;
+
+    fn from_str(value: &str) -> Result<Self> {
+        let invalid = || Error::new(ErrorKind::InvalidArgument, "invalid decision-base token");
+        if value.len() > 128 {
+            return Err(invalid());
+        }
+        let mut fields = value.split(':');
+        if fields.next() != Some("ppdb1") {
+            return Err(invalid());
+        }
+        let production = fields.next().ok_or_else(invalid)?.parse()?;
+        let revision = match fields.next().ok_or_else(invalid)? {
+            "empty" => None,
+            id => Some(id.parse()?),
+        };
+        let sequence = fields
+            .next()
+            .ok_or_else(invalid)?
+            .parse()
+            .map_err(|_| invalid())?;
+        if fields.next().is_some() {
+            return Err(invalid());
+        }
+        let base = Self::new(production, revision, sequence)?;
+        if base.to_string() != value {
+            return Err(invalid());
+        }
+        Ok(base)
+    }
 }
 
 impl DecisionBase {
@@ -76,5 +123,36 @@ pub trait ProductionReadSession {
         store: &'production mut Store,
     ) -> Result<Store::Transaction<'production>> {
         store.begin_edit(self.decision_base())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tokens_are_canonical_bounded_and_preserve_empty_state() {
+        for revision in [None, Some(RevisionId::new())] {
+            let base =
+                DecisionBase::new(ProductionId::new(), revision, u64::from(revision.is_some()))
+                    .unwrap();
+            let token = base.to_string();
+            assert_eq!(token.parse::<DecisionBase>().unwrap(), base);
+            assert!(format!("{token}:extra").parse::<DecisionBase>().is_err());
+            assert!(
+                token
+                    .replace("ppdb1", "ppdb2")
+                    .parse::<DecisionBase>()
+                    .is_err()
+            );
+            let (prefix, sequence) = token.rsplit_once(':').unwrap();
+            assert!(
+                format!("{prefix}:0{sequence}")
+                    .parse::<DecisionBase>()
+                    .is_err()
+            );
+        }
+        assert!("x".repeat(129).parse::<DecisionBase>().is_err());
+        assert!(DecisionBase::new(ProductionId::new(), None, 1).is_err());
     }
 }

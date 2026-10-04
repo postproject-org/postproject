@@ -17,10 +17,10 @@ use postproject_core::{
     ActivityRole, AgentIdentity, ArtifactDependencyIssue, ArtifactDependencyPathSegment,
     ArtifactEdgeKind, ArtifactEvaluationLimits, ArtifactKnowledgeReason, ArtifactKnowledgeState,
     ArtifactReproducibilityIssue, ArtifactTraversalLimitKind, Asset, AssetId, AvailabilityIssue,
-    AvailabilityIssueKind, DecimalValue, Dependency, DependencyKind, DependencyQueryLimits,
-    DependencySet, DependencySetStatus, DependencyTarget, EvidenceKind, ExternalIdentifier,
-    FrameRange, IdentifierScheme, Job, JobClaimId, JobFailure, JobId, JobKind, JobQuery, JobState,
-    JobStateKind, Locator, LocatorAvailability, LocatorId, LocatorIdentity,
+    AvailabilityIssueKind, CommitReceipt, DecimalValue, DecisionBase, Dependency, DependencyKind,
+    DependencyQueryLimits, DependencySet, DependencySetStatus, DependencyTarget, EvidenceKind,
+    ExternalIdentifier, FrameRange, IdentifierScheme, Job, JobClaimId, JobFailure, JobId, JobKind,
+    JobQuery, JobState, JobStateKind, Locator, LocatorAvailability, LocatorId, LocatorIdentity,
     MAX_JOB_DIAGNOSTIC_BYTES, MediaRoot, MediaRootId, MetadataAssertion, MetadataField,
     MetadataProperty, MetadataQuery, MetadataValue, MetadataValueKind, ObjectRef, OriginIdentity,
     OriginalMediaImport, ProductionId, ProductionStoreTransaction, PropertyId,
@@ -45,6 +45,12 @@ use postproject_media::{
 use postproject_storage_sqlite::{SqliteProduction, SqliteTransaction};
 use serde::{Deserialize, Serialize};
 
+#[derive(Clone, Copy, Debug)]
+enum CliDecisionBase {
+    Revision(RevisionId),
+    Scoped(DecisionBase),
+}
+
 #[derive(Debug, Parser)]
 #[command(name = "postproject", version, about)]
 struct Cli {
@@ -56,12 +62,23 @@ struct Cli {
     #[arg(long, global = true, value_name = "REVISION_ID")]
     base_revision: Option<RevisionId>,
 
+    /// Production-scoped token returned by inspect; retains no read lock.
+    #[arg(
+        long,
+        global = true,
+        conflicts_with = "base_revision",
+        value_name = "TOKEN"
+    )]
+    decision_base: Option<DecisionBase>,
+
     #[command(subcommand)]
     command: Command,
 }
 
 #[derive(Debug, Subcommand)]
 enum Command {
+    /// Read a coherent bounded view and emit a detached decision token.
+    Inspect(ProductionQueryArgs),
     /// Create a production file.
     Init(InitArgs),
     /// Inspect and manage production media.
@@ -1951,10 +1968,17 @@ fn main() -> ExitCode {
     }
 }
 
+fn cli_decision_base(cli: &Cli) -> Option<CliDecisionBase> {
+    cli.decision_base
+        .map(CliDecisionBase::Scoped)
+        .or_else(|| cli.base_revision.map(CliDecisionBase::Revision))
+}
+
 fn execute(cli: Cli) -> Result<()> {
-    let base = cli.base_revision;
+    let base = cli_decision_base(&cli);
     match cli.command {
         Command::Init(args) => init(args, cli.json),
+        Command::Inspect(args) => inspect(&args, cli.json),
         Command::Media(args) => match args.command {
             MediaCommand::Add(args) => media_add(&args, cli.json, base),
             MediaCommand::List(args) => media_list(&args, cli.json),
@@ -2070,7 +2094,63 @@ fn init(args: InitArgs, json: bool) -> Result<()> {
     }
 }
 
-fn media_add(args: &MediaAddArgs, json: bool, base_revision: Option<RevisionId>) -> Result<()> {
+fn inspect(args: &ProductionQueryArgs, json: bool) -> Result<()> {
+    if args.page.cursor.is_some() {
+        bail!("inspect does not resume a closed snapshot; create a fresh inspection");
+    }
+    let production = SqliteProduction::open(&args.production).context("open production")?;
+    let view = production.read_session().context("open coherent read")?;
+    let page = view
+        .read()
+        .assets_page(&query_page_request(&args.page)?)
+        .context("inspect assets")?;
+    let base = view.decision_base();
+    let assets: Vec<_> = page
+        .items()
+        .iter()
+        .map(|asset| {
+            serde_json::json!({
+                "id": asset.id().to_string(), "display_name": asset.display_name(),
+                "created_at_unix_micros": asset.created_at().as_unix_micros()
+            })
+        })
+        .collect();
+    let roots: Vec<_> = view
+        .read()
+        .production()
+        .media_roots()
+        .iter()
+        .map(root_view)
+        .collect();
+    if json {
+        print_json(&serde_json::json!({
+            "format_version": 1,
+            "production_id": base.production_id().to_string(),
+            "decision_base": base.to_string(),
+            "revision_sequence": base.sequence(),
+            "assets": assets,
+            "media_roots": roots,
+            "truncated": page.next_cursor().is_some()
+        }))
+    } else {
+        println!(
+            "production {} at revision {}",
+            base.production_id(),
+            base.sequence()
+        );
+        println!("decision base: {base}");
+        for asset in page.items() {
+            println!("{} {}", asset.id(), asset.display_name().unwrap_or("-"));
+        }
+        Ok(())
+    }
+}
+
+fn media_add(
+    args: &MediaAddArgs,
+    json: bool,
+    base_revision: Option<CliDecisionBase>,
+) -> Result<()> {
     let (prepared, inspection_paths) = prepare_cli_media(args)?;
     let (technical_metadata, inspections) = inspect_cli_media(args, &inspection_paths);
     let view = ImportView {
@@ -2202,7 +2282,7 @@ fn inspect_cli_media(
 fn representation_add(
     args: &RepresentationAddArgs,
     json: bool,
-    base_revision: Option<RevisionId>,
+    base_revision: Option<CliDecisionBase>,
 ) -> Result<()> {
     let asset_id = AssetId::from_str(&args.asset_id).context("parse asset ID")?;
     let kind = match args.kind {
@@ -2266,7 +2346,7 @@ fn representation_add(
 fn media_fingerprint(
     args: &MediaFingerprintArgs,
     json: bool,
-    base_revision: Option<RevisionId>,
+    base_revision: Option<CliDecisionBase>,
 ) -> Result<()> {
     let resource_id = ResourceId::from_str(&args.resource_id).context("parse resource ID")?;
     let mut production = SqliteProduction::open(&args.production).context("open production")?;
@@ -2696,7 +2776,7 @@ fn media_show(args: &MediaAssetArgs, json: bool) -> Result<()> {
     }
 }
 
-fn root_add(args: RootAddArgs, json: bool, base_revision: Option<RevisionId>) -> Result<()> {
+fn root_add(args: RootAddArgs, json: bool, base_revision: Option<CliDecisionBase>) -> Result<()> {
     let root = MediaRoot::new(
         MediaRootId::new(),
         args.name,
@@ -2713,10 +2793,12 @@ fn root_add(args: RootAddArgs, json: bool, base_revision: Option<RevisionId>) ->
     transaction
         .add_media_root(root)
         .context("stage media root")?;
-    transaction.commit().context("commit media root")?;
+    let receipt = transaction
+        .commit_with_receipt()
+        .context("commit media root")?;
 
     if json {
-        print_json(&view)
+        print_json_with_receipt(&view, &receipt)
     } else {
         println!("added media root {} ({})", view.name, view.id);
         Ok(())
@@ -2752,7 +2834,7 @@ fn root_set_enabled(
     args: &RootMutationArgs,
     enabled: bool,
     json: bool,
-    base_revision: Option<RevisionId>,
+    base_revision: Option<CliDecisionBase>,
 ) -> Result<()> {
     let root_id = MediaRootId::from_str(&args.root_id).context("parse media-root ID")?;
     let mut production = SqliteProduction::open(&args.production).context("open production")?;
@@ -2778,12 +2860,12 @@ fn root_set_enabled(
     transaction
         .set_media_root_enabled(root_id, enabled)
         .context("stage media-root state change")?;
-    transaction
-        .commit()
+    let receipt = transaction
+        .commit_with_receipt()
         .context("commit media-root state change")?;
 
     if json {
-        print_json(&view)
+        print_json_with_receipt(&view, &receipt)
     } else {
         println!(
             "{} media root {}",
@@ -2797,7 +2879,7 @@ fn root_set_enabled(
 fn root_remove(
     args: &RootMutationArgs,
     json: bool,
-    base_revision: Option<RevisionId>,
+    base_revision: Option<CliDecisionBase>,
 ) -> Result<()> {
     let root_id = MediaRootId::from_str(&args.root_id).context("parse media-root ID")?;
     let mut production = SqliteProduction::open(&args.production).context("open production")?;
@@ -2813,10 +2895,12 @@ fn root_remove(
     transaction
         .remove_media_root(root_id)
         .context("stage media-root removal")?;
-    transaction.commit().context("commit media-root removal")?;
+    let receipt = transaction
+        .commit_with_receipt()
+        .context("commit media-root removal")?;
 
     if json {
-        print_json(&view)
+        print_json_with_receipt(&view, &receipt)
     } else {
         println!("removed media root {} ({})", view.name, view.id);
         Ok(())
@@ -2837,7 +2921,7 @@ fn root_view(root: &MediaRoot) -> RootView {
 fn locator_retire(
     args: &LocatorRetireArgs,
     json: bool,
-    base_revision: Option<RevisionId>,
+    base_revision: Option<CliDecisionBase>,
 ) -> Result<()> {
     let locator_id = LocatorId::from_str(&args.locator_id).context("parse locator ID")?;
     let mut production = SqliteProduction::open(&args.production).context("open production")?;
@@ -2860,7 +2944,7 @@ fn identifier_mutate(
     args: IdentifierMutationArgs,
     remove: bool,
     json: bool,
-    base_revision: Option<RevisionId>,
+    base_revision: Option<CliDecisionBase>,
 ) -> Result<()> {
     let target = parse_identifier_target(args.target.target_kind, &args.target.target_id)?;
     let scheme = IdentifierScheme::new(args.scheme).context("validate identifier scheme")?;
@@ -2954,7 +3038,7 @@ fn identifier_find(args: IdentifierFindArgs, json: bool) -> Result<()> {
 fn metadata_add_text(
     args: MetadataAddTextArgs,
     json: bool,
-    base_revision: Option<RevisionId>,
+    base_revision: Option<CliDecisionBase>,
 ) -> Result<()> {
     let target = parse_metadata_target(args.target.target_kind, &args.target.target_id)?;
     let property = parse_metadata_property(args.vocabulary, args.property)?;
@@ -2988,7 +3072,7 @@ fn metadata_add_text(
 fn metadata_add(
     args: MetadataAddArgs,
     json: bool,
-    base_revision: Option<RevisionId>,
+    base_revision: Option<CliDecisionBase>,
 ) -> Result<()> {
     let target = parse_metadata_target(args.target.target_kind, &args.target.target_id)?;
     let property = parse_metadata_property(args.vocabulary, args.property)?;
@@ -3031,7 +3115,7 @@ fn metadata_list(args: &MetadataTargetArgs, json: bool) -> Result<()> {
 fn metadata_remove(
     args: MetadataPropertyArgs,
     json: bool,
-    base_revision: Option<RevisionId>,
+    base_revision: Option<CliDecisionBase>,
 ) -> Result<()> {
     let target = parse_metadata_target(args.target.target_kind, &args.target.target_id)?;
     let property = parse_metadata_property(args.vocabulary, args.property)?;
@@ -3217,7 +3301,7 @@ fn dependency_show(args: &ActivityRepresentationArgs, json: bool) -> Result<()> 
 fn dependency_record(
     args: &DependencyRecordArgs,
     json: bool,
-    base_revision: Option<RevisionId>,
+    base_revision: Option<CliDecisionBase>,
 ) -> Result<()> {
     let representation_id = parse_representation_id(&args.representation_id)?;
     let encoded = fs::read(&args.spec_file)
@@ -3408,7 +3492,7 @@ fn dependency_set_status_name(status: DependencySetStatus) -> Result<&'static st
 fn activity_add(
     args: ActivityAddArgs,
     json: bool,
-    base_revision: Option<RevisionId>,
+    base_revision: Option<CliDecisionBase>,
 ) -> Result<()> {
     let kind = ActivityKind::new(args.kind).context("validate activity kind")?;
     let inputs = args
@@ -3524,7 +3608,11 @@ fn activity_view(activity: &Activity) -> ActivityView {
     }
 }
 
-fn job_request(args: JobRequestArgs, json: bool, base_revision: Option<RevisionId>) -> Result<()> {
+fn job_request(
+    args: JobRequestArgs,
+    json: bool,
+    base_revision: Option<CliDecisionBase>,
+) -> Result<()> {
     let input_ids = args
         .inputs
         .iter()
@@ -3570,7 +3658,7 @@ fn job_request(args: JobRequestArgs, json: bool, base_revision: Option<RevisionI
     }
 }
 
-fn job_claim(args: JobClaimArgs, json: bool, base_revision: Option<RevisionId>) -> Result<()> {
+fn job_claim(args: JobClaimArgs, json: bool, base_revision: Option<CliDecisionBase>) -> Result<()> {
     let job_id = parse_job_id(&args.job_id)?;
     let tool = ToolIdentity::new(args.tool_name, args.tool_version, args.tool_uri)
         .context("validate job worker tool")?;
@@ -3613,7 +3701,11 @@ fn job_claim(args: JobClaimArgs, json: bool, base_revision: Option<RevisionId>) 
     print_job_result(&production, job_id, json, "claimed")
 }
 
-fn job_renew(args: &JobLeaseArgs, json: bool, base_revision: Option<RevisionId>) -> Result<()> {
+fn job_renew(
+    args: &JobLeaseArgs,
+    json: bool,
+    base_revision: Option<CliDecisionBase>,
+) -> Result<()> {
     let job_id = parse_job_id(&args.job_id)?;
     let claim_id = parse_job_claim_id(&args.claim_id)?;
     let mut production = SqliteProduction::open(&args.production).context("open production")?;
@@ -3636,7 +3728,7 @@ fn job_renew(args: &JobLeaseArgs, json: bool, base_revision: Option<RevisionId>)
 fn job_release(
     args: &JobClaimTokenArgs,
     json: bool,
-    base_revision: Option<RevisionId>,
+    base_revision: Option<CliDecisionBase>,
 ) -> Result<()> {
     let job_id = parse_job_id(&args.job_id)?;
     let claim_id = parse_job_claim_id(&args.claim_id)?;
@@ -3655,7 +3747,7 @@ fn job_release(
 fn job_complete(
     args: &JobCompleteArgs,
     json: bool,
-    base_revision: Option<RevisionId>,
+    base_revision: Option<CliDecisionBase>,
 ) -> Result<()> {
     let job_id = parse_job_id(&args.job_id)?;
     let claim_id = parse_job_claim_id(&args.claim_id)?;
@@ -3701,7 +3793,7 @@ fn job_complete(
     print_job_result(&production, job_id, json, "completed")
 }
 
-fn job_fail(args: JobFailArgs, json: bool, base_revision: Option<RevisionId>) -> Result<()> {
+fn job_fail(args: JobFailArgs, json: bool, base_revision: Option<CliDecisionBase>) -> Result<()> {
     let job_id = parse_job_id(&args.job_id)?;
     let claim_id = parse_job_claim_id(&args.claim_id)?;
     let failure = JobFailure::new(args.diagnostic).context("validate job failure")?;
@@ -3721,7 +3813,7 @@ fn job_fail(args: JobFailArgs, json: bool, base_revision: Option<RevisionId>) ->
     print_job_result(&production, job_id, json, "failed")
 }
 
-fn job_cancel(args: &JobIdArgs, json: bool, base_revision: Option<RevisionId>) -> Result<()> {
+fn job_cancel(args: &JobIdArgs, json: bool, base_revision: Option<CliDecisionBase>) -> Result<()> {
     let job_id = parse_job_id(&args.job_id)?;
     let mut production = SqliteProduction::open(&args.production).context("open production")?;
     let mut transaction =
@@ -3900,7 +3992,7 @@ struct PreparedExecutorJob {
     target_root: PathBuf,
 }
 
-fn job_run(args: &JobRunArgs, json: bool, base_revision: Option<RevisionId>) -> Result<()> {
+fn job_run(args: &JobRunArgs, json: bool, base_revision: Option<CliDecisionBase>) -> Result<()> {
     if args.timeout_seconds == 0 {
         bail!("executor timeout must be greater than zero");
     }
@@ -4117,7 +4209,7 @@ fn run_executor_job(
     executor: &FfmpegExecutor,
     prepared: &PreparedExecutorJob,
     lease: Duration,
-    base_revision: Option<RevisionId>,
+    base_revision: Option<CliDecisionBase>,
 ) -> Result<JobRunView> {
     let job_id = prepared.job.id();
     let started = Timestamp::now().context("read executor start time")?;
@@ -4156,7 +4248,10 @@ fn run_executor_job(
         let mut heartbeat = || {
             let now = Timestamp::now()?;
             let mut transaction = match base_revision {
-                Some(base_revision) => production.begin_transaction_at(base_revision)?,
+                Some(CliDecisionBase::Revision(base_revision)) => {
+                    production.begin_transaction_at(base_revision)?
+                }
+                Some(CliDecisionBase::Scoped(base)) => production.begin_edit(base)?,
                 None => production.begin_transaction()?,
             };
             let origin = OriginIdentity::new(
@@ -4224,7 +4319,7 @@ fn complete_executor_job(
     started: Timestamp,
     output_path: &Path,
     ffmpeg_version: String,
-    base_revision: Option<RevisionId>,
+    base_revision: Option<CliDecisionBase>,
 ) -> Result<JobRunView> {
     let job_id = prepared.job.id();
     let output = match prepare_representation(
@@ -4301,7 +4396,7 @@ fn fail_executor_job(
     job_id: JobId,
     claim_id: JobClaimId,
     diagnostic: &str,
-    base_revision: Option<RevisionId>,
+    base_revision: Option<CliDecisionBase>,
 ) -> Result<()> {
     let failure =
         JobFailure::new(bounded_job_diagnostic(diagnostic)).context("validate executor failure")?;
@@ -5240,7 +5335,7 @@ fn prepare_root_mappings(mappings: &[RootMappingArg]) -> Result<Vec<MediaRootMap
 fn media_resolve(
     args: MediaResolveArgs,
     json: bool,
-    base_revision: Option<RevisionId>,
+    base_revision: Option<CliDecisionBase>,
 ) -> Result<()> {
     let root_mappings = prepare_root_mappings(&args.root_mappings)?;
     let mut production = SqliteProduction::open(&args.production).context("open production")?;
@@ -5327,7 +5422,7 @@ fn confirm_candidate(
     resolutions: &[RepresentationResolution],
     uri: &str,
     confirm_naming: Option<&SequenceNamingArg>,
-    base_revision: Option<RevisionId>,
+    base_revision: Option<CliDecisionBase>,
 ) -> Result<Option<SequenceNamingView>> {
     let wanted = confirm_naming.map(|naming| &naming.0);
     let matching: Vec<_> = resolutions
@@ -5911,11 +6006,14 @@ impl From<&ResolutionEvidence> for EvidenceView {
 
 fn begin_cli_transaction<'production>(
     production: &'production mut SqliteProduction,
-    base_revision: Option<RevisionId>,
+    base_revision: Option<CliDecisionBase>,
     operation: &str,
 ) -> Result<SqliteTransaction<'production>> {
     match base_revision {
-        Some(base_revision) => production.begin_transaction_at(base_revision),
+        Some(CliDecisionBase::Revision(base_revision)) => {
+            production.begin_transaction_at(base_revision)
+        }
+        Some(CliDecisionBase::Scoped(base)) => production.begin_edit(base),
         None => production.begin_transaction(),
     }
     .with_context(|| format!("begin {operation} transaction"))
@@ -6080,6 +6178,23 @@ fn fingerprint_conflict_key(
         qualifier: None,
         version: Some(version),
     }
+}
+
+fn print_json_with_receipt(value: &impl Serialize, receipt: &CommitReceipt) -> Result<()> {
+    let mut output = serde_json::to_value(value).context("encode committed result")?;
+    let object = output
+        .as_object_mut()
+        .context("committed result must be an object")?;
+    object.insert(
+        "commit_receipt".to_owned(),
+        serde_json::json!({
+            "production_id": receipt.production_id().to_string(),
+            "revision": receipt.revision().map(|revision| serde_json::json!({
+                "id": revision.id().to_string(), "sequence": revision.sequence()
+            }))
+        }),
+    );
+    print_json(&output)
 }
 
 fn print_json(value: &impl Serialize) -> Result<()> {
