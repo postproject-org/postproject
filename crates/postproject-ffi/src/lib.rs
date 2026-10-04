@@ -7322,6 +7322,9 @@ fn begin_transaction_handle(
     base_revision: Option<RevisionId>,
     decision_base: Option<DecisionBase>,
 ) -> Result<*mut PpTransaction, Error> {
+    if lock_production(state).is_read_only() {
+        return Err(invalid_argument("a pinned read view cannot begin a write"));
+    }
     if let Some(base_revision) = base_revision {
         lock_production(state).events_for_revision(base_revision)?;
     }

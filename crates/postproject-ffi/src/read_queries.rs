@@ -2,8 +2,8 @@
 
 use crate::{
     AbiAsset, PpAssetSet, PpError, PpReadSession, PpRepresentationSet, PpUuid, ffi_call,
-    initialize_output, invalid_argument, query_cursor_to_cstring, query_page_request,
-    require_output,
+    initialize_output, invalid_argument, lock_production, query_cursor_to_cstring,
+    query_page_request, require_output,
 };
 use postproject_core::{AssetId, Error, RepresentationId};
 use std::ffi::c_char;
@@ -29,7 +29,7 @@ pub unsafe extern "C" fn pp_read_session_assets_page(
                 .ok_or_else(|| invalid_argument("session must not be null"))?;
             require_output(out_assets, "out_assets")?;
             let page_request = query_page_request(limit, cursor)?;
-            let page = session.view.read().assets_page(&page_request)?;
+            let page = lock_production(&session.reader.state).assets_page(&page_request)?;
             let assets = page
                 .items()
                 .iter()
@@ -67,9 +67,7 @@ pub unsafe extern "C" fn pp_read_session_asset(
                 .as_ref()
                 .ok_or_else(|| invalid_argument("asset_id must not be null"))?;
             require_output(out_assets, "out_assets")?;
-            let asset = session
-                .view
-                .read()
+            let asset = lock_production(&session.reader.state)
                 .asset(AssetId::from_bytes(asset_id.bytes))?;
             out_assets.write(Box::into_raw(Box::new(PpAssetSet {
                 assets: vec![AbiAsset::try_from(&asset)?],
@@ -105,11 +103,11 @@ pub unsafe extern "C" fn pp_read_session_representations_page(
                 .ok_or_else(|| invalid_argument("asset_id must not be null"))?;
             require_output(out_representations, "out_representations")?;
             let page_request = query_page_request(limit, cursor)?;
-            let inner = session.view.read();
+            let inner = lock_production(&session.reader.state);
             let page =
                 inner.representations_page(AssetId::from_bytes(asset_id.bytes), &page_request)?;
             out_representations.write(Box::into_raw(Box::new(PpRepresentationSet::new_page(
-                inner,
+                &*inner,
                 page.items(),
                 page.next_cursor(),
             )?)));
@@ -140,11 +138,11 @@ pub unsafe extern "C" fn pp_read_session_representation(
                 .as_ref()
                 .ok_or_else(|| invalid_argument("representation_id must not be null"))?;
             require_output(out_representations, "out_representations")?;
-            let inner = session.view.read();
+            let inner = lock_production(&session.reader.state);
             let representation =
                 inner.representation(RepresentationId::from_bytes(representation_id.bytes))?;
             out_representations.write(Box::into_raw(Box::new(PpRepresentationSet::new_page(
-                inner,
+                &*inner,
                 &[representation],
                 None,
             )?)));

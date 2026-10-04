@@ -1,16 +1,15 @@
 //! Owned coherent read contexts and production-bound edit construction.
 
-use postproject_storage_sqlite::SqliteReadSession;
-
 use crate::{
     Arc, DecisionBase, Error, PpError, PpProduction, PpTransaction, PpUuid, ProductionId,
     ProductionState, RevisionId, begin_transaction_handle, ffi_call, initialize_output,
-    initialize_value, invalid_argument, lock_production, require_output,
+    initialize_value, invalid_argument, lock_production, production_handle, require_output,
 };
 
 /// Opaque caller-serialized coherent view retaining its production for edits.
 pub struct PpReadSession {
-    pub(crate) view: SqliteReadSession,
+    pub(crate) reader: PpProduction,
+    base: DecisionBase,
     state: Arc<ProductionState>,
 }
 
@@ -79,8 +78,10 @@ pub unsafe extern "C" fn pp_production_read_session(
                 .as_ref()
                 .ok_or_else(|| invalid_argument("production must not be null"))?;
             let view = lock_production(&production.state).read_session()?;
+            let base = view.decision_base();
             out_session.write(Box::into_raw(Box::new(PpReadSession {
-                view,
+                reader: production_handle(view.into_read_only()),
+                base,
                 state: Arc::clone(&production.state),
             })));
             Ok(())
@@ -115,7 +116,7 @@ pub unsafe extern "C" fn pp_read_session_decision_base(
             let session = session
                 .as_ref()
                 .ok_or_else(|| invalid_argument("session must not be null"))?;
-            out_base.write(session.view.decision_base().into());
+            out_base.write(session.base.into());
             Ok(())
         })
     }
@@ -143,7 +144,7 @@ pub unsafe extern "C" fn pp_read_session_begin_edit(
             out_transaction.write(begin_transaction_handle(
                 &session.state,
                 None,
-                Some(session.view.decision_base()),
+                Some(session.base),
             )?);
             Ok(())
         })
