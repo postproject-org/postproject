@@ -2,16 +2,16 @@
 
 use crate::{
     Activity, ActivityOutputQuery, AgentIdentity, ArtifactEvaluation, ArtifactEvaluationLimits,
-    ArtifactReproducibilityReport, Asset, AssetId, Dependency, DependencyQueryLimits,
-    DependencyQueryMatch, DependencySet, DependencyTarget, ExternalIdentifier, FileFacts,
-    FilteredRevisionPage, IdentifierScheme, Job, JobClaim, JobClaimId, JobFailure, JobId, JobQuery,
-    KnownMediaMatch, Locator, LocatorIdentity, MediaRoot, MetadataAssertion, MetadataMatch,
-    MetadataProperty, MetadataQuery, MetadataValue, ObjectRef, OriginalMediaImport, Production,
-    ProvenanceQueryLimits, ProvenanceQueryMatch, QueryPage, QueryPageRequest, RegenerationJobPlan,
-    Representation, RepresentationFingerprint, RepresentationId, RepresentationImport, Resource,
-    ResourceFingerprint, ResourceId, Result, Revision, RevisionContext, RevisionEvent,
-    RevisionEventFilter, RevisionId, StaleArtifactQuery, Timestamp, ToolIdentity, TransactionId,
-    TransactionState,
+    ArtifactReproducibilityReport, Asset, AssetId, CommitReceipt, Dependency,
+    DependencyQueryLimits, DependencyQueryMatch, DependencySet, DependencyTarget,
+    ExternalIdentifier, FileFacts, FilteredRevisionPage, IdentifierScheme, Job, JobClaim,
+    JobClaimId, JobFailure, JobId, JobQuery, KnownMediaMatch, Locator, LocatorIdentity, MediaRoot,
+    MetadataAssertion, MetadataMatch, MetadataProperty, MetadataQuery, MetadataValue, ObjectRef,
+    OriginalMediaImport, Production, ProvenanceQueryLimits, ProvenanceQueryMatch, QueryPage,
+    QueryPageRequest, RegenerationJobPlan, Representation, RepresentationFingerprint,
+    RepresentationId, RepresentationImport, Resource, ResourceFingerprint, ResourceId, Result,
+    Revision, RevisionContext, RevisionEvent, RevisionEventFilter, RevisionId, StaleArtifactQuery,
+    Timestamp, ToolIdentity, TransactionId, TransactionState,
 };
 
 /// Read operations required from a production persistence backend.
@@ -810,6 +810,16 @@ pub trait ProductionStoreTransaction {
     ///
     /// Returns a domain error when the transaction is closed or commit fails.
     fn commit(&mut self) -> Result<()>;
+
+    /// Commits atomically and returns only the revision this transaction made.
+    ///
+    /// A commit attempt is terminal, including failure. An absent revision in
+    /// the receipt means that no new revision was created.
+    ///
+    /// # Errors
+    ///
+    /// Returns structured semantic conflicts, closed-state or storage errors.
+    fn commit_with_receipt(&mut self) -> Result<CommitReceipt>;
 
     /// Explicitly discards every staged mutation.
     ///

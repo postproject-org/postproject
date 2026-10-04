@@ -3,15 +3,15 @@
 use std::collections::BTreeMap;
 
 use postproject_core::{
-    Activity, AgentIdentity, ContentStructure, ContentStructureKind, Dependency,
+    Activity, AgentIdentity, CommitReceipt, ContentStructure, ContentStructureKind, Dependency,
     DependencySetStatus, DependencyTarget, Error, ErrorKind, ExternalIdentifier, FileFacts, Job,
     JobClaim, JobClaimId, JobFailure, JobId, JobState, Locator, LocatorAvailability, LocatorId,
     MAX_DEPENDENCIES_PER_SET, MediaRoot, MediaRootId, MetadataProperty, MetadataValue, ObjectRef,
     OriginalMediaImport, Production, ProductionStoreTransaction, Representation,
     RepresentationFingerprint, RepresentationId, RepresentationImport, RepresentationKind,
-    Resource, ResourceFingerprint, ResourceId, Result, RevisionContext, RevisionEventKind,
-    RevisionId, SemanticConflictKey, SequenceNaming, Timestamp, ToolIdentity, TransactionConflict,
-    TransactionId, TransactionLifecycle, TransactionState,
+    Resource, ResourceFingerprint, ResourceId, Result, Revision, RevisionContext,
+    RevisionEventKind, RevisionId, SemanticConflictKey, SequenceNaming, Timestamp, ToolIdentity,
+    TransactionConflict, TransactionId, TransactionLifecycle, TransactionState,
 };
 use rusqlite::{
     Connection, ErrorCode, OptionalExtension, Transaction, TransactionBehavior, params,
@@ -1602,26 +1602,48 @@ impl<'production> SqliteTransaction<'production> {
     /// Returns [`ErrorKind::Conflict`] if already closed, or
     /// [`ErrorKind::Storage`] if SQLite cannot commit.
     pub fn commit(&mut self) -> Result<()> {
+        self.commit_with_receipt().map(|_| ())
+    }
+
+    /// Commits atomically and returns the revision produced by this transaction.
+    ///
+    /// An absent revision means no revision was created, even in a nonempty
+    /// production. Every commit attempt is terminal; retry uses a new transaction.
+    ///
+    /// # Errors
+    ///
+    /// Returns structured semantic conflicts, closed-state or storage errors.
+    pub fn commit_with_receipt(&mut self) -> Result<CommitReceipt> {
         self.lifecycle.ensure_open()?;
+        let result = self.commit_open();
+        if result.is_err() {
+            // Dropping an outstanding SQLite transaction rolls it back even
+            // when journal preparation failed before the commit was attempted.
+            self.transaction.take();
+            if self.lifecycle.state() == TransactionState::Open {
+                self.lifecycle.mark_rolled_back()?;
+            }
+            self.pending_roots.clear();
+            self.pending_events.clear();
+            self.pending_conflict_keys.clear();
+        }
+        result
+    }
+
+    fn commit_open(&mut self) -> Result<CommitReceipt> {
         let conflict_keys = self.pending_conflict_keys.clone();
         if let Some(base_revision) = self.base_revision {
             let conflict =
                 find_transaction_conflict(self.open_transaction()?, base_revision, &conflict_keys)?;
             if let Some(conflict) = conflict {
                 let kind = conflict.key().kind().as_str();
-                self.take_transaction()?
-                    .rollback()
-                    .map_err(sqlite_error("roll back conflicted domain transaction"))?;
-                self.lifecycle.mark_rolled_back()?;
-                self.pending_roots.clear();
-                self.pending_events.clear();
-                self.pending_conflict_keys.clear();
                 return Err(Error::transaction_conflict(
                     conflict,
                     format!("semantic fact changed after transaction base: {kind}"),
                 ));
             }
         }
+        let mut revision = None;
         if !self.pending_events.is_empty() {
             let revision_id = RevisionId::new();
             let transaction_id = self.id();
@@ -1642,6 +1664,14 @@ impl<'production> SqliteTransaction<'production> {
                 revision_id,
                 revision_sequence,
             )?;
+            revision = Some(Revision::new(
+                revision_id,
+                revision_sequence,
+                transaction_id,
+                committed_at,
+                context.origin().cloned(),
+                context.message().map(str::to_owned),
+            )?);
         } else if !conflict_keys.is_empty() {
             return Err(Error::new(
                 ErrorKind::Internal,
@@ -1661,7 +1691,7 @@ impl<'production> SqliteTransaction<'production> {
         }
         self.pending_events.clear();
         self.pending_conflict_keys.clear();
-        Ok(())
+        Ok(CommitReceipt::new(self.production.id(), revision))
     }
 
     /// Explicitly discards all staged mutations.
@@ -2331,6 +2361,10 @@ impl ProductionStoreTransaction for SqliteTransaction<'_> {
 
     fn commit(&mut self) -> Result<()> {
         SqliteTransaction::commit(self)
+    }
+
+    fn commit_with_receipt(&mut self) -> Result<CommitReceipt> {
+        SqliteTransaction::commit_with_receipt(self)
     }
 
     fn rollback(&mut self) -> Result<()> {
