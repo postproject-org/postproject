@@ -1,0 +1,48 @@
+# 0045: Coherent read views and atomic commit receipts
+
+Status: accepted for development; public projections and migration are in progress.
+
+## Decision
+
+A read session owns a separate SQLite connection and a read transaction. Its
+first read pins the production identity and revision in the same view used by
+all subsequent domain reads. The session exposes only `ProductionRead`; it
+cannot be upgraded to a writer. Returned domain values are owned. Dropping the
+session closes its connection and releases the view.
+
+Use WAL for productions so retained readers permit concurrent writer progress.
+Keep the existing busy timeout, value limits and trusted-schema restrictions.
+Retained views can prevent checkpoints from reclaiming WAL pages: callers
+should detach their decision base and close the view before long host work.
+No timeout silently converts a pinned view into live reads. Close every
+connection before copying a production; copying only an active `.pproj` can
+omit durable data in its WAL. Network filesystems remain unsupported.
+
+An edit uses a fresh short write transaction and the read session's
+production-scoped decision base. An absent revision means an empty journal;
+it does not disable conflict checks. Validate production identity and revision
+identity/sequence together. Existing semantic conflict keys protect mutated
+facts, not every fact a caller read. This is not full read-set serializability.
+
+The commit path returns `CommitReceipt { production_id, revision }`, capturing
+the new revision before the atomic SQLite commit. `revision: None` means the
+transaction created no revision; it never attributes an existing head to the
+caller. Return the receipt only after successful durable commit. Every commit
+attempt is terminal, including errors preparing the journal or committing.
+Rollback/drop never commits. Retry requires a new edit and an explicit decision.
+
+## Migration and standards impact
+
+Introduce focused APIs alongside existing experimental operations while the
+consumer migration proceeds. The final candidate must migrate ordinary callers
+and explicitly resolve remaining legacy entry points. Existing 0.6 tags and
+the C++ Result propagation promise remain intact. ABI/version decisions are
+made with the public projections; this storage change adds no schema migration
+and preserves persisted UUIDs and external facts.
+
+Reviewed against `docs/src/contributors/standards-policy.md`: no external
+identifier, vocabulary, timecode or interchange mapping changes.
+
+References: [SQLite isolation](https://www.sqlite.org/isolation.html) and
+[WAL](https://www.sqlite.org/wal.html). The read transaction must execute its
+first read before returning; `BEGIN` alone is not the pinned-view contract.

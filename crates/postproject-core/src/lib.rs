@@ -7,6 +7,7 @@
 
 mod artifact;
 mod cancel;
+mod commit;
 mod conflict;
 mod content;
 mod dependency;
@@ -34,6 +35,7 @@ pub use artifact::{
     ArtifactReproducibilityIssue, ArtifactReproducibilityReport, ArtifactTraversalLimitKind,
 };
 pub use cancel::CancellationToken;
+pub use commit::CommitReceipt;
 pub use conflict::{
     ConcurrencyClassification, ConflictKeyKind, SemanticConflictKey, TransactionConflict,
 };
