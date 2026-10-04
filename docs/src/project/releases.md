@@ -13,7 +13,7 @@ These pages describe what each release delivered, how it was verified, and which
 - {doc}`/release-0.6-report` — candidate acceptance and artifact scope.
 - {doc}`/release-0.6-integration-findings` — pilot selection and reproduced defects.
 - {doc}`/release-0.6-compatibility-evidence` — generated family usage and dependency closure.
-- {doc}`/release-0.6-compatibility-decision` — concrete proposal awaiting maintainer approval.
+- {doc}`/release-0.6-compatibility-decision` — approved C++ source compatibility scope.
 - {doc}`/release-0.5-report` — release 0.5 acceptance report.
 - {doc}`/release-0.5-integration-findings` — evidence and limitations from the maintained shared-production scenario.
 - {doc}`/release-0.5-evidence-review` — compatibility-family matrix findings and the minimum-pilot decision.

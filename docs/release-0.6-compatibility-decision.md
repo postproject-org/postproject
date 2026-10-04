@@ -1,14 +1,15 @@
-# PostProject 0.6 compatibility proposal
+# PostProject 0.6 compatibility decision
 
-**Status: proposed, not maintainer-approved.** No new public compatibility
-promise is enacted by this page. The released baseline is `v0.5.0-alpha.1`;
+**Status: accepted; maintainer-approved on 2026-10-04.** ADR 0020 and the
+{doc}`abi-policy` enact the source compatibility scope below.
+The released baseline is `v0.5.0-alpha.1`;
 the candidate is `0.6.0-alpha.1`, C ABI 37 and schema 17. The
 {doc}`release-0.6-compatibility-evidence` report evaluates that actual boundary.
 No additional waiting release is imposed on unchanged families.
 
-## Proposed source-level C++ subset
+## Approved source-level C++ subset
 
-Propose `cpp-result-propagation`: `Result<T>` (including `Result<void>`),
+Release 0.6 names `cpp-result-propagation`: `Result<T>` (including `Result<void>`),
 `POSTPROJECT_TRY`, and `POSTPROJECT_TRY_ASSIGN`. Kdenlive and Natron compile and
 execute all three through their distinct native adapters. The complete
 projection check now requires every helper for each host; partial helper use
@@ -18,7 +19,7 @@ The authoritative C header, C++ wrapper and Python binding are unchanged from
 the released baseline. The only native runtime change repairs destruction of
 closed transaction handles. It does not alter the Result protocol or helper
 evaluation/error propagation. Installed exception-enabled and no-exception
-consumers pass. The proposed dependency closure contains this projection
+consumers pass. The approved dependency closure contains this projection
 family alone, with its owning Error/value and evaluation contracts reviewed.
 
 This is useful as a consistent source-level propagation protocol for native
@@ -39,8 +40,8 @@ traces also remain separate.
 The mechanical matrix retains the historical OpenAssetIO Manager label once.
 Its actual route is an independent OpenAssetIO test host, rather than another
 desktop application's normal create/open action. The matrix counts supplied
-labels; this proposal does not make a new positive independence determination
-for that route. Consequently, it does not propose production lifecycle or
+labels; this decision does not make a new positive independence determination
+for that route. Consequently, it does not name production lifecycle or
 read families whose useful callable closure requires it. The complete native
 Kdenlive and Natron Result use does not rely on that label.
 
@@ -58,9 +59,9 @@ definitions from unrelated host calls. The selected refresh uses the durable
 unfiltered feed. Existing installed examples test filtered continuation
 watermarks, including empty pages, cancellation and close.
 
-## Draft ADR 0020 amendment
+## Accepted ADR 0020 amendment
 
-The maintainer can review this concrete text without changing current policy:
+ADR 0020 now records the approved policy:
 
 ```text
 Release 0.6 names cpp-result-propagation as a source-level C++17 compatibility
@@ -71,7 +72,7 @@ operation family or cross-series binary replacement promise is named.
 Other APIs remain experimental with migration notes for maintained consumers.
 ```
 
-The proposal is supported by complete Kdenlive and Natron projection use and
+The decision is supported by complete Kdenlive and Natron projection use and
 unchanged baseline declarations. ABI layout/symbol checks and recompilation
 are separate evidence; no previously compiled cross-series substitution is
 claimed, since the 0.5 series made no such promise. Released schemas continue

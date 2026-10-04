@@ -45,7 +45,7 @@ source-checked pilot selection and reproduced interface defects.
 The {doc}`../../release-0.6-report` records acceptance and artifact scope;
 the {doc}`../../release-0.6-compatibility-evidence` and
 {doc}`../../release-0.6-compatibility-decision` distinguish measured use from
-the proposed compatibility promise.
+the approved compatibility promise.
 
 ## Architecture Decision Records
 

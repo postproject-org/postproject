@@ -129,9 +129,10 @@ The {doc}`release-0.6-compatibility-evidence` reuses the existing offline tool.
 Complete per-language projection use and acyclic family dependency closure
 are enforced by tested tooling. The candidate matrix includes whole known-media
 lookup and base-revision conflict families without splitting them to qualify.
-The {doc}`release-0.6-compatibility-decision` proposes only source-level C++
-Result propagation, supported by Kdenlive and Natron. **Maintainer approval is
-pending; no new promise is enacted.** The changed transaction family cannot
+The {doc}`release-0.6-compatibility-decision` names source-level C++ Result
+propagation within `0.6.x`, supported by Kdenlive and Natron and approved by
+the maintainer on 2026-10-04. C ABI operations remain experimental, with no
+cross-series binary replacement promise. The changed transaction family cannot
 qualify, and useful read-family closures retain the explicitly described
 Manager test-host independence limitation. Failure/contract traces are retained
 separately and do not manufacture normal-path host counts.

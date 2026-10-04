@@ -90,8 +90,8 @@ obsolete asynchronous results and an independent writer's conflict.
 
 A closed-transaction destruction defect is repaired. Compatibility evidence
 checks complete projections and dependency closure across released 0.5 and
-the 0.6 candidate. The C++ Result propagation family has a concrete proposal;
-no new promise is enacted without maintainer approval. Audacity and Krita were
+the 0.6 candidate. The approved C++ Result propagation family remains
+source-compatible within `0.6.x`. Audacity and Krita were
 not selected under the documented minimum-pilot gate. The
 [acceptance report](release-0.6-report.md) records exact verification and
 release-scoped limitations. Package release tagging and publication remain

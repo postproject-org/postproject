@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-09-23
-- Amended: 2026-10-01
+- Amended: 2026-10-04
 
 ## Context
 
@@ -64,6 +64,23 @@ be misleadingly narrow.
 Released production schemas continue to receive tested forward migrations
 under the repository's pre-1.0 migration policy. This decision creates no ABI
 or schema compatibility promise beyond that policy.
+
+### Release 0.6 series
+
+Release 0.6 names `cpp-result-propagation` as a source-level C++17 compatibility
+family: `Result<T>`, `Result<void>`, `POSTPROJECT_TRY` and `POSTPROJECT_TRY_ASSIGN`
+retain their success/error ownership and propagation protocol within `0.6.x`.
+Diagnostic text and compiler-specific layouts are not promised. No C ABI
+operation family or cross-series binary replacement promise is named.
+Other APIs remain experimental with migration notes for maintained consumers.
+
+The maintainer approved this scope on 2026-10-04. Complete Kdenlive and Natron
+projection use, unchanged baseline declarations and the dependency review are
+recorded in the {doc}`../release-0.6-compatibility-decision`.
+
+The standards-impact review found no change to identifier mappings,
+normalization, cardinality or domain semantics. This decision names an
+existing C++ propagation protocol; it changes no API, ABI or schema version.
 
 ## Alternatives considered
 

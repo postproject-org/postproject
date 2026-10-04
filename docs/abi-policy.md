@@ -5,7 +5,15 @@ change recorded in the changelog and ABI tests. `pp_abi_version()` reports the
 implemented version. Exported symbol names are unversioned until the first stable
 release, but removals or signature changes require an explicit ABI-version bump.
 
-Release 0.5 names no compatibility subset (ADR 0020). Every API in the `0.5.x`
+Release 0.6 names the C++17 `cpp-result-propagation` family (ADR 0020).
+`Result<T>` (including `Result<void>`), `POSTPROJECT_TRY` and
+`POSTPROJECT_TRY_ASSIGN` retain their success/error ownership and propagation
+protocol within `0.6.x`. Diagnostic text and compiler-specific layouts are
+not promised. Other APIs remain experimental, with migration notes for
+maintained consumers. This names no C ABI operation family or cross-series
+binary replacement promise.
+
+Release 0.5 named no compatibility subset (ADR 0020). Every API in the `0.5.x`
 series remains experimental and may change within the series. The mechanically
 eligible external-identifier and resolution families are not promised in
 isolation because their production and transaction lifecycle dependencies lack
@@ -103,8 +111,9 @@ embedded NUL bytes return `ErrorCode::invalid_argument` before C is called.
 return a failed `Result`'s error from the enclosing function (ADR 0033).
 
 The wrapper adds no domain behavior and exposes no C++ standard-library type
-through exported library symbols. Its source compatibility follows the 0.x
-pre-release policy independently of the C ABI version.
+through exported library symbols. The Result propagation protocol has the
+source compatibility promise stated above for `0.6.x`; other wrapper operations
+follow the pre-release policy independently of the C ABI version.
 
 ## Resolution results
 
