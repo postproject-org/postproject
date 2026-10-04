@@ -40,6 +40,9 @@ These are engineering references. Application integrators should prefer the inte
 
 Historical reports should remain available because they are useful evidence, but they should be treated as history rather than mixed into the primary learning path.
 
+The candidate's {doc}`../../release-0.6-integration-findings` records the
+source-checked pilot selection and reproduced interface defects.
+
 ## Architecture Decision Records
 
 {doc}`decisions` lists every ADR by area. ADRs explain significant design choices at the time they were made. They are valuable when changing an invariant or revisiting a boundary, but they are not normative onboarding documentation.
@@ -63,5 +66,6 @@ When a change touches an area that maps to an external standard, consult the sta
 /compatibility-evidence
 /fuzzing
 releases
+/release-0.6-integration-findings
 decisions
 ```
