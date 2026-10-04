@@ -10,7 +10,8 @@ all subsequent domain reads. The session exposes only `ProductionRead`; it
 cannot be upgraded to a writer. Returned domain values are owned. Dropping the
 session closes its connection and releases the view.
 
-Use WAL for productions so retained readers permit concurrent writer progress.
+Requesting a read session enables WAL for that production so retained readers
+permit concurrent writer progress. Ordinary create/open does not switch modes.
 Keep the existing busy timeout, value limits and trusted-schema restrictions.
 Retained views can prevent checkpoints from reclaiming WAL pages: callers
 should detach their decision base and close the view before long host work.

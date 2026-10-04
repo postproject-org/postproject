@@ -21,6 +21,7 @@ mod metadata_registry;
 mod model;
 mod provenance;
 mod query;
+mod read;
 mod resolution;
 mod resource;
 mod revision;
@@ -97,6 +98,7 @@ pub use query::{
     MetadataQuery, ProvenanceQueryLimits, ProvenanceQueryMatch, QueryCursor, QueryPage,
     QueryPageRequest, StaleArtifactQuery,
 };
+pub use read::{DecisionBase, ProductionReadSession};
 pub use resolution::{
     AvailabilityIssue, AvailabilityIssueKind, Confidence, EvidenceKind, RepresentationAvailability,
     RepresentationResolution, ResolutionCandidate, ResolutionEvidence, ResourceResolution,
