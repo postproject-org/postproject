@@ -34,7 +34,15 @@ the loader path.
 
 The package is pre-1.0 and tracks the current PostProject ABI without backward
 compatibility guarantees: it refuses a native library that reports a C ABI
-version other than the one it was built for (currently 37).
+version other than the one it was built for (development ABI 38).
+
+IDs are ordinary `uuid.UUID` values annotated with nominal hints such as
+`AssetId` and `RepresentationId`. `parse_id(text, AssetId)` checks UUID syntax;
+operations check existence and production membership. Optional static checking
+distinguishes ID kinds. Runtime UUIDs do not remember their semantic kind.
+Dynamic targets use `AssetRef(asset_id)`, `RepresentationRef(representation_id)`,
+or the corresponding production/resource/activity/job variant. For example,
+metadata reads use `production.metadata[AssetRef(asset_id)]`.
 
 ```python
 from pathlib import Path
