@@ -163,3 +163,67 @@ fn detached_bases_check_scope_pairing_empty_conflicts_and_additive_merge() {
             .is_none()
     );
 }
+
+#[test]
+fn cursors_cannot_escape_their_production_or_pinned_view() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("first.pproj");
+    let media = directory.path().join("media.dat");
+    std::fs::write(&media, b"scoped cursor fixture").unwrap();
+    let mut first = SqliteProduction::create(&path, None).unwrap();
+    let mut other = SqliteProduction::create(directory.path().join("other.pproj"), None).unwrap();
+    for _ in 0..2 {
+        let prepared = prepare_original_media(&media, None, None).unwrap();
+        // Identical entity IDs/facts cannot make another production's token valid.
+        for production in [&mut first, &mut other] {
+            let mut edit = production.begin_transaction().unwrap();
+            edit.import_original(&prepared).unwrap();
+            edit.commit().unwrap();
+        }
+    }
+    let page = first
+        .assets_page(&QueryPageRequest::new(1, None).unwrap())
+        .unwrap();
+    let live = QueryPageRequest::new(1, page.next_cursor().cloned()).unwrap();
+    assert_eq!(
+        other.assets_page(&live).unwrap_err().kind(),
+        ErrorKind::InvalidArgument
+    );
+    let reopened = SqliteProduction::open(&path).unwrap();
+    assert_eq!(reopened.assets_page(&live).unwrap().items().len(), 1);
+
+    let view = first.read_session().unwrap();
+    assert_eq!(
+        view.read().assets_page(&live).unwrap_err().kind(),
+        ErrorKind::InvalidArgument
+    );
+    let page = view
+        .read()
+        .assets_page(&QueryPageRequest::new(1, None).unwrap())
+        .unwrap();
+    let scoped = QueryPageRequest::new(1, page.next_cursor().cloned()).unwrap();
+    assert_eq!(view.read().assets_page(&scoped).unwrap().items().len(), 1);
+    assert_eq!(
+        first.assets_page(&scoped).unwrap_err().kind(),
+        ErrorKind::InvalidArgument
+    );
+    let same_revision = first.read_session().unwrap();
+    assert_eq!(same_revision.decision_base(), view.decision_base());
+    assert_eq!(
+        same_revision
+            .read()
+            .assets_page(&scoped)
+            .unwrap_err()
+            .kind(),
+        ErrorKind::InvalidArgument
+    );
+    drop(view);
+    assert_eq!(
+        same_revision
+            .read()
+            .assets_page(&scoped)
+            .unwrap_err()
+            .kind(),
+        ErrorKind::InvalidArgument
+    );
+}

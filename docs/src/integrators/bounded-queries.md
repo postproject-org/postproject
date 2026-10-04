@@ -1,5 +1,11 @@
 # Bounded queries and cursors
 
+Development cursors are production-scoped. Live cursors can resume through
+another handle to the same production. Read-session cursors require that exact
+open session; another view at the same revision cannot resume them. Version
+`ppq1` cursors must be discarded when moving to the development API. For
+coherent paging, see {doc}`coherent-reads`.
+
 Production-sized queries return stable keyset pages instead of complete lists.
 Choose a page size from 1 through 1,000 and pass the returned opaque cursor to
 the next call. Keep the query root, filters, page size, and traversal bounds
