@@ -6,6 +6,7 @@ All notable changes to PostProject will be documented here. The project uses
 ## Unreleased
 
 - Fixed release of closed transaction handles clearing a newer transaction's guard; no caller migration is required.
+- Added installed C OBS and native C++ Natron pilots, host-action recipes, and complete compatibility-family evidence checks.
 
 ## 0.5.0-alpha.1 - 2026-10-01
 

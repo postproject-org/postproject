@@ -39,3 +39,13 @@ jobs:
     uses: postproject-org/postproject-ardour/.github/workflows/ci.yml@main
     with:
       postproject_ref: ${{ github.sha }}
+
+  obs:
+    uses: postproject-org/postproject-obs/.github/workflows/ci.yml@main
+    with:
+      postproject_ref: ${{ github.sha }}
+
+  natron:
+    uses: postproject-org/postproject-natron/.github/workflows/ci.yml@main
+    with:
+      postproject_ref: ${{ github.sha }}

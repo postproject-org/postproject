@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: postproject
-Version: 0.5.0a1
+Version: 0.6.0a1
 Summary: Python bindings for application-neutral production knowledge infrastructure
 Author: PostProject contributors
 License-Expression: MIT OR Apache-2.0
