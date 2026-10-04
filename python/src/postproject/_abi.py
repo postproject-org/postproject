@@ -125,6 +125,10 @@ class Uuid(ctypes.Structure):
     pass
 
 
+class CommitReceipt(ctypes.Structure):
+    pass
+
+
 class ObjectRef(ctypes.Structure):
     pass
 
@@ -173,6 +177,7 @@ class SequenceNaming(ctypes.Structure):
     pass
 
 
+CommitOutcome = ctypes.c_uint32
 ObjectKind = ctypes.c_uint32
 RepresentationKind = ctypes.c_uint32
 JobState = ctypes.c_uint32
@@ -199,6 +204,8 @@ ContentVerification = ctypes.c_uint32
 ContentObservation = ctypes.c_uint32
 
 
+PP_COMMIT_NO_CHANGE = 0
+PP_COMMIT_REVISION_CREATED = 1
 PP_OBJECT_PRODUCTION = 1
 PP_OBJECT_ASSET = 2
 PP_OBJECT_REPRESENTATION = 3
@@ -362,6 +369,13 @@ Uuid._fields_ = [
     ("bytes", ctypes.c_uint8 * 16),
 ]
 
+CommitReceipt._fields_ = [
+    ("production_id", Uuid),
+    ("outcome", CommitOutcome),
+    ("revision_id", Uuid),
+    ("revision_sequence", ctypes.c_uint64),
+]
+
 ObjectRef._fields_ = [
     ("kind", ObjectKind),
     ("id", Uuid),
@@ -503,6 +517,7 @@ SequenceNaming._fields_ = [
 
 PUBLIC_STRUCTS = {
     "pp_uuid_t": (Uuid, ("bytes",)),
+    "pp_commit_receipt_t": (CommitReceipt, ("production_id", "outcome", "revision_id", "revision_sequence")),
     "pp_object_ref_t": (ObjectRef, ("kind", "id")),
     "pp_transaction_conflict_t": (TransactionConflict, ("kind", "target", "namespace_name", "local_name", "qualifier", "version", "base_revision_id", "base_revision_sequence", "superseding_revision_id", "superseding_revision_sequence")),
     "pp_dependency_match_t": (DependencyMatch, ("target", "depth")),
@@ -729,6 +744,7 @@ EXPORTED_SYMBOLS = (
     "pp_transaction_cancel_job",
     "pp_transaction_claim_job",
     "pp_transaction_commit",
+    "pp_transaction_commit_with_receipt",
     "pp_transaction_complete_job",
     "pp_transaction_confirm_locator",
     "pp_transaction_create_activity",
@@ -1203,6 +1219,8 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_transaction_create_activity.restype = ErrorCode
     lib.pp_transaction_commit.argtypes = [ctypes.POINTER(Transaction), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_transaction_commit.restype = ErrorCode
+    lib.pp_transaction_commit_with_receipt.argtypes = [ctypes.POINTER(Transaction), ctypes.POINTER(CommitReceipt), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_transaction_commit_with_receipt.restype = ErrorCode
     lib.pp_transaction_rollback.argtypes = [ctypes.POINTER(Transaction), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_transaction_rollback.restype = ErrorCode
     lib.pp_transaction_release.argtypes = [ctypes.POINTER(Transaction)]

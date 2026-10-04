@@ -37,17 +37,18 @@ use std::{
 use postproject_core::{
     Activity, ActivityId, ActivityInput, ActivityKind, ActivityOutput, ActivityOutputQuery,
     ActivityRole, AgentIdentity, ArtifactEvaluationLimits, Asset, AssetId, AvailabilityIssue,
-    AvailabilityIssueKind, Dependency, DependencyKind, DependencyQueryLimits, DependencyTarget,
-    Error, ErrorKind, EvidenceKind, ExternalIdentifier, HostObjectBinding, IdentifierScheme, Job,
-    JobClaimId, JobFailure, JobId, JobKind, JobQuery, JobStateKind, Locator, LocatorAvailability,
-    LocatorId, MAX_ACTIVITY_EDGES, MAX_DEPENDENCIES_PER_SET, MAX_JOB_INPUTS, MediaRoot,
-    MediaRootId, MetadataProperty, MetadataQuery, MetadataValue, ObjectRef, OriginIdentity,
-    OriginalMediaImport, ProductionId, PropertyId, ProvenanceQueryLimits, ProvenanceQueryMatch,
-    QueryCursor, QueryPageRequest, RepresentationAvailability, RepresentationFingerprint,
-    RepresentationId, RepresentationImport, RepresentationKind, RepresentationResolution,
-    RequestedJobOutput, ResolutionEvidence, ResourceFingerprint, ResourceId,
-    ResourceResolutionState, RevisionContext, RevisionId, SemanticConflictKey, StaleArtifactQuery,
-    Timestamp, ToolIdentity, TransactionConflict, TransactionLifecycle, VocabularyId,
+    AvailabilityIssueKind, CommitReceipt, Dependency, DependencyKind, DependencyQueryLimits,
+    DependencyTarget, Error, ErrorKind, EvidenceKind, ExternalIdentifier, HostObjectBinding,
+    IdentifierScheme, Job, JobClaimId, JobFailure, JobId, JobKind, JobQuery, JobStateKind, Locator,
+    LocatorAvailability, LocatorId, MAX_ACTIVITY_EDGES, MAX_DEPENDENCIES_PER_SET, MAX_JOB_INPUTS,
+    MediaRoot, MediaRootId, MetadataProperty, MetadataQuery, MetadataValue, ObjectRef,
+    OriginIdentity, OriginalMediaImport, ProductionId, PropertyId, ProvenanceQueryLimits,
+    ProvenanceQueryMatch, QueryCursor, QueryPageRequest, RepresentationAvailability,
+    RepresentationFingerprint, RepresentationId, RepresentationImport, RepresentationKind,
+    RepresentationResolution, RequestedJobOutput, ResolutionEvidence, ResourceFingerprint,
+    ResourceId, ResourceResolutionState, RevisionContext, RevisionId, SemanticConflictKey,
+    StaleArtifactQuery, Timestamp, ToolIdentity, TransactionConflict, TransactionLifecycle,
+    VocabularyId,
 };
 use postproject_media::{
     canonical_file_uri, local_file_path, prepare_confirmed_locator, prepare_original_media,
@@ -175,7 +176,7 @@ const PP_REVISION_JOB_FAILED: u32 = 25;
 const PP_REVISION_JOB_CANCELLED: u32 = 26;
 
 /// Current pre-1.0 ABI version.
-pub const ABI_VERSION: u32 = 37;
+pub const ABI_VERSION: u32 = 38;
 
 /// Fixed-layout UUID-compatible public identifier.
 #[repr(C)]
@@ -183,6 +184,39 @@ pub const ABI_VERSION: u32 = 37;
 pub struct PpUuid {
     /// UUID bytes in network order.
     pub bytes: [u8; 16],
+}
+
+/// Fixed-layout stack result of a successful atomic commit.
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct PpCommitReceipt {
+    /// Production whose commit succeeded.
+    pub production_id: PpUuid,
+    /// Zero for no change, one when this commit created a revision.
+    pub outcome: u32,
+    /// Created revision, meaningful only when outcome is one.
+    pub revision_id: PpUuid,
+    /// Created revision's production-local sequence, otherwise zero.
+    pub revision_sequence: u64,
+}
+
+impl From<&CommitReceipt> for PpCommitReceipt {
+    fn from(receipt: &CommitReceipt) -> Self {
+        Self {
+            production_id: PpUuid {
+                bytes: receipt.production_id().into_bytes(),
+            },
+            outcome: u32::from(receipt.revision().is_some()),
+            revision_id: PpUuid {
+                bytes: receipt
+                    .revision()
+                    .map_or([0; 16], |revision| revision.id().into_bytes()),
+            },
+            revision_sequence: receipt
+                .revision()
+                .map_or(0, postproject_core::Revision::sequence),
+        }
+    }
 }
 
 /// Fixed-layout typed reference to a `PostProject` object.
@@ -5879,7 +5913,42 @@ pub unsafe extern "C" fn pp_transaction_commit(
             let transaction = transaction
                 .as_mut()
                 .ok_or_else(|| invalid_argument("transaction must not be null"))?;
-            transaction.commit()
+            transaction.commit().map(|_| ())
+        })
+    }
+}
+
+/// Commits and returns the production and revision from the atomic write path.
+///
+/// # Safety
+///
+/// `transaction` must be live and exclusively accessed, `out_receipt` writable,
+/// and `out_error` null or writable. Missing outputs reject before commit.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_transaction_commit_with_receipt(
+    transaction: *mut PpTransaction,
+    out_receipt: *mut PpCommitReceipt,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: Pointer validity and exclusive access are caller requirements.
+    unsafe {
+        initialize_value(
+            out_receipt,
+            PpCommitReceipt {
+                production_id: PpUuid { bytes: [0; 16] },
+                outcome: 0,
+                revision_id: PpUuid { bytes: [0; 16] },
+                revision_sequence: 0,
+            },
+        );
+        ffi_call(out_error, || {
+            require_output(out_receipt, "out_receipt")?;
+            let transaction = transaction
+                .as_mut()
+                .ok_or_else(|| invalid_argument("transaction must not be null"))?;
+            let receipt = transaction.commit()?;
+            out_receipt.write(PpCommitReceipt::from(&receipt));
+            Ok(())
         })
     }
 }
@@ -7262,7 +7331,7 @@ fn begin_transaction_handle(
 }
 
 impl PpTransaction {
-    fn commit(&mut self) -> Result<(), Error> {
+    fn commit(&mut self) -> Result<CommitReceipt, Error> {
         self.lifecycle.ensure_open()?;
         let result = (|| {
             let mut production = lock_production(&self.state);
@@ -7274,7 +7343,7 @@ impl PpTransaction {
             for mutation in &self.mutations {
                 apply_staged_mutation(&mut transaction, mutation)?;
             }
-            transaction.commit()
+            transaction.commit_with_receipt()
         })();
 
         self.state.transaction_open.store(false, Ordering::Release);

@@ -32,7 +32,7 @@ from ._model import (
     RevisionId,
 )
 
-ABI_VERSION = 37
+ABI_VERSION = 38
 LIBRARY_ENVIRONMENT_VARIABLE = "POSTPROJECT_LIBRARY"
 #: Where a platform wheel installs its native library (ADR 0039).
 BUNDLED_LIBRARY = (

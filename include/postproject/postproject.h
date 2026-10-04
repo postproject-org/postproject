@@ -61,6 +61,20 @@ typedef struct pp_uuid {
   uint8_t bytes[16];
 } pp_uuid_t;
 
+typedef uint32_t pp_commit_outcome_t;
+#define PP_COMMIT_NO_CHANGE UINT32_C(0)
+#define PP_COMMIT_REVISION_CREATED UINT32_C(1)
+
+/* Owned stack result of one successful commit. revision_id and sequence are
+ * meaningful only for PP_COMMIT_REVISION_CREATED; no-change makes no claim
+ * about the current head. Failure initializes the entire output to zero. */
+typedef struct pp_commit_receipt {
+  pp_uuid_t production_id;
+  pp_commit_outcome_t outcome;
+  pp_uuid_t revision_id;
+  uint64_t revision_sequence;
+} pp_commit_receipt_t;
+
 typedef uint32_t pp_object_kind_t;
 
 #define PP_OBJECT_PRODUCTION UINT32_C(1)
@@ -1349,7 +1363,14 @@ PP_API pp_error_code_t pp_transaction_create_activity(
     const char *agent_identifier_qualifier, pp_uuid_t *out_activity_id,
     pp_error_t **out_error);
 PP_API pp_error_code_t pp_transaction_commit(pp_transaction_t *transaction,
-                                             pp_error_t **out_error);
+                                            pp_error_t **out_error);
+
+/* A commit attempt is terminal, including failure. Captures the produced
+ * revision in the atomic write path; never queries a later head. out_receipt
+ * is required. Release the closed transaction with pp_transaction_release. */
+PP_API pp_error_code_t pp_transaction_commit_with_receipt(
+    pp_transaction_t *transaction, pp_commit_receipt_t *out_receipt,
+    pp_error_t **out_error);
 PP_API pp_error_code_t pp_transaction_rollback(pp_transaction_t *transaction,
                                                pp_error_t **out_error);
 /* Releasing an open transaction discards all staged work. Null is a no-op. */

@@ -1,8 +1,9 @@
 //! Generated implementation layout probe; do not edit manually.
 use postproject::{
     PpActivityEdge, PpArtifactDependencyPathSegment, PpArtifactReason,
-    PpArtifactReproducibilityIssue, PpDependency, PpDependencyMatch, PpFileResourceInput, PpJob,
-    PpObjectRef, PpRevisionEvent, PpSequenceNaming, PpTransactionConflict, PpUuid,
+    PpArtifactReproducibilityIssue, PpCommitReceipt, PpDependency, PpDependencyMatch,
+    PpFileResourceInput, PpJob, PpObjectRef, PpRevisionEvent, PpSequenceNaming,
+    PpTransactionConflict, PpUuid,
 };
 use std::mem::{align_of, offset_of, size_of};
 
@@ -19,6 +20,14 @@ macro_rules! layout {
 #[allow(clippy::too_many_lines)]
 fn main() {
     layout!(PpUuid, "pp_uuid_t", bytes);
+    layout!(
+        PpCommitReceipt,
+        "pp_commit_receipt_t",
+        production_id,
+        outcome,
+        revision_id,
+        revision_sequence
+    );
     layout!(PpObjectRef, "pp_object_ref_t", kind, id);
     layout!(
         PpTransactionConflict,

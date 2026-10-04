@@ -208,6 +208,7 @@ pp_transaction_add_representation
 pp_transaction_cancel_job
 pp_transaction_claim_job
 pp_transaction_commit
+pp_transaction_commit_with_receipt
 pp_transaction_complete_job
 pp_transaction_confirm_locator
 pp_transaction_create_activity

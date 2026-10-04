@@ -1,6 +1,6 @@
 # ABI policy
 
-ABI version 37 is pre-release and may change during the 0.x series, with every
+ABI version 38 is pre-release and may change during the 0.x series, with every
 change recorded in the changelog and ABI tests. `pp_abi_version()` reports the
 implemented version. Exported symbol names are unversioned until the first stable
 release, but removals or signature changes require an explicit ABI-version bump.
@@ -20,6 +20,13 @@ isolation because their production and transaction lifecycle dependencies lack
 the required complete evidence from two independent hosts (ADR 0040).
 
 ## Types and ownership
+
+ABI 38 adds `pp_transaction_commit_with_receipt` and the stack-owned
+`pp_commit_receipt_t` (ADR 0045). `PP_COMMIT_NO_CHANGE` creates no revision;
+`PP_COMMIT_REVISION_CREATED` identifies only this commit's revision. Outputs
+are initialized on failure, and no failure result claims a successful commit.
+Every commit attempt is terminal. Existing void commit calls remain available
+during the coordinated consumer migration; no published 0.6 artifact changes.
 
 Productions, transactions, asset sets, media-root sets, representation sets,
 resolution sets, activity sets, external-identifier sets, object-reference sets,
