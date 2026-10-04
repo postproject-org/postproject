@@ -33,7 +33,7 @@ id = "transaction-lifecycle"
 dependencies = ["production-lifecycle"]
 introduced_release = "0.1.0-alpha.1"
 last_changed_release = "0.6.0-alpha.1"
-last_changed_abi = 32
+last_changed_abi = 37
 c_operations = [
   "pp_production_begin_transaction",
   "pp_transaction_set_revision_context",
@@ -197,3 +197,36 @@ c_operations = []
 cpp_operations = ["Result<T>", "POSTPROJECT_TRY", "POSTPROJECT_TRY_ASSIGN"]
 python_operations = []
 projection_only = true
+
+[[families]]
+id = "known-media-lookup"
+dependencies = ["production-lifecycle"]
+introduced_release = "0.5.0-alpha.1"
+last_changed_release = "0.5.0-alpha.1"
+last_changed_abi = 36
+c_operations = [
+  "pp_production_find_known_media_by_locator",
+  "pp_production_find_known_media_by_fingerprint",
+  "pp_known_media_set_count",
+  "pp_known_media_set_get",
+  "pp_known_media_set_next_cursor",
+  "pp_known_media_set_release",
+]
+cpp_operations = ["Production::findKnownMediaByLocator", "Production::findKnownMediaByFingerprint"]
+python_operations = ["Production.find_known_media_by_locator", "Production.find_known_media_by_fingerprint"]
+
+[[families]]
+id = "base-revision-conflicts"
+dependencies = ["production-lifecycle", "transaction-lifecycle"]
+introduced_release = "0.5.0-alpha.1"
+last_changed_release = "0.6.0-alpha.1"
+last_changed_abi = 37
+c_operations = [
+  "pp_production_begin_transaction_at",
+  "pp_transaction_commit",
+  "pp_transaction_release",
+  "pp_error_transaction_conflict",
+  "pp_error_release",
+]
+cpp_operations = ["Production::beginTransaction", "Error::transactionConflict"]
+python_operations = ["Production.transaction", "ConflictError.conflict"]
