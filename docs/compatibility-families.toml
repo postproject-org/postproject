@@ -1,6 +1,6 @@
 format_version = 1
-baseline_release = "0.4.0-alpha.1"
-candidate_release = "0.5.0-alpha.1"
+baseline_release = "0.5.0-alpha.1"
+candidate_release = "0.6.0-alpha.1"
 release_order = [
   "0.1.0-alpha.1",
   "0.2.0-alpha.1",
@@ -8,6 +8,7 @@ release_order = [
   "0.3.0-alpha.2",
   "0.4.0-alpha.1",
   "0.5.0-alpha.1",
+  "0.6.0-alpha.1",
 ]
 
 # Families describe evidence units, not compatibility promises. A family is
@@ -29,8 +30,9 @@ python_operations = ["Production.create", "Production.open", "Production.id"]
 
 [[families]]
 id = "transaction-lifecycle"
+dependencies = ["production-lifecycle"]
 introduced_release = "0.1.0-alpha.1"
-last_changed_release = "0.4.0-alpha.1"
+last_changed_release = "0.6.0-alpha.1"
 last_changed_abi = 32
 c_operations = [
   "pp_production_begin_transaction",
@@ -54,6 +56,7 @@ python_operations = [
 
 [[families]]
 id = "asset-point-read"
+dependencies = ["production-lifecycle"]
 introduced_release = "0.4.0-alpha.1"
 last_changed_release = "0.4.0-alpha.1"
 last_changed_abi = 26
@@ -68,6 +71,7 @@ python_operations = ["Production.asset"]
 
 [[families]]
 id = "external-identifiers"
+dependencies = ["production-lifecycle", "transaction-lifecycle"]
 introduced_release = "0.2.0-alpha.1"
 last_changed_release = "0.4.0-alpha.1"
 last_changed_abi = 30
@@ -95,6 +99,7 @@ python_operations = [
 
 [[families]]
 id = "locator-inspection"
+dependencies = ["production-lifecycle"]
 introduced_release = "0.2.0-alpha.1"
 last_changed_release = "0.4.0-alpha.1"
 last_changed_abi = 35
@@ -110,6 +115,7 @@ python_operations = ["Production.locators_page"]
 
 [[families]]
 id = "resolution"
+dependencies = ["production-lifecycle"]
 introduced_release = "0.1.0-alpha.1"
 last_changed_release = "0.4.0-alpha.1"
 last_changed_abi = 35
@@ -133,6 +139,7 @@ python_operations = ["Production.resolve"]
 
 [[families]]
 id = "revision-feed"
+dependencies = ["production-lifecycle"]
 introduced_release = "0.2.0-alpha.1"
 last_changed_release = "0.4.0-alpha.1"
 last_changed_abi = 28
@@ -160,6 +167,7 @@ python_operations = [
 
 [[families]]
 id = "content-verification"
+dependencies = ["production-lifecycle"]
 introduced_release = "0.4.0-alpha.1"
 last_changed_release = "0.4.0-alpha.1"
 last_changed_abi = 29

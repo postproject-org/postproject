@@ -25,6 +25,7 @@ class Family:
     cpp_operations: tuple[str, ...]
     python_operations: tuple[str, ...]
     projection_only: bool
+    dependencies: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -56,6 +57,7 @@ def load_manifest(path: Path) -> Manifest:
             cpp_operations=tuple(item["cpp_operations"]),
             python_operations=tuple(item["python_operations"]),
             projection_only=item.get("projection_only", False),
+            dependencies=tuple(item.get("dependencies", [])),
         )
         for item in document["families"]
     )
@@ -72,12 +74,48 @@ def load_manifest(path: Path) -> Manifest:
                 f"{family.identifier}: projection_only must match an empty C operation set"
             )
 
-    return Manifest(
+    manifest = Manifest(
         baseline_release=document["baseline_release"],
         candidate_release=document["candidate_release"],
         release_order=release_order,
         families=families,
     )
+    for release in (manifest.baseline_release, manifest.candidate_release):
+        if release not in release_order:
+            raise ValueError(f"unknown evidence-window release: {release}")
+    if release_order.index(manifest.baseline_release) > release_order.index(
+        manifest.candidate_release
+    ):
+        raise ValueError("candidate release precedes baseline")
+    for family in families:
+        dependency_closure(manifest, (family.identifier,))
+    return manifest
+
+
+def dependency_closure(
+    manifest: Manifest, proposed: tuple[str, ...]
+) -> tuple[str, ...]:
+    """Return sorted required families, rejecting missing names and cycles."""
+    families = {family.identifier: family for family in manifest.families}
+    included: set[str] = set()
+    visiting: set[str] = set()
+
+    def visit(identifier: str) -> None:
+        if identifier not in families:
+            raise ValueError(f"unknown family dependency or proposal: {identifier}")
+        if identifier in visiting:
+            raise ValueError(f"family dependency cycle at {identifier}")
+        if identifier in included:
+            return
+        visiting.add(identifier)
+        for dependency in families[identifier].dependencies:
+            visit(dependency)
+        visiting.remove(identifier)
+        included.add(identifier)
+
+    for identifier in proposed:
+        visit(identifier)
+    return tuple(sorted(included))
 
 
 def load_evidence(path: Path) -> frozenset[str]:
@@ -111,6 +149,7 @@ def render_report(
     manifest: Manifest,
     traces: dict[str, frozenset[str]],
     projections: dict[str, frozenset[str]],
+    proposed: tuple[str, ...] = (),
 ) -> str:
     """Render the deterministic family-to-host evidence report."""
     release_position = {
@@ -128,21 +167,23 @@ def render_report(
         "",
         "| Family | Last change | ABI | "
         + " | ".join(hosts)
-        + " | Mechanically eligible |",
-        "|---|---|---:|" + "---|" * len(hosts) + "---|",
+        + " | Mechanically eligible | Eligible with dependencies |",
+        "|---|---|---:|" + "---|" * len(hosts) + "---|---|",
     ]
 
     details: list[str] = []
+    rows: list[tuple[Family, list[str], bool]] = []
+    eligibility: dict[str, bool] = {}
     for family in manifest.families:
         used_by: list[str] = []
         host_cells: list[str] = []
-        required_projection = set(family.cpp_operations) | set(family.python_operations)
         for host in hosts:
             abi_used = bool(family.c_operations) and set(family.c_operations) <= set(
                 traces.get(host, frozenset())
             )
-            projection_used = bool(required_projection) and bool(
-                required_projection & set(projections.get(host, frozenset()))
+            projection_used = any(
+                operations and set(operations) <= projections.get(host, frozenset())
+                for operations in (family.cpp_operations, family.python_operations)
             )
             used = projection_used if family.projection_only else abi_used
             if used:
@@ -157,12 +198,8 @@ def render_report(
         existed = release_position[family.introduced_release] <= baseline_position
         unchanged = release_position[family.last_changed_release] <= baseline_position
         eligible = existed and unchanged and len(used_by) >= 2
-        lines.append(
-            f"| `{family.identifier}` | `{family.last_changed_release}` | "
-            f"{family.last_changed_abi} | "
-            + " | ".join(host_cells)
-            + f" | {'yes' if eligible else 'no'} |"
-        )
+        eligibility[family.identifier] = eligible
+        rows.append((family, host_cells, eligible))
 
         details.extend(
             [
@@ -193,6 +230,9 @@ def render_report(
                 "Hosts with complete mechanical use evidence: "
                 + (", ".join(f"`{host}`" for host in used_by) or "none"),
                 "",
+                "Required families: "
+                + (", ".join(f"`{item}`" for item in family.dependencies) or "none"),
+                "",
                 (
                     "Eligibility checks: "
                     f"existed at baseline={'yes' if existed else 'no'}, "
@@ -202,6 +242,38 @@ def render_report(
             ]
         )
 
+    for family, host_cells, eligible in rows:
+        closure = dependency_closure(manifest, (family.identifier,))
+        closed_eligible = all(eligibility[item] for item in closure)
+        lines.append(
+            f"| `{family.identifier}` | `{family.last_changed_release}` | "
+            f"{family.last_changed_abi} | "
+            + " | ".join(host_cells)
+            + f" | {'yes' if eligible else 'no'} | {'yes' if closed_eligible else 'no'} |"
+        )
+
+    closure = dependency_closure(manifest, proposed)
+    blocked = tuple(item for item in closure if not eligibility[item])
+    lines.extend(
+        [
+            "",
+            "## Proposed subset",
+            "",
+            "Requested: "
+            + (", ".join(f"`{item}`" for item in sorted(set(proposed))) or "none"),
+            "",
+            "Required closure: "
+            + (", ".join(f"`{item}`" for item in closure) or "none"),
+            "",
+            "Ineligible required families: "
+            + (", ".join(f"`{item}`" for item in blocked) or "none"),
+            "",
+            (
+                "Maintainer approval: not established by this report. Ownership, error "
+                "contracts, semantics, and included language projections require review."
+            ),
+        ]
+    )
     return "\n".join(lines + details) + "\n"
 
 
@@ -236,6 +308,7 @@ def main() -> None:
         "--projection", action="append", default=[], metavar="HOST=PATH"
     )
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--propose", action="append", default=[], metavar="FAMILY")
     arguments = parser.parse_args()
 
     try:
@@ -249,10 +322,10 @@ def main() -> None:
             host: load_evidence(path)
             for host, path in named_paths(arguments.projection).items()
         }
+        report = render_report(manifest, traces, projections, tuple(arguments.propose))
     except (OSError, KeyError, TypeError, ValueError, tomllib.TOMLDecodeError) as error:
         raise SystemExit(str(error)) from error
 
-    report = render_report(manifest, traces, projections)
     if arguments.output is None:
         print(report, end="")
     else:

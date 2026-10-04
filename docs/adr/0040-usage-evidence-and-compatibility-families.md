@@ -29,6 +29,21 @@ operations, its introducing release, and its last-change release and ABI.
 Projection-only helpers use source or compile-time evidence because no distinct
 C symbol can observe them.
 
+The 2026-10-04 clarification requires every member of a projection-only
+language family per host. One or two Result helpers cannot establish the
+three-member C++ propagation family. Included projections are reviewed per
+language; this does not require a C host to use C++ or Python. Historical
+reports retain their original evidence and candidate reports use this corrected
+whole-family check.
+
+The manifest also records required family dependencies. The offline report
+validates an acyclic graph and computes a deterministic transitive closure for
+proposed subsets. Mechanical use and unchanged declarations qualify a family
+only with qualifying dependencies. In particular, identifiers and resolution
+alone cannot form a useful contract without production lifecycle, and
+identifier mutation also requires transaction lifecycle. Ownership, error
+semantics, projection review, and maintainer approval remain separate reviews.
+
 `tools/compatibility_usage.py` validates the manifest against the authoritative
 C header and consumes explicit host trace and projection-evidence files. It
 reports the family-to-host matrix, constituent operations, last-change data,
