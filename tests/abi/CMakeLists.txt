@@ -17,9 +17,19 @@ add_executable(postproject-c-smoke c_smoke.c)
 target_compile_features(postproject-c-smoke PRIVATE c_std_11)
 target_link_libraries(postproject-c-smoke PRIVATE PostProject::postproject)
 
+add_executable(postproject-c-transaction-lifetime c_transaction_lifetime.c)
+target_compile_features(postproject-c-transaction-lifetime PRIVATE c_std_11)
+target_link_libraries(postproject-c-transaction-lifetime PRIVATE PostProject::postproject)
+
+add_executable(postproject-cpp-transaction-lifetime cpp_transaction_lifetime.cpp)
+target_compile_features(postproject-cpp-transaction-lifetime PRIVATE cxx_std_17)
+target_link_libraries(postproject-cpp-transaction-lifetime PRIVATE PostProject::postproject)
+
 if(WIN32)
     foreach(consumer IN ITEMS postproject-c-smoke postproject-cpp-smoke
-                             postproject-cpp-no-exceptions)
+                             postproject-cpp-no-exceptions
+                             postproject-c-transaction-lifetime
+                             postproject-cpp-transaction-lifetime)
         add_custom_command(
             TARGET "${consumer}"
             POST_BUILD
@@ -42,7 +52,21 @@ else()
     target_compile_options(postproject-c-smoke PRIVATE -Wall -Wextra -Wpedantic -Werror)
 endif()
 
+foreach(consumer IN ITEMS postproject-c-transaction-lifetime
+                          postproject-cpp-transaction-lifetime)
+    if(MSVC)
+        target_compile_options(${consumer} PRIVATE /W4 /WX)
+        target_compile_definitions(${consumer} PRIVATE _CRT_SECURE_NO_WARNINGS)
+    else()
+        target_compile_options(${consumer} PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    endif()
+endforeach()
+
 enable_testing()
+add_test(NAME postproject-c-transaction-lifetime
+    COMMAND postproject-c-transaction-lifetime "${CMAKE_CURRENT_BINARY_DIR}/c-lifetime.pproj")
+add_test(NAME postproject-cpp-transaction-lifetime
+    COMMAND postproject-cpp-transaction-lifetime "${CMAKE_CURRENT_BINARY_DIR}/cpp-lifetime.pproj")
 add_test(NAME postproject-cpp-smoke COMMAND postproject-cpp-smoke "${CMAKE_CURRENT_BINARY_DIR}/cpp-smoke.pproj")
 add_test(
     NAME postproject-cpp-no-exceptions

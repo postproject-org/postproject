@@ -5,6 +5,8 @@ All notable changes to PostProject will be documented here. The project uses
 
 ## Unreleased
 
+- Fixed release of closed transaction handles clearing a newer transaction's guard; no caller migration is required.
+
 ## 0.5.0-alpha.1 - 2026-10-01
 
 - Added opt-in C ABI usage traces and mechanical compatibility-family reports.

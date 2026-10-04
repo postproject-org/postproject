@@ -7298,7 +7298,11 @@ impl PpTransaction {
 
 impl Drop for PpTransaction {
     fn drop(&mut self) {
-        self.state.transaction_open.store(false, Ordering::Release);
+        // Commit and rollback already relinquished this transaction's guard.
+        // A closed handle can outlive a newer transaction on the production.
+        if self.lifecycle.ensure_open().is_ok() {
+            self.state.transaction_open.store(false, Ordering::Release);
+        }
     }
 }
 
