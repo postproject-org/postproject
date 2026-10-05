@@ -13,7 +13,7 @@ All notable changes to PostProject will be documented here. The project uses
 - Added native production/asset/revision/transaction IDs (C ABI 41); persisted references retain their meaning (ADR 0049).
 - Job reads use checked C payloads and one C++/Python status alternative; migrate C++ field access and Python construction (ADR 0051).
 - Reject oversized native binary metadata and unaddressable resolution arrays before access.
-- Metadata appends invalidate stale replacement/removal decisions while remaining mergeable (ADR 0052).
+- Metadata appends merge and invalidate stale destructive decisions; replacement/removal require a decision base (ADR 0052).
 
 ## 0.6.0-alpha.1 - 2026-10-04
 

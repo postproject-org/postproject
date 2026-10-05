@@ -1041,7 +1041,8 @@ impl<'production> SqliteTransaction<'production> {
     /// # Errors
     ///
     /// Returns [`ErrorKind::NotFound`] when the target does not exist,
-    /// or a transaction/encoding/storage error.
+    /// or a transaction/encoding/storage error. Appends merge independently,
+    /// while advancing the version checked by destructive edits.
     pub fn add_metadata_value(
         &mut self,
         target: ObjectRef,
@@ -1078,10 +1079,12 @@ impl<'production> SqliteTransaction<'production> {
     /// Replaces all ordered values of a metadata property atomically.
     ///
     /// An empty slice removes all values without treating absence as an error.
+    /// Requires an edit with a decision base; unbased transactions may append.
     ///
     /// # Errors
     ///
-    /// Returns [`ErrorKind::NotFound`] when the target does not exist,
+    /// Returns [`ErrorKind::InvalidArgument`] without a decision base,
+    /// [`ErrorKind::NotFound`] when the target does not exist,
     /// or a transaction/encoding/storage error.
     pub fn replace_metadata_values(
         &mut self,
@@ -1089,6 +1092,7 @@ impl<'production> SqliteTransaction<'production> {
         property: &MetadataProperty,
         values: &[MetadataValue],
     ) -> Result<()> {
+        self.require_decision_base()?;
         let encoded = values
             .iter()
             .map(metadata_codec::encode)
@@ -1140,10 +1144,12 @@ impl<'production> SqliteTransaction<'production> {
     }
 
     /// Removes all values of one metadata property.
+    /// Requires an edit with a decision base.
     ///
     /// # Errors
     ///
-    /// Returns [`ErrorKind::NotFound`] when the property is absent,
+    /// Returns [`ErrorKind::InvalidArgument`] without a decision base,
+    /// [`ErrorKind::NotFound`] when the property is absent,
     /// [`ErrorKind::Unsupported`] for an unsupported target kind, or a
     /// transaction/storage error.
     pub fn remove_metadata_property(
@@ -1151,6 +1157,7 @@ impl<'production> SqliteTransaction<'production> {
         target: ObjectRef,
         property: &MetadataProperty,
     ) -> Result<()> {
+        self.require_decision_base()?;
         let (target_kind, target_id) = encode_metadata_target(&target)?;
         let changed =
             delete_metadata_property(self.open_transaction()?, target_kind, target_id, property)?;
@@ -1773,6 +1780,17 @@ impl<'production> SqliteTransaction<'production> {
     fn record_changed_key(&mut self, key: SemanticConflictKey) -> Result<()> {
         let encoded = encode_conflict_key(&key)?;
         self.pending_changed_keys.insert(encoded, key);
+        Ok(())
+    }
+
+    fn require_decision_base(&self) -> Result<()> {
+        self.lifecycle.ensure_open()?;
+        if self.base_revision.is_none() {
+            return Err(Error::new(
+                ErrorKind::InvalidArgument,
+                "metadata replacement/removal requires a decision base",
+            ));
+        }
         Ok(())
     }
 

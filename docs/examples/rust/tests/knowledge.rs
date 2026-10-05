@@ -200,8 +200,13 @@ fn remove_keywords(production: &mut SqliteProduction, asset_id: AssetId) -> Resu
         PropertyId::new("keywords")?,
     );
     let target = ObjectRef::Asset(asset_id);
+    let base = {
+        let view = production.read_session()?;
+        assert!(!view.read().metadata_values(target, &keywords)?.is_empty());
+        view.decision_base()
+    };
     {
-        let mut transaction = production.begin_transaction()?;
+        let mut transaction = production.begin_edit(base)?;
         // Removes every value of the property at once.
         transaction.remove_metadata_property(target, &keywords)?;
         transaction.commit()?;

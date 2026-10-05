@@ -634,11 +634,12 @@ pub trait ProductionStoreTransaction {
     /// Atomically replaces all values of one metadata property.
     ///
     /// An empty value slice removes the property.
+    /// Requires a decision base; unbased transactions may append values.
     ///
     /// # Errors
     ///
-    /// Returns a domain error when the transaction is closed, the target does
-    /// not exist or is unsupported, encoding fails, or persistence fails.
+    /// Returns a domain error when a decision base is absent, the transaction
+    /// is closed, the target is absent/unsupported, or encoding/persistence fails.
     fn replace_metadata_values(
         &mut self,
         target: ObjectRef,
@@ -647,11 +648,12 @@ pub trait ProductionStoreTransaction {
     ) -> Result<()>;
 
     /// Removes all values of one metadata property.
+    /// Requires a decision base.
     ///
     /// # Errors
     ///
-    /// Returns a domain error when the transaction is closed, the property is
-    /// absent, the target kind is unsupported, or persistence fails.
+    /// Returns a domain error when a decision base is absent, the transaction
+    /// is closed, the property is absent, or the target/persistence fails.
     fn remove_metadata_property(
         &mut self,
         target: ObjectRef,

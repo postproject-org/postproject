@@ -94,3 +94,49 @@ fn stale_append_merges_after_a_replacement() {
         [replacement, appended]
     );
 }
+
+#[test]
+fn unbased_destructive_rejection_keeps_assertions_and_transaction_usable() {
+    let directory = tempfile::tempdir().unwrap();
+    let mut production =
+        SqliteProduction::create(directory.path().join("metadata.pproj"), None).unwrap();
+    let target = ObjectRef::Production(production.production().id());
+    let property = property();
+    let first = MetadataValue::string("first").unwrap();
+    let second = MetadataValue::string("second").unwrap();
+    {
+        let mut append = production.begin_transaction().unwrap();
+        append
+            .add_metadata_value(target, &property, &first)
+            .unwrap();
+        append.commit().unwrap();
+    }
+    {
+        let mut unbased = production.begin_transaction().unwrap();
+        for replacement in [Vec::new(), vec![second.clone()]] {
+            assert_eq!(
+                unbased
+                    .replace_metadata_values(target, &property, &replacement)
+                    .unwrap_err()
+                    .kind(),
+                ErrorKind::InvalidArgument
+            );
+        }
+        assert_eq!(
+            unbased
+                .remove_metadata_property(target, &property)
+                .unwrap_err()
+                .kind(),
+            ErrorKind::InvalidArgument
+        );
+        assert_eq!(unbased.state(), TransactionState::Open);
+        unbased
+            .add_metadata_value(target, &property, &second)
+            .unwrap();
+        unbased.commit().unwrap();
+    }
+    assert_eq!(
+        production.metadata_values(target, &property).unwrap(),
+        [first, second]
+    );
+}

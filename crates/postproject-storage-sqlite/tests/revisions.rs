@@ -219,8 +219,9 @@ fn journal_decodes_every_non_import_event_kind() {
     .expect("valid activity");
 
     {
+        let base = production.read_session().unwrap().decision_base();
         let mut transaction = production
-            .begin_transaction()
+            .begin_edit(base)
             .expect("begin mutation transaction");
         transaction.add_media_root(root).expect("add media root");
         transaction

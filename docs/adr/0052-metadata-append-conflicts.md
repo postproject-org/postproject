@@ -9,6 +9,10 @@ appends may merge; their order follows durable transaction order. Replacing
 or removing the property is a decision about its complete ordered contents.
 Such a decision must conflict if any writer changed that property after its
 base, including an append.
+Replacement and removal reject an unbased transaction before changing any
+assertion. Use a read session's edit or detached decision base; an explicitly
+supplied durable revision remains the advanced base path. Validation rejection
+leaves the transaction open. Even an empty replacement requires a base.
 
 Track keys whose versions change separately from keys a transaction guards.
 An append advances the property's version without rejecting a stale additive
@@ -24,7 +28,9 @@ semantic conflict families retain their current policy.
 Previously an append did not advance the property version, allowing a stale
 destructive edit to erase it. Such commits now return a structured metadata
 property conflict. Reread and make a new decision before retrying.
-Appends remain permitted without a base. Persisted UUIDs, metadata encoding,
+Appends remain permitted without a base. Migrate unbased replacement/removal
+to read-bound edits. Other legacy unbased mutation families remain under audit;
+this decision does not claim they are restricted. Persisted UUIDs, metadata encoding,
 C signatures and schema 17 are unchanged.
 
 Reviewed against `docs/src/contributors/standards-policy.md`: no vocabulary,

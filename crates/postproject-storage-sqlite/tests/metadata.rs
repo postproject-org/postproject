@@ -33,6 +33,10 @@ fn structured_contact() -> MetadataValue {
 }
 
 #[test]
+#[allow(
+    clippy::too_many_lines,
+    reason = "round-trip, queries and read-bound replacement share one fixture"
+)]
 fn repeated_and_structured_metadata_round_trip_and_query() {
     let directory = tempdir().expect("create temporary directory");
     let production_path = directory.path().join("production.pproj");
@@ -117,7 +121,8 @@ fn repeated_and_structured_metadata_round_trip_and_query() {
     assert_eq!(matches[2].target(), resource);
 
     {
-        let mut transaction = reopened.begin_transaction().unwrap();
+        let base = reopened.read_session().unwrap().decision_base();
+        let mut transaction = reopened.begin_edit(base).unwrap();
         transaction
             .replace_metadata_values(
                 asset,
@@ -166,7 +171,8 @@ fn metadata_mutations_are_atomic_and_validate_targets() {
         transaction.commit().expect("commit metadata");
     }
     {
-        let mut transaction = production.begin_transaction().unwrap();
+        let base = production.read_session().unwrap().decision_base();
+        let mut transaction = production.begin_edit(base).unwrap();
         transaction
             .remove_metadata_property(target, &title)
             .expect("stage removal");
