@@ -7,6 +7,8 @@
 static void exercise(const std::string &path, const std::string &media) {
   auto production = postproject::Production::create(path).value();
   auto empty = production.readSession().value();
+  if (!empty.planRegeneration({}).value().empty())
+    throw std::runtime_error("empty planning request");
   auto edit = empty.edit().value();
   const auto asset = edit.importMedia(media).value();
   edit.addExternalIdentifier({postproject::ObjectKind::asset, asset},

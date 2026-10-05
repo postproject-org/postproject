@@ -3367,6 +3367,58 @@ metadata_page(MetadataSetHandle metadata) {
                                       false};
 }
 
+inline Result<std::vector<RegenerationJobPlan>>
+regeneration_plans(RegenerationPlanSetHandle plans) {
+  pp_error_t *error = nullptr;
+  std::vector<RegenerationJobPlan> result;
+  const std::uint64_t count = pp_regeneration_plan_set_count(plans.get());
+  result.reserve(static_cast<std::size_t>(count));
+  for (std::uint64_t index = 0; index < count; ++index) {
+    pp_uuid_t artifact_id{};
+    pp_job_set_t *raw_job = nullptr;
+    pp_metadata_set_t *raw_parameters = nullptr;
+    error = nullptr;
+    const pp_error_code_t item_status = pp_regeneration_plan_set_get(
+        plans.get(), index, &artifact_id, &raw_job, &raw_parameters, &error);
+    POSTPROJECT_TRY(detail::check(item_status, error));
+    detail::JobSetHandle job_set(raw_job);
+    detail::MetadataSetHandle parameters(raw_parameters);
+    if (pp_job_set_count(job_set.get()) != 1) {
+      return Error(ErrorCode::internal,
+                   "regeneration plan must contain one job");
+    }
+    POSTPROJECT_TRY_ASSIGN(Job job, detail::job(job_set.get(), 0));
+    std::vector<RegenerationParameter> parameter_values;
+    const std::uint64_t parameter_count =
+        pp_metadata_set_count(parameters.get());
+    parameter_values.reserve(static_cast<std::size_t>(parameter_count));
+    for (std::uint64_t parameter_index = 0;
+         parameter_index < parameter_count; ++parameter_index) {
+      pp_object_ref_t target{};
+      const char *vocabulary = nullptr;
+      const char *property = nullptr;
+      const pp_metadata_value_t *value = nullptr;
+      error = nullptr;
+      const pp_error_code_t parameter_status = pp_metadata_set_get(
+          parameters.get(), parameter_index, &target, &vocabulary, &property,
+          &value, &error);
+      POSTPROJECT_TRY(detail::check(parameter_status, error));
+      if (target.kind != PP_OBJECT_JOB || detail::uuid(target.id) != job.id) {
+        return Error(ErrorCode::internal,
+                     "regeneration parameter target does not match its job");
+      }
+      POSTPROJECT_TRY_ASSIGN(MetadataValue parameter,
+                             detail::metadata_value(value));
+      parameter_values.push_back({std::string(vocabulary),
+                                  std::string(property),
+                                  std::move(parameter)});
+    }
+    result.push_back({detail::uuid(artifact_id), std::move(job),
+                      std::move(parameter_values)});
+  }
+  return result;
+}
+
 } // namespace detail
 
 // Move-only and caller-serialized. Do not call one Transaction concurrently.
@@ -4271,6 +4323,27 @@ private:
 
 class ReadSession final {
 public:
+  [[nodiscard]] Result<std::vector<RegenerationJobPlan>>
+  planRegeneration(const std::vector<Uuid> &artifact_representation_ids) const {
+    if (artifact_representation_ids.size() > PP_MAX_REGENERATION_PLANS) {
+      return Error(ErrorCode::invalid_argument, "too many artifacts for regeneration planning");
+    }
+    std::vector<pp_uuid_t> native_ids;
+    native_ids.reserve(artifact_representation_ids.size());
+    for (const Uuid &id : artifact_representation_ids) {
+      native_ids.push_back(detail::native_uuid(id));
+    }
+    pp_regeneration_plan_set_t *raw_plans = nullptr;
+    pp_error_t *error = nullptr;
+    const pp_error_code_t status = pp_read_session_plan_regeneration(
+        session_, native_ids.empty() ? nullptr : native_ids.data(),
+        static_cast<std::uint64_t>(native_ids.size()), &raw_plans, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    detail::RegenerationPlanSetHandle plans(raw_plans);
+
+    return detail::regeneration_plans(std::move(plans));
+  }
+
   [[nodiscard]] Result<QueryPage<RevisionEvent>>
   revisionEvents(const Uuid &revision_id, std::uint32_t limit,
                  std::optional<std::string_view> cursor = std::nullopt) const {
@@ -5695,6 +5768,9 @@ public:
 
   [[nodiscard]] Result<std::vector<RegenerationJobPlan>>
   planRegeneration(const std::vector<Uuid> &artifact_representation_ids) const {
+    if (artifact_representation_ids.size() > PP_MAX_REGENERATION_PLANS) {
+      return Error(ErrorCode::invalid_argument, "too many artifacts for regeneration planning");
+    }
     std::vector<pp_uuid_t> native_ids;
     native_ids.reserve(artifact_representation_ids.size());
     for (const Uuid &id : artifact_representation_ids) {
@@ -5708,53 +5784,7 @@ public:
     POSTPROJECT_TRY(detail::check(status, error));
     detail::RegenerationPlanSetHandle plans(raw_plans);
 
-    std::vector<RegenerationJobPlan> result;
-    const std::uint64_t count = pp_regeneration_plan_set_count(plans.get());
-    result.reserve(static_cast<std::size_t>(count));
-    for (std::uint64_t index = 0; index < count; ++index) {
-      pp_uuid_t artifact_id{};
-      pp_job_set_t *raw_job = nullptr;
-      pp_metadata_set_t *raw_parameters = nullptr;
-      error = nullptr;
-      const pp_error_code_t item_status = pp_regeneration_plan_set_get(
-          plans.get(), index, &artifact_id, &raw_job, &raw_parameters, &error);
-      POSTPROJECT_TRY(detail::check(item_status, error));
-      detail::JobSetHandle job_set(raw_job);
-      detail::MetadataSetHandle parameters(raw_parameters);
-      if (pp_job_set_count(job_set.get()) != 1) {
-        return Error(ErrorCode::internal,
-                     "regeneration plan must contain one job");
-      }
-      POSTPROJECT_TRY_ASSIGN(Job job, detail::job(job_set.get(), 0));
-      std::vector<RegenerationParameter> parameter_values;
-      const std::uint64_t parameter_count =
-          pp_metadata_set_count(parameters.get());
-      parameter_values.reserve(static_cast<std::size_t>(parameter_count));
-      for (std::uint64_t parameter_index = 0;
-           parameter_index < parameter_count; ++parameter_index) {
-        pp_object_ref_t target{};
-        const char *vocabulary = nullptr;
-        const char *property = nullptr;
-        const pp_metadata_value_t *value = nullptr;
-        error = nullptr;
-        const pp_error_code_t parameter_status = pp_metadata_set_get(
-            parameters.get(), parameter_index, &target, &vocabulary, &property,
-            &value, &error);
-        POSTPROJECT_TRY(detail::check(parameter_status, error));
-        if (target.kind != PP_OBJECT_JOB || detail::uuid(target.id) != job.id) {
-          return Error(ErrorCode::internal,
-                       "regeneration parameter target does not match its job");
-        }
-        POSTPROJECT_TRY_ASSIGN(MetadataValue parameter,
-                               detail::metadata_value(value));
-        parameter_values.push_back({std::string(vocabulary),
-                                    std::string(property),
-                                    std::move(parameter)});
-      }
-      result.push_back({detail::uuid(artifact_id), std::move(job),
-                        std::move(parameter_values)});
-    }
-    return result;
+    return detail::regeneration_plans(std::move(plans));
   }
 
   [[nodiscard]] Result<std::vector<Activity>>
