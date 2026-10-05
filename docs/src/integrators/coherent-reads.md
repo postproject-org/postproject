@@ -35,3 +35,9 @@ starting a new edit. See {doc}`semantic-conflicts` for conflict fields and which
 independent changes can merge. Sessions use SQLite WAL for concurrent local
 readers and writers. Copy or move a production only after closing its handles;
 an active WAL database includes sidecar state.
+
+To retain a decision across processes, export its base as a canonical token:
+C uses `pp_decision_base_format`/`pp_decision_base_parse`, C++ uses
+`DecisionBase::toToken`/`fromToken`, and Python uses `to_token`/`from_token`.
+The CLI accepts the same token with `--decision-base`. A token retains neither
+a view nor a lock; beginning an edit checks its production and revision.

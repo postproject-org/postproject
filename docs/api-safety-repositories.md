@@ -72,8 +72,8 @@ No interactive or cross-host handoff run is claimed.
 
 ## 0.7 development checkpoint
 
-All maintained checkouts now use local `main`; the ten edited repositories'
-temporary branches were fast-forwarded and deleted. Origin has not changed.
+At this checkpoint, the ten edited repositories' temporary branches were
+fast-forwarded into local `main` and deleted. Origin had not changed.
 The SDK is `1a7c0cb`, package `0.7.0-alpha.1` / Python `0.7.0a1`, ABI 38,
 schema 17. Python consumers require `postproject>=0.7.0a1,<0.8`; the Manager
 is 0.4.0 and the OTIO demo is 0.2.0 with `postproject-openassetio-manager>=0.4,<0.5`.
@@ -95,3 +95,34 @@ The neutral Python wheel, built at SDK `dfb264a`, has SHA-256
 Its Python sources match the checkpoint above. Native C++ checks use the
 installed `1a7c0cb` headers/library. Full native-host execution, Blender's 0.7
 bundle, handoffs and final platform qualification remain pending.
+
+## ABI 39 development checks
+
+All 13 maintained checkouts remain on local `main`; 11 have implementation
+commits. No origin push, tag or publication occurred. SDK `734511e` is
+0.7.0-alpha.1 / Python 0.7.0a1 / ABI 39 / schema 17. Production ID signatures
+are typed; coherent resolution, verification and portable decision tokens are
+available. Other identity families and job leases remain incomplete.
+
+The installed neutral wheel at this checkpoint has SHA-256
+`4244ad57e9bd0134f472ea4efc445fcde03cb4ce2db05bdb9758f497f1f89bd1`.
+The matching local Linux platform wheel has SHA-256
+`c72570035255c7efe90985e5b27a6372318f264e62162c9721ac88819f49458f`.
+These are local development artifacts, not published packages.
+
+| Consumer commit | Executed result | Scope |
+|---|---|---|
+| Manager `662de75` | 6 passed | Installed neutral wheel, Python 3.13 |
+| OpenAssetIO `a362568`, OTIO `33717be`, demo `99a7558`, Python host `bc7e568` | 1 passed each | Same wheel/library; separate repository test runs |
+| Blender code `b01db7b`, tests `4140bac` | 23 passed, 1 skipped | Installed extension, Blender 5.2.2 LTS; 5.3 project-variable case skipped |
+| Kdenlive `9f65738` | Compiled | Shared scenario with host flags; added patch applies to current pinned tree |
+| OBS `930792a` | 2 passed; plugin/driver built | Installed C adapter contracts; no real-host execution |
+| Natron `16fabb5` | 1 passed; module built | Installed native contract and stable-ABI CPython module |
+| C++ NLE baseline | 1 passed | Fresh installed CMake consumer fixture |
+
+The Blender bundle SHA-256 is
+`9c0de4b708abf78fada3d3680887076dde8ddc2185647c26d0852ce1130d829b`.
+Its binding and native library come from the platform wheel above. Background
+checks cover explicit save/render receipts, scoped relink conflicts,
+wrong-production rejection and no-change results. The full cross-host scenario,
+interactive checks and final platform qualification remain pending.

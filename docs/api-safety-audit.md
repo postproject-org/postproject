@@ -13,7 +13,7 @@ subsets; it is not a complete safety inventory.
 
 | Family and source | Existing risk / required invariant | Callers / evidence | Status |
 |---|---|---|---|
-| Identity: core `id.rs`, C header, C++ `Uuid`, Python `_model.py` | C/C++ generic UUIDs permit wrong kinds; Python runtime subclasses replace standard UUIDs. Preserve wire IDs; distinguish kinds statically and validate references in storage. | All consumers; T01, T02, T12 | Open |
+| Identity: core `id.rs`, C header, C++ `Uuid`, Python `_model.py` | C/C++ generic UUIDs permit wrong kinds; The released Python binding uses runtime ID subclasses. Preserve wire IDs; distinguish kinds statically and validate references in storage. | All consumers; T01, T02, T12 | Open |
 | Production: core `model.rs`, SQLite `lib.rs`, FFI `lib.rs` | Ownership and production selection must remain explicit; read-only contexts cannot write. | All consumers; T04, T07 | Open |
 | Host references: core `id.rs`, FFI binding functions | A reference includes production and object kind; external identifiers remain exact. | Manager, OTIO, Blender, Kdenlive, Natron; T12 | Open |
 | Content: core `content.rs`, FFI `media_source.rs`, `representations.rs` | Legal alternatives need checked shape, members, rates, naming and roles; decoder paths must share validation. | All media pilots; T03 | Open |
@@ -47,14 +47,15 @@ Local Linux checks do not establish the other platforms or real-host runs.
 
 ## Implemented development contracts
 
-The development series is `0.7.0-alpha.1` (Python `0.7.0a1`, ABI 38,
-schema 17). ADRs 0045–0048 record pinned views, scoped edits/receipts, Python
+The development series is `0.7.0-alpha.1` (Python `0.7.0a1`, ABI 39,
+schema 17). ADRs 0045–0049 record pinned views, scoped edits/receipts, Python
 nominal UUID hints and explicit references, production/view-scoped cursors,
 and fallible C++ cancellation/options construction. Focused
 regressions cover intervening writers, empty bases, terminal failed commits,
 retained handles, cursor rejection and wrong-kind Python calls. Native
-read-session projection is still incomplete. C/C++ semantic IDs, validated
-state alternatives and authority-controlled job leases remain open.
+read-session projection is still incomplete. Production IDs are distinct C/C++
+values; the other native identity kinds, validated state alternatives and
+authority-controlled job leases remain open.
 
 At `5e92680`, Linux Clippy, five storage read-session regressions, three Python
 read-session regressions, typing checks and the eight coherent-example tests
@@ -67,6 +68,14 @@ At `1a7c0cb`, C++ options report setter failures immediately and retain their
 previous valid state; token/options creation reports allocation failures.
 Installed native contracts pass six tests, including exception-free consumption,
 moved owners and recovery after invalid settings. Workspace Clippy passes.
+
+At `734511e`, read views offer 17 native query operations, including metadata,
+resolution and verification. Filesystem reads use pinned database knowledge and
+current media bytes. Scoped decision tokens round-trip through Rust and the
+C/C++/Python projections; editing validates their production and revision.
+Seven Python view regressions and the extracted coherent recipes pass. Eight
+installed native contracts pass; the library exports the expected 257 symbols.
+These are development checks, not final platform or host qualification.
 
 Repository inputs and migration status are in
 [`api-safety-repositories.md`](api-safety-repositories.md).
