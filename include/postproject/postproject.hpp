@@ -4258,6 +4258,63 @@ private:
 
 class ReadSession final {
 public:
+  [[nodiscard]] Result<QueryPage<ObjectMatch>>
+  ancestors(const Uuid &representation_id, std::uint32_t max_depth,
+            std::uint32_t max_representations, std::uint32_t limit,
+            std::optional<std::string_view> cursor = std::nullopt) const {
+    const pp_uuid_t native_id = detail::native_uuid(representation_id);
+    POSTPROJECT_TRY_ASSIGN(const std::optional<std::string> checked_cursor,
+                           detail::checked_cursor(cursor));
+    pp_object_query_set_t *raw_objects = nullptr;
+    pp_error_t *error = nullptr;
+    const pp_error_code_t status = pp_read_session_provenance_ancestors_page(
+        session_, &native_id, max_depth, max_representations, limit,
+        detail::optional_c_str(checked_cursor), &raw_objects, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    return detail::object_query_page(detail::ObjectQuerySetHandle(raw_objects));
+  }
+
+  [[nodiscard]] Result<QueryPage<ObjectMatch>>
+  descendants(const Uuid &representation_id, std::uint32_t max_depth,
+            std::uint32_t max_representations, std::uint32_t limit,
+            std::optional<std::string_view> cursor = std::nullopt) const {
+    const pp_uuid_t native_id = detail::native_uuid(representation_id);
+    POSTPROJECT_TRY_ASSIGN(const std::optional<std::string> checked_cursor,
+                           detail::checked_cursor(cursor));
+    pp_object_query_set_t *raw_objects = nullptr;
+    pp_error_t *error = nullptr;
+    const pp_error_code_t status = pp_read_session_provenance_descendants_page(
+        session_, &native_id, max_depth, max_representations, limit,
+        detail::optional_c_str(checked_cursor), &raw_objects, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    return detail::object_query_page(detail::ObjectQuerySetHandle(raw_objects));
+  }
+
+  [[nodiscard]] Result<QueryPage<Uuid>> staleArtifacts(
+      std::uint32_t evaluation_max_depth,
+      std::uint32_t evaluation_max_representations, std::uint32_t limit,
+      std::optional<std::string_view> cursor = std::nullopt,
+      std::optional<Uuid> source_representation_id = std::nullopt) const {
+    const std::optional<pp_uuid_t> native_source =
+        source_representation_id.has_value()
+            ? std::optional<pp_uuid_t>(
+                  detail::native_uuid(*source_representation_id))
+            : std::nullopt;
+    POSTPROJECT_TRY_ASSIGN(const std::optional<std::string> checked_cursor,
+                           detail::checked_cursor(cursor));
+    pp_object_query_set_t *raw_objects = nullptr;
+    pp_error_t *error = nullptr;
+    const pp_error_code_t status = pp_read_session_stale_artifacts(
+        session_, native_source.has_value() ? &*native_source : nullptr,
+        evaluation_max_depth, evaluation_max_representations, limit,
+        detail::optional_c_str(checked_cursor), &raw_objects, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    POSTPROJECT_TRY_ASSIGN(
+        QueryPage<ObjectMatch> page,
+        detail::object_query_page(detail::ObjectQuerySetHandle(raw_objects)));
+    return detail::object_id_page(std::move(page), ObjectKind::representation);
+  }
+
   [[nodiscard]] Result<QueryPage<Representation>> representationsUnderMediaRoot(
       std::string_view root_name, std::uint32_t limit,
       std::optional<std::string_view> cursor = std::nullopt) const {
