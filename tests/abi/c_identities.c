@@ -6,6 +6,8 @@ _Static_assert(_Generic((pp_production_id_t){0}, pp_uuid_t: 1, default: 0) == 0,
                "production IDs must be distinct from UUID interchange bytes");
 _Static_assert(_Generic((pp_revision_id_t){0}, pp_transaction_id_t: 1, pp_uuid_t: 1, default: 0) == 0,
                "revision and transaction identities must be distinct");
+_Static_assert(_Generic((pp_asset_id_t){0}, pp_uuid_t: 1, pp_production_id_t: 1, default: 0) == 0,
+               "asset identities must be distinct from other kinds");
 
 int main(void) {
   pp_production_id_t id = {{0}};
@@ -54,6 +56,17 @@ int main(void) {
   pp_string_release(text); text = NULL;
   if (pp_transaction_id_format(transaction, NULL, &error) != PP_ERROR_INVALID_ARGUMENT)
     return 14;
+  pp_error_release(error); error = NULL;
+  pp_asset_id_t asset;
+  if (pp_asset_id_parse(canonical, &asset, &error) != PP_OK ||
+      pp_asset_id_format(asset, &text, &error) != PP_OK ||
+      strcmp(text, canonical)) return 15;
+  pp_string_release(text); text = NULL;
+  if (pp_asset_id_parse("broken", &asset, &error) != PP_ERROR_INVALID_ARGUMENT)
+    return 16;
+  pp_error_release(error); error = NULL;
+  if (memcmp(asset.bytes, zero, sizeof zero)) return 17;
+  if (pp_asset_id_format(asset, NULL, &error) != PP_ERROR_INVALID_ARGUMENT) return 18;
   pp_error_release(error);
   return 0;
 }

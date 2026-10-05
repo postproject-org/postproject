@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from uuid import UUID
 
 from postproject import (
     Asset,
@@ -24,9 +25,20 @@ from postproject import (
     ProductionId,
     Revision,
     RevisionContext,
+    parse_id,
 )
 
 
+# [asset-identity]
+def asset_identity(saved_id: str) -> None:
+    asset = parse_id(saved_id, AssetId)
+    assert isinstance(asset, UUID)
+    assert AssetId(asset) is asset
+    assert len({asset, asset}) == 1
+    print("asset identity:", asset)
+
+
+# [/asset-identity]
 # [open-production]
 def open_production(
     path: Path, asset_id: AssetId
@@ -116,6 +128,7 @@ def main() -> None:
     if len(sys.argv) != 2:
         sys.exit("usage: lifecycle.py WORK_DIRECTORY")
     work = Path(sys.argv[1])
+    asset_identity("00000000-0000-0000-0000-000000000001")
     path = work / "lifecycle.pproj"
 
     created_id, asset_id = create_production(path, work / "rushes" / "A001.mov")

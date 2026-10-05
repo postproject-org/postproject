@@ -7,6 +7,9 @@
 static_assert(!std::is_convertible_v<postproject::Uuid, postproject::ProductionId>);
 static_assert(!std::is_convertible_v<postproject::ProductionId, postproject::Uuid>);
 static_assert(!std::is_same_v<postproject::ProductionId, postproject::Uuid>);
+static_assert(!std::is_convertible_v<postproject::Uuid, postproject::AssetId>);
+static_assert(!std::is_convertible_v<postproject::AssetId, postproject::Uuid>);
+static_assert(!std::is_assignable_v<postproject::AssetId &, postproject::ProductionId>);
 static_assert(!std::is_convertible_v<postproject::Uuid, postproject::RevisionId>);
 static_assert(!std::is_convertible_v<postproject::RevisionId, postproject::Uuid>);
 static_assert(!std::is_convertible_v<postproject::RevisionId, postproject::TransactionId>);
@@ -27,6 +30,15 @@ static_assert(!std::is_assignable_v<decltype(postproject::HostObjectBinding::pro
                                     postproject::Uuid>);
 
 int main() {
+  const auto asset = postproject::AssetId::fromString("00000000-0000-0000-0000-000000000001").value();
+  const std::set<postproject::AssetId> assets{asset, asset};
+  const std::unordered_set<postproject::AssetId> asset_hashes{asset, asset};
+  if (assets.size() != 1 || asset_hashes.size() != 1 ||
+      postproject::AssetId(asset.asUuid()) != asset ||
+      postproject::AssetId(asset.bytes()) != asset) return 10;
+  if (asset.toString().value() != "00000000-0000-0000-0000-000000000001" ||
+      postproject::AssetId::fromString("broken").has_value() ||
+      postproject::AssetId::fromString(std::string_view("id\0tail", 7)).has_value()) return 11;
   const auto revision = postproject::RevisionId::fromString("00000000-0000-0000-0000-000000000001").value();
   const auto transaction = postproject::TransactionId::fromString("00000000-0000-0000-0000-000000000001").value();
   const std::set<postproject::RevisionId> revisions{revision, revision};

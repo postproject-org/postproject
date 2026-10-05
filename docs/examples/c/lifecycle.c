@@ -11,6 +11,22 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* [asset-identity] */
+static pp_error_code_t asset_identity(const char *saved_id, pp_error_t **error) {
+  pp_asset_id_t asset;
+  char *canonical = NULL;
+  pp_error_code_t status = pp_asset_id_parse(saved_id, &asset, error);
+  if (status == PP_OK) {
+    status = pp_asset_id_format(asset, &canonical, error);
+  }
+  if (status == PP_OK) {
+    printf("asset identity: %s\n", canonical);
+  }
+  pp_string_release(canonical);
+  return status;
+}
+/* [/asset-identity] */
+
 /* [open-production] */
 static pp_error_code_t open_production(const char *path,
                                        const pp_uuid_t *asset_id,
@@ -260,7 +276,10 @@ int main(int argc, char **argv) {
   int has_scratch = 0;
 
   pp_error_code_t status =
-      create_production(production_path, media, &asset_id, &error);
+      asset_identity("00000000-0000-0000-0000-000000000001", &error);
+  if (status == PP_OK) {
+    status = create_production(production_path, media, &asset_id, &error);
+  }
   if (status == PP_OK) {
     status = open_production(production_path, &asset_id, &production, &error);
   }

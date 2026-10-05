@@ -13,6 +13,18 @@ use postproject_core::{
 use postproject_media::prepare_original_media;
 use postproject_storage_sqlite::SqliteProduction;
 
+// [asset-identity]
+fn asset_identity(saved_id: &str) -> Result<()> {
+    let asset: AssetId = saved_id.parse()?;
+    let ordered = std::collections::BTreeSet::from([asset, asset]);
+    let hashed = std::collections::HashSet::from([asset, asset]);
+    assert_eq!(ordered.len(), 1);
+    assert_eq!(hashed.len(), 1);
+    println!("asset identity: {asset}");
+    Ok(())
+}
+// [/asset-identity]
+
 // [open-production]
 fn open_production(path: &Path, asset_id: AssetId) -> Result<SqliteProduction> {
     let production = SqliteProduction::open(path)?;
@@ -105,6 +117,7 @@ fn create_production(path: &Path, media: &Path) -> Result<(ProductionId, AssetId
 
 #[test]
 fn lifecycle_examples_run_in_order() -> Result<()> {
+    asset_identity("00000000-0000-0000-0000-000000000001")?;
     let work = tempfile::tempdir().expect("temporary directory");
     let rushes = work.path().join("rushes");
     fs::create_dir_all(&rushes).expect("rushes directory");

@@ -141,6 +141,10 @@ class TransactionId(ctypes.Structure):
     pass
 
 
+class AssetId(ctypes.Structure):
+    pass
+
+
 class CommitReceipt(ctypes.Structure):
     pass
 
@@ -410,6 +414,10 @@ TransactionId._fields_ = [
     ("bytes", ctypes.c_uint8 * 16),
 ]
 
+AssetId._fields_ = [
+    ("bytes", ctypes.c_uint8 * 16),
+]
+
 CommitReceipt._fields_ = [
     ("production_id", ProductionId),
     ("outcome", CommitOutcome),
@@ -586,6 +594,7 @@ PUBLIC_STRUCTS = {
     "pp_production_id_t": (ProductionId, ("bytes",)),
     "pp_revision_id_t": (RevisionId, ("bytes",)),
     "pp_transaction_id_t": (TransactionId, ("bytes",)),
+    "pp_asset_id_t": (AssetId, ("bytes",)),
     "pp_commit_receipt_t": (CommitReceipt, ("production_id", "outcome", "revision_id", "revision_sequence")),
     "pp_decision_base_t": (DecisionBase, ("production_id", "has_revision", "revision_id", "revision_sequence")),
     "pp_object_ref_t": (ObjectRef, ("kind", "id")),
@@ -625,6 +634,8 @@ EXPORTED_SYMBOLS = (
     "pp_artifact_reproducibility_get",
     "pp_artifact_reproducibility_get_issue",
     "pp_artifact_reproducibility_release",
+    "pp_asset_id_format",
+    "pp_asset_id_parse",
     "pp_asset_set_count",
     "pp_asset_set_get",
     "pp_asset_set_next_cursor",
@@ -958,6 +969,10 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_read_session_jobs.restype = ErrorCode
     lib.pp_read_session_release.argtypes = [ctypes.POINTER(ReadSession)]
     lib.pp_read_session_release.restype = None
+    lib.pp_asset_id_parse.argtypes = [ctypes.c_char_p, ctypes.POINTER(AssetId), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_asset_id_parse.restype = ErrorCode
+    lib.pp_asset_id_format.argtypes = [AssetId, ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_asset_id_format.restype = ErrorCode
     lib.pp_revision_id_parse.argtypes = [ctypes.c_char_p, ctypes.POINTER(RevisionId), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_revision_id_parse.restype = ErrorCode
     lib.pp_revision_id_format.argtypes = [RevisionId, ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.POINTER(Error))]

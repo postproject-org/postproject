@@ -24,6 +24,23 @@ Choose the language with the tabs or with the **Code** selector in the sidebar;
 the choice applies to every example on the site and is remembered in this
 browser.
 
+## Identity text
+
+At an interchange boundary, parse saved UUID text into its semantic identity.
+Parsing establishes syntax and kind; an operation still checks existence and
+production membership. IDs support standard equality and containers. Python
+hints retain ordinary UUID runtime values:
+
+```{code-variants} asset-identity
+:::{no-variant} cli
+Pass ordinary UUID text to the command's entity parameter; the operation checks
+existence and scope.
+:::
+```
+
+Native asset-ID construction is available in the development SDK; migration of
+its operation signatures is in progress.
+
 ## Reopen a production
 
 A production file outlives the process that created it. Reopening applies any

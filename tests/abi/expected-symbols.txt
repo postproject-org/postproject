@@ -17,6 +17,8 @@ pp_artifact_evaluation_release
 pp_artifact_reproducibility_get
 pp_artifact_reproducibility_get_issue
 pp_artifact_reproducibility_release
+pp_asset_id_format
+pp_asset_id_parse
 pp_asset_set_count
 pp_asset_set_get
 pp_asset_set_next_cursor

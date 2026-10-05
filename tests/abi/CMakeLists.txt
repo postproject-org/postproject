@@ -35,6 +35,18 @@ int main(void) { pp_transaction_id_t id = {{0}};
 if(POSTPROJECT_TRANSACTION_AS_REVISION_COMPILES)
     message(FATAL_ERROR "Transaction identity must not substitute for revision identity")
 endif()
+check_c_source_compiles("#include <postproject/postproject.h>
+int main(void) { pp_asset_id_t id = {{0}};
+  return pp_asset_id_format(id, 0, 0); }" POSTPROJECT_ASSET_ID_COMPILES)
+if(NOT POSTPROJECT_ASSET_ID_COMPILES)
+    message(FATAL_ERROR "Installed asset ID example must compile")
+endif()
+check_c_source_compiles("#include <postproject/postproject.h>
+int main(void) { pp_production_id_t id = {{0}};
+  return pp_asset_id_format(id, 0, 0); }" POSTPROJECT_PRODUCTION_AS_ASSET_COMPILES)
+if(POSTPROJECT_PRODUCTION_AS_ASSET_COMPILES)
+    message(FATAL_ERROR "Production identity must not substitute for asset identity")
+endif()
 cmake_pop_check_state()
 
 # The producer generates this source from the public header. This consumer

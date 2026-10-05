@@ -11,8 +11,10 @@
 #include <cstdio>
 #include <iostream>
 #include <optional>
+#include <set>
 #include <stdexcept>
 #include <string>
+#include <unordered_set>
 
 namespace {
 
@@ -21,6 +23,19 @@ void require(bool condition, const char *message) {
     throw std::runtime_error(message);
   }
 }
+
+// [asset-identity]
+void asset_identity(std::string_view saved_id) {
+  const auto asset = postproject::AssetId::fromString(saved_id).value();
+  const std::set<postproject::AssetId> ordered{asset, asset};
+  const std::unordered_set<postproject::AssetId> hashed{asset, asset};
+  require(ordered.size() == 1 && hashed.size() == 1, "identity value semantics");
+  require(postproject::AssetId(asset.bytes()) == asset &&
+              postproject::AssetId(asset.asUuid()) == asset,
+          "explicit interchange preserves bytes");
+  std::cout << "asset identity: " << asset.toString().value() << '\n';
+}
+// [/asset-identity]
 
 postproject::Uuid create_with_asset(const std::string &path,
                                     const std::string &media) {
@@ -128,6 +143,7 @@ int main(int argc, char **argv) {
   const std::string media = work + "/rushes/A001.mov";
 
   try {
+    asset_identity("00000000-0000-0000-0000-000000000001");
     const auto asset_id = create_with_asset(path, media);
 
     auto production = open_production(path, asset_id);
