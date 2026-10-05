@@ -5400,6 +5400,8 @@ pub unsafe extern "C" fn pp_transaction_add_metadata_value(
 }
 
 /// Stages removal of every value of one metadata property.
+/// Requires a read-bound edit or explicitly based transaction. Rejection before
+/// staging leaves the transaction open; actual commit checks the base again.
 ///
 /// # Safety
 ///
@@ -5419,7 +5421,7 @@ pub unsafe extern "C" fn pp_transaction_remove_metadata_property(
             let transaction = transaction
                 .as_mut()
                 .ok_or_else(|| invalid_argument("transaction must not be null"))?;
-            transaction.lifecycle.ensure_open()?;
+            transaction.require_decision_base()?;
             let target = target
                 .as_ref()
                 .ok_or_else(|| invalid_argument("target must not be null"))?;
@@ -7346,6 +7348,16 @@ fn begin_transaction_handle(
 }
 
 impl PpTransaction {
+    fn require_decision_base(&self) -> Result<(), Error> {
+        self.lifecycle.ensure_open()?;
+        if self.decision_base.is_none() && self.base_revision.is_none() {
+            return Err(invalid_argument(
+                "metadata removal requires a decision base",
+            ));
+        }
+        Ok(())
+    }
+
     fn commit(&mut self) -> Result<CommitReceipt, Error> {
         self.lifecycle.ensure_open()?;
         let result = (|| {

@@ -14,6 +14,73 @@ static int rejects_base(pp_production_t *production, pp_decision_base_t base) {
   return rejected;
 }
 
+static int metadata_edits_contract(pp_production_t *production) {
+  pp_read_session_t *view = NULL;
+  pp_transaction_t *edit = NULL;
+  pp_metadata_input_t *value = NULL;
+  pp_metadata_set_t *values = NULL;
+  pp_error_t *error = NULL;
+  pp_decision_base_t base;
+  pp_commit_receipt_t receipt;
+  pp_transaction_conflict_t conflict;
+  pp_object_ref_t target = {PP_OBJECT_PRODUCTION, {{0}}};
+  const char *vocabulary = "com.example.editor";
+  int valid = 0;
+  if (pp_production_read_session(production, &view, &error) != PP_OK ||
+      pp_read_session_decision_base(view, &base, &error) != PP_OK ||
+      pp_metadata_input_create_string("keyword", NULL, &value, &error) != PP_OK)
+    goto cleanup;
+  memcpy(target.id.bytes, base.production_id.bytes, sizeof target.id.bytes);
+  if (pp_production_begin_transaction(production, &edit, &error) != PP_OK ||
+      pp_transaction_add_metadata_value(edit, &target, vocabulary, "keywords",
+                                       value, &error) != PP_OK ||
+      pp_transaction_commit_with_receipt(edit, &receipt, &error) != PP_OK)
+    goto cleanup;
+  pp_transaction_release(edit); edit = NULL;
+  if (pp_production_begin_transaction(production, &edit, &error) != PP_OK ||
+      pp_transaction_remove_metadata_property(edit, &target, vocabulary,
+          "keywords", &error) != PP_ERROR_INVALID_ARGUMENT || error == NULL)
+    goto cleanup;
+  pp_error_release(error); error = NULL;
+  /* Validation rejection must not stage a removal or close the transaction. */
+  if (pp_transaction_add_metadata_value(edit, &target, vocabulary, "keywords",
+                                       value, &error) != PP_OK ||
+      pp_transaction_commit_with_receipt(edit, &receipt, &error) != PP_OK)
+    goto cleanup;
+  pp_transaction_release(edit); edit = NULL;
+  if (pp_read_session_begin_edit(view, &edit, &error) != PP_OK ||
+      pp_transaction_remove_metadata_property(edit, &target, vocabulary,
+          "keywords", &error) != PP_OK ||
+      pp_transaction_commit_with_receipt(edit, &receipt, &error) != PP_ERROR_CONFLICT ||
+      receipt.outcome != PP_COMMIT_NO_CHANGE ||
+      pp_error_transaction_conflict(error, &conflict) != 1)
+    goto cleanup;
+  pp_error_release(error); error = NULL;
+  pp_transaction_release(edit); edit = NULL;
+  if (pp_production_metadata(production, &target, &values, &error) != PP_OK ||
+      pp_metadata_set_count(values) != 2)
+    goto cleanup;
+  pp_metadata_set_release(values); values = NULL;
+  pp_read_session_release(view); view = NULL;
+  if (pp_production_read_session(production, &view, &error) != PP_OK ||
+      pp_read_session_begin_edit(view, &edit, &error) != PP_OK ||
+      pp_transaction_remove_metadata_property(edit, &target, vocabulary,
+          "keywords", &error) != PP_OK ||
+      pp_transaction_commit_with_receipt(edit, &receipt, &error) != PP_OK ||
+      receipt.outcome != PP_COMMIT_REVISION_CREATED ||
+      pp_production_metadata(production, &target, &values, &error) != PP_OK ||
+      pp_metadata_set_count(values) != 0)
+    goto cleanup;
+  valid = 1;
+cleanup:
+  pp_error_release(error);
+  pp_metadata_set_release(values);
+  pp_metadata_input_release(value);
+  pp_transaction_release(edit);
+  pp_read_session_release(view);
+  return valid;
+}
+
 static int rejects_null_storage_reads(void) {
   pp_object_query_set_t *resources = (pp_object_query_set_t *)(uintptr_t)1;
   pp_locator_query_set_t *locators = (pp_locator_query_set_t *)(uintptr_t)1;
@@ -106,6 +173,9 @@ int main(int argc, char **argv) {
     goto cleanup;
   pp_transaction_release(edit);
   edit = NULL;
+
+  if (!metadata_edits_contract(production))
+    goto cleanup;
 
   /* The session retains a production for edits and owns its read connection. */
   pp_production_release(production);

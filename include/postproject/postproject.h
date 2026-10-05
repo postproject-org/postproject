@@ -1604,6 +1604,8 @@ PP_API pp_error_code_t pp_transaction_add_metadata_value(
     pp_transaction_t *transaction, const pp_object_ref_t *target,
     const char *vocabulary, const char *property,
     const pp_metadata_input_t *input, pp_error_t **out_error);
+/* Requires a read-bound edit or explicitly based transaction. An unbased
+ * call rejects before staging and leaves its transaction open. */
 PP_API pp_error_code_t pp_transaction_remove_metadata_property(
     pp_transaction_t *transaction, const pp_object_ref_t *target,
     const char *vocabulary, const char *property, pp_error_t **out_error);

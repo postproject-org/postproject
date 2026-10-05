@@ -470,9 +470,14 @@ static pp_error_code_t remove_keywords(pp_production_t *production,
   pp_error_code_t reference_status = pp_object_ref_from_asset(*asset_id, &target, error);
   if (reference_status != PP_OK) return reference_status;
   pp_transaction_t *transaction = NULL;
+  pp_read_session_t *view = NULL;
   pp_metadata_set_t *remaining = NULL;
   pp_error_code_t status =
-      pp_production_begin_transaction(production, &transaction, error);
+      pp_production_read_session(production, &view, error);
+  if (status == PP_OK) {
+    status = pp_read_session_begin_edit(view, &transaction, error);
+  }
+  pp_read_session_release(view);
   if (status == PP_OK) {
     /* Removes every value of the property on this target. */
     status = pp_transaction_remove_metadata_property(
