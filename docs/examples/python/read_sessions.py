@@ -5,6 +5,7 @@ from pathlib import Path
 
 from postproject import (
     AssetRef,
+    ContentVerification,
     ExternalIdentifier,
     LocatorIdentity,
     MetadataProperty,
@@ -46,6 +47,8 @@ def exercise(path: Path, media: Path) -> None:
             resources = view.resources_page(representation.id, limit=10)
             assert len(resources.items) == 1
             resource = resources.items[0]
+            assert view.verify_resource(resource, media) == ContentVerification.MATCHES
+            assert len(view.resolve(asset)) == 1
             assert len(view.locators_page(resource, limit=10).items) == 1
             assert view.representations_using_resource(resource, limit=10).items == (
                 representation,

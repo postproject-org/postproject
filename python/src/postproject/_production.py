@@ -640,19 +640,14 @@ class Production:
         """
 
         self._require_open()
-        native_id = _native_uuid(resource_id)
-        verification = ctypes.c_uint32()
-        error = ctypes.POINTER(Error)()
-        status = self._native.lib.pp_production_verify_resource(
+        return _verify_resource(
+            self._native,
+            self._native.lib.pp_production_verify_resource,
             self._handle,
-            ctypes.byref(native_id),
-            _path_bytes(path),
-            _native_naming(sequence_naming),
-            ctypes.byref(verification),
-            ctypes.byref(error),
+            resource_id,
+            path,
+            sequence_naming,
         )
-        self._native.check(status, error)
-        return _CONTENT_VERIFICATIONS[verification.value]
 
     def resolve(
         self,
@@ -1786,6 +1781,29 @@ class Production:
         return _object_query_page(self._native, function, convert, *arguments)
 
 
+def _verify_resource(
+    native: NativeLibrary,
+    function: Callable[..., int],
+    handle: object,
+    resource_id: ResourceId,
+    path: str | os.PathLike[str],
+    sequence_naming: SequenceNaming | None,
+) -> ContentVerification:
+    native_id = _native_uuid(resource_id)
+    verification = ctypes.c_uint32()
+    error = ctypes.POINTER(Error)()
+    status = function(
+        handle,
+        ctypes.byref(native_id),
+        _path_bytes(path),
+        _native_naming(sequence_naming),
+        ctypes.byref(verification),
+        ctypes.byref(error),
+    )
+    native.check(status, error)
+    return _CONTENT_VERIFICATIONS[verification.value]
+
+
 def _resolve(
     native: NativeLibrary,
     function: Callable[..., int],
@@ -1933,6 +1951,50 @@ class ReadSession:
         self._handle = handle
         self._finalizer = weakref.finalize(
             self, native.lib.pp_read_session_release, handle
+        )
+
+    def verify_resource(
+        self,
+        resource_id: ResourceId,
+        path: str | os.PathLike[str],
+        *,
+        sequence_naming: SequenceNaming | None = None,
+    ) -> ContentVerification:
+        """Compare current files with resource fingerprints in this view."""
+        self._require_open()
+        return _verify_resource(
+            self._native,
+            self._native.lib.pp_read_session_verify_resource,
+            self._handle,
+            resource_id,
+            path,
+            sequence_naming,
+        )
+
+    def resolve(
+        self,
+        asset_ids: AssetId | Iterable[AssetId],
+        root_mappings: Mapping[str, str | os.PathLike[str]] | None = None,
+        *,
+        search_directories: Iterable[str | os.PathLike[str]] = (),
+        verification: VerificationMode = VerificationMode.PRESENCE,
+        max_depth: int = 64,
+        max_entries_per_directory: int = 100_000,
+        cancel_token: CancelToken | None = None,
+    ) -> tuple[RepresentationResolution, ...]:
+        """Resolve current files using this view's stored media knowledge."""
+        self._require_open()
+        return _resolve(
+            self._native,
+            self._native.lib.pp_read_session_resolve_assets,
+            self._handle,
+            asset_ids,
+            root_mappings,
+            search_directories,
+            verification,
+            max_depth,
+            max_entries_per_directory,
+            cancel_token,
         )
 
     @property

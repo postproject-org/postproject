@@ -6,8 +6,11 @@ from pathlib import Path
 
 from postproject import (
     AssetRef,
+    CancelledError,
+    CancelToken,
     CommittedRevision,
     ConflictError,
+    ContentVerification,
     DecisionBase,
     ExternalIdentifier,
     InvalidArgumentError,
@@ -15,12 +18,65 @@ from postproject import (
     MetadataProperty,
     MetadataString,
     Production,
+    VerificationMode,
     file_locator,
     fingerprint_file,
 )
 
 
 class ReadSessionTests(unittest.TestCase):
+    def test_resolution_pins_database_facts_but_reads_current_files(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            media = Path(directory) / "camera.mov"
+            media.write_bytes(b"original content")
+            with Production.create(Path(directory) / "resolve.pproj") as production:
+                with production.read_session() as empty, empty.edit() as edit:
+                    asset = edit.import_media(media)
+                    edit.commit()
+                with production.read_session() as view:
+                    representation = view.representations_page(asset, limit=1).items[0]
+                    resource = view.resources_page(representation.id, limit=1).items[0]
+                    original = view.resolve(
+                        asset, verification=VerificationMode.CONTENT
+                    )
+                    base = view.decision_base
+                    self.assertEqual(
+                        view.verify_resource(resource, media),
+                        ContentVerification.MATCHES,
+                    )
+                    media.write_bytes(b"changed content")
+                    with view.edit() as edit:
+                        edit.observe_resource_content(resource, media)
+                        receipt = edit.commit()
+                    self.assertEqual(view.decision_base, base)
+                    self.assertEqual(
+                        view.verify_resource(resource, media),
+                        ContentVerification.DIFFERS,
+                    )
+                    self.assertNotEqual(
+                        view.resolve(asset, verification=VerificationMode.CONTENT),
+                        original,
+                    )
+                    with production.read_session() as fresh:
+                        self.assertEqual(
+                            fresh.verify_resource(resource, media),
+                            ContentVerification.MATCHES,
+                        )
+                        self.assertEqual(fresh.decision_base.revision, receipt.revision)
+                    token = CancelToken()
+                    token.cancel()
+                    with self.assertRaises(CancelledError):
+                        view.resolve(asset, cancel_token=token)
+                    latest = production.latest_revision
+                    assert latest is not None and receipt.revision is not None
+                    self.assertEqual(latest.id, receipt.revision.id)
+                for operation in (
+                    lambda: view.verify_resource(resource, media),
+                    lambda: view.resolve(asset),
+                ):
+                    with self.assertRaises(RuntimeError):
+                        operation()
+
     def test_metadata_pages_and_exact_values_remain_in_the_pinned_view(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             media = Path(directory) / "camera.mov"
