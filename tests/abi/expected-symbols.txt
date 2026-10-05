@@ -49,6 +49,9 @@ pp_host_binding_format
 pp_host_binding_parse
 pp_job_set_count
 pp_job_set_get
+pp_job_set_get_claim
+pp_job_set_get_completion
+pp_job_set_get_failure
 pp_job_set_get_input
 pp_job_set_next_cursor
 pp_job_set_release

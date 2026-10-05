@@ -2,8 +2,9 @@
 use postproject::{
     PpActivityEdge, PpArtifactDependencyPathSegment, PpArtifactReason,
     PpArtifactReproducibilityIssue, PpCommitReceipt, PpDecisionBase, PpDependency,
-    PpDependencyMatch, PpFileResourceInput, PpJob, PpObjectRef, PpProductionId, PpRevisionEvent,
-    PpRevisionId, PpSequenceNaming, PpTransactionConflict, PpTransactionId, PpUuid,
+    PpDependencyMatch, PpFileResourceInput, PpJob, PpJobClaim, PpJobCompletion, PpObjectRef,
+    PpProductionId, PpRevisionEvent, PpRevisionId, PpSequenceNaming, PpTransactionConflict,
+    PpTransactionId, PpUuid,
 };
 use std::mem::{align_of, offset_of, size_of};
 
@@ -109,6 +110,25 @@ fn main() {
         completion_activity_id,
         completion_representation_id,
         failure_diagnostic
+    );
+    layout!(
+        PpJobClaim,
+        "pp_job_claim_t",
+        id,
+        expires_at_unix_micros,
+        tool_name,
+        tool_version,
+        tool_uri,
+        agent_name,
+        agent_identifier_scheme,
+        agent_identifier_value,
+        agent_identifier_qualifier
+    );
+    layout!(
+        PpJobCompletion,
+        "pp_job_completion_t",
+        activity_id,
+        representation_id
     );
     layout!(
         PpDependency,

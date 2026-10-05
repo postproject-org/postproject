@@ -9,6 +9,7 @@ mod artifact;
 mod content;
 mod dependency;
 mod identities;
+mod job_state;
 mod jobs;
 mod known_media;
 mod media_source;
@@ -66,7 +67,7 @@ pub use artifact::{
 pub use content::PpFingerprint;
 pub use dependency::{PpDependency, PpDependencyMatch, PpDependencyQuerySet, PpDependencySet};
 pub use identities::{PpProductionId, PpRevisionId, PpTransactionId};
-pub use jobs::{PpJob, PpJobSet, PpRegenerationPlanSet};
+pub use jobs::{PpJob, PpJobClaim, PpJobCompletion, PpJobSet, PpRegenerationPlanSet};
 pub use known_media::PpKnownMediaSet;
 pub use media_source::PpMediaSource;
 use metadata::AbiMetadataValue;

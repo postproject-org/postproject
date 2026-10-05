@@ -173,6 +173,14 @@ class Job(ctypes.Structure):
     pass
 
 
+class JobClaim(ctypes.Structure):
+    pass
+
+
+class JobCompletion(ctypes.Structure):
+    pass
+
+
 class Dependency(ctypes.Structure):
     pass
 
@@ -491,6 +499,23 @@ Job._fields_ = [
     ("failure_diagnostic", ctypes.c_char_p),
 ]
 
+JobClaim._fields_ = [
+    ("id", Uuid),
+    ("expires_at_unix_micros", ctypes.c_int64),
+    ("tool_name", ctypes.c_char_p),
+    ("tool_version", ctypes.c_char_p),
+    ("tool_uri", ctypes.c_char_p),
+    ("agent_name", ctypes.c_char_p),
+    ("agent_identifier_scheme", ctypes.c_char_p),
+    ("agent_identifier_value", ctypes.c_char_p),
+    ("agent_identifier_qualifier", ctypes.c_char_p),
+]
+
+JobCompletion._fields_ = [
+    ("activity_id", Uuid),
+    ("representation_id", Uuid),
+]
+
 Dependency._fields_ = [
     ("has_source_resource", ctypes.c_uint8),
     ("source_resource_id", Uuid),
@@ -569,6 +594,8 @@ PUBLIC_STRUCTS = {
     "pp_revision_event_t": (RevisionEvent, ("kind", "position", "asset_id", "representation_id", "resource_id", "locator_id", "media_root_id", "activity_id", "job_id", "target", "structural_position", "enabled", "identifier_scheme", "identifier_value", "identifier_qualifier", "vocabulary", "property", "activity_kind", "role", "fingerprint_algorithm", "fingerprint_version")),
     "pp_activity_edge_t": (ActivityEdge, ("representation_id", "role")),
     "pp_job_t": (Job, ("id", "kind", "output_asset_id", "output_representation_kind", "target_root", "state", "input_count", "claim_id", "claim_expires_at_unix_micros", "claim_tool_name", "claim_tool_version", "claim_tool_uri", "claim_agent_name", "claim_agent_identifier_scheme", "claim_agent_identifier_value", "claim_agent_identifier_qualifier", "completion_activity_id", "completion_representation_id", "failure_diagnostic")),
+    "pp_job_claim_t": (JobClaim, ("id", "expires_at_unix_micros", "tool_name", "tool_version", "tool_uri", "agent_name", "agent_identifier_scheme", "agent_identifier_value", "agent_identifier_qualifier")),
+    "pp_job_completion_t": (JobCompletion, ("activity_id", "representation_id")),
     "pp_dependency_t": (Dependency, ("has_source_resource", "source_resource_id", "kind", "target", "has_resolved_representation", "resolved_representation_id", "required", "authored_reference")),
     "pp_artifact_dependency_path_segment_t": (ArtifactDependencyPathSegment, ("source_representation_id", "dependency_position", "has_source_resource", "source_resource_id", "kind", "target", "has_resolved_representation", "resolved_representation_id", "authored_reference")),
     "pp_artifact_reason_t": (ArtifactReason, ("kind", "activity_id", "representation_id", "input_representation_id", "edge_kind", "upstream_state", "traversal_limit", "activity_count", "dependency_issue", "dependency_path", "dependency_path_length", "fingerprint_algorithm", "fingerprint_version", "has_snapshot_value", "snapshot_value", "snapshot_value_length", "has_current_value", "current_value", "current_value_length")),
@@ -630,6 +657,9 @@ EXPORTED_SYMBOLS = (
     "pp_host_binding_parse",
     "pp_job_set_count",
     "pp_job_set_get",
+    "pp_job_set_get_claim",
+    "pp_job_set_get_completion",
+    "pp_job_set_get_failure",
     "pp_job_set_get_input",
     "pp_job_set_next_cursor",
     "pp_job_set_release",
@@ -1268,6 +1298,12 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_job_set_next_cursor.restype = ctypes.c_char_p
     lib.pp_job_set_get.argtypes = [ctypes.POINTER(JobSet), ctypes.c_uint64, ctypes.POINTER(Job), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_job_set_get.restype = ErrorCode
+    lib.pp_job_set_get_claim.argtypes = [ctypes.POINTER(JobSet), ctypes.c_uint64, ctypes.POINTER(JobClaim), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_job_set_get_claim.restype = ErrorCode
+    lib.pp_job_set_get_completion.argtypes = [ctypes.POINTER(JobSet), ctypes.c_uint64, ctypes.POINTER(JobCompletion), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_job_set_get_completion.restype = ErrorCode
+    lib.pp_job_set_get_failure.argtypes = [ctypes.POINTER(JobSet), ctypes.c_uint64, ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_job_set_get_failure.restype = ErrorCode
     lib.pp_job_set_get_input.argtypes = [ctypes.POINTER(JobSet), ctypes.c_uint64, ctypes.c_uint64, ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_job_set_get_input.restype = ErrorCode
     lib.pp_job_set_release.argtypes = [ctypes.POINTER(JobSet)]

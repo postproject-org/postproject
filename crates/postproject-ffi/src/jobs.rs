@@ -3,15 +3,15 @@
 use std::ffi::{CString, c_char};
 
 use postproject_core::{
-    Error, Job, JobState, QueryCursor, RegenerationJobPlan, RepresentationKind,
+    Error, ErrorKind, Job, JobState, QueryCursor, RegenerationJobPlan, RepresentationKind,
 };
 
 use crate::{PpUuid, exact_cstring};
 
 const PP_JOB_REQUESTED: u32 = 1;
-const PP_JOB_CLAIMED: u32 = 2;
-const PP_JOB_SUCCEEDED: u32 = 3;
-const PP_JOB_FAILED: u32 = 4;
+pub(super) const PP_JOB_CLAIMED: u32 = 2;
+pub(super) const PP_JOB_SUCCEEDED: u32 = 3;
+pub(super) const PP_JOB_FAILED: u32 = 4;
 const PP_JOB_CANCELLED: u32 = 5;
 
 /// Opaque immutable job result set owned by the C caller.
@@ -96,6 +96,69 @@ impl PpJob {
     }
 }
 
+/// Borrowed detail returned only for a claimed job.
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct PpJobClaim {
+    /// Claim identity; capability migration remains separate.
+    pub id: PpUuid,
+    /// Current stored lease expiry.
+    pub expires_at_unix_micros: i64,
+    /// Required claiming tool name.
+    pub tool_name: *const c_char,
+    /// Optional tool version.
+    pub tool_version: *const c_char,
+    /// Optional tool URI.
+    pub tool_uri: *const c_char,
+    /// Optional agent name.
+    pub agent_name: *const c_char,
+    /// Optional agent identifier scheme.
+    pub agent_identifier_scheme: *const c_char,
+    /// Optional agent identifier value.
+    pub agent_identifier_value: *const c_char,
+    /// Optional agent identifier qualifier.
+    pub agent_identifier_qualifier: *const c_char,
+}
+
+impl PpJobClaim {
+    pub(crate) const fn from_job(job: &PpJob) -> Self {
+        Self {
+            id: job.claim_id,
+            expires_at_unix_micros: job.claim_expires_at_unix_micros,
+            tool_name: job.claim_tool_name,
+            tool_version: job.claim_tool_version,
+            tool_uri: job.claim_tool_uri,
+            agent_name: job.claim_agent_name,
+            agent_identifier_scheme: job.claim_agent_identifier_scheme,
+            agent_identifier_value: job.claim_agent_identifier_value,
+            agent_identifier_qualifier: job.claim_agent_identifier_qualifier,
+        }
+    }
+
+    pub(crate) const fn empty() -> Self {
+        Self::from_job(&PpJob::empty())
+    }
+}
+
+/// Completion detail returned only for a succeeded job.
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct PpJobCompletion {
+    /// Completing activity.
+    pub activity_id: PpUuid,
+    /// Produced representation.
+    pub representation_id: PpUuid,
+}
+
+impl PpJobCompletion {
+    pub(crate) const fn empty() -> Self {
+        Self {
+            activity_id: PpUuid { bytes: [0; 16] },
+            representation_id: PpUuid { bytes: [0; 16] },
+        }
+    }
+}
+
 struct AbiJob {
     value: PpJob,
     kind: CString,
@@ -133,6 +196,19 @@ impl PpJobSet {
 
     pub(crate) fn get(&self, index: usize) -> Option<PpJob> {
         self.jobs.get(index).map(AbiJob::as_abi)
+    }
+
+    pub(crate) fn get_for_state(&self, index: usize, state: u32) -> Result<PpJob, Error> {
+        let job = self
+            .get(index)
+            .ok_or_else(|| Error::new(ErrorKind::NotFound, "job index is out of range"))?;
+        if job.state != state {
+            return Err(Error::new(
+                ErrorKind::InvalidArgument,
+                "job status does not have the requested detail",
+            ));
+        }
+        Ok(job)
     }
 
     pub(crate) fn input(&self, job_index: usize, input_index: usize) -> Option<PpUuid> {
@@ -256,7 +332,7 @@ impl TryFrom<&Job> for AbiJob {
                 )?);
             }
             JobState::Cancelled => value.state = PP_JOB_CANCELLED,
-            _ => value.state = 0,
+            _ => return Err(Error::new(ErrorKind::Unsupported, "unsupported job state")),
         }
         Ok(Self {
             value,

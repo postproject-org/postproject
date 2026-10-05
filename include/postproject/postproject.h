@@ -342,6 +342,25 @@ typedef struct pp_job {
   const char *failure_diagnostic;
 } pp_job_t;
 
+/* Checked claimed-state detail. Strings borrow the owning pp_job_set_t. */
+typedef struct pp_job_claim {
+  pp_uuid_t id;
+  int64_t expires_at_unix_micros;
+  const char *tool_name;
+  const char *tool_version;
+  const char *tool_uri;
+  const char *agent_name;
+  const char *agent_identifier_scheme;
+  const char *agent_identifier_value;
+  const char *agent_identifier_qualifier;
+} pp_job_claim_t;
+
+/* Checked succeeded-state detail. */
+typedef struct pp_job_completion {
+  pp_uuid_t activity_id;
+  pp_uuid_t representation_id;
+} pp_job_completion_t;
+
 /* Input strings are borrowed for a transaction call. Output strings borrow
  * the owning pp_dependency_set_t. */
 typedef struct pp_dependency {
@@ -1234,6 +1253,18 @@ PP_API uint64_t pp_job_set_count(const pp_job_set_t *jobs);
 PP_API const char *pp_job_set_next_cursor(const pp_job_set_t *jobs);
 PP_API pp_error_code_t pp_job_set_get(
     const pp_job_set_t *jobs, uint64_t index, pp_job_t *out_job,
+    pp_error_t **out_error);
+/* Checked state-specific projections. Wrong state returns INVALID_ARGUMENT;
+ * an absent index returns NOT_FOUND. Failure clears outputs to zero/NULL.
+ * Strings borrow jobs until its release. Outputs are required writable. */
+PP_API pp_error_code_t pp_job_set_get_claim(
+    const pp_job_set_t *jobs, uint64_t index, pp_job_claim_t *out_claim,
+    pp_error_t **out_error);
+PP_API pp_error_code_t pp_job_set_get_completion(
+    const pp_job_set_t *jobs, uint64_t index,
+    pp_job_completion_t *out_completion, pp_error_t **out_error);
+PP_API pp_error_code_t pp_job_set_get_failure(
+    const pp_job_set_t *jobs, uint64_t index, const char **out_diagnostic,
     pp_error_t **out_error);
 PP_API pp_error_code_t pp_job_set_get_input(
     const pp_job_set_t *jobs, uint64_t job_index, uint64_t input_index,
