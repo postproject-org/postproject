@@ -5,15 +5,74 @@ import unittest
 from pathlib import Path
 
 from postproject import (
+    AssetRef,
     CommittedRevision,
     ConflictError,
     DecisionBase,
+    ExternalIdentifier,
     InvalidArgumentError,
+    LocatorIdentity,
     Production,
+    file_locator,
+    fingerprint_file,
 )
 
 
 class ReadSessionTests(unittest.TestCase):
+    def test_roots_identifiers_and_known_media_use_the_same_pinned_view(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            media = Path(directory) / "camera.mov"
+            media.write_bytes(b"coherent lookup fixture")
+            with Production.create(Path(directory) / "lookup.pproj") as production:
+                with production.transaction() as transaction:
+                    asset = transaction.import_media(media)
+                target = AssetRef(asset)
+                with production.read_session() as view:
+                    locator = LocatorIdentity(file_locator(media))
+                    fingerprint = fingerprint_file(media)
+                    matches = view.find_known_media_by_locator(locator, limit=1)
+                    self.assertEqual(matches.items[0].asset_id, asset)
+                    with view.edit() as edit:
+                        edit.add_media_root("rushes")
+                        edit.add_external_identifier(
+                            target,
+                            ExternalIdentifier("https://example.com/id", "camera"),
+                        )
+                        edit.commit()
+                    self.assertEqual(view.media_roots, ())
+                    self.assertEqual(view.external_identifiers(target), ())
+                    self.assertEqual(
+                        view.find_by_external_identifier(
+                            "https://example.com/id", "camera", None
+                        ),
+                        (),
+                    )
+                    self.assertEqual(
+                        view.find_known_media_by_fingerprint(
+                            fingerprint, limit=1
+                        ).items,
+                        matches.items,
+                    )
+                    self.assertEqual(len(production.media_roots), 1)
+                    self.assertEqual(
+                        production.objects_by_external_identifier[
+                            "https://example.com/id", "camera"
+                        ],
+                        (target,),
+                    )
+                self.assertEqual(matches.items[0].asset_id, asset)
+                for operation in (
+                    lambda: view.media_roots,
+                    lambda: view.external_identifiers(target),
+                    lambda: view.find_by_external_identifier(
+                        "https://example.com/id", "camera", None
+                    ),
+                    lambda: view.find_known_media_by_locator(locator, limit=1),
+                    lambda: view.find_known_media_by_fingerprint(fingerprint, limit=1),
+                ):
+                    with self.assertRaises(RuntimeError):
+                        operation()
+
     def test_empty_view_remains_pinned_and_stale_edit_conflicts(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             with Production.create(Path(directory) / "production.pproj") as production:

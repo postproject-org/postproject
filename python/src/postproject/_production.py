@@ -2002,6 +2002,163 @@ class ReadSession:
             _optional_text(cursor),
         )
 
+    @property
+    def media_roots(self) -> tuple[MediaRoot, ...]:
+        """Return configured resolver roots in priority order."""
+
+        self._require_open()
+        handle = ctypes.POINTER(MediaRootSet)()
+        error = ctypes.POINTER(Error)()
+        status = self._native.lib.pp_read_session_media_roots(
+            self._handle, ctypes.byref(handle), ctypes.byref(error)
+        )
+        self._native.check(status, error)
+        if not handle:
+            raise RuntimeError("native media-root query returned no result set")
+        try:
+            count = self._native.lib.pp_media_root_set_count(handle)
+            return tuple(
+                _media_root_at(self._native, handle, index)
+                for index in range(int(count))
+            )
+        finally:
+            self._native.lib.pp_media_root_set_release(handle)
+
+    def find_known_media_by_locator(
+        self,
+        locator: LocatorIdentity,
+        *,
+        limit: int,
+        cursor: str | None = None,
+    ) -> QueryPage[KnownMediaMatch]:
+        """Find every current ownership candidate at an exact locator.
+
+        The query is read-only. For an image sequence, ``locator`` must carry
+        its exact directory naming; directory-only lookup does not match it.
+        """
+
+        self._require_open()
+        handle = ctypes.POINTER(KnownMediaSet)()
+        error = ctypes.POINTER(Error)()
+        status = self._native.lib.pp_read_session_find_known_media_by_locator(
+            self._handle,
+            _utf8(locator.uri, "locator URI"),
+            _native_naming(locator.sequence_naming),
+            limit,
+            _optional_text(cursor),
+            ctypes.byref(handle),
+            ctypes.byref(error),
+        )
+        self._native.check(status, error)
+        return self._known_media_page(handle)
+
+    def find_known_media_by_fingerprint(
+        self,
+        fingerprint: Fingerprint,
+        *,
+        limit: int,
+        cursor: str | None = None,
+    ) -> QueryPage[KnownMediaMatch]:
+        """Find resources with this exact current effective fingerprint.
+
+        Every candidate is returned; content equality does not prove logical
+        asset identity and the query never adopts or merges media.
+        """
+
+        self._require_open()
+        value = (ctypes.c_uint8 * len(fingerprint.value)).from_buffer_copy(
+            fingerprint.value
+        )
+        handle = ctypes.POINTER(KnownMediaSet)()
+        error = ctypes.POINTER(Error)()
+        status = self._native.lib.pp_read_session_find_known_media_by_fingerprint(
+            self._handle,
+            _utf8(fingerprint.algorithm, "fingerprint algorithm"),
+            fingerprint.version,
+            value,
+            len(fingerprint.value),
+            limit,
+            _optional_text(cursor),
+            ctypes.byref(handle),
+            ctypes.byref(error),
+        )
+        self._native.check(status, error)
+        return self._known_media_page(handle)
+
+    def external_identifiers(
+        self, target: ObjectReference
+    ) -> tuple[ExternalIdentifier, ...]:
+        """Return every external identifier attached to ``target``."""
+
+        self._require_open()
+        native_target = _native_object_reference(target)
+        handle = ctypes.POINTER(ExternalIdentifierSet)()
+        error = ctypes.POINTER(Error)()
+        status = self._native.lib.pp_read_session_external_identifiers(
+            self._handle,
+            ctypes.byref(native_target),
+            ctypes.byref(handle),
+            ctypes.byref(error),
+        )
+        self._native.check(status, error)
+        if not handle:
+            raise RuntimeError("native identifier query returned no result set")
+        try:
+            count = self._native.lib.pp_external_identifier_set_count(handle)
+            return tuple(
+                _external_identifier_at(self._native, handle, index)
+                for index in range(int(count))
+            )
+        finally:
+            self._native.lib.pp_external_identifier_set_release(handle)
+
+    def find_by_external_identifier(
+        self, scheme: str, value: str, qualifier: str | None
+    ) -> tuple[ObjectReference, ...]:
+        """Find objects carrying an exact external scheme, value, and qualifier."""
+
+        self._require_open()
+        handle = ctypes.POINTER(ObjectRefSet)()
+        error = ctypes.POINTER(Error)()
+        status = self._native.lib.pp_read_session_find_by_external_identifier(
+            self._handle,
+            _utf8(scheme, "identifier scheme"),
+            _utf8(value, "identifier value"),
+            None if qualifier is None else _utf8(qualifier, "identifier qualifier"),
+            ctypes.byref(handle),
+            ctypes.byref(error),
+        )
+        self._native.check(status, error)
+        if not handle:
+            raise RuntimeError("native identifier lookup returned no result set")
+        try:
+            count = self._native.lib.pp_object_ref_set_count(handle)
+            return tuple(
+                _object_reference_at(self._native, handle, index)
+                for index in range(int(count))
+            )
+        finally:
+            self._native.lib.pp_object_ref_set_release(handle)
+
+    def _known_media_page(
+        self, handle: _Pointer[KnownMediaSet]
+    ) -> QueryPage[KnownMediaMatch]:
+        if not handle:
+            raise RuntimeError("native known-media query returned no result set")
+        try:
+            count = self._native.lib.pp_known_media_set_count(handle)
+            return QueryPage(
+                tuple(
+                    _known_media_match_at(self._native, handle, index)
+                    for index in range(int(count))
+                ),
+                _decode_optional(
+                    self._native.lib.pp_known_media_set_next_cursor(handle)
+                ),
+            )
+        finally:
+            self._native.lib.pp_known_media_set_release(handle)
+
     def _representation_page(
         self, function: Callable[..., int], *arguments: object
     ) -> QueryPage[Representation]:

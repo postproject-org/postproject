@@ -3,7 +3,14 @@
 import sys
 from pathlib import Path
 
-from postproject import Production
+from postproject import (
+    AssetRef,
+    ExternalIdentifier,
+    LocatorIdentity,
+    Production,
+    file_locator,
+    fingerprint_file,
+)
 
 
 # [coherent-reads]
@@ -12,6 +19,10 @@ def exercise(path: Path, media: Path) -> None:
         with production.read_session() as empty:
             with empty.edit() as edit:
                 asset = edit.import_media(media)
+                edit.add_external_identifier(
+                    AssetRef(asset),
+                    ExternalIdentifier("https://example.com/id", "camera"),
+                )
                 receipt = edit.commit()
             assert receipt.revision is not None and receipt.revision.sequence == 1
             assert empty.assets_page(limit=10).items == ()
@@ -20,6 +31,25 @@ def exercise(path: Path, media: Path) -> None:
             page = view.representations_page(asset, limit=10)
             assert len(page.items) == 1
             representation = view.representation(page.items[0].id)
+            assert view.media_roots == ()
+            assert view.external_identifiers(AssetRef(asset))[0].value == "camera"
+            assert view.find_by_external_identifier(
+                "https://example.com/id", "camera", None
+            ) == (AssetRef(asset),)
+            assert (
+                view.find_known_media_by_locator(
+                    LocatorIdentity(file_locator(media)), limit=10
+                )
+                .items[0]
+                .asset_id
+                == asset
+            )
+            assert (
+                view.find_known_media_by_fingerprint(fingerprint_file(media), limit=10)
+                .items[0]
+                .asset_id
+                == asset
+            )
             base = view.decision_base
         with production.edit(base) as later:
             assert later.commit().revision is None
