@@ -27,6 +27,15 @@ static void exercise(const std::string &path, const std::string &media) {
     throw std::runtime_error("coherent filtered journal");
   if (!latest || latest->id != receipt.revision->id || view.changesSince(0, 10).value().size() != 1)
     throw std::runtime_error("coherent journal head");
+  const auto events = view.revisionEvents(latest->id, 1).value();
+  if (events.items.size() != 1 || !events.next_cursor)
+    throw std::runtime_error("bounded revision events");
+  const auto next_events = view.revisionEvents(latest->id, 1000, events.next_cursor).value();
+  const auto live_events = production.revisionEvents(latest->id, 1000).value();
+  if (next_events.items.empty() || next_events.next_cursor ||
+      next_events.items[0].position <= events.items[0].position ||
+      live_events.items.size() != next_events.items.size() + 1)
+    throw std::runtime_error("ordered revision event continuation");
   if (!view.unresolvedMedia(10).value().items.empty() ||
       view.objectsChangedSince(0, 10).value().items.empty() ||
       view.representationsUnderMediaRoot("missing", 10).error().code() != postproject::ErrorCode::not_found)

@@ -2362,6 +2362,19 @@ revision_event(const pp_revision_event_set_t *events, std::uint64_t index) {
   }
 }
 
+inline Result<QueryPage<RevisionEvent>>
+revision_event_page(RevisionEventSetHandle events) {
+  QueryPage<RevisionEvent> result;
+  const std::uint64_t count = pp_revision_event_set_count(events.get());
+  result.items.reserve(static_cast<std::size_t>(count));
+  for (std::uint64_t index = 0; index < count; ++index) {
+    POSTPROJECT_TRY_ASSIGN(RevisionEvent event, revision_event(events.get(), index));
+    result.items.push_back(std::move(event));
+  }
+  result.next_cursor = optional_string(pp_revision_event_set_next_cursor(events.get()));
+  return result;
+}
+
 inline Result<Evidence>
 resource_evidence(const pp_resolution_set_t *resolutions,
                   std::uint64_t representation_index,
@@ -4258,6 +4271,21 @@ private:
 
 class ReadSession final {
 public:
+  [[nodiscard]] Result<QueryPage<RevisionEvent>>
+  revisionEvents(const Uuid &revision_id, std::uint32_t limit,
+                 std::optional<std::string_view> cursor = std::nullopt) const {
+    const pp_uuid_t native_id = detail::native_uuid(revision_id);
+    POSTPROJECT_TRY_ASSIGN(const std::optional<std::string> checked_cursor,
+                           detail::checked_cursor(cursor));
+    pp_revision_event_set_t *raw_events = nullptr;
+    pp_error_t *error = nullptr;
+    const pp_error_code_t status = pp_read_session_revision_events_page(
+        session_, &native_id, limit, detail::optional_c_str(checked_cursor),
+        &raw_events, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    return detail::revision_event_page(detail::RevisionEventSetHandle(raw_events));
+  }
+
   [[nodiscard]] Result<FilteredRevisionPage>
   changesSinceFiltered(std::uint64_t sequence,
                        const std::vector<RevisionEventKind> &kinds,
@@ -5021,6 +5049,21 @@ private:
 
 class Production final {
 public:
+  [[nodiscard]] Result<QueryPage<RevisionEvent>>
+  revisionEvents(const Uuid &revision_id, std::uint32_t limit,
+                 std::optional<std::string_view> cursor = std::nullopt) const {
+    const pp_uuid_t native_id = detail::native_uuid(revision_id);
+    POSTPROJECT_TRY_ASSIGN(const std::optional<std::string> checked_cursor,
+                           detail::checked_cursor(cursor));
+    pp_revision_event_set_t *raw_events = nullptr;
+    pp_error_t *error = nullptr;
+    const pp_error_code_t status = pp_production_revision_events_page(
+        production_, &native_id, limit, detail::optional_c_str(checked_cursor),
+        &raw_events, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    return detail::revision_event_page(detail::RevisionEventSetHandle(raw_events));
+  }
+
   static Result<Production> create(std::string_view path) {
     return create_impl(path, nullptr);
   }
