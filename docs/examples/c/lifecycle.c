@@ -20,9 +20,23 @@ static pp_error_code_t open_production(const char *path,
   pp_asset_set_t *assets = NULL;
   pp_revision_set_t *latest = NULL;
   pp_uuid_t production_id;
+  pp_production_id_t parsed_id;
+  char *identity_text = NULL;
   uint8_t exists = 0;
 
   pp_error_code_t status = pp_production_open(path, &production, error);
+  if (status == PP_OK) {
+    /* Typed parsing and formatting preserve ordinary UUID text. */
+    status = pp_production_id_parse("00000000-0000-0000-0000-000000000001",
+                                    &parsed_id, error);
+  }
+  if (status == PP_OK) {
+    status = pp_production_id_format(parsed_id, &identity_text, error);
+  }
+  if (status == PP_OK &&
+      strcmp(identity_text, "00000000-0000-0000-0000-000000000001") != 0) {
+    status = PP_ERROR_INTERNAL;
+  }
   if (status == PP_OK) {
     /* The production ID is stable for the lifetime of the file. */
     status = pp_production_id(production, &production_id, error);
@@ -70,6 +84,7 @@ static pp_error_code_t open_production(const char *path,
   }
 
   pp_revision_set_release(latest);
+  pp_string_release(identity_text);
   pp_asset_set_release(assets);
   pp_production_release(production);
   return status;

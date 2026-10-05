@@ -4,6 +4,25 @@ project(postproject_native_consumers LANGUAGES C CXX)
 
 find_package(PostProject 0.5 REQUIRED CONFIG)
 
+# Check the installed header's type distinction with the consumer compiler.
+include(CheckCSourceCompiles)
+include(CMakePushCheckState)
+cmake_push_check_state(RESET)
+set(CMAKE_REQUIRED_LIBRARIES PostProject::postproject)
+check_c_source_compiles("#include <postproject/postproject.h>
+int main(void) { pp_production_id_t id = {{0}};
+  return pp_production_id_format(id, 0, 0); }" POSTPROJECT_TYPED_ID_COMPILES)
+if(NOT POSTPROJECT_TYPED_ID_COMPILES)
+    message(FATAL_ERROR "Installed production ID example must compile")
+endif()
+check_c_source_compiles("#include <postproject/postproject.h>
+int main(void) { pp_uuid_t id = {{0}};
+  return pp_production_id_format(id, 0, 0); }" POSTPROJECT_RAW_ID_COMPILES)
+if(POSTPROJECT_RAW_ID_COMPILES)
+    message(FATAL_ERROR "Generic UUID must not substitute for production ID")
+endif()
+cmake_pop_check_state()
+
 # The producer generates this source from the public header. This consumer
 # compiles it against the install prefix and never invokes Cargo.
 set(POSTPROJECT_ABI_LAYOUT_SOURCE "" CACHE FILEPATH "Generated C layout probe")
@@ -34,6 +53,10 @@ add_executable(postproject-c-read-sessions c_read_sessions.c)
 target_compile_features(postproject-c-read-sessions PRIVATE c_std_11)
 target_link_libraries(postproject-c-read-sessions PRIVATE PostProject::postproject)
 
+add_executable(postproject-c-identities c_identities.c)
+target_compile_features(postproject-c-identities PRIVATE c_std_11)
+target_link_libraries(postproject-c-identities PRIVATE PostProject::postproject)
+
 add_executable(postproject-cpp-transaction-lifetime cpp_transaction_lifetime.cpp)
 target_compile_features(postproject-cpp-transaction-lifetime PRIVATE cxx_std_17)
 target_link_libraries(postproject-cpp-transaction-lifetime PRIVATE PostProject::postproject)
@@ -43,6 +66,7 @@ if(WIN32)
                              postproject-cpp-no-exceptions
                              postproject-c-transaction-lifetime
                              postproject-c-read-sessions
+                             postproject-c-identities
                              postproject-cpp-transaction-lifetime)
         add_custom_command(
             TARGET "${consumer}"
@@ -68,6 +92,7 @@ endif()
 
 foreach(consumer IN ITEMS postproject-c-transaction-lifetime
                           postproject-c-read-sessions
+                          postproject-c-identities
                           postproject-cpp-transaction-lifetime)
     if(MSVC)
         target_compile_options(${consumer} PRIVATE /W4 /WX)
@@ -78,6 +103,7 @@ foreach(consumer IN ITEMS postproject-c-transaction-lifetime
 endforeach()
 
 enable_testing()
+add_test(NAME postproject-c-identities COMMAND postproject-c-identities)
 add_test(NAME postproject-c-read-sessions
     COMMAND postproject-c-read-sessions "${CMAKE_CURRENT_BINARY_DIR}/c-read-sessions.pproj")
 add_test(NAME postproject-c-transaction-lifetime

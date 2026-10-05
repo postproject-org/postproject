@@ -62,6 +62,13 @@ typedef struct pp_uuid {
   uint8_t bytes[16];
 } pp_uuid_t;
 
+/* A production ID is a distinct C type, with the same stable UUID bytes.
+ * Parsing accepts the core's UUID syntax, including nil. A value alone never
+ * proves existence or production membership; operations validate those facts. */
+typedef struct pp_production_id {
+  uint8_t bytes[16];
+} pp_production_id_t;
+
 typedef uint32_t pp_commit_outcome_t;
 #define PP_COMMIT_NO_CHANGE UINT32_C(0)
 #define PP_COMMIT_REVISION_CREATED UINT32_C(1)
@@ -491,6 +498,13 @@ PP_API pp_error_code_t pp_production_begin_edit(
     const pp_production_t *production, const pp_decision_base_t *base,
     pp_transaction_t **out_transaction, pp_error_t **out_error);
 PP_API void pp_read_session_release(pp_read_session_t *session);
+
+/* Formatting returns owned text released with pp_string_release. Parse failure
+ * clears out_id; format failure clears out_text. No registry lookup occurs. */
+PP_API pp_error_code_t pp_production_id_parse(
+    const char *text, pp_production_id_t *out_id, pp_error_t **out_error);
+PP_API pp_error_code_t pp_production_id_format(
+    pp_production_id_t id, char **out_text, pp_error_t **out_error);
 
 /* Read values and pages from the pinned view. Result sets own their data.
  * Cursor lifetime follows the existing owned sets; session scope is required. */

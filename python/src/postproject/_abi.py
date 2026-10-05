@@ -129,6 +129,10 @@ class Uuid(ctypes.Structure):
     pass
 
 
+class ProductionId(ctypes.Structure):
+    pass
+
+
 class CommitReceipt(ctypes.Structure):
     pass
 
@@ -377,6 +381,10 @@ Uuid._fields_ = [
     ("bytes", ctypes.c_uint8 * 16),
 ]
 
+ProductionId._fields_ = [
+    ("bytes", ctypes.c_uint8 * 16),
+]
+
 CommitReceipt._fields_ = [
     ("production_id", Uuid),
     ("outcome", CommitOutcome),
@@ -533,6 +541,7 @@ SequenceNaming._fields_ = [
 
 PUBLIC_STRUCTS = {
     "pp_uuid_t": (Uuid, ("bytes",)),
+    "pp_production_id_t": (ProductionId, ("bytes",)),
     "pp_commit_receipt_t": (CommitReceipt, ("production_id", "outcome", "revision_id", "revision_sequence")),
     "pp_decision_base_t": (DecisionBase, ("production_id", "has_revision", "revision_id", "revision_sequence")),
     "pp_object_ref_t": (ObjectRef, ("kind", "id")),
@@ -686,6 +695,8 @@ EXPORTED_SYMBOLS = (
     "pp_production_find_known_media_by_locator",
     "pp_production_find_metadata",
     "pp_production_id",
+    "pp_production_id_format",
+    "pp_production_id_parse",
     "pp_production_job",
     "pp_production_jobs",
     "pp_production_latest_revision",
@@ -818,6 +829,10 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_production_begin_edit.restype = ErrorCode
     lib.pp_read_session_release.argtypes = [ctypes.POINTER(ReadSession)]
     lib.pp_read_session_release.restype = None
+    lib.pp_production_id_parse.argtypes = [ctypes.c_char_p, ctypes.POINTER(ProductionId), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_production_id_parse.restype = ErrorCode
+    lib.pp_production_id_format.argtypes = [ProductionId, ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_production_id_format.restype = ErrorCode
     lib.pp_read_session_assets_page.argtypes = [ctypes.POINTER(ReadSession), ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(AssetSet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_read_session_assets_page.restype = ErrorCode
     lib.pp_read_session_asset.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.POINTER(AssetSet)), ctypes.POINTER(ctypes.POINTER(Error))]

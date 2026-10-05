@@ -8,6 +8,7 @@ mod abi_trace;
 mod artifact;
 mod content;
 mod dependency;
+mod identities;
 mod jobs;
 mod known_media;
 mod media_source;
@@ -64,6 +65,7 @@ pub use artifact::{
 };
 pub use content::PpFingerprint;
 pub use dependency::{PpDependency, PpDependencyMatch, PpDependencyQuerySet, PpDependencySet};
+pub use identities::PpProductionId;
 pub use jobs::{PpJob, PpJobSet, PpRegenerationPlanSet};
 pub use known_media::PpKnownMediaSet;
 pub use media_source::PpMediaSource;

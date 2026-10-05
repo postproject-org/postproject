@@ -1,0 +1,38 @@
+#include <postproject/postproject.h>
+
+#include <string.h>
+
+_Static_assert(_Generic((pp_production_id_t){0}, pp_uuid_t: 1, default: 0) == 0,
+               "production IDs must be distinct from UUID interchange bytes");
+
+int main(void) {
+  pp_production_id_t id = {{0}};
+  pp_error_t *error = NULL;
+  char *text = NULL;
+  const char *canonical = "12345678-1234-5678-9abc-123456789abc";
+  if (pp_production_id_parse(canonical, &id, &error) != PP_OK ||
+      pp_production_id_format(id, &text, &error) != PP_OK ||
+      strcmp(text, canonical) != 0)
+    return 1;
+  pp_string_release(text);
+  if (pp_production_id_parse("broken", &id, &error) != PP_ERROR_INVALID_ARGUMENT)
+    return 2;
+  pp_error_release(error); error = NULL;
+  const unsigned char zero[16] = {0};
+  if (memcmp(id.bytes, zero, sizeof zero) != 0)
+    return 3;
+  if (pp_production_id_parse("00000000-0000-0000-0000-000000000000", &id,
+                             &error) != PP_OK)
+    return 4;
+  if (pp_production_id_format(id, NULL, &error) != PP_ERROR_INVALID_ARGUMENT)
+    return 5;
+  pp_error_release(error); error = NULL;
+  if (pp_production_id_parse(NULL, &id, &error) != PP_ERROR_INVALID_ARGUMENT)
+    return 6;
+  pp_error_release(error); error = NULL;
+  if (pp_production_id_format(id, &text, &error) != PP_OK ||
+      strcmp(text, "00000000-0000-0000-0000-000000000000") != 0)
+    return 7;
+  pp_string_release(text);
+  return 0;
+}

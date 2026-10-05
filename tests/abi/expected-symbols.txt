@@ -133,6 +133,8 @@ pp_production_find_known_media_by_fingerprint
 pp_production_find_known_media_by_locator
 pp_production_find_metadata
 pp_production_id
+pp_production_id_format
+pp_production_id_parse
 pp_production_job
 pp_production_jobs
 pp_production_latest_revision

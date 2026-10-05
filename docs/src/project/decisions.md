@@ -64,6 +64,7 @@ Read the relevant ADR before changing an invariant, a boundary, or a public cont
 - {doc}`ADR 0046 — Python UUID hints and explicit references </adr/0046-python-identities-and-object-references>`
 - {doc}`ADR 0047 — Local cursor scope and lifetime </adr/0047-local-query-cursor-scopes>`
 - {doc}`ADR 0048 — Immediate option validation </adr/0048-immediate-native-options-validation>`
+- {doc}`ADR 0049 — Native semantic identities </adr/0049-native-semantic-identities>`
 
 ```{toctree}
 :hidden:
@@ -116,4 +117,5 @@ Read the relevant ADR before changing an invariant, a boundary, or a public cont
 /adr/0046-python-identities-and-object-references
 /adr/0047-local-query-cursor-scopes
 /adr/0048-immediate-native-options-validation
+/adr/0049-native-semantic-identities
 ```
