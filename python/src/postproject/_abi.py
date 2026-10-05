@@ -145,6 +145,10 @@ class AssetId(ctypes.Structure):
     pass
 
 
+class MediaRootId(ctypes.Structure):
+    pass
+
+
 class CommitReceipt(ctypes.Structure):
     pass
 
@@ -418,6 +422,10 @@ AssetId._fields_ = [
     ("bytes", ctypes.c_uint8 * 16),
 ]
 
+MediaRootId._fields_ = [
+    ("bytes", ctypes.c_uint8 * 16),
+]
+
 CommitReceipt._fields_ = [
     ("production_id", ProductionId),
     ("outcome", CommitOutcome),
@@ -595,6 +603,7 @@ PUBLIC_STRUCTS = {
     "pp_revision_id_t": (RevisionId, ("bytes",)),
     "pp_transaction_id_t": (TransactionId, ("bytes",)),
     "pp_asset_id_t": (AssetId, ("bytes",)),
+    "pp_media_root_id_t": (MediaRootId, ("bytes",)),
     "pp_commit_receipt_t": (CommitReceipt, ("production_id", "outcome", "revision_id", "revision_sequence")),
     "pp_decision_base_t": (DecisionBase, ("production_id", "has_revision", "revision_id", "revision_sequence")),
     "pp_object_ref_t": (ObjectRef, ("kind", "id")),
@@ -683,6 +692,8 @@ EXPORTED_SYMBOLS = (
     "pp_locator_query_set_next_cursor",
     "pp_locator_query_set_release",
     "pp_locator_to_file_path",
+    "pp_media_root_id_format",
+    "pp_media_root_id_parse",
     "pp_media_root_set_count",
     "pp_media_root_set_get",
     "pp_media_root_set_release",
@@ -975,6 +986,10 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_asset_id_parse.restype = ErrorCode
     lib.pp_asset_id_format.argtypes = [AssetId, ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_asset_id_format.restype = ErrorCode
+    lib.pp_media_root_id_parse.argtypes = [ctypes.c_char_p, ctypes.POINTER(MediaRootId), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_media_root_id_parse.restype = ErrorCode
+    lib.pp_media_root_id_format.argtypes = [MediaRootId, ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_media_root_id_format.restype = ErrorCode
     lib.pp_object_ref_from_asset.argtypes = [AssetId, ctypes.POINTER(ObjectRef), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_object_ref_from_asset.restype = ErrorCode
     lib.pp_object_ref_get_asset.argtypes = [ctypes.POINTER(ObjectRef), ctypes.POINTER(AssetId), ctypes.POINTER(ctypes.POINTER(Error))]

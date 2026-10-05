@@ -66,6 +66,8 @@ pp_locator_query_set_get
 pp_locator_query_set_next_cursor
 pp_locator_query_set_release
 pp_locator_to_file_path
+pp_media_root_id_format
+pp_media_root_id_parse
 pp_media_root_set_count
 pp_media_root_set_get
 pp_media_root_set_release

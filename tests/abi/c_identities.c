@@ -8,6 +8,8 @@ _Static_assert(_Generic((pp_revision_id_t){0}, pp_transaction_id_t: 1, pp_uuid_t
                "revision and transaction identities must be distinct");
 _Static_assert(_Generic((pp_asset_id_t){0}, pp_uuid_t: 1, pp_production_id_t: 1, default: 0) == 0,
                "asset identities must be distinct from other kinds");
+_Static_assert(_Generic((pp_media_root_id_t){0}, pp_asset_id_t: 1, pp_uuid_t: 1, default: 0) == 0,
+               "media roots must have their own identity type");
 
 int main(void) {
   pp_production_id_t id = {{0}};
@@ -83,6 +85,23 @@ int main(void) {
       memcmp(asset.bytes, zero, 16)) return 22;
   pp_error_release(error); error = NULL;
   if (pp_object_ref_get_asset(NULL, &asset, &error) != PP_ERROR_INVALID_ARGUMENT) return 23;
+  pp_error_release(error);
+  error = NULL;
+  pp_media_root_id_t root;
+  if (pp_media_root_id_parse(canonical, &root, &error) != PP_OK ||
+      pp_media_root_id_format(root, &text, &error) != PP_OK ||
+      strcmp(text, canonical)) return 24;
+  pp_string_release(text); text = NULL;
+  if (pp_media_root_id_parse("broken", &root, &error) != PP_ERROR_INVALID_ARGUMENT ||
+      memcmp(root.bytes, zero, 16)) return 25;
+  pp_error_release(error); error = NULL;
+  if (pp_media_root_id_parse(NULL, &root, &error) != PP_ERROR_INVALID_ARGUMENT ||
+      memcmp(root.bytes, zero, 16)) return 26;
+  pp_error_release(error); error = NULL;
+  if (pp_media_root_id_format(root, &text, &error) != PP_OK ||
+      strcmp(text, "00000000-0000-0000-0000-000000000000")) return 27;
+  pp_string_release(text);
+  if (pp_media_root_id_format(root, NULL, &error) != PP_ERROR_INVALID_ARGUMENT) return 28;
   pp_error_release(error);
   return 0;
 }

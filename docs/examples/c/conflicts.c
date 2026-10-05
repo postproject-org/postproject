@@ -40,6 +40,18 @@ update_from_a_base_revision(pp_production_t *production, pp_error_t **error) {
   uint64_t superseding_sequence = 0;
   pp_transaction_t *transaction = NULL;
 
+  /* Saved UUID text is parsed into its semantic type at interchange. */
+  pp_media_root_id_t parsed_root;
+  char *root_text = NULL;
+  pp_error_code_t parsed = pp_media_root_id_parse(
+      "00000000-0000-0000-0000-000000000001", &parsed_root, error);
+  if (parsed == PP_OK)
+    parsed = pp_media_root_id_format(parsed_root, &root_text, error);
+  if (parsed == PP_OK && strcmp(root_text,
+      "00000000-0000-0000-0000-000000000001")) parsed = PP_ERROR_INTERNAL;
+  pp_string_release(root_text);
+  if (parsed != PP_OK) return parsed;
+
   pp_error_code_t status =
       pp_production_begin_transaction(production, &transaction, error);
   if (status == PP_OK) {
