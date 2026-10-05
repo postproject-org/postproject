@@ -2484,6 +2484,31 @@ resolution_values(ResolutionSetHandle resolutions) {
   return result;
 }
 
+inline std::vector<ArtifactDependencyPathSegment>
+artifact_dependency_path(const pp_artifact_reason_t &native) {
+  std::vector<ArtifactDependencyPathSegment> dependency_path;
+  dependency_path.reserve(
+      static_cast<std::size_t>(native.dependency_path_length));
+  for (std::uint64_t path_index = 0;
+       path_index < native.dependency_path_length; ++path_index) {
+    const pp_artifact_dependency_path_segment_t &segment =
+        native.dependency_path[path_index];
+    dependency_path.push_back(
+        {uuid(segment.source_representation_id),
+         segment.dependency_position,
+         segment.has_source_resource != 0
+             ? std::optional<Uuid>(uuid(segment.source_resource_id))
+             : std::nullopt,
+         std::string(segment.kind), object_ref(segment.target),
+         segment.has_resolved_representation != 0
+             ? std::optional<Uuid>(
+                   uuid(segment.resolved_representation_id))
+             : std::nullopt,
+         std::string(segment.authored_reference)});
+  }
+  return dependency_path;
+}
+
 inline Result<QueryPage<Job>> job_page(JobSetHandle jobs) {
   std::vector<Job> items;
   const std::uint64_t count = pp_job_set_count(jobs.get());
@@ -5387,26 +5412,7 @@ public:
           kind == ArtifactReasonKind::fingerprint_recomputation_pending ||
           has_dependency;
       const bool has_edge = has_activity && !has_dependency;
-      std::vector<ArtifactDependencyPathSegment> dependency_path;
-      dependency_path.reserve(
-          static_cast<std::size_t>(native.dependency_path_length));
-      for (std::uint64_t path_index = 0;
-           path_index < native.dependency_path_length; ++path_index) {
-        const pp_artifact_dependency_path_segment_t &segment =
-            native.dependency_path[path_index];
-        dependency_path.push_back(
-            {detail::uuid(segment.source_representation_id),
-             segment.dependency_position,
-             segment.has_source_resource != 0
-                 ? std::optional<Uuid>(detail::uuid(segment.source_resource_id))
-                 : std::nullopt,
-             std::string(segment.kind), detail::object_ref(segment.target),
-             segment.has_resolved_representation != 0
-                 ? std::optional<Uuid>(
-                       detail::uuid(segment.resolved_representation_id))
-                 : std::nullopt,
-             std::string(segment.authored_reference)});
-      }
+      auto dependency_path = detail::artifact_dependency_path(native);
       ArtifactReason reason{
           kind,
            has_activity ? std::optional<Uuid>(detail::uuid(native.activity_id))
