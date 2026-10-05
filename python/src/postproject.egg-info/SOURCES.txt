@@ -18,6 +18,7 @@ tests/test_changes.py
 tests/test_commit_receipts.py
 tests/test_errors.py
 tests/test_id_values.py
+tests/test_job_status.py
 tests/test_native.py
 tests/test_production.py
 tests/test_read_sessions.py
