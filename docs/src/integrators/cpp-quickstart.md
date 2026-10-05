@@ -60,9 +60,10 @@ engines, and plugin SDKs:
 type is always `postproject::Error`, and it is constructed from an `Error`
 directly rather than through `std::unexpected`.
 
-A `MetadataValue` is validated, and `ResolutionOptions` record an invalid
-argument, when an operation consumes them rather than when they are built. That
-operation then returns the error.
+Create cancellation tokens and resolution options with their `create()`
+factories. Options setters return `Result<void>` immediately; a failed setter
+preserves the previous settings. Use propagation macros or `.value()` to check
+each call. Metadata request values are validated when a mutation consumes them.
 
 ## The example program
 

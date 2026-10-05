@@ -9,7 +9,7 @@ All notable changes to PostProject will be documented here. The project uses
 - Added coherent read views, scoped edits, atomic commit receipts and terminal commit cleanup (ADR 0045, C ABI 38).
 - Replaced Python ID wrappers with UUID NewType hints and explicit object-reference variants; use IDs directly and wrap dynamic targets (ADR 0046).
 - Bound query cursors to their production and retained read view; restart queries using old cursor tokens (ADR 0047).
-- C++ cancellation tokens require `CancelToken::create()` and report creation errors immediately (ADR 0048).
+- C++ tokens/options require `create()`; options setters return `Result<void>` immediately and preserve valid settings on failure (ADR 0048).
 
 ## 0.6.0-alpha.1 - 2026-10-04
 

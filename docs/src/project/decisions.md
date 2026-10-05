@@ -63,6 +63,7 @@ Read the relevant ADR before changing an invariant, a boundary, or a public cont
 - {doc}`ADR 0045 — Coherent reads and commit receipts </adr/0045-read-views-and-commit-receipts>`
 - {doc}`ADR 0046 — Python UUID hints and explicit references </adr/0046-python-identities-and-object-references>`
 - {doc}`ADR 0047 — Local cursor scope and lifetime </adr/0047-local-query-cursor-scopes>`
+- {doc}`ADR 0048 — Immediate option validation </adr/0048-immediate-native-options-validation>`
 
 ```{toctree}
 :hidden:

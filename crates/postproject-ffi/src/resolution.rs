@@ -237,10 +237,12 @@ pub unsafe extern "C" fn pp_resolution_options_set_limits(
                     "resolution depth and entry limits must be greater than zero",
                 ));
             }
-            options.resolver.max_depth = usize::try_from(max_depth)
+            let max_depth = usize::try_from(max_depth)
                 .map_err(|_| invalid_argument("max_depth is too large"))?;
-            options.resolver.max_entries_per_directory = usize::try_from(max_entries_per_directory)
+            let max_entries_per_directory = usize::try_from(max_entries_per_directory)
                 .map_err(|_| invalid_argument("max_entries_per_directory is too large"))?;
+            options.resolver.max_depth = max_depth;
+            options.resolver.max_entries_per_directory = max_entries_per_directory;
             Ok(())
         })
     }

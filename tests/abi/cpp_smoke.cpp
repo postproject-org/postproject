@@ -78,8 +78,8 @@ int renamed_sequence_scenario(const std::string &production_path) {
                graded / (std::string("shot-graded_") + number));
   }
 
-  postproject::ResolutionOptions options;
-  options.addSearchDirectory(base.string());
+  auto options = postproject::ResolutionOptions::create().value();
+  options.addSearchDirectory(base.string()).value();
   const auto resolved = production.resolveAsset(asset_id, options).value();
   const auto &resource = resolved[0].resources[0];
   const postproject::SequenceNaming renamed{"shot-graded_", ".png", 4};
@@ -384,14 +384,14 @@ int main(int argc, char **argv) {
     std::filesystem::rename(media_path, moved_media_path);
     const std::string fixtures =
         std::filesystem::path(path).parent_path().string();
-    postproject::ResolutionOptions options;
-    options.addRootMapping("fixtures", fixtures)
-        .addSearchDirectory(fixtures)
-        .setVerification(postproject::VerificationMode::presence)
-        .setLimits(64, 1000000);
+    auto options = postproject::ResolutionOptions::create().value();
+    options.addRootMapping("fixtures", fixtures).value();
+    options.addSearchDirectory(fixtures).value();
+    options.setVerification(postproject::VerificationMode::presence).value();
+    options.setLimits(64, 1000000).value();
     {
       auto token = postproject::CancelToken::create().value();
-      options.setCancelToken(token);
+      options.setCancelToken(token).value();
     }
     const auto resolutions = production.resolveAssets({asset_id}, options).value();
     if (resolutions.size() != 1 || !(resolutions[0].asset_id == asset_id) ||
@@ -412,7 +412,7 @@ int main(int argc, char **argv) {
       return 11;
     }
     auto cancel_token = postproject::CancelToken::create().value();
-    options.setCancelToken(cancel_token);
+    options.setCancelToken(cancel_token).value();
     cancel_token.cancel();
     try {
       (void)production.resolveAsset(asset_id, options).value();

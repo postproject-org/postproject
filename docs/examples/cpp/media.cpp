@@ -186,8 +186,8 @@ std::size_t verify_contents(const postproject::Production &production,
                             const postproject::Uuid &asset_id) {
   // Content mode re-fingerprints files at known locators instead of trusting
   // their presence.
-  postproject::ResolutionOptions options;
-  options.setVerification(postproject::VerificationMode::content);
+  auto options = postproject::ResolutionOptions::create().value();
+  options.setVerification(postproject::VerificationMode::content).value();
   std::size_t verified = 0;
   for (const auto &representation :
        production.resolveAsset(asset_id, options).value()) {
@@ -216,11 +216,11 @@ find_nearby(const postproject::Production &production,
   // A search directory is an unnamed, machine-local place such as the project
   // folder or where the media used to be; it is never recorded. Each searched
   // directory has its own budget, and another thread may cancel the token.
-  postproject::ResolutionOptions options;
-  options.addSearchDirectory(directory)
-      .setVerification(postproject::VerificationMode::presence)
-      .setLimits(16, 50000)
-      .setCancelToken(cancel_token);
+  POSTPROJECT_TRY_ASSIGN(auto options, postproject::ResolutionOptions::create());
+  POSTPROJECT_TRY(options.addSearchDirectory(directory));
+  POSTPROJECT_TRY(options.setVerification(postproject::VerificationMode::presence));
+  POSTPROJECT_TRY(options.setLimits(16, 50000));
+  POSTPROJECT_TRY(options.setCancelToken(cancel_token));
   // All assets are resolved together; each directory is scanned once. A
   // cancelled token yields ErrorCode::cancelled.
   POSTPROJECT_TRY_ASSIGN(const auto resolutions,
@@ -247,8 +247,8 @@ std::optional<postproject::SequenceNaming>
 relink_renamed_sequence(postproject::Production &production,
                         const postproject::Uuid &asset_id,
                         const std::string &directory) {
-  postproject::ResolutionOptions options;
-  options.addSearchDirectory(directory);
+  auto options = postproject::ResolutionOptions::create().value();
+  options.addSearchDirectory(directory).value();
   for (const auto &representation :
        production.resolveAsset(asset_id, options).value()) {
     for (const auto &resource : representation.resources) {

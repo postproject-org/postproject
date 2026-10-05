@@ -88,21 +88,39 @@ int main(int argc, char **argv) {
   if (!representations.has_value() || representations->size() != 1) {
     return 11;
   }
-  postproject::ResolutionOptions options;
-  options.addRootMapping("missing", path + ".no-such-directory");
-  if (!options.error().has_value()) {
+  auto options_result = postproject::ResolutionOptions::create();
+  if (!options_result) return 12;
+  auto options = *std::move(options_result);
+  const auto invalid_mapping = options.addRootMapping("missing", path + ".no-such-directory");
+  if (invalid_mapping || invalid_mapping.error().code() != postproject::ErrorCode::io) {
     return 12;
   }
-  const auto unresolved = production.resolveAsset(*asset_id, options);
-  if (unresolved.has_value()) {
+  // Failed setters preserve a usable value, and later valid setters still run.
+  const auto invalid_limits = options.setLimits(0, 100);
+  const auto invalid_mode = options.setVerification(static_cast<postproject::VerificationMode>(99));
+  const auto invalid_directory = options.addSearchDirectory(std::string("bad\0path", 8));
+  if (invalid_limits || invalid_mode || invalid_directory ||
+      !options.setLimits(16, 1000) ||
+      !options.setVerification(postproject::VerificationMode::content)) {
     return 13;
   }
-  const auto resolved = production.resolveAsset(*asset_id);
+  auto moved_options = std::move(options);
+  if (production.resolveAsset(*asset_id, options) || options.setLimits(1, 1)) return 13;
+  const auto resolved = production.resolveAsset(*asset_id, moved_options);
   if (!resolved.has_value() || resolved->size() != 1 ||
       resolved->front().availability !=
           postproject::RepresentationAvailability::online) {
     return 14;
   }
+  auto token_result = postproject::CancelToken::create();
+  if (!token_result) return 14;
+  auto token = *std::move(token_result);
+  auto moved_token = std::move(token);
+  if (moved_options.setCancelToken(token) || !moved_options.setCancelToken(moved_token)) return 14;
+  token.cancel(); // moved-from token does not affect the retained flag
+  moved_token.cancel();
+  const auto cancelled = production.resolveAsset(*asset_id, moved_options);
+  if (cancelled || cancelled.error().code() != postproject::ErrorCode::cancelled) return 14;
 
   const std::string propagated = path + ".propagated";
   std::remove(propagated.c_str());

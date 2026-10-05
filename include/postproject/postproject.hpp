@@ -3678,106 +3678,81 @@ private:
   pp_cancel_token_t *token_ = nullptr;
 };
 
-// Search scope, verification tier, limits, and cancellation for resolution.
-// Mappings and search directories are machine-local and never recorded.
-// Setters chain; the first invalid setting is recorded and returned by the
-// resolution that uses these options.
+// Validated machine-local resolution settings. Setters report errors immediately
+// and preserve the previous settings on failure. Ownership remains move-only.
 class ResolutionOptions final {
 public:
-  ResolutionOptions() {
+  [[nodiscard]] static Result<ResolutionOptions> create() {
+    pp_resolution_options_t *options = nullptr;
     pp_error_t *error = nullptr;
-    record(
-        detail::check(pp_resolution_options_create(&options_, &error), error));
+    const auto status = pp_resolution_options_create(&options, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    return ResolutionOptions(options);
   }
   ResolutionOptions(const ResolutionOptions &) = delete;
   ResolutionOptions &operator=(const ResolutionOptions &) = delete;
   ResolutionOptions(ResolutionOptions &&other) noexcept
-      : options_(std::exchange(other.options_, nullptr)),
-        error_(std::move(other.error_)) {}
+      : options_(std::exchange(other.options_, nullptr)) {}
   ResolutionOptions &operator=(ResolutionOptions &&other) noexcept {
     if (this != &other) {
       pp_resolution_options_release(options_);
       options_ = std::exchange(other.options_, nullptr);
-      error_ = std::move(other.error_);
     }
     return *this;
   }
   ~ResolutionOptions() { pp_resolution_options_release(options_); }
 
-  ResolutionOptions &addRootMapping(std::string_view name,
-                                    std::string_view directory) {
-    const Result<std::string> native_name =
-        detail::checked_string(name, "root name");
-    const Result<std::string> native_directory =
-        detail::checked_string(directory, "root directory");
-    if (record(native_name) && record(native_directory)) {
-      pp_error_t *error = nullptr;
-      record(detail::check(pp_resolution_options_add_root_mapping(
-                               options_, native_name->c_str(),
-                               native_directory->c_str(), &error),
-                           error));
-    }
-    return *this;
-  }
-
-  ResolutionOptions &addSearchDirectory(std::string_view directory) {
-    const Result<std::string> native_directory =
-        detail::checked_string(directory, "search directory");
-    if (record(native_directory)) {
-      pp_error_t *error = nullptr;
-      record(detail::check(pp_resolution_options_add_search_directory(
-                               options_, native_directory->c_str(), &error),
-                           error));
-    }
-    return *this;
-  }
-
-  ResolutionOptions &setVerification(VerificationMode verification) {
+  [[nodiscard]] Result<void> addRootMapping(std::string_view name,
+                                          std::string_view directory) {
+    POSTPROJECT_TRY_ASSIGN(const auto native_name,
+                           detail::checked_string(name, "root name"));
+    POSTPROJECT_TRY_ASSIGN(const auto native_directory,
+                           detail::checked_string(directory, "root directory"));
     pp_error_t *error = nullptr;
-    record(detail::check(pp_resolution_options_set_verification(
-                             options_,
-                             static_cast<pp_verification_mode_t>(verification),
-                             &error),
-                         error));
-    return *this;
+    const auto status = pp_resolution_options_add_root_mapping(
+        options_, native_name.c_str(), native_directory.c_str(), &error);
+    return detail::check(status, error);
   }
 
-  ResolutionOptions &setLimits(std::uint32_t max_depth,
-                               std::uint64_t max_entries_per_directory) {
+  [[nodiscard]] Result<void> addSearchDirectory(std::string_view directory) {
+    POSTPROJECT_TRY_ASSIGN(const auto native_directory,
+                           detail::checked_string(directory, "search directory"));
     pp_error_t *error = nullptr;
-    record(detail::check(
-        pp_resolution_options_set_limits(options_, max_depth,
-                                         max_entries_per_directory, &error),
-        error));
-    return *this;
+    const auto status = pp_resolution_options_add_search_directory(
+        options_, native_directory.c_str(), &error);
+    return detail::check(status, error);
   }
 
-  // The options share the token's flag; the token may be destroyed first.
-  ResolutionOptions &setCancelToken(const CancelToken &token) {
+  [[nodiscard]] Result<void> setVerification(VerificationMode verification) {
     pp_error_t *error = nullptr;
-    record(detail::check(
-        pp_resolution_options_set_cancel_token(options_, token.token_, &error),
-        error));
-    return *this;
+    const auto status = pp_resolution_options_set_verification(
+        options_, static_cast<pp_verification_mode_t>(verification), &error);
+    return detail::check(status, error);
   }
 
-  // The first error recorded by a setter, if any.
-  [[nodiscard]] const std::optional<Error> &error() const noexcept {
-    return error_;
+  [[nodiscard]] Result<void> setLimits(std::uint32_t max_depth,
+                                     std::uint64_t max_entries_per_directory) {
+    pp_error_t *error = nullptr;
+    const auto status = pp_resolution_options_set_limits(
+        options_, max_depth, max_entries_per_directory, &error);
+    return detail::check(status, error);
+  }
+
+  // The options retain the flag independently of the token's lifetime.
+  [[nodiscard]] Result<void> setCancelToken(const CancelToken &token) {
+    if (token.token_ == nullptr)
+      return Error(ErrorCode::invalid_argument, "cancellation token was moved from");
+    pp_error_t *error = nullptr;
+    const auto status = pp_resolution_options_set_cancel_token(
+        options_, token.token_, &error);
+    return detail::check(status, error);
   }
 
 private:
   friend class Production;
-
-  template <typename T> bool record(const Result<T> &result) {
-    if (!result.has_value() && !error_.has_value()) {
-      error_ = result.error();
-    }
-    return result.has_value() && !error_.has_value();
-  }
-
-  pp_resolution_options_t *options_ = nullptr;
-  std::optional<Error> error_;
+  explicit ResolutionOptions(pp_resolution_options_t *options) noexcept
+      : options_(options) {}
+  pp_resolution_options_t *options_;
 };
 
 class ReadSession final {
@@ -4636,8 +4611,8 @@ public:
 
   [[nodiscard]] Result<std::vector<RepresentationResolution>>
   resolveAsset(const Uuid &asset_id, const ResolutionOptions &options) const {
-    if (options.error_.has_value()) {
-      return *options.error_;
+    if (options.options_ == nullptr) {
+      return Error(ErrorCode::invalid_argument, "resolution options were moved from");
     }
     return resolveAssets({asset_id}, options.options_);
   }
@@ -4652,8 +4627,8 @@ public:
   [[nodiscard]] Result<std::vector<RepresentationResolution>>
   resolveAssets(const std::vector<Uuid> &asset_ids,
                 const ResolutionOptions &options) const {
-    if (options.error_.has_value()) {
-      return *options.error_;
+    if (options.options_ == nullptr) {
+      return Error(ErrorCode::invalid_argument, "resolution options were moved from");
     }
     return resolveAssets(asset_ids, options.options_);
   }
