@@ -195,13 +195,13 @@ def set_root_enabled(
     production: Production, root_id: MediaRootId, enabled: bool
 ) -> None:
     # A disabled root stays configured but is skipped by resolution.
-    with production.transaction() as transaction:
+    with production.read_session() as view, view.edit() as transaction:
         transaction.set_media_root_enabled(root_id, enabled)
         transaction.commit()
 
 
 def remove_root(production: Production, root_id: MediaRootId) -> None:
-    with production.transaction() as transaction:
+    with production.read_session() as view, view.edit() as transaction:
         transaction.remove_media_root(root_id)
         transaction.commit()
 

@@ -3272,7 +3272,10 @@ class Transaction:
         return MediaRootId(_uuid(root_id))
 
     def set_media_root_enabled(self, root_id: MediaRootId, enabled: bool) -> None:
-        """Stage a resolver root's enabled state."""
+        """Stage a resolver root's enabled state from a read-bound edit.
+
+        An unbased transaction rejects before staging and remains open.
+        """
 
         self._require_open()
         native_id = _native_media_root_id(root_id)
@@ -3286,7 +3289,10 @@ class Transaction:
         self._native.check(status, error)
 
     def remove_media_root(self, root_id: MediaRootId) -> None:
-        """Stage removal of one resolver root."""
+        """Stage removal of one resolver root from a read-bound edit.
+
+        An unbased transaction rejects before staging and remains open.
+        """
 
         self._require_open()
         native_id = _native_media_root_id(root_id)

@@ -51,7 +51,7 @@ class IdentityTests(unittest.TestCase):
                     self.assertEqual(view.media_roots[0].id, root_id)
                 for identifier in (root_id, MediaRootId(UUID(int=0))):
                     for remove in (False, True):
-                        with second.transaction() as edit:
+                        with second.read_session() as view, view.edit() as edit:
                             if remove:
                                 edit.remove_media_root(identifier)
                             else:

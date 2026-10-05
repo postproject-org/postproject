@@ -591,7 +591,7 @@ class ProductionTests(unittest.TestCase):
                 production.representations[asset_id][0].resources[0].locators[0].id
             )
 
-            with production.transaction() as transaction:
+            with production.read_session() as view, view.edit() as transaction:
                 transaction.set_media_root_enabled(root_id, False)
                 transaction.retire_locator(locator_id)
                 transaction.commit()
@@ -607,7 +607,7 @@ class ProductionTests(unittest.TestCase):
             self.assertIsInstance(events[0].payload, MediaRootEnabledChangedEvent)
             self.assertIsInstance(events[1].payload, LocatorRetiredEvent)
 
-            with production.transaction() as transaction:
+            with production.read_session() as view, view.edit() as transaction:
                 transaction.remove_media_root(root_id)
                 transaction.commit()
 
