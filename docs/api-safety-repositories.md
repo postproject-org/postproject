@@ -169,3 +169,29 @@ The installed prefix contains the new library and headers. Python 3.13 runs
 66 installed-wheel tests with one skip; Manager `662de75` passes its six
 installed-wheel tests using derived job properties. Other downstream results
 above predate this slice. No final coordinated qualification is claimed.
+
+## Explicit transaction contexts
+
+SDK bindings/examples at `98e1cc5` require explicit Python commits. The native
+library/headers are unchanged from `a56c0f1` (ABI 40, schema 17). Package
+metadata is refreshed at `0512987`. Artifact SHA-256 values:
+
+- Neutral wheel: `bf5bc4b405e6326e94fb91fccb3bf53cf20cc05e91e44a568631af977cc2d7e5`.
+- Linux platform wheel: `a3778bc7d108bde3ceda6bf6cdf88245d2fc193e4a791fcc17c171ffffa7bd00`.
+- Blender bundle: `f9434a7e7b6a1143b087d205a72855507243c7b5b1690eea1c3c49ed8f3fc386`.
+
+Wheels are in `target/api-safety-wheel/explicit-transactions/`; the bundle is
+in `target/api-safety-blender/explicit-transactions/`.
+
+| Consumer commit | Executed result | Scope |
+|---|---|---|
+| Manager `da2caaa` | 6 passed | Installed neutral wheel, Python 3.13 |
+| OpenAssetIO `5e38c31`, OTIO `81a6ee6`, demo `c18f5bc`, Python host `c42b8b8` | 1 passed each | Same wheel/library; separate runs, pinned OTIO linker |
+| Blender `71f49b6` | 23 passed, 1 skipped | Installed extension, Blender 5.2.2 LTS `d13f752e3b9c`; 5.3-only case skipped |
+
+The SDK's installed-wheel suite runs 68 tests with one skip, and its installed
+Python quickstart passes. Blender's runtime already committed explicitly; its
+shared-media fixture now does too. Background checks cover saved bindings,
+ambiguity, render provenance, conflicts and disabled/missing-sidecar behavior.
+No interactive or final cross-host/platform qualification is claimed. All
+changes remain on local `main`; origins and published releases are unchanged.

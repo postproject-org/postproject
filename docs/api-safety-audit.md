@@ -137,5 +137,13 @@ eight rebuilt native contracts and strict docs pass. The 64 extracted tests
 pass after the C++/Python changes; the updated C job recipe then passes
 separately. The flattened C job view and claim secrecy/time remain open.
 
+At `98e1cc5`, every Python transaction context requires explicit commit;
+uncommitted normal/exceptional exits roll back. Explicit close and failed
+commit never trigger another mutation on exit. SDK callers and six Python
+consumers have migrated. Source and installed-wheel suites run 68 tests with
+one skip; Ruff/ty, all 16 extracted Python tests and strict Sphinx pass.
+The installed Python quickstart passes. Unbased mutation restrictions and
+remaining CLI receipt paths are still open.
+
 Repository inputs and migration status are in
 [`api-safety-repositories.md`](api-safety-repositories.md).
