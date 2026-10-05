@@ -673,17 +673,19 @@ class Production:
         asset order. A cancelled ``cancel_token`` raises ``CancelledError``.
         """
 
-        ids = (AssetId(asset_ids),) if isinstance(asset_ids, UUID) else tuple(asset_ids)
-        options = _ResolutionOptions(self._native)
-        for name, directory in sorted((root_mappings or {}).items()):
-            options.add_root_mapping(name, directory)
-        for directory in search_directories:
-            options.add_search_directory(directory)
-        options.set_verification(verification)
-        options.set_limits(max_depth, max_entries_per_directory)
-        if cancel_token is not None:
-            options.set_cancel_token(cancel_token)
-        return self._resolve_assets(ids, options)
+        self._require_open()
+        return _resolve(
+            self._native,
+            self._native.lib.pp_production_resolve_assets,
+            self._handle,
+            asset_ids,
+            root_mappings,
+            search_directories,
+            verification,
+            max_depth,
+            max_entries_per_directory,
+            cancel_token,
+        )
 
     def evaluate_artifact(
         self,
@@ -1599,35 +1601,6 @@ class Production:
         finally:
             self._native.lib.pp_revision_event_set_release(handle)
 
-    def _resolve_assets(
-        self, asset_ids: tuple[AssetId, ...], options: _ResolutionOptions
-    ) -> tuple[RepresentationResolution, ...]:
-        self._require_open()
-        native_ids = (Uuid * len(asset_ids))(
-            *(_native_uuid(asset_id) for asset_id in asset_ids)
-        )
-        handle = ctypes.POINTER(ResolutionSet)()
-        error = ctypes.POINTER(Error)()
-        status = self._native.lib.pp_production_resolve_assets(
-            self._handle,
-            native_ids if asset_ids else None,
-            len(asset_ids),
-            options.handle,
-            ctypes.byref(handle),
-            ctypes.byref(error),
-        )
-        self._native.check(status, error)
-        if not handle:
-            raise RuntimeError("native resolution query returned no result set")
-        try:
-            count = self._native.lib.pp_resolution_set_representation_count(handle)
-            return tuple(
-                _representation_resolution_at(self._native, handle, index)
-                for index in range(int(count))
-            )
-        finally:
-            self._native.lib.pp_resolution_set_release(handle)
-
     def read_session(self) -> ReadSession:
         """Open a pinned view with its production and revision captured together."""
         self._require_open()
@@ -1811,6 +1784,64 @@ class Production:
         *arguments: object,
     ) -> QueryPage[_ObjectQueryItem]:
         return _object_query_page(self._native, function, convert, *arguments)
+
+
+def _resolve(
+    native: NativeLibrary,
+    function: Callable[..., int],
+    handle: object,
+    asset_ids: AssetId | Iterable[AssetId],
+    root_mappings: Mapping[str, str | os.PathLike[str]] | None,
+    search_directories: Iterable[str | os.PathLike[str]],
+    verification: VerificationMode,
+    max_depth: int,
+    max_entries_per_directory: int,
+    cancel_token: CancelToken | None,
+) -> tuple[RepresentationResolution, ...]:
+    ids = (AssetId(asset_ids),) if isinstance(asset_ids, UUID) else tuple(asset_ids)
+    options = _ResolutionOptions(native)
+    for name, directory in sorted((root_mappings or {}).items()):
+        options.add_root_mapping(name, directory)
+    for directory in search_directories:
+        options.add_search_directory(directory)
+    options.set_verification(verification)
+    options.set_limits(max_depth, max_entries_per_directory)
+    if cancel_token is not None:
+        options.set_cancel_token(cancel_token)
+    return _resolve_assets(native, function, handle, ids, options)
+
+
+def _resolve_assets(
+    native: NativeLibrary,
+    function: Callable[..., int],
+    reader: object,
+    asset_ids: tuple[AssetId, ...],
+    options: _ResolutionOptions,
+) -> tuple[RepresentationResolution, ...]:
+    native_ids = (Uuid * len(asset_ids))(
+        *(_native_uuid(asset_id) for asset_id in asset_ids)
+    )
+    handle = ctypes.POINTER(ResolutionSet)()
+    error = ctypes.POINTER(Error)()
+    status = function(
+        reader,
+        native_ids if asset_ids else None,
+        len(asset_ids),
+        options.handle,
+        ctypes.byref(handle),
+        ctypes.byref(error),
+    )
+    native.check(status, error)
+    if not handle:
+        raise RuntimeError("native resolution query returned no result set")
+    try:
+        count = native.lib.pp_resolution_set_representation_count(handle)
+        return tuple(
+            _representation_resolution_at(native, handle, index)
+            for index in range(int(count))
+        )
+    finally:
+        native.lib.pp_resolution_set_release(handle)
 
 
 def _object_query_page(
