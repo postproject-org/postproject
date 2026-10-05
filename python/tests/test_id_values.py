@@ -52,6 +52,28 @@ class IdentityTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             parse_id("invalid", AssetId)
 
+    def test_assets_are_scoped_to_live_and_retained_production_reads(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            media = root / "media.dat"
+            media.write_bytes(b"scoped assets")
+            with (
+                Production.create(root / "first.pproj") as first,
+                Production.create(root / "second.pproj") as second,
+            ):
+                with first.transaction() as edit:
+                    asset = edit.import_media(media)
+                    edit.commit()
+                with second.read_session() as view:
+                    for reader in (second, view):
+                        with self.assertRaises(NotFoundError):
+                            reader.asset(asset)
+                        with self.assertRaises(NotFoundError):
+                            reader.asset(AssetId(UUID(int=0)))
+                self.assertEqual(first.asset(asset).id, asset)
+                with first.read_session() as view:
+                    self.assertEqual(view.asset(asset).id, asset)
+
     def test_untyped_input_is_validated_without_claiming_runtime_id_kinds(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "production.pproj"

@@ -119,15 +119,16 @@ class CompatibilityUsageTests(unittest.TestCase):
             manifest, {"host-a": operations, "host-b": operations}, {}, leaves
         )
         self.assertIn(
-            "Required closure: `external-identifiers`, `production-lifecycle`, "
+            "Required closure: `asset-identity`, `external-identifiers`, `production-lifecycle`, "
             "`resolution`, `transaction-lifecycle`",
             report,
         )
         self.assertIn(
-            "Ineligible required families: `production-lifecycle`, `transaction-lifecycle`",
+            "Ineligible required families: `asset-identity`, `production-lifecycle`, "
+            "`resolution`, `transaction-lifecycle`",
             report,
         )
-        self.assertIn("| ABI | ABI | yes | no |", report)
+        self.assertIn("| ABI | ABI | no | no |", report)
 
     def test_dependency_closure_is_transitive_and_sorted(self) -> None:
         manifest = USAGE.load_manifest(ROOT / "docs" / "compatibility-families.toml")
