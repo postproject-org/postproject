@@ -85,5 +85,17 @@ Full Rust workspace tests, Clippy, Rustdoc, deny and architecture checks pass
 at the job-read checkpoint; artifact forwarding also passes FFI Clippy and
 its installed coherent recipes. Installed wheels above predate these additions.
 
+At `8b38d80`, dependency sets/traversal, root/unresolved/changed-object filters,
+provenance/staleness, exact activity outputs and activity pages bring the native
+read-query count to 34 and exports to 274. Twelve Python view regressions pass,
+including dependency replacement, locator removal, journal visibility and
+activity cursor family/view rejection. Source typing/lint, FFI Clippy, installed
+C/C++ coherent recipes and example coverage pass. All six required Rust gates,
+eight rebuilt installed native contracts, and 60 source Python tests (one skip)
+pass at this checkpoint. All 64 rebuilt extracted tests pass. Doxygen,
+generated C coverage and strict Sphinx pass after enabling STL support and
+distinguishing the C production-ID tag from its identity-read function.
+C/Rust/ctypes layouts agree. Final candidate qualification remains open.
+
 Repository inputs and migration status are in
 [`api-safety-repositories.md`](api-safety-repositories.md).
