@@ -1,6 +1,7 @@
 """Public identities retain standard UUID behavior and checked boundaries."""
 
 import ctypes
+import sqlite3
 import tempfile
 import unittest
 from pathlib import Path
@@ -12,6 +13,7 @@ from postproject import (
     AssetRef,
     NotFoundError,
     Production,
+    StorageError,
     _abi,
     _native,
     parse_id,
@@ -19,6 +21,36 @@ from postproject import (
 
 
 class IdentityTests(unittest.TestCase):
+    def test_asset_point_queries_do_not_materialize_unrelated_rows(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "production.pproj"
+            with Production.create(path):
+                pass
+            empty = AssetId(UUID(int=1))
+            corrupt = AssetId(UUID(int=2))
+            absent = AssetId(UUID(int=3))
+            # SQLite's affinity permits this malformed timestamp. The fixture
+            # proves a point query never decodes an unrelated asset row.
+            with sqlite3.connect(path) as connection:
+                connection.executemany(
+                    "INSERT INTO assets(id, created_at_micros) VALUES (?, ?)",
+                    [(empty.bytes, 0), (corrupt.bytes, "invalid timestamp")],
+                )
+            with Production.open(path) as production:
+                self.assertIn(empty, production.assets)
+                self.assertNotIn(absent, production.assets)
+                self.assertNotIn(AssetId(UUID(int=0)), production.assets)
+                self.assertEqual(production.resolve(empty), ())
+                with self.assertRaises(NotFoundError):
+                    production.resolve(absent)
+                for query in (
+                    lambda: corrupt in production.assets,
+                    lambda: production.resolve(corrupt),
+                    lambda: list(production.assets),
+                ):
+                    with self.assertRaises(StorageError):
+                        query()
+
     def test_native_journal_arguments_reject_other_id_structures(self) -> None:
         native = _native.NativeLibrary()
         events = ctypes.POINTER(_abi.RevisionEventSet)()

@@ -338,6 +338,7 @@ fn resolve_assets(
         let mut work: Vec<AssetWork> = Vec::new();
         for asset_id in asset_ids {
             let asset_id = AssetId::from_bytes(asset_id.bytes);
+            inner.asset(asset_id)?;
             for representation in inner.representations(asset_id)? {
                 let mut resources = Vec::new();
                 for resource in inner.resources(representation.id())? {
@@ -345,14 +346,6 @@ fn resolve_assets(
                     resources.push((resource, locators));
                 }
                 work.push((asset_id, representation, resources));
-            }
-            if !work.iter().any(|(owner, _, _)| *owner == asset_id)
-                && !inner.assets()?.iter().any(|asset| asset.id() == asset_id)
-            {
-                return Err(Error::new(
-                    ErrorKind::NotFound,
-                    format!("asset {asset_id} does not exist"),
-                ));
             }
         }
         (inner.production().media_roots().to_vec(), work)

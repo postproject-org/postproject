@@ -919,7 +919,11 @@ pub unsafe extern "C" fn pp_production_asset_exists(
             }
             let inner = lock_production(&production.state);
             let expected = AssetId::from_bytes(asset_id.bytes);
-            let exists = inner.assets()?.iter().any(|asset| asset.id() == expected);
+            let exists = match inner.asset(expected) {
+                Ok(_) => true,
+                Err(error) if error.kind() == ErrorKind::NotFound => false,
+                Err(error) => return Err(error),
+            };
             out_exists.write(u8::from(exists));
             Ok(())
         })
