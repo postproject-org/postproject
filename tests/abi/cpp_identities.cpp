@@ -9,6 +9,14 @@ static_assert(!std::is_convertible_v<postproject::ProductionId, postproject::Uui
 static_assert(!std::is_same_v<postproject::ProductionId, postproject::Uuid>);
 static_assert(!std::is_convertible_v<postproject::Uuid, postproject::AssetId>);
 static_assert(!std::is_convertible_v<postproject::AssetId, postproject::Uuid>);
+static_assert(!std::is_convertible_v<postproject::Uuid, postproject::MediaRootId>);
+static_assert(!std::is_assignable_v<postproject::MediaRootId &, postproject::AssetId>);
+static_assert(std::is_same_v<decltype(postproject::MediaRoot::id), postproject::MediaRootId>);
+static_assert(std::is_same_v<decltype(postproject::MediaRootAddedEvent::media_root_id), postproject::MediaRootId>);
+static_assert(std::is_same_v<decltype(postproject::MediaRootEnabledChangedEvent::media_root_id), postproject::MediaRootId>);
+static_assert(std::is_same_v<decltype(postproject::MediaRootRemovedEvent::media_root_id), postproject::MediaRootId>);
+static_assert(std::is_same_v<decltype(std::declval<postproject::Transaction &>().addMediaRoot("rushes")), postproject::Result<postproject::MediaRootId>>);
+static_assert(!std::is_invocable_v<decltype(&postproject::Transaction::removeMediaRoot), postproject::Transaction &, postproject::AssetId>);
 static_assert(!std::is_assignable_v<postproject::AssetId &, postproject::ProductionId>);
 static_assert(!std::is_convertible_v<postproject::Uuid, postproject::RevisionId>);
 static_assert(!std::is_convertible_v<postproject::RevisionId, postproject::Uuid>);
@@ -42,6 +50,15 @@ static_assert(!std::is_invocable_v<decltype(&pp_production_asset),
     const pp_production_t *, pp_uuid_t, pp_asset_set_t **, pp_error_t **>);
 
 int main() {
+  const auto root = postproject::MediaRootId::fromString("00000000-0000-0000-0000-000000000001").value();
+  const std::set<postproject::MediaRootId> roots{root, root};
+  const std::unordered_set<postproject::MediaRootId> root_hashes{root, root};
+  if (roots.size() != 1 || root_hashes.size() != 1 ||
+      root.toString().value() != "00000000-0000-0000-0000-000000000001" ||
+      postproject::MediaRootId(root.asUuid()) != root) return 12;
+  if (postproject::MediaRootId::fromString("broken") ||
+      postproject::MediaRootId::fromString(std::string_view("id\0tail", 7))) return 13;
+  if (!postproject::MediaRootId::fromString("00000000-0000-0000-0000-000000000000")) return 14;
   const auto asset = postproject::AssetId::fromString("00000000-0000-0000-0000-000000000001").value();
   const auto target = postproject::ObjectRef::asset(asset);
   if (target.assetId().value() != asset) return 12;

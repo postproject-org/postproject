@@ -446,6 +446,35 @@ private:
   Uuid value_;
 };
 
+class MediaRootId final {
+public:
+  constexpr explicit MediaRootId(Uuid value) noexcept : value_(value) {}
+  constexpr explicit MediaRootId(Uuid::Bytes bytes) noexcept : value_(bytes) {}
+
+  [[nodiscard]] constexpr Uuid asUuid() const noexcept { return value_; }
+  [[nodiscard]] constexpr const Uuid::Bytes &bytes() const noexcept {
+    return value_.bytes();
+  }
+  [[nodiscard]] static Result<MediaRootId> fromString(std::string_view text);
+  [[nodiscard]] Result<std::string> toString() const;
+
+  friend constexpr bool operator==(const MediaRootId &left,
+                                   const MediaRootId &right) noexcept {
+    return left.value_ == right.value_;
+  }
+  friend constexpr bool operator!=(const MediaRootId &left,
+                                   const MediaRootId &right) noexcept {
+    return !(left == right);
+  }
+  friend bool operator<(const MediaRootId &left,
+                        const MediaRootId &right) noexcept {
+    return left.bytes() < right.bytes();
+  }
+
+private:
+  Uuid value_;
+};
+
 class RevisionId final {
 public:
   constexpr explicit RevisionId(Uuid value) noexcept : value_(value) {}
@@ -541,8 +570,7 @@ enum class ConflictKeyKind : std::uint32_t {
 
 struct ConflictKey final {
   ConflictKeyKind kind;
-  Uuid target_id;
-  std::optional<ObjectKind> target_kind;
+  std::variant<ObjectRef, MediaRootId> target;
   std::optional<std::string> namespace_name;
   std::optional<std::string> local_name;
   std::optional<std::string> qualifier;
@@ -845,16 +873,16 @@ struct LocatorRetiredEvent final {
 };
 
 struct MediaRootAddedEvent final {
-  Uuid media_root_id;
+  MediaRootId media_root_id;
 };
 
 struct MediaRootEnabledChangedEvent final {
-  Uuid media_root_id;
+  MediaRootId media_root_id;
   bool enabled;
 };
 
 struct MediaRootRemovedEvent final {
-  Uuid media_root_id;
+  MediaRootId media_root_id;
 };
 
 struct ExternalIdentifierAddedEvent final {
@@ -1001,7 +1029,7 @@ struct Asset final {
 };
 
 struct MediaRoot final {
-  Uuid id;
+  MediaRootId id;
   std::string name;
   std::optional<std::string> label;
   std::optional<std::string> legacy_uri;
@@ -1487,6 +1515,7 @@ using MediaSourceHandle = std::unique_ptr<pp_media_source_t, MediaSourceDeleter>
 using StringHandle = std::unique_ptr<char, StringDeleter>;
 
 inline Uuid uuid(const pp_uuid_t &value);
+inline MediaRootId media_root_id(const pp_media_root_id_t &value);
 inline RevisionId revision_id(const pp_revision_id_t &value);
 inline TransactionId transaction_id(const pp_transaction_id_t &value);
 inline std::optional<std::string> optional_string(const char *value);
@@ -1509,13 +1538,14 @@ inline Result<void> check(pp_error_code_t status,
     const bool fingerprint =
         kind == ConflictKeyKind::resource_fingerprint ||
         kind == ConflictKeyKind::representation_fingerprint;
-    std::optional<ObjectKind> target_kind;
-    if (native.target.kind != 0) {
-      target_kind = static_cast<ObjectKind>(native.target.kind);
-    }
+    std::variant<ObjectRef, MediaRootId> target =
+        kind == ConflictKeyKind::media_root
+            ? std::variant<ObjectRef, MediaRootId>(media_root_id(native.media_root_id))
+            : std::variant<ObjectRef, MediaRootId>(ObjectRef{
+                  static_cast<ObjectKind>(native.target.kind), uuid(native.target.id)});
     transaction_conflict = std::make_shared<TransactionConflict>(
         TransactionConflict{
-            {kind, uuid(native.target.id), target_kind,
+            {kind, std::move(target),
              optional_string(native.namespace_name),
              optional_string(native.local_name), optional_string(native.qualifier),
              fingerprint ? std::optional<std::uint16_t>(native.version)
@@ -1563,6 +1593,18 @@ inline AssetId asset_id_value(const pp_asset_id_t &value) {
 
 inline pp_asset_id_t native_asset_id(const AssetId &value) {
   pp_asset_id_t native{};
+  std::copy(value.bytes().begin(), value.bytes().end(), std::begin(native.bytes));
+  return native;
+}
+
+inline MediaRootId media_root_id(const pp_media_root_id_t &value) {
+  Uuid::Bytes bytes{};
+  std::copy(std::begin(value.bytes), std::end(value.bytes), bytes.begin());
+  return MediaRootId(bytes);
+}
+
+inline pp_media_root_id_t native_media_root_id(const MediaRootId &value) {
+  pp_media_root_id_t native{};
   std::copy(value.bytes().begin(), value.bytes().end(), std::begin(native.bytes));
   return native;
 }
@@ -2404,18 +2446,18 @@ revision_event(const pp_revision_event_set_t *events, std::uint64_t index) {
         LocatorAddedEvent{uuid(event.resource_id), uuid(event.locator_id)}};
   case PP_REVISION_MEDIA_ROOT_ADDED:
     return RevisionEvent{event.position,
-                         MediaRootAddedEvent{uuid(event.media_root_id)}};
+                         MediaRootAddedEvent{media_root_id(event.media_root_id)}};
   case PP_REVISION_LOCATOR_RETIRED:
     return RevisionEvent{
         event.position,
         LocatorRetiredEvent{uuid(event.resource_id), uuid(event.locator_id)}};
   case PP_REVISION_MEDIA_ROOT_ENABLED_CHANGED:
     return RevisionEvent{event.position,
-                         MediaRootEnabledChangedEvent{uuid(event.media_root_id),
+                         MediaRootEnabledChangedEvent{media_root_id(event.media_root_id),
                                                       event.enabled != 0}};
   case PP_REVISION_MEDIA_ROOT_REMOVED:
     return RevisionEvent{event.position,
-                         MediaRootRemovedEvent{uuid(event.media_root_id)}};
+                         MediaRootRemovedEvent{media_root_id(event.media_root_id)}};
   case PP_REVISION_EXTERNAL_IDENTIFIER_ADDED: {
     POSTPROJECT_TRY_ASSIGN(
         std::string scheme,
@@ -2974,6 +3016,29 @@ inline Result<std::string> AssetId::toString() const {
   char *text = nullptr;
   pp_error_t *error = nullptr;
   const auto status = pp_asset_id_format(id, &text, &error);
+  detail::StringHandle owned(text);
+  POSTPROJECT_TRY(detail::check(status, error));
+  return std::string(owned.get());
+}
+
+inline Result<MediaRootId> MediaRootId::fromString(std::string_view text) {
+  POSTPROJECT_TRY_ASSIGN(const std::string checked,
+                         detail::checked_string(text, "media-root ID"));
+  pp_media_root_id_t id{};
+  pp_error_t *error = nullptr;
+  const auto status = pp_media_root_id_parse(checked.c_str(), &id, &error);
+  POSTPROJECT_TRY(detail::check(status, error));
+  Uuid::Bytes bytes{};
+  std::copy(std::begin(id.bytes), std::end(id.bytes), bytes.begin());
+  return MediaRootId(bytes);
+}
+
+inline Result<std::string> MediaRootId::toString() const {
+  pp_media_root_id_t id{};
+  std::copy(bytes().begin(), bytes().end(), std::begin(id.bytes));
+  char *text = nullptr;
+  pp_error_t *error = nullptr;
+  const auto status = pp_media_root_id_format(id, &text, &error);
   detail::StringHandle owned(text);
   POSTPROJECT_TRY(detail::check(status, error));
   return std::string(owned.get());
@@ -3897,31 +3962,31 @@ public:
     return detail::uuid(value);
   }
 
-  Result<Uuid> addMediaRoot(std::string_view name, std::int32_t priority = 0) {
+  Result<MediaRootId> addMediaRoot(std::string_view name, std::int32_t priority = 0) {
     return add_media_root_impl(name, nullptr, priority);
   }
 
-  Result<Uuid> addMediaRoot(std::string_view name, std::string_view label,
+  Result<MediaRootId> addMediaRoot(std::string_view name, std::string_view label,
                             std::int32_t priority = 0) {
     POSTPROJECT_TRY_ASSIGN(const std::string native_label,
                            detail::checked_string(label, "label"));
     return add_media_root_impl(name, native_label.c_str(), priority);
   }
 
-  Result<void> setMediaRootEnabled(const Uuid &root_id, bool enabled) {
-    const pp_uuid_t id = detail::native_uuid(root_id);
+  Result<void> setMediaRootEnabled(const MediaRootId &root_id, bool enabled) {
+    const pp_media_root_id_t id = detail::native_media_root_id(root_id);
     pp_error_t *error = nullptr;
     const pp_error_code_t status = pp_transaction_set_media_root_enabled(
-        transaction_, &id, enabled ? UINT8_C(1) : UINT8_C(0), &error);
+        transaction_, id, enabled ? UINT8_C(1) : UINT8_C(0), &error);
     POSTPROJECT_TRY(detail::check(status, error));
     return {};
   }
 
-  Result<void> removeMediaRoot(const Uuid &root_id) {
-    const pp_uuid_t id = detail::native_uuid(root_id);
+  Result<void> removeMediaRoot(const MediaRootId &root_id) {
+    const pp_media_root_id_t id = detail::native_media_root_id(root_id);
     pp_error_t *error = nullptr;
     const pp_error_code_t status =
-        pp_transaction_remove_media_root(transaction_, &id, &error);
+        pp_transaction_remove_media_root(transaction_, id, &error);
     POSTPROJECT_TRY(detail::check(status, error));
     return {};
   }
@@ -4420,16 +4485,16 @@ private:
     return detail::asset_id_value(value);
   }
 
-  Result<Uuid> add_media_root_impl(std::string_view name, const char *label,
+  Result<MediaRootId> add_media_root_impl(std::string_view name, const char *label,
                                    std::int32_t priority) {
     POSTPROJECT_TRY_ASSIGN(const std::string native_name,
                            detail::checked_string(name, "name"));
-    pp_uuid_t value{};
+    pp_media_root_id_t value{};
     pp_error_t *error = nullptr;
     const pp_error_code_t status = pp_transaction_add_media_root(
         transaction_, native_name.c_str(), label, priority, &value, &error);
     POSTPROJECT_TRY(detail::check(status, error));
-    return detail::uuid(value);
+    return detail::media_root_id(value);
   }
 
   Result<void>
@@ -5104,7 +5169,7 @@ public:
     const std::uint64_t count = pp_media_root_set_count(roots.get());
     result.reserve(static_cast<std::size_t>(count));
     for (std::uint64_t index = 0; index < count; ++index) {
-      pp_uuid_t id{};
+      pp_media_root_id_t id{};
       const char *name = nullptr;
       const char *label = nullptr;
       const char *legacy_uri = nullptr;
@@ -5119,7 +5184,7 @@ public:
         return Error(ErrorCode::internal, "media root has no name");
       }
       result.push_back(
-          {detail::uuid(id), std::string(name),
+          {detail::media_root_id(id), std::string(name),
            label != nullptr ? std::optional<std::string>(std::string(label))
                             : std::nullopt,
            legacy_uri != nullptr
@@ -5542,7 +5607,7 @@ public:
     const std::uint64_t count = pp_media_root_set_count(roots.get());
     result.reserve(static_cast<std::size_t>(count));
     for (std::uint64_t index = 0; index < count; ++index) {
-      pp_uuid_t id{};
+      pp_media_root_id_t id{};
       const char *name = nullptr;
       const char *label = nullptr;
       const char *legacy_uri = nullptr;
@@ -5557,7 +5622,7 @@ public:
         return Error(ErrorCode::internal, "media root has no name");
       }
       result.push_back(
-          {detail::uuid(id), std::string(name),
+          {detail::media_root_id(id), std::string(name),
            label != nullptr ? std::optional<std::string>(std::string(label))
                             : std::nullopt,
            legacy_uri != nullptr
@@ -6671,6 +6736,14 @@ template <> struct std::hash<postproject::ProductionId> {
 
 template <> struct std::hash<postproject::AssetId> {
   std::size_t operator()(const postproject::AssetId &id) const noexcept {
+    const auto &bytes = id.bytes();
+    return std::hash<std::string_view>{}(std::string_view(
+        reinterpret_cast<const char *>(bytes.data()), bytes.size()));
+  }
+};
+
+template <> struct std::hash<postproject::MediaRootId> {
+  std::size_t operator()(const postproject::MediaRootId &id) const noexcept {
     const auto &bytes = id.bytes();
     return std::hash<std::string_view>{}(std::string_view(
         reinterpret_cast<const char *>(bytes.data()), bytes.size()));

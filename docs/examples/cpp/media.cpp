@@ -154,7 +154,7 @@ print_structure(const postproject::Production &production,
 // [media-root-lifecycle]
 void cycle_media_root(postproject::Production &production,
                       const std::string &name) {
-  std::optional<postproject::Uuid> root_id;
+  std::optional<postproject::MediaRootId> root_id;
   for (const auto &root : production.mediaRoots().value()) {
     std::cout << "root " << root.name << " priority " << root.priority
               << (root.enabled ? " enabled" : " disabled") << '\n';

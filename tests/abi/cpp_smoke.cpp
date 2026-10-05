@@ -140,7 +140,7 @@ int main(int argc, char **argv) {
   std::remove(path.c_str());
 
   try {
-    if (postproject::abi_version() != 41) {
+    if (postproject::abi_version() != 42) {
       return 3;
     }
 
@@ -274,8 +274,8 @@ int main(int argc, char **argv) {
     if (stale_commit.error().code() != postproject::ErrorCode::conflict ||
         conflict == nullptr ||
         conflict->key.kind != postproject::ConflictKeyKind::locator_set ||
-        conflict->key.target_id != conflict_resource_id ||
-        conflict->key.target_kind != postproject::ObjectKind::resource ||
+        std::get<postproject::ObjectRef>(conflict->key.target).id != conflict_resource_id ||
+        std::get<postproject::ObjectRef>(conflict->key.target).kind != postproject::ObjectKind::resource ||
         conflict->base_revision_id != latest_revision->id ||
         conflict->base_revision_sequence != latest_revision->sequence ||
         conflict->superseding_revision_id != superseding_revision->id ||

@@ -19,6 +19,8 @@ void update_from_a_base_revision(postproject::Production &production) {
   auto setup = production.beginTransaction().value();
   const auto root_id = setup.addMediaRoot("rushes").value();
   setup.commit().value();
+  require(postproject::MediaRootId::fromString(root_id.toString().value()).value()
+              == root_id, "saved root identity");
 
   const auto base = production.latestRevision().value().value();
   auto first_writer = production.beginTransaction(base.id).value();
@@ -35,7 +37,7 @@ void update_from_a_base_revision(postproject::Production &production) {
   require(conflict != nullptr, "structured conflict detail");
   require(conflict->key.kind == postproject::ConflictKeyKind::media_root,
           "media-root conflict key");
-  require(conflict->key.target_id == root_id, "conflicting root");
+  require(std::get<postproject::MediaRootId>(conflict->key.target) == root_id, "conflicting root");
   require(conflict->base_revision_id == base.id, "supplied base revision");
   require(conflict->superseding_revision_id == superseding.id,
           "superseding revision");
