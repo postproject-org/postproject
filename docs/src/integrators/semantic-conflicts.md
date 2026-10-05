@@ -6,8 +6,9 @@ knowledge. When a write depends on previously read state, begin its transaction
 with that state's revision ID.
 
 A base revision is optimistic context, not a lock. It does not reserve the
-production or reject unrelated work. Transactions without a base keep the
-ordinary serialized-write behavior.
+production or reject unrelated work. Unbased transactions permit independent
+metadata appends; metadata replacement/removal require a base. Other legacy
+unbased mutation families remain under development review.
 
 ## Use a base for read–decide–write flows
 
@@ -63,8 +64,9 @@ both revisions, then performs an explicit retry:
 ```{code-variants} semantic-conflicts
 ```
 
-For the CLI, `--base-revision REVISION_ID` applies the base to a mutating
-command. With `--json`, an optimistic conflict is written to standard error as
+For the CLI, use `--decision-base TOKEN` from `inspect`. The advanced
+`--base-revision REVISION_ID` path remains available. With `--json`, an
+optimistic conflict is written to standard output with a failing exit status as
 JSON containing `key`, `base_revision_id`, `base_revision_sequence`,
 `superseding_revision_id`, and `superseding_revision_sequence`.
 
@@ -90,6 +92,10 @@ The complete per-operation classification is recorded in {doc}`ADR 0042
 </adr/0042-semantic-write-conflicts>`. Job transitions retain their more
 specific state, lease, and claim-token guards rather than becoming generic
 optimistic conflicts.
+
+Metadata appends advance the property version while remaining mergeable.
+Replacement/removal guard that version, so an intervening append invalidates
+a destructive decision (ADR 0052). Rejection rolls back the whole edit.
 
 ## Treat the result as a new decision point
 

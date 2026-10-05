@@ -47,6 +47,16 @@ continue only in the same open session. Page revision events using
 `revision_events_page` or the bounded native `revisionEvents` overload.
 Regeneration planning reads retained facts without enqueuing work.
 
+Metadata replacement/removal now rejects unbased transactions before staging.
+Use a read session's edit or detached base; appends still merge. A destructive
+edit conflicts after any intervening property change, including an append.
+In Python, replace `production.transaction()` with
+`production.read_session()` and `view.edit()` for removal. C++ offers
+`removeMetadataProperty`. CLI removal requires `--decision-base` from
+`inspect`; metadata writes return their own `commit_receipt` in JSON.
+Structured conflict JSON now goes to stdout with a failing exit status;
+other diagnostics remain on stderr. Update scripts that read conflicts there.
+
 ## Native options
 
 C++ `CancelToken` and `ResolutionOptions` use fallible `create()` factories.

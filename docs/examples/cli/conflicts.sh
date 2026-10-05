@@ -10,13 +10,15 @@ cd "$1"
 
 # [semantic-conflicts]
 postproject init conflicts.pproj
-ROOT_ID=$(postproject --json root add conflicts.pproj rushes | jq -r .id)
-BASE_ID=$(postproject --json revisions latest conflicts.pproj | jq -r .id)
+CREATED=$(postproject --json root add conflicts.pproj rushes)
+ROOT_ID=$(jq -r .id <<<"$CREATED")
+BASE_ID=$(jq -r .commit_receipt.revision.id <<<"$CREATED")
+BASE=$(postproject --json inspect conflicts.pproj | jq -r .decision_base)
 
-postproject --base-revision "$BASE_ID" root disable conflicts.pproj "$ROOT_ID"
+postproject --decision-base "$BASE" root disable conflicts.pproj "$ROOT_ID"
 
-if postproject --json --base-revision "$BASE_ID" \
-  root enable conflicts.pproj "$ROOT_ID" 2>conflict.json; then
+if postproject --json --decision-base "$BASE" \
+  root enable conflicts.pproj "$ROOT_ID" >conflict.json; then
   echo "stale write unexpectedly succeeded" >&2
   exit 1
 fi
@@ -27,7 +29,7 @@ jq -e --arg root "$ROOT_ID" --arg base "$BASE_ID" \
      and .base_revision_id == $base' conflict.json >/dev/null
 
 # Retry only after re-reading and deciding that enabling is still right.
-REFRESHED_ID=$(postproject --json revisions latest conflicts.pproj | jq -r .id)
-postproject --base-revision "$REFRESHED_ID" \
+REFRESHED=$(postproject --json inspect conflicts.pproj | jq -r .decision_base)
+postproject --decision-base "$REFRESHED" \
   root enable conflicts.pproj "$ROOT_ID"
 # [/semantic-conflicts]

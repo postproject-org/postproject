@@ -11,7 +11,7 @@ ROOT=$(jq -r .id created.json)
 
 # The initial empty base must not silently overwrite the newly created root.
 if postproject --json --decision-base "$BASE" root disable views.pproj "$ROOT" \
-  2>conflict.json; then
+  >conflict.json; then
   echo "stale edit unexpectedly succeeded" >&2
   exit 1
 fi

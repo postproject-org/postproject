@@ -54,7 +54,7 @@ enum CliDecisionBase {
 #[derive(Debug, Parser)]
 #[command(name = "postproject", version, about)]
 struct Cli {
-    /// Emit machine-readable JSON.
+    /// Emit results and structured conflicts as JSON on stdout.
     #[arg(long, global = true)]
     json: bool,
 

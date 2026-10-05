@@ -23,6 +23,11 @@ revision on which the host's decisions were made; it is validated when the
 transaction begins. It is not a lock or reservation. A transaction without a
 base retains the existing serialized-write behavior.
 
+The 0.7 development amendments are ADR 0045 (read-bound decisions/receipts)
+and ADR 0052 (mergeable appends, property-version updates and mandatory bases
+for metadata replacement/removal). The original release decision below
+remains historical context.
+
 Schema 17 adds a private conflict-version table mapping an encoded semantic key
 to the last revision that changed it. A migration baseline records the newest
 pre-schema-17 revision. When an old production is first opened, a base older

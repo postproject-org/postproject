@@ -109,10 +109,8 @@ keeps unknown and application-specific metadata fully round-trippable.
 The typed domain model, optional vocabulary registry, and SQLite persistence
 back every surface. C, Python, Rust, and the CLI read and write every value
 kind. The C++ wrapper writes every value kind and reads property queries with
-`queryMetadata`, but does not wrap reading every assertion on one target or
-removing a property, and does not expose its native handles; C++ integrations
-call `pp_production_metadata` and `pp_transaction_remove_metadata_property`
-through the C API for that. Activity metadata
+`queryMetadata`, and removes properties with `removeMetadataProperty`.
+Target-wide assertion reads remain available through the C API. Activity metadata
 is writable after the activity is created in the same or an earlier
 transaction.
 
