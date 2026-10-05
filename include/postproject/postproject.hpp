@@ -4093,6 +4093,25 @@ public:
     return {};
   }
 
+  /// Removes all values of a property; requires a read-bound or based edit.
+  Result<void> removeMetadataProperty(const ObjectRef &target,
+                                      std::string_view vocabulary,
+                                      std::string_view property) {
+    const pp_object_ref_t native_target = detail::native_object_ref(target);
+    POSTPROJECT_TRY_ASSIGN(
+        const std::string native_vocabulary,
+        detail::checked_string(vocabulary, "metadata vocabulary"));
+    POSTPROJECT_TRY_ASSIGN(
+        const std::string native_property,
+        detail::checked_string(property, "metadata property"));
+    pp_error_t *error = nullptr;
+    const pp_error_code_t status = pp_transaction_remove_metadata_property(
+        transaction_, &native_target, native_vocabulary.c_str(),
+        native_property.c_str(), &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    return {};
+  }
+
   Result<Uuid> requestJob(const JobRequest &request) {
     POSTPROJECT_TRY_ASSIGN(const std::string kind,
                            detail::checked_string(request.kind, "job kind"));

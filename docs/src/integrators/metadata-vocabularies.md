@@ -58,17 +58,12 @@ are recursive and ordered.
 
 ## Remove a property
 
-Removal deletes every value of one property from one target in a transaction;
-other properties and other targets are untouched. It is journaled as its own
-revision event:
+Removal deletes every value of one property from one target in a read-bound
+edit. Unbased transactions may append values; replacement and removal require
+a decision base. A destructive commit conflicts after any intervening change
+to that property, including an append. Reread before retrying.
 
 ```{code-variants} remove-metadata
-:::{no-variant} cpp
-The C++ wrapper does not wrap property removal and does not expose its native
-transaction handle. Call `pp_transaction_remove_metadata_property` in a
-transaction begun through the C API, or remove the property from another
-surface.
-:::
 ```
 
 ## Query by property and value
