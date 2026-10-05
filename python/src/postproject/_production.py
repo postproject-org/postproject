@@ -2077,6 +2077,58 @@ class ReadSession:
             _optional_text(cursor),
         )
 
+    def evaluate_artifact(
+        self,
+        representation_id: RepresentationId,
+        *,
+        max_depth: int = 64,
+        max_representations: int = 1_000,
+    ) -> ArtifactEvaluation:
+        """Evaluate stored artifact evidence without accessing media files."""
+
+        self._require_open()
+        native_id = _native_uuid(representation_id)
+        handle = ctypes.POINTER(NativeArtifactEvaluation)()
+        error = ctypes.POINTER(Error)()
+        status = self._native.lib.pp_read_session_evaluate_artifact(
+            self._handle,
+            ctypes.byref(native_id),
+            max_depth,
+            max_representations,
+            ctypes.byref(handle),
+            ctypes.byref(error),
+        )
+        self._native.check(status, error)
+        if not handle:
+            raise RuntimeError("native artifact evaluation returned no result")
+        try:
+            return read_evaluation(self._native, handle)
+        finally:
+            self._native.lib.pp_artifact_evaluation_release(handle)
+
+    def artifact_reproducibility(
+        self, representation_id: RepresentationId
+    ) -> ArtifactReproducibility:
+        """Report whether stored knowledge is sufficient to reproduce an artifact."""
+
+        self._require_open()
+        native_id = _native_uuid(representation_id)
+        handle = ctypes.POINTER(NativeArtifactReproducibility)()
+        error = ctypes.POINTER(Error)()
+        status = self._native.lib.pp_read_session_artifact_reproducibility(
+            self._handle,
+            ctypes.byref(native_id),
+            ctypes.byref(handle),
+            ctypes.byref(error),
+        )
+        self._native.check(status, error)
+        if not handle:
+            raise RuntimeError("native artifact reproducibility returned no report")
+        try:
+            return read_reproducibility(self._native, handle)
+        finally:
+            self._native.lib.pp_artifact_reproducibility_release(handle)
+
     @property
     def decision_base(self) -> DecisionBase:
         """Detach the revision and production captured with this view."""

@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 
 from postproject import (
+    ArtifactKnowledgeState,
     AssetRef,
     ContentVerification,
     DecisionBase,
@@ -48,6 +49,11 @@ def exercise(path: Path, media: Path) -> None:
             assert metadata[0].value == MetadataString("Camera")
             assert view.metadata_by_property(title) == metadata
             assert view.query_metadata(title, limit=10).items == metadata
+            assert (
+                view.evaluate_artifact(representation.id).state
+                == ArtifactKnowledgeState.INDETERMINATE
+            )
+            assert not view.artifact_reproducibility(representation.id).reproducible
             resources = view.resources_page(representation.id, limit=10)
             assert len(resources.items) == 1
             resource = resources.items[0]

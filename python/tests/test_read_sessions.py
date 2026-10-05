@@ -5,6 +5,9 @@ import unittest
 from pathlib import Path
 
 from postproject import (
+    ActivityEdge,
+    ActivitySpec,
+    ArtifactKnowledgeState,
     AssetRef,
     CancelledError,
     CancelToken,
@@ -29,6 +32,56 @@ from postproject import (
 
 
 class ReadSessionTests(unittest.TestCase):
+    def test_artifact_reports_retain_their_provenance_view(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            media = Path(directory) / "camera.mov"
+            media.write_bytes(b"artifact view fixture")
+            with Production.create(Path(directory) / "artifacts.pproj") as production:
+                with production.read_session() as empty, empty.edit() as edit:
+                    asset = edit.import_media(media)
+                    edit.commit()
+                with production.read_session() as view:
+                    representation = view.representations_page(asset, limit=1).items[0]
+                    original = view.evaluate_artifact(representation.id)
+                    report = view.artifact_reproducibility(representation.id)
+                    self.assertEqual(
+                        original.state, ArtifactKnowledgeState.INDETERMINATE
+                    )
+                    self.assertIsNone(report.producing_activity_id)
+                    with view.edit() as edit:
+                        activity = edit.create_activity(
+                            ActivitySpec(
+                                "example:observed",
+                                outputs=(ActivityEdge(representation.id),),
+                            )
+                        )
+                        edit.commit()
+                    self.assertEqual(
+                        view.evaluate_artifact(representation.id), original
+                    )
+                    self.assertEqual(
+                        view.artifact_reproducibility(representation.id), report
+                    )
+                    with production.read_session() as fresh:
+                        self.assertEqual(
+                            fresh.evaluate_artifact(representation.id).state,
+                            ArtifactKnowledgeState.CURRENT,
+                        )
+                        self.assertEqual(
+                            fresh.artifact_reproducibility(
+                                representation.id
+                            ).producing_activity_id,
+                            activity,
+                        )
+                    with self.assertRaises(InvalidArgumentError):
+                        view.evaluate_artifact(representation.id, max_representations=0)
+                for operation in (
+                    lambda: view.evaluate_artifact(representation.id),
+                    lambda: view.artifact_reproducibility(representation.id),
+                ):
+                    with self.assertRaises(RuntimeError):
+                        operation()
+
     def test_job_reads_remain_pinned_across_request_and_cancellation(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             media = Path(directory) / "camera.mov"
