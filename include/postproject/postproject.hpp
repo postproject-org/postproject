@@ -2509,6 +2509,71 @@ artifact_dependency_path(const pp_artifact_reason_t &native) {
   return dependency_path;
 }
 
+inline Result<ArtifactReason> artifact_reason(const pp_artifact_reason_t &native) {
+  const auto kind = static_cast<ArtifactReasonKind>(native.kind);
+  const bool has_dependency =
+      kind == ArtifactReasonKind::dependency_snapshot_absent ||
+      kind == ArtifactReasonKind::dependency_knowledge_incomplete ||
+      kind == ArtifactReasonKind::dependency_path_changed ||
+      kind == ArtifactReasonKind::dependency_fingerprint_changed ||
+      kind == ArtifactReasonKind::
+                  dependency_fingerprint_recomputation_pending ||
+      kind == ArtifactReasonKind::
+                  dependency_fingerprint_evidence_missing;
+  const bool has_activity =
+      kind == ArtifactReasonKind::snapshot_absent ||
+      kind == ArtifactReasonKind::fingerprint_evidence_missing ||
+      kind == ArtifactReasonKind::fingerprint_changed ||
+      kind == ArtifactReasonKind::fingerprint_recomputation_pending ||
+      has_dependency;
+  const bool has_edge = has_activity && !has_dependency;
+  auto dependency_path = artifact_dependency_path(native);
+  ArtifactReason reason{
+      kind,
+       has_activity ? std::optional<Uuid>(uuid(native.activity_id))
+                    : std::nullopt,
+       uuid(native.representation_id),
+       has_dependency ? std::optional<Uuid>(
+                            uuid(native.input_representation_id))
+                      : std::nullopt,
+       has_edge ? std::optional<ArtifactEdgeKind>(
+                      static_cast<ArtifactEdgeKind>(native.edge_kind))
+                : std::nullopt,
+       kind == ArtifactReasonKind::upstream_not_current
+           ? std::optional<ArtifactKnowledgeState>(
+                 static_cast<ArtifactKnowledgeState>(native.upstream_state))
+           : std::nullopt,
+       kind == ArtifactReasonKind::traversal_truncated
+           ? std::optional<ArtifactTraversalLimit>(
+                 static_cast<ArtifactTraversalLimit>(
+                     native.traversal_limit))
+           : std::nullopt,
+       kind == ArtifactReasonKind::producing_activity_ambiguous
+           ? std::optional<std::uint32_t>(native.activity_count)
+           : std::nullopt,
+       kind == ArtifactReasonKind::dependency_knowledge_incomplete
+           ? std::optional<ArtifactDependencyIssue>(
+                 static_cast<ArtifactDependencyIssue>(
+                     native.dependency_issue))
+           : std::nullopt,
+       std::move(dependency_path),
+       optional_string(native.fingerprint_algorithm),
+       native.fingerprint_algorithm != nullptr
+           ? std::optional<std::uint16_t>(native.fingerprint_version)
+           : std::nullopt,
+       std::nullopt, std::nullopt};
+  POSTPROJECT_TRY_ASSIGN(
+      reason.snapshot_value,
+      optional_bytes(native.has_snapshot_value,
+                             native.snapshot_value,
+                             native.snapshot_value_length));
+  POSTPROJECT_TRY_ASSIGN(
+      reason.current_value,
+      optional_bytes(native.has_current_value, native.current_value,
+                             native.current_value_length));
+  return reason;
+}
+
 inline Result<QueryPage<Job>> job_page(JobSetHandle jobs) {
   std::vector<Job> items;
   const std::uint64_t count = pp_job_set_count(jobs.get());
@@ -5395,67 +5460,7 @@ public:
       const pp_error_code_t reason_status = pp_artifact_evaluation_get_reason(
           evaluation.get(), index, &native, &reason_error);
       POSTPROJECT_TRY(detail::check(reason_status, reason_error));
-      const auto kind = static_cast<ArtifactReasonKind>(native.kind);
-      const bool has_dependency =
-          kind == ArtifactReasonKind::dependency_snapshot_absent ||
-          kind == ArtifactReasonKind::dependency_knowledge_incomplete ||
-          kind == ArtifactReasonKind::dependency_path_changed ||
-          kind == ArtifactReasonKind::dependency_fingerprint_changed ||
-          kind == ArtifactReasonKind::
-                      dependency_fingerprint_recomputation_pending ||
-          kind == ArtifactReasonKind::
-                      dependency_fingerprint_evidence_missing;
-      const bool has_activity =
-          kind == ArtifactReasonKind::snapshot_absent ||
-          kind == ArtifactReasonKind::fingerprint_evidence_missing ||
-          kind == ArtifactReasonKind::fingerprint_changed ||
-          kind == ArtifactReasonKind::fingerprint_recomputation_pending ||
-          has_dependency;
-      const bool has_edge = has_activity && !has_dependency;
-      auto dependency_path = detail::artifact_dependency_path(native);
-      ArtifactReason reason{
-          kind,
-           has_activity ? std::optional<Uuid>(detail::uuid(native.activity_id))
-                        : std::nullopt,
-           detail::uuid(native.representation_id),
-           has_dependency ? std::optional<Uuid>(
-                                detail::uuid(native.input_representation_id))
-                          : std::nullopt,
-           has_edge ? std::optional<ArtifactEdgeKind>(
-                          static_cast<ArtifactEdgeKind>(native.edge_kind))
-                    : std::nullopt,
-           kind == ArtifactReasonKind::upstream_not_current
-               ? std::optional<ArtifactKnowledgeState>(
-                     static_cast<ArtifactKnowledgeState>(native.upstream_state))
-               : std::nullopt,
-           kind == ArtifactReasonKind::traversal_truncated
-               ? std::optional<ArtifactTraversalLimit>(
-                     static_cast<ArtifactTraversalLimit>(
-                         native.traversal_limit))
-               : std::nullopt,
-           kind == ArtifactReasonKind::producing_activity_ambiguous
-               ? std::optional<std::uint32_t>(native.activity_count)
-               : std::nullopt,
-           kind == ArtifactReasonKind::dependency_knowledge_incomplete
-               ? std::optional<ArtifactDependencyIssue>(
-                     static_cast<ArtifactDependencyIssue>(
-                         native.dependency_issue))
-               : std::nullopt,
-           std::move(dependency_path),
-           detail::optional_string(native.fingerprint_algorithm),
-           native.fingerprint_algorithm != nullptr
-               ? std::optional<std::uint16_t>(native.fingerprint_version)
-               : std::nullopt,
-           std::nullopt, std::nullopt};
-      POSTPROJECT_TRY_ASSIGN(
-          reason.snapshot_value,
-          detail::optional_bytes(native.has_snapshot_value,
-                                 native.snapshot_value,
-                                 native.snapshot_value_length));
-      POSTPROJECT_TRY_ASSIGN(
-          reason.current_value,
-          detail::optional_bytes(native.has_current_value, native.current_value,
-                                 native.current_value_length));
+      POSTPROJECT_TRY_ASSIGN(ArtifactReason reason, detail::artifact_reason(native));
       reasons.push_back(std::move(reason));
     }
     return ArtifactEvaluation{
