@@ -432,7 +432,7 @@ static pp_error_code_t create_production(const char *path, const char *media,
   pp_media_source_release(camera);
   if (status == PP_OK) {
     /* A job's target root names an existing logical media root. */
-    pp_uuid_t root_id;
+    pp_media_root_id_t root_id;
     status = pp_transaction_add_media_root(transaction, "proxies",
                                            "Proxy storage", 0, &root_id, error);
   }

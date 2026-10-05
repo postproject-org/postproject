@@ -169,7 +169,7 @@ static pp_error_code_t add_title(pp_production_t *production,
 static pp_error_code_t add_rushes_root(pp_production_t *production,
                                        pp_error_t **error) {
   pp_transaction_t *transaction = NULL;
-  pp_uuid_t root_id;
+  pp_media_root_id_t root_id;
 
   pp_error_code_t status =
       pp_production_begin_transaction(production, &transaction, error);

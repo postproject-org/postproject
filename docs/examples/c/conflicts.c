@@ -33,7 +33,7 @@ static pp_error_code_t latest_revision(pp_production_t *production,
 
 static pp_error_code_t
 update_from_a_base_revision(pp_production_t *production, pp_error_t **error) {
-  pp_uuid_t root_id;
+  pp_media_root_id_t root_id;
   pp_revision_id_t base_id;
   pp_revision_id_t superseding_id;
   uint64_t base_sequence = 0;
@@ -72,7 +72,7 @@ update_from_a_base_revision(pp_production_t *production, pp_error_t **error) {
                                                 &transaction, error);
   }
   if (status == PP_OK) {
-    status = pp_transaction_set_media_root_enabled(transaction, &root_id, 0,
+    status = pp_transaction_set_media_root_enabled(transaction, root_id, 0,
                                                    error);
   }
   if (status == PP_OK) {
@@ -93,7 +93,7 @@ update_from_a_base_revision(pp_production_t *production, pp_error_t **error) {
                                                 &transaction, error);
   }
   if (status == PP_OK) {
-    status = pp_transaction_set_media_root_enabled(transaction, &root_id, 1,
+    status = pp_transaction_set_media_root_enabled(transaction, root_id, 1,
                                                    error);
   }
   if (status == PP_OK) {
@@ -103,7 +103,8 @@ update_from_a_base_revision(pp_production_t *production, pp_error_t **error) {
     if (status == PP_ERROR_CONFLICT &&
         pp_error_transaction_conflict(conflict_error, &conflict) != 0 &&
         conflict.kind == PP_CONFLICT_MEDIA_ROOT &&
-        memcmp(conflict.target.id.bytes, root_id.bytes, sizeof(root_id.bytes)) ==
+        conflict.target.kind == 0 &&
+        memcmp(conflict.media_root_id.bytes, root_id.bytes, sizeof(root_id.bytes)) ==
             0 &&
         memcmp(conflict.base_revision_id.bytes, base_id.bytes,
                sizeof(base_id.bytes)) == 0 &&
@@ -130,7 +131,7 @@ update_from_a_base_revision(pp_production_t *production, pp_error_t **error) {
                                                 &transaction, error);
   }
   if (status == PP_OK) {
-    status = pp_transaction_set_media_root_enabled(transaction, &root_id, 1,
+    status = pp_transaction_set_media_root_enabled(transaction, root_id, 1,
                                                    error);
   }
   if (status == PP_OK) {

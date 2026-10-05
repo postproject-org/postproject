@@ -330,7 +330,7 @@ static pp_error_code_t print_asset_structure(const pp_production_t *production,
 
 /* [media-root-lifecycle] */
 static pp_error_code_t find_root(const pp_production_t *production,
-                                 const char *wanted, pp_uuid_t *out_root_id,
+                                 const char *wanted, pp_media_root_id_t *out_root_id,
                                  int *out_found, pp_error_t **error) {
   pp_media_root_set_t *roots = NULL;
   *out_found = 0;
@@ -338,7 +338,7 @@ static pp_error_code_t find_root(const pp_production_t *production,
   /* Roots are ordered by resolver priority, then stable identity. */
   for (uint64_t i = 0; status == PP_OK && i < pp_media_root_set_count(roots);
        ++i) {
-    pp_uuid_t id;
+    pp_media_root_id_t id;
     const char *name, *label, *legacy_uri;
     int32_t priority = 0;
     uint8_t enabled = 0;
@@ -358,7 +358,7 @@ static pp_error_code_t find_root(const pp_production_t *production,
 }
 
 static pp_error_code_t apply_root_change(pp_production_t *production,
-                                         const pp_uuid_t *root_id, int change,
+                                         const pp_media_root_id_t *root_id, int change,
                                          pp_error_t **error) {
   pp_transaction_t *transaction = NULL;
   pp_error_code_t status =
@@ -366,12 +366,12 @@ static pp_error_code_t apply_root_change(pp_production_t *production,
   if (status == PP_OK && change == 0) {
     /* A disabled root keeps its locators but is skipped by resolution. */
     status =
-        pp_transaction_set_media_root_enabled(transaction, root_id, 0, error);
+        pp_transaction_set_media_root_enabled(transaction, *root_id, 0, error);
   } else if (status == PP_OK && change == 1) {
     status =
-        pp_transaction_set_media_root_enabled(transaction, root_id, 1, error);
+        pp_transaction_set_media_root_enabled(transaction, *root_id, 1, error);
   } else if (status == PP_OK) {
-    status = pp_transaction_remove_media_root(transaction, root_id, error);
+    status = pp_transaction_remove_media_root(transaction, *root_id, error);
   }
   if (status == PP_OK) {
     status = pp_transaction_commit(transaction, error);
@@ -382,7 +382,7 @@ static pp_error_code_t apply_root_change(pp_production_t *production,
 
 static pp_error_code_t cycle_media_root(pp_production_t *production,
                                         const char *name, pp_error_t **error) {
-  pp_uuid_t root_id;
+  pp_media_root_id_t root_id;
   int found = 0;
   pp_error_code_t status = find_root(production, name, &root_id, &found, error);
   if (status == PP_OK && !found) {
@@ -677,7 +677,7 @@ static pp_error_code_t create_production(const char *path, const char *media,
   pp_transaction_t *transaction = NULL;
   pp_media_source_t *camera = NULL;
   pp_media_source_t *sequence = NULL;
-  pp_uuid_t root_id;
+  pp_media_root_id_t root_id;
   pp_uuid_t sequence_id;
   pp_error_code_t status =
       pp_production_create(path, "Documentary", &production, error);
@@ -952,7 +952,7 @@ static pp_error_code_t confirm_moved(pp_production_t *production,
 static pp_error_code_t add_unmapped_root(pp_production_t *production,
                                          pp_error_t **error) {
   pp_transaction_t *transaction = NULL;
-  pp_uuid_t root_id;
+  pp_media_root_id_t root_id;
   pp_error_code_t status =
       pp_production_begin_transaction(production, &transaction, error);
   if (status == PP_OK) {

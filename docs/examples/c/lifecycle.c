@@ -123,7 +123,7 @@ static pp_error_code_t open_production(const char *path,
 static pp_error_code_t commit_then_roll_back(pp_production_t *production,
                                              pp_error_t **error) {
   pp_transaction_t *transaction = NULL;
-  pp_uuid_t root_id;
+  pp_media_root_id_t root_id;
 
   /* Commit: every staged change becomes one durable revision. */
   pp_error_code_t status =
@@ -247,7 +247,7 @@ static pp_error_code_t media_root_names(const pp_production_t *production,
   pp_error_code_t status = pp_production_media_roots(production, &roots, error);
   for (uint64_t i = 0; status == PP_OK && i < pp_media_root_set_count(roots);
        ++i) {
-    pp_uuid_t id;
+    pp_media_root_id_t id;
     const char *name = NULL;
     const char *label = NULL;
     const char *legacy_uri = NULL;
