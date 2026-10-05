@@ -24,8 +24,8 @@ require explicit commit and roll back on normal exit as well as on exceptions.
 
 The development C/C++/Python read-session surface currently provides asset and
 representation point reads and bounded pages, resources, locators, metadata,
-logical roots, external identifiers and known-media lookup. Rust exposes the full domain
-read interface. Existing production queries read current state separately.
+logical roots, external identifiers, known-media lookup, jobs, artifact reports,
+resolution and verification. Rust exposes the full domain read interface. Existing production queries read current state separately.
 The CLI's `inspect --limit N` emits a bounded coherent summary and a
 `--decision-base` token; a truncated summary requires a new inspection rather
 than resuming a closed view.

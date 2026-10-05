@@ -77,5 +77,13 @@ Seven Python view regressions and the extracted coherent recipes pass. Eight
 installed native contracts pass; the library exports the expected 257 symbols.
 These are development checks, not final platform or host qualification.
 
+Subsequent job and artifact projections bring the native read-query count to
+21 and the export count to 261. Nine Python view regressions pass, including
+request/cancel and producing-activity changes behind retained reports.
+The existing C++ artifact examples pass after shared decoder refactoring.
+Full Rust workspace tests, Clippy, Rustdoc, deny and architecture checks pass
+at the job-read checkpoint; artifact forwarding also passes FFI Clippy and
+its installed coherent recipes. Installed wheels above predate these additions.
+
 Repository inputs and migration status are in
 [`api-safety-repositories.md`](api-safety-repositories.md).

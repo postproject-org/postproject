@@ -120,6 +120,10 @@ These are local development artifacts, not published packages.
 | Natron `16fabb5` | 1 passed; module built | Installed native contract and stable-ABI CPython module |
 | C++ NLE baseline | 1 passed | Fresh installed CMake consumer fixture |
 
+OBS, Natron and the C++ NLE rows above used installed SDK `73dbc34`, before
+the token additions. Their ABI 39 checks are recorded as earlier evidence;
+they have not yet qualified the final candidate.
+
 The Blender bundle SHA-256 is
 `9c0de4b708abf78fada3d3680887076dde8ddc2185647c26d0852ce1130d829b`.
 Its binding and native library come from the platform wheel above. Background
