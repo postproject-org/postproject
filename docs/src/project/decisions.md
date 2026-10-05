@@ -67,6 +67,7 @@ Read the relevant ADR before changing an invariant, a boundary, or a public cont
 - {doc}`ADR 0049 — Native semantic identities </adr/0049-native-semantic-identities>`
 - {doc}`ADR 0050 — Bounded revision events </adr/0050-bounded-revision-events>`
 - {doc}`ADR 0051 — Closed job-state projections </adr/0051-closed-job-state-projections>`
+- {doc}`ADR 0052 — Mergeable metadata and destructive decisions </adr/0052-metadata-append-conflicts>`
 
 ```{toctree}
 :hidden:
@@ -122,4 +123,5 @@ Read the relevant ADR before changing an invariant, a boundary, or a public cont
 /adr/0049-native-semantic-identities
 /adr/0050-bounded-revision-events
 /adr/0051-closed-job-state-projections
+/adr/0052-metadata-append-conflicts
 ```

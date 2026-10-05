@@ -38,6 +38,7 @@ pub struct SqliteTransaction<'production> {
     pending_events: Vec<RevisionEventKind>,
     base_revision: Option<(Option<RevisionId>, u64)>,
     pending_conflict_keys: BTreeMap<Vec<u8>, SemanticConflictKey>,
+    pending_changed_keys: BTreeMap<Vec<u8>, SemanticConflictKey>,
     revision_signal: &'production RevisionSignal,
 }
 
@@ -133,6 +134,7 @@ impl<'production> SqliteTransaction<'production> {
             pending_events: Vec::new(),
             base_revision,
             pending_conflict_keys: BTreeMap::new(),
+            pending_changed_keys: BTreeMap::new(),
             revision_signal,
         })
     }
@@ -1059,6 +1061,12 @@ impl<'production> SqliteTransaction<'production> {
             position,
             &encoded,
         )?;
+        // An append may merge, but a later stale removal or replacement must
+        // still notice that this property's contents changed.
+        self.record_changed_key(SemanticConflictKey::MetadataProperty {
+            target,
+            property: property.clone(),
+        })?;
         self.pending_events
             .push(RevisionEventKind::MetadataAddedOrReplaced {
                 target,
@@ -1663,12 +1671,14 @@ impl<'production> SqliteTransaction<'production> {
             self.pending_roots.clear();
             self.pending_events.clear();
             self.pending_conflict_keys.clear();
+            self.pending_changed_keys.clear();
         }
         result
     }
 
     fn commit_open(&mut self) -> Result<CommitReceipt> {
         let conflict_keys = self.pending_conflict_keys.clone();
+        let changed_keys = self.pending_changed_keys.clone();
         if let Some(base_revision) = self.base_revision {
             let conflict =
                 find_transaction_conflict(self.open_transaction()?, base_revision, &conflict_keys)?;
@@ -1697,7 +1707,7 @@ impl<'production> SqliteTransaction<'production> {
             )?;
             persist_conflict_versions(
                 self.open_transaction()?,
-                &conflict_keys,
+                &changed_keys,
                 revision_id,
                 revision_sequence,
             )?;
@@ -1709,7 +1719,7 @@ impl<'production> SqliteTransaction<'production> {
                 context.origin().cloned(),
                 context.message().map(str::to_owned),
             )?);
-        } else if !conflict_keys.is_empty() {
+        } else if !changed_keys.is_empty() {
             return Err(Error::new(
                 ErrorKind::Internal,
                 "semantic conflict keys require a revision event",
@@ -1728,6 +1738,7 @@ impl<'production> SqliteTransaction<'production> {
         }
         self.pending_events.clear();
         self.pending_conflict_keys.clear();
+        self.pending_changed_keys.clear();
         Ok(CommitReceipt::new(self.production.id(), revision))
     }
 
@@ -1747,12 +1758,21 @@ impl<'production> SqliteTransaction<'production> {
         self.pending_roots.clear();
         self.pending_events.clear();
         self.pending_conflict_keys.clear();
+        self.pending_changed_keys.clear();
         Ok(())
     }
 
     fn record_conflict_key(&mut self, key: SemanticConflictKey) -> Result<()> {
         let encoded = encode_conflict_key(&key)?;
+        self.pending_changed_keys
+            .insert(encoded.clone(), key.clone());
         self.pending_conflict_keys.insert(encoded, key);
+        Ok(())
+    }
+
+    fn record_changed_key(&mut self, key: SemanticConflictKey) -> Result<()> {
+        let encoded = encode_conflict_key(&key)?;
+        self.pending_changed_keys.insert(encoded, key);
         Ok(())
     }
 
