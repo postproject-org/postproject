@@ -34,6 +34,44 @@ unsafe fn forward_read(
     })
 }
 
+/// Copies the latest revision retained by the pinned view, or an empty set.
+///
+/// # Safety
+/// Session must be live; outputs writable, error nullable/writable.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_read_session_latest_revision(
+    session: *const PpReadSession,
+    out_revisions: *mut *mut crate::PpRevisionSet,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: The delegate validates pointers and contains panics.
+    unsafe {
+        forward_read(session, out_error, |reader| {
+            crate::pp_production_latest_revision(reader, out_revisions, out_error)
+        })
+    }
+}
+
+/// Copies bounded ascending revisions through the pinned journal head.
+///
+/// # Safety
+/// Session must be live; outputs writable, error nullable/writable.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_read_session_changes_since(
+    session: *const PpReadSession,
+    sequence: u64,
+    limit: u32,
+    out_revisions: *mut *mut crate::PpRevisionSet,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: The delegate validates pointers and contains panics.
+    unsafe {
+        forward_read(session, out_error, |reader| {
+            crate::pp_production_changes_since(reader, sequence, limit, out_revisions, out_error)
+        })
+    }
+}
+
 /// Copies a bounded page of producing activities from the pinned view.
 ///
 /// # Safety

@@ -73,6 +73,7 @@ static int exercise(const char *path, const char *media) {
   pp_metadata_input_t *title = NULL;
   pp_asset_set_t *assets = NULL;
   pp_job_set_t *jobs = NULL;
+  pp_revision_set_t *journal = NULL;
   pp_activity_set_t *activities = NULL;
   pp_dependency_set_t *dependencies = NULL;
   pp_dependency_query_set_t *dependency_page = NULL;
@@ -111,6 +112,12 @@ static int exercise(const char *path, const char *media) {
   CHECK(pp_read_session_assets_page(empty, 10, NULL, &assets, &error));
   if (pp_asset_set_count(assets) != 0) goto cleanup;
   pp_asset_set_release(assets); assets = NULL;
+  CHECK(pp_read_session_latest_revision(empty, &journal, &error));
+  if (pp_revision_set_count(journal)) goto cleanup;
+  pp_revision_set_release(journal); journal = NULL;
+  CHECK(pp_read_session_changes_since(empty, 0, 10, &journal, &error));
+  if (pp_revision_set_count(journal)) goto cleanup;
+  pp_revision_set_release(journal); journal = NULL;
   pp_read_session_release(empty); empty = NULL;
 
   CHECK(pp_production_read_session(production, &view, &error));
@@ -129,6 +136,9 @@ static int exercise(const char *path, const char *media) {
   if (pp_read_session_representations_under_media_root(view, "missing", 10, NULL,
       &representations, &error) != PP_ERROR_NOT_FOUND || representations) goto cleanup;
   pp_error_release(error); error = NULL;
+  CHECK(pp_read_session_latest_revision(view, &journal, &error));
+  if (pp_revision_set_count(journal) != 1) goto cleanup;
+  pp_revision_set_release(journal); journal = NULL;
   CHECK(pp_read_session_asset(view, &asset, &assets, &error));
   if (pp_asset_set_count(assets) != 1) goto cleanup;
   CHECK(pp_read_session_representations_page(view, &asset, 10, NULL, &representations, &error));
@@ -234,6 +244,7 @@ cleanup:
   pp_asset_set_release(assets);
   pp_job_set_release(jobs);
   pp_activity_set_release(activities);
+  pp_revision_set_release(journal);
   pp_dependency_set_release(dependencies);
   pp_dependency_query_set_release(dependency_page);
   pp_artifact_evaluation_release(evaluation);

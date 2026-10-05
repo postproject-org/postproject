@@ -172,6 +172,7 @@ pp_read_session_artifact_reproducibility
 pp_read_session_asset
 pp_read_session_assets_page
 pp_read_session_begin_edit
+pp_read_session_changes_since
 pp_read_session_decision_base
 pp_read_session_dependencies
 pp_read_session_dependency_set
@@ -184,6 +185,7 @@ pp_read_session_find_known_media_by_locator
 pp_read_session_find_metadata
 pp_read_session_job
 pp_read_session_jobs
+pp_read_session_latest_revision
 pp_read_session_locators_page
 pp_read_session_media_roots
 pp_read_session_metadata

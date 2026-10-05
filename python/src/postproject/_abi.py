@@ -734,6 +734,7 @@ EXPORTED_SYMBOLS = (
     "pp_read_session_asset",
     "pp_read_session_assets_page",
     "pp_read_session_begin_edit",
+    "pp_read_session_changes_since",
     "pp_read_session_decision_base",
     "pp_read_session_dependencies",
     "pp_read_session_dependency_set",
@@ -746,6 +747,7 @@ EXPORTED_SYMBOLS = (
     "pp_read_session_find_metadata",
     "pp_read_session_job",
     "pp_read_session_jobs",
+    "pp_read_session_latest_revision",
     "pp_read_session_locators_page",
     "pp_read_session_media_roots",
     "pp_read_session_metadata",
@@ -856,6 +858,10 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_read_session_evaluate_artifact.restype = ErrorCode
     lib.pp_read_session_artifact_reproducibility.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.POINTER(ArtifactReproducibility)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_read_session_artifact_reproducibility.restype = ErrorCode
+    lib.pp_read_session_latest_revision.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(ctypes.POINTER(RevisionSet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_read_session_latest_revision.restype = ErrorCode
+    lib.pp_read_session_changes_since.argtypes = [ctypes.POINTER(ReadSession), ctypes.c_uint64, ctypes.c_uint32, ctypes.POINTER(ctypes.POINTER(RevisionSet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_read_session_changes_since.restype = ErrorCode
     lib.pp_read_session_activities_producing_page.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(Uuid), ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(ActivitySet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_read_session_activities_producing_page.restype = ErrorCode
     lib.pp_read_session_activities_consuming_page.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(Uuid), ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(ActivitySet)), ctypes.POINTER(ctypes.POINTER(Error))]
