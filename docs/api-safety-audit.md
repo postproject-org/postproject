@@ -187,3 +187,21 @@ Logs use `target/api-safety-metadata-*`; the repository manifest records the
 matching artifacts and consumer scope. Other unbased mutation families, native
 ID kinds, leases, bounded materializers and final qualification remain open.
 No audit row or completion gate is closed by this checkpoint.
+
+## Typed media-root checkpoint
+
+SDK `50a6027` retains schema 17 and uses ABI 42: 294 exports, 22 agreeing
+public layouts and 39 native read queries. Root creation/mutation, summaries,
+revision events and conflict outputs carry a distinct native identity. C scalar
+mutations take values. C++ conflict targets are `ObjectRef`/`MediaRootId`
+alternatives; Python keeps ordinary UUIDs. Direct C/C++/ctypes checks reject
+wrong native kinds. Runtime tests reject nil/foreign roots without a revision.
+
+All six required Rust gates, eight installed native contracts, all 64 extracted
+tests, strict docs and source Ruff/ty pass. Source and installed-wheel Python
+each run 75 tests with one skip. Installed typing checks reject five wrong-kind
+calls. The platform-wheel quickstart passes without library overrides. Matching
+consumer/artifact scope is in the repository manifest; logs use
+`target/api-safety-root-*` (Kdenlive uses `api-safety-kdenlive-root-*`).
+Other identity/value families, write restrictions, leases, bounded-query audit
+and final host/platform/handoff qualification remain open.

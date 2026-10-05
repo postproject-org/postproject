@@ -255,3 +255,36 @@ Maintained native-host evidence remains the preceding asset checkpoint; those
 pilots were not rebuilt for this metadata slice. Interactive host/handoff and
 final platform qualification remain pending. All repositories stay on local
 `main`, with no push, tag or publication.
+
+## ABI 42 media-root checks
+
+SDK `50a6027` contains native library inputs `67e2c98`, C++ header inputs
+`b70476d` and Python inputs `7cba1c9`. Later commits change recipes, evidence
+and static fixtures. Installed files use `target/api-safety-root-install`.
+Schema 17, 294 exports and 22 public layouts agree. Artifact SHA-256 values:
+
+- Neutral wheel: `6b0457a8e28ca8cf4767ba8c3dabaefc9ce3c9bb0f53493f2f88f23a54b4586f`.
+- Linux platform wheel: `1317e12e5cd35a0cb9d3528dd0cd122ce5109ef2190d997083f06d8cfe35d500`.
+- Blender bundle: `b5a1efc51bcc67ed10d95b8ebcc20edc622c108a9463658d117fa89006ee344b`.
+
+Wheels are in `target/api-safety-wheel/root-abi42/`; the bundle is in
+`target/api-safety-blender/root-abi42/`.
+
+| Consumer commit | Executed result | Scope |
+|---|---|---|
+| Manager `da2caaa` | 6 passed | Installed neutral wheel, Python 3.13 |
+| OpenAssetIO `5e38c31`, OTIO `81a6ee6`, demo `c18f5bc`, Python host `c42b8b8` | 1 passed each | Separate installed-wheel runs; unchanged OTIO linker pin |
+| Blender `71f49b6` | 23 passed, 1 skipped | Rebuilt installed bundle; Blender 5.2.2 LTS `d13f752e3b9c`; 5.3-only case skipped |
+| Natron `5fd11c1` | 1 passed; module built | Native contract and stable-ABI module; actual bridge conflict text tested on Python 3.13 |
+| OBS `2d957a6` | 2 passed; plugin/driver built | Installed direct-C contracts; SDK version documentation updated |
+| Ardour `e7a0c02` | Passed | Stereo-WAV resolver rebuilt against ABI 42; unchanged maintained patched source |
+| Kdenlive `0312999` | Compiled | Sidecar and shared/proxy tests rebuilt with host flags from the preserved patched source |
+| C++ NLE baseline | 1 passed | Fresh installed CMake consumer |
+
+All six required Rust gates, eight native contracts, 64 extracted tests, strict
+docs and installed typing fixtures pass. Source and installed-wheel Python
+each run 75 tests with one skip. The bundled-wheel quickstart runs without
+native-library overrides. Natron's bridge scenario records its structured
+conflict in `target/api-safety-root-natron-bridge.json`. No full native-host,
+interactive/handoff, exact MSRV or final platform qualification is inferred.
+All changes remain on local `main`; no push, tag or publication occurred.
