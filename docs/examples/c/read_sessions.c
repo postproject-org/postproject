@@ -163,6 +163,12 @@ static int exercise(const char *path, const char *media) {
   pp_dependency_query_set_release(dependency_page); dependency_page = NULL;
   CHECK(pp_read_session_dependents(view, &target, 64, 1000, 10, NULL, &dependency_page, &error));
   if (pp_dependency_query_set_count(dependency_page) != 0) goto cleanup;
+  CHECK(pp_read_session_outputs_by_activity_kind(view, "example:render", 10, NULL, &provenance_page, &error));
+  if (pp_object_query_set_count(provenance_page)) goto cleanup;
+  pp_object_query_set_release(provenance_page); provenance_page = NULL;
+  CHECK(pp_read_session_outputs_by_tool(view, "Example", NULL, NULL, 10, NULL, &provenance_page, &error));
+  if (pp_object_query_set_count(provenance_page)) goto cleanup;
+  pp_object_query_set_release(provenance_page); provenance_page = NULL;
   CHECK(pp_read_session_provenance_ancestors_page(view, &representation, 64, 1000, 10, NULL, &provenance_page, &error));
   if (pp_object_query_set_count(provenance_page)) goto cleanup;
   pp_object_query_set_release(provenance_page); provenance_page = NULL;

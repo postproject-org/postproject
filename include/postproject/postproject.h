@@ -514,6 +514,15 @@ PP_API pp_error_code_t pp_read_session_evaluate_artifact(
 PP_API pp_error_code_t pp_read_session_artifact_reproducibility(
     const pp_read_session_t *session, const pp_uuid_t *representation_id,
     pp_artifact_reproducibility_t **out_report, pp_error_t **out_error);
+/* Exact activity output filters use the same pinned view. */
+PP_API pp_error_code_t pp_read_session_outputs_by_activity_kind(
+    const pp_read_session_t *session, const char *kind, uint32_t limit,
+    const char *cursor, pp_object_query_set_t **out_objects,
+    pp_error_t **out_error);
+PP_API pp_error_code_t pp_read_session_outputs_by_tool(
+    const pp_read_session_t *session, const char *name, const char *version,
+    const char *uri, uint32_t limit, const char *cursor,
+    pp_object_query_set_t **out_objects, pp_error_t **out_error);
 /* Provenance traversal and staleness use pinned knowledge and explicit bounds. */
 PP_API pp_error_code_t pp_read_session_provenance_ancestors_page(
     const pp_read_session_t *session, const pp_uuid_t *representation_id,

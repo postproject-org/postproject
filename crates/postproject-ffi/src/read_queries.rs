@@ -34,6 +34,66 @@ unsafe fn forward_read(
     })
 }
 
+/// Copies outputs matching one exact activity kind in the pinned view.
+///
+/// # Safety
+/// Session must be live; strings null or UTF-8, outputs writable.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_read_session_outputs_by_activity_kind(
+    session: *const PpReadSession,
+    kind: *const c_char,
+    limit: u32,
+    cursor: *const c_char,
+    out_objects: *mut *mut crate::PpObjectQuerySet,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: The delegate validates pointers and contains panics.
+    unsafe {
+        forward_read(session, out_error, |reader| {
+            crate::pp_production_outputs_by_activity_kind(
+                reader,
+                kind,
+                limit,
+                cursor,
+                out_objects,
+                out_error,
+            )
+        })
+    }
+}
+
+/// Copies outputs matching one exact tool identity in the pinned view.
+///
+/// # Safety
+/// Session must be live; strings null or UTF-8, outputs writable.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_read_session_outputs_by_tool(
+    session: *const PpReadSession,
+    name: *const c_char,
+    version: *const c_char,
+    uri: *const c_char,
+    limit: u32,
+    cursor: *const c_char,
+    out_objects: *mut *mut crate::PpObjectQuerySet,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: The delegate validates pointers and contains panics.
+    unsafe {
+        forward_read(session, out_error, |reader| {
+            crate::pp_production_outputs_by_tool(
+                reader,
+                name,
+                version,
+                uri,
+                limit,
+                cursor,
+                out_objects,
+                out_error,
+            )
+        })
+    }
+}
+
 /// Copies bounded shortest-depth provenance ancestors from the pinned view.
 ///
 /// # Safety
