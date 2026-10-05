@@ -29,6 +29,16 @@ class IdentityTests(unittest.TestCase):
                     None, wrong_id, ctypes.byref(events), ctypes.byref(error)
                 )
 
+    def test_native_asset_reads_reject_other_id_structures(self) -> None:
+        native = _native.NativeLibrary()
+        assets = ctypes.POINTER(_abi.AssetSet)()
+        error = ctypes.POINTER(_abi.Error)()
+        for wrong_id in (_abi.Uuid(), _abi.ProductionId(), _abi.RevisionId()):
+            with self.assertRaises(ctypes.ArgumentError):
+                native.lib.pp_production_asset(
+                    None, wrong_id, ctypes.byref(assets), ctypes.byref(error)
+                )
+
     def test_nominal_annotation_keeps_uuid_identity_and_standard_operations(
         self,
     ) -> None:

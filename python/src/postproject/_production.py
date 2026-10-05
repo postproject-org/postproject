@@ -786,12 +786,12 @@ class Production:
         """Return one asset, raising ``NotFoundError`` when it is absent."""
 
         self._require_open()
-        native_id = _native_uuid(asset_id)
+        native_id = _native_asset_id(asset_id)
         handle = ctypes.POINTER(AssetSet)()
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_production_asset(
             self._handle,
-            ctypes.byref(native_id),
+            native_id,
             ctypes.byref(handle),
             ctypes.byref(error),
         )
@@ -870,11 +870,11 @@ class Production:
         """Return one bounded page of representations belonging to an asset."""
 
         self._require_open()
-        native_id = _native_uuid(asset_id)
+        native_id = _native_asset_id(asset_id)
         return self._representation_page(
             self._native.lib.pp_production_representations_page,
             self._handle,
-            ctypes.byref(native_id),
+            native_id,
             limit,
             _optional_text(cursor),
         )
@@ -1226,12 +1226,12 @@ class Production:
         """Return whether an asset identity belongs to this production."""
 
         self._require_open()
-        native_id = _native_uuid(asset_id)
+        native_id = _native_asset_id(asset_id)
         exists = ctypes.c_uint8()
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_production_asset_exists(
             self._handle,
-            ctypes.byref(native_id),
+            native_id,
             ctypes.byref(exists),
             ctypes.byref(error),
         )
@@ -1258,12 +1258,12 @@ class Production:
 
     def _representations(self, asset_id: AssetId) -> tuple[Representation, ...]:
         self._require_open()
-        native_id = _native_uuid(asset_id)
+        native_id = _native_asset_id(asset_id)
         handle = ctypes.POINTER(RepresentationSet)()
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_production_representations(
             self._handle,
-            ctypes.byref(native_id),
+            native_id,
             ctypes.byref(handle),
             ctypes.byref(error),
         )
@@ -1804,8 +1804,8 @@ def _resolve_assets(
     asset_ids: tuple[AssetId, ...],
     options: _ResolutionOptions,
 ) -> tuple[RepresentationResolution, ...]:
-    native_ids = (Uuid * len(asset_ids))(
-        *(_native_uuid(asset_id) for asset_id in asset_ids)
+    native_ids = (_abi.AssetId * len(asset_ids))(
+        *(_native_asset_id(asset_id) for asset_id in asset_ids)
     )
     handle = ctypes.POINTER(ResolutionSet)()
     error = ctypes.POINTER(Error)()
@@ -2582,12 +2582,12 @@ class ReadSession:
         """Return one asset, raising ``NotFoundError`` when it is absent."""
 
         self._require_open()
-        native_id = _native_uuid(asset_id)
+        native_id = _native_asset_id(asset_id)
         handle = ctypes.POINTER(AssetSet)()
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_read_session_asset(
             self._handle,
-            ctypes.byref(native_id),
+            native_id,
             ctypes.byref(handle),
             ctypes.byref(error),
         )
@@ -2651,11 +2651,11 @@ class ReadSession:
         """Return one bounded page of representations belonging to an asset."""
 
         self._require_open()
-        native_id = _native_uuid(asset_id)
+        native_id = _native_asset_id(asset_id)
         return self._representation_page(
             self._native.lib.pp_read_session_representations_page,
             self._handle,
-            ctypes.byref(native_id),
+            native_id,
             limit,
             _optional_text(cursor),
         )
@@ -3211,7 +3211,7 @@ class Transaction:
         structure. A path imports a single file."""
 
         self._require_open()
-        asset_id = Uuid()
+        asset_id = _abi.AssetId()
         with _NativeMediaSource(self._native, source) as native_source:
             error = ctypes.POINTER(Error)()
             status = self._native.lib.pp_transaction_import_media(
@@ -3234,13 +3234,13 @@ class Transaction:
         existing asset. A path adds a single file."""
 
         self._require_open()
-        native_asset_id = _native_uuid(asset_id)
+        native_asset_id = _native_asset_id(asset_id)
         representation_id = Uuid()
         with _NativeMediaSource(self._native, source) as native_source:
             error = ctypes.POINTER(Error)()
             status = self._native.lib.pp_transaction_add_representation(
                 self._handle,
-                ctypes.byref(native_asset_id),
+                native_asset_id,
                 _native_representation_kind(kind),
                 native_source.handle,
                 ctypes.byref(representation_id),
@@ -3505,7 +3505,7 @@ class Transaction:
         self._require_open()
         input_type = Uuid * len(request.inputs)
         inputs = input_type(*(_native_uuid(value) for value in request.inputs))
-        output_asset_id = _native_uuid(request.output_asset_id)
+        output_asset_id = _native_asset_id(request.output_asset_id)
         job_id = Uuid()
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_transaction_request_job(
@@ -3513,7 +3513,7 @@ class Transaction:
             _utf8(request.kind, "job kind"),
             inputs if request.inputs else None,
             len(request.inputs),
-            ctypes.byref(output_asset_id),
+            output_asset_id,
             _native_representation_kind(request.output_representation_kind),
             _optional_text(request.target_root),
             ctypes.byref(job_id),
@@ -4096,9 +4096,17 @@ def _utf8(value: str, label: str) -> bytes:
 
 
 def _uuid(
-    value: Uuid | _abi.ProductionId | _abi.RevisionId | _abi.TransactionId,
+    value: Uuid | _abi.AssetId | _abi.ProductionId | _abi.RevisionId | _abi.TransactionId,
 ) -> UUID:
     return UUID(bytes=bytes(value.bytes))
+
+
+def _native_asset_id(value: AssetId) -> _abi.AssetId:
+    if not isinstance(value, UUID):
+        raise TypeError("identity must be a uuid.UUID")
+    native = _abi.AssetId()
+    native.bytes[:] = value.bytes
+    return native
 
 
 def _native_production_id(value: ProductionId) -> _abi.ProductionId:
@@ -4173,7 +4181,7 @@ def _native_representation_kind(value: RepresentationKind) -> int:
 
 
 def _asset_at(native: NativeLibrary, assets: _Pointer[AssetSet], index: int) -> Asset:
-    asset_id = Uuid()
+    asset_id = _abi.AssetId()
     created_at = ctypes.c_int64()
     display_name = ctypes.c_char_p()
     import_source = ctypes.c_char_p()
@@ -4592,7 +4600,7 @@ def _locator_match_at(
 def _known_media_match_at(
     native: NativeLibrary, matches: _Pointer[KnownMediaSet], index: int
 ) -> KnownMediaMatch:
-    asset_id = Uuid()
+    asset_id = _abi.AssetId()
     representation_id = Uuid()
     resource_id = Uuid()
     error = ctypes.POINTER(Error)()
@@ -4875,7 +4883,7 @@ def _representation_at(
     index: int,
 ) -> Representation:
     representation_id = Uuid()
-    asset_id = Uuid()
+    asset_id = _abi.AssetId()
     kind = _abi.RepresentationKind()
     structure_kind = _abi.ContentStructureKind()
     member_count = ctypes.c_uint64()
@@ -5170,7 +5178,7 @@ def _representation_resolution_at(
     resolutions: _Pointer[ResolutionSet],
     representation_index: int,
 ) -> RepresentationResolution:
-    asset_id = Uuid()
+    asset_id = _abi.AssetId()
     representation_id = Uuid()
     availability = _abi.RepresentationAvailability()
     resource_count = ctypes.c_uint64()
