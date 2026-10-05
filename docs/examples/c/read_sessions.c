@@ -73,6 +73,7 @@ static int exercise(const char *path, const char *media) {
   pp_metadata_input_t *title = NULL;
   pp_asset_set_t *assets = NULL;
   pp_job_set_t *jobs = NULL;
+  pp_activity_set_t *activities = NULL;
   pp_dependency_set_t *dependencies = NULL;
   pp_dependency_query_set_t *dependency_page = NULL;
   pp_artifact_evaluation_t *evaluation = NULL;
@@ -178,6 +179,11 @@ static int exercise(const char *path, const char *media) {
   CHECK(pp_read_session_stale_artifacts(view, NULL, 64, 1000, 10, NULL, &provenance_page, &error));
   if (pp_object_query_set_count(provenance_page)) goto cleanup;
   pp_object_query_set_release(provenance_page); provenance_page = NULL;
+  CHECK(pp_read_session_activities_producing_page(view, &representation, 10, NULL, &activities, &error));
+  if (pp_activity_set_count(activities)) goto cleanup;
+  pp_activity_set_release(activities); activities = NULL;
+  CHECK(pp_read_session_activities_consuming_page(view, &representation, 10, NULL, &activities, &error));
+  if (pp_activity_set_count(activities)) goto cleanup;
   CHECK(pp_read_session_evaluate_artifact(view, &representation, 64, 1000, &evaluation, &error));
   pp_uuid_t evaluated;
   uint32_t state, visited;
@@ -227,6 +233,7 @@ cleanup:
   pp_string_release(token);
   pp_asset_set_release(assets);
   pp_job_set_release(jobs);
+  pp_activity_set_release(activities);
   pp_dependency_set_release(dependencies);
   pp_dependency_query_set_release(dependency_page);
   pp_artifact_evaluation_release(evaluation);

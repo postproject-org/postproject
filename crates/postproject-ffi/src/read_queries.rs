@@ -34,6 +34,62 @@ unsafe fn forward_read(
     })
 }
 
+/// Copies a bounded page of producing activities from the pinned view.
+///
+/// # Safety
+/// Session/ID must be live/readable; cursor null or UTF-8, outputs writable.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_read_session_activities_producing_page(
+    session: *const PpReadSession,
+    representation_id: *const PpUuid,
+    limit: u32,
+    cursor: *const c_char,
+    out_activities: *mut *mut crate::PpActivitySet,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: The delegate validates pointers and contains panics.
+    unsafe {
+        forward_read(session, out_error, |reader| {
+            crate::pp_production_activities_producing_page(
+                reader,
+                representation_id,
+                limit,
+                cursor,
+                out_activities,
+                out_error,
+            )
+        })
+    }
+}
+
+/// Copies a bounded page of consuming activities from the pinned view.
+///
+/// # Safety
+/// Session/ID must be live/readable; cursor null or UTF-8, outputs writable.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_read_session_activities_consuming_page(
+    session: *const PpReadSession,
+    representation_id: *const PpUuid,
+    limit: u32,
+    cursor: *const c_char,
+    out_activities: *mut *mut crate::PpActivitySet,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: The delegate validates pointers and contains panics.
+    unsafe {
+        forward_read(session, out_error, |reader| {
+            crate::pp_production_activities_consuming_page(
+                reader,
+                representation_id,
+                limit,
+                cursor,
+                out_activities,
+                out_error,
+            )
+        })
+    }
+}
+
 /// Copies outputs matching one exact activity kind in the pinned view.
 ///
 /// # Safety
