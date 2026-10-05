@@ -12,7 +12,7 @@ All notable changes to PostProject will be documented here. The project uses
 - C++ tokens/options require `create()`; options setters return `Result<void>` immediately and preserve valid settings on failure (ADR 0048).
 - Added native production/asset/revision/transaction IDs (C ABI 41); persisted references retain their meaning (ADR 0049).
 - Job reads use checked C payloads and one C++/Python status alternative; migrate C++ field access and Python construction (ADR 0051).
-- Reject oversized native binary metadata before access.
+- Reject oversized native binary metadata and unaddressable resolution arrays before access.
 
 ## 0.6.0-alpha.1 - 2026-10-04
 

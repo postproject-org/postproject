@@ -299,6 +299,9 @@ pub unsafe extern "C" fn pp_production_resolve_assets(
             require_output(out_resolutions, "out_resolutions")?;
             let count = usize::try_from(asset_count)
                 .map_err(|_| invalid_argument("asset_count is too large"))?;
+            if count > (isize::MAX as usize) / size_of::<PpAssetId>() {
+                return Err(invalid_argument("asset_count is not addressable"));
+            }
             if count != 0 && asset_ids.is_null() {
                 return Err(invalid_argument(
                     "asset_ids must not be null when asset_count is nonzero",
@@ -380,4 +383,87 @@ fn resolve_assets(
             .map(|resolution| (*asset_id, resolution))
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use std::ptr;
+
+    use super::*;
+    use crate::{PP_ERROR_INVALID_ARGUMENT, PP_OK, production_handle};
+
+    #[test]
+    fn resolution_rejects_unaddressable_arrays_and_accepts_empty_input() {
+        let directory = tempfile::tempdir().expect("create directory");
+        let production = production_handle(
+            postproject_storage_sqlite::SqliteProduction::create(
+                directory.path().join("production.pproj"),
+                None,
+            )
+            .expect("create production"),
+        );
+        let mut session = ptr::null_mut();
+        let mut error = ptr::null_mut();
+        // SAFETY: The production is live and the outputs are writable.
+        assert_eq!(
+            unsafe {
+                crate::read_session::pp_production_read_session(
+                    &raw const production,
+                    &raw mut session,
+                    &raw mut error,
+                )
+            },
+            PP_OK
+        );
+        let asset = PpAssetId { bytes: [0; 16] };
+        let first_unaddressable = (isize::MAX as u64) / size_of::<PpAssetId>() as u64 + 1;
+        for retained in [false, true] {
+            for count in [first_unaddressable, u64::MAX, 0] {
+                let mut resolutions = ptr::dangling_mut();
+                // SAFETY: Oversized counts reject before the live asset is
+                // accessed; the zero-count case permits a null input.
+                let status = unsafe {
+                    let ids = if count == 0 {
+                        ptr::null()
+                    } else {
+                        &raw const asset
+                    };
+                    if retained {
+                        crate::read_queries::pp_read_session_resolve_assets(
+                            session,
+                            ids,
+                            count,
+                            ptr::null(),
+                            &raw mut resolutions,
+                            &raw mut error,
+                        )
+                    } else {
+                        pp_production_resolve_assets(
+                            &raw const production,
+                            ids,
+                            count,
+                            ptr::null(),
+                            &raw mut resolutions,
+                            &raw mut error,
+                        )
+                    }
+                };
+                if count == 0 {
+                    assert_eq!(status, PP_OK);
+                    assert!(error.is_null());
+                    // SAFETY: The successful call returned a live owned set.
+                    unsafe { crate::pp_resolution_set_release(resolutions) };
+                } else {
+                    assert_eq!(status, PP_ERROR_INVALID_ARGUMENT);
+                    assert!(resolutions.is_null());
+                    assert!(!error.is_null());
+                    // SAFETY: Release the one owned error returned on failure.
+                    unsafe { crate::pp_error_release(error) };
+                    error = ptr::null_mut();
+                }
+            }
+        }
+        // SAFETY: The session is live and released once after its reads.
+        unsafe { crate::read_session::pp_read_session_release(session) };
+    }
 }
