@@ -77,13 +77,19 @@ static int exercise(const char *path, const char *media) {
   pp_locator_query_set_t *locator_page = NULL;
   pp_error_t *error = NULL;
   pp_uuid_t asset, representation;
-  pp_decision_base_t base;
+  pp_decision_base_t base, parsed;
+  char *token = NULL;
   pp_commit_receipt_t receipt;
   int result = 1;
 #define CHECK(call) do { if ((call) != PP_OK) goto cleanup; } while (0)
   CHECK(pp_production_create(path, "Read views", &production, &error));
   CHECK(pp_production_read_session(production, &empty, &error));
   CHECK(pp_read_session_decision_base(empty, &base, &error));
+  CHECK(pp_decision_base_format(&base, &token, &error));
+  CHECK(pp_decision_base_parse(token, &parsed, &error));
+  if (parsed.has_revision || parsed.revision_sequence ||
+      memcmp(parsed.production_id.bytes, base.production_id.bytes, 16)) goto cleanup;
+  pp_string_release(token); token = NULL;
   if (base.has_revision || base.revision_sequence != 0) goto cleanup;
   CHECK(pp_read_session_begin_edit(empty, &edit, &error));
   CHECK(pp_media_source_create_file(media, &source, &error));
@@ -103,6 +109,11 @@ static int exercise(const char *path, const char *media) {
 
   CHECK(pp_production_read_session(production, &view, &error));
   CHECK(pp_read_session_decision_base(view, &base, &error));
+  CHECK(pp_decision_base_format(&base, &token, &error));
+  CHECK(pp_decision_base_parse(token, &parsed, &error));
+  if (!parsed.has_revision || parsed.revision_sequence != base.revision_sequence ||
+      memcmp(parsed.revision_id.bytes, base.revision_id.bytes, 16)) goto cleanup;
+  pp_string_release(token); token = NULL;
   CHECK(pp_read_session_asset(view, &asset, &assets, &error));
   if (pp_asset_set_count(assets) != 1) goto cleanup;
   CHECK(pp_read_session_representations_page(view, &asset, 10, NULL, &representations, &error));
@@ -137,6 +148,7 @@ static int exercise(const char *path, const char *media) {
 cleanup:
   if (result) fprintf(stderr, "%s\n", error ? pp_error_message(error) : "read-view assertion");
   pp_error_release(error);
+  pp_string_release(token);
   pp_asset_set_release(assets);
   pp_representation_set_release(representations);
   pp_object_query_set_release(resource_page);

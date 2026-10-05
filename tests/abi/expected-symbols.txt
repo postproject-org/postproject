@@ -24,6 +24,8 @@ pp_asset_set_release
 pp_cancel_token_cancel
 pp_cancel_token_create
 pp_cancel_token_release
+pp_decision_base_format
+pp_decision_base_parse
 pp_dependency_query_set_count
 pp_dependency_query_set_get
 pp_dependency_query_set_next_cursor

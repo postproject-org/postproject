@@ -586,6 +586,8 @@ EXPORTED_SYMBOLS = (
     "pp_cancel_token_cancel",
     "pp_cancel_token_create",
     "pp_cancel_token_release",
+    "pp_decision_base_format",
+    "pp_decision_base_parse",
     "pp_dependency_query_set_count",
     "pp_dependency_query_set_get",
     "pp_dependency_query_set_next_cursor",
@@ -1331,3 +1333,7 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_error_transaction_conflict.restype = ctypes.c_uint8
     lib.pp_error_release.argtypes = [ctypes.POINTER(Error)]
     lib.pp_error_release.restype = None
+    lib.pp_decision_base_parse.argtypes = [ctypes.c_char_p, ctypes.POINTER(DecisionBase), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_decision_base_parse.restype = ErrorCode
+    lib.pp_decision_base_format.argtypes = [ctypes.POINTER(DecisionBase), ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_decision_base_format.restype = ErrorCode

@@ -1501,4 +1501,12 @@ PP_API void pp_error_release(pp_error_t *error);
 }
 #endif
 
-#endif
+#endif/** Parse a canonical production-scoped decision token (at most 128 bytes).
+ * Store membership and revision/sequence are checked when beginning an edit. */
+PP_API pp_error_code_t pp_decision_base_parse(
+    const char *text, pp_decision_base_t *out_base, pp_error_t **out_error);
+/** Format a validated base. Caller releases the owned text with pp_string_release. */
+PP_API pp_error_code_t pp_decision_base_format(
+    const pp_decision_base_t *base, char **out_text, pp_error_t **out_error);
+
+

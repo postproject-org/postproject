@@ -59,6 +59,63 @@ impl TryFrom<PpDecisionBase> for DecisionBase {
     }
 }
 
+/// Parses a bounded canonical token; store membership is checked when editing.
+///
+/// # Safety
+/// Text must be UTF-8/NUL-terminated; output writable, error nullable/writable.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_decision_base_parse(
+    text: *const std::ffi::c_char,
+    out_base: *mut PpDecisionBase,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: Output is initialized before validating caller inputs.
+    unsafe {
+        initialize_value(
+            out_base,
+            PpDecisionBase {
+                production_id: PpProductionId { bytes: [0; 16] },
+                has_revision: 0,
+                revision_id: PpUuid { bytes: [0; 16] },
+                revision_sequence: 0,
+            },
+        );
+        ffi_call(out_error, || {
+            require_output(out_base, "out_base")?;
+            let text = crate::required_utf8(text, "decision-base token")?;
+            let base: DecisionBase = text.parse()?;
+            out_base.write(base.into());
+            Ok(())
+        })
+    }
+}
+
+/// Formats a validated base as an owned canonical token, released with string release.
+///
+/// # Safety
+/// Base must be readable, output writable, error nullable/writable.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_decision_base_format(
+    base: *const PpDecisionBase,
+    out_text: *mut *mut std::ffi::c_char,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: Output initialized and pointer checked before reading.
+    unsafe {
+        initialize_output(out_text);
+        ffi_call(out_error, || {
+            require_output(out_text, "out_text")?;
+            let base = base
+                .as_ref()
+                .ok_or_else(|| invalid_argument("base must not be null"))?;
+            let base = DecisionBase::try_from(*base)?;
+            out_text
+                .write(crate::exact_cstring(&base.to_string(), "decision-base token")?.into_raw());
+            Ok(())
+        })
+    }
+}
+
 /// Opens and pins a read view before returning it to the caller.
 ///
 /// # Safety
