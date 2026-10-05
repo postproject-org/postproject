@@ -4,6 +4,7 @@ import ctypes
 import sqlite3
 import tempfile
 import unittest
+from contextlib import closing
 from pathlib import Path
 from typing import Any
 from uuid import UUID
@@ -72,7 +73,7 @@ class IdentityTests(unittest.TestCase):
             absent = AssetId(UUID(int=3))
             # SQLite's affinity permits this malformed timestamp. The fixture
             # proves a point query never decodes an unrelated asset row.
-            with sqlite3.connect(path) as connection:
+            with closing(sqlite3.connect(path)) as connection, connection:
                 connection.executemany(
                     "INSERT INTO assets(id, created_at_micros) VALUES (?, ?)",
                     [(empty.bytes, 0), (corrupt.bytes, "invalid timestamp")],
