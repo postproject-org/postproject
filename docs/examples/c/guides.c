@@ -14,7 +14,7 @@
 /* [create-production] */
 static pp_error_code_t create_production(const char *path, const char *media,
                                          pp_production_t **out_production,
-                                         pp_uuid_t *out_asset_id,
+                                         pp_asset_id_t *out_asset_id,
                                          pp_error_t **error) {
   pp_production_t *production = NULL;
   pp_transaction_t *transaction = NULL;
@@ -43,7 +43,7 @@ static pp_error_code_t create_production(const char *path, const char *media,
     status = pp_transaction_commit(transaction, error);
   }
   if (status == PP_OK) {
-    status = pp_production_representations(production, out_asset_id,
+    status = pp_production_representations(production, *out_asset_id,
                                            &representations, error);
   }
   if (status == PP_OK) {
@@ -62,9 +62,11 @@ static pp_error_code_t create_production(const char *path, const char *media,
 
 /* [external-identifiers] */
 static pp_error_code_t tag_camera_serial(pp_production_t *production,
-                                         const pp_uuid_t *asset_id,
+                                         const pp_asset_id_t *asset_id,
                                          pp_error_t **error) {
-  const pp_object_ref_t target = {PP_OBJECT_ASSET, *asset_id};
+  pp_object_ref_t target;
+  pp_error_code_t reference_status = pp_object_ref_from_asset(*asset_id, &target, error);
+  if (reference_status != PP_OK) return reference_status;
   pp_transaction_t *transaction = NULL;
   pp_external_identifier_set_t *attached = NULL;
   pp_object_ref_set_t *matches = NULL;
@@ -107,9 +109,11 @@ static const char *const IPTC_VIDEO_METADATA_HUB =
     "iptc-vmhub-1.7-schema.json";
 
 static pp_error_code_t add_title(pp_production_t *production,
-                                 const pp_uuid_t *asset_id,
+                                 const pp_asset_id_t *asset_id,
                                  pp_error_t **error) {
-  const pp_object_ref_t target = {PP_OBJECT_ASSET, *asset_id};
+  pp_object_ref_t target;
+  pp_error_code_t reference_status = pp_object_ref_from_asset(*asset_id, &target, error);
+  if (reference_status != PP_OK) return reference_status;
   pp_metadata_input_t *title = NULL;
   pp_transaction_t *transaction = NULL;
   pp_metadata_set_t *on_asset = NULL;
@@ -185,7 +189,7 @@ static pp_error_code_t add_rushes_root(pp_production_t *production,
 
 /* [resolve-asset] */
 static pp_error_code_t resolve_asset(const pp_production_t *production,
-                                     const pp_uuid_t *asset_id,
+                                     const pp_asset_id_t *asset_id,
                                      const char *rushes_directory,
                                      pp_resolution_set_t **out_resolutions,
                                      pp_error_t **error) {
@@ -206,7 +210,7 @@ static pp_error_code_t resolve_asset(const pp_production_t *production,
   const uint64_t count =
       status == PP_OK ? pp_resolution_set_representation_count(resolutions) : 0;
   for (uint64_t r = 0; status == PP_OK && r < count; ++r) {
-    pp_uuid_t resolved_asset_id;
+    pp_asset_id_t resolved_asset_id;
     pp_uuid_t representation_id;
     pp_representation_availability_t availability;
     uint64_t resource_count = 0;
@@ -262,7 +266,7 @@ confirm_unique_candidates(pp_production_t *production,
 
   const uint64_t count = pp_resolution_set_representation_count(resolutions);
   for (uint64_t r = 0; status == PP_OK && r < count; ++r) {
-    pp_uuid_t asset_id;
+    pp_asset_id_t asset_id;
     pp_uuid_t representation_id;
     pp_representation_availability_t availability;
     uint64_t resource_count = 0;
@@ -309,7 +313,7 @@ confirm_unique_candidates(pp_production_t *production,
 
 /* [image-sequence] */
 static pp_error_code_t add_render_sequence(pp_production_t *production,
-                                           const pp_uuid_t *asset_id,
+                                           const pp_asset_id_t *asset_id,
                                            const char *directory,
                                            pp_uuid_t *out_sequence_id,
                                            pp_error_t **error) {
@@ -329,7 +333,7 @@ static pp_error_code_t add_render_sequence(pp_production_t *production,
   }
   if (status == PP_OK) {
     status = pp_transaction_add_representation(
-        transaction, asset_id, PP_REPRESENTATION_DERIVED, sequence,
+        transaction, *asset_id, PP_REPRESENTATION_DERIVED, sequence,
         out_sequence_id, error);
   }
   pp_media_source_release(sequence);
@@ -337,14 +341,14 @@ static pp_error_code_t add_render_sequence(pp_production_t *production,
     status = pp_transaction_commit(transaction, error);
   }
   if (status == PP_OK) {
-    status = pp_production_representations(production, asset_id,
+    status = pp_production_representations(production, *asset_id,
                                            &representations, error);
   }
   for (uint64_t index = 0;
        status == PP_OK && index < pp_representation_set_count(representations);
        ++index) {
     pp_uuid_t id;
-    pp_uuid_t owner;
+    pp_asset_id_t owner;
     pp_representation_kind_t kind;
     pp_content_structure_kind_t structure;
     uint64_t members = 0;
@@ -471,13 +475,13 @@ static pp_error_code_t inspect_artifact(const pp_production_t *production,
 static pp_error_code_t
 record_and_query_dependencies(pp_production_t *production,
                               const pp_uuid_t *source_id,
-                              const pp_uuid_t *target_asset_id,
+                              const pp_asset_id_t *target_asset_id,
                               const pp_uuid_t *resolved_id,
                               pp_error_t **error) {
   pp_dependency_t dependency = {0};
   dependency.kind = "org.example:character-reference";
-  dependency.target.kind = PP_OBJECT_ASSET;
-  dependency.target.id = *target_asset_id;
+  pp_error_code_t reference_status = pp_object_ref_from_asset(*target_asset_id, &dependency.target, error);
+  if (reference_status != PP_OK) return reference_status;
   dependency.has_resolved_representation = UINT8_C(1);
   dependency.resolved_representation_id = *resolved_id;
   dependency.required = UINT8_C(1);
@@ -509,7 +513,9 @@ record_and_query_dependencies(pp_production_t *production,
       printf("dependency at depth %u\n", match.depth);
     }
   }
-  const pp_object_ref_t target = {PP_OBJECT_ASSET, *target_asset_id};
+  pp_object_ref_t target;
+  pp_error_code_t target_status = pp_object_ref_from_asset(*target_asset_id, &target, error);
+  if (target_status != PP_OK) return target_status;
   if (status == PP_OK) {
     status = pp_production_dependents(production, &target, UINT32_C(4),
                                       UINT32_C(1000), UINT32_C(100), NULL,
@@ -531,7 +537,7 @@ record_and_query_dependencies(pp_production_t *production,
 /* [job-query-pages] */
 static pp_error_code_t request_and_page_jobs(pp_production_t *production,
                                              const pp_uuid_t *input_id,
-                                             const pp_uuid_t *output_asset_id,
+                                             const pp_asset_id_t *output_asset_id,
                                              pp_error_t **error) {
   const char *kind = "org.example:generate-proxy";
   pp_transaction_t *transaction = NULL;
@@ -540,7 +546,7 @@ static pp_error_code_t request_and_page_jobs(pp_production_t *production,
       pp_production_begin_transaction(production, &transaction, error);
   for (uint32_t i = 0; status == PP_OK && i < UINT32_C(2); ++i) {
     status = pp_transaction_request_job(
-        transaction, kind, input_id, UINT64_C(1), output_asset_id,
+        transaction, kind, input_id, UINT64_C(1), *output_asset_id,
         PP_REPRESENTATION_PROXY, NULL, &job_ids[i], error);
   }
   if (status == PP_OK) {
@@ -621,17 +627,17 @@ print_resource_locators(const pp_production_t *production,
 }
 
 static pp_error_code_t print_asset_locators(const pp_production_t *production,
-                                            const pp_uuid_t *asset_id,
+                                            const pp_asset_id_t *asset_id,
                                             pp_error_t **error) {
   /* Follow each nested cursor the same way in large productions. */
   pp_representation_set_t *representations = NULL;
   pp_error_code_t status = pp_production_representations_page(
-      production, asset_id, UINT32_C(100), NULL, &representations, error);
+      production, *asset_id, UINT32_C(100), NULL, &representations, error);
   for (uint64_t r = 0;
        status == PP_OK && r < pp_representation_set_count(representations);
        ++r) {
     pp_uuid_t representation_id;
-    pp_uuid_t owner;
+    pp_asset_id_t owner;
     pp_representation_kind_t kind;
     pp_content_structure_kind_t structure;
     uint64_t members, resources, fingerprints;
@@ -672,7 +678,7 @@ print_recorded_locators(const pp_production_t *production,
                                        &assets, error);
     for (uint64_t i = 0; status == PP_OK && i < pp_asset_set_count(assets);
          ++i) {
-      pp_uuid_t asset_id;
+      pp_asset_id_t asset_id;
       int64_t created_at = 0;
       const char *name = NULL;
       const char *import_source = NULL;
@@ -729,7 +735,7 @@ static pp_error_code_t list_media_knowledge(const pp_production_t *production,
 
 /* [point-reads] */
 static pp_error_code_t read_known_objects(const pp_production_t *production,
-                                          const pp_uuid_t *asset_id,
+                                          const pp_asset_id_t *asset_id,
                                           const pp_uuid_t *representation_id,
                                           pp_error_t **error) {
   /* A host reference names one object; read it without scanning the
@@ -737,7 +743,7 @@ static pp_error_code_t read_known_objects(const pp_production_t *production,
   pp_asset_set_t *asset = NULL;
   pp_representation_set_t *representation = NULL;
   pp_representation_set_t *users = NULL;
-  pp_uuid_t id;
+  pp_asset_id_t id;
   int64_t created_at = 0;
   const char *name = NULL;
   const char *source = NULL;
@@ -745,7 +751,7 @@ static pp_error_code_t read_known_objects(const pp_production_t *production,
   const char *role = NULL;
   uint8_t required = 0;
   pp_error_code_t status =
-      pp_production_asset(production, asset_id, &asset, error);
+      pp_production_asset(production, *asset_id, &asset, error);
   if (status == PP_OK) {
     status = pp_asset_set_get(asset, UINT64_C(0), &id, &created_at, &name,
                               &source, error);
@@ -1074,14 +1080,14 @@ static void join(char *buffer, size_t size, const char *directory,
 
 static pp_error_code_t
 original_representation(const pp_production_t *production,
-                        const pp_uuid_t *asset_id, pp_uuid_t *out_id,
+                        const pp_asset_id_t *asset_id, pp_uuid_t *out_id,
                         pp_error_t **error) {
   pp_representation_set_t *representations = NULL;
   pp_error_code_t status =
-      pp_production_representations(production, asset_id, &representations,
+      pp_production_representations(production, *asset_id, &representations,
                                     error);
   if (status == PP_OK) {
-    pp_uuid_t owner;
+    pp_asset_id_t owner;
     pp_representation_kind_t kind;
     pp_content_structure_kind_t structure;
     uint64_t members, resources, fingerprints;
@@ -1113,7 +1119,7 @@ int main(int argc, char **argv) {
   pp_production_t *production = NULL;
   pp_resolution_set_t *resolutions = NULL;
   pp_error_t *error = NULL;
-  pp_uuid_t asset_id;
+  pp_asset_id_t asset_id;
   pp_production_id_t production_id;
   pp_uuid_t original_id;
   pp_uuid_t sequence_id = {{0}};

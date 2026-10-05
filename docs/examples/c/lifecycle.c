@@ -14,8 +14,20 @@
 /* [asset-identity] */
 static pp_error_code_t asset_identity(const char *saved_id, pp_error_t **error) {
   pp_asset_id_t asset;
+  pp_object_ref_t target;
+  pp_asset_id_t projected;
   char *canonical = NULL;
   pp_error_code_t status = pp_asset_id_parse(saved_id, &asset, error);
+  if (status == PP_OK) {
+    status = pp_object_ref_from_asset(asset, &target, error);
+  }
+  if (status == PP_OK) {
+    status = pp_object_ref_get_asset(&target, &projected, error);
+  }
+  if (status == PP_OK &&
+      (memcmp(projected.bytes, asset.bytes, 16) || target.kind != PP_OBJECT_ASSET || memcmp(target.id.bytes, asset.bytes, 16))) {
+    status = PP_ERROR_INTERNAL;
+  }
   if (status == PP_OK) {
     status = pp_asset_id_format(asset, &canonical, error);
   }
@@ -29,7 +41,7 @@ static pp_error_code_t asset_identity(const char *saved_id, pp_error_t **error) 
 
 /* [open-production] */
 static pp_error_code_t open_production(const char *path,
-                                       const pp_uuid_t *asset_id,
+                                       const pp_asset_id_t *asset_id,
                                        pp_production_t **out_production,
                                        pp_error_t **error) {
   pp_production_t *production = NULL;
@@ -58,7 +70,7 @@ static pp_error_code_t open_production(const char *path,
     status = pp_production_id(production, &production_id, error);
   }
   if (status == PP_OK) {
-    status = pp_production_asset_exists(production, asset_id, &exists, error);
+    status = pp_production_asset_exists(production, *asset_id, &exists, error);
   }
   if (status == PP_OK) {
     printf("asset recorded: %s\n", exists != 0 ? "yes" : "no");
@@ -66,7 +78,7 @@ static pp_error_code_t open_production(const char *path,
     status = pp_production_assets(production, &assets, error);
   }
   for (uint64_t i = 0; status == PP_OK && i < pp_asset_set_count(assets); ++i) {
-    pp_uuid_t id;
+    pp_asset_id_t id;
     int64_t created_at = 0;
     const char *name = NULL;
     const char *import_source = NULL;
@@ -174,7 +186,7 @@ static void join(char *buffer, size_t size, const char *directory,
 }
 
 static pp_error_code_t create_production(const char *path, const char *media,
-                                         pp_uuid_t *out_asset_id,
+                                         pp_asset_id_t *out_asset_id,
                                          pp_error_t **error) {
   pp_production_t *production = NULL;
   pp_transaction_t *transaction = NULL;
@@ -269,7 +281,7 @@ int main(int argc, char **argv) {
 
   pp_production_t *production = NULL;
   pp_error_t *error = NULL;
-  pp_uuid_t asset_id;
+  pp_asset_id_t asset_id;
   uint64_t before = 0;
   uint64_t after = 0;
   int has_archive = 0;
@@ -286,7 +298,7 @@ int main(int argc, char **argv) {
   if (status == PP_OK) {
     uint8_t exists = 0;
     pp_asset_set_t *assets = NULL;
-    status = pp_production_asset_exists(production, &asset_id, &exists, &error);
+    status = pp_production_asset_exists(production, asset_id, &exists, &error);
     if (status == PP_OK) {
       status = pp_production_assets(production, &assets, &error);
     }

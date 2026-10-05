@@ -4,7 +4,7 @@
 #include <string.h>
 
 /* [coherent-reads] */
-static int lookup(const pp_read_session_t *view, const pp_uuid_t *asset, const char *media) {
+static int lookup(const pp_read_session_t *view, const pp_asset_id_t *asset, const char *media) {
   pp_media_root_set_t *roots = NULL;
   pp_external_identifier_set_t *identifiers = NULL;
   pp_object_ref_set_t *objects = NULL;
@@ -18,9 +18,10 @@ static int lookup(const pp_read_session_t *view, const pp_uuid_t *asset, const c
   const uint8_t *value;
   uint16_t version;
   uint64_t length;
-  const pp_object_ref_t target = {PP_OBJECT_ASSET, *asset};
+  pp_object_ref_t target;
   int result = 1;
 #define CHECK(call) do { if ((call) != PP_OK) goto cleanup; } while (0)
+  CHECK(pp_object_ref_from_asset(*asset, &target, &error));
   CHECK(pp_read_session_media_roots(view, &roots, &error));
   if (pp_media_root_set_count(roots) != 0) goto cleanup;
   CHECK(pp_read_session_external_identifiers(view, &target, &identifiers, &error));
@@ -38,7 +39,9 @@ static int lookup(const pp_read_session_t *view, const pp_uuid_t *asset, const c
   CHECK(pp_file_path_to_locator(media, &uri, &error));
   CHECK(pp_read_session_find_known_media_by_locator(view, uri, NULL, 10, NULL, &matches, &error));
   if (pp_known_media_set_count(matches) != 1) goto cleanup;
-  pp_uuid_t matched_asset, representation, resource;
+  pp_asset_id_t matched_asset;
+  pp_uuid_t representation;
+  pp_uuid_t resource;
   pp_content_verification_t verification;
   CHECK(pp_known_media_set_get(matches, 0, &matched_asset, &representation, &resource, &error));
   CHECK(pp_read_session_verify_resource(view, &resource, media, NULL, &verification, &error));
@@ -85,7 +88,8 @@ static int exercise(const char *path, const char *media) {
   pp_object_query_set_t *resource_page = NULL, *provenance_page = NULL;
   pp_locator_query_set_t *locator_page = NULL;
   pp_error_t *error = NULL;
-  pp_uuid_t asset, representation;
+  pp_asset_id_t asset;
+  pp_uuid_t representation;
   pp_decision_base_t base, parsed;
   char *token = NULL, *revision_text = NULL, *transaction_text = NULL;
   pp_commit_receipt_t receipt;
@@ -105,7 +109,8 @@ static int exercise(const char *path, const char *media) {
   if (pp_regeneration_plan_set_count(plans)) goto cleanup;
   CHECK(pp_media_source_create_file(media, &source, &error));
   CHECK(pp_transaction_import_media(edit, source, NULL, &asset, &error));
-  const pp_object_ref_t target = {PP_OBJECT_ASSET, asset};
+  pp_object_ref_t target;
+  CHECK(pp_object_ref_from_asset(asset, &target, &error));
   CHECK(pp_transaction_add_external_identifier(edit, &target, "https://example.com/id", "camera", NULL, &error));
   CHECK(pp_metadata_input_create_string("Camera", NULL, &title, &error));
   CHECK(pp_transaction_add_metadata_value(edit, &target, "https://example.com/editorial", "title", title, &error));
@@ -171,11 +176,11 @@ static int exercise(const char *path, const char *media) {
   CHECK(pp_read_session_latest_revision(view, &journal, &error));
   if (pp_revision_set_count(journal) != 1) goto cleanup;
   pp_revision_set_release(journal); journal = NULL;
-  CHECK(pp_read_session_asset(view, &asset, &assets, &error));
+  CHECK(pp_read_session_asset(view, asset, &assets, &error));
   if (pp_asset_set_count(assets) != 1) goto cleanup;
-  CHECK(pp_read_session_representations_page(view, &asset, 10, NULL, &representations, &error));
+  CHECK(pp_read_session_representations_page(view, asset, 10, NULL, &representations, &error));
   uint32_t kind, structure;
-  pp_uuid_t owner;
+  pp_asset_id_t owner;
   uint64_t members, resources, fingerprints;
   CHECK(pp_representation_set_get(representations, 0, &representation, &owner,
       &kind, &structure, &members, &resources, &fingerprints, &error));
@@ -254,7 +259,7 @@ static int exercise(const char *path, const char *media) {
   CHECK(pp_read_session_begin_edit(view, &edit, &error));
   pp_uuid_t job;
   CHECK(pp_transaction_request_job(edit, "example:proxy", &representation, 1,
-      &asset, PP_REPRESENTATION_PROXY, NULL, &job, &error));
+      asset, PP_REPRESENTATION_PROXY, NULL, &job, &error));
   CHECK(pp_transaction_commit_with_receipt(edit, &receipt, &error));
   CHECK(pp_read_session_jobs(view, PP_JOB_REQUESTED, "example:proxy", 10, NULL, &jobs, &error));
   if (pp_job_set_count(jobs) != 0) goto cleanup;

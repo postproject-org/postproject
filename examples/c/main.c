@@ -23,7 +23,7 @@ int main(int argc, char **argv) {
   pp_media_source_t *media = NULL;
   pp_representation_set_t *representations = NULL;
   pp_error_t *error = NULL;
-  pp_uuid_t asset_id = {{0}};
+  pp_asset_id_t asset_id = {{0}};
 
   /* Each fallible call returns a status code. On failure it transfers a
    * caller-owned error handle, so the chain stops at the first failure and
@@ -50,7 +50,7 @@ int main(int argc, char **argv) {
   }
   /* The result set is caller-owned; strings read from it borrow the set. */
   if (status == PP_OK) {
-    status = pp_production_representations(production, &asset_id,
+    status = pp_production_representations(production, asset_id,
                                            &representations, &error);
   }
   pp_uuid_t locator_id = {{0}};

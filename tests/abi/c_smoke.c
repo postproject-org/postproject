@@ -21,7 +21,7 @@ static int uuid_is_zero(const pp_uuid_t *id) {
 
 static pp_error_code_t import_file(pp_transaction_t *transaction,
                                    const char *path, const char *display_name,
-                                   pp_uuid_t *out_asset_id,
+                                   pp_asset_id_t *out_asset_id,
                                    pp_error_t **out_error) {
   pp_media_source_t *source = NULL;
   pp_error_code_t status = pp_media_source_create_file(path, &source, out_error);
@@ -34,7 +34,7 @@ static pp_error_code_t import_file(pp_transaction_t *transaction,
 }
 
 static pp_error_code_t add_file(pp_transaction_t *transaction,
-                                const pp_uuid_t *asset_id,
+                                const pp_asset_id_t *asset_id,
                                 pp_representation_kind_t kind, const char *path,
                                 pp_uuid_t *out_representation_id,
                                 pp_error_t **out_error) {
@@ -42,7 +42,7 @@ static pp_error_code_t add_file(pp_transaction_t *transaction,
   pp_error_code_t status = pp_media_source_create_file(path, &source, out_error);
   if (status == PP_OK) {
     status = pp_transaction_add_representation(
-        transaction, asset_id, kind, source, out_representation_id, out_error);
+        transaction, *asset_id, kind, source, out_representation_id, out_error);
   }
   pp_media_source_release(source);
   return status;
@@ -87,7 +87,7 @@ static const char *const frame_contents[] = {"frame one", "frame two",
 
 /* Resolves the asset searching directory and reads the first resource. */
 static pp_error_code_t resolve_in(pp_production_t *production,
-                                  const pp_uuid_t *asset_id,
+                                  const pp_asset_id_t *asset_id,
                                   const char *directory,
                                   pp_resolution_set_t **out_resolutions,
                                   pp_resource_resolution_state_t *out_state,
@@ -164,7 +164,7 @@ static int renamed_sequence_scenario(pp_production_t *production,
   const pp_sequence_naming_t naming = {"shot_", ".png", UINT8_C(4)};
   pp_media_source_t *source = NULL;
   pp_transaction_t *transaction = NULL;
-  pp_uuid_t asset_id = {{0}};
+  pp_asset_id_t asset_id = {{0}};
   pp_error_code_t status = pp_media_source_create_image_sequence(
       plates, &naming, INT64_C(1), INT64_C(3), UINT32_C(1), UINT32_C(24),
       UINT32_C(1), NULL, 0, &source, &error);
@@ -326,8 +326,8 @@ int main(int argc, char **argv) {
   pp_transaction_t *transaction = NULL;
   pp_error_t *error = NULL;
   pp_production_id_t id = {{0}};
-  pp_uuid_t asset_id = {{0}};
-  pp_uuid_t rolled_back_asset_id = {{0}};
+  pp_asset_id_t asset_id = {{0}};
+  pp_asset_id_t rolled_back_asset_id = {{0}};
   pp_uuid_t root_id = {{0}};
   pp_uuid_t representation_id = {{0}};
   pp_uuid_t resource_id = {{0}};
@@ -342,7 +342,7 @@ int main(int argc, char **argv) {
     return 64;
   }
   (void)remove(argv[1]);
-  if (pp_abi_version() != UINT32_C(40)) {
+  if (pp_abi_version() != UINT32_C(41)) {
     return 1;
   }
   pp_error_code_t status =
@@ -384,7 +384,7 @@ int main(int argc, char **argv) {
   }
   status = import_file(transaction, media_path, NULL, &rolled_back_asset_id,
                        &error);
-  if (status != PP_OK || uuid_is_zero(&rolled_back_asset_id) ||
+  if (status != PP_OK || bytes_are_zero(rolled_back_asset_id.bytes) ||
       pp_transaction_rollback(transaction, &error) != PP_OK) {
     pp_transaction_release(transaction);
     pp_production_release(production);
@@ -394,7 +394,7 @@ int main(int argc, char **argv) {
   pp_transaction_release(transaction);
   transaction = NULL;
   uint8_t asset_exists = 1;
-  status = pp_production_asset_exists(production, &rolled_back_asset_id,
+  status = pp_production_asset_exists(production, rolled_back_asset_id,
                                    &asset_exists, &error);
   if (status != PP_OK || asset_exists != UINT8_C(0)) {
     pp_production_release(production);
@@ -417,13 +417,15 @@ int main(int argc, char **argv) {
     return 42;
   }
   status = import_file(transaction, media_path, "C asset", &asset_id, &error);
-  if (status != PP_OK || uuid_is_zero(&asset_id)) {
+  if (status != PP_OK || bytes_are_zero(asset_id.bytes)) {
     pp_transaction_release(transaction);
     pp_production_release(production);
     pp_error_release(error);
     return 12;
   }
-  pp_object_ref_t asset_ref = {PP_OBJECT_ASSET, asset_id};
+  pp_object_ref_t asset_ref;
+  pp_error_code_t reference_status = pp_object_ref_from_asset(asset_id, &asset_ref, &error);
+  if (reference_status != PP_OK) return reference_status;
   char *host_binding = NULL;
   pp_production_id_t bound_production_id = {{0}};
   pp_object_ref_t bound_object = {0};
@@ -495,7 +497,7 @@ int main(int argc, char **argv) {
     return 4;
   }
   pp_asset_set_t *assets = NULL;
-  pp_uuid_t read_asset_id = {{0}};
+  pp_asset_id_t read_asset_id = {{0}};
   int64_t asset_created_at = 0;
   const char *asset_display_name = NULL;
   const char *asset_import_source = NULL;
@@ -645,20 +647,20 @@ int main(int argc, char **argv) {
   }
   pp_revision_event_set_release(revision_events);
   asset_exists = 0;
-  status = pp_production_asset_exists(production, &asset_id, &asset_exists, &error);
+  status = pp_production_asset_exists(production, asset_id, &asset_exists, &error);
   if (status != PP_OK || asset_exists != UINT8_C(1)) {
     pp_production_release(production);
     pp_error_release(error);
     return 15;
   }
   pp_representation_set_t *representations = NULL;
-  pp_uuid_t representation_asset_id = {{0}};
+  pp_asset_id_t representation_asset_id = {{0}};
   pp_representation_kind_t representation_kind = 0;
   pp_content_structure_kind_t structure_kind = 0;
   uint64_t member_count = 0;
   uint64_t representation_resource_count = 0;
   uint64_t representation_fingerprint_count = 0;
-  status = pp_production_representations(production, &asset_id,
+  status = pp_production_representations(production, asset_id,
                                          &representations, &error);
   if (status != PP_OK || representations == NULL ||
       pp_representation_set_count(representations) != UINT64_C(1) ||
@@ -812,7 +814,7 @@ int main(int argc, char **argv) {
     return 120;
   }
   pp_known_media_set_t *known_media = NULL;
-  pp_uuid_t known_asset_id = {{0}};
+  pp_asset_id_t known_asset_id = {{0}};
   pp_uuid_t known_representation_id = {{0}};
   pp_uuid_t known_resource_id = {{0}};
   status = pp_production_find_known_media_by_locator(
@@ -1093,7 +1095,7 @@ int main(int argc, char **argv) {
   pp_representation_availability_t availability = 0;
   uint64_t resource_count = 0;
   uint64_t issue_count = 0;
-  pp_uuid_t resolved_asset_id = {{0}};
+  pp_asset_id_t resolved_asset_id = {{0}};
   status = pp_resolution_set_get_representation(
       resolutions, 0, &resolved_asset_id, &representation_id, &availability,
       &resource_count, &issue_count, &error);
@@ -1213,11 +1215,11 @@ int main(int argc, char **argv) {
   pp_object_query_set_release(resource_page);
 
   pp_asset_set_t *point_asset = NULL;
-  pp_uuid_t point_asset_id = {{0}};
+  pp_asset_id_t point_asset_id = {{0}};
   int64_t point_asset_created_at = 0;
   const char *point_asset_name = NULL;
   const char *point_asset_source = NULL;
-  status = pp_production_asset(production, &asset_id, &point_asset, &error);
+  status = pp_production_asset(production, asset_id, &point_asset, &error);
   if (status != PP_OK || point_asset == NULL ||
       pp_asset_set_count(point_asset) != UINT64_C(1) ||
       pp_asset_set_get(point_asset, UINT64_C(0), &point_asset_id,
@@ -1236,7 +1238,7 @@ int main(int argc, char **argv) {
 
   pp_representation_set_t *point_representation = NULL;
   pp_uuid_t point_representation_id = {{0}};
-  pp_uuid_t point_representation_asset_id = {{0}};
+  pp_asset_id_t point_representation_asset_id = {{0}};
   pp_representation_kind_t point_kind = 0;
   pp_content_structure_kind_t point_structure = 0;
   uint64_t point_members = 0;
@@ -1711,7 +1713,7 @@ int main(int argc, char **argv) {
   pp_transaction_release(transaction);
   transaction = NULL;
   representations = NULL;
-  if (pp_production_representations(production, &asset_id, &representations,
+  if (pp_production_representations(production, asset_id, &representations,
                                     &error) != PP_OK ||
       representations == NULL ||
       pp_representation_set_count(representations) != UINT64_C(2)) {
@@ -1748,17 +1750,17 @@ int main(int argc, char **argv) {
     return 122;
   }
   pp_uuid_t sequence_representation_id = {{0}};
-  pp_uuid_t sequence_asset_id = {{0}};
+  pp_asset_id_t sequence_asset_id = {{0}};
   status = pp_production_begin_transaction(production, &transaction, &error);
   if (status != PP_OK ||
       pp_transaction_add_representation(
-          transaction, &asset_id, PP_REPRESENTATION_DERIVED, sequence_source,
+          transaction, asset_id, PP_REPRESENTATION_DERIVED, sequence_source,
           &sequence_representation_id, &error) != PP_OK ||
       uuid_is_zero(&sequence_representation_id) ||
       pp_transaction_import_media(transaction, sequence_source,
                                   "C image strip", &sequence_asset_id,
                                   &error) != PP_OK ||
-      uuid_is_zero(&sequence_asset_id) ||
+      bytes_are_zero(sequence_asset_id.bytes) ||
       pp_transaction_commit(transaction, &error) != PP_OK) {
     pp_media_source_release(sequence_source);
     pp_transaction_release(transaction);
@@ -1771,7 +1773,7 @@ int main(int argc, char **argv) {
   transaction = NULL;
   representations = NULL;
   pp_uuid_t strip_representation_id = {{0}};
-  pp_uuid_t strip_asset_id = {{0}};
+  pp_asset_id_t strip_asset_id = {{0}};
   pp_representation_kind_t strip_kind = 0;
   pp_content_structure_kind_t strip_structure = 0;
   uint64_t strip_members = 0;
@@ -1783,7 +1785,7 @@ int main(int argc, char **argv) {
   uint32_t strip_rate_numerator = 0;
   uint32_t strip_rate_denominator = 0;
   uint64_t strip_missing = 0;
-  if (pp_production_representations(production, &sequence_asset_id,
+  if (pp_production_representations(production, sequence_asset_id,
                                     &representations, &error) != PP_OK ||
       representations == NULL ||
       pp_representation_set_count(representations) != UINT64_C(1) ||
@@ -1805,7 +1807,7 @@ int main(int argc, char **argv) {
   }
   pp_representation_set_release(representations);
   representations = NULL;
-  if (pp_production_representations(production, &asset_id, &representations,
+  if (pp_production_representations(production, asset_id, &representations,
                                     &error) != PP_OK ||
       representations == NULL ||
       pp_representation_set_count(representations) != UINT64_C(3)) {
@@ -1855,10 +1857,10 @@ int main(int argc, char **argv) {
   status = pp_production_begin_transaction(production, &transaction, &error);
   if (status != PP_OK ||
       pp_transaction_add_representation(
-          transaction, &asset_id, PP_REPRESENTATION_OPTIMIZED, ordered_source,
+          transaction, asset_id, PP_REPRESENTATION_OPTIMIZED, ordered_source,
           &ordered_representation_id, &error) != PP_OK ||
       pp_transaction_add_representation(
-          transaction, &asset_id, PP_REPRESENTATION_DERIVED, package_source,
+          transaction, asset_id, PP_REPRESENTATION_DERIVED, package_source,
           &package_representation_id, &error) != PP_OK ||
       uuid_is_zero(&ordered_representation_id) ||
       uuid_is_zero(&package_representation_id) ||
@@ -1876,7 +1878,7 @@ int main(int argc, char **argv) {
   pp_transaction_release(transaction);
   transaction = NULL;
   representations = NULL;
-  if (pp_production_representations(production, &asset_id, &representations,
+  if (pp_production_representations(production, asset_id, &representations,
                                     &error) != PP_OK ||
       representations == NULL ||
       pp_representation_set_count(representations) != UINT64_C(5)) {
@@ -2017,7 +2019,7 @@ int main(int argc, char **argv) {
   if (status != PP_OK ||
       pp_transaction_request_job(
           transaction, "org.postproject:generate-proxy", &representation_id,
-          UINT64_C(1), &asset_id, PP_REPRESENTATION_PROXY, NULL, &job_id,
+          UINT64_C(1), asset_id, PP_REPRESENTATION_PROXY, NULL, &job_id,
           &error) != PP_OK ||
       uuid_is_zero(&job_id) || pp_transaction_commit(transaction, &error) != PP_OK) {
     fprintf(stderr, "job request failed (%u): %s\n", status,
@@ -2166,7 +2168,7 @@ int main(int argc, char **argv) {
   if (status != PP_OK ||
       pp_transaction_request_job(
           transaction, "org.postproject:generate-thumbnail", &representation_id,
-          UINT64_C(1), &asset_id, PP_REPRESENTATION_DERIVED, NULL,
+          UINT64_C(1), asset_id, PP_REPRESENTATION_DERIVED, NULL,
           &cancelled_job_id, &error) != PP_OK ||
       pp_transaction_commit(transaction, &error) != PP_OK) {
     pp_transaction_release(transaction);
@@ -2225,7 +2227,7 @@ int main(int argc, char **argv) {
   if (status != PP_OK ||
       pp_transaction_request_job(
           transaction, "org.postproject:generate-proxy", &representation_id,
-          UINT64_C(1), &asset_id, PP_REPRESENTATION_PROXY, NULL,
+          UINT64_C(1), asset_id, PP_REPRESENTATION_PROXY, NULL,
           &completed_job_id, &error) != PP_OK ||
       pp_transaction_commit(transaction, &error) != PP_OK) {
     pp_transaction_release(transaction);
