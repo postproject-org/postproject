@@ -1,11 +1,12 @@
 PROJECT_NAME           = PostProject
-PROJECT_NUMBER         = 0.5.0-alpha.1
+PROJECT_NUMBER         = 0.7.0-alpha.1
 OUTPUT_DIRECTORY       = target/doxygen
 INPUT                  = include/postproject/postproject.h \
                          include/postproject/postproject.hpp
 FILE_PATTERNS           = *.h *.hpp
 RECURSIVE               = NO
 EXTRACT_ALL             = YES
+BUILTIN_STL_SUPPORT     = YES
 EXTRACT_STATIC          = NO
 HIDE_UNDOC_MEMBERS      = NO
 HIDE_UNDOC_CLASSES      = NO

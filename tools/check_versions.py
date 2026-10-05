@@ -1,4 +1,4 @@
-"""Verify release versions agree across Rust, CMake, and Python packages."""
+"""Verify release versions agree across packages and generated documentation."""
 
 from __future__ import annotations
 
@@ -43,6 +43,12 @@ def main() -> None:
     if package_version != rust_version:
         raise SystemExit(
             f"CMake package version {package_version} does not match {rust_version}"
+        )
+    doxygen = (ROOT / "Doxyfile").read_text(encoding="utf-8")
+    documentation_version = _capture(doxygen, r"(?m)^PROJECT_NUMBER\s*=\s*(\S+)")
+    if documentation_version != rust_version:
+        raise SystemExit(
+            f"Doxygen version {documentation_version} does not match {rust_version}"
         )
     print(f"release versions agree: {rust_version} / {python_version}")
 
