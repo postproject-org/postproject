@@ -184,7 +184,7 @@ const PP_REVISION_JOB_FAILED: u32 = 25;
 const PP_REVISION_JOB_CANCELLED: u32 = 26;
 
 /// Current pre-1.0 ABI version.
-pub const ABI_VERSION: u32 = 41;
+pub const ABI_VERSION: u32 = 42;
 
 /// Fixed-layout UUID-compatible public identifier.
 #[repr(C)]
@@ -243,8 +243,10 @@ pub struct PpObjectRef {
 pub struct PpTransactionConflict {
     /// One of the `PP_CONFLICT_*` constants from the public header.
     pub kind: u32,
-    /// Primary affected object. Media-root keys use kind zero and put the root ID here.
+    /// Affected object for non-root keys; zero for media-root conflicts.
     pub target: PpObjectRef,
+    /// Root identity for media-root conflicts; zero for other keys.
+    pub media_root_id: PpMediaRootId,
     /// Vocabulary, identifier scheme, or fingerprint algorithm when applicable.
     pub namespace_name: *const c_char,
     /// Metadata property or external-identifier value when applicable.
@@ -304,7 +306,7 @@ pub struct PpRevisionEvent {
     /// Event locator identity, or zero when not applicable.
     pub locator_id: PpUuid,
     /// Event media-root identity, or zero when not applicable.
-    pub media_root_id: PpUuid,
+    pub media_root_id: PpMediaRootId,
     /// Event activity identity, or zero when not applicable.
     pub activity_id: PpUuid,
     /// Event job identity, or zero when not applicable.
@@ -549,6 +551,7 @@ pub struct PpError {
 struct AbiTransactionConflict {
     kind: u32,
     target: PpObjectRef,
+    media_root_id: PpMediaRootId,
     namespace_name: Option<CString>,
     local_name: Option<CString>,
     qualifier: Option<CString>,
@@ -564,6 +567,7 @@ impl AbiTransactionConflict {
         let mut value = Self {
             kind: 0,
             target: empty_object_ref(),
+            media_root_id: PpMediaRootId { bytes: [0; 16] },
             namespace_name: None,
             local_name: None,
             qualifier: None,
@@ -596,7 +600,7 @@ impl AbiTransactionConflict {
             }
             SemanticConflictKey::MediaRoot(root_id) => {
                 value.kind = PP_CONFLICT_MEDIA_ROOT;
-                value.target.id.bytes = root_id.into_bytes();
+                value.media_root_id.bytes = root_id.into_bytes();
             }
             SemanticConflictKey::ExternalIdentifier { target, identifier } => {
                 value.kind = PP_CONFLICT_EXTERNAL_IDENTIFIER;
@@ -634,6 +638,7 @@ impl AbiTransactionConflict {
         PpTransactionConflict {
             kind: self.kind,
             target: self.target,
+            media_root_id: self.media_root_id,
             namespace_name: self
                 .namespace_name
                 .as_ref()
@@ -1202,7 +1207,7 @@ pub unsafe extern "C" fn pp_media_root_set_count(roots: *const PpMediaRootSet) -
 pub unsafe extern "C" fn pp_media_root_set_get(
     roots: *const PpMediaRootSet,
     index: u64,
-    out_id: *mut PpUuid,
+    out_id: *mut PpMediaRootId,
     out_name: *mut *const c_char,
     out_label: *mut *const c_char,
     out_legacy_uri: *mut *const c_char,
@@ -1212,7 +1217,7 @@ pub unsafe extern "C" fn pp_media_root_set_get(
 ) -> u32 {
     // SAFETY: Outputs are initialized and validated before writes.
     unsafe {
-        initialize_uuid(out_id);
+        initialize_value(out_id, PpMediaRootId { bytes: [0; 16] });
         initialize_const_output(out_name);
         initialize_const_output(out_label);
         initialize_const_output(out_legacy_uri);
@@ -1225,7 +1230,7 @@ pub unsafe extern "C" fn pp_media_root_set_get(
             let root = item_at(&roots.roots, index, "media root")?;
             write_copy(
                 out_id,
-                PpUuid {
+                PpMediaRootId {
                     bytes: root.id.into_bytes(),
                 },
                 "out_id",
@@ -4970,13 +4975,13 @@ pub unsafe extern "C" fn pp_transaction_add_media_root(
     name: *const c_char,
     label: *const c_char,
     priority: i32,
-    out_root_id: *mut PpUuid,
+    out_root_id: *mut PpMediaRootId,
     out_error: *mut *mut PpError,
 ) -> u32 {
     // SAFETY: Null pointers are rejected before dereference and string inputs
     // follow the documented borrowed NUL-terminated contract.
     unsafe {
-        initialize_uuid(out_root_id);
+        initialize_value(out_root_id, PpMediaRootId { bytes: [0; 16] });
         ffi_call(out_error, || {
             let transaction = transaction
                 .as_mut()
@@ -4988,7 +4993,7 @@ pub unsafe extern "C" fn pp_transaction_add_media_root(
             let name = required_utf8(name, "name")?;
             let label = optional_utf8(label, "label")?.map(str::to_owned);
             let root = MediaRoot::new(MediaRootId::new(), name, label, None, priority, true)?;
-            out_root_id.write(PpUuid {
+            out_root_id.write(PpMediaRootId {
                 bytes: root.id().into_bytes(),
             });
             transaction.mutations.push(StagedMutation::MediaRoot(root));
@@ -5003,12 +5008,12 @@ pub unsafe extern "C" fn pp_transaction_add_media_root(
 ///
 /// # Safety
 ///
-/// `transaction` must be live, `root_id` readable, `enabled` exactly zero or
+/// `transaction` must be live, `enabled` exactly zero or
 /// one, and `out_error` null or writable.
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_transaction_set_media_root_enabled(
     transaction: *mut PpTransaction,
-    root_id: *const PpUuid,
+    root_id: PpMediaRootId,
     enabled: u8,
     out_error: *mut *mut PpError,
 ) -> u32 {
@@ -5019,9 +5024,6 @@ pub unsafe extern "C" fn pp_transaction_set_media_root_enabled(
                 .as_mut()
                 .ok_or_else(|| invalid_argument("transaction must not be null"))?;
             transaction.lifecycle.ensure_open()?;
-            let root_id = root_id
-                .as_ref()
-                .ok_or_else(|| invalid_argument("root_id must not be null"))?;
             let enabled = match enabled {
                 0 => false,
                 1 => true,
@@ -5042,12 +5044,12 @@ pub unsafe extern "C" fn pp_transaction_set_media_root_enabled(
 ///
 /// # Safety
 ///
-/// `transaction` must be live, `root_id` readable, and `out_error` null or
+/// `transaction` must be live and `out_error` null or
 /// writable.
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_transaction_remove_media_root(
     transaction: *mut PpTransaction,
-    root_id: *const PpUuid,
+    root_id: PpMediaRootId,
     out_error: *mut *mut PpError,
 ) -> u32 {
     // SAFETY: Inputs are validated before staging copied values.
@@ -5057,9 +5059,6 @@ pub unsafe extern "C" fn pp_transaction_remove_media_root(
                 .as_mut()
                 .ok_or_else(|| invalid_argument("transaction must not be null"))?;
             transaction.lifecycle.ensure_open()?;
-            let root_id = root_id
-                .as_ref()
-                .ok_or_else(|| invalid_argument("root_id must not be null"))?;
             transaction
                 .mutations
                 .push(StagedMutation::RemoveMediaRoot(MediaRootId::from_bytes(
@@ -6353,7 +6352,7 @@ const fn empty_revision_event() -> PpRevisionEvent {
         representation_id: PpUuid { bytes: [0; 16] },
         resource_id: PpUuid { bytes: [0; 16] },
         locator_id: PpUuid { bytes: [0; 16] },
-        media_root_id: PpUuid { bytes: [0; 16] },
+        media_root_id: PpMediaRootId { bytes: [0; 16] },
         activity_id: PpUuid { bytes: [0; 16] },
         job_id: PpUuid { bytes: [0; 16] },
         target: PpObjectRef {
@@ -6959,6 +6958,7 @@ const fn empty_transaction_conflict() -> PpTransactionConflict {
     PpTransactionConflict {
         kind: 0,
         target: empty_object_ref(),
+        media_root_id: PpMediaRootId { bytes: [0; 16] },
         namespace_name: ptr::null(),
         local_name: ptr::null(),
         qualifier: ptr::null(),

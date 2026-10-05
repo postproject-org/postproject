@@ -448,6 +448,7 @@ ObjectRef._fields_ = [
 TransactionConflict._fields_ = [
     ("kind", ConflictKeyKind),
     ("target", ObjectRef),
+    ("media_root_id", MediaRootId),
     ("namespace_name", ctypes.c_char_p),
     ("local_name", ctypes.c_char_p),
     ("qualifier", ctypes.c_char_p),
@@ -471,7 +472,7 @@ RevisionEvent._fields_ = [
     ("representation_id", Uuid),
     ("resource_id", Uuid),
     ("locator_id", Uuid),
-    ("media_root_id", Uuid),
+    ("media_root_id", MediaRootId),
     ("activity_id", Uuid),
     ("job_id", Uuid),
     ("target", ObjectRef),
@@ -607,7 +608,7 @@ PUBLIC_STRUCTS = {
     "pp_commit_receipt_t": (CommitReceipt, ("production_id", "outcome", "revision_id", "revision_sequence")),
     "pp_decision_base_t": (DecisionBase, ("production_id", "has_revision", "revision_id", "revision_sequence")),
     "pp_object_ref_t": (ObjectRef, ("kind", "id")),
-    "pp_transaction_conflict_t": (TransactionConflict, ("kind", "target", "namespace_name", "local_name", "qualifier", "version", "has_base_revision", "base_revision_id", "base_revision_sequence", "superseding_revision_id", "superseding_revision_sequence")),
+    "pp_transaction_conflict_t": (TransactionConflict, ("kind", "target", "media_root_id", "namespace_name", "local_name", "qualifier", "version", "has_base_revision", "base_revision_id", "base_revision_sequence", "superseding_revision_id", "superseding_revision_sequence")),
     "pp_dependency_match_t": (DependencyMatch, ("target", "depth")),
     "pp_revision_event_t": (RevisionEvent, ("kind", "position", "asset_id", "representation_id", "resource_id", "locator_id", "media_root_id", "activity_id", "job_id", "target", "structural_position", "enabled", "identifier_scheme", "identifier_value", "identifier_qualifier", "vocabulary", "property", "activity_kind", "role", "fingerprint_algorithm", "fingerprint_version")),
     "pp_activity_edge_t": (ActivityEdge, ("representation_id", "role")),
@@ -1078,7 +1079,7 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_production_media_roots.restype = ErrorCode
     lib.pp_media_root_set_count.argtypes = [ctypes.POINTER(MediaRootSet)]
     lib.pp_media_root_set_count.restype = ctypes.c_uint64
-    lib.pp_media_root_set_get.argtypes = [ctypes.POINTER(MediaRootSet), ctypes.c_uint64, ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.c_int32), ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_media_root_set_get.argtypes = [ctypes.POINTER(MediaRootSet), ctypes.c_uint64, ctypes.POINTER(MediaRootId), ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.c_int32), ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_media_root_set_get.restype = ErrorCode
     lib.pp_media_root_set_release.argtypes = [ctypes.POINTER(MediaRootSet)]
     lib.pp_media_root_set_release.restype = None
@@ -1454,11 +1455,11 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_transaction_import_media.restype = ErrorCode
     lib.pp_transaction_add_representation.argtypes = [ctypes.POINTER(Transaction), AssetId, RepresentationKind, ctypes.POINTER(MediaSource), ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_transaction_add_representation.restype = ErrorCode
-    lib.pp_transaction_add_media_root.argtypes = [ctypes.POINTER(Transaction), ctypes.c_char_p, ctypes.c_char_p, ctypes.c_int32, ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_transaction_add_media_root.argtypes = [ctypes.POINTER(Transaction), ctypes.c_char_p, ctypes.c_char_p, ctypes.c_int32, ctypes.POINTER(MediaRootId), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_transaction_add_media_root.restype = ErrorCode
-    lib.pp_transaction_set_media_root_enabled.argtypes = [ctypes.POINTER(Transaction), ctypes.POINTER(Uuid), ctypes.c_uint8, ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_transaction_set_media_root_enabled.argtypes = [ctypes.POINTER(Transaction), MediaRootId, ctypes.c_uint8, ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_transaction_set_media_root_enabled.restype = ErrorCode
-    lib.pp_transaction_remove_media_root.argtypes = [ctypes.POINTER(Transaction), ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_transaction_remove_media_root.argtypes = [ctypes.POINTER(Transaction), MediaRootId, ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_transaction_remove_media_root.restype = ErrorCode
     lib.pp_transaction_confirm_locator.argtypes = [ctypes.POINTER(Transaction), ctypes.POINTER(Uuid), ctypes.c_char_p, ctypes.c_char_p, ctypes.POINTER(SequenceNaming), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_transaction_confirm_locator.restype = ErrorCode

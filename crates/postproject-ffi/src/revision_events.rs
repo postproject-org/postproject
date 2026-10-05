@@ -16,8 +16,8 @@ use crate::{
     PP_REVISION_METADATA_ADDED_OR_REPLACED, PP_REVISION_METADATA_REMOVED,
     PP_REVISION_REPRESENTATION_ADDED, PP_REVISION_REPRESENTATION_FINGERPRINT_OBSERVED,
     PP_REVISION_REPRESENTATION_RESOURCE_ADDED, PP_REVISION_RESOURCE_ADDED,
-    PP_REVISION_RESOURCE_FINGERPRINT_OBSERVED, PpAssetId, PpObjectRef, PpRevisionEvent, PpUuid,
-    exact_cstring, object_ref_to_abi,
+    PP_REVISION_RESOURCE_FINGERPRINT_OBSERVED, PpAssetId, PpMediaRootId, PpObjectRef,
+    PpRevisionEvent, PpUuid, exact_cstring, object_ref_to_abi,
 };
 
 /// Opaque immutable revision-event result set owned by the C caller.
@@ -33,7 +33,7 @@ pub(crate) struct AbiRevisionEvent {
     representation_id: Option<PpUuid>,
     resource_id: Option<PpUuid>,
     locator_id: Option<PpUuid>,
-    media_root_id: Option<PpUuid>,
+    media_root_id: Option<PpMediaRootId>,
     activity_id: Option<PpUuid>,
     job_id: Option<PpUuid>,
     target: Option<PpObjectRef>,
@@ -130,7 +130,9 @@ impl AbiRevisionEvent {
             representation_id: self.representation_id.unwrap_or_else(zero_uuid),
             resource_id: self.resource_id.unwrap_or_else(zero_uuid),
             locator_id: self.locator_id.unwrap_or_else(zero_uuid),
-            media_root_id: self.media_root_id.unwrap_or_else(zero_uuid),
+            media_root_id: self
+                .media_root_id
+                .unwrap_or(PpMediaRootId { bytes: [0; 16] }),
             activity_id: self.activity_id.unwrap_or_else(zero_uuid),
             job_id: self.job_id.unwrap_or_else(zero_uuid),
             target: self.target.unwrap_or_else(zero_object_ref),
@@ -221,7 +223,9 @@ impl TryFrom<&RevisionEvent> for AbiRevisionEvent {
             }
             RevisionEventKind::MediaRootAdded { media_root_id } => {
                 projected.kind = PP_REVISION_MEDIA_ROOT_ADDED;
-                projected.media_root_id = Some(uuid(media_root_id.into_bytes()));
+                projected.media_root_id = Some(PpMediaRootId {
+                    bytes: media_root_id.into_bytes(),
+                });
             }
             RevisionEventKind::LocatorRetired {
                 resource_id,
@@ -236,12 +240,16 @@ impl TryFrom<&RevisionEvent> for AbiRevisionEvent {
                 enabled,
             } => {
                 projected.kind = PP_REVISION_MEDIA_ROOT_ENABLED_CHANGED;
-                projected.media_root_id = Some(uuid(media_root_id.into_bytes()));
+                projected.media_root_id = Some(PpMediaRootId {
+                    bytes: media_root_id.into_bytes(),
+                });
                 projected.enabled = Some(*enabled);
             }
             RevisionEventKind::MediaRootRemoved { media_root_id } => {
                 projected.kind = PP_REVISION_MEDIA_ROOT_REMOVED;
-                projected.media_root_id = Some(uuid(media_root_id.into_bytes()));
+                projected.media_root_id = Some(PpMediaRootId {
+                    bytes: media_root_id.into_bytes(),
+                });
             }
             RevisionEventKind::ExternalIdentifierAdded { target, identifier }
             | RevisionEventKind::ExternalIdentifierRemoved { target, identifier } => {

@@ -328,7 +328,7 @@ int main(int argc, char **argv) {
   pp_production_id_t id = {{0}};
   pp_asset_id_t asset_id = {{0}};
   pp_asset_id_t rolled_back_asset_id = {{0}};
-  pp_uuid_t root_id = {{0}};
+  pp_media_root_id_t root_id = {{0}};
   pp_uuid_t representation_id = {{0}};
   pp_uuid_t resource_id = {{0}};
   pp_revision_id_t revision_id = {{0}};
@@ -342,7 +342,7 @@ int main(int argc, char **argv) {
     return 64;
   }
   (void)remove(argv[1]);
-  if (pp_abi_version() != UINT32_C(41)) {
+  if (pp_abi_version() != UINT32_C(42)) {
     return 1;
   }
   pp_error_code_t status =
@@ -472,7 +472,8 @@ int main(int argc, char **argv) {
   }
   status = pp_transaction_add_media_root(transaction, "fixtures", "Fixture root",
                                          0, &root_id, &error);
-  if (status != PP_OK || uuid_is_zero(&root_id)) {
+  const unsigned char empty_root[16] = {0};
+  if (status != PP_OK || memcmp(root_id.bytes, empty_root, 16) == 0) {
     pp_transaction_release(transaction);
     pp_production_release(production);
     pp_error_release(error);
@@ -529,7 +530,7 @@ int main(int argc, char **argv) {
   }
   pp_asset_set_release(assets);
   pp_media_root_set_t *roots = NULL;
-  pp_uuid_t read_root_id = {{0}};
+  pp_media_root_id_t read_root_id = {{0}};
   const char *root_name = NULL;
   const char *root_label = NULL;
   const char *root_legacy_uri = NULL;
@@ -1166,7 +1167,7 @@ int main(int argc, char **argv) {
           transaction, &representation_id, "c-smoke-tree", UINT16_C(1),
           observed_representation_fingerprint,
           sizeof(observed_representation_fingerprint), &error) != PP_OK ||
-      pp_transaction_set_media_root_enabled(transaction, &root_id, 0, &error) !=
+      pp_transaction_set_media_root_enabled(transaction, root_id, 0, &error) !=
           PP_OK ||
       pp_transaction_retire_locator(transaction, &locator_id, &error) != PP_OK ||
       pp_transaction_commit(transaction, &error) != PP_OK) {
@@ -1398,7 +1399,7 @@ int main(int argc, char **argv) {
 
   status = pp_production_begin_transaction(production, &transaction, &error);
   if (status != PP_OK ||
-      pp_transaction_remove_media_root(transaction, &root_id, &error) != PP_OK ||
+      pp_transaction_remove_media_root(transaction, root_id, &error) != PP_OK ||
       pp_transaction_commit(transaction, &error) != PP_OK) {
     pp_transaction_release(transaction);
     pp_resolution_set_release(resolutions);

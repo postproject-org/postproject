@@ -1,6 +1,6 @@
 # ABI policy
 
-ABI version 41 is pre-release and may change during the 0.x series, with every
+ABI version 42 is pre-release and may change during the 0.x series, with every
 change recorded in the changelog and ABI tests. `pp_abi_version()` reports the
 implemented version. Exported symbol names are unversioned until the first stable
 release, but removals or signature changes require an explicit ABI-version bump.
@@ -24,6 +24,12 @@ isolation because their production and transaction lifecycle dependencies lack
 the required complete evidence from two independent hosts (ADR 0040).
 
 ## Types and ownership
+
+ABI 42 types media-root inputs, summaries, revision events and conflicts as
+`pp_media_root_id_t` / C++ `MediaRootId`. Scalar mutations take IDs by value.
+Root conflicts use a dedicated identity field, not a fabricated object kind.
+Recompile native consumers and use matching Python wheels; schema 17 and UUID
+text are unchanged (ADR 0049).
 
 ABI 41 carries distinct asset identities through imports, reads, resolution,
 job requests and asset-bearing result fields. Scalar inputs take

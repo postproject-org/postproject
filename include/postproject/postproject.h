@@ -274,13 +274,14 @@ typedef uint32_t pp_conflict_key_kind_t;
 
 /* Structured optimistic-conflict detail borrowed from one pp_error_t. The
  * target ID names the affected resource, representation, metadata/identifier
- * object, or media root. Media-root targets have object kind zero. Namespace
+ * object. Media-root conflicts use media_root_id and a zero target. Namespace
  * is a vocabulary, identifier scheme, or fingerprint algorithm; local_name is
  * a metadata property or external-identifier value. Unused fields are zero or
  * NULL. */
 typedef struct pp_transaction_conflict {
   pp_conflict_key_kind_t kind;
   pp_object_ref_t target;
+  pp_media_root_id_t media_root_id;
   const char *namespace_name;
   const char *local_name;
   const char *qualifier;
@@ -306,7 +307,7 @@ typedef struct pp_revision_event {
   pp_uuid_t representation_id;
   pp_uuid_t resource_id;
   pp_uuid_t locator_id;
-  pp_uuid_t media_root_id;
+  pp_media_root_id_t media_root_id;
   pp_uuid_t activity_id;
   pp_uuid_t job_id;
   pp_object_ref_t target;
@@ -823,7 +824,7 @@ PP_API pp_error_code_t pp_production_media_roots(
     pp_error_t **out_error);
 PP_API uint64_t pp_media_root_set_count(const pp_media_root_set_t *roots);
 PP_API pp_error_code_t pp_media_root_set_get(
-    const pp_media_root_set_t *roots, uint64_t index, pp_uuid_t *out_id,
+    const pp_media_root_set_t *roots, uint64_t index, pp_media_root_id_t *out_id,
     const char **out_name, const char **out_label, const char **out_legacy_uri,
     int32_t *out_priority, uint8_t *out_enabled, pp_error_t **out_error);
 PP_API void pp_media_root_set_release(pp_media_root_set_t *roots);
@@ -1550,12 +1551,12 @@ PP_API pp_error_code_t pp_transaction_add_representation(
     pp_uuid_t *out_representation_id, pp_error_t **out_error);
 PP_API pp_error_code_t pp_transaction_add_media_root(
     pp_transaction_t *transaction, const char *name, const char *label,
-    int32_t priority, pp_uuid_t *out_root_id, pp_error_t **out_error);
+    int32_t priority, pp_media_root_id_t *out_root_id, pp_error_t **out_error);
 PP_API pp_error_code_t pp_transaction_set_media_root_enabled(
-    pp_transaction_t *transaction, const pp_uuid_t *root_id, uint8_t enabled,
+    pp_transaction_t *transaction, pp_media_root_id_t root_id, uint8_t enabled,
     pp_error_t **out_error);
 PP_API pp_error_code_t pp_transaction_remove_media_root(
-    pp_transaction_t *transaction, const pp_uuid_t *root_id,
+    pp_transaction_t *transaction, pp_media_root_id_t root_id,
     pp_error_t **out_error);
 /* Records uri as a locator of the resource. root_name may be NULL; otherwise it
  * names the logical media root the URI was found under. sequence_naming is
