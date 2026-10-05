@@ -315,12 +315,12 @@ class _HostBindings:
         self._production = production
 
     def __getitem__(self, target: ObjectReference) -> str:
-        production_id = _native_uuid(self._production.id)
+        production_id = _native_production_id(self._production.id)
         native_target = _native_object_reference(target)
         binding = ctypes.c_char_p()
         error = ctypes.POINTER(Error)()
         status = self._production._native.lib.pp_host_binding_format(
-            ctypes.byref(production_id),
+            production_id,
             ctypes.byref(native_target),
             ctypes.byref(binding),
             ctypes.byref(error),
@@ -332,7 +332,7 @@ class _HostBindings:
             self._production._native.lib.pp_string_release(binding)
 
     def parse(self, value: str) -> HostObjectBinding:
-        production_id = Uuid()
+        production_id = _abi.ProductionId()
         target = _abi.ObjectRef()
         error = ctypes.POINTER(Error)()
         status = self._production._native.lib.pp_host_binding_parse(
@@ -413,7 +413,7 @@ class Production:
         """Return this production's stable identity."""
 
         self._require_open()
-        value = Uuid()
+        value = _abi.ProductionId()
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_production_id(
             self._handle, ctypes.byref(value), ctypes.byref(error)
@@ -1643,7 +1643,7 @@ class Production:
         """Begin an explicit-commit edit from detached production-scoped context."""
         self._require_open()
         value = _abi.DecisionBase()
-        value.production_id = _native_uuid(base.production_id)
+        value.production_id = _native_production_id(base.production_id)
         if base.revision is not None:
             if (
                 type(base.revision.sequence) is not int
@@ -3466,8 +3466,16 @@ def _utf8(value: str, label: str) -> bytes:
     return encoded
 
 
-def _uuid(value: Uuid) -> UUID:
+def _uuid(value: Uuid | _abi.ProductionId) -> UUID:
     return UUID(bytes=bytes(value.bytes))
+
+
+def _native_production_id(value: ProductionId) -> _abi.ProductionId:
+    if not isinstance(value, UUID):
+        raise TypeError("identity must be a uuid.UUID")
+    native = _abi.ProductionId()
+    native.bytes[:] = value.bytes
+    return native
 
 
 def _native_uuid(value: UUID) -> Uuid:

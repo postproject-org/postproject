@@ -18,8 +18,8 @@ release_order = [
 [[families]]
 id = "production-lifecycle"
 introduced_release = "0.1.0-alpha.1"
-last_changed_release = "0.4.0-alpha.1"
-last_changed_abi = 32
+last_changed_release = "0.7.0-alpha.1"
+last_changed_abi = 39
 c_operations = [
   "pp_production_create",
   "pp_production_open",
@@ -179,8 +179,8 @@ python_operations = ["Production.verify_resource"]
 [[families]]
 id = "host-object-binding"
 introduced_release = "0.2.0-alpha.1"
-last_changed_release = "0.4.0-alpha.1"
-last_changed_abi = 32
+last_changed_release = "0.7.0-alpha.1"
+last_changed_abi = 39
 c_operations = [
   "pp_host_binding_format",
   "pp_host_binding_parse",

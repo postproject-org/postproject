@@ -465,7 +465,7 @@ struct TransactionConflict final {
 };
 
 struct HostObjectBinding final {
-  Uuid production_id;
+  ProductionId production_id;
   ObjectRef object;
 
   [[nodiscard]] Result<std::string> toString() const;
@@ -711,12 +711,12 @@ struct CommittedRevision final {
 };
 
 struct DecisionBase final {
-  Uuid production_id;
+  ProductionId production_id;
   std::optional<CommittedRevision> revision;
 };
 
 struct CommitReceipt final {
-  Uuid production_id;
+  ProductionId production_id;
   std::optional<CommittedRevision> revision;
 };
 
@@ -1438,6 +1438,18 @@ inline pp_uuid_t native_uuid(const Uuid &value) {
   for (std::size_t index = 0; index < value.bytes().size(); ++index) {
     native.bytes[index] = value.bytes()[index];
   }
+  return native;
+}
+
+inline ProductionId production_id(const pp_production_id_t &value) {
+  Uuid::Bytes bytes{};
+  std::copy(std::begin(value.bytes), std::end(value.bytes), bytes.begin());
+  return ProductionId(bytes);
+}
+
+inline pp_production_id_t native_production_id(const ProductionId &value) {
+  pp_production_id_t native{};
+  std::copy(value.bytes().begin(), value.bytes().end(), std::begin(native.bytes));
   return native;
 }
 
@@ -2365,12 +2377,12 @@ inline Result<std::string> ProductionId::toString() const {
 }
 
 inline Result<std::string> HostObjectBinding::toString() const {
-  const pp_uuid_t native_production_id = detail::native_uuid(production_id);
+  const auto native_production_id = detail::native_production_id(production_id);
   const pp_object_ref_t native_object = detail::native_object_ref(object);
   char *binding = nullptr;
   pp_error_t *error = nullptr;
   const pp_error_code_t status = pp_host_binding_format(
-      &native_production_id, &native_object, &binding, &error);
+      native_production_id, &native_object, &binding, &error);
   POSTPROJECT_TRY(detail::check(status, error));
   detail::StringHandle owned(binding);
   return owned != nullptr ? std::string(owned.get()) : std::string();
@@ -2380,13 +2392,13 @@ inline Result<HostObjectBinding>
 HostObjectBinding::fromString(std::string_view value) {
   POSTPROJECT_TRY_ASSIGN(const std::string checked,
                          detail::checked_string(value, "host binding"));
-  pp_uuid_t production_id{};
+  pp_production_id_t production_id{};
   pp_object_ref_t object{};
   pp_error_t *error = nullptr;
   const pp_error_code_t status = pp_host_binding_parse(
       checked.c_str(), &production_id, &object, &error);
   POSTPROJECT_TRY(detail::check(status, error));
-  return HostObjectBinding{detail::uuid(production_id),
+  return HostObjectBinding{detail::production_id(production_id),
                            detail::object_ref(object)};
 }
 
@@ -3629,7 +3641,7 @@ public:
     const pp_error_code_t status =
         pp_transaction_commit_with_receipt(transaction_, &receipt, &error);
     POSTPROJECT_TRY(detail::check(status, error));
-    CommitReceipt result{detail::uuid(receipt.production_id), std::nullopt};
+    CommitReceipt result{detail::production_id(receipt.production_id), std::nullopt};
     if (receipt.outcome == PP_COMMIT_REVISION_CREATED) {
       result.revision = CommittedRevision{detail::uuid(receipt.revision_id),
                                          receipt.revision_sequence};
@@ -4081,7 +4093,7 @@ public:
     pp_error_t *error = nullptr;
     const auto status = pp_read_session_decision_base(session_, &base, &error);
     POSTPROJECT_TRY(detail::check(status, error));
-    DecisionBase result{detail::uuid(base.production_id), std::nullopt};
+    DecisionBase result{detail::production_id(base.production_id), std::nullopt};
     if (base.has_revision) result.revision = CommittedRevision{detail::uuid(base.revision_id), base.revision_sequence};
     return result;
   }
@@ -4242,7 +4254,7 @@ public:
 
   [[nodiscard]] Result<Transaction> edit(const DecisionBase &base) const {
     pp_decision_base_t native{};
-    native.production_id = detail::native_uuid(base.production_id);
+    native.production_id = detail::native_production_id(base.production_id);
     if (base.revision) {
       native.has_revision = 1;
       native.revision_id = detail::native_uuid(base.revision->id);
@@ -4255,13 +4267,13 @@ public:
     return Transaction(transaction);
   }
 
-  [[nodiscard]] Result<Uuid> id() const {
-    pp_uuid_t value{};
+  [[nodiscard]] Result<ProductionId> id() const {
+    pp_production_id_t value{};
     pp_error_t *error = nullptr;
     const pp_error_code_t status = pp_production_id(production_, &value, &error);
     POSTPROJECT_TRY(detail::check(status, error));
 
-    return detail::uuid(value);
+    return detail::production_id(value);
   }
 
   [[nodiscard]] Result<bool> containsAsset(const Uuid &asset_id) const {

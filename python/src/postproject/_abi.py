@@ -386,14 +386,14 @@ ProductionId._fields_ = [
 ]
 
 CommitReceipt._fields_ = [
-    ("production_id", Uuid),
+    ("production_id", ProductionId),
     ("outcome", CommitOutcome),
     ("revision_id", Uuid),
     ("revision_sequence", ctypes.c_uint64),
 ]
 
 DecisionBase._fields_ = [
-    ("production_id", Uuid),
+    ("production_id", ProductionId),
     ("has_revision", ctypes.c_uint8),
     ("revision_id", Uuid),
     ("revision_sequence", ctypes.c_uint64),
@@ -865,9 +865,9 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_read_session_find_known_media_by_fingerprint.restype = ErrorCode
     lib.pp_abi_version.argtypes = []
     lib.pp_abi_version.restype = ctypes.c_uint32
-    lib.pp_host_binding_format.argtypes = [ctypes.POINTER(Uuid), ctypes.POINTER(ObjectRef), ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_host_binding_format.argtypes = [ProductionId, ctypes.POINTER(ObjectRef), ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_host_binding_format.restype = ErrorCode
-    lib.pp_host_binding_parse.argtypes = [ctypes.c_char_p, ctypes.POINTER(Uuid), ctypes.POINTER(ObjectRef), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_host_binding_parse.argtypes = [ctypes.c_char_p, ctypes.POINTER(ProductionId), ctypes.POINTER(ObjectRef), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_host_binding_parse.restype = ErrorCode
     lib.pp_file_path_to_locator.argtypes = [ctypes.c_char_p, ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_file_path_to_locator.restype = ErrorCode
@@ -879,7 +879,7 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_production_create.restype = ErrorCode
     lib.pp_production_open.argtypes = [ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(Production)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_production_open.restype = ErrorCode
-    lib.pp_production_id.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_production_id.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(ProductionId), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_production_id.restype = ErrorCode
     lib.pp_production_asset_exists.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_production_asset_exists.restype = ErrorCode

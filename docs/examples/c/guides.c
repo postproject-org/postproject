@@ -1039,17 +1039,17 @@ static pp_error_code_t wait_for_changes(const pp_production_t *production,
 /* [/revision-wait] */
 
 /* [host-binding] */
-static pp_error_code_t bind_representation(const pp_uuid_t *production_id,
+static pp_error_code_t bind_representation(const pp_production_id_t *production_id,
                                            const pp_uuid_t *representation_id,
                                            pp_error_t **error) {
   const pp_object_ref_t object = {PP_OBJECT_REPRESENTATION,
                                   *representation_id};
   char *stored = NULL;
-  pp_uuid_t parsed_production = {{0}};
+  pp_production_id_t parsed_production = {{0}};
   pp_object_ref_t parsed_object = {0, {{0}}};
 
   pp_error_code_t status =
-      pp_host_binding_format(production_id, &object, &stored, error);
+      pp_host_binding_format(*production_id, &object, &stored, error);
   if (status == PP_OK) {
     printf("binding: %s\n", stored);
     status = pp_host_binding_parse(stored, &parsed_production, &parsed_object,
@@ -1114,7 +1114,7 @@ int main(int argc, char **argv) {
   pp_resolution_set_t *resolutions = NULL;
   pp_error_t *error = NULL;
   pp_uuid_t asset_id;
-  pp_uuid_t production_id;
+  pp_production_id_t production_id;
   pp_uuid_t original_id;
   pp_uuid_t sequence_id = {{0}};
   uint64_t cursor = 0;

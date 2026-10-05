@@ -19,7 +19,7 @@ static pp_error_code_t open_production(const char *path,
   pp_production_t *production = NULL;
   pp_asset_set_t *assets = NULL;
   pp_revision_set_t *latest = NULL;
-  pp_uuid_t production_id;
+  pp_production_id_t production_id;
   pp_production_id_t parsed_id;
   char *identity_text = NULL;
   uint8_t exists = 0;

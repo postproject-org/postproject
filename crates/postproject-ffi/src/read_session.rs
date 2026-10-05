@@ -1,9 +1,10 @@
 //! Owned coherent read contexts and production-bound edit construction.
 
 use crate::{
-    Arc, DecisionBase, Error, PpError, PpProduction, PpTransaction, PpUuid, ProductionId,
-    ProductionState, RevisionId, begin_transaction_handle, ffi_call, initialize_output,
-    initialize_value, invalid_argument, lock_production, production_handle, require_output,
+    Arc, DecisionBase, Error, PpError, PpProduction, PpProductionId, PpTransaction, PpUuid,
+    ProductionId, ProductionState, RevisionId, begin_transaction_handle, ffi_call,
+    initialize_output, initialize_value, invalid_argument, lock_production, production_handle,
+    require_output,
 };
 
 /// Opaque caller-serialized coherent view retaining its production for edits.
@@ -18,7 +19,7 @@ pub struct PpReadSession {
 #[derive(Clone, Copy, Debug)]
 pub struct PpDecisionBase {
     /// Production whose view was read.
-    pub production_id: PpUuid,
+    pub production_id: PpProductionId,
     /// One for a revision, zero for the initial empty journal.
     pub has_revision: u8,
     /// Revision identity when present.
@@ -30,7 +31,7 @@ pub struct PpDecisionBase {
 impl From<DecisionBase> for PpDecisionBase {
     fn from(base: DecisionBase) -> Self {
         Self {
-            production_id: PpUuid {
+            production_id: PpProductionId {
                 bytes: base.production_id().into_bytes(),
             },
             has_revision: u8::from(base.revision_id().is_some()),
@@ -105,7 +106,7 @@ pub unsafe extern "C" fn pp_read_session_decision_base(
         initialize_value(
             out_base,
             PpDecisionBase {
-                production_id: PpUuid { bytes: [0; 16] },
+                production_id: PpProductionId { bytes: [0; 16] },
                 has_revision: 0,
                 revision_id: PpUuid { bytes: [0; 16] },
                 revision_sequence: 0,

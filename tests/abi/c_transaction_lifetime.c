@@ -27,7 +27,7 @@ static int check_terminal_state(pp_production_t *production, int terminal) {
     goto cleanup;
   }
   if (terminal == 0) {
-    pp_uuid_t production_id;
+    pp_production_id_t production_id;
     if (receipt.outcome != PP_COMMIT_NO_CHANGE || receipt.revision_sequence != 0 ||
         pp_production_id(production, &production_id, &error) != PP_OK ||
         memcmp(receipt.production_id.bytes, production_id.bytes, 16) != 0)

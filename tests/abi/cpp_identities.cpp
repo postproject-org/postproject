@@ -7,6 +7,13 @@
 static_assert(!std::is_convertible_v<postproject::Uuid, postproject::ProductionId>);
 static_assert(!std::is_convertible_v<postproject::ProductionId, postproject::Uuid>);
 static_assert(!std::is_same_v<postproject::ProductionId, postproject::Uuid>);
+static_assert(std::is_same_v<
+    decltype(std::declval<const postproject::Production &>().id()),
+    postproject::Result<postproject::ProductionId>>);
+static_assert(!std::is_assignable_v<decltype(postproject::DecisionBase::production_id) &,
+                                    postproject::Uuid>);
+static_assert(!std::is_assignable_v<decltype(postproject::HostObjectBinding::production_id) &,
+                                    postproject::Uuid>);
 
 int main() {
   auto parsed = postproject::ProductionId::fromString(

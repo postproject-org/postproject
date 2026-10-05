@@ -320,7 +320,7 @@ int main(int argc, char **argv) {
   pp_production_t *production = NULL;
   pp_transaction_t *transaction = NULL;
   pp_error_t *error = NULL;
-  pp_uuid_t id = {{0}};
+  pp_production_id_t id = {{0}};
   pp_uuid_t asset_id = {{0}};
   pp_uuid_t rolled_back_asset_id = {{0}};
   pp_uuid_t root_id = {{0}};
@@ -337,7 +337,7 @@ int main(int argc, char **argv) {
     return 64;
   }
   (void)remove(argv[1]);
-  if (pp_abi_version() != UINT32_C(38)) {
+  if (pp_abi_version() != UINT32_C(39)) {
     return 1;
   }
   pp_error_code_t status =
@@ -348,7 +348,7 @@ int main(int argc, char **argv) {
     pp_error_release(error);
     return 2;
   }
-  if (pp_production_id(production, &id, &error) != PP_OK || uuid_is_zero(&id)) {
+  if (pp_production_id(production, &id, &error) != PP_OK || memcmp(id.bytes, (const unsigned char[16]){0}, sizeof id.bytes) == 0) {
     pp_production_release(production);
     pp_error_release(error);
     return 3;
@@ -420,9 +420,9 @@ int main(int argc, char **argv) {
   }
   pp_object_ref_t asset_ref = {PP_OBJECT_ASSET, asset_id};
   char *host_binding = NULL;
-  pp_uuid_t bound_production_id = {{0}};
+  pp_production_id_t bound_production_id = {{0}};
   pp_object_ref_t bound_object = {0};
-  status = pp_host_binding_format(&id, &asset_ref, &host_binding, &error);
+  status = pp_host_binding_format(id, &asset_ref, &host_binding, &error);
   if (status != PP_OK || host_binding == NULL ||
       strncmp(host_binding, "https://postproject.org/ref/v1/",
               sizeof("https://postproject.org/ref/v1/") - 1) != 0 ||

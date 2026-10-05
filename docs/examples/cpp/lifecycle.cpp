@@ -51,7 +51,7 @@ postproject::Production open_production(const std::string &path,
   require(identity.toString().value() == "00000000-0000-0000-0000-000000000001",
           "typed production identity round trip");
   require(identity.asUuid().bytes() == identity.bytes(), "explicit UUID bytes");
-  std::cout << "production " << format_uuid(production.id().value()) << '\n';
+  std::cout << "production " << production.id().value().toString().value() << '\n';
 
   if (production.containsAsset(asset_id).value()) {
     std::cout << "asset " << format_uuid(asset_id) << " is present\n";

@@ -181,7 +181,7 @@ const PP_REVISION_JOB_FAILED: u32 = 25;
 const PP_REVISION_JOB_CANCELLED: u32 = 26;
 
 /// Current pre-1.0 ABI version.
-pub const ABI_VERSION: u32 = 38;
+pub const ABI_VERSION: u32 = 39;
 
 /// Fixed-layout UUID-compatible public identifier.
 #[repr(C)]
@@ -196,7 +196,7 @@ pub struct PpUuid {
 #[derive(Clone, Copy, Debug)]
 pub struct PpCommitReceipt {
     /// Production whose commit succeeded.
-    pub production_id: PpUuid,
+    pub production_id: PpProductionId,
     /// Zero for no change, one when this commit created a revision.
     pub outcome: u32,
     /// Created revision, meaningful only when outcome is one.
@@ -208,7 +208,7 @@ pub struct PpCommitReceipt {
 impl From<&CommitReceipt> for PpCommitReceipt {
     fn from(receipt: &CommitReceipt) -> Self {
         Self {
-            production_id: PpUuid {
+            production_id: PpProductionId {
                 bytes: receipt.production_id().into_bytes(),
             },
             outcome: u32::from(receipt.revision().is_some()),
@@ -663,12 +663,12 @@ pub extern "C" fn pp_abi_version() -> u32 {
 ///
 /// # Safety
 ///
-/// `production_id` and `object` must be readable. `out_binding` must be
+/// `object` must be readable. `out_binding` must be
 /// writable and receives a string that must be released exactly once with
 /// [`pp_string_release`]. `out_error` may be null or writable.
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_host_binding_format(
-    production_id: *const PpUuid,
+    production_id: PpProductionId,
     object: *const PpObjectRef,
     out_binding: *mut *mut c_char,
     out_error: *mut *mut PpError,
@@ -677,9 +677,6 @@ pub unsafe extern "C" fn pp_host_binding_format(
     unsafe {
         initialize_output(out_binding);
         ffi_call(out_error, || {
-            let production_id = production_id
-                .as_ref()
-                .ok_or_else(|| invalid_argument("production_id must not be null"))?;
             let object = object
                 .as_ref()
                 .ok_or_else(|| invalid_argument("object must not be null"))?;
@@ -704,13 +701,13 @@ pub unsafe extern "C" fn pp_host_binding_format(
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_host_binding_parse(
     binding: *const c_char,
-    out_production_id: *mut PpUuid,
+    out_production_id: *mut PpProductionId,
     out_object: *mut PpObjectRef,
     out_error: *mut *mut PpError,
 ) -> u32 {
     // SAFETY: Outputs are initialized and all pointers checked before use.
     unsafe {
-        initialize_uuid(out_production_id);
+        initialize_value(out_production_id, PpProductionId { bytes: [0; 16] });
         initialize_object_ref(out_object);
         ffi_call(out_error, || {
             require_output(out_production_id, "out_production_id")?;
@@ -870,12 +867,13 @@ pub unsafe extern "C" fn pp_production_open(
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_id(
     production: *const PpProduction,
-    out_id: *mut PpUuid,
+    out_id: *mut PpProductionId,
     out_error: *mut *mut PpError,
 ) -> u32 {
     // SAFETY: Null pointers are rejected before dereference; non-null pointer
     // validity and synchronization are guaranteed by the caller contract.
     unsafe {
+        initialize_value(out_id, PpProductionId { bytes: [0; 16] });
         ffi_call(out_error, || {
             let production = production
                 .as_ref()
@@ -5950,7 +5948,7 @@ pub unsafe extern "C" fn pp_transaction_commit_with_receipt(
         initialize_value(
             out_receipt,
             PpCommitReceipt {
-                production_id: PpUuid { bytes: [0; 16] },
+                production_id: PpProductionId { bytes: [0; 16] },
                 outcome: 0,
                 revision_id: PpUuid { bytes: [0; 16] },
                 revision_sequence: 0,
@@ -7017,8 +7015,8 @@ const fn error_code(kind: ErrorKind) -> u32 {
     }
 }
 
-fn uuid(id: ProductionId) -> PpUuid {
-    PpUuid {
+fn uuid(id: ProductionId) -> PpProductionId {
+    PpProductionId {
         bytes: id.into_bytes(),
     }
 }
@@ -7450,7 +7448,7 @@ mod tests {
         assert!(!production.is_null());
         assert!(error.is_null());
 
-        let mut id = PpUuid { bytes: [0; 16] };
+        let mut id = PpProductionId { bytes: [0; 16] };
         // SAFETY: `production` is live and outputs are writable.
         assert_eq!(
             unsafe { pp_production_id(production, &raw mut id, &raw mut error) },
@@ -7474,7 +7472,7 @@ mod tests {
         let worker_handle = Arc::clone(&handle);
         let (sender, receiver) = mpsc::channel();
         let worker = thread::spawn(move || {
-            let mut id = PpUuid { bytes: [0; 16] };
+            let mut id = PpProductionId { bytes: [0; 16] };
             let mut error = ptr::null_mut();
             // SAFETY: The Arc keeps the handle live, the outputs are local, and
             // no thread releases the handle while this call runs.
@@ -7514,7 +7512,7 @@ mod tests {
             .is_err()
         );
 
-        let mut id = PpUuid { bytes: [0; 16] };
+        let mut id = PpProductionId { bytes: [0; 16] };
         let mut error = ptr::null_mut();
         // SAFETY: The Arc keeps the handle live and outputs are writable.
         let status = unsafe { pp_production_id(Arc::as_ptr(&handle), &raw mut id, &raw mut error) };

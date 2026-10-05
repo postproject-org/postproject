@@ -10,7 +10,7 @@ All notable changes to PostProject will be documented here. The project uses
 - Replaced Python ID wrappers with UUID NewType hints and explicit object-reference variants; use IDs directly and wrap dynamic targets (ADR 0046).
 - Bound query cursors to their production and retained read view; restart queries using old cursor tokens (ADR 0047).
 - C++ tokens/options require `create()`; options setters return `Result<void>` immediately and preserve valid settings on failure (ADR 0048).
-- Added native semantic production IDs; UUID bytes and persisted references retain their meaning (ADR 0049).
+- Added native semantic production IDs (C ABI 39); UUID bytes and persisted references retain their meaning (ADR 0049).
 
 ## 0.6.0-alpha.1 - 2026-10-04
 

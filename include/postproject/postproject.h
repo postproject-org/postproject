@@ -77,7 +77,7 @@ typedef uint32_t pp_commit_outcome_t;
  * meaningful only for PP_COMMIT_REVISION_CREATED; no-change makes no claim
  * about the current head. Failure initializes the entire output to zero. */
 typedef struct pp_commit_receipt {
-  pp_uuid_t production_id;
+  pp_production_id_t production_id;
   pp_commit_outcome_t outcome;
   pp_uuid_t revision_id;
   uint64_t revision_sequence;
@@ -86,7 +86,7 @@ typedef struct pp_commit_receipt {
 /* Detached optimistic context. No revision with sequence zero means an empty
  * journal; it still protects edits. This value retains no view or lock. */
 typedef struct pp_decision_base {
-  pp_uuid_t production_id;
+  pp_production_id_t production_id;
   uint8_t has_revision;
   pp_uuid_t revision_id;
   uint64_t revision_sequence;
@@ -571,12 +571,12 @@ PP_API uint32_t pp_abi_version(void);
  * Inputs are borrowed. On success, *out_binding is caller-owned and must be
  * released exactly once with pp_string_release(). */
 PP_API pp_error_code_t pp_host_binding_format(
-    const pp_uuid_t *production_id, const pp_object_ref_t *object,
+    pp_production_id_t production_id, const pp_object_ref_t *object,
     char **out_binding, pp_error_t **out_error);
 /* binding is borrowed NUL-terminated UTF-8. Both value outputs are required
  * caller-owned storage and are cleared on failure. */
 PP_API pp_error_code_t pp_host_binding_parse(
-    const char *binding, pp_uuid_t *out_production_id,
+    const char *binding, pp_production_id_t *out_production_id,
     pp_object_ref_t *out_object, pp_error_t **out_error);
 /* Returns the canonical file: locator URI import records for an existing path:
  * symbolic links and relative components are resolved, and the URI is spelled
@@ -605,7 +605,7 @@ PP_API pp_error_code_t pp_production_open(const char *path,
                                        pp_production_t **out_production,
                                        pp_error_t **out_error);
 PP_API pp_error_code_t pp_production_id(const pp_production_t *production,
-                                     pp_uuid_t *out_id, pp_error_t **out_error);
+                                     pp_production_id_t *out_id, pp_error_t **out_error);
 PP_API pp_error_code_t pp_production_asset_exists(const pp_production_t *production,
                                                const pp_uuid_t *asset_id,
                                                uint8_t *out_exists,
