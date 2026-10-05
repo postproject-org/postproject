@@ -243,6 +243,8 @@ pp_revision_event_set_count
 pp_revision_event_set_get
 pp_revision_event_set_next_cursor
 pp_revision_event_set_release
+pp_revision_id_format
+pp_revision_id_parse
 pp_revision_set_count
 pp_revision_set_get
 pp_revision_set_release
@@ -263,6 +265,8 @@ pp_transaction_complete_job
 pp_transaction_confirm_locator
 pp_transaction_create_activity
 pp_transaction_fail_job
+pp_transaction_id_format
+pp_transaction_id_parse
 pp_transaction_import_media
 pp_transaction_observe_resource_content
 pp_transaction_record_dependency_set

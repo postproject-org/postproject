@@ -3,7 +3,7 @@ use postproject::{
     PpActivityEdge, PpArtifactDependencyPathSegment, PpArtifactReason,
     PpArtifactReproducibilityIssue, PpCommitReceipt, PpDecisionBase, PpDependency,
     PpDependencyMatch, PpFileResourceInput, PpJob, PpObjectRef, PpProductionId, PpRevisionEvent,
-    PpSequenceNaming, PpTransactionConflict, PpUuid,
+    PpRevisionId, PpSequenceNaming, PpTransactionConflict, PpTransactionId, PpUuid,
 };
 use std::mem::{align_of, offset_of, size_of};
 
@@ -21,6 +21,8 @@ macro_rules! layout {
 fn main() {
     layout!(PpUuid, "pp_uuid_t", bytes);
     layout!(PpProductionId, "pp_production_id_t", bytes);
+    layout!(PpRevisionId, "pp_revision_id_t", bytes);
+    layout!(PpTransactionId, "pp_transaction_id_t", bytes);
     layout!(
         PpCommitReceipt,
         "pp_commit_receipt_t",

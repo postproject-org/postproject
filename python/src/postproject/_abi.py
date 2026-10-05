@@ -133,6 +133,14 @@ class ProductionId(ctypes.Structure):
     pass
 
 
+class RevisionId(ctypes.Structure):
+    pass
+
+
+class TransactionId(ctypes.Structure):
+    pass
+
+
 class CommitReceipt(ctypes.Structure):
     pass
 
@@ -386,6 +394,14 @@ ProductionId._fields_ = [
     ("bytes", ctypes.c_uint8 * 16),
 ]
 
+RevisionId._fields_ = [
+    ("bytes", ctypes.c_uint8 * 16),
+]
+
+TransactionId._fields_ = [
+    ("bytes", ctypes.c_uint8 * 16),
+]
+
 CommitReceipt._fields_ = [
     ("production_id", ProductionId),
     ("outcome", CommitOutcome),
@@ -543,6 +559,8 @@ SequenceNaming._fields_ = [
 PUBLIC_STRUCTS = {
     "pp_uuid_t": (Uuid, ("bytes",)),
     "pp_production_id_t": (ProductionId, ("bytes",)),
+    "pp_revision_id_t": (RevisionId, ("bytes",)),
+    "pp_transaction_id_t": (TransactionId, ("bytes",)),
     "pp_commit_receipt_t": (CommitReceipt, ("production_id", "outcome", "revision_id", "revision_sequence")),
     "pp_decision_base_t": (DecisionBase, ("production_id", "has_revision", "revision_id", "revision_sequence")),
     "pp_object_ref_t": (ObjectRef, ("kind", "id")),
@@ -806,6 +824,8 @@ EXPORTED_SYMBOLS = (
     "pp_revision_event_set_get",
     "pp_revision_event_set_next_cursor",
     "pp_revision_event_set_release",
+    "pp_revision_id_format",
+    "pp_revision_id_parse",
     "pp_revision_set_count",
     "pp_revision_set_get",
     "pp_revision_set_release",
@@ -826,6 +846,8 @@ EXPORTED_SYMBOLS = (
     "pp_transaction_confirm_locator",
     "pp_transaction_create_activity",
     "pp_transaction_fail_job",
+    "pp_transaction_id_format",
+    "pp_transaction_id_parse",
     "pp_transaction_import_media",
     "pp_transaction_observe_resource_content",
     "pp_transaction_record_dependency_set",
@@ -906,6 +928,14 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_read_session_jobs.restype = ErrorCode
     lib.pp_read_session_release.argtypes = [ctypes.POINTER(ReadSession)]
     lib.pp_read_session_release.restype = None
+    lib.pp_revision_id_parse.argtypes = [ctypes.c_char_p, ctypes.POINTER(RevisionId), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_revision_id_parse.restype = ErrorCode
+    lib.pp_revision_id_format.argtypes = [RevisionId, ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_revision_id_format.restype = ErrorCode
+    lib.pp_transaction_id_parse.argtypes = [ctypes.c_char_p, ctypes.POINTER(TransactionId), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_transaction_id_parse.restype = ErrorCode
+    lib.pp_transaction_id_format.argtypes = [TransactionId, ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_transaction_id_format.restype = ErrorCode
     lib.pp_production_id_parse.argtypes = [ctypes.c_char_p, ctypes.POINTER(ProductionId), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_production_id_parse.restype = ErrorCode
     lib.pp_production_id_format.argtypes = [ProductionId, ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.POINTER(Error))]

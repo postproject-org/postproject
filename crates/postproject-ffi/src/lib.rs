@@ -65,7 +65,7 @@ pub use artifact::{
 };
 pub use content::PpFingerprint;
 pub use dependency::{PpDependency, PpDependencyMatch, PpDependencyQuerySet, PpDependencySet};
-pub use identities::PpProductionId;
+pub use identities::{PpProductionId, PpRevisionId, PpTransactionId};
 pub use jobs::{PpJob, PpJobSet, PpRegenerationPlanSet};
 pub use known_media::PpKnownMediaSet;
 pub use media_source::PpMediaSource;

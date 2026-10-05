@@ -87,7 +87,7 @@ static int exercise(const char *path, const char *media) {
   pp_error_t *error = NULL;
   pp_uuid_t asset, representation;
   pp_decision_base_t base, parsed;
-  char *token = NULL;
+  char *token = NULL, *revision_text = NULL, *transaction_text = NULL;
   pp_commit_receipt_t receipt;
   int result = 1;
 #define CHECK(call) do { if ((call) != PP_OK) goto cleanup; } while (0)
@@ -126,6 +126,18 @@ static int exercise(const char *path, const char *media) {
 
   CHECK(pp_production_read_session(production, &view, &error));
   CHECK(pp_read_session_decision_base(view, &base, &error));
+  pp_revision_id_t revision_id;
+  pp_transaction_id_t transaction_id;
+  /* Explicit interchange conversion retains the recorded UUID bytes. */
+  memcpy(revision_id.bytes, base.revision_id.bytes, 16);
+  CHECK(pp_revision_id_format(revision_id, &revision_text, &error));
+  CHECK(pp_revision_id_parse(revision_text, &revision_id, &error));
+  if (memcmp(revision_id.bytes, base.revision_id.bytes, 16)) goto cleanup;
+  pp_string_release(revision_text); revision_text = NULL;
+  CHECK(pp_transaction_id_parse("00000000-0000-0000-0000-000000000001", &transaction_id, &error));
+  CHECK(pp_transaction_id_format(transaction_id, &transaction_text, &error));
+  if (strcmp(transaction_text, "00000000-0000-0000-0000-000000000001")) goto cleanup;
+  pp_string_release(transaction_text); transaction_text = NULL;
   CHECK(pp_read_session_revision_events_page(view, &base.revision_id, 1, NULL, &events, &error));
   const char *event_cursor = pp_revision_event_set_next_cursor(events);
   if (pp_revision_event_set_count(events) != 1 || !event_cursor) goto cleanup;
@@ -262,6 +274,8 @@ cleanup:
   if (result) fprintf(stderr, "%s\n", error ? pp_error_message(error) : "read-view assertion");
   pp_error_release(error);
   pp_string_release(token);
+  pp_string_release(revision_text);
+  pp_string_release(transaction_text);
   pp_asset_set_release(assets);
   pp_job_set_release(jobs);
   pp_regeneration_plan_set_release(plans);

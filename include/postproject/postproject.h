@@ -69,6 +69,16 @@ typedef struct pp_production_id_value {
   uint8_t bytes[16];
 } pp_production_id_t;
 
+/* Distinct semantic identity; UUID bytes and nil policy match the core. */
+typedef struct pp_revision_id_value {
+  uint8_t bytes[16];
+} pp_revision_id_t;
+
+/* Distinct semantic identity; UUID bytes and nil policy match the core. */
+typedef struct pp_transaction_id_value {
+  uint8_t bytes[16];
+} pp_transaction_id_t;
+
 typedef uint32_t pp_commit_outcome_t;
 #define PP_COMMIT_NO_CHANGE UINT32_C(0)
 #define PP_COMMIT_REVISION_CREATED UINT32_C(1)
@@ -611,6 +621,18 @@ PP_API void pp_read_session_release(pp_read_session_t *session);
 
 /* Formatting returns owned text released with pp_string_release. Parse failure
  * clears out_id; format failure clears out_text. No registry lookup occurs. */
+/* Parse syntax and kind; existence is checked by domain operations. */
+PP_API pp_error_code_t pp_revision_id_parse(
+    const char *text, pp_revision_id_t *out_id, pp_error_t **out_error);
+/* Owned canonical text; release it with pp_string_release(). */
+PP_API pp_error_code_t pp_revision_id_format(
+    pp_revision_id_t id, char **out_text, pp_error_t **out_error);
+/* Parse syntax and kind; existence is checked by domain operations. */
+PP_API pp_error_code_t pp_transaction_id_parse(
+    const char *text, pp_transaction_id_t *out_id, pp_error_t **out_error);
+/* Owned canonical text; release it with pp_string_release(). */
+PP_API pp_error_code_t pp_transaction_id_format(
+    pp_transaction_id_t id, char **out_text, pp_error_t **out_error);
 PP_API pp_error_code_t pp_production_id_parse(
     const char *text, pp_production_id_t *out_id, pp_error_t **out_error);
 PP_API pp_error_code_t pp_production_id_format(
