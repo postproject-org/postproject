@@ -89,7 +89,7 @@ typedef uint32_t pp_commit_outcome_t;
 typedef struct pp_commit_receipt {
   pp_production_id_t production_id;
   pp_commit_outcome_t outcome;
-  pp_uuid_t revision_id;
+  pp_revision_id_t revision_id;
   uint64_t revision_sequence;
 } pp_commit_receipt_t;
 
@@ -98,7 +98,7 @@ typedef struct pp_commit_receipt {
 typedef struct pp_decision_base {
   pp_production_id_t production_id;
   uint8_t has_revision;
-  pp_uuid_t revision_id;
+  pp_revision_id_t revision_id;
   uint64_t revision_sequence;
 } pp_decision_base_t;
 typedef uint32_t pp_object_kind_t;
@@ -276,9 +276,9 @@ typedef struct pp_transaction_conflict {
   const char *qualifier;
   uint16_t version;
   uint8_t has_base_revision;
-  pp_uuid_t base_revision_id;
+  pp_revision_id_t base_revision_id;
   uint64_t base_revision_sequence;
-  pp_uuid_t superseding_revision_id;
+  pp_revision_id_t superseding_revision_id;
   uint64_t superseding_revision_sequence;
 } pp_transaction_conflict_t;
 
@@ -532,7 +532,7 @@ PP_API pp_error_code_t pp_read_session_artifact_reproducibility(
     pp_artifact_reproducibility_t **out_report, pp_error_t **out_error);
 /* Journal reads end at the revision retained by this view. */
 PP_API pp_error_code_t pp_read_session_revision_events_page(
-    const pp_read_session_t *session, const pp_uuid_t *revision_id,
+    const pp_read_session_t *session, pp_revision_id_t revision_id,
     uint32_t limit, const char *cursor, pp_revision_event_set_t **out_events,
     pp_error_t **out_error);
 PP_API pp_error_code_t pp_read_session_changes_since_filtered(
@@ -1263,14 +1263,14 @@ PP_API pp_error_code_t pp_production_changes_since(
     pp_revision_set_t **out_revisions, pp_error_t **out_error);
 PP_API uint64_t pp_revision_set_count(const pp_revision_set_t *revisions);
 PP_API pp_error_code_t pp_revision_set_get(
-    const pp_revision_set_t *revisions, uint64_t index, pp_uuid_t *out_id,
-    uint64_t *out_sequence, pp_uuid_t *out_transaction_id,
+    const pp_revision_set_t *revisions, uint64_t index, pp_revision_id_t *out_id,
+    uint64_t *out_sequence, pp_transaction_id_t *out_transaction_id,
     int64_t *out_committed_at_unix_micros, const char **out_origin_name,
     const char **out_origin_version, const char **out_origin_uri,
     const char **out_message, pp_error_t **out_error);
 PP_API void pp_revision_set_release(pp_revision_set_t *revisions);
 PP_API pp_error_code_t pp_production_revision_events(
-    const pp_production_t *production, const pp_uuid_t *revision_id,
+    const pp_production_t *production, pp_revision_id_t revision_id,
     pp_revision_event_set_t **out_events, pp_error_t **out_error);
 PP_API uint64_t
 pp_revision_event_set_count(const pp_revision_event_set_t *events);
@@ -1298,7 +1298,7 @@ PP_API pp_error_code_t pp_revision_waiter_create(
     pp_error_t **out_error);
 /* Bounded position-ordered events; cursors retain production/revision scope. */
 PP_API pp_error_code_t pp_production_revision_events_page(
-    const pp_production_t *production, const pp_uuid_t *revision_id,
+    const pp_production_t *production, pp_revision_id_t revision_id,
     uint32_t limit, const char *cursor, pp_revision_event_set_t **out_events,
     pp_error_t **out_error);
 /* Borrowed string, valid until events is released; null at end of page. */
@@ -1439,7 +1439,7 @@ PP_API pp_error_code_t pp_production_begin_transaction(
 /* The base revision must exist. It identifies the durable state from which the
  * caller made its decisions; it is not a lock or reservation. */
 PP_API pp_error_code_t pp_production_begin_transaction_at(
-    pp_production_t *production, const pp_uuid_t *base_revision,
+    pp_production_t *production, pp_revision_id_t base_revision,
     pp_transaction_t **out_transaction, pp_error_t **out_error);
 PP_API void pp_production_release(pp_production_t *production);
 

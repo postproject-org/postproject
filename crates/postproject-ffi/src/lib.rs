@@ -181,7 +181,7 @@ const PP_REVISION_JOB_FAILED: u32 = 25;
 const PP_REVISION_JOB_CANCELLED: u32 = 26;
 
 /// Current pre-1.0 ABI version.
-pub const ABI_VERSION: u32 = 39;
+pub const ABI_VERSION: u32 = 40;
 
 /// Fixed-layout UUID-compatible public identifier.
 #[repr(C)]
@@ -200,7 +200,7 @@ pub struct PpCommitReceipt {
     /// Zero for no change, one when this commit created a revision.
     pub outcome: u32,
     /// Created revision, meaningful only when outcome is one.
-    pub revision_id: PpUuid,
+    pub revision_id: PpRevisionId,
     /// Created revision's production-local sequence, otherwise zero.
     pub revision_sequence: u64,
 }
@@ -212,7 +212,7 @@ impl From<&CommitReceipt> for PpCommitReceipt {
                 bytes: receipt.production_id().into_bytes(),
             },
             outcome: u32::from(receipt.revision().is_some()),
-            revision_id: PpUuid {
+            revision_id: PpRevisionId {
                 bytes: receipt
                     .revision()
                     .map_or([0; 16], |revision| revision.id().into_bytes()),
@@ -253,11 +253,11 @@ pub struct PpTransactionConflict {
     /// Whether a base revision exists (zero for an empty-journal decision).
     pub has_base_revision: u8,
     /// Base revision supplied by the caller when present.
-    pub base_revision_id: PpUuid,
+    pub base_revision_id: PpRevisionId,
     /// Production-local base revision sequence.
     pub base_revision_sequence: u64,
     /// Revision that changed the key after the base.
-    pub superseding_revision_id: PpUuid,
+    pub superseding_revision_id: PpRevisionId,
     /// Production-local superseding revision sequence.
     pub superseding_revision_sequence: u64,
 }
@@ -550,9 +550,9 @@ struct AbiTransactionConflict {
     local_name: Option<CString>,
     qualifier: Option<CString>,
     version: u16,
-    base_revision_id: PpUuid,
+    base_revision_id: PpRevisionId,
     base_revision_sequence: u64,
-    superseding_revision_id: PpUuid,
+    superseding_revision_id: PpRevisionId,
     superseding_revision_sequence: u64,
 }
 
@@ -565,13 +565,13 @@ impl AbiTransactionConflict {
             local_name: None,
             qualifier: None,
             version: 0,
-            base_revision_id: PpUuid {
+            base_revision_id: PpRevisionId {
                 bytes: conflict
                     .base_revision()
                     .map_or([0; 16], RevisionId::into_bytes),
             },
             base_revision_sequence: conflict.base_sequence(),
-            superseding_revision_id: PpUuid {
+            superseding_revision_id: PpRevisionId {
                 bytes: conflict.superseding_revision().into_bytes(),
             },
             superseding_revision_sequence: conflict.superseding_sequence(),
@@ -3900,9 +3900,9 @@ pub unsafe extern "C" fn pp_revision_set_count(revisions: *const PpRevisionSet) 
 pub unsafe extern "C" fn pp_revision_set_get(
     revisions: *const PpRevisionSet,
     index: u64,
-    out_id: *mut PpUuid,
+    out_id: *mut PpRevisionId,
     out_sequence: *mut u64,
-    out_transaction_id: *mut PpUuid,
+    out_transaction_id: *mut PpTransactionId,
     out_committed_at_unix_micros: *mut i64,
     out_origin_name: *mut *const c_char,
     out_origin_version: *mut *const c_char,
@@ -3912,9 +3912,9 @@ pub unsafe extern "C" fn pp_revision_set_get(
 ) -> u32 {
     // SAFETY: Outputs are initialized and checked before writes.
     unsafe {
-        initialize_uuid(out_id);
+        initialize_value(out_id, PpRevisionId { bytes: [0; 16] });
         initialize_value(out_sequence, 0);
-        initialize_uuid(out_transaction_id);
+        initialize_value(out_transaction_id, PpTransactionId { bytes: [0; 16] });
         initialize_value(out_committed_at_unix_micros, 0);
         initialize_const_output(out_origin_name);
         initialize_const_output(out_origin_version);
@@ -3933,11 +3933,11 @@ pub unsafe extern "C" fn pp_revision_set_get(
                 .as_ref()
                 .ok_or_else(|| invalid_argument("revisions must not be null"))?;
             let revision = item_at(&revisions.revisions, index, "revision")?;
-            out_id.write(PpUuid {
+            out_id.write(PpRevisionId {
                 bytes: revision.id.into_bytes(),
             });
             out_sequence.write(revision.sequence);
-            out_transaction_id.write(PpUuid {
+            out_transaction_id.write(PpTransactionId {
                 bytes: revision.transaction_id.into_bytes(),
             });
             out_committed_at_unix_micros.write(revision.committed_at_unix_micros);
@@ -3990,12 +3990,12 @@ pub unsafe extern "C" fn pp_revision_set_release(revisions: *mut PpRevisionSet) 
 ///
 /// # Safety
 ///
-/// `production` and `revision_id` must be readable live values,
-/// `out_events` must be writable, and `out_error` may be null or writable.
+/// `production` must be live, `out_events` writable, and `out_error` null or
+/// writable. Revision identity is a copied stack value.
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_revision_events(
     production: *const PpProduction,
-    revision_id: *const PpUuid,
+    revision_id: PpRevisionId,
     out_events: *mut *mut PpRevisionEventSet,
     out_error: *mut *mut PpError,
 ) -> u32 {
@@ -4006,9 +4006,6 @@ pub unsafe extern "C" fn pp_production_revision_events(
             let production = production
                 .as_ref()
                 .ok_or_else(|| invalid_argument("production must not be null"))?;
-            let revision_id = revision_id
-                .as_ref()
-                .ok_or_else(|| invalid_argument("revision_id must not be null"))?;
             require_output(out_events, "out_events")?;
             let inner = lock_production(&production.state);
             let events = inner.events_for_revision(RevisionId::from_bytes(revision_id.bytes))?;
@@ -4791,13 +4788,12 @@ pub unsafe extern "C" fn pp_production_begin_transaction(
 ///
 /// # Safety
 ///
-/// `production` must be a live handle. `base_revision` and `out_transaction`
-/// must be readable and writable respectively. `out_error` may be null or
-/// writable.
+/// `production` must be live, `out_transaction` writable, and `out_error` null
+/// or writable. Base revision identity is a copied stack value.
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_begin_transaction_at(
     production: *mut PpProduction,
-    base_revision: *const PpUuid,
+    base_revision: PpRevisionId,
     out_transaction: *mut *mut PpTransaction,
     out_error: *mut *mut PpError,
 ) -> u32 {
@@ -4808,9 +4804,6 @@ pub unsafe extern "C" fn pp_production_begin_transaction_at(
             let production = production
                 .as_ref()
                 .ok_or_else(|| invalid_argument("production must not be null"))?;
-            let base_revision = base_revision
-                .as_ref()
-                .ok_or_else(|| invalid_argument("base_revision must not be null"))?;
             require_output(out_transaction, "out_transaction")?;
             let base_revision = RevisionId::from_bytes(base_revision.bytes);
             out_transaction.write(begin_transaction_handle(
@@ -5955,7 +5948,7 @@ pub unsafe extern "C" fn pp_transaction_commit_with_receipt(
             PpCommitReceipt {
                 production_id: PpProductionId { bytes: [0; 16] },
                 outcome: 0,
-                revision_id: PpUuid { bytes: [0; 16] },
+                revision_id: PpRevisionId { bytes: [0; 16] },
                 revision_sequence: 0,
             },
         );
@@ -6974,9 +6967,9 @@ const fn empty_transaction_conflict() -> PpTransactionConflict {
         qualifier: ptr::null(),
         version: 0,
         has_base_revision: 0,
-        base_revision_id: PpUuid { bytes: [0; 16] },
+        base_revision_id: PpRevisionId { bytes: [0; 16] },
         base_revision_sequence: 0,
-        superseding_revision_id: PpUuid { bytes: [0; 16] },
+        superseding_revision_id: PpRevisionId { bytes: [0; 16] },
         superseding_revision_sequence: 0,
     }
 }

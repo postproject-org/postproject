@@ -493,7 +493,8 @@ static pp_error_code_t observe_changed_file(pp_production_t *production,
     status = pp_production_latest_revision(production, &latest, error);
   }
   if (status == PP_OK) {
-    pp_uuid_t revision_id, transaction_id;
+    pp_revision_id_t revision_id;
+    pp_transaction_id_t transaction_id;
     uint64_t sequence = 0;
     int64_t committed_at = 0;
     const char *origin_name, *origin_version, *origin_uri, *message;
@@ -501,7 +502,7 @@ static pp_error_code_t observe_changed_file(pp_production_t *production,
                                  &transaction_id, &committed_at, &origin_name,
                                  &origin_version, &origin_uri, &message, error);
     if (status == PP_OK) {
-      status = pp_production_revision_events(production, &revision_id, &events,
+      status = pp_production_revision_events(production, revision_id, &events,
                                              error);
     }
   }
@@ -972,7 +973,8 @@ static pp_error_code_t count_events(const pp_production_t *production,
       pp_production_changes_since(production, after, 1000, &revisions, error);
   for (uint64_t i = 0; status == PP_OK && i < pp_revision_set_count(revisions);
        ++i) {
-    pp_uuid_t revision_id, transaction_id;
+    pp_revision_id_t revision_id;
+    pp_transaction_id_t transaction_id;
     uint64_t sequence = 0;
     int64_t committed_at = 0;
     const char *origin_name, *origin_version, *origin_uri, *message;
@@ -981,7 +983,7 @@ static pp_error_code_t count_events(const pp_production_t *production,
                                  &transaction_id, &committed_at, &origin_name,
                                  &origin_version, &origin_uri, &message, error);
     if (status == PP_OK) {
-      status = pp_production_revision_events(production, &revision_id, &events,
+      status = pp_production_revision_events(production, revision_id, &events,
                                              error);
     }
     for (uint64_t j = 0;
@@ -1136,7 +1138,8 @@ int main(int argc, char **argv) {
 
   if (status == PP_OK) {
     pp_revision_set_t *latest = NULL;
-    pp_uuid_t revision_id, transaction_id;
+    pp_revision_id_t revision_id;
+    pp_transaction_id_t transaction_id;
     int64_t committed_at;
     const char *a, *b, *c, *d;
     status = pp_production_latest_revision(production, &latest, &error);

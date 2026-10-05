@@ -63,11 +63,11 @@ pub unsafe extern "C" fn pp_read_session_plan_regeneration(
 /// Copies one bounded page of a revision's events from the pinned view.
 ///
 /// # Safety
-/// Session/ID must be live/readable, cursor null or UTF-8, outputs writable.
+/// Session must be live, cursor null or UTF-8, outputs writable.
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_read_session_revision_events_page(
     session: *const PpReadSession,
-    revision_id: *const PpUuid,
+    revision_id: crate::PpRevisionId,
     limit: u32,
     cursor: *const c_char,
     out_events: *mut *mut crate::PpRevisionEventSet,

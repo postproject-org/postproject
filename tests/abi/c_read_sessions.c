@@ -49,7 +49,7 @@ static int rejects_null_storage_reads(void) {
   valid = valid && status == PP_ERROR_INVALID_ARGUMENT && revisions == NULL && through == 0;
   pp_error_release(error); error = NULL;
   pp_revision_event_set_t *events = (pp_revision_event_set_t *)(uintptr_t)1;
-  status = pp_read_session_revision_events_page(NULL, NULL, 1, NULL, &events, &error);
+  status = pp_read_session_revision_events_page(NULL, (pp_revision_id_t){{0}}, 1, NULL, &events, &error);
   valid = valid && status == PP_ERROR_INVALID_ARGUMENT && events == NULL;
   pp_error_release(error); error = NULL;
   pp_regeneration_plan_set_t *plans = (pp_regeneration_plan_set_t *)(uintptr_t)1;

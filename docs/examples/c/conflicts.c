@@ -7,11 +7,11 @@
 
 /* [semantic-conflicts] */
 static pp_error_code_t latest_revision(pp_production_t *production,
-                                       pp_uuid_t *out_id,
+                                       pp_revision_id_t *out_id,
                                        uint64_t *out_sequence,
                                        pp_error_t **error) {
   pp_revision_set_t *revisions = NULL;
-  pp_uuid_t transaction_id;
+  pp_transaction_id_t transaction_id;
   int64_t committed_at = 0;
   const char *origin_name = NULL;
   const char *origin_version = NULL;
@@ -34,8 +34,8 @@ static pp_error_code_t latest_revision(pp_production_t *production,
 static pp_error_code_t
 update_from_a_base_revision(pp_production_t *production, pp_error_t **error) {
   pp_uuid_t root_id;
-  pp_uuid_t base_id;
-  pp_uuid_t superseding_id;
+  pp_revision_id_t base_id;
+  pp_revision_id_t superseding_id;
   uint64_t base_sequence = 0;
   uint64_t superseding_sequence = 0;
   pp_transaction_t *transaction = NULL;
@@ -56,7 +56,7 @@ update_from_a_base_revision(pp_production_t *production, pp_error_t **error) {
   }
 
   if (status == PP_OK) {
-    status = pp_production_begin_transaction_at(production, &base_id,
+    status = pp_production_begin_transaction_at(production, base_id,
                                                 &transaction, error);
   }
   if (status == PP_OK) {
@@ -77,7 +77,7 @@ update_from_a_base_revision(pp_production_t *production, pp_error_t **error) {
   transaction = NULL;
 
   if (status == PP_OK) {
-    status = pp_production_begin_transaction_at(production, &base_id,
+    status = pp_production_begin_transaction_at(production, base_id,
                                                 &transaction, error);
   }
   if (status == PP_OK) {
@@ -107,14 +107,14 @@ update_from_a_base_revision(pp_production_t *production, pp_error_t **error) {
   transaction = NULL;
 
   /* Retry only after re-reading and deciding that enabling is still right. */
-  pp_uuid_t refreshed_id;
+  pp_revision_id_t refreshed_id;
   uint64_t refreshed_sequence = 0;
   if (status == PP_OK) {
     status = latest_revision(production, &refreshed_id, &refreshed_sequence,
                              error);
   }
   if (status == PP_OK) {
-    status = pp_production_begin_transaction_at(production, &refreshed_id,
+    status = pp_production_begin_transaction_at(production, refreshed_id,
                                                 &transaction, error);
   }
   if (status == PP_OK) {

@@ -9,6 +9,11 @@
 #include <direct.h>
 #endif
 
+static int bytes_are_zero(const uint8_t *bytes) {
+  static const uint8_t zero[16] = {0};
+  return memcmp(bytes, zero, sizeof zero) == 0;
+}
+
 static int uuid_is_zero(const pp_uuid_t *id) {
   static const uint8_t zero[16] = {0};
   return memcmp(id->bytes, zero, sizeof(zero)) == 0;
@@ -326,8 +331,8 @@ int main(int argc, char **argv) {
   pp_uuid_t root_id = {{0}};
   pp_uuid_t representation_id = {{0}};
   pp_uuid_t resource_id = {{0}};
-  pp_uuid_t revision_id = {{0}};
-  pp_uuid_t revision_transaction_id = {{0}};
+  pp_revision_id_t revision_id = {{0}};
+  pp_transaction_id_t revision_transaction_id = {{0}};
   pp_revision_event_t revision_event = {0};
   char media_path[4096];
   char moved_media_path[4096];
@@ -337,7 +342,7 @@ int main(int argc, char **argv) {
     return 64;
   }
   (void)remove(argv[1]);
-  if (pp_abi_version() != UINT32_C(39)) {
+  if (pp_abi_version() != UINT32_C(40)) {
     return 1;
   }
   pp_error_code_t status =
@@ -560,7 +565,7 @@ int main(int argc, char **argv) {
           &revision_transaction_id, &revision_committed_at,
           &revision_origin_name, &revision_origin_version,
           &revision_origin_uri, &revision_message, &error) != PP_OK ||
-      uuid_is_zero(&revision_id) || uuid_is_zero(&revision_transaction_id) ||
+      bytes_are_zero(revision_id.bytes) || bytes_are_zero(revision_transaction_id.bytes) ||
       revision_sequence != UINT64_C(1) || revision_committed_at == 0 ||
       revision_origin_name == NULL || revision_origin_version == NULL ||
       revision_message == NULL ||
@@ -585,7 +590,7 @@ int main(int argc, char **argv) {
   }
   pp_revision_set_release(revisions);
   pp_revision_event_set_t *revision_events = NULL;
-  status = pp_production_revision_events(production, &revision_id, &revision_events,
+  status = pp_production_revision_events(production, revision_id, &revision_events,
                                       &error);
   if (status != PP_OK || revision_events == NULL ||
       pp_revision_event_set_count(revision_events) != UINT64_C(8) ||
@@ -1350,7 +1355,7 @@ int main(int argc, char **argv) {
   }
   pp_revision_set_release(revisions);
   revision_events = NULL;
-  status = pp_production_revision_events(production, &revision_id,
+  status = pp_production_revision_events(production, revision_id,
                                          &revision_events, &error);
   if (status != PP_OK || revision_events == NULL ||
       pp_revision_event_set_get(revision_events, 1, &revision_event, &error) !=
@@ -1920,7 +1925,7 @@ int main(int argc, char **argv) {
   }
   pp_revision_set_release(revisions);
   revision_events = NULL;
-  if (pp_production_revision_events(production, &revision_id, &revision_events,
+  if (pp_production_revision_events(production, revision_id, &revision_events,
                                     &error) != PP_OK ||
       revision_events == NULL ||
       pp_revision_event_set_count(revision_events) != UINT64_C(1) ||
@@ -2547,7 +2552,7 @@ int main(int argc, char **argv) {
   }
   pp_revision_set_release(revisions);
   revisions = NULL;
-  if (pp_production_begin_transaction_at(production, &revision_id, &transaction,
+  if (pp_production_begin_transaction_at(production, revision_id, &transaction,
                                          &error) != PP_OK ||
       pp_transaction_confirm_locator(transaction, &resource_id,
                                      "file:///c-smoke/conflict-first.mov", NULL,
@@ -2560,7 +2565,7 @@ int main(int argc, char **argv) {
   }
   pp_transaction_release(transaction);
   transaction = NULL;
-  if (pp_production_begin_transaction_at(production, &revision_id, &transaction,
+  if (pp_production_begin_transaction_at(production, revision_id, &transaction,
                                          &error) != PP_OK ||
       pp_transaction_confirm_locator(
           transaction, &resource_id, "file:///c-smoke/conflict-stale.mov",

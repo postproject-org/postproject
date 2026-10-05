@@ -405,14 +405,14 @@ TransactionId._fields_ = [
 CommitReceipt._fields_ = [
     ("production_id", ProductionId),
     ("outcome", CommitOutcome),
-    ("revision_id", Uuid),
+    ("revision_id", RevisionId),
     ("revision_sequence", ctypes.c_uint64),
 ]
 
 DecisionBase._fields_ = [
     ("production_id", ProductionId),
     ("has_revision", ctypes.c_uint8),
-    ("revision_id", Uuid),
+    ("revision_id", RevisionId),
     ("revision_sequence", ctypes.c_uint64),
 ]
 
@@ -429,9 +429,9 @@ TransactionConflict._fields_ = [
     ("qualifier", ctypes.c_char_p),
     ("version", ctypes.c_uint16),
     ("has_base_revision", ctypes.c_uint8),
-    ("base_revision_id", Uuid),
+    ("base_revision_id", RevisionId),
     ("base_revision_sequence", ctypes.c_uint64),
-    ("superseding_revision_id", Uuid),
+    ("superseding_revision_id", RevisionId),
     ("superseding_revision_sequence", ctypes.c_uint64),
 ]
 
@@ -888,7 +888,7 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_read_session_evaluate_artifact.restype = ErrorCode
     lib.pp_read_session_artifact_reproducibility.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.POINTER(ArtifactReproducibility)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_read_session_artifact_reproducibility.restype = ErrorCode
-    lib.pp_read_session_revision_events_page.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(Uuid), ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(RevisionEventSet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_read_session_revision_events_page.argtypes = [ctypes.POINTER(ReadSession), RevisionId, ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(RevisionEventSet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_read_session_revision_events_page.restype = ErrorCode
     lib.pp_read_session_changes_since_filtered.argtypes = [ctypes.POINTER(ReadSession), ctypes.c_uint64, ctypes.POINTER(RevisionEventKind), ctypes.c_uint64, ctypes.c_uint32, ctypes.POINTER(ctypes.POINTER(RevisionSet)), ctypes.POINTER(ctypes.c_uint64), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_read_session_changes_since_filtered.restype = ErrorCode
@@ -1286,11 +1286,11 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_production_changes_since.restype = ErrorCode
     lib.pp_revision_set_count.argtypes = [ctypes.POINTER(RevisionSet)]
     lib.pp_revision_set_count.restype = ctypes.c_uint64
-    lib.pp_revision_set_get.argtypes = [ctypes.POINTER(RevisionSet), ctypes.c_uint64, ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.c_uint64), ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.c_int64), ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_revision_set_get.argtypes = [ctypes.POINTER(RevisionSet), ctypes.c_uint64, ctypes.POINTER(RevisionId), ctypes.POINTER(ctypes.c_uint64), ctypes.POINTER(TransactionId), ctypes.POINTER(ctypes.c_int64), ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_revision_set_get.restype = ErrorCode
     lib.pp_revision_set_release.argtypes = [ctypes.POINTER(RevisionSet)]
     lib.pp_revision_set_release.restype = None
-    lib.pp_production_revision_events.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.POINTER(RevisionEventSet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_production_revision_events.argtypes = [ctypes.POINTER(Production), RevisionId, ctypes.POINTER(ctypes.POINTER(RevisionEventSet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_production_revision_events.restype = ErrorCode
     lib.pp_revision_event_set_count.argtypes = [ctypes.POINTER(RevisionEventSet)]
     lib.pp_revision_event_set_count.restype = ctypes.c_uint64
@@ -1302,7 +1302,7 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_production_changes_since_filtered.restype = ErrorCode
     lib.pp_revision_waiter_create.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(ctypes.POINTER(RevisionWaiter)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_revision_waiter_create.restype = ErrorCode
-    lib.pp_production_revision_events_page.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(Uuid), ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(RevisionEventSet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_production_revision_events_page.argtypes = [ctypes.POINTER(Production), RevisionId, ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(RevisionEventSet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_production_revision_events_page.restype = ErrorCode
     lib.pp_revision_event_set_next_cursor.argtypes = [ctypes.POINTER(RevisionEventSet)]
     lib.pp_revision_event_set_next_cursor.restype = ctypes.c_char_p
@@ -1362,7 +1362,7 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_resolution_set_release.restype = None
     lib.pp_production_begin_transaction.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(ctypes.POINTER(Transaction)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_production_begin_transaction.restype = ErrorCode
-    lib.pp_production_begin_transaction_at.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.POINTER(Transaction)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_production_begin_transaction_at.argtypes = [ctypes.POINTER(Production), RevisionId, ctypes.POINTER(ctypes.POINTER(Transaction)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_production_begin_transaction_at.restype = ErrorCode
     lib.pp_production_release.argtypes = [ctypes.POINTER(Production)]
     lib.pp_production_release.restype = None

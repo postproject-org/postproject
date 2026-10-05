@@ -89,11 +89,11 @@ pub unsafe extern "C" fn pp_revision_event_set_next_cursor(
 /// Copies one bounded page of a revision's immutable semantic events.
 ///
 /// # Safety
-/// Production/ID must be live/readable, cursor null or UTF-8, outputs writable.
+/// Production must be live, cursor null or UTF-8, outputs writable.
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_revision_events_page(
     production: *const crate::PpProduction,
-    revision_id: *const PpUuid,
+    revision_id: crate::PpRevisionId,
     limit: u32,
     cursor: *const std::ffi::c_char,
     out_events: *mut *mut PpRevisionEventSet,
@@ -106,9 +106,6 @@ pub unsafe extern "C" fn pp_production_revision_events_page(
             let production = production
                 .as_ref()
                 .ok_or_else(|| crate::invalid_argument("production must not be null"))?;
-            let revision_id = revision_id
-                .as_ref()
-                .ok_or_else(|| crate::invalid_argument("revision_id must not be null"))?;
             crate::require_output(out_events, "out_events")?;
             let page = crate::query_page_request(limit, cursor)?;
             let reader = crate::lock_production(&production.state);

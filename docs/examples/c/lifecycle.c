@@ -65,8 +65,8 @@ static pp_error_code_t open_production(const char *path,
     status = pp_production_latest_revision(production, &latest, error);
   }
   if (status == PP_OK && pp_revision_set_count(latest) == 1) {
-    pp_uuid_t revision_id;
-    pp_uuid_t transaction_id;
+    pp_revision_id_t revision_id;
+    pp_transaction_id_t transaction_id;
     uint64_t sequence = 0;
     int64_t committed_at = 0;
     const char *origin_name, *origin_version, *origin_uri, *message;
@@ -193,8 +193,8 @@ static pp_error_code_t latest_sequence(const pp_production_t *production,
                                        uint64_t *out_sequence,
                                        pp_error_t **error) {
   pp_revision_set_t *latest = NULL;
-  pp_uuid_t revision_id;
-  pp_uuid_t transaction_id;
+  pp_revision_id_t revision_id;
+  pp_transaction_id_t transaction_id;
   int64_t committed_at = 0;
   const char *origin_name, *origin_version, *origin_uri, *message;
   *out_sequence = 0;

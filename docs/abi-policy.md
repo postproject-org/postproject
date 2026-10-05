@@ -1,6 +1,6 @@
 # ABI policy
 
-ABI version 39 is pre-release and may change during the 0.x series, with every
+ABI version 40 is pre-release and may change during the 0.x series, with every
 change recorded in the changelog and ABI tests. `pp_abi_version()` reports the
 implemented version. Exported symbol names are unversioned until the first stable
 release, but removals or signature changes require an explicit ABI-version bump.
@@ -24,6 +24,13 @@ isolation because their production and transaction lifecycle dependencies lack
 the required complete evidence from two independent hosts (ADR 0040).
 
 ## Types and ownership
+
+ABI 40 projects revision and transaction identities as distinct C/C++ values
+in journal summaries, receipts, decision bases and conflicts. Revision arguments
+are passed by value; use `pp_revision_id_t` or C++ `RevisionId`, and
+`pp_transaction_id_t` or `TransactionId` for commit transaction identities.
+Recompile consumers and use a matching Python wheel. UUID text, persisted
+bytes and schema 17 retain their meaning (ADR 0049).
 
 ABI 39 uses distinct `pp_production_id_t` values in production identity reads,
 host bindings, decision bases and receipts (ADR 0049). Host binding formatting

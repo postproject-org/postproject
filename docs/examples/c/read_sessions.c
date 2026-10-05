@@ -128,8 +128,8 @@ static int exercise(const char *path, const char *media) {
   CHECK(pp_read_session_decision_base(view, &base, &error));
   pp_revision_id_t revision_id;
   pp_transaction_id_t transaction_id;
-  /* Explicit interchange conversion retains the recorded UUID bytes. */
-  memcpy(revision_id.bytes, base.revision_id.bytes, 16);
+  /* Formatting and parsing retain the recorded revision identity. */
+  revision_id = base.revision_id;
   CHECK(pp_revision_id_format(revision_id, &revision_text, &error));
   CHECK(pp_revision_id_parse(revision_text, &revision_id, &error));
   if (memcmp(revision_id.bytes, base.revision_id.bytes, 16)) goto cleanup;
@@ -138,16 +138,16 @@ static int exercise(const char *path, const char *media) {
   CHECK(pp_transaction_id_format(transaction_id, &transaction_text, &error));
   if (strcmp(transaction_text, "00000000-0000-0000-0000-000000000001")) goto cleanup;
   pp_string_release(transaction_text); transaction_text = NULL;
-  CHECK(pp_read_session_revision_events_page(view, &base.revision_id, 1, NULL, &events, &error));
+  CHECK(pp_read_session_revision_events_page(view, base.revision_id, 1, NULL, &events, &error));
   const char *event_cursor = pp_revision_event_set_next_cursor(events);
   if (pp_revision_event_set_count(events) != 1 || !event_cursor) goto cleanup;
-  CHECK(pp_read_session_revision_events_page(view, &base.revision_id, 1000, event_cursor, &next_events, &error));
+  CHECK(pp_read_session_revision_events_page(view, base.revision_id, 1000, event_cursor, &next_events, &error));
   pp_revision_event_t first_event, next_event;
   CHECK(pp_revision_event_set_get(events, 0, &first_event, &error));
   CHECK(pp_revision_event_set_get(next_events, 0, &next_event, &error));
   if (next_event.position <= first_event.position || pp_revision_event_set_next_cursor(next_events)) goto cleanup;
   pp_revision_event_set_release(next_events); next_events = NULL;
-  CHECK(pp_production_revision_events_page(production, &base.revision_id, 1000, NULL, &next_events, &error));
+  CHECK(pp_production_revision_events_page(production, base.revision_id, 1000, NULL, &next_events, &error));
   if (pp_revision_event_set_count(next_events) <= 1) goto cleanup;
   CHECK(pp_decision_base_format(&base, &token, &error));
   CHECK(pp_decision_base_parse(token, &parsed, &error));

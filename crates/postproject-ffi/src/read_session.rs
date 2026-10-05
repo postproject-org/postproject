@@ -1,7 +1,7 @@
 //! Owned coherent read contexts and production-bound edit construction.
 
 use crate::{
-    Arc, DecisionBase, Error, PpError, PpProduction, PpProductionId, PpTransaction, PpUuid,
+    Arc, DecisionBase, Error, PpError, PpProduction, PpProductionId, PpRevisionId, PpTransaction,
     ProductionId, ProductionState, RevisionId, begin_transaction_handle, ffi_call,
     initialize_output, initialize_value, invalid_argument, lock_production, production_handle,
     require_output,
@@ -23,7 +23,7 @@ pub struct PpDecisionBase {
     /// One for a revision, zero for the initial empty journal.
     pub has_revision: u8,
     /// Revision identity when present.
-    pub revision_id: PpUuid,
+    pub revision_id: PpRevisionId,
     /// Revision sequence, zero only for an empty journal.
     pub revision_sequence: u64,
 }
@@ -35,7 +35,7 @@ impl From<DecisionBase> for PpDecisionBase {
                 bytes: base.production_id().into_bytes(),
             },
             has_revision: u8::from(base.revision_id().is_some()),
-            revision_id: PpUuid {
+            revision_id: PpRevisionId {
                 bytes: base.revision_id().map_or([0; 16], RevisionId::into_bytes),
             },
             revision_sequence: base.sequence(),
@@ -76,7 +76,7 @@ pub unsafe extern "C" fn pp_decision_base_parse(
             PpDecisionBase {
                 production_id: PpProductionId { bytes: [0; 16] },
                 has_revision: 0,
-                revision_id: PpUuid { bytes: [0; 16] },
+                revision_id: PpRevisionId { bytes: [0; 16] },
                 revision_sequence: 0,
             },
         );
@@ -165,7 +165,7 @@ pub unsafe extern "C" fn pp_read_session_decision_base(
             PpDecisionBase {
                 production_id: PpProductionId { bytes: [0; 16] },
                 has_revision: 0,
-                revision_id: PpUuid { bytes: [0; 16] },
+                revision_id: PpRevisionId { bytes: [0; 16] },
                 revision_sequence: 0,
             },
         );

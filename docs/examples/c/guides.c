@@ -957,8 +957,8 @@ static pp_error_code_t process_changes(const pp_production_t *production,
                                          error);
     page_size = status == PP_OK ? pp_revision_set_count(page) : 0;
     for (uint64_t i = 0; status == PP_OK && i < page_size; ++i) {
-      pp_uuid_t revision_id;
-      pp_uuid_t transaction_id;
+      pp_revision_id_t revision_id;
+      pp_transaction_id_t transaction_id;
       uint64_t sequence = 0;
       int64_t committed_at = 0;
       const char *origin_name, *origin_version, *origin_uri, *message;
@@ -968,7 +968,7 @@ static pp_error_code_t process_changes(const pp_production_t *production,
                                    &origin_name, &origin_version, &origin_uri,
                                    &message, error);
       if (status == PP_OK) {
-        status = pp_production_revision_events(production, &revision_id,
+        status = pp_production_revision_events(production, revision_id,
                                                &events, error);
       }
       for (uint64_t j = 0;

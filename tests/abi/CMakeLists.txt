@@ -21,6 +21,20 @@ int main(void) { pp_uuid_t id = {{0}};
 if(POSTPROJECT_RAW_ID_COMPILES)
     message(FATAL_ERROR "Generic UUID must not substitute for production ID")
 endif()
+check_c_source_compiles("#include <postproject/postproject.h>
+int main(void) { pp_revision_id_t id = {{0}};
+  return pp_production_revision_events_page(0, id, 1, 0, 0, 0); }"
+    POSTPROJECT_REVISION_ID_COMPILES)
+if(NOT POSTPROJECT_REVISION_ID_COMPILES)
+    message(FATAL_ERROR "Installed revision ID call must compile")
+endif()
+check_c_source_compiles("#include <postproject/postproject.h>
+int main(void) { pp_transaction_id_t id = {{0}};
+  return pp_production_revision_events_page(0, id, 1, 0, 0, 0); }"
+    POSTPROJECT_TRANSACTION_AS_REVISION_COMPILES)
+if(POSTPROJECT_TRANSACTION_AS_REVISION_COMPILES)
+    message(FATAL_ERROR "Transaction identity must not substitute for revision identity")
+endif()
 cmake_pop_check_state()
 
 # The producer generates this source from the public header. This consumer
