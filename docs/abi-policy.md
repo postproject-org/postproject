@@ -36,8 +36,8 @@ decision, rather than a fabricated UUID. C++/Python project that field as an
 optional revision and CLI JSON uses null. This changes the conflict-record
 layout and requires recompilation with the ABI 38 header.
 
-Read sessions project roots, external identifiers and bounded known-media
-lookup through the same checked owned sets as live production reads. These
+Read sessions project resources, locators, roots, external identifiers and
+bounded known-media lookup through the same checked owned sets as live production reads. These
 operations retain the session's view and cursor scope.
 
 Productions, transactions, asset sets, media-root sets, representation sets,

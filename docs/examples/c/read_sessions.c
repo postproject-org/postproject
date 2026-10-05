@@ -53,6 +53,8 @@ static int exercise(const char *path, const char *media) {
   pp_media_source_t *source = NULL;
   pp_asset_set_t *assets = NULL;
   pp_representation_set_t *representations = NULL;
+  pp_object_query_set_t *resource_page = NULL;
+  pp_locator_query_set_t *locator_page = NULL;
   pp_error_t *error = NULL;
   pp_uuid_t asset, representation;
   pp_decision_base_t base;
@@ -89,12 +91,25 @@ static int exercise(const char *path, const char *media) {
       &kind, &structure, &members, &resources, &fingerprints, &error));
   pp_representation_set_release(representations); representations = NULL;
   CHECK(pp_read_session_representation(view, &representation, &representations, &error));
+  CHECK(pp_read_session_resources_page(view, &representation, 10, NULL, &resource_page, &error));
+  if (pp_object_query_set_count(resource_page) != 1) goto cleanup;
+  pp_object_ref_t resource;
+  uint32_t depth;
+  CHECK(pp_object_query_set_get(resource_page, 0, &resource, &depth, &error));
+  if (resource.kind != PP_OBJECT_RESOURCE) goto cleanup;
+  CHECK(pp_read_session_locators_page(view, &resource.id, 10, NULL, &locator_page, &error));
+  if (pp_locator_query_set_count(locator_page) != 1) goto cleanup;
+  pp_representation_set_release(representations); representations = NULL;
+  CHECK(pp_read_session_representations_using_resource(view, &resource.id, 10, NULL, &representations, &error));
+  if (pp_representation_set_count(representations) != 1) goto cleanup;
   if (lookup(view, &asset, media)) goto cleanup;
   pp_read_session_release(view); view = NULL;
   /* Copied sets and a detached base survive closing the pinned view. */
   CHECK(pp_production_begin_edit(production, &base, &edit, &error));
   CHECK(pp_transaction_commit_with_receipt(edit, &receipt, &error));
-  if (receipt.outcome != PP_COMMIT_NO_CHANGE || pp_asset_set_count(assets) != 1)
+  if (receipt.outcome != PP_COMMIT_NO_CHANGE || pp_asset_set_count(assets) != 1 ||
+      pp_locator_query_set_count(locator_page) != 1 ||
+      pp_object_query_set_count(resource_page) != 1)
     goto cleanup;
   result = 0;
 cleanup:
@@ -102,6 +117,8 @@ cleanup:
   pp_error_release(error);
   pp_asset_set_release(assets);
   pp_representation_set_release(representations);
+  pp_object_query_set_release(resource_page);
+  pp_locator_query_set_release(locator_page);
   pp_media_source_release(source);
   pp_transaction_release(edit);
   pp_read_session_release(empty);

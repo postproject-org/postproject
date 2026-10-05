@@ -14,9 +14,30 @@ static int rejects_base(pp_production_t *production, pp_decision_base_t base) {
   return rejected;
 }
 
+static int rejects_null_storage_reads(void) {
+  pp_object_query_set_t *resources = (pp_object_query_set_t *)(uintptr_t)1;
+  pp_locator_query_set_t *locators = (pp_locator_query_set_t *)(uintptr_t)1;
+  pp_representation_set_t *representations = (pp_representation_set_t *)(uintptr_t)1;
+  pp_error_t *error = NULL;
+  pp_error_code_t status = pp_read_session_resources_page(
+      NULL, NULL, 1, NULL, &resources, &error);
+  int valid = status == PP_ERROR_INVALID_ARGUMENT && resources == NULL;
+  pp_error_release(error); error = NULL;
+  status = pp_read_session_locators_page(NULL, NULL, 1, NULL, &locators, &error);
+  valid = valid && status == PP_ERROR_INVALID_ARGUMENT && locators == NULL;
+  pp_error_release(error); error = NULL;
+  status = pp_read_session_representations_using_resource(
+      NULL, NULL, 1, NULL, &representations, &error);
+  valid = valid && status == PP_ERROR_INVALID_ARGUMENT && representations == NULL;
+  pp_error_release(error);
+  return valid;
+}
+
 int main(int argc, char **argv) {
   if (argc != 2)
     return 2;
+  if (!rejects_null_storage_reads())
+    return 1;
   remove(argv[1]);
   pp_production_t *production = NULL;
   pp_read_session_t *view = NULL;

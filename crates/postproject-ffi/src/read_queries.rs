@@ -34,6 +34,90 @@ unsafe fn forward_read(
     })
 }
 
+/// Copies a bounded resource page from the pinned view.
+///
+/// # Safety
+/// Session/ID must be live/readable; cursor null or UTF-8, outputs writable.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_read_session_resources_page(
+    session: *const PpReadSession,
+    representation_id: *const PpUuid,
+    limit: u32,
+    cursor: *const c_char,
+    out_objects: *mut *mut crate::PpObjectQuerySet,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: The delegate validates pointers and contains panics.
+    unsafe {
+        forward_read(session, out_error, |reader| {
+            crate::pp_production_resources_page(
+                reader,
+                representation_id,
+                limit,
+                cursor,
+                out_objects,
+                out_error,
+            )
+        })
+    }
+}
+
+/// Copies a bounded locator page from the pinned view.
+///
+/// # Safety
+/// Session/ID must be live/readable; cursor null or UTF-8, outputs writable.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_read_session_locators_page(
+    session: *const PpReadSession,
+    resource_id: *const PpUuid,
+    limit: u32,
+    cursor: *const c_char,
+    out_locators: *mut *mut crate::PpLocatorQuerySet,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: The delegate validates pointers and contains panics.
+    unsafe {
+        forward_read(session, out_error, |reader| {
+            crate::pp_production_locators_page(
+                reader,
+                resource_id,
+                limit,
+                cursor,
+                out_locators,
+                out_error,
+            )
+        })
+    }
+}
+
+/// Copies representations using a resource from the pinned view.
+///
+/// # Safety
+/// Session/ID must be live/readable; cursor null or UTF-8, outputs writable.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_read_session_representations_using_resource(
+    session: *const PpReadSession,
+    resource_id: *const PpUuid,
+    limit: u32,
+    cursor: *const c_char,
+    out_representations: *mut *mut PpRepresentationSet,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: The delegate validates pointers and contains panics.
+    unsafe {
+        forward_read(session, out_error, |reader| {
+            crate::representations::pp_production_representations_using_resource(
+                reader,
+                resource_id,
+                limit,
+                cursor,
+                out_representations,
+                out_error,
+            )
+        })
+    }
+}
+
 /// Copies logical roots from the pinned view into an owned set.
 ///
 /// # Safety

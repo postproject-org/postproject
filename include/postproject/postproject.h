@@ -507,6 +507,20 @@ PP_API pp_error_code_t pp_read_session_representations_page(
 PP_API pp_error_code_t pp_read_session_representation(
     const pp_read_session_t *session, const pp_uuid_t *representation_id,
     pp_representation_set_t **out_representations, pp_error_t **out_error);
+/* Bounded storage evidence uses the pinned view. IDs/cursors borrow the input;
+ * result sets own their values and survive session release. */
+PP_API pp_error_code_t pp_read_session_resources_page(
+    const pp_read_session_t *session, const pp_uuid_t *representation_id,
+    uint32_t limit, const char *cursor, pp_object_query_set_t **out_objects,
+    pp_error_t **out_error);
+PP_API pp_error_code_t pp_read_session_locators_page(
+    const pp_read_session_t *session, const pp_uuid_t *resource_id,
+    uint32_t limit, const char *cursor,
+    pp_locator_query_set_t **out_locators, pp_error_t **out_error);
+PP_API pp_error_code_t pp_read_session_representations_using_resource(
+    const pp_read_session_t *session, const pp_uuid_t *resource_id,
+    uint32_t limit, const char *cursor,
+    pp_representation_set_t **out_representations, pp_error_t **out_error);
 /* Same owned projections as the corresponding production reads, using this
  * session's pinned view. A NULL qualifier matches any qualifier. */
 PP_API pp_error_code_t pp_read_session_media_roots(
