@@ -3986,6 +3986,7 @@ public:
 
 private:
   friend class Production;
+  friend class ReadSession;
   explicit ResolutionOptions(pp_resolution_options_t *options) noexcept
       : options_(options) {}
   pp_resolution_options_t *options_;
@@ -3993,6 +3994,57 @@ private:
 
 class ReadSession final {
 public:
+  // Compares current files with the resource fingerprints in this view. For
+  // an image sequence, path is its directory and sequence_naming names its
+  // files; empty means the naming recorded for that directory.
+  [[nodiscard]] Result<ContentVerification> verifyResource(
+      const Uuid &resource_id, std::string_view path,
+      const std::optional<SequenceNaming> &sequence_naming =
+          std::nullopt) const {
+    const pp_uuid_t id = detail::native_uuid(resource_id);
+    POSTPROJECT_TRY_ASSIGN(const std::string native_path,
+                           detail::checked_string(path, "path"));
+    POSTPROJECT_TRY_ASSIGN(detail::NativeNaming naming,
+                           detail::NativeNaming::make(sequence_naming));
+    pp_content_verification_t verification = 0;
+    pp_error_t *error = nullptr;
+    const pp_error_code_t status = pp_read_session_verify_resource(
+        session_, &id, native_path.c_str(), naming.get(), &verification,
+        &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    return static_cast<ContentVerification>(verification);
+  }
+
+  // Resolves one asset with default options: known locators only.
+  [[nodiscard]] Result<std::vector<RepresentationResolution>>
+  resolveAsset(const Uuid &asset_id) const {
+    return resolveAssets({asset_id}, nullptr);
+  }
+
+  [[nodiscard]] Result<std::vector<RepresentationResolution>>
+  resolveAsset(const Uuid &asset_id, const ResolutionOptions &options) const {
+    if (options.options_ == nullptr) {
+      return Error(ErrorCode::invalid_argument, "resolution options were moved from");
+    }
+    return resolveAssets({asset_id}, options.options_);
+  }
+
+  [[nodiscard]] Result<std::vector<RepresentationResolution>>
+  resolveAssets(const std::vector<Uuid> &asset_ids) const {
+    return resolveAssets(asset_ids, nullptr);
+  }
+
+  // Resolves every representation of each asset, in asset order, scanning the
+  // search scope once for the whole call.
+  [[nodiscard]] Result<std::vector<RepresentationResolution>>
+  resolveAssets(const std::vector<Uuid> &asset_ids,
+                const ResolutionOptions &options) const {
+    if (options.options_ == nullptr) {
+      return Error(ErrorCode::invalid_argument, "resolution options were moved from");
+    }
+    return resolveAssets(asset_ids, options.options_);
+  }
+
   // Assertions of one property, optionally restricted to an exact scalar value.
   [[nodiscard]] Result<QueryPage<MetadataAssertion>>
   queryMetadata(std::string_view vocabulary, std::string_view property,
@@ -4306,6 +4358,26 @@ public:
     return detail::representation(representations.get(), 0);
   }
 private:
+  [[nodiscard]] Result<std::vector<RepresentationResolution>>
+  resolveAssets(const std::vector<Uuid> &asset_ids,
+                const pp_resolution_options_t *options) const {
+    std::vector<pp_uuid_t> native_ids;
+    native_ids.reserve(asset_ids.size());
+    for (const Uuid &asset_id : asset_ids) {
+      native_ids.push_back(detail::native_uuid(asset_id));
+    }
+    pp_resolution_set_t *raw_resolutions = nullptr;
+    pp_error_t *error = nullptr;
+    const pp_error_code_t status = pp_read_session_resolve_assets(
+        session_, native_ids.empty() ? nullptr : native_ids.data(),
+        static_cast<std::uint64_t>(native_ids.size()), options,
+        &raw_resolutions, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    detail::ResolutionSetHandle resolutions(raw_resolutions);
+
+    return detail::resolution_values(std::move(resolutions));
+  }
+
   [[nodiscard]] Result<QueryPage<MetadataAssertion>>
   query_metadata_impl(std::string_view vocabulary, std::string_view property,
                       const pp_metadata_input_t *exact_value,

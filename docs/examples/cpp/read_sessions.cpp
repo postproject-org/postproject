@@ -27,6 +27,14 @@ static void exercise(const std::string &path, const std::string &media) {
   const auto resources = view.resources(representation.id, 10).value();
   if (resources.items.size() != 1)
     throw std::runtime_error("resource page");
+  const auto options = postproject::ResolutionOptions::create().value();
+  if (view.verifyResource(resources.items[0], media).value() !=
+          postproject::ContentVerification::matches ||
+      view.resolveAsset(asset).value().size() != 1 ||
+      view.resolveAsset(asset, options).value().size() != 1 ||
+      view.resolveAssets({asset}).value().size() != 1 ||
+      view.resolveAssets({asset}, options).value().size() != 1)
+    throw std::runtime_error("coherent resolution and verification");
   const auto locators = view.locators(resources.items[0], 10).value();
   const auto owners = view.representationsUsingResource(resources.items[0], 10).value();
   if (locators.items.size() != 1 || owners.items.size() != 1 ||
