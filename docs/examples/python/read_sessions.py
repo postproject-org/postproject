@@ -14,6 +14,7 @@ from postproject import (
     LocatorIdentity,
     MetadataProperty,
     MetadataString,
+    NotFoundError,
     Production,
     RepresentationKind,
     file_locator,
@@ -40,6 +41,14 @@ def exercise(path: Path, media: Path) -> None:
             assert receipt.revision is not None and receipt.revision.sequence == 1
             assert empty.assets_page(limit=10).items == ()
         with production.read_session() as view:
+            assert view.unresolved_media(limit=10).items == ()
+            assert view.objects_changed_since(0, limit=10).items
+            try:
+                view.representations_under_media_root("missing", limit=10)
+            except NotFoundError:
+                pass
+            else:
+                raise AssertionError("unknown logical root should be rejected")
             copied = view.asset(asset)
             page = view.representations_page(asset, limit=10)
             assert len(page.items) == 1

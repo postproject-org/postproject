@@ -34,6 +34,90 @@ from postproject import (
 
 
 class ReadSessionTests(unittest.TestCase):
+    def test_object_filters_retain_root_locator_and_journal_facts(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            media = Path(directory) / "camera.mov"
+            moved = Path(directory) / "moved.mov"
+            media.write_bytes(b"filtered view fixture")
+            moved.write_bytes(media.read_bytes())
+            with Production.create(Path(directory) / "filters.pproj") as production:
+                with production.read_session() as empty, empty.edit() as edit:
+                    asset = edit.import_media(media)
+                    edit.add_media_root("rushes")
+                    edit.commit()
+                with production.read_session() as retained:
+                    representation = retained.representations_page(
+                        asset, limit=1
+                    ).items[0]
+                    resource = representation.resources[0]
+                    head = retained.decision_base.revision
+                    assert head is not None
+                    self.assertEqual(
+                        retained.representations_under_media_root(
+                            "rushes", limit=1
+                        ).items,
+                        (),
+                    )
+                    self.assertEqual(retained.unresolved_media(limit=1).items, ())
+                    self.assertEqual(
+                        retained.objects_changed_since(head.sequence, limit=10).items,
+                        (),
+                    )
+                    with retained.edit() as edit:
+                        edit.confirm_locator(
+                            resource.id, file_locator(moved), media_root="rushes"
+                        )
+                        edit.commit()
+                    self.assertEqual(
+                        retained.representations_under_media_root(
+                            "rushes", limit=1
+                        ).items,
+                        (),
+                    )
+                    self.assertEqual(
+                        retained.objects_changed_since(head.sequence, limit=10).items,
+                        (),
+                    )
+                    with production.read_session() as located:
+                        rooted = located.representations_under_media_root(
+                            "rushes", limit=1
+                        )
+                        self.assertEqual(
+                            tuple(item.id for item in rooted.items),
+                            (representation.id,),
+                        )
+                        changed = located.objects_changed_since(head.sequence, limit=10)
+                        self.assertTrue(changed.items)
+                        with located.edit() as edit:
+                            for locator in located.locators_page(
+                                resource.id, limit=10
+                            ).items:
+                                edit.retire_locator(locator.locator.id)
+                            edit.commit()
+                        self.assertEqual(located.unresolved_media(limit=1).items, ())
+                        self.assertEqual(
+                            located.representations_under_media_root("rushes", limit=1),
+                            rooted,
+                        )
+                        with production.read_session() as fresh:
+                            self.assertEqual(
+                                fresh.unresolved_media(limit=1).items,
+                                (representation.id,),
+                            )
+                    with self.assertRaises(NotFoundError):
+                        retained.representations_under_media_root("missing", limit=1)
+                    with self.assertRaises(InvalidArgumentError):
+                        retained.objects_changed_since(0, limit=0)
+                for operation in (
+                    lambda: retained.representations_under_media_root(
+                        "rushes", limit=1
+                    ),
+                    lambda: retained.unresolved_media(limit=1),
+                    lambda: retained.objects_changed_since(0, limit=1),
+                ):
+                    with self.assertRaises(RuntimeError):
+                        operation()
+
     def test_dependency_reads_retain_replaced_knowledge(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             media = Path(directory) / "camera.mov"

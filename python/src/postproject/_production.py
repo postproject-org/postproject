@@ -2000,6 +2000,51 @@ class ReadSession:
             self, native.lib.pp_read_session_release, handle
         )
 
+    def representations_under_media_root(
+        self, root_name: str, *, limit: int, cursor: str | None = None
+    ) -> QueryPage[Representation]:
+        """Return one bounded page of representations located under a root."""
+
+        self._require_open()
+        return self._representation_page(
+            self._native.lib.pp_read_session_representations_under_media_root,
+            self._handle,
+            _utf8(root_name, "root name"),
+            limit,
+            _optional_text(cursor),
+        )
+
+    def unresolved_media(
+        self, *, limit: int, cursor: str | None = None
+    ) -> QueryPage[RepresentationId]:
+        """Return representations whose required resources lack locators."""
+
+        self._require_open()
+        return _object_query_page(
+            self._native,
+            self._native.lib.pp_read_session_unresolved_media,
+            _representation_match,
+            self._handle,
+            limit,
+            _optional_text(cursor),
+        )
+
+    def objects_changed_since(
+        self, sequence: int, *, limit: int, cursor: str | None = None
+    ) -> QueryPage[ObjectReference]:
+        """Return distinct semantic objects touched after revision ``sequence``."""
+
+        self._require_open()
+        return _object_query_page(
+            self._native,
+            self._native.lib.pp_read_session_objects_changed_since,
+            _object_match,
+            self._handle,
+            sequence,
+            limit,
+            _optional_text(cursor),
+        )
+
     def dependency_set(
         self, representation_id: RepresentationId
     ) -> DependencySet | None:
