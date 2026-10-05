@@ -27,6 +27,19 @@ fn read_then_edit(production: &mut SqliteProduction, media: &Path) -> Result<()>
     drop(empty);
 
     let view = production.read_session()?;
+    let revision_id = receipt.revision().expect("import revision").id();
+    let events = view
+        .read()
+        .events_for_revision_page(revision_id, &QueryPageRequest::new(1, None)?)?;
+    let continuation = view.read().events_for_revision_page(
+        revision_id,
+        &QueryPageRequest::new(1000, events.next_cursor().cloned())?,
+    )?;
+    assert_eq!(events.items().len(), 1);
+    assert!(events.next_cursor().is_some());
+    assert!(continuation.next_cursor().is_none());
+    assert!(continuation.items()[0].position() > events.items()[0].position());
+    assert!(view.read().plan_regeneration(&[])?.is_empty());
     let copied = view.read().asset(asset_id)?;
     let page = view
         .read()

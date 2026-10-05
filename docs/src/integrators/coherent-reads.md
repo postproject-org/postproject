@@ -26,8 +26,9 @@ The development C/C++/Python read-session surface currently provides asset and
 representation point reads and bounded pages, resources, locators, metadata,
 logical roots, external identifiers, known-media lookup, jobs, dependencies,
 artifact reports, bounded activities/provenance, output filters, unresolved
-media, changed objects, journal heads/pages/filters, resolution and verification.
-Rust exposes the full domain read interface. Existing production queries read current state separately.
+media, changed objects, journal heads/pages/filters, bounded revision events,
+regeneration planning, resolution and verification. Rust exposes the full
+domain read interface. Existing production queries read current state separately.
 The CLI's `inspect --limit N` emits a bounded coherent summary and a
 `--decision-base` token; a truncated summary requires a new inspection rather
 than resuming a closed view.

@@ -103,7 +103,18 @@ existing pinned transaction for filtered reads; live reads retain their own
 short snapshot. Five storage view tests, five live revision tests, thirteen
 Python view regressions and all three installed coherent recipes pass.
 Storage/FFI Clippy, source Ruff/ty, example coverage and direct C failure-output
-checks pass. Full checkpoint gates above predate this journal follow-up.
+checks pass. The journal follow-up also passes full workspace tests, 61 source
+Python tests (one skip), Doxygen, generated C coverage and strict Sphinx.
+
+At `9905df7`, bounded revision-event pages and regeneration planning bring the
+native read-query count to 39 and exports to 281. ADR 0050 records event bounds
+and cursor scope. Six storage view regressions and fourteen Python view
+regressions pass, including ordered continuation, future-revision rejection,
+retained planning parameters and bounded iterable consumption. Workspace
+Clippy, source Ruff/ty, all three installed coherent recipes, direct C output
+checks, example coverage and export comparison pass. The full source Python
+suite runs 62 tests with one skip. Full installed and documentation checks are
+being refreshed for this checkpoint; final qualification remains open.
 
 Repository inputs and migration status are in
 [`api-safety-repositories.md`](api-safety-repositories.md).
