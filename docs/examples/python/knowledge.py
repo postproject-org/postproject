@@ -185,7 +185,7 @@ def find_approved(production: Production) -> list[ObjectReference]:
 def clear_keywords(production: Production, asset_id: AssetId) -> None:
     keywords = MetadataProperty(EDITORIAL, "keywords")
     # Removes every value of the property on this target in one change.
-    with production.transaction() as transaction:
+    with production.read_session() as view, view.edit() as transaction:
         transaction.remove_metadata_property(AssetRef(asset_id), keywords)
         transaction.commit()
 

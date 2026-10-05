@@ -3694,7 +3694,11 @@ class Transaction:
     def remove_metadata_property(
         self, target: ObjectReference, property: MetadataProperty
     ) -> None:
-        """Stage removal of every assertion for one target and property."""
+        """Remove every assertion for a target/property in a read-bound edit.
+
+        An unbased transaction rejects before staging and remains open.
+        Intervening property changes, including appends, conflict at commit.
+        """
 
         self._require_open()
         native_target = _native_object_reference(target)

@@ -1308,7 +1308,7 @@ class ProductionTests(unittest.TestCase):
                 )
             )
 
-            with production.transaction() as transaction:
+            with production.read_session() as view, view.edit() as transaction:
                 transaction.remove_metadata_property(AssetRef(asset_id), title)
                 transaction.commit()
 
