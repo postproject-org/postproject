@@ -434,7 +434,10 @@ fn exercise_metadata(production_path: &str, asset_id: &str) {
     assert_eq!(listed[0]["value"]["type"], "struct");
     assert_eq!(listed[0]["value"]["fields"][0]["name"], "name");
 
+    let inspection = run_json(&["inspect", production_path]);
     run_json(&[
+        "--decision-base",
+        inspection["decision_base"].as_str().expect("scoped token"),
         "metadata",
         "remove",
         production_path,
@@ -833,8 +836,8 @@ fn base_revision_merges_additions_and_reports_structured_conflicts() {
         ])
         .assert()
         .failure();
-    let error: Value = serde_json::from_slice(&assertion.get_output().stderr)
-        .expect("conflict emits JSON on stderr");
+    let error: Value = serde_json::from_slice(&assertion.get_output().stdout)
+        .expect("conflict emits JSON on stdout");
     let conflict = &error["error"]["transaction_conflict"];
     assert_eq!(conflict["key"]["kind"], "media_root");
     assert_eq!(conflict["key"]["target_kind"], "media_root");

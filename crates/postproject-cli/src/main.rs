@@ -599,7 +599,7 @@ enum MetadataCommand {
     AddText(MetadataAddTextArgs),
     /// List all metadata assertions attached to an object.
     List(MetadataTargetArgs),
-    /// Remove every value of one property from an object.
+    /// Remove a property's values using --decision-base from inspect.
     Remove(MetadataPropertyArgs),
     /// Query objects carrying an exact vocabulary and property.
     Find(MetadataFindArgs),
@@ -3056,10 +3056,12 @@ fn metadata_add_text(
     transaction
         .add_metadata_value(target, &property, &value)
         .context("stage metadata value")?;
-    transaction.commit().context("commit metadata value")?;
+    let receipt = transaction
+        .commit_with_receipt()
+        .context("commit metadata value")?;
 
     if json {
-        print_json(&view)
+        print_json_with_receipt(&view, &receipt)
     } else {
         println!(
             "added {}:{} to {} {}",
@@ -3086,10 +3088,12 @@ fn metadata_add(
     transaction
         .add_metadata_value(target, &property, &value)
         .context("stage metadata value")?;
-    transaction.commit().context("commit metadata value")?;
+    let receipt = transaction
+        .commit_with_receipt()
+        .context("commit metadata value")?;
 
     if json {
-        print_json(&view)
+        print_json_with_receipt(&view, &receipt)
     } else {
         println!(
             "added {}:{} to {} {}",
@@ -3117,6 +3121,7 @@ fn metadata_remove(
     json: bool,
     base_revision: Option<CliDecisionBase>,
 ) -> Result<()> {
+    let base = base_revision.context("metadata removal requires --decision-base from inspect")?;
     let target = parse_metadata_target(args.target.target_kind, &args.target.target_id)?;
     let property = parse_metadata_property(args.vocabulary, args.property)?;
     let target_view = object_ref_view(target)?;
@@ -3128,17 +3133,17 @@ fn metadata_remove(
     };
     let mut production =
         SqliteProduction::open(&args.target.production).context("open production")?;
-    let mut transaction = begin_cli_transaction(&mut production, base_revision, "metadata")?;
+    let mut transaction = begin_cli_transaction(&mut production, Some(base), "metadata")?;
     set_cli_revision_context(&mut transaction, "Remove metadata")?;
     transaction
         .remove_metadata_property(target, &property)
         .context("stage metadata property removal")?;
-    transaction
-        .commit()
+    let receipt = transaction
+        .commit_with_receipt()
         .context("commit metadata property removal")?;
 
     if json {
-        print_json(&view)
+        print_json_with_receipt(&view, &receipt)
     } else {
         println!(
             "removed {}:{} from {} {}",
@@ -6055,8 +6060,8 @@ fn print_conflict_json(error: &anyhow::Error) -> bool {
             transaction_conflict,
         },
     };
-    if serde_json::to_writer_pretty(std::io::stderr().lock(), &view).is_ok() {
-        eprintln!();
+    if serde_json::to_writer_pretty(std::io::stdout().lock(), &view).is_ok() {
+        println!();
         true
     } else {
         false

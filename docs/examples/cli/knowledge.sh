@@ -161,7 +161,9 @@ postproject metadata add knowledge.pproj asset "$ASSET_ID" "$EDITORIAL" \
 
 # [remove-metadata]
 # Removes every value of the property from the object, here both keyword lists.
-postproject metadata remove knowledge.pproj asset "$ASSET_ID" "$EDITORIAL" keywords
+BASE=$(postproject --json inspect knowledge.pproj | jq -r .decision_base)
+postproject --decision-base "$BASE" metadata remove knowledge.pproj \
+  asset "$ASSET_ID" "$EDITORIAL" keywords
 postproject --json metadata find knowledge.pproj "$EDITORIAL" keywords |
   jq '.items | length'
 # [/remove-metadata]

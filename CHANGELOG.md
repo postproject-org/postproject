@@ -14,6 +14,7 @@ All notable changes to PostProject will be documented here. The project uses
 - Job reads use checked C payloads and one C++/Python status alternative; migrate C++ field access and Python construction (ADR 0051).
 - Reject oversized native binary metadata and unaddressable resolution arrays before access.
 - Metadata appends merge and invalidate stale destructive decisions; replacement/removal require a decision base (ADR 0052).
+- CLI JSON emits structured conflicts on stdout and metadata commit receipts.
 
 ## 0.6.0-alpha.1 - 2026-10-04
 
