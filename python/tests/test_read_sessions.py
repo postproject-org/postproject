@@ -50,7 +50,7 @@ class ReadSessionTests(unittest.TestCase):
                         proxy = edit.add_representation(
                             asset, RepresentationKind.PROXY, media
                         )
-                        edit.create_activity(
+                        activity = edit.create_activity(
                             ActivitySpec(
                                 "example:render",
                                 tool=tool,
@@ -58,7 +58,20 @@ class ReadSessionTests(unittest.TestCase):
                                 outputs=(ActivityEdge(proxy),),
                             )
                         )
+                        inspected = edit.add_representation(
+                            asset, RepresentationKind.OPTIMIZED, media
+                        )
+                        edit.create_activity(
+                            ActivitySpec(
+                                "example:inspection",
+                                inputs=(ActivityEdge(original.id),),
+                                outputs=(ActivityEdge(inspected),),
+                            )
+                        )
                         edit.commit()
+                    self.assertEqual(
+                        before.activities_consuming_page(original.id, limit=1).items, ()
+                    )
                     self.assertEqual(
                         before.provenance_descendants_page(
                             original.id, max_depth=64, max_representations=100, limit=10
@@ -87,11 +100,11 @@ class ReadSessionTests(unittest.TestCase):
                         ((original.id, 1),),
                     )
                     self.assertEqual(
-                        tuple(
+                        {
                             (item.representation_id, item.depth)
                             for item in descendants.items
-                        ),
-                        ((proxy, 1),),
+                        },
+                        {(proxy, 1), (inspected, 1)},
                     )
                     self.assertEqual(
                         retained.stale_artifacts(
@@ -114,6 +127,20 @@ class ReadSessionTests(unittest.TestCase):
                         ).items,
                         (),
                     )
+                    producing = retained.activities_producing_page(proxy, limit=10)
+                    self.assertEqual({item.id for item in producing.items}, {activity})
+                    consuming = retained.activities_consuming_page(original.id, limit=1)
+                    self.assertIsNotNone(consuming.next_cursor)
+                    assert consuming.next_cursor is not None
+                    continuation = retained.activities_consuming_page(
+                        original.id, limit=1, cursor=consuming.next_cursor
+                    )
+                    self.assertEqual(len(continuation.items), 1)
+                    self.assertNotEqual(consuming.items[0].id, continuation.items[0].id)
+                    with self.assertRaises(InvalidArgumentError):
+                        retained.activities_producing_page(
+                            proxy, limit=1, cursor=consuming.next_cursor
+                        )
                     media.write_bytes(b"changed original content")
                     with retained.edit() as edit:
                         edit.observe_resource_content(original.resources[0].id, media)
@@ -127,15 +154,28 @@ class ReadSessionTests(unittest.TestCase):
                         ).items,
                         (),
                     )
+                    self.assertEqual(
+                        retained.activities_producing_page(proxy, limit=10), producing
+                    )
+                    self.assertEqual(
+                        retained.activities_consuming_page(original.id, limit=1),
+                        consuming,
+                    )
                     with production.read_session() as fresh:
+                        with self.assertRaises(InvalidArgumentError):
+                            fresh.activities_consuming_page(
+                                original.id, limit=1, cursor=consuming.next_cursor
+                            )
                         self.assertEqual(
-                            fresh.stale_artifacts(
-                                max_depth=64,
-                                max_representations=100,
-                                limit=10,
-                                source=original.id,
-                            ).items,
-                            (proxy,),
+                            set(
+                                fresh.stale_artifacts(
+                                    max_depth=64,
+                                    max_representations=100,
+                                    limit=10,
+                                    source=original.id,
+                                ).items
+                            ),
+                            {proxy, inspected},
                         )
                     with self.assertRaises(InvalidArgumentError):
                         retained.provenance_ancestors_page(
@@ -143,6 +183,8 @@ class ReadSessionTests(unittest.TestCase):
                         )
                 self.assertEqual(ancestors.items[0].representation_id, original.id)
                 for operation in (
+                    lambda: retained.activities_producing_page(proxy, limit=1),
+                    lambda: retained.activities_consuming_page(original.id, limit=1),
                     lambda: retained.outputs_by_activity_kind(
                         "example:render", limit=1
                     ),

@@ -2161,6 +2161,46 @@ class ReadSession:
             _optional_text(cursor),
         )
 
+    def activities_producing_page(
+        self,
+        representation_id: RepresentationId,
+        *,
+        limit: int,
+        cursor: str | None = None,
+    ) -> QueryPage[Activity]:
+        """Return one bounded page of activities producing a representation."""
+
+        self._require_open()
+        native_id = _native_uuid(representation_id)
+        return _read_activity_page(
+            self._native,
+            self._native.lib.pp_read_session_activities_producing_page,
+            self._handle,
+            ctypes.byref(native_id),
+            limit,
+            _optional_text(cursor),
+        )
+
+    def activities_consuming_page(
+        self,
+        representation_id: RepresentationId,
+        *,
+        limit: int,
+        cursor: str | None = None,
+    ) -> QueryPage[Activity]:
+        """Return one bounded page of activities consuming a representation."""
+
+        self._require_open()
+        native_id = _native_uuid(representation_id)
+        return _read_activity_page(
+            self._native,
+            self._native.lib.pp_read_session_activities_consuming_page,
+            self._handle,
+            ctypes.byref(native_id),
+            limit,
+            _optional_text(cursor),
+        )
+
     def dependency_set(
         self, representation_id: RepresentationId
     ) -> DependencySet | None:
