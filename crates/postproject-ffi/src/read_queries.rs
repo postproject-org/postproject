@@ -1,7 +1,7 @@
 //! Snapshot point reads and bounded pages using existing owned projections.
 
 use crate::{
-    AbiAsset, PpAssetSet, PpError, PpReadSession, PpRepresentationSet, PpUuid, ffi_call,
+    AbiAsset, PpAssetId, PpAssetSet, PpError, PpReadSession, PpRepresentationSet, PpUuid, ffi_call,
     initialize_output, invalid_argument, lock_production, query_cursor_to_cstring,
     query_page_request, require_output,
 };
@@ -737,7 +737,7 @@ pub unsafe extern "C" fn pp_read_session_media_roots(
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_read_session_resolve_assets(
     session: *const PpReadSession,
-    asset_ids: *const PpUuid,
+    asset_ids: *const PpAssetId,
     asset_count: u64,
     options: *const crate::PpResolutionOptions,
     out_resolutions: *mut *mut crate::PpResolutionSet,
@@ -1022,7 +1022,7 @@ pub unsafe extern "C" fn pp_read_session_assets_page(
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_read_session_asset(
     session: *const PpReadSession,
-    asset_id: *const PpUuid,
+    asset_id: PpAssetId,
     out_assets: *mut *mut PpAssetSet,
     out_error: *mut *mut PpError,
 ) -> u32 {
@@ -1033,9 +1033,6 @@ pub unsafe extern "C" fn pp_read_session_asset(
             let session = session
                 .as_ref()
                 .ok_or_else(|| invalid_argument("session must not be null"))?;
-            let asset_id = asset_id
-                .as_ref()
-                .ok_or_else(|| invalid_argument("asset_id must not be null"))?;
             require_output(out_assets, "out_assets")?;
             let asset = lock_production(&session.reader.state)
                 .asset(AssetId::from_bytes(asset_id.bytes))?;
@@ -1056,7 +1053,7 @@ pub unsafe extern "C" fn pp_read_session_asset(
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_read_session_representations_page(
     session: *const PpReadSession,
-    asset_id: *const PpUuid,
+    asset_id: PpAssetId,
     limit: u32,
     cursor: *const c_char,
     out_representations: *mut *mut PpRepresentationSet,
@@ -1068,9 +1065,6 @@ pub unsafe extern "C" fn pp_read_session_representations_page(
             let session = session
                 .as_ref()
                 .ok_or_else(|| invalid_argument("session must not be null"))?;
-            let asset_id = asset_id
-                .as_ref()
-                .ok_or_else(|| invalid_argument("asset_id must not be null"))?;
             require_output(out_representations, "out_representations")?;
             let page_request = query_page_request(limit, cursor)?;
             let inner = lock_production(&session.reader.state);

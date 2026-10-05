@@ -1,6 +1,6 @@
 # ABI policy
 
-ABI version 40 is pre-release and may change during the 0.x series, with every
+ABI version 41 is pre-release and may change during the 0.x series, with every
 change recorded in the changelog and ABI tests. `pp_abi_version()` reports the
 implemented version. Exported symbol names are unversioned until the first stable
 release, but removals or signature changes require an explicit ABI-version bump.
@@ -24,6 +24,13 @@ isolation because their production and transaction lifecycle dependencies lack
 the required complete evidence from two independent hosts (ADR 0040).
 
 ## Types and ownership
+
+ABI 41 carries distinct asset identities through imports, reads, resolution,
+job requests and asset-bearing result fields. Scalar inputs take
+`pp_asset_id_t` by value; array inputs borrow that type. C++ uses `AssetId`.
+Use `pp_object_ref_from_asset` or `ObjectRef::asset` for asset targets.
+Recompile consumers with matching headers and use a matching Python wheel.
+Persisted bytes and schema 17 are unchanged (ADR 0049).
 
 ABI 40 projects revision and transaction identities as distinct C/C++ values
 in journal summaries, receipts, decision bases and conflicts. Revision arguments

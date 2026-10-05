@@ -7,7 +7,7 @@ use postproject_core::{
 };
 
 use crate::{
-    PpError, PpProduction, PpSequenceNaming, PpUuid, exact_cstring, ffi_call,
+    PpAssetId, PpError, PpProduction, PpSequenceNaming, PpUuid, exact_cstring, ffi_call,
     initialize_const_output, initialize_output, initialize_uuid, initialize_value, item_at,
     lock_production, query_page_request, require_output, required_utf8,
     sequence_naming::{AbiSequenceNaming, initialize_naming_output, write_naming_output},
@@ -90,7 +90,7 @@ struct AbiLocator {
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_representations(
     production: *const PpProduction,
-    asset_id: *const PpUuid,
+    asset_id: PpAssetId,
     out_representations: *mut *mut PpRepresentationSet,
     out_error: *mut *mut PpError,
 ) -> u32 {
@@ -101,9 +101,6 @@ pub unsafe extern "C" fn pp_production_representations(
             let production = production
                 .as_ref()
                 .ok_or_else(|| invalid_argument("production must not be null"))?;
-            let asset_id = asset_id
-                .as_ref()
-                .ok_or_else(|| invalid_argument("asset_id must not be null"))?;
             require_output(out_representations, "out_representations")?;
             let asset_id = AssetId::from_bytes(asset_id.bytes);
             let inner = lock_production(&production.state);
@@ -135,7 +132,7 @@ pub unsafe extern "C" fn pp_production_representations(
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_representations_page(
     production: *const PpProduction,
-    asset_id: *const PpUuid,
+    asset_id: PpAssetId,
     limit: u32,
     cursor: *const c_char,
     out_representations: *mut *mut PpRepresentationSet,
@@ -147,9 +144,6 @@ pub unsafe extern "C" fn pp_production_representations_page(
             let production = production
                 .as_ref()
                 .ok_or_else(|| invalid_argument("production must not be null"))?;
-            let asset_id = asset_id
-                .as_ref()
-                .ok_or_else(|| invalid_argument("asset_id must not be null"))?;
             require_output(out_representations, "out_representations")?;
             let page_request = query_page_request(limit, cursor)?;
             let inner = lock_production(&production.state);
@@ -323,7 +317,7 @@ pub unsafe extern "C" fn pp_representation_set_get(
     representations: *const PpRepresentationSet,
     index: u64,
     out_id: *mut PpUuid,
-    out_asset_id: *mut PpUuid,
+    out_asset_id: *mut PpAssetId,
     out_kind: *mut u32,
     out_structure_kind: *mut u32,
     out_member_count: *mut u64,
@@ -334,7 +328,7 @@ pub unsafe extern "C" fn pp_representation_set_get(
     // SAFETY: Outputs are initialized and checked before writes.
     unsafe {
         initialize_uuid(out_id);
-        initialize_uuid(out_asset_id);
+        initialize_value(out_asset_id, PpAssetId { bytes: [0; 16] });
         initialize_value(out_kind, 0);
         initialize_value(out_structure_kind, 0);
         initialize_value(out_member_count, 0);
@@ -355,7 +349,7 @@ pub unsafe extern "C" fn pp_representation_set_get(
             out_id.write(PpUuid {
                 bytes: representation.id.into_bytes(),
             });
-            out_asset_id.write(PpUuid {
+            out_asset_id.write(PpAssetId {
                 bytes: representation.asset_id.into_bytes(),
             });
             out_kind.write(representation.kind);

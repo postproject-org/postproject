@@ -111,6 +111,8 @@ pp_object_query_set_get
 pp_object_query_set_next_cursor
 pp_object_query_set_release
 pp_object_query_set_traversal_truncated
+pp_object_ref_from_asset
+pp_object_ref_get_asset
 pp_object_ref_set_count
 pp_object_ref_set_get
 pp_object_ref_set_release

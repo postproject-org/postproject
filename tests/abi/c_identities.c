@@ -67,6 +67,22 @@ int main(void) {
   pp_error_release(error); error = NULL;
   if (memcmp(asset.bytes, zero, sizeof zero)) return 17;
   if (pp_asset_id_format(asset, NULL, &error) != PP_ERROR_INVALID_ARGUMENT) return 18;
+  pp_error_release(error); error = NULL;
+  pp_object_ref_t target;
+  if (pp_object_ref_from_asset(asset, &target, &error) != PP_OK ||
+      target.kind != PP_OBJECT_ASSET || memcmp(target.id.bytes, asset.bytes, 16)) return 19;
+  if (pp_object_ref_from_asset(asset, NULL, &error) != PP_ERROR_INVALID_ARGUMENT) return 20;
+  pp_error_release(error); error = NULL;
+  pp_asset_set_t *assets = (pp_asset_set_t *)&target;
+  if (pp_production_asset(NULL, asset, &assets, &error) != PP_ERROR_INVALID_ARGUMENT ||
+      assets != NULL) return 21;
+  pp_error_release(error); error = NULL;
+  target.kind = PP_OBJECT_RESOURCE;
+  asset.bytes[0] = 1;
+  if (pp_object_ref_get_asset(&target, &asset, &error) != PP_ERROR_INVALID_ARGUMENT ||
+      memcmp(asset.bytes, zero, 16)) return 22;
+  pp_error_release(error); error = NULL;
+  if (pp_object_ref_get_asset(NULL, &asset, &error) != PP_ERROR_INVALID_ARGUMENT) return 23;
   pp_error_release(error);
   return 0;
 }

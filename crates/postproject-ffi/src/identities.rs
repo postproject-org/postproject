@@ -239,3 +239,62 @@ pub unsafe extern "C" fn pp_asset_id_format(
         })
     }
 }
+
+/// Constructs an asset reference; existence and scope remain operation checks.
+///
+/// # Safety
+/// Output must be writable; error nullable/writable.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_object_ref_from_asset(
+    id: PpAssetId,
+    out_ref: *mut crate::PpObjectRef,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: Output is initialized and checked before writing.
+    unsafe {
+        crate::initialize_value(
+            out_ref,
+            crate::PpObjectRef {
+                kind: 0,
+                id: crate::PpUuid { bytes: [0; 16] },
+            },
+        );
+        ffi_call(out_error, || {
+            require_output(out_ref, "out_ref")?;
+            out_ref.write(crate::PpObjectRef {
+                kind: crate::PP_OBJECT_ASSET,
+                id: crate::PpUuid { bytes: id.bytes },
+            });
+            Ok(())
+        })
+    }
+}
+
+/// Reads an asset identity from a matching object-reference kind.
+///
+/// # Safety
+/// Reference must be readable, output writable; error nullable/writable.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_object_ref_get_asset(
+    value: *const crate::PpObjectRef,
+    out_id: *mut PpAssetId,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: Output is initialized and pointers checked before use.
+    unsafe {
+        crate::initialize_value(out_id, PpAssetId { bytes: [0; 16] });
+        ffi_call(out_error, || {
+            require_output(out_id, "out_id")?;
+            let value = value
+                .as_ref()
+                .ok_or_else(|| crate::invalid_argument("reference must not be null"))?;
+            if value.kind != crate::PP_OBJECT_ASSET {
+                return Err(crate::invalid_argument("reference must name an asset"));
+            }
+            out_id.write(PpAssetId {
+                bytes: value.id.bytes,
+            });
+            Ok(())
+        })
+    }
+}

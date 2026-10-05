@@ -6,7 +6,7 @@ use postproject_core::{
     Error, ErrorKind, Job, JobState, QueryCursor, RegenerationJobPlan, RepresentationKind,
 };
 
-use crate::{PpUuid, exact_cstring};
+use crate::{PpAssetId, PpUuid, exact_cstring};
 
 const PP_JOB_REQUESTED: u32 = 1;
 pub(super) const PP_JOB_CLAIMED: u32 = 2;
@@ -34,7 +34,7 @@ pub struct PpJob {
     /// Borrowed open-world job kind.
     pub kind: *const c_char,
     /// Asset that will own the requested output.
-    pub output_asset_id: PpUuid,
+    pub output_asset_id: PpAssetId,
     /// Requested `PP_REPRESENTATION_*` kind.
     pub output_representation_kind: u32,
     /// Borrowed optional logical output-root name.
@@ -75,7 +75,7 @@ impl PpJob {
         Self {
             id: zero,
             kind: std::ptr::null(),
-            output_asset_id: zero,
+            output_asset_id: PpAssetId { bytes: [0; 16] },
             output_representation_kind: 0,
             target_root: std::ptr::null(),
             state: 0,
@@ -363,7 +363,7 @@ fn empty_job(job: &Job, kind: *const c_char, target_root: Option<&CString>) -> P
             bytes: job.id().into_bytes(),
         },
         kind,
-        output_asset_id: PpUuid {
+        output_asset_id: PpAssetId {
             bytes: job.requested_output().asset_id().into_bytes(),
         },
         output_representation_kind: representation_kind(

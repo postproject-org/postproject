@@ -16,8 +16,8 @@ use crate::{
     PP_REVISION_METADATA_ADDED_OR_REPLACED, PP_REVISION_METADATA_REMOVED,
     PP_REVISION_REPRESENTATION_ADDED, PP_REVISION_REPRESENTATION_FINGERPRINT_OBSERVED,
     PP_REVISION_REPRESENTATION_RESOURCE_ADDED, PP_REVISION_RESOURCE_ADDED,
-    PP_REVISION_RESOURCE_FINGERPRINT_OBSERVED, PpObjectRef, PpRevisionEvent, PpUuid, exact_cstring,
-    object_ref_to_abi,
+    PP_REVISION_RESOURCE_FINGERPRINT_OBSERVED, PpAssetId, PpObjectRef, PpRevisionEvent, PpUuid,
+    exact_cstring, object_ref_to_abi,
 };
 
 /// Opaque immutable revision-event result set owned by the C caller.
@@ -29,7 +29,7 @@ pub struct PpRevisionEventSet {
 pub(crate) struct AbiRevisionEvent {
     kind: u32,
     position: u32,
-    asset_id: Option<PpUuid>,
+    asset_id: Option<PpAssetId>,
     representation_id: Option<PpUuid>,
     resource_id: Option<PpUuid>,
     locator_id: Option<PpUuid>,
@@ -126,7 +126,7 @@ impl AbiRevisionEvent {
         PpRevisionEvent {
             kind: self.kind,
             position: self.position,
-            asset_id: self.asset_id.unwrap_or_else(zero_uuid),
+            asset_id: self.asset_id.unwrap_or(PpAssetId { bytes: [0; 16] }),
             representation_id: self.representation_id.unwrap_or_else(zero_uuid),
             resource_id: self.resource_id.unwrap_or_else(zero_uuid),
             locator_id: self.locator_id.unwrap_or_else(zero_uuid),
@@ -183,14 +183,18 @@ impl TryFrom<&RevisionEvent> for AbiRevisionEvent {
         match event.kind() {
             RevisionEventKind::AssetImported { asset_id } => {
                 projected.kind = PP_REVISION_ASSET_IMPORTED;
-                projected.asset_id = Some(uuid(asset_id.into_bytes()));
+                projected.asset_id = Some(PpAssetId {
+                    bytes: asset_id.into_bytes(),
+                });
             }
             RevisionEventKind::RepresentationAdded {
                 asset_id,
                 representation_id,
             } => {
                 projected.kind = PP_REVISION_REPRESENTATION_ADDED;
-                projected.asset_id = Some(uuid(asset_id.into_bytes()));
+                projected.asset_id = Some(PpAssetId {
+                    bytes: asset_id.into_bytes(),
+                });
                 projected.representation_id = Some(uuid(representation_id.into_bytes()));
             }
             RevisionEventKind::ResourceAdded { resource_id } => {

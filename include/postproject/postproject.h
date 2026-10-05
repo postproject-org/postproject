@@ -297,7 +297,7 @@ typedef struct pp_dependency_match {
 typedef struct pp_revision_event {
   pp_revision_event_kind_t kind;
   uint32_t position;
-  pp_uuid_t asset_id;
+  pp_asset_id_t asset_id;
   pp_uuid_t representation_id;
   pp_uuid_t resource_id;
   pp_uuid_t locator_id;
@@ -328,7 +328,7 @@ typedef struct pp_activity_edge {
 typedef struct pp_job {
   pp_uuid_t id;
   const char *kind;
-  pp_uuid_t output_asset_id;
+  pp_asset_id_t output_asset_id;
   pp_representation_kind_t output_representation_kind;
   const char *target_root;
   pp_job_state_t state;
@@ -649,6 +649,12 @@ PP_API pp_error_code_t pp_asset_id_parse(
     const char *text, pp_asset_id_t *out_id, pp_error_t **out_error);
 PP_API pp_error_code_t pp_asset_id_format(
     pp_asset_id_t id, char **out_text, pp_error_t **out_error);
+/* Construct an asset target without checking existence or production scope. */
+PP_API pp_error_code_t pp_object_ref_from_asset(
+    pp_asset_id_t id, pp_object_ref_t *out_ref, pp_error_t **out_error);
+/* Checked kind projection; clears the output on wrong-kind or invalid input. */
+PP_API pp_error_code_t pp_object_ref_get_asset(
+    const pp_object_ref_t *value, pp_asset_id_t *out_id, pp_error_t **out_error);
 /* Parse syntax and kind; existence is checked by domain operations. */
 PP_API pp_error_code_t pp_revision_id_parse(
     const char *text, pp_revision_id_t *out_id, pp_error_t **out_error);
@@ -672,10 +678,10 @@ PP_API pp_error_code_t pp_read_session_assets_page(
     const pp_read_session_t *session, uint32_t limit, const char *cursor,
     pp_asset_set_t **out_assets, pp_error_t **out_error);
 PP_API pp_error_code_t pp_read_session_asset(
-    const pp_read_session_t *session, const pp_uuid_t *asset_id,
+    const pp_read_session_t *session, pp_asset_id_t asset_id,
     pp_asset_set_t **out_assets, pp_error_t **out_error);
 PP_API pp_error_code_t pp_read_session_representations_page(
-    const pp_read_session_t *session, const pp_uuid_t *asset_id, uint32_t limit,
+    const pp_read_session_t *session, pp_asset_id_t asset_id, uint32_t limit,
     const char *cursor, pp_representation_set_t **out_representations,
     pp_error_t **out_error);
 PP_API pp_error_code_t pp_read_session_representation(
@@ -698,7 +704,7 @@ PP_API pp_error_code_t pp_read_session_representations_using_resource(
 /* These I/O reads use retained database facts but inspect the current
  * filesystem; they do not pin media bytes or record observations. */
 PP_API pp_error_code_t pp_read_session_resolve_assets(
-    const pp_read_session_t *session, const pp_uuid_t *asset_ids,
+    const pp_read_session_t *session, const pp_asset_id_t *asset_ids,
     uint64_t asset_count, const pp_resolution_options_t *options,
     pp_resolution_set_t **out_resolutions, pp_error_t **out_error);
 PP_API pp_error_code_t pp_read_session_verify_resource(
@@ -777,7 +783,7 @@ PP_API pp_error_code_t pp_production_open(const char *path,
 PP_API pp_error_code_t pp_production_id(const pp_production_t *production,
                                      pp_production_id_t *out_id, pp_error_t **out_error);
 PP_API pp_error_code_t pp_production_asset_exists(const pp_production_t *production,
-                                               const pp_uuid_t *asset_id,
+                                               pp_asset_id_t asset_id,
                                                uint8_t *out_exists,
                                                pp_error_t **out_error);
 /* Asset strings borrow the owning result set. */
@@ -790,12 +796,12 @@ PP_API pp_error_code_t pp_production_assets_page(
 /* Reads one asset as a one-element set. An absent asset is
  * PP_ERROR_NOT_FOUND. */
 PP_API pp_error_code_t pp_production_asset(
-    const pp_production_t *production, const pp_uuid_t *asset_id,
+    const pp_production_t *production, pp_asset_id_t asset_id,
     pp_asset_set_t **out_assets, pp_error_t **out_error);
 PP_API uint64_t pp_asset_set_count(const pp_asset_set_t *assets);
 PP_API const char *pp_asset_set_next_cursor(const pp_asset_set_t *assets);
 PP_API pp_error_code_t pp_asset_set_get(
-    const pp_asset_set_t *assets, uint64_t index, pp_uuid_t *out_id,
+    const pp_asset_set_t *assets, uint64_t index, pp_asset_id_t *out_id,
     int64_t *out_created_at_unix_micros, const char **out_display_name,
     const char **out_import_source, pp_error_t **out_error);
 PP_API void pp_asset_set_release(pp_asset_set_t *assets);
@@ -813,10 +819,10 @@ PP_API void pp_media_root_set_release(pp_media_root_set_t *roots);
 /* Representation strings borrow the owning result set. Members are returned in
  * structural order. Single-resource and image-sequence members have no role. */
 PP_API pp_error_code_t pp_production_representations(
-    const pp_production_t *production, const pp_uuid_t *asset_id,
+    const pp_production_t *production, pp_asset_id_t asset_id,
     pp_representation_set_t **out_representations, pp_error_t **out_error);
 PP_API pp_error_code_t pp_production_representations_page(
-    const pp_production_t *production, const pp_uuid_t *asset_id,
+    const pp_production_t *production, pp_asset_id_t asset_id,
     uint32_t limit, const char *cursor,
     pp_representation_set_t **out_representations, pp_error_t **out_error);
 PP_API pp_error_code_t pp_production_representations_under_media_root(
@@ -839,7 +845,7 @@ PP_API const char *pp_representation_set_next_cursor(
     const pp_representation_set_t *representations);
 PP_API pp_error_code_t pp_representation_set_get(
     const pp_representation_set_t *representations, uint64_t index,
-    pp_uuid_t *out_id, pp_uuid_t *out_asset_id,
+    pp_uuid_t *out_id, pp_asset_id_t *out_asset_id,
     pp_representation_kind_t *out_kind,
     pp_content_structure_kind_t *out_structure_kind,
     uint64_t *out_member_count, uint64_t *out_resource_count,
@@ -967,7 +973,7 @@ PP_API const char *pp_known_media_set_next_cursor(
     const pp_known_media_set_t *matches);
 PP_API pp_error_code_t pp_known_media_set_get(
     const pp_known_media_set_t *matches, uint64_t index,
-    pp_uuid_t *out_asset_id, pp_uuid_t *out_representation_id,
+    pp_asset_id_t *out_asset_id, pp_uuid_t *out_representation_id,
     pp_uuid_t *out_resource_id, pp_error_t **out_error);
 PP_API void pp_known_media_set_release(pp_known_media_set_t *matches);
 PP_API pp_error_code_t pp_production_unresolved_media(
@@ -1426,14 +1432,14 @@ PP_API pp_error_code_t pp_resolution_options_set_cancel_token(
  * call. NULL options mean the defaults. Borrowed candidate URI, media-root,
  * and evidence-detail strings remain valid until pp_resolution_set_release(). */
 PP_API pp_error_code_t pp_production_resolve_assets(
-    const pp_production_t *production, const pp_uuid_t *asset_ids,
+    const pp_production_t *production, const pp_asset_id_t *asset_ids,
     uint64_t asset_count, const pp_resolution_options_t *options,
     pp_resolution_set_t **out_resolutions, pp_error_t **out_error);
 PP_API uint64_t pp_resolution_set_representation_count(
     const pp_resolution_set_t *resolutions);
 PP_API pp_error_code_t pp_resolution_set_get_representation(
     const pp_resolution_set_t *resolutions, uint64_t representation_index,
-    pp_uuid_t *out_asset_id, pp_uuid_t *out_representation_id,
+    pp_asset_id_t *out_asset_id, pp_uuid_t *out_representation_id,
     pp_representation_availability_t *out_availability,
     uint64_t *out_resource_count, uint64_t *out_issue_count,
     pp_error_t **out_error);
@@ -1524,9 +1530,9 @@ PP_API pp_error_code_t pp_transaction_set_revision_context(
     pp_error_t **out_error);
 PP_API pp_error_code_t pp_transaction_import_media(
     pp_transaction_t *transaction, const pp_media_source_t *source,
-    const char *display_name, pp_uuid_t *out_asset_id, pp_error_t **out_error);
+    const char *display_name, pp_asset_id_t *out_asset_id, pp_error_t **out_error);
 PP_API pp_error_code_t pp_transaction_add_representation(
-    pp_transaction_t *transaction, const pp_uuid_t *asset_id,
+    pp_transaction_t *transaction, pp_asset_id_t asset_id,
     pp_representation_kind_t kind, const pp_media_source_t *source,
     pp_uuid_t *out_representation_id, pp_error_t **out_error);
 PP_API pp_error_code_t pp_transaction_add_media_root(
@@ -1604,7 +1610,7 @@ PP_API pp_error_code_t pp_transaction_remove_metadata_property(
 PP_API pp_error_code_t pp_transaction_request_job(
     pp_transaction_t *transaction, const char *kind,
     const pp_uuid_t *input_representation_ids, uint64_t input_count,
-    const pp_uuid_t *output_asset_id,
+    pp_asset_id_t output_asset_id,
     pp_representation_kind_t output_representation_kind,
     const char *target_root, pp_uuid_t *out_job_id,
     pp_error_t **out_error);

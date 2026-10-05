@@ -10,8 +10,8 @@ use postproject_media::{
 };
 
 use crate::{
-    PpError, PpProduction, PpResolutionSet, PpUuid, ffi_call, initialize_output, invalid_argument,
-    lock_production, require_output, required_utf8,
+    PpAssetId, PpError, PpProduction, PpResolutionSet, ffi_call, initialize_output,
+    invalid_argument, lock_production, require_output, required_utf8,
 };
 
 const PP_VERIFY_PRESENCE: u32 = 1;
@@ -282,7 +282,7 @@ pub unsafe extern "C" fn pp_resolution_options_set_cancel_token(
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_resolve_assets(
     production: *const PpProduction,
-    asset_ids: *const PpUuid,
+    asset_ids: *const PpAssetId,
     asset_count: u64,
     options: *const PpResolutionOptions,
     out_resolutions: *mut *mut PpResolutionSet,
@@ -326,7 +326,7 @@ type AssetWork = (
 
 fn resolve_assets(
     production: &PpProduction,
-    asset_ids: &[PpUuid],
+    asset_ids: &[PpAssetId],
     options: &PpResolutionOptions,
 ) -> Result<Vec<(AssetId, RepresentationResolution)>, Error> {
     // Snapshot the stored knowledge, then scan and hash without the lock.

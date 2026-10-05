@@ -47,6 +47,18 @@ int main(void) { pp_production_id_t id = {{0}};
 if(POSTPROJECT_PRODUCTION_AS_ASSET_COMPILES)
     message(FATAL_ERROR "Production identity must not substitute for asset identity")
 endif()
+check_c_source_compiles("#include <postproject/postproject.h>
+int main(void) { pp_asset_id_t id = {{0}};
+  return pp_production_asset(0, id, 0, 0); }" POSTPROJECT_ASSET_READ_COMPILES)
+if(NOT POSTPROJECT_ASSET_READ_COMPILES)
+    message(FATAL_ERROR "Installed typed asset read must compile")
+endif()
+check_c_source_compiles("#include <postproject/postproject.h>
+int main(void) { pp_uuid_t id = {{0}};
+  return pp_production_asset(0, id, 0, 0); }" POSTPROJECT_RAW_ASSET_READ_COMPILES)
+if(POSTPROJECT_RAW_ASSET_READ_COMPILES)
+    message(FATAL_ERROR "Generic UUID must not substitute in an asset read")
+endif()
 cmake_pop_check_state()
 
 # The producer generates this source from the public header. This consumer

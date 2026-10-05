@@ -184,7 +184,7 @@ const PP_REVISION_JOB_FAILED: u32 = 25;
 const PP_REVISION_JOB_CANCELLED: u32 = 26;
 
 /// Current pre-1.0 ABI version.
-pub const ABI_VERSION: u32 = 40;
+pub const ABI_VERSION: u32 = 41;
 
 /// Fixed-layout UUID-compatible public identifier.
 #[repr(C)]
@@ -296,7 +296,7 @@ pub struct PpRevisionEvent {
     /// Stable zero-based position within the owning revision.
     pub position: u32,
     /// Event asset identity, or zero when not applicable.
-    pub asset_id: PpUuid,
+    pub asset_id: PpAssetId,
     /// Event representation identity, or zero when not applicable.
     pub representation_id: PpUuid,
     /// Event resource identity, or zero when not applicable.
@@ -895,12 +895,12 @@ pub unsafe extern "C" fn pp_production_id(
 ///
 /// # Safety
 ///
-/// `production` must be a live handle returned by this library. `asset_id` must be
-/// readable and `out_exists` writable. `out_error` may be null or writable.
+/// `production` must be a live handle returned by this library and
+/// `out_exists` writable. `out_error` may be null or writable.
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_asset_exists(
     production: *const PpProduction,
-    asset_id: *const PpUuid,
+    asset_id: PpAssetId,
     out_exists: *mut u8,
     out_error: *mut *mut PpError,
 ) -> u32 {
@@ -914,9 +914,6 @@ pub unsafe extern "C" fn pp_production_asset_exists(
             let production = production
                 .as_ref()
                 .ok_or_else(|| invalid_argument("production must not be null"))?;
-            let asset_id = asset_id
-                .as_ref()
-                .ok_or_else(|| invalid_argument("asset_id must not be null"))?;
             if out_exists.is_null() {
                 return Err(invalid_argument("out_exists must not be null"));
             }
@@ -969,12 +966,12 @@ pub unsafe extern "C" fn pp_production_assets(
 ///
 /// # Safety
 ///
-/// `production` and `asset_id` must be live, `out_assets` must be writable, and
+/// `production` must be live, `out_assets` must be writable, and
 /// `out_error` may be null or writable. The returned set is caller-owned.
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_asset(
     production: *const PpProduction,
-    asset_id: *const PpUuid,
+    asset_id: PpAssetId,
     out_assets: *mut *mut PpAssetSet,
     out_error: *mut *mut PpError,
 ) -> u32 {
@@ -985,9 +982,6 @@ pub unsafe extern "C" fn pp_production_asset(
             let production = production
                 .as_ref()
                 .ok_or_else(|| invalid_argument("production must not be null"))?;
-            let asset_id = asset_id
-                .as_ref()
-                .ok_or_else(|| invalid_argument("asset_id must not be null"))?;
             require_output(out_assets, "out_assets")?;
             let asset =
                 lock_production(&production.state).asset(AssetId::from_bytes(asset_id.bytes))?;
@@ -1081,7 +1075,7 @@ pub unsafe extern "C" fn pp_asset_set_count(assets: *const PpAssetSet) -> u64 {
 pub unsafe extern "C" fn pp_asset_set_get(
     assets: *const PpAssetSet,
     index: u64,
-    out_id: *mut PpUuid,
+    out_id: *mut PpAssetId,
     out_created_at_unix_micros: *mut i64,
     out_display_name: *mut *const c_char,
     out_import_source: *mut *const c_char,
@@ -1089,7 +1083,7 @@ pub unsafe extern "C" fn pp_asset_set_get(
 ) -> u32 {
     // SAFETY: Outputs are initialized and validated before writes.
     unsafe {
-        initialize_uuid(out_id);
+        initialize_value(out_id, PpAssetId { bytes: [0; 16] });
         initialize_value(out_created_at_unix_micros, 0);
         initialize_const_output(out_display_name);
         initialize_const_output(out_import_source);
@@ -1100,7 +1094,7 @@ pub unsafe extern "C" fn pp_asset_set_get(
             let asset = item_at(&assets.assets, index, "asset")?;
             write_copy(
                 out_id,
-                PpUuid {
+                PpAssetId {
                     bytes: asset.id.into_bytes(),
                 },
                 "out_id",
@@ -4475,7 +4469,7 @@ pub unsafe extern "C" fn pp_resolution_set_representation_count(
 pub unsafe extern "C" fn pp_resolution_set_get_representation(
     resolutions: *const PpResolutionSet,
     representation_index: u64,
-    out_asset_id: *mut PpUuid,
+    out_asset_id: *mut PpAssetId,
     out_representation_id: *mut PpUuid,
     out_availability: *mut u32,
     out_resource_count: *mut u64,
@@ -4484,7 +4478,7 @@ pub unsafe extern "C" fn pp_resolution_set_get_representation(
 ) -> u32 {
     // SAFETY: Outputs are initialized and checked before writes.
     unsafe {
-        initialize_uuid(out_asset_id);
+        initialize_value(out_asset_id, PpAssetId { bytes: [0; 16] });
         initialize_uuid(out_representation_id);
         initialize_value(out_availability, 0);
         initialize_value(out_resource_count, 0);
@@ -4496,7 +4490,7 @@ pub unsafe extern "C" fn pp_resolution_set_get_representation(
             require_output(out_resource_count, "out_resource_count")?;
             require_output(out_issue_count, "out_issue_count")?;
             let resolution = representation_resolution_at(resolutions, representation_index)?;
-            out_asset_id.write(PpUuid {
+            out_asset_id.write(PpAssetId {
                 bytes: resolution.asset_id.into_bytes(),
             });
             out_representation_id.write(PpUuid {
@@ -4884,13 +4878,13 @@ pub unsafe extern "C" fn pp_transaction_import_media(
     transaction: *mut PpTransaction,
     source: *const PpMediaSource,
     display_name: *const c_char,
-    out_asset_id: *mut PpUuid,
+    out_asset_id: *mut PpAssetId,
     out_error: *mut *mut PpError,
 ) -> u32 {
     // SAFETY: Null pointers are rejected before dereference and borrowed
     // inputs are not retained after this call.
     unsafe {
-        initialize_uuid(out_asset_id);
+        initialize_value(out_asset_id, PpAssetId { bytes: [0; 16] });
         ffi_call(out_error, || {
             let transaction = transaction
                 .as_mut()
@@ -4902,7 +4896,7 @@ pub unsafe extern "C" fn pp_transaction_import_media(
             }
             let display_name = optional_utf8(display_name, "display_name")?.map(str::to_owned);
             let import = prepare_original_media(source.clone(), display_name, None)?;
-            out_asset_id.write(PpUuid {
+            out_asset_id.write(PpAssetId {
                 bytes: import.asset().id().into_bytes(),
             });
             transaction.mutations.push(StagedMutation::Import(import));
@@ -4918,13 +4912,13 @@ pub unsafe extern "C" fn pp_transaction_import_media(
 ///
 /// # Safety
 ///
-/// `transaction` must be a live transaction handle, `asset_id` readable, and
+/// `transaction` must be a live transaction handle and
 /// `source` a live media source. `out_representation_id` must be writable;
 /// `out_error` may be null or writable.
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_transaction_add_representation(
     transaction: *mut PpTransaction,
-    asset_id: *const PpUuid,
+    asset_id: PpAssetId,
     kind: u32,
     source: *const PpMediaSource,
     out_representation_id: *mut PpUuid,
@@ -4939,9 +4933,6 @@ pub unsafe extern "C" fn pp_transaction_add_representation(
                 .as_mut()
                 .ok_or_else(|| invalid_argument("transaction must not be null"))?;
             transaction.lifecycle.ensure_open()?;
-            let asset_id = asset_id
-                .as_ref()
-                .ok_or_else(|| invalid_argument("asset_id must not be null"))?;
             let source = media_source::borrowed_source(source)?;
             if out_representation_id.is_null() {
                 return Err(invalid_argument("out_representation_id must not be null"));
@@ -5445,7 +5436,7 @@ pub unsafe extern "C" fn pp_transaction_remove_metadata_property(
 ///
 /// # Safety
 ///
-/// `transaction` must be live, `kind` and `output_asset_id` must be readable,
+/// `transaction` must be live and `kind` must be readable,
 /// the input array must contain `input_count` readable UUIDs (or be null when
 /// the count is zero), `out_job_id` must be writable, and `out_error` may be
 /// null or writable.
@@ -5459,7 +5450,7 @@ pub unsafe extern "C" fn pp_transaction_request_job(
     kind: *const c_char,
     input_representation_ids: *const PpUuid,
     input_count: u64,
-    output_asset_id: *const PpUuid,
+    output_asset_id: PpAssetId,
     output_representation_kind: u32,
     target_root: *const c_char,
     out_job_id: *mut PpUuid,
@@ -5474,9 +5465,6 @@ pub unsafe extern "C" fn pp_transaction_request_job(
                 .ok_or_else(|| invalid_argument("transaction must not be null"))?;
             transaction.lifecycle.ensure_open()?;
             require_output(out_job_id, "out_job_id")?;
-            let output_asset_id = output_asset_id
-                .as_ref()
-                .ok_or_else(|| invalid_argument("output_asset_id must not be null"))?;
             let input_count = usize::try_from(input_count)
                 .map_err(|_| invalid_argument("job input count is too large"))?;
             if input_count > MAX_JOB_INPUTS {
@@ -6355,7 +6343,7 @@ const fn empty_revision_event() -> PpRevisionEvent {
     PpRevisionEvent {
         kind: 0,
         position: 0,
-        asset_id: PpUuid { bytes: [0; 16] },
+        asset_id: PpAssetId { bytes: [0; 16] },
         representation_id: PpUuid { bytes: [0; 16] },
         resource_id: PpUuid { bytes: [0; 16] },
         locator_id: PpUuid { bytes: [0; 16] },
@@ -7589,7 +7577,7 @@ mod tests {
             },
             PP_OK
         );
-        let mut asset_id = PpUuid { bytes: [0; 16] };
+        let mut asset_id = PpAssetId { bytes: [0; 16] };
         // SAFETY: `transaction` and `source` are live and outputs are writable.
         assert_eq!(
             unsafe {
@@ -7626,7 +7614,7 @@ mod tests {
     #[test]
     fn resolution_accessors_reject_out_of_range_indices() {
         let resolutions = Box::into_raw(Box::new(PpResolutionSet::new(Vec::new())));
-        let mut asset_id = PpUuid { bytes: [9; 16] };
+        let mut asset_id = PpAssetId { bytes: [9; 16] };
         let mut representation_id = PpUuid { bytes: [9; 16] };
         let mut availability = 99;
         let mut resource_count = 99;
@@ -7707,7 +7695,7 @@ mod tests {
             AssetId::new(),
             representation,
         )])));
-        let mut asset_id = PpUuid { bytes: [0; 16] };
+        let mut asset_id = PpAssetId { bytes: [0; 16] };
         let mut id = PpUuid { bytes: [0; 16] };
         let mut availability = 0;
         let mut resource_count = 0;
