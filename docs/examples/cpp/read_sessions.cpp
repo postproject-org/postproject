@@ -43,6 +43,9 @@ static void exercise(const std::string &path, const std::string &media) {
   if (!view.outputsByActivityKind("example:render", 10).value().items.empty() ||
       !view.outputsByTool({"Example", std::nullopt, std::nullopt}, 10).value().items.empty())
     throw std::runtime_error("coherent activity output filters");
+  if (!view.activitiesProducing(representation.id, 10).value().items.empty() ||
+      !view.activitiesConsuming(representation.id, 10).value().items.empty())
+    throw std::runtime_error("coherent activity pages");
   const auto resources = view.resources(representation.id, 10).value();
   if (resources.items.size() != 1)
     throw std::runtime_error("resource page");

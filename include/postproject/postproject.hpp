@@ -4258,6 +4258,36 @@ private:
 
 class ReadSession final {
 public:
+  [[nodiscard]] Result<QueryPage<Activity>> activitiesProducing(
+      const Uuid &representation_id, std::uint32_t limit,
+      std::optional<std::string_view> cursor = std::nullopt) const {
+    const pp_uuid_t native_id = detail::native_uuid(representation_id);
+    POSTPROJECT_TRY_ASSIGN(const std::optional<std::string> checked_cursor,
+                           detail::checked_cursor(cursor));
+    pp_activity_set_t *raw_activities = nullptr;
+    pp_error_t *error = nullptr;
+    const pp_error_code_t status = pp_read_session_activities_producing_page(
+        session_, &native_id, limit, detail::optional_c_str(checked_cursor),
+        &raw_activities, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    return detail::activity_page(detail::ActivitySetHandle(raw_activities));
+  }
+
+  [[nodiscard]] Result<QueryPage<Activity>> activitiesConsuming(
+      const Uuid &representation_id, std::uint32_t limit,
+      std::optional<std::string_view> cursor = std::nullopt) const {
+    const pp_uuid_t native_id = detail::native_uuid(representation_id);
+    POSTPROJECT_TRY_ASSIGN(const std::optional<std::string> checked_cursor,
+                           detail::checked_cursor(cursor));
+    pp_activity_set_t *raw_activities = nullptr;
+    pp_error_t *error = nullptr;
+    const pp_error_code_t status = pp_read_session_activities_consuming_page(
+        session_, &native_id, limit, detail::optional_c_str(checked_cursor),
+        &raw_activities, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    return detail::activity_page(detail::ActivitySetHandle(raw_activities));
+  }
+
   [[nodiscard]] Result<QueryPage<Uuid>> outputsByActivityKind(
       std::string_view kind, std::uint32_t limit,
       std::optional<std::string_view> cursor = std::nullopt) const {
