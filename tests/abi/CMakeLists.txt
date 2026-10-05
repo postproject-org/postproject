@@ -59,6 +59,20 @@ int main(void) { pp_uuid_t id = {{0}};
 if(POSTPROJECT_RAW_ASSET_READ_COMPILES)
     message(FATAL_ERROR "Generic UUID must not substitute in an asset read")
 endif()
+check_c_source_compiles("#include <postproject/postproject.h>
+int main(void) { pp_media_root_id_t id = {{0}};
+  return pp_transaction_set_media_root_enabled(0, id, 0, 0); }"
+    POSTPROJECT_ROOT_ID_COMPILES)
+if(NOT POSTPROJECT_ROOT_ID_COMPILES)
+    message(FATAL_ERROR "Installed typed root mutation must compile")
+endif()
+check_c_source_compiles("#include <postproject/postproject.h>
+int main(void) { pp_asset_id_t id = {{0}};
+  return pp_transaction_set_media_root_enabled(0, id, 0, 0); }"
+    POSTPROJECT_ASSET_AS_ROOT_COMPILES)
+if(POSTPROJECT_ASSET_AS_ROOT_COMPILES)
+    message(FATAL_ERROR "Asset identity must not substitute for root identity")
+endif()
 cmake_pop_check_state()
 
 # The producer generates this source from the public header. This consumer

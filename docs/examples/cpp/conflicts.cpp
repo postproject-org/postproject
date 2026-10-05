@@ -37,7 +37,9 @@ void update_from_a_base_revision(postproject::Production &production) {
   require(conflict != nullptr, "structured conflict detail");
   require(conflict->key.kind == postproject::ConflictKeyKind::media_root,
           "media-root conflict key");
-  require(std::get<postproject::MediaRootId>(conflict->key.target) == root_id, "conflicting root");
+  const auto *conflicting_root =
+      std::get_if<postproject::MediaRootId>(&conflict->key.target);
+  require(conflicting_root && *conflicting_root == root_id, "conflicting root");
   require(conflict->base_revision_id == base.id, "supplied base revision");
   require(conflict->superseding_revision_id == superseding.id,
           "superseding revision");
