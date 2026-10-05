@@ -119,12 +119,23 @@ operations; final qualification remains open.
 
 At `7635cf5`, native revision and transaction IDs complete this identity slice.
 ABI 40 takes revision arguments by value and types journal/receipt outputs;
-285 exports and all 19 C/Rust/ctypes layouts agree. All six required Rust gates,
+285 exports and all 18 C/Rust/ctypes layouts agree. All six required Rust gates,
 eight installed native contracts and 64 extracted tests pass. Source and
 installed-wheel Python suites each run 63 tests with one skip; Ruff/ty pass.
 Doxygen, generated C coverage and strict Sphinx pass after `8965f03` hides
 implementation-only hash specializations from Breathe. These checks preserve
 the released baseline and do not close the remaining audit rows.
+
+At `a56c0f1`, C has checked job claim/completion/failure accessors; C++ and
+Python have one status alternative instead of independent optional payloads
+(ADR 0051). Wrong-state, missing-index, null/output-clearing and malformed
+projection regressions pass. ABI 40 now has 288 exports and 20 agreeing public
+struct layouts. Workspace tests, Clippy, Rustdoc, fmt and architecture checks
+pass; dependency inputs are unchanged from the successful deny check above.
+Source and installed-wheel Python each run 66 tests with one skip; Ruff/ty,
+eight rebuilt native contracts and strict docs pass. The 64 extracted tests
+pass after the C++/Python changes; the updated C job recipe then passes
+separately. The flattened C job view and claim secrecy/time remain open.
 
 Repository inputs and migration status are in
 [`api-safety-repositories.md`](api-safety-repositories.md).

@@ -137,7 +137,8 @@ SDK build `7635cf5` supplies the installed headers/library and neutral wheel
 (`0.7.0a1`, ABI 40, schema 17). Wheel SHA-256:
 `5b3df558409b07db52a7d59348ca021d286b97ef9af33d603a9d365d5cf77ce5`.
 The artifact is `target/api-safety-wheel/journal-abi40/`; native installation is
-`target/api-safety-install/`. Later SDK commits change documentation only.
+`target/api-safety-install/`. SDK `3ba61b5` adds documentation without changing
+that build's runtime.
 
 | Consumer commit | Executed result | Scope |
 |---|---|---|
@@ -157,3 +158,14 @@ with maintained patches. Existing host checkouts were preserved.
 Blender and Kdenlive evidence above still uses earlier SDK builds. These local
 checks are not final coordinated host/platform qualification. Every maintained
 repository remains on local `main`; no push, tag or publication has occurred.
+
+## Job-status development checks
+
+SDK `a56c0f1` adds checked C job payloads and C++/Python status alternatives,
+still using ABI 40/schema 17. Its neutral wheel at
+`target/api-safety-wheel/job-status/` has SHA-256
+`003bcc45c52aefeb171727578ba11e335d84d1ec3563691959b5944acb13db7c`.
+The installed prefix contains the new library and headers. Python 3.13 runs
+66 installed-wheel tests with one skip; Manager `662de75` passes its six
+installed-wheel tests using derived job properties. Other downstream results
+above predate this slice. No final coordinated qualification is claimed.
