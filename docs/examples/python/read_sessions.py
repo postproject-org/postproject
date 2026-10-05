@@ -6,6 +6,7 @@ from pathlib import Path
 from postproject import (
     AssetRef,
     ContentVerification,
+    DecisionBase,
     ExternalIdentifier,
     LocatorIdentity,
     MetadataProperty,
@@ -73,6 +74,7 @@ def exercise(path: Path, media: Path) -> None:
                 == asset
             )
             base = view.decision_base
+            assert DecisionBase.from_token(base.to_token()) == base
         with production.edit(base) as later:
             assert later.commit().revision is None
         # Exiting an uncommitted edit rolls back, even without an exception.

@@ -1610,17 +1610,7 @@ class Production:
     def edit(self, base: DecisionBase) -> Edit:
         """Begin an explicit-commit edit from detached production-scoped context."""
         self._require_open()
-        value = _abi.DecisionBase()
-        value.production_id = _native_production_id(base.production_id)
-        if base.revision is not None:
-            if (
-                type(base.revision.sequence) is not int
-                or not 0 < base.revision.sequence <= 2**64 - 1
-            ):
-                raise ValueError("decision sequence must be a positive uint64")
-            value.has_revision = 1
-            value.revision_id = _native_uuid(base.revision.id)
-            value.revision_sequence = base.revision.sequence
+        value = _native_decision_base(base)
         handle = ctypes.POINTER(NativeTransaction)()
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_production_begin_edit(
@@ -1779,6 +1769,64 @@ class Production:
         *arguments: object,
     ) -> QueryPage[_ObjectQueryItem]:
         return _object_query_page(self._native, function, convert, *arguments)
+
+
+def _native_decision_base(base: DecisionBase) -> _abi.DecisionBase:
+    value = _abi.DecisionBase()
+    value.production_id = _native_production_id(base.production_id)
+    if base.revision is not None:
+        if (
+            type(base.revision.sequence) is not int
+            or not 0 < base.revision.sequence <= 2**64 - 1
+        ):
+            raise ValueError("decision sequence must be a positive uint64")
+        value.has_revision = 1
+        value.revision_id = _native_uuid(base.revision.id)
+        value.revision_sequence = base.revision.sequence
+    return value
+
+
+def _decision_base(value: _abi.DecisionBase) -> DecisionBase:
+    revision = (
+        CommittedRevision(
+            RevisionId(_uuid(value.revision_id)), int(value.revision_sequence)
+        )
+        if value.has_revision
+        else None
+    )
+    return DecisionBase(ProductionId(_uuid(value.production_id)), revision)
+
+
+def _parse_decision_base(
+    token: str, library_path: str | os.PathLike[str] | None
+) -> DecisionBase:
+    native = NativeLibrary(library_path)
+    base = _abi.DecisionBase()
+    error = ctypes.POINTER(Error)()
+    status = native.lib.pp_decision_base_parse(
+        _utf8(token, "decision-base token"), ctypes.byref(base), ctypes.byref(error)
+    )
+    native.check(status, error)
+    return _decision_base(base)
+
+
+def _format_decision_base(
+    base: DecisionBase, library_path: str | os.PathLike[str] | None
+) -> str:
+    native = NativeLibrary(library_path)
+    value = _native_decision_base(base)
+    token = ctypes.c_char_p()
+    error = ctypes.POINTER(Error)()
+    status = native.lib.pp_decision_base_format(
+        ctypes.byref(value), ctypes.byref(token), ctypes.byref(error)
+    )
+    native.check(status, error)
+    try:
+        if token.value is None:
+            raise RuntimeError("native decision-base formatter returned no token")
+        return token.value.decode("utf-8")
+    finally:
+        native.lib.pp_string_release(token)
 
 
 def _verify_resource(
@@ -2007,14 +2055,7 @@ class ReadSession:
             self._handle, ctypes.byref(value), ctypes.byref(error)
         )
         self._native.check(status, error)
-        revision = (
-            CommittedRevision(
-                RevisionId(_uuid(value.revision_id)), int(value.revision_sequence)
-            )
-            if value.has_revision
-            else None
-        )
-        return DecisionBase(ProductionId(_uuid(value.production_id)), revision)
+        return _decision_base(value)
 
     def edit(self) -> Edit:
         """Create an explicit-commit edit carrying this view's base."""

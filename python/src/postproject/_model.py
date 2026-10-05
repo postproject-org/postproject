@@ -60,6 +60,21 @@ class DecisionBase:
     production_id: ProductionId
     revision: CommittedRevision | None
 
+    @classmethod
+    def from_token(
+        cls, token: str, *, library_path: str | os.PathLike[str] | None = None
+    ) -> DecisionBase:
+        """Parse canonical scoped context; editing still validates store membership."""
+        from ._production import _parse_decision_base
+
+        return _parse_decision_base(token, library_path)
+
+    def to_token(self, *, library_path: str | os.PathLike[str] | None = None) -> str:
+        """Export context without retaining a view, lock or permission."""
+        from ._production import _format_decision_base
+
+        return _format_decision_base(self, library_path)
+
 
 @dataclass(frozen=True, slots=True)
 class CommitReceipt:

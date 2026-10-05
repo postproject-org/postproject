@@ -25,6 +25,39 @@ from postproject import (
 
 
 class ReadSessionTests(unittest.TestCase):
+    def test_decision_tokens_are_canonical_bounded_and_validate_on_edit(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            with Production.create(Path(directory) / "tokens.pproj") as production:
+                with production.read_session() as empty:
+                    empty_base = empty.decision_base
+                    self.assertEqual(
+                        DecisionBase.from_token(empty_base.to_token()), empty_base
+                    )
+                    with empty.edit() as edit:
+                        edit.add_media_root("rushes")
+                        edit.commit()
+                with production.read_session() as view:
+                    base = view.decision_base
+                token = base.to_token()
+                self.assertEqual(DecisionBase.from_token(token), base)
+                for invalid in (
+                    token + ":extra",
+                    token + "\0",
+                    "x" * 129,
+                    token.replace("ppdb1", "ppdb2"),
+                    token.rsplit(":", 1)[0] + ":01",
+                ):
+                    with self.assertRaises((InvalidArgumentError, ValueError)):
+                        DecisionBase.from_token(invalid)
+                assert base.revision is not None
+                with self.assertRaises(ValueError):
+                    DecisionBase(
+                        base.production_id, CommittedRevision(base.revision.id, 0)
+                    ).to_token()
+                with Production.create(Path(directory) / "other.pproj") as other:
+                    with self.assertRaises(InvalidArgumentError):
+                        other.edit(DecisionBase.from_token(token))
+
     def test_resolution_pins_database_facts_but_reads_current_files(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             media = Path(directory) / "camera.mov"
