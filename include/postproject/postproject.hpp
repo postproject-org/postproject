@@ -2602,6 +2602,55 @@ inline Result<ArtifactEvaluation> artifact_evaluation(ArtifactEvaluationHandle e
       visited_representations, truncated != 0, std::move(reasons)};
 }
 
+inline Result<ArtifactReproducibility> artifact_reproducibility(ArtifactReproducibilityHandle report) {
+  pp_uuid_t reported_id{};
+  std::uint8_t reproducible = 0;
+  std::uint8_t has_activity = 0;
+  pp_uuid_t activity_id{};
+  const char *activity_kind = nullptr;
+  std::uint64_t issue_count = 0;
+  pp_error_t *summary_error = nullptr;
+  const pp_error_code_t summary_status = pp_artifact_reproducibility_get(
+      report.get(), &reported_id, &reproducible, &has_activity, &activity_id,
+      &activity_kind, &issue_count, &summary_error);
+  POSTPROJECT_TRY(check(summary_status, summary_error));
+
+  std::vector<ArtifactReproducibilityIssue> issues;
+  issues.reserve(static_cast<std::size_t>(issue_count));
+  for (std::uint64_t index = 0; index < issue_count; ++index) {
+    pp_artifact_reproducibility_issue_t native{};
+    pp_error_t *issue_error = nullptr;
+    const pp_error_code_t issue_status =
+        pp_artifact_reproducibility_get_issue(report.get(), index, &native,
+                                              &issue_error);
+    POSTPROJECT_TRY(check(issue_status, issue_error));
+    const auto kind =
+        static_cast<ArtifactReproducibilityIssueKind>(native.kind);
+    const bool issue_has_activity =
+        kind == ArtifactReproducibilityIssueKind::tool_identity_missing ||
+        kind == ArtifactReproducibilityIssueKind::parameters_missing ||
+        kind ==
+            ArtifactReproducibilityIssueKind::input_representation_missing;
+    issues.push_back(
+        {kind,
+         issue_has_activity
+             ? std::optional<Uuid>(uuid(native.activity_id))
+             : std::nullopt,
+         kind ==
+                 ArtifactReproducibilityIssueKind::input_representation_missing
+             ? std::optional<Uuid>(uuid(native.representation_id))
+             : std::nullopt,
+         kind == ArtifactReproducibilityIssueKind::producing_activity_ambiguous
+             ? std::optional<std::uint32_t>(native.activity_count)
+             : std::nullopt});
+  }
+  return ArtifactReproducibility{
+      uuid(reported_id), reproducible != 0,
+      has_activity != 0 ? std::optional<Uuid>(uuid(activity_id))
+                        : std::nullopt,
+      optional_string(activity_kind), std::move(issues)};
+}
+
 inline Result<QueryPage<Job>> job_page(JobSetHandle jobs) {
   std::vector<Job> items;
   const std::uint64_t count = pp_job_set_count(jobs.get());
@@ -5482,52 +5531,7 @@ public:
     POSTPROJECT_TRY(detail::check(status, error));
     detail::ArtifactReproducibilityHandle report(raw_report);
 
-    pp_uuid_t reported_id{};
-    std::uint8_t reproducible = 0;
-    std::uint8_t has_activity = 0;
-    pp_uuid_t activity_id{};
-    const char *activity_kind = nullptr;
-    std::uint64_t issue_count = 0;
-    pp_error_t *summary_error = nullptr;
-    const pp_error_code_t summary_status = pp_artifact_reproducibility_get(
-        report.get(), &reported_id, &reproducible, &has_activity, &activity_id,
-        &activity_kind, &issue_count, &summary_error);
-    POSTPROJECT_TRY(detail::check(summary_status, summary_error));
-
-    std::vector<ArtifactReproducibilityIssue> issues;
-    issues.reserve(static_cast<std::size_t>(issue_count));
-    for (std::uint64_t index = 0; index < issue_count; ++index) {
-      pp_artifact_reproducibility_issue_t native{};
-      pp_error_t *issue_error = nullptr;
-      const pp_error_code_t issue_status =
-          pp_artifact_reproducibility_get_issue(report.get(), index, &native,
-                                                &issue_error);
-      POSTPROJECT_TRY(detail::check(issue_status, issue_error));
-      const auto kind =
-          static_cast<ArtifactReproducibilityIssueKind>(native.kind);
-      const bool issue_has_activity =
-          kind == ArtifactReproducibilityIssueKind::tool_identity_missing ||
-          kind == ArtifactReproducibilityIssueKind::parameters_missing ||
-          kind ==
-              ArtifactReproducibilityIssueKind::input_representation_missing;
-      issues.push_back(
-          {kind,
-           issue_has_activity
-               ? std::optional<Uuid>(detail::uuid(native.activity_id))
-               : std::nullopt,
-           kind ==
-                   ArtifactReproducibilityIssueKind::input_representation_missing
-               ? std::optional<Uuid>(detail::uuid(native.representation_id))
-               : std::nullopt,
-           kind == ArtifactReproducibilityIssueKind::producing_activity_ambiguous
-               ? std::optional<std::uint32_t>(native.activity_count)
-               : std::nullopt});
-    }
-    return ArtifactReproducibility{
-        detail::uuid(reported_id), reproducible != 0,
-        has_activity != 0 ? std::optional<Uuid>(detail::uuid(activity_id))
-                          : std::nullopt,
-        detail::optional_string(activity_kind), std::move(issues)};
+    return detail::artifact_reproducibility(std::move(report));
   }
 
   // Produced representations currently evaluated as stale. A source limits the
