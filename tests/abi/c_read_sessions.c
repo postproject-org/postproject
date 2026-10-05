@@ -29,6 +29,18 @@ static int rejects_null_storage_reads(void) {
   status = pp_read_session_representations_using_resource(
       NULL, NULL, 1, NULL, &representations, &error);
   valid = valid && status == PP_ERROR_INVALID_ARGUMENT && representations == NULL;
+  pp_error_release(error); error = NULL;
+  pp_dependency_set_t *dependencies = (pp_dependency_set_t *)(uintptr_t)1;
+  status = pp_read_session_dependency_set(NULL, NULL, &dependencies, &error);
+  valid = valid && status == PP_ERROR_INVALID_ARGUMENT && dependencies == NULL;
+  pp_error_release(error); error = NULL;
+  pp_dependency_query_set_t *matches = (pp_dependency_query_set_t *)(uintptr_t)1;
+  status = pp_read_session_dependencies(NULL, NULL, 64, 1000, 1, NULL, &matches, &error);
+  valid = valid && status == PP_ERROR_INVALID_ARGUMENT && matches == NULL;
+  pp_error_release(error); error = NULL;
+  matches = (pp_dependency_query_set_t *)(uintptr_t)1;
+  status = pp_read_session_dependents(NULL, NULL, 64, 1000, 1, NULL, &matches, &error);
+  valid = valid && status == PP_ERROR_INVALID_ARGUMENT && matches == NULL;
   pp_error_release(error);
   return valid;
 }

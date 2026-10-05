@@ -733,6 +733,9 @@ EXPORTED_SYMBOLS = (
     "pp_read_session_assets_page",
     "pp_read_session_begin_edit",
     "pp_read_session_decision_base",
+    "pp_read_session_dependencies",
+    "pp_read_session_dependency_set",
+    "pp_read_session_dependents",
     "pp_read_session_evaluate_artifact",
     "pp_read_session_external_identifiers",
     "pp_read_session_find_by_external_identifier",
@@ -843,6 +846,12 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_read_session_evaluate_artifact.restype = ErrorCode
     lib.pp_read_session_artifact_reproducibility.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.POINTER(ArtifactReproducibility)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_read_session_artifact_reproducibility.restype = ErrorCode
+    lib.pp_read_session_dependency_set.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.POINTER(DependencySet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_read_session_dependency_set.restype = ErrorCode
+    lib.pp_read_session_dependencies.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(Uuid), ctypes.c_uint32, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(DependencyQuerySet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_read_session_dependencies.restype = ErrorCode
+    lib.pp_read_session_dependents.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(ObjectRef), ctypes.c_uint32, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(DependencyQuerySet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_read_session_dependents.restype = ErrorCode
     lib.pp_read_session_job.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.POINTER(JobSet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_read_session_job.restype = ErrorCode
     lib.pp_read_session_jobs.argtypes = [ctypes.POINTER(ReadSession), JobState, ctypes.c_char_p, ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(JobSet)), ctypes.POINTER(ctypes.POINTER(Error))]

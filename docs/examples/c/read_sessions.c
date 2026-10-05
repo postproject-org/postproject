@@ -73,6 +73,8 @@ static int exercise(const char *path, const char *media) {
   pp_metadata_input_t *title = NULL;
   pp_asset_set_t *assets = NULL;
   pp_job_set_t *jobs = NULL;
+  pp_dependency_set_t *dependencies = NULL;
+  pp_dependency_query_set_t *dependency_page = NULL;
   pp_artifact_evaluation_t *evaluation = NULL;
   pp_artifact_reproducibility_t *report = NULL;
   pp_representation_set_t *representations = NULL;
@@ -139,6 +141,19 @@ static int exercise(const char *path, const char *media) {
   CHECK(pp_read_session_representations_using_resource(view, &resource.id, 10, NULL, &representations, &error));
   if (pp_representation_set_count(representations) != 1) goto cleanup;
   if (lookup(view, &asset, media)) goto cleanup;
+  CHECK(pp_read_session_dependency_set(view, &representation, &dependencies, &error));
+  uint8_t present;
+  pp_uuid_t dependency_source;
+  uint64_t dependency_revision, dependency_count;
+  pp_dependency_set_status_t dependency_status;
+  CHECK(pp_dependency_set_get(dependencies, &present, &dependency_source,
+      &dependency_revision, &dependency_status, &dependency_count, &error));
+  if (present || dependency_count) goto cleanup;
+  CHECK(pp_read_session_dependencies(view, &representation, 64, 1000, 10, NULL, &dependency_page, &error));
+  if (pp_dependency_query_set_count(dependency_page) != 0) goto cleanup;
+  pp_dependency_query_set_release(dependency_page); dependency_page = NULL;
+  CHECK(pp_read_session_dependents(view, &target, 64, 1000, 10, NULL, &dependency_page, &error));
+  if (pp_dependency_query_set_count(dependency_page) != 0) goto cleanup;
   CHECK(pp_read_session_evaluate_artifact(view, &representation, 64, 1000, &evaluation, &error));
   pp_uuid_t evaluated;
   uint32_t state, visited;
@@ -188,6 +203,8 @@ cleanup:
   pp_string_release(token);
   pp_asset_set_release(assets);
   pp_job_set_release(jobs);
+  pp_dependency_set_release(dependencies);
+  pp_dependency_query_set_release(dependency_page);
   pp_artifact_evaluation_release(evaluation);
   pp_artifact_reproducibility_release(report);
   pp_representation_set_release(representations);

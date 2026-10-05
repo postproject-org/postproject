@@ -34,6 +34,94 @@ unsafe fn forward_read(
     })
 }
 
+/// Copies recorded dependency knowledge, preserving absence versus an empty set.
+///
+/// # Safety
+/// Session/ID must be live/readable; output writable, error nullable/writable.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_read_session_dependency_set(
+    session: *const PpReadSession,
+    representation_id: *const PpUuid,
+    out_dependencies: *mut *mut crate::PpDependencySet,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: The delegate validates pointers and contains panics.
+    unsafe {
+        forward_read(session, out_error, |reader| {
+            crate::pp_production_dependency_set(
+                reader,
+                representation_id,
+                out_dependencies,
+                out_error,
+            )
+        })
+    }
+}
+
+/// Traverses dependency knowledge in the pinned view with explicit bounds.
+///
+/// # Safety
+/// Session/ID must be live/readable; cursor null or UTF-8, outputs writable.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_read_session_dependencies(
+    session: *const PpReadSession,
+    representation_id: *const PpUuid,
+    max_depth: u32,
+    max_representations: u32,
+    limit: u32,
+    cursor: *const c_char,
+    out_matches: *mut *mut crate::PpDependencyQuerySet,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: The delegate validates pointers and contains panics.
+    unsafe {
+        forward_read(session, out_error, |reader| {
+            crate::pp_production_dependencies(
+                reader,
+                representation_id,
+                max_depth,
+                max_representations,
+                limit,
+                cursor,
+                out_matches,
+                out_error,
+            )
+        })
+    }
+}
+
+/// Traverses reverse dependency knowledge within the same bounded pinned view.
+///
+/// # Safety
+/// Session/target must be live/readable; cursor null or UTF-8, outputs writable.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_read_session_dependents(
+    session: *const PpReadSession,
+    target: *const crate::PpObjectRef,
+    max_depth: u32,
+    max_representations: u32,
+    limit: u32,
+    cursor: *const c_char,
+    out_matches: *mut *mut crate::PpDependencyQuerySet,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: The delegate validates pointers and contains panics.
+    unsafe {
+        forward_read(session, out_error, |reader| {
+            crate::pp_production_dependents(
+                reader,
+                target,
+                max_depth,
+                max_representations,
+                limit,
+                cursor,
+                out_matches,
+                out_error,
+            )
+        })
+    }
+}
+
 /// Evaluates stored artifact evidence through the pinned view, without media I/O.
 ///
 /// # Safety

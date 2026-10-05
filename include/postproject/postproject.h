@@ -514,6 +514,20 @@ PP_API pp_error_code_t pp_read_session_evaluate_artifact(
 PP_API pp_error_code_t pp_read_session_artifact_reproducibility(
     const pp_read_session_t *session, const pp_uuid_t *representation_id,
     pp_artifact_reproducibility_t **out_report, pp_error_t **out_error);
+/* Dependency knowledge and bounded traversal use the same pinned view. */
+PP_API pp_error_code_t pp_read_session_dependency_set(
+    const pp_read_session_t *session, const pp_uuid_t *representation_id,
+    pp_dependency_set_t **out_dependencies, pp_error_t **out_error);
+PP_API pp_error_code_t pp_read_session_dependencies(
+    const pp_read_session_t *session, const pp_uuid_t *representation_id,
+    uint32_t max_depth, uint32_t max_representations, uint32_t limit,
+    const char *cursor, pp_dependency_query_set_t **out_matches,
+    pp_error_t **out_error);
+PP_API pp_error_code_t pp_read_session_dependents(
+    const pp_read_session_t *session, const pp_object_ref_t *target,
+    uint32_t max_depth, uint32_t max_representations, uint32_t limit,
+    const char *cursor, pp_dependency_query_set_t **out_matches,
+    pp_error_t **out_error);
 /* Snapshot job reads return the same owned sets as live production reads.
  * Zero state and NULL kind select all jobs; pages retain this view's scope. */
 PP_API pp_error_code_t pp_read_session_job(
