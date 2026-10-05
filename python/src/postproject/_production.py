@@ -3258,7 +3258,7 @@ class Transaction:
         """Stage a portable logical root used for resource discovery."""
 
         self._require_open()
-        root_id = Uuid()
+        root_id = _abi.MediaRootId()
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_transaction_add_media_root(
             self._handle,
@@ -3275,11 +3275,11 @@ class Transaction:
         """Stage a resolver root's enabled state."""
 
         self._require_open()
-        native_id = _native_uuid(root_id)
+        native_id = _native_media_root_id(root_id)
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_transaction_set_media_root_enabled(
             self._handle,
-            ctypes.byref(native_id),
+            native_id,
             int(enabled),
             ctypes.byref(error),
         )
@@ -3289,10 +3289,10 @@ class Transaction:
         """Stage removal of one resolver root."""
 
         self._require_open()
-        native_id = _native_uuid(root_id)
+        native_id = _native_media_root_id(root_id)
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_transaction_remove_media_root(
-            self._handle, ctypes.byref(native_id), ctypes.byref(error)
+            self._handle, native_id, ctypes.byref(error)
         )
         self._native.check(status, error)
 
@@ -4102,6 +4102,7 @@ def _utf8(value: str, label: str) -> bytes:
 def _uuid(
     value: Uuid
     | _abi.AssetId
+    | _abi.MediaRootId
     | _abi.ProductionId
     | _abi.RevisionId
     | _abi.TransactionId,
@@ -4113,6 +4114,14 @@ def _native_asset_id(value: AssetId) -> _abi.AssetId:
     if not isinstance(value, UUID):
         raise TypeError("identity must be a uuid.UUID")
     native = _abi.AssetId()
+    native.bytes[:] = value.bytes
+    return native
+
+
+def _native_media_root_id(value: MediaRootId) -> _abi.MediaRootId:
+    if not isinstance(value, UUID):
+        raise TypeError("identity must be a uuid.UUID")
+    native = _abi.MediaRootId()
     native.bytes[:] = value.bytes
     return native
 
@@ -4215,7 +4224,7 @@ def _asset_at(native: NativeLibrary, assets: _Pointer[AssetSet], index: int) -> 
 def _media_root_at(
     native: NativeLibrary, roots: _Pointer[MediaRootSet], index: int
 ) -> MediaRoot:
-    root_id = Uuid()
+    root_id = _abi.MediaRootId()
     name = ctypes.c_char_p()
     label = ctypes.c_char_p()
     legacy_uri = ctypes.c_char_p()

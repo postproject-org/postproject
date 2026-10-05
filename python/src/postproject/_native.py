@@ -117,7 +117,7 @@ def _transaction_conflict(native: NativeTransactionConflict) -> TransactionConfl
     kind = ConflictKeyKind(int(native.kind))
     identifier = UUID(bytes=bytes(native.target.id.bytes))
     if kind is ConflictKeyKind.MEDIA_ROOT:
-        target = MediaRootId(identifier)
+        target = MediaRootId(UUID(bytes=bytes(native.media_root_id.bytes)))
     else:
         target_types = {
             _abi.PP_OBJECT_PRODUCTION: lambda value: ProductionRef(ProductionId(value)),

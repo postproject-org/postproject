@@ -11,6 +11,7 @@ from uuid import UUID
 from postproject import (
     AssetId,
     AssetRef,
+    MediaRootId,
     NotFoundError,
     Production,
     StorageError,
@@ -21,6 +22,46 @@ from postproject import (
 
 
 class IdentityTests(unittest.TestCase):
+    def test_native_root_mutations_reject_other_id_structures(self) -> None:
+        native = _native.NativeLibrary()
+        error = ctypes.POINTER(_abi.Error)()
+        for wrong_id in (_abi.Uuid(), _abi.AssetId(), _abi.ProductionId()):
+            with self.assertRaises(ctypes.ArgumentError):
+                native.lib.pp_transaction_set_media_root_enabled(
+                    None, wrong_id, 0, ctypes.byref(error)
+                )
+            with self.assertRaises(ctypes.ArgumentError):
+                native.lib.pp_transaction_remove_media_root(
+                    None, wrong_id, ctypes.byref(error)
+                )
+
+    def test_root_mutations_validate_existence_and_production_scope(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            with (
+                Production.create(root / "first.pproj") as first,
+                Production.create(root / "second.pproj") as second,
+            ):
+                with first.transaction() as edit:
+                    root_id = edit.add_media_root("rushes")
+                    edit.commit()
+                self.assertIsInstance(root_id, UUID)
+                self.assertEqual(parse_id(str(root_id), MediaRootId), root_id)
+                with first.read_session() as view:
+                    self.assertEqual(view.media_roots[0].id, root_id)
+                for identifier in (root_id, MediaRootId(UUID(int=0))):
+                    for remove in (False, True):
+                        with second.transaction() as edit:
+                            if remove:
+                                edit.remove_media_root(identifier)
+                            else:
+                                edit.set_media_root_enabled(identifier, False)
+                            with self.assertRaises(NotFoundError):
+                                edit.commit()
+                        self.assertIsNone(second.latest_revision)
+                        self.assertEqual(second.media_roots, ())
+                self.assertTrue(first.media_roots[0].enabled)
+
     def test_asset_point_queries_do_not_materialize_unrelated_rows(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "production.pproj"
