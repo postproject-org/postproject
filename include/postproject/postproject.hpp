@@ -2351,6 +2351,72 @@ candidate_evidence(const pp_resolution_set_t *resolutions,
                       : std::nullopt};
 }
 
+inline Result<ResourceResolution>
+resolution_resource(const pp_resolution_set_t *resolutions,
+                    std::uint64_t representation_index,
+                    std::uint64_t resource_index) {
+  pp_uuid_t resource_id{};
+  pp_resource_resolution_state_t state = 0;
+  std::uint64_t candidate_count = 0;
+  std::uint64_t evidence_count = 0;
+  pp_error_t *resource_error = nullptr;
+  const pp_error_code_t resource_status = pp_resolution_set_get_resource(
+      resolutions, representation_index, resource_index,
+      &resource_id, &state, &candidate_count, &evidence_count,
+      &resource_error);
+  POSTPROJECT_TRY(check(resource_status, resource_error));
+
+  std::vector<ResolutionCandidate> candidates;
+  for (std::uint64_t candidate_index = 0;
+       candidate_index < candidate_count; ++candidate_index) {
+    const char *uri = nullptr;
+    std::uint16_t confidence = 0;
+    const char *media_root = nullptr;
+    std::uint8_t has_naming = 0;
+    pp_sequence_naming_t naming{};
+    std::uint64_t candidate_evidence_count = 0;
+    pp_error_t *candidate_error = nullptr;
+    const pp_error_code_t candidate_status =
+        pp_resolution_set_get_candidate(
+            resolutions, representation_index, resource_index,
+            candidate_index, &uri, &confidence, &media_root,
+            &has_naming, &naming, &candidate_evidence_count,
+            &candidate_error);
+    POSTPROJECT_TRY(check(candidate_status, candidate_error));
+
+    std::vector<Evidence> evidence;
+    for (std::uint64_t evidence_index = 0;
+         evidence_index < candidate_evidence_count; ++evidence_index) {
+      POSTPROJECT_TRY_ASSIGN(
+          auto item_5,
+          candidate_evidence(resolutions,
+                                     representation_index, resource_index,
+                                     candidate_index, evidence_index));
+      evidence.push_back(std::move(item_5));
+    }
+    candidates.push_back(
+        {uri != nullptr ? std::string(uri) : std::string(), confidence,
+         media_root != nullptr
+             ? std::optional<std::string>(media_root)
+             : std::nullopt,
+         optional_naming(has_naming, naming),
+         std::move(evidence)});
+  }
+
+  std::vector<Evidence> evidence;
+  for (std::uint64_t evidence_index = 0;
+       evidence_index < evidence_count; ++evidence_index) {
+    POSTPROJECT_TRY_ASSIGN(
+        auto item_6,
+        resource_evidence(resolutions, representation_index,
+                                  resource_index, evidence_index));
+    evidence.push_back(std::move(item_6));
+  }
+  return ResourceResolution{uuid(resource_id),
+                       static_cast<ResourceResolutionState>(state),
+                       std::move(candidates), std::move(evidence)};
+}
+
 } // namespace detail
 
 inline Result<ProductionId> ProductionId::fromString(std::string_view text) {
@@ -4836,66 +4902,11 @@ private:
       std::vector<ResourceResolution> resources;
       for (std::uint64_t resource_index = 0; resource_index < resource_count;
            ++resource_index) {
-        pp_uuid_t resource_id{};
-        pp_resource_resolution_state_t state = 0;
-        std::uint64_t candidate_count = 0;
-        std::uint64_t evidence_count = 0;
-        pp_error_t *resource_error = nullptr;
-        const pp_error_code_t resource_status = pp_resolution_set_get_resource(
-            resolutions.get(), representation_index, resource_index,
-            &resource_id, &state, &candidate_count, &evidence_count,
-            &resource_error);
-        POSTPROJECT_TRY(detail::check(resource_status, resource_error));
-
-        std::vector<ResolutionCandidate> candidates;
-        for (std::uint64_t candidate_index = 0;
-             candidate_index < candidate_count; ++candidate_index) {
-          const char *uri = nullptr;
-          std::uint16_t confidence = 0;
-          const char *media_root = nullptr;
-          std::uint8_t has_naming = 0;
-          pp_sequence_naming_t naming{};
-          std::uint64_t candidate_evidence_count = 0;
-          pp_error_t *candidate_error = nullptr;
-          const pp_error_code_t candidate_status =
-              pp_resolution_set_get_candidate(
-                  resolutions.get(), representation_index, resource_index,
-                  candidate_index, &uri, &confidence, &media_root,
-                  &has_naming, &naming, &candidate_evidence_count,
-                  &candidate_error);
-          POSTPROJECT_TRY(detail::check(candidate_status, candidate_error));
-
-          std::vector<Evidence> evidence;
-          for (std::uint64_t evidence_index = 0;
-               evidence_index < candidate_evidence_count; ++evidence_index) {
-            POSTPROJECT_TRY_ASSIGN(
-                auto item_5,
-                detail::candidate_evidence(resolutions.get(),
-                                           representation_index, resource_index,
-                                           candidate_index, evidence_index));
-            evidence.push_back(std::move(item_5));
-          }
-          candidates.push_back(
-              {uri != nullptr ? std::string(uri) : std::string(), confidence,
-               media_root != nullptr
-                   ? std::optional<std::string>(media_root)
-                   : std::nullopt,
-               detail::optional_naming(has_naming, naming),
-               std::move(evidence)});
-        }
-
-        std::vector<Evidence> evidence;
-        for (std::uint64_t evidence_index = 0;
-             evidence_index < evidence_count; ++evidence_index) {
-          POSTPROJECT_TRY_ASSIGN(
-              auto item_6,
-              detail::resource_evidence(resolutions.get(), representation_index,
-                                        resource_index, evidence_index));
-          evidence.push_back(std::move(item_6));
-        }
-        resources.push_back({detail::uuid(resource_id),
-                             static_cast<ResourceResolutionState>(state),
-                             std::move(candidates), std::move(evidence)});
+        POSTPROJECT_TRY_ASSIGN(
+            ResourceResolution resource,
+            detail::resolution_resource(resolutions.get(), representation_index,
+                                        resource_index));
+        resources.push_back(std::move(resource));
       }
 
       std::vector<AvailabilityIssue> issues;
