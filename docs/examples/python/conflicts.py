@@ -12,6 +12,7 @@ from postproject import ConflictError, ConflictKeyKind, Production
 def update_from_a_base_revision(production: Production) -> None:
     with production.transaction() as setup:
         root_id = setup.add_media_root("rushes")
+        setup.commit()
 
     base = production.latest_revision
     assert base is not None
@@ -43,6 +44,7 @@ def update_from_a_base_revision(production: Production) -> None:
     assert refreshed is not None
     with production.transaction(base_revision=refreshed.id) as retry:
         retry.set_media_root_enabled(root_id, True)
+        retry.commit()
 
 
 # [/semantic-conflicts]

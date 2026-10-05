@@ -87,7 +87,7 @@ The language surfaces differ only in how they express ownership and failure:
   `POSTPROJECT_TRY_ASSIGN` pass a failure on to the caller in one line, and
   `value()` throws `postproject::Exception` when exceptions are enabled.
 - The Python binding raises typed exceptions. A transaction used as a context
-  manager commits on a clean exit and rolls back when an exception escapes.
+  manager requires explicit `commit()` and rolls back uncommitted work on exit.
 - Rust storage returns `postproject_core::Result`. The media adapter prepares
   an import from the filesystem before the transaction stages it.
 - The CLI commits each command as one transaction. Pass `--json` for

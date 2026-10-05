@@ -50,6 +50,7 @@ class IdentityTests(unittest.TestCase):
             with Production.create(path) as production:
                 with production.transaction() as edit:
                     asset = edit.import_media(media)
+                    edit.commit()
                 self.assertIsInstance(asset, UUID)
                 self.assertEqual(production.asset(asset).id, asset)
                 untyped: Any = "invalid"

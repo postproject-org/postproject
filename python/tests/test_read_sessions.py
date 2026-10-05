@@ -809,6 +809,7 @@ class ReadSessionTests(unittest.TestCase):
             with Production.create(Path(directory) / "lookup.pproj") as production:
                 with production.transaction() as transaction:
                     asset = transaction.import_media(media)
+                    transaction.commit()
                 target = AssetRef(asset)
                 with production.read_session() as view:
                     locator = LocatorIdentity(file_locator(media))

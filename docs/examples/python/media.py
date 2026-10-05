@@ -67,6 +67,7 @@ def import_image_strip(production: Production, directory: Path) -> AssetId:
     )
     with production.transaction() as transaction:
         asset_id = transaction.import_media(strip, display_name="shot010 strip")
+        transaction.commit()
 
     representations = production.representations[asset_id]
     print(f"{len(representations)} representation, {representations[0].structure_kind}")
@@ -85,6 +86,7 @@ def add_proxy(
         proxy_id = transaction.add_representation(
             asset_id, RepresentationKind.PROXY, FileSource(proxy)
         )
+        transaction.commit()
     return proxy_id
 
 
@@ -111,6 +113,7 @@ def add_spanned_clip(
         clip_id = transaction.add_representation(
             asset_id, RepresentationKind.ORIGINAL, parts
         )
+        transaction.commit()
     return clip_id
 
 
@@ -134,6 +137,7 @@ def add_package(
         package_id = transaction.add_representation(
             asset_id, RepresentationKind.OPTIMIZED, members
         )
+        transaction.commit()
     return package_id
 
 
@@ -193,11 +197,13 @@ def set_root_enabled(
     # A disabled root stays configured but is skipped by resolution.
     with production.transaction() as transaction:
         transaction.set_media_root_enabled(root_id, enabled)
+        transaction.commit()
 
 
 def remove_root(production: Production, root_id: MediaRootId) -> None:
     with production.transaction() as transaction:
         transaction.remove_media_root(root_id)
+        transaction.commit()
 
 
 # [/media-root-lifecycle]
@@ -211,6 +217,7 @@ def retire_superseded_locator(
         for match in production.locators_page(resource_id, limit=100).items:
             if match.locator.uri == superseded_uri:
                 transaction.retire_locator(match.locator.id)
+        transaction.commit()
 
     remaining: list[LocatorMatch] = []
     cursor = None
@@ -259,6 +266,7 @@ def observe_fingerprints(
         # fingerprint recomputed from it; commit records both in one revision.
         outcome = transaction.observe_resource_content(resource.id, path)
         assert outcome is ContentObservationOutcome.CHANGED
+        transaction.commit()
     latest = production.latest_revision
     assert latest is not None
 
@@ -266,6 +274,7 @@ def observe_fingerprints(
     with production.transaction() as transaction:
         outcome = transaction.observe_resource_content(resource.id, path)
         assert outcome is ContentObservationOutcome.UNCHANGED
+        transaction.commit()
     assert production.latest_revision == latest
 
     events = production.revision_events[latest.id]
@@ -310,7 +319,7 @@ def add_render_sequence(
     production: Production, asset_id: AssetId, directory: Path
 ) -> RepresentationId:
     with production.transaction() as transaction:
-        return transaction.add_representation(
+        representation_id = transaction.add_representation(
             asset_id,
             RepresentationKind.DERIVED,
             ImageSequenceSource(
@@ -324,6 +333,8 @@ def add_render_sequence(
                 missing_frames=(1003,),
             ),
         )
+        transaction.commit()
+        return representation_id
 
 
 # [verify-resolution]
@@ -393,6 +404,7 @@ def relocate_under_root(
     source.rename(root_directory / source.name)
     with production.transaction() as transaction:
         transaction.add_media_root("proxies", "Proxy volume")
+        transaction.commit()
     (resolution,) = [
         item
         for item in production.resolve(asset_id, {"proxies": root_directory})
@@ -409,6 +421,7 @@ def relocate_under_root(
         transaction.confirm_locator(
             resource.resource_id, candidate.uri, media_root="proxies"
         )
+        transaction.commit()
 
 
 # [relink-renamed-sequence]
@@ -433,6 +446,7 @@ def relink_renamed_sequence(
                     media_root=candidate.media_root,
                     sequence_naming=candidate.sequence_naming,
                 )
+                transaction.commit()
             return candidate.sequence_naming
     return None
 
@@ -450,6 +464,7 @@ def main() -> None:
     with Production.create(work / "media.pproj", "Media") as production:
         with production.transaction() as transaction:
             asset_id = transaction.import_media(media, display_name="Camera A")
+            transaction.commit()
         original = production.representations[asset_id][0]
 
         proxy = write(work / "proxies" / "A001_proxy.mov", b"proxy essence\n")
@@ -495,6 +510,7 @@ def main() -> None:
 
         with production.transaction() as transaction:
             transaction.add_media_root("archive", "Archive shelf", priority=10)
+            transaction.commit()
         archive_id = find_root(production, "archive")
         set_root_enabled(production, archive_id, False)
         assert [root.enabled for root in production.media_roots] == [False]

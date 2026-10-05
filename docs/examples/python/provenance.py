@@ -60,6 +60,7 @@ def record_proxy_generation(
                 ),
             )
         )
+        transaction.commit()
     return activity_id
 
 
@@ -124,6 +125,7 @@ def record_fingerprints(
                 "example-sha256-representation", 1, hashlib.sha256(digest).digest()
             ),
         )
+        transaction.commit()
 
 
 def explain_proxy(
@@ -178,6 +180,7 @@ def record_edit_dependencies(
     )
     with production.transaction() as transaction:
         transaction.record_dependency_set(edit_id, dependencies)
+        transaction.commit()
 
     recorded = production.dependency_set(edit_id)  # None: never extracted
     if recorded is not None:
@@ -219,12 +222,14 @@ def main() -> None:
         with production.transaction() as transaction:
             asset_id = transaction.import_media(media)
             edit_asset_id = transaction.import_media(edit)
+            transaction.commit()
         original = production.representations[asset_id][0]
         edit_representation = production.representations[edit_asset_id][0]
         with production.transaction() as transaction:
             proxy_id = transaction.add_representation(
                 asset_id, RepresentationKind.PROXY, proxy
             )
+            transaction.commit()
         # Establish the caller's fingerprint domain before the activity, so
         # that the activity snapshots capture it.
         record_fingerprints(production, original, media)

@@ -29,7 +29,7 @@ def main() -> None:
     with Production.create(
         args.production, "Python quickstart", library_path=args.library
     ) as production:
-        # A clean exit from the transaction context commits.
+        # Commit explicitly; an uncommitted context always rolls back.
         with production.transaction(
             origin=OriginIdentity("org.postproject:python-quickstart"),
             message="Import quickstart media",
@@ -37,6 +37,7 @@ def main() -> None:
             asset_id = transaction.import_media(
                 args.media, display_name="Quickstart media"
             )
+            transaction.commit()
 
         # An exception escaping the context rolls the transaction back.
         try:

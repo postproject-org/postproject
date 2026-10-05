@@ -40,6 +40,7 @@ with Production.create("production.pproj", "Documentary") as production:
         message="Import camera original",
     ) as transaction:
         asset_id = transaction.import_media(media, display_name="Camera A")
+        transaction.commit()
 
     assert asset_id in production.assets
 
@@ -83,7 +84,7 @@ with Production.create("production.pproj", "Documentary") as production:
 ```
 
 Production and transaction handles support deterministic `close()` and context
-manager cleanup. A clean transaction context commits; an exception rolls back.
+manager cleanup. Call `commit()` explicitly; every uncommitted exit rolls back.
 Releasing an unfinished transaction also discards its staged mutations.
 Production operations may run concurrently from multiple threads and serialize
 inside the native handle; `close()` must not overlap them. Transaction instances

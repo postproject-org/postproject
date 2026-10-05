@@ -67,6 +67,7 @@ def request_proxy(
     with production.transaction() as transaction:
         job_id = transaction.request_job(request)
         transaction.add_metadata(JobRef(job_id), PROFILE, MetadataString("proxy-720p"))
+        transaction.commit()
 
     page = production.jobs(
         limit=100, state=JobState.REQUESTED, kind="org.postproject:generate-proxy"
@@ -91,13 +92,16 @@ def claim_renew_release(production: Production, job_id: JobId) -> None:
         claim_id = transaction.claim_job(
             job_id, WORKER, AGENT, T0, expires_at_unix_micros=T0 + 5 * MINUTE
         )
+        transaction.commit()
 
     with production.transaction() as transaction:
         transaction.renew_job_claim(job_id, claim_id, T0 + 4 * MINUTE, T0 + 9 * MINUTE)
+        transaction.commit()
 
     # Abandon the work without recording a failure: the job is requested again.
     with production.transaction() as transaction:
         transaction.release_job_claim(job_id, claim_id)
+        transaction.commit()
 
 
 # [/claim-job]
@@ -108,6 +112,7 @@ def run_proxy_job(production: Production, job_id: JobId, output: Path) -> None:
     now = T0 + 10 * MINUTE
     with production.transaction() as transaction:
         claim_id = transaction.claim_job(job_id, WORKER, AGENT, now, now + 5 * MINUTE)
+        transaction.commit()
     job = job_by_id(production, job_id)
 
     output.write_bytes(b"720p proxy essence\n")  # the actual work
@@ -133,6 +138,7 @@ def run_proxy_job(production: Production, job_id: JobId, output: Path) -> None:
                 ActivityRef(activity_id), parameter.property, parameter.value
             )
         transaction.complete_job(job_id, claim_id, now + MINUTE, proxy_id, activity_id)
+        transaction.commit()
 
 
 # [/complete-job]
@@ -143,10 +149,12 @@ def fail_after_tool_error(production: Production, job_id: JobId) -> JobClaimId:
     now = T0 + 20 * MINUTE
     with production.transaction() as transaction:
         claim_id = transaction.claim_job(job_id, WORKER, AGENT, now, now + 5 * MINUTE)
+        transaction.commit()
 
     # A failure records a bounded diagnostic and no representation.
     with production.transaction() as transaction:
         transaction.fail_job(job_id, claim_id, now + MINUTE, "encoder exited with 1")
+        transaction.commit()
     return claim_id
 
 
@@ -157,6 +165,7 @@ def fail_after_tool_error(production: Production, job_id: JobId) -> JobClaimId:
 def cancel(production: Production, job_id: JobId) -> None:
     with production.transaction() as transaction:
         transaction.cancel_job(job_id)
+        transaction.commit()
 
 
 # [/cancel-job]
@@ -188,6 +197,7 @@ def plan_and_enqueue(
             transaction.add_metadata(
                 JobRef(job_id), parameter.property, parameter.value
             )
+        transaction.commit()
     return plan, job_id
 
 
@@ -205,6 +215,7 @@ def main() -> None:
         with production.transaction() as transaction:
             asset_id = transaction.import_media(work / "rushes" / "A001.mov")
             transaction.add_media_root("proxies", "Proxy volume")
+            transaction.commit()
         source_id = production.representations[asset_id][0].id
         parameter = MetadataString("proxy-720p")
 

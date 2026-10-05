@@ -33,8 +33,9 @@ decision. Copy the results and retain its detached decision base before
 closing the view. Start an edit from that view or base; commit explicitly and
 use its returned receipt to identify the revision it created.
 
-Python `Edit` rolls back when its context exits without explicit commit,
-including a normal exit. A failed commit ends the edit. Re-read and reconsider
+Python `Transaction` and `Edit` contexts roll back uncommitted work on every
+exit. Add `commit()` before leaving old transaction contexts. A failed commit
+ends the edit. Re-read and reconsider
 after a conflict before creating another edit. A later latest-revision query
 does not identify your commit.
 

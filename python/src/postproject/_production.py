@@ -1552,7 +1552,10 @@ class Production:
         origin: OriginIdentity | str | None = None,
         message: str | None = None,
     ) -> Transaction:
-        """Begin a transaction that commits on a clean context-manager exit.
+        """Begin a transaction requiring explicit commit.
+
+        A context rolls back uncommitted work on every exit, including normal
+        exit. Use the returned commit receipt to identify durable changes.
 
         ``base_revision`` identifies the durable production state from which
         the caller made its decisions. A stale non-mergeable write raises
@@ -3169,7 +3172,7 @@ class RevisionObserver:
 
 
 class Transaction:
-    """A caller-serialized transaction with context-manager semantics."""
+    """A caller-serialized transaction; uncommitted context work rolls back."""
 
     def __init__(
         self,
@@ -3749,11 +3752,8 @@ class Transaction:
         traceback: TracebackType | None,
     ) -> None:
         try:
-            if not self._finished:
-                if exception_type is None:
-                    self.commit()
-                else:
-                    self.rollback()
+            if not self._finished and self._finalizer.alive:
+                self.rollback()
         finally:
             self.close()
 
@@ -3799,18 +3799,6 @@ class Transaction:
 
 class Edit(Transaction):
     """A read-bound edit. Explicit commit is required; exit rolls back otherwise."""
-
-    def __exit__(
-        self,
-        exception_type: type[BaseException] | None,
-        exception: BaseException | None,
-        traceback: TracebackType | None,
-    ) -> None:
-        try:
-            if not self._finished:
-                self.rollback()
-        finally:
-            self.close()
 
 
 def fingerprint_file(
@@ -4497,7 +4485,9 @@ def _job_at(native: NativeLibrary, jobs: _Pointer[JobSet], index: int) -> Job:
             RepresentationId(_uuid(value.completion_representation_id)),
         )
     if state is JobState.FAILED:
-        job_status = JobFailure(_decode_required(value.failure_diagnostic, "job failure diagnostic"))
+        job_status = JobFailure(
+            _decode_required(value.failure_diagnostic, "job failure diagnostic")
+        )
     elif state is JobState.CANCELLED:
         job_status = JobCancelled()
     return Job(

@@ -22,11 +22,11 @@ library. The binding does not search the working directory or modify the
 platform loader path, and it loads each library once per process. The
 installed quickstart above runs in package CI on Linux, macOS, and Windows.
 
-A transaction context commits only after a clean exit. An exception rolls it
-back. `close()` is idempotent for production and transaction handles, and a
+A transaction context requires explicit `commit()`. Every uncommitted exit
+rolls back, including normal exit. `close()` is idempotent for production and
+transaction handles, and a
 finalizer is a fallback for handles that were not closed explicitly.
-The new {doc}`coherent-reads` recipe uses `Edit` contexts, which require explicit
-commit and always discard uncommitted work on exit.
+The {doc}`coherent-reads` recipe uses `Edit` contexts with the same lifecycle.
 
 Identity annotations such as `AssetId` are `NewType` hints over ordinary
 `uuid.UUID` values. Use `parse_id(text, AssetId)` to parse text, standard UUID

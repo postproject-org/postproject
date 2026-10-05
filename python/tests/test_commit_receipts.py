@@ -11,6 +11,33 @@ from postproject import AlreadyExistsError, Production, ResourceId
 
 
 class CommitReceiptTests(unittest.TestCase):
+    def test_uncommitted_normal_exit_rolls_back_and_releases_the_guard(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            with Production.create(Path(directory) / "explicit.pproj") as production:
+                with production.transaction() as discarded:
+                    discarded.add_media_root("discarded")
+                self.assertEqual(production.media_roots, ())
+                self.assertIsNone(production.latest_revision)
+                with production.transaction() as committed:
+                    committed.add_media_root("durable")
+                    receipt = committed.commit()
+                self.assertIsNotNone(receipt.revision)
+                self.assertEqual(
+                    tuple(root.name for root in production.media_roots), ("durable",)
+                )
+
+    def test_explicit_close_and_rollback_inside_context_are_terminal(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            with Production.create(Path(directory) / "closed.pproj") as production:
+                with production.transaction() as closed:
+                    closed.add_media_root("closed")
+                    closed.close()
+                with production.transaction() as rolled_back:
+                    rolled_back.add_media_root("rolled-back")
+                    rolled_back.rollback()
+                self.assertEqual(production.media_roots, ())
+                self.assertIsNone(production.latest_revision)
+
     def test_receipt_identifies_own_revision_after_another_writer(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "production.pproj"

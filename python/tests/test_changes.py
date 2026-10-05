@@ -49,8 +49,10 @@ class ChangeDeliveryTests(unittest.TestCase):
         with self._create() as production:
             with production.transaction() as transaction:
                 transaction.import_media(media)
+                transaction.commit()
             with production.transaction() as transaction:
                 transaction.add_media_root("media")
+                transaction.commit()
             page = production.changes_since_filtered(0, [MediaRootAddedEvent])
             self.assertEqual([revision.sequence for revision in page.revisions], [2])
             self.assertEqual(page.through_sequence, 2)
@@ -69,6 +71,7 @@ class ChangeDeliveryTests(unittest.TestCase):
                 )
                 with production.transaction() as transaction:
                     transaction.add_media_root("media")
+                    transaction.commit()
                 wait = waiter.wait(0, timeout=0)
                 self.assertIs(wait.result, RevisionWaitResult.REVISIONS)
                 self.assertEqual(wait.revisions, production.changes_since(0, 10))
@@ -102,6 +105,7 @@ class ChangeDeliveryTests(unittest.TestCase):
             ) as observer:
                 with production.transaction() as transaction:
                     transaction.add_media_root("media")
+                    transaction.commit()
                 self.assertTrue(received.wait(timeout=60))
             self.assertIsNone(observer.error)
             self.assertEqual(delivered, [(1, MediaRootAddedEvent)])

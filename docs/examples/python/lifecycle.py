@@ -108,6 +108,7 @@ def create_production(path: Path, media: Path) -> tuple[ProductionId, AssetId]:
     with Production.create(path, "Lifecycle") as production:
         with production.transaction(message="Import camera original") as transaction:
             asset_id = transaction.import_media(media, display_name="Camera A")
+            transaction.commit()
         return production.id, asset_id
 
 

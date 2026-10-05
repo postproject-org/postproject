@@ -75,6 +75,7 @@ def replace_tape_identifier(
     with production.transaction() as transaction:
         transaction.add_external_identifier(AssetRef(asset_id), serial)
         transaction.add_external_identifier(AssetRef(asset_id), tape)
+        transaction.commit()
 
     for identifier in production.external_identifiers[AssetRef(asset_id)]:
         print(
@@ -88,6 +89,7 @@ def replace_tape_identifier(
     # Removal matches the exact scheme, value, and qualifier.
     with production.transaction() as transaction:
         transaction.remove_external_identifier(AssetRef(asset_id), tape)
+        transaction.commit()
     return production.external_identifiers[AssetRef(asset_id)]
 
 
@@ -125,6 +127,7 @@ def add_editorial_metadata(
             transaction.add_metadata(
                 AssetRef(asset_id), MetadataProperty(EDITORIAL, name), value
             )
+        transaction.commit()
 
 
 def describe(value: MetadataValue) -> str:
@@ -184,6 +187,7 @@ def clear_keywords(production: Production, asset_id: AssetId) -> None:
     # Removes every value of the property on this target in one change.
     with production.transaction() as transaction:
         transaction.remove_metadata_property(AssetRef(asset_id), keywords)
+        transaction.commit()
 
     assert production.metadata_by_property[keywords] == ()
 
@@ -201,6 +205,7 @@ def main() -> None:
     with Production.create(production_path, "Knowledge") as production:
         with production.transaction() as transaction:
             asset_id = transaction.import_media(media_path)
+            transaction.commit()
         original_id = production.representations[asset_id][0].id
         assert (
             find_known_media(production_path, media_path, fingerprint_file(media_path))
@@ -242,6 +247,7 @@ def main() -> None:
             transaction.add_metadata(
                 RepresentationRef(original_id), approved, MetadataBool(True)
             )
+            transaction.commit()
         first_page = production.query_metadata(
             approved, limit=1, value=MetadataBool(True)
         )

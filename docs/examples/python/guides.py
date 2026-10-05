@@ -53,6 +53,7 @@ def create_production(path: Path, media: Path) -> tuple[Production, AssetId]:
         message="Import camera original",
     ) as transaction:
         asset_id = transaction.import_media(media, display_name="Camera A")
+        transaction.commit()
 
     print(f"representations: {len(production.representations[asset_id])}")
     return production, asset_id
@@ -66,6 +67,7 @@ def tag_camera_serial(production: Production, asset_id: AssetId) -> None:
     identifier = ExternalIdentifier("com.example.camera.serial", "A-0007")
     with production.transaction() as transaction:
         transaction.add_external_identifier(AssetRef(asset_id), identifier)
+        transaction.commit()
 
     attached = production.external_identifiers[AssetRef(asset_id)]
     matches = production.objects_by_external_identifier[
@@ -88,6 +90,7 @@ def add_title(production: Production, asset_id: AssetId) -> None:
         transaction.add_metadata(
             AssetRef(asset_id), title, MetadataLanguageString("Interview", "en-US")
         )
+        transaction.commit()
 
     for assertion in production.metadata[AssetRef(asset_id)]:
         print(f"{assertion.property.property}: {assertion.value}")
@@ -101,6 +104,7 @@ def add_title(production: Production, asset_id: AssetId) -> None:
 def add_rushes_root(production: Production) -> None:
     with production.transaction() as transaction:
         transaction.add_media_root("rushes", "Camera originals")
+        transaction.commit()
 
 
 # [/media-root]
@@ -144,6 +148,7 @@ def confirm_unique_candidates(
                     media_root=candidate.media_root,
                     sequence_naming=candidate.sequence_naming,
                 )
+        transaction.commit()
 
 
 # [/confirm-locator]
@@ -168,6 +173,7 @@ def add_render_sequence(
                 missing_frames=(1003,),
             ),
         )
+        transaction.commit()
 
     stored = next(
         item for item in production.representations[asset_id] if item.id == sequence_id
@@ -202,6 +208,7 @@ def record_render(
                 ),
             )
         )
+        transaction.commit()
 
     (producer,) = production.activities_producing[render_id]
     assert producer.id == activity_id
@@ -247,6 +254,7 @@ def record_and_query_dependencies(
     )
     with production.transaction() as transaction:
         transaction.record_dependency_set(source_id, (dependency,))
+        transaction.commit()
 
     dependencies = production.dependencies(
         source_id, max_depth=4, max_representations=1000, limit=100
@@ -279,6 +287,7 @@ def request_and_page_jobs(
     with production.transaction() as transaction:
         job_id = transaction.request_job(request)
         transaction.request_job(request)
+        transaction.commit()
     assert production.job(job_id).state is JobState.REQUESTED
 
     cursor = None
