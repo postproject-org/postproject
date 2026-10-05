@@ -65,6 +65,7 @@ Read the relevant ADR before changing an invariant, a boundary, or a public cont
 - {doc}`ADR 0047 — Local cursor scope and lifetime </adr/0047-local-query-cursor-scopes>`
 - {doc}`ADR 0048 — Immediate option validation </adr/0048-immediate-native-options-validation>`
 - {doc}`ADR 0049 — Native semantic identities </adr/0049-native-semantic-identities>`
+- {doc}`ADR 0050 — Bounded revision events </adr/0050-bounded-revision-events>`
 
 ```{toctree}
 :hidden:
@@ -118,4 +119,5 @@ Read the relevant ADR before changing an invariant, a boundary, or a public cont
 /adr/0047-local-query-cursor-scopes
 /adr/0048-immediate-native-options-validation
 /adr/0049-native-semantic-identities
+/adr/0050-bounded-revision-events
 ```

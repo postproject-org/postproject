@@ -2686,6 +2686,84 @@ impl SqliteProduction {
             .collect()
     }
 
+    /// Returns one bounded page of immutable events for a revision.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error for an absent revision, invalid cursor or malformed
+    /// persisted event data.
+    pub fn events_for_revision_page(
+        &self,
+        revision_id: RevisionId,
+        page: &QueryPageRequest,
+    ) -> Result<QueryPage<RevisionEvent>> {
+        let signature = query_cursor::signature(&[revision_id.as_bytes()]);
+        let position = query_cursor::position_fields(
+            &self.cursor_scope(),
+            page,
+            "revision-events",
+            &signature,
+            1,
+        )?
+        .map(|fields| fields[0].parse::<u32>().map_err(|_| invalid_query_cursor()))
+        .transpose()?;
+        let exists = self
+            .connection
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM revisions WHERE id = ?1)",
+                [revision_id.as_bytes().as_slice()],
+                |row| row.get::<_, bool>(0),
+            )
+            .map_err(sqlite_error("check revision existence"))?;
+        if !exists {
+            return Err(Error::new(ErrorKind::NotFound, "revision does not exist"));
+        }
+        let mut statement = self
+            .connection
+            .prepare(
+                "SELECT position, kind, target_kind, primary_id, secondary_id,
+                    structural_position, vocabulary, property,
+                    identifier_scheme, identifier_value, identifier_qualifier,
+                    activity_kind, role, fingerprint_algorithm, fingerprint_version
+             FROM revision_events WHERE revision_id = ?1 AND position > ?2
+             ORDER BY position LIMIT ?3",
+            )
+            .map_err(sqlite_error("prepare revision event page"))?;
+        let mut events = statement
+            .query_map(
+                params![
+                    revision_id.as_bytes().as_slice(),
+                    position.map_or(-1, i64::from),
+                    i64::from(page.limit()) + 1
+                ],
+                stored_revision_event_row,
+            )
+            .map_err(sqlite_error("query revision event page"))?
+            .map(|row| {
+                row.map_err(sqlite_error("read revision event row"))
+                    .and_then(|event| decode_revision_event(revision_id, event))
+            })
+            .collect::<Result<Vec<_>>>()?;
+        let has_more = events.len() > page.limit() as usize;
+        events.truncate(page.limit() as usize);
+        let next_cursor = if has_more {
+            events
+                .last()
+                .map(|event| {
+                    query_cursor::cursor(
+                        &self.cursor_scope(),
+                        "revision-events",
+                        &signature,
+                        &[event.position().to_string()],
+                    )
+                })
+                .transpose()?
+        } else {
+            None
+        };
+        Ok(QueryPage::new(events, next_cursor, false))
+    }
+
     /// Queries distinct metadata-capable objects touched after a revision.
     ///
     /// # Errors
@@ -3765,6 +3843,14 @@ impl ProductionRead for SqliteProduction {
 
     fn events_for_revision(&self, revision_id: RevisionId) -> Result<Vec<RevisionEvent>> {
         SqliteProduction::events_for_revision(self, revision_id)
+    }
+
+    fn events_for_revision_page(
+        &self,
+        revision_id: RevisionId,
+        page: &QueryPageRequest,
+    ) -> Result<QueryPage<RevisionEvent>> {
+        SqliteProduction::events_for_revision_page(self, revision_id, page)
     }
 
     fn objects_changed_since(

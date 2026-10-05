@@ -495,6 +495,20 @@ pub trait ProductionRead {
     /// data is invalid.
     fn events_for_revision(&self, revision_id: RevisionId) -> Result<Vec<RevisionEvent>>;
 
+    /// Returns one bounded page of a revision's events in position order.
+    ///
+    /// Cursors belong to the revision, production and retained read view.
+    ///
+    /// # Errors
+    ///
+    /// Returns a domain error for an absent revision, an invalid cursor or
+    /// malformed persisted event data.
+    fn events_for_revision_page(
+        &self,
+        revision_id: RevisionId,
+        page: &QueryPageRequest,
+    ) -> Result<QueryPage<RevisionEvent>>;
+
     /// Queries distinct metadata-capable objects touched after a revision.
     ///
     /// # Errors

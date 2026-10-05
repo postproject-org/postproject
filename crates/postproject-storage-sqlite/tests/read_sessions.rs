@@ -77,6 +77,86 @@ fn view_is_pinned_before_return_and_writer_commits_without_reader_release() {
 }
 
 #[test]
+fn revision_event_pages_retain_order_revision_filter_and_view_scope() {
+    let directory = tempfile::tempdir().unwrap();
+    let media_path = directory.path().join("media.dat");
+    std::fs::write(&media_path, b"media").unwrap();
+    let mut writer = SqliteProduction::create(directory.path().join("events.pproj"), None).unwrap();
+    let empty = writer.read_session().unwrap();
+    let media = prepare_original_media(&media_path, None, None).unwrap();
+    {
+        let mut edit = writer.begin_transaction().unwrap();
+        edit.import_original(&media).unwrap();
+        edit.commit().unwrap();
+    }
+    let first = writer.latest_revision().unwrap().unwrap();
+    let view = writer.read_session().unwrap();
+    let page = view
+        .read()
+        .events_for_revision_page(first.id(), &QueryPageRequest::new(1, None).unwrap())
+        .unwrap();
+    assert_eq!(page.items().len(), 1);
+    let cursor = page.next_cursor().unwrap().clone();
+    assert_eq!(
+        empty
+            .read()
+            .events_for_revision_page(first.id(), &QueryPageRequest::new(1, None).unwrap())
+            .unwrap_err()
+            .kind(),
+        ErrorKind::NotFound
+    );
+    {
+        let mut edit = writer.begin_transaction().unwrap();
+        edit.add_media_root(
+            MediaRoot::new(MediaRootId::new(), "later", None, None, 0, true).unwrap(),
+        )
+        .unwrap();
+        edit.commit().unwrap();
+    }
+    let later = writer.latest_revision().unwrap().unwrap();
+    let fresh = writer.read_session().unwrap();
+    let continuation = QueryPageRequest::new(1000, Some(cursor)).unwrap();
+    assert_eq!(
+        view.read()
+            .events_for_revision_page(later.id(), &continuation)
+            .unwrap_err()
+            .kind(),
+        ErrorKind::InvalidArgument
+    );
+    assert_eq!(
+        fresh
+            .read()
+            .events_for_revision_page(first.id(), &continuation)
+            .unwrap_err()
+            .kind(),
+        ErrorKind::InvalidArgument
+    );
+    assert_eq!(
+        writer
+            .events_for_revision_page(first.id(), &continuation)
+            .unwrap_err()
+            .kind(),
+        ErrorKind::InvalidArgument
+    );
+    let next = view
+        .read()
+        .events_for_revision_page(first.id(), &continuation)
+        .unwrap();
+    let mut events = page.into_items();
+    events.extend(next.into_items());
+    assert_eq!(events, writer.events_for_revision(first.id()).unwrap());
+    assert_eq!(
+        view.read()
+            .events_for_revision_page(later.id(), &QueryPageRequest::new(1, None).unwrap())
+            .unwrap_err()
+            .kind(),
+        ErrorKind::NotFound
+    );
+    drop(writer);
+    assert_eq!(events[0].revision_id(), first.id());
+}
+
+#[test]
 fn pages_and_point_reads_use_one_view_and_drop_releases_checkpoint() {
     let directory = tempfile::tempdir().unwrap();
     let path = directory.path().join("pages.pproj");
