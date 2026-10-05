@@ -6527,6 +6527,10 @@ fingerprintFile(std::string_view path) {
 
 } // namespace postproject
 
+// Doxygen's compound rendering drops specialization arguments and would expose
+// these as duplicate std::hash declarations. The identity values document
+// their standard-container support; this is its implementation.
+/// @cond
 template <> struct std::hash<postproject::ProductionId> {
   std::size_t operator()(const postproject::ProductionId &id) const noexcept {
     const auto &bytes = id.bytes();
@@ -6551,4 +6555,5 @@ template <> struct std::hash<postproject::TransactionId> {
   }
 };
 
+/// @endcond
 #endif
