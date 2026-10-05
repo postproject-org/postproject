@@ -435,13 +435,13 @@ std::uint64_t process_changes(const postproject::Production &production,
 // [/revision-feed]
 
 // [revision-filter]
-std::pair<std::vector<postproject::Uuid>, std::uint64_t>
+std::pair<std::vector<postproject::RevisionId>, std::uint64_t>
 new_media_revisions(const postproject::Production &production,
                     std::uint64_t cursor) {
   const auto page = production.changesSinceFiltered(
       cursor, {postproject::RevisionEventKind::representation_added,
                postproject::RevisionEventKind::job_succeeded}).value();
-  std::vector<postproject::Uuid> revisions;
+  std::vector<postproject::RevisionId> revisions;
   for (const auto &revision : page.revisions) {
     revisions.push_back(revision.id);
   }

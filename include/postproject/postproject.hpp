@@ -516,9 +516,9 @@ struct ConflictKey final {
 
 struct TransactionConflict final {
   ConflictKey key;
-  std::optional<Uuid> base_revision_id;
+  std::optional<RevisionId> base_revision_id;
   std::uint64_t base_revision_sequence;
-  Uuid superseding_revision_id;
+  RevisionId superseding_revision_id;
   std::uint64_t superseding_revision_sequence;
 };
 
@@ -755,16 +755,16 @@ struct RevisionContext final {
 };
 
 struct Revision final {
-  Uuid id;
+  RevisionId id;
   std::uint64_t sequence;
-  Uuid transaction_id;
+  TransactionId transaction_id;
   std::int64_t committed_at_unix_micros;
   std::optional<OriginIdentity> origin;
   std::optional<std::string> message;
 };
 
 struct CommittedRevision final {
-  Uuid id;
+  RevisionId id;
   std::uint64_t sequence;
 };
 
@@ -1435,6 +1435,8 @@ using MediaSourceHandle = std::unique_ptr<pp_media_source_t, MediaSourceDeleter>
 using StringHandle = std::unique_ptr<char, StringDeleter>;
 
 inline Uuid uuid(const pp_uuid_t &value);
+inline RevisionId revision_id(const pp_revision_id_t &value);
+inline TransactionId transaction_id(const pp_transaction_id_t &value);
 inline std::optional<std::string> optional_string(const char *value);
 
 // raw_error is read by reference so that check(pp_call(..., &error), error) is
@@ -1466,10 +1468,10 @@ inline Result<void> check(pp_error_code_t status,
              optional_string(native.local_name), optional_string(native.qualifier),
              fingerprint ? std::optional<std::uint16_t>(native.version)
                          : std::nullopt},
-            native.has_base_revision ? std::optional<Uuid>(uuid(native.base_revision_id))
+            native.has_base_revision ? std::optional<RevisionId>(revision_id(native.base_revision_id))
                                      : std::nullopt,
             native.base_revision_sequence,
-            uuid(native.superseding_revision_id),
+            revision_id(native.superseding_revision_id),
             native.superseding_revision_sequence});
   }
   return Error(static_cast<ErrorCode>(status), std::move(message),
@@ -1509,6 +1511,30 @@ inline ProductionId production_id(const pp_production_id_t &value) {
 
 inline pp_production_id_t native_production_id(const ProductionId &value) {
   pp_production_id_t native{};
+  std::copy(value.bytes().begin(), value.bytes().end(), std::begin(native.bytes));
+  return native;
+}
+
+inline RevisionId revision_id(const pp_revision_id_t &value) {
+  Uuid::Bytes bytes{};
+  std::copy(std::begin(value.bytes), std::end(value.bytes), bytes.begin());
+  return RevisionId(bytes);
+}
+
+inline pp_revision_id_t native_revision_id(const RevisionId &value) {
+  pp_revision_id_t native{};
+  std::copy(value.bytes().begin(), value.bytes().end(), std::begin(native.bytes));
+  return native;
+}
+
+inline TransactionId transaction_id(const pp_transaction_id_t &value) {
+  Uuid::Bytes bytes{};
+  std::copy(std::begin(value.bytes), std::end(value.bytes), bytes.begin());
+  return TransactionId(bytes);
+}
+
+inline pp_transaction_id_t native_transaction_id(const TransactionId &value) {
+  pp_transaction_id_t native{};
   std::copy(value.bytes().begin(), value.bytes().end(), std::begin(native.bytes));
   return native;
 }
@@ -2224,9 +2250,9 @@ inline Result<QueryPage<Activity>> activity_page(ActivitySetHandle activities) {
 
 inline Result<Revision> revision(const pp_revision_set_t *revisions,
                                  std::uint64_t index) {
-  pp_uuid_t id{};
+  pp_revision_id_t id{};
   std::uint64_t sequence = 0;
-  pp_uuid_t transaction_id{};
+  pp_transaction_id_t native_transaction{};
   std::int64_t committed_at = 0;
   const char *origin_name = nullptr;
   const char *origin_version = nullptr;
@@ -2234,7 +2260,7 @@ inline Result<Revision> revision(const pp_revision_set_t *revisions,
   const char *message = nullptr;
   pp_error_t *error = nullptr;
   const pp_error_code_t status = pp_revision_set_get(
-      revisions, index, &id, &sequence, &transaction_id, &committed_at,
+      revisions, index, &id, &sequence, &native_transaction, &committed_at,
       &origin_name, &origin_version, &origin_uri, &message, &error);
   POSTPROJECT_TRY(check(status, error));
   std::optional<OriginIdentity> origin;
@@ -2243,7 +2269,7 @@ inline Result<Revision> revision(const pp_revision_set_t *revisions,
                             optional_string(origin_version),
                             optional_string(origin_uri)};
   }
-  return Revision{uuid(id),     sequence,          uuid(transaction_id),
+  return Revision{revision_id(id),     sequence,          transaction_id(native_transaction),
                   committed_at, std::move(origin), optional_string(message)};
 }
 
@@ -2784,7 +2810,7 @@ inline pp_decision_base_t native_decision_base(const DecisionBase &base) {
   native.production_id = native_production_id(base.production_id);
   if (base.revision) {
     native.has_revision = 1;
-    native.revision_id = native_uuid(base.revision->id);
+    native.revision_id = native_revision_id(base.revision->id);
     native.revision_sequence = base.revision->sequence;
   }
   return native;
@@ -2793,7 +2819,7 @@ inline pp_decision_base_t native_decision_base(const DecisionBase &base) {
 inline DecisionBase decision_base(const pp_decision_base_t &base) {
   DecisionBase result{production_id(base.production_id), std::nullopt};
   if (base.has_revision)
-    result.revision = CommittedRevision{uuid(base.revision_id), base.revision_sequence};
+    result.revision = CommittedRevision{revision_id(base.revision_id), base.revision_sequence};
   return result;
 }
 
@@ -4207,7 +4233,7 @@ public:
     POSTPROJECT_TRY(detail::check(status, error));
     CommitReceipt result{detail::production_id(receipt.production_id), std::nullopt};
     if (receipt.outcome == PP_COMMIT_REVISION_CREATED) {
-      result.revision = CommittedRevision{detail::uuid(receipt.revision_id),
+      result.revision = CommittedRevision{detail::revision_id(receipt.revision_id),
                                          receipt.revision_sequence};
     }
     return result;
@@ -4449,15 +4475,15 @@ public:
   }
 
   [[nodiscard]] Result<QueryPage<RevisionEvent>>
-  revisionEvents(const Uuid &revision_id, std::uint32_t limit,
+  revisionEvents(const RevisionId &revision_id, std::uint32_t limit,
                  std::optional<std::string_view> cursor = std::nullopt) const {
-    const pp_uuid_t native_id = detail::native_uuid(revision_id);
+    const pp_revision_id_t native_id = detail::native_revision_id(revision_id);
     POSTPROJECT_TRY_ASSIGN(const std::optional<std::string> checked_cursor,
                            detail::checked_cursor(cursor));
     pp_revision_event_set_t *raw_events = nullptr;
     pp_error_t *error = nullptr;
     const pp_error_code_t status = pp_read_session_revision_events_page(
-        session_, &native_id, limit, detail::optional_c_str(checked_cursor),
+        session_, native_id, limit, detail::optional_c_str(checked_cursor),
         &raw_events, &error);
     POSTPROJECT_TRY(detail::check(status, error));
     return detail::revision_event_page(detail::RevisionEventSetHandle(raw_events));
@@ -5227,15 +5253,15 @@ private:
 class Production final {
 public:
   [[nodiscard]] Result<QueryPage<RevisionEvent>>
-  revisionEvents(const Uuid &revision_id, std::uint32_t limit,
+  revisionEvents(const RevisionId &revision_id, std::uint32_t limit,
                  std::optional<std::string_view> cursor = std::nullopt) const {
-    const pp_uuid_t native_id = detail::native_uuid(revision_id);
+    const pp_revision_id_t native_id = detail::native_revision_id(revision_id);
     POSTPROJECT_TRY_ASSIGN(const std::optional<std::string> checked_cursor,
                            detail::checked_cursor(cursor));
     pp_revision_event_set_t *raw_events = nullptr;
     pp_error_t *error = nullptr;
     const pp_error_code_t status = pp_production_revision_events_page(
-        production_, &native_id, limit, detail::optional_c_str(checked_cursor),
+        production_, native_id, limit, detail::optional_c_str(checked_cursor),
         &raw_events, &error);
     POSTPROJECT_TRY(detail::check(status, error));
     return detail::revision_event_page(detail::RevisionEventSetHandle(raw_events));
@@ -6132,12 +6158,12 @@ public:
   }
 
   [[nodiscard]] Result<std::vector<RevisionEvent>>
-  revisionEvents(const Uuid &revision_id) const {
-    const pp_uuid_t native_id = detail::native_uuid(revision_id);
+  revisionEvents(const RevisionId &revision_id) const {
+    const pp_revision_id_t native_id = detail::native_revision_id(revision_id);
     pp_revision_event_set_t *raw_events = nullptr;
     pp_error_t *error = nullptr;
     const pp_error_code_t status = pp_production_revision_events(
-        production_, &native_id, &raw_events, &error);
+        production_, native_id, &raw_events, &error);
     POSTPROJECT_TRY(detail::check(status, error));
     detail::RevisionEventSetHandle events(raw_events);
     std::vector<RevisionEvent> result;
@@ -6160,12 +6186,12 @@ public:
     return Transaction(transaction);
   }
 
-  [[nodiscard]] Result<Transaction> beginTransaction(const Uuid &base_revision) {
-    const pp_uuid_t native_base = detail::native_uuid(base_revision);
+  [[nodiscard]] Result<Transaction> beginTransaction(const RevisionId &base_revision) {
+    const pp_revision_id_t native_base = detail::native_revision_id(base_revision);
     pp_transaction_t *transaction = nullptr;
     pp_error_t *error = nullptr;
     const pp_error_code_t status = pp_production_begin_transaction_at(
-        production_, &native_base, &transaction, &error);
+        production_, native_base, &transaction, &error);
     POSTPROJECT_TRY(detail::check(status, error));
     return Transaction(transaction);
   }

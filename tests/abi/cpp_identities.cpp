@@ -12,6 +12,12 @@ static_assert(!std::is_convertible_v<postproject::RevisionId, postproject::Uuid>
 static_assert(!std::is_convertible_v<postproject::RevisionId, postproject::TransactionId>);
 static_assert(!std::is_convertible_v<postproject::ProductionId, postproject::RevisionId>);
 static_assert(!std::is_assignable_v<postproject::RevisionId &, postproject::TransactionId>);
+static_assert(std::is_same_v<decltype(postproject::Revision::id), postproject::RevisionId>);
+static_assert(std::is_same_v<decltype(postproject::Revision::transaction_id), postproject::TransactionId>);
+static_assert(!std::is_assignable_v<decltype(postproject::CommittedRevision::id) &, postproject::Uuid>);
+static_assert(!std::is_invocable_v<decltype(&pp_production_revision_events),
+              const pp_production_t *, pp_transaction_id_t,
+              pp_revision_event_set_t **, pp_error_t **>);
 static_assert(std::is_same_v<
     decltype(std::declval<const postproject::Production &>().id()),
     postproject::Result<postproject::ProductionId>>);
