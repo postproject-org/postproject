@@ -47,14 +47,15 @@ Local Linux checks do not establish the other platforms or real-host runs.
 
 ## Implemented development contracts
 
-The development series is `0.7.0-alpha.1` (Python `0.7.0a1`, ABI 39,
+The development series is `0.7.0-alpha.1` (Python `0.7.0a1`, ABI 40,
 schema 17). ADRs 0045–0049 record pinned views, scoped edits/receipts, Python
 nominal UUID hints and explicit references, production/view-scoped cursors,
 and fallible C++ cancellation/options construction. Focused
 regressions cover intervening writers, empty bases, terminal failed commits,
 retained handles, cursor rejection and wrong-kind Python calls. Native
-read-session projection is still incomplete. Production IDs are distinct C/C++
-values; the other native identity kinds, validated state alternatives and
+read sessions offer 39 native query operations. Production, revision and
+transaction IDs are distinct C/C++ values; the other native identity kinds,
+validated state alternatives and
 authority-controlled job leases remain open.
 
 At `5e92680`, Linux Clippy, five storage read-session regressions, three Python
@@ -113,8 +114,17 @@ regressions pass, including ordered continuation, future-revision rejection,
 retained planning parameters and bounded iterable consumption. Workspace
 Clippy, source Ruff/ty, all three installed coherent recipes, direct C output
 checks, example coverage and export comparison pass. The full source Python
-suite runs 62 tests with one skip. Full installed and documentation checks are
-being refreshed for this checkpoint; final qualification remains open.
+suite runs 62 tests with one skip. Subsequent ABI 40 checks below include these
+operations; final qualification remains open.
+
+At `7635cf5`, native revision and transaction IDs complete this identity slice.
+ABI 40 takes revision arguments by value and types journal/receipt outputs;
+285 exports and all 19 C/Rust/ctypes layouts agree. All six required Rust gates,
+eight installed native contracts and 64 extracted tests pass. Source and
+installed-wheel Python suites each run 63 tests with one skip; Ruff/ty pass.
+Doxygen, generated C coverage and strict Sphinx pass after `8965f03` hides
+implementation-only hash specializations from Breathe. These checks preserve
+the released baseline and do not close the remaining audit rows.
 
 Repository inputs and migration status are in
 [`api-safety-repositories.md`](api-safety-repositories.md).

@@ -130,3 +130,30 @@ Its binding and native library come from the platform wheel above. Background
 checks cover explicit save/render receipts, scoped relink conflicts,
 wrong-production rejection and no-change results. The full cross-host scenario,
 interactive checks and final platform qualification remain pending.
+
+## ABI 40 development checks
+
+SDK build `7635cf5` supplies the installed headers/library and neutral wheel
+(`0.7.0a1`, ABI 40, schema 17). Wheel SHA-256:
+`5b3df558409b07db52a7d59348ca021d286b97ef9af33d603a9d365d5cf77ce5`.
+The artifact is `target/api-safety-wheel/journal-abi40/`; native installation is
+`target/api-safety-install/`. Later SDK commits change documentation only.
+
+| Consumer commit | Executed result | Scope |
+|---|---|---|
+| Manager `662de75` | 6 passed | Installed wheel, Python 3.13 |
+| OpenAssetIO `a362568`, OTIO `33717be`, demo `99a7558`, Python host `bc7e568` | 1 passed each | Separate installed-wheel runs; OTIO uses the linker pin above |
+| C++ NLE baseline | 1 passed | Fresh installed CMake consumer |
+| Natron `85de6a4` | 1 passed; module built | Native contract and CPython stable-ABI module; no Natron GUI run |
+| OBS `f5ef827` | 2 passed; plugin/driver built | Installed adapter contracts; no OBS host execution |
+| Ardour `eb8be49` | Passed | Renamed/ambiguous stereo-WAV resolver scenario on the maintained patched source |
+
+The installed SDK Python suite runs 63 tests with one skip. A separate Natron
+bridge conflict scenario verifies typed revision text and retained conflict
+sequences; its local record is `target/api-safety-natron-bridge40.json`.
+Ardour's source is pinned at `7968ec504ba8b70e6de5c09d0470264581a5e979`
+with maintained patches. Existing host checkouts were preserved.
+
+Blender and Kdenlive evidence above still uses earlier SDK builds. These local
+checks are not final coordinated host/platform qualification. Every maintained
+repository remains on local `main`; no push, tag or publication has occurred.
