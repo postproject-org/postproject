@@ -417,6 +417,64 @@ private:
   Uuid value_;
 };
 
+class RevisionId final {
+public:
+  constexpr explicit RevisionId(Uuid value) noexcept : value_(value) {}
+  constexpr explicit RevisionId(Uuid::Bytes bytes) noexcept : value_(bytes) {}
+
+  [[nodiscard]] constexpr Uuid asUuid() const noexcept { return value_; }
+  [[nodiscard]] constexpr const Uuid::Bytes &bytes() const noexcept {
+    return value_.bytes();
+  }
+  [[nodiscard]] static Result<RevisionId> fromString(std::string_view text);
+  [[nodiscard]] Result<std::string> toString() const;
+
+  friend constexpr bool operator==(const RevisionId &left,
+                                   const RevisionId &right) noexcept {
+    return left.value_ == right.value_;
+  }
+  friend constexpr bool operator!=(const RevisionId &left,
+                                   const RevisionId &right) noexcept {
+    return !(left == right);
+  }
+  friend bool operator<(const RevisionId &left,
+                        const RevisionId &right) noexcept {
+    return left.bytes() < right.bytes();
+  }
+
+private:
+  Uuid value_;
+};
+
+class TransactionId final {
+public:
+  constexpr explicit TransactionId(Uuid value) noexcept : value_(value) {}
+  constexpr explicit TransactionId(Uuid::Bytes bytes) noexcept : value_(bytes) {}
+
+  [[nodiscard]] constexpr Uuid asUuid() const noexcept { return value_; }
+  [[nodiscard]] constexpr const Uuid::Bytes &bytes() const noexcept {
+    return value_.bytes();
+  }
+  [[nodiscard]] static Result<TransactionId> fromString(std::string_view text);
+  [[nodiscard]] Result<std::string> toString() const;
+
+  friend constexpr bool operator==(const TransactionId &left,
+                                   const TransactionId &right) noexcept {
+    return left.value_ == right.value_;
+  }
+  friend constexpr bool operator!=(const TransactionId &left,
+                                   const TransactionId &right) noexcept {
+    return !(left == right);
+  }
+  friend bool operator<(const TransactionId &left,
+                        const TransactionId &right) noexcept {
+    return left.bytes() < right.bytes();
+  }
+
+private:
+  Uuid value_;
+};
+
 enum class ObjectKind : std::uint32_t {
   production = PP_OBJECT_PRODUCTION,
   asset = PP_OBJECT_ASSET,
@@ -2779,6 +2837,52 @@ inline Result<std::string> ProductionId::toString() const {
   char *text = nullptr;
   pp_error_t *error = nullptr;
   const auto status = pp_production_id_format(id, &text, &error);
+  detail::StringHandle owned(text);
+  POSTPROJECT_TRY(detail::check(status, error));
+  return std::string(owned.get());
+}
+
+inline Result<RevisionId> RevisionId::fromString(std::string_view text) {
+  POSTPROJECT_TRY_ASSIGN(const std::string checked,
+                         detail::checked_string(text, "revision ID"));
+  pp_revision_id_t id{};
+  pp_error_t *error = nullptr;
+  const auto status = pp_revision_id_parse(checked.c_str(), &id, &error);
+  POSTPROJECT_TRY(detail::check(status, error));
+  Uuid::Bytes bytes{};
+  std::copy(std::begin(id.bytes), std::end(id.bytes), bytes.begin());
+  return RevisionId(bytes);
+}
+
+inline Result<std::string> RevisionId::toString() const {
+  pp_revision_id_t id{};
+  std::copy(bytes().begin(), bytes().end(), std::begin(id.bytes));
+  char *text = nullptr;
+  pp_error_t *error = nullptr;
+  const auto status = pp_revision_id_format(id, &text, &error);
+  detail::StringHandle owned(text);
+  POSTPROJECT_TRY(detail::check(status, error));
+  return std::string(owned.get());
+}
+
+inline Result<TransactionId> TransactionId::fromString(std::string_view text) {
+  POSTPROJECT_TRY_ASSIGN(const std::string checked,
+                         detail::checked_string(text, "transaction ID"));
+  pp_transaction_id_t id{};
+  pp_error_t *error = nullptr;
+  const auto status = pp_transaction_id_parse(checked.c_str(), &id, &error);
+  POSTPROJECT_TRY(detail::check(status, error));
+  Uuid::Bytes bytes{};
+  std::copy(std::begin(id.bytes), std::end(id.bytes), bytes.begin());
+  return TransactionId(bytes);
+}
+
+inline Result<std::string> TransactionId::toString() const {
+  pp_transaction_id_t id{};
+  std::copy(bytes().begin(), bytes().end(), std::begin(id.bytes));
+  char *text = nullptr;
+  pp_error_t *error = nullptr;
+  const auto status = pp_transaction_id_format(id, &text, &error);
   detail::StringHandle owned(text);
   POSTPROJECT_TRY(detail::check(status, error));
   return std::string(owned.get());
@@ -6399,6 +6503,22 @@ fingerprintFile(std::string_view path) {
 
 template <> struct std::hash<postproject::ProductionId> {
   std::size_t operator()(const postproject::ProductionId &id) const noexcept {
+    const auto &bytes = id.bytes();
+    return std::hash<std::string_view>{}(std::string_view(
+        reinterpret_cast<const char *>(bytes.data()), bytes.size()));
+  }
+};
+
+template <> struct std::hash<postproject::RevisionId> {
+  std::size_t operator()(const postproject::RevisionId &id) const noexcept {
+    const auto &bytes = id.bytes();
+    return std::hash<std::string_view>{}(std::string_view(
+        reinterpret_cast<const char *>(bytes.data()), bytes.size()));
+  }
+};
+
+template <> struct std::hash<postproject::TransactionId> {
+  std::size_t operator()(const postproject::TransactionId &id) const noexcept {
     const auto &bytes = id.bytes();
     return std::hash<std::string_view>{}(std::string_view(
         reinterpret_cast<const char *>(bytes.data()), bytes.size()));

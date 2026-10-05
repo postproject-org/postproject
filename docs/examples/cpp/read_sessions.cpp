@@ -7,6 +7,12 @@
 static void exercise(const std::string &path, const std::string &media) {
   auto production = postproject::Production::create(path).value();
   auto empty = production.readSession().value();
+  const auto revision_identity = postproject::RevisionId::fromString(
+      "00000000-0000-0000-0000-000000000001").value();
+  const auto transaction_identity = postproject::TransactionId::fromString(
+      revision_identity.toString().value()).value();
+  if (revision_identity.bytes() != transaction_identity.asUuid().bytes())
+    throw std::runtime_error("explicit identity interchange");
   if (!empty.planRegeneration({}).value().empty())
     throw std::runtime_error("empty planning request");
   auto edit = empty.edit().value();
