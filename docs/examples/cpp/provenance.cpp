@@ -152,7 +152,7 @@ std::vector<postproject::DependencyMatch> record_scene_dependencies(
 // [/dependency-set]
 
 postproject::Representation find(const postproject::Production &production,
-                                 const postproject::Uuid &asset_id,
+                                 const postproject::AssetId &asset_id,
                                  const postproject::Uuid &id) {
   for (auto &representation : production.representations(asset_id).value()) {
     if (representation.id == id) {
@@ -262,13 +262,13 @@ int main(int argc, char **argv) {
     const std::vector<postproject::Dependency> observed{
         {std::nullopt,
          "org.example:plate",
-         {postproject::ObjectKind::asset, asset_id},
+         postproject::ObjectRef::asset(asset_id),
          original_id,
          true,
          "rushes/A001.mov"},
         {std::nullopt,
          "org.example:character-reference",
-         {postproject::ObjectKind::asset, lead_asset_id},
+         postproject::ObjectRef::asset(lead_asset_id),
          lead_id,
          false,
          "characters/lead.usd"},

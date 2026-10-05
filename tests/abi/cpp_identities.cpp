@@ -29,8 +29,25 @@ static_assert(!std::is_assignable_v<decltype(postproject::DecisionBase::producti
 static_assert(!std::is_assignable_v<decltype(postproject::HostObjectBinding::production_id) &,
                                     postproject::Uuid>);
 
+static_assert(std::is_same_v<decltype(postproject::Asset::id), postproject::AssetId>);
+static_assert(std::is_same_v<decltype(postproject::Representation::asset_id), postproject::AssetId>);
+static_assert(std::is_same_v<decltype(postproject::JobRequest::output_asset_id), postproject::AssetId>);
+static_assert(std::is_same_v<decltype(std::declval<postproject::Transaction &>().importMedia(
+    std::declval<const postproject::MediaSource &>())), postproject::Result<postproject::AssetId>>);
+static_assert(!std::is_invocable_v<decltype(&postproject::Production::asset),
+    const postproject::Production &, postproject::Uuid>);
+static_assert(!std::is_invocable_v<decltype(&postproject::ReadSession::asset),
+    const postproject::ReadSession &, postproject::ProductionId>);
+static_assert(!std::is_invocable_v<decltype(&pp_production_asset),
+    const pp_production_t *, pp_uuid_t, pp_asset_set_t **, pp_error_t **>);
+
 int main() {
   const auto asset = postproject::AssetId::fromString("00000000-0000-0000-0000-000000000001").value();
+  const auto target = postproject::ObjectRef::asset(asset);
+  if (target.assetId().value() != asset) return 12;
+  const postproject::ObjectRef wrong{postproject::ObjectKind::resource, asset.asUuid()};
+  const auto rejected = wrong.assetId();
+  if (rejected || rejected.error().code() != postproject::ErrorCode::invalid_argument) return 13;
   const std::set<postproject::AssetId> assets{asset, asset};
   const std::unordered_set<postproject::AssetId> asset_hashes{asset, asset};
   if (assets.size() != 1 || asset_hashes.size() != 1 ||

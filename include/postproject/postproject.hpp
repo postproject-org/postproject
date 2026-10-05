@@ -517,6 +517,12 @@ struct ObjectRef final {
   ObjectKind kind;
   Uuid id;
 
+  [[nodiscard]] Result<AssetId> assetId() const;
+
+  [[nodiscard]] static constexpr ObjectRef asset(const AssetId &id) noexcept {
+    return {ObjectKind::asset, id.asUuid()};
+  }
+
   friend constexpr bool operator==(const ObjectRef &left,
                                    const ObjectRef &right) noexcept {
     return left.kind == right.kind && left.id == right.id;
@@ -810,11 +816,11 @@ struct CommitReceipt final {
 };
 
 struct AssetImportedEvent final {
-  Uuid asset_id;
+  AssetId asset_id;
 };
 
 struct RepresentationAddedEvent final {
-  Uuid asset_id;
+  AssetId asset_id;
   Uuid representation_id;
 };
 
@@ -988,7 +994,7 @@ inline constexpr std::chrono::milliseconds max_revision_wait{
     PP_REVISION_WAIT_MAX_TIMEOUT_MILLIS};
 
 struct Asset final {
-  Uuid id;
+  AssetId id;
   std::int64_t created_at_unix_micros;
   std::optional<std::string> display_name;
   std::optional<std::string> import_source;
@@ -1114,7 +1120,7 @@ struct ResourceLocator final {
 
 // One storage match and its owning representation and logical asset.
 struct KnownMediaMatch final {
-  Uuid asset_id;
+  AssetId asset_id;
   Uuid representation_id;
   Uuid resource_id;
 };
@@ -1129,7 +1135,7 @@ struct Resource final {
 
 struct Representation final {
   Uuid id;
-  Uuid asset_id;
+  AssetId asset_id;
   RepresentationKind kind;
   ContentStructureKind structure_kind;
   std::vector<RepresentationMember> members;
@@ -1172,7 +1178,7 @@ struct Job final {
   Uuid id;
   std::string kind;
   std::vector<Uuid> inputs;
-  Uuid output_asset_id;
+  AssetId output_asset_id;
   RepresentationKind output_representation_kind;
   std::optional<std::string> target_root;
   JobStatus status;
@@ -1191,7 +1197,7 @@ struct Job final {
 struct JobRequest final {
   std::string kind;
   std::vector<Uuid> inputs;
-  Uuid output_asset_id;
+  AssetId output_asset_id;
   RepresentationKind output_representation_kind;
   std::optional<std::string> target_root;
 };
@@ -1282,7 +1288,7 @@ struct AvailabilityIssue final {
 };
 
 struct RepresentationResolution final {
-  Uuid asset_id;
+  AssetId asset_id;
   Uuid representation_id;
   RepresentationAvailability availability;
   std::vector<ResourceResolution> resources;
@@ -1549,6 +1555,18 @@ inline pp_uuid_t native_uuid(const Uuid &value) {
   return native;
 }
 
+inline AssetId asset_id_value(const pp_asset_id_t &value) {
+  Uuid::Bytes bytes{};
+  std::copy(std::begin(value.bytes), std::end(value.bytes), bytes.begin());
+  return AssetId(bytes);
+}
+
+inline pp_asset_id_t native_asset_id(const AssetId &value) {
+  pp_asset_id_t native{};
+  std::copy(value.bytes().begin(), value.bytes().end(), std::begin(native.bytes));
+  return native;
+}
+
 inline ProductionId production_id(const pp_production_id_t &value) {
   Uuid::Bytes bytes{};
   std::copy(std::begin(value.bytes), std::end(value.bytes), bytes.begin());
@@ -1684,7 +1702,7 @@ optional_c_str(const std::optional<std::string> &value) noexcept {
 }
 
 inline Result<Asset> asset(const pp_asset_set_t *assets, std::uint64_t index) {
-  pp_uuid_t id{};
+  pp_asset_id_t id{};
   std::int64_t created_at_unix_micros = 0;
   const char *display_name = nullptr;
   const char *import_source = nullptr;
@@ -1693,7 +1711,7 @@ inline Result<Asset> asset(const pp_asset_set_t *assets, std::uint64_t index) {
       pp_asset_set_get(assets, index, &id, &created_at_unix_micros,
                        &display_name, &import_source, &error);
   POSTPROJECT_TRY(check(status, error));
-  return Asset{uuid(id), created_at_unix_micros, optional_string(display_name),
+  return Asset{asset_id_value(id), created_at_unix_micros, optional_string(display_name),
                optional_string(import_source)};
 }
 
@@ -1748,7 +1766,7 @@ inline Result<Representation>
 representation(const pp_representation_set_t *representations,
                std::uint64_t index) {
   pp_uuid_t id{};
-  pp_uuid_t asset_id{};
+  pp_asset_id_t asset_id{};
   pp_representation_kind_t kind = 0;
   pp_content_structure_kind_t structure_kind = 0;
   std::uint64_t member_count = 0;
@@ -1882,7 +1900,7 @@ representation(const pp_representation_set_t *representations,
   }
 
   return Representation{uuid(id),
-                        uuid(asset_id),
+                        asset_id_value(asset_id),
                         static_cast<RepresentationKind>(kind),
                         static_cast<ContentStructureKind>(structure_kind),
                         std::move(members),
@@ -2108,7 +2126,7 @@ inline Result<Job> job(const pp_job_set_t *jobs, std::uint64_t index) {
   return Job{uuid(native.id),
              native.kind != nullptr ? std::string(native.kind) : std::string(),
              std::move(inputs),
-             uuid(native.output_asset_id),
+             asset_id_value(native.output_asset_id),
              static_cast<RepresentationKind>(native.output_representation_kind),
              optional_string(native.target_root),
              std::move(job_status)};
@@ -2283,7 +2301,7 @@ known_media_page(KnownMediaSetHandle matches) {
   const std::uint64_t count = pp_known_media_set_count(matches.get());
   items.reserve(static_cast<std::size_t>(count));
   for (std::uint64_t index = 0; index < count; ++index) {
-    pp_uuid_t asset_id{};
+    pp_asset_id_t asset_id{};
     pp_uuid_t representation_id{};
     pp_uuid_t resource_id{};
     pp_error_t *error = nullptr;
@@ -2292,7 +2310,7 @@ known_media_page(KnownMediaSetHandle matches) {
         &error);
     POSTPROJECT_TRY(check(status, error));
     items.push_back(
-        {uuid(asset_id), uuid(representation_id), uuid(resource_id)});
+        {asset_id_value(asset_id), uuid(representation_id), uuid(resource_id)});
   }
   const char *cursor = pp_known_media_set_next_cursor(matches.get());
   return QueryPage<KnownMediaMatch>{std::move(items), optional_string(cursor),
@@ -2367,10 +2385,10 @@ revision_event(const pp_revision_event_set_t *events, std::uint64_t index) {
   switch (event.kind) {
   case PP_REVISION_ASSET_IMPORTED:
     return RevisionEvent{event.position,
-                         AssetImportedEvent{uuid(event.asset_id)}};
+                         AssetImportedEvent{asset_id_value(event.asset_id)}};
   case PP_REVISION_REPRESENTATION_ADDED:
     return RevisionEvent{event.position, RepresentationAddedEvent{
-                                             uuid(event.asset_id),
+                                             asset_id_value(event.asset_id),
                                              uuid(event.representation_id)}};
   case PP_REVISION_RESOURCE_ADDED:
     return RevisionEvent{event.position,
@@ -2630,7 +2648,7 @@ resolution_values(ResolutionSetHandle resolutions) {
       pp_resolution_set_representation_count(resolutions.get());
   for (std::uint64_t representation_index = 0;
        representation_index < count; ++representation_index) {
-    pp_uuid_t asset_id{};
+    pp_asset_id_t asset_id{};
     pp_uuid_t representation_id{};
     pp_representation_availability_t availability = 0;
     std::uint64_t resource_count = 0;
@@ -2681,7 +2699,7 @@ resolution_values(ResolutionSetHandle resolutions) {
                         static_cast<AvailabilityIssueKind>(kind),
                         std::move(frames)});
     }
-    result.push_back({uuid(asset_id), uuid(representation_id),
+    result.push_back({asset_id_value(asset_id), uuid(representation_id),
                       static_cast<RepresentationAvailability>(availability),
                       std::move(resources), std::move(issues)});
   }
@@ -2929,6 +2947,13 @@ inline Result<std::string> ProductionId::toString() const {
   detail::StringHandle owned(text);
   POSTPROJECT_TRY(detail::check(status, error));
   return std::string(owned.get());
+}
+
+inline Result<AssetId> ObjectRef::assetId() const {
+  if (kind != ObjectKind::asset) {
+    return Error(ErrorCode::invalid_argument, "reference must name an asset");
+  }
+  return AssetId(id);
 }
 
 inline Result<AssetId> AssetId::fromString(std::string_view text) {
@@ -3843,11 +3868,11 @@ public:
 
   // Creates an asset whose original representation has the source's
   // structure. A path imports a single file.
-  Result<Uuid> importMedia(const MediaSource &source) {
+  Result<AssetId> importMedia(const MediaSource &source) {
     return import_media_impl(source, nullptr);
   }
 
-  Result<Uuid> importMedia(const MediaSource &source,
+  Result<AssetId> importMedia(const MediaSource &source,
                            std::string_view display_name) {
     POSTPROJECT_TRY_ASSIGN(
         const std::string name,
@@ -3857,15 +3882,15 @@ public:
 
   // Adds a representation of the given kind, with the source's structure, to
   // an existing asset.
-  Result<Uuid> addRepresentation(const Uuid &asset_id, RepresentationKind kind,
+  Result<Uuid> addRepresentation(const AssetId &asset_id, RepresentationKind kind,
                                  const MediaSource &source) {
     POSTPROJECT_TRY_ASSIGN(const detail::MediaSourceHandle native_source,
                            source.native());
-    const pp_uuid_t native_asset_id = detail::native_uuid(asset_id);
+    const pp_asset_id_t native_asset_id = detail::native_asset_id(asset_id);
     pp_uuid_t value{};
     pp_error_t *error = nullptr;
     const pp_error_code_t status = pp_transaction_add_representation(
-        transaction_, &native_asset_id,
+        transaction_, native_asset_id,
         static_cast<pp_representation_kind_t>(kind), native_source.get(),
         &value, &error);
     POSTPROJECT_TRY(detail::check(status, error));
@@ -4079,13 +4104,13 @@ public:
     for (const Uuid &input : request.inputs) {
       inputs.push_back(detail::native_uuid(input));
     }
-    const pp_uuid_t output_asset_id =
-        detail::native_uuid(request.output_asset_id);
+    const pp_asset_id_t output_asset_id =
+        detail::native_asset_id(request.output_asset_id);
     pp_uuid_t job_id{};
     pp_error_t *error = nullptr;
     const pp_error_code_t status = pp_transaction_request_job(
         transaction_, kind.c_str(), inputs.empty() ? nullptr : inputs.data(),
-        static_cast<std::uint64_t>(inputs.size()), &output_asset_id,
+        static_cast<std::uint64_t>(inputs.size()), output_asset_id,
         static_cast<pp_representation_kind_t>(
             request.output_representation_kind),
         target_root.has_value() ? target_root->c_str() : nullptr, &job_id,
@@ -4364,16 +4389,16 @@ private:
     return detail::checked_string(origin.name, "origin name");
   }
 
-  Result<Uuid> import_media_impl(const MediaSource &source,
+  Result<AssetId> import_media_impl(const MediaSource &source,
                                  const char *display_name) {
     POSTPROJECT_TRY_ASSIGN(const detail::MediaSourceHandle native_source,
                            source.native());
-    pp_uuid_t value{};
+    pp_asset_id_t value{};
     pp_error_t *error = nullptr;
     const pp_error_code_t status = pp_transaction_import_media(
         transaction_, native_source.get(), display_name, &value, &error);
     POSTPROJECT_TRY(detail::check(status, error));
-    return detail::uuid(value);
+    return detail::asset_id_value(value);
   }
 
   Result<Uuid> add_media_root_impl(std::string_view name, const char *label,
@@ -4949,12 +4974,12 @@ public:
 
   // Resolves one asset with default options: known locators only.
   [[nodiscard]] Result<std::vector<RepresentationResolution>>
-  resolveAsset(const Uuid &asset_id) const {
+  resolveAsset(const AssetId &asset_id) const {
     return resolveAssets({asset_id}, nullptr);
   }
 
   [[nodiscard]] Result<std::vector<RepresentationResolution>>
-  resolveAsset(const Uuid &asset_id, const ResolutionOptions &options) const {
+  resolveAsset(const AssetId &asset_id, const ResolutionOptions &options) const {
     if (options.options_ == nullptr) {
       return Error(ErrorCode::invalid_argument, "resolution options were moved from");
     }
@@ -4962,14 +4987,14 @@ public:
   }
 
   [[nodiscard]] Result<std::vector<RepresentationResolution>>
-  resolveAssets(const std::vector<Uuid> &asset_ids) const {
+  resolveAssets(const std::vector<AssetId> &asset_ids) const {
     return resolveAssets(asset_ids, nullptr);
   }
 
   // Resolves every representation of each asset, in asset order, scanning the
   // search scope once for the whole call.
   [[nodiscard]] Result<std::vector<RepresentationResolution>>
-  resolveAssets(const std::vector<Uuid> &asset_ids,
+  resolveAssets(const std::vector<AssetId> &asset_ids,
                 const ResolutionOptions &options) const {
     if (options.options_ == nullptr) {
       return Error(ErrorCode::invalid_argument, "resolution options were moved from");
@@ -5242,12 +5267,12 @@ public:
                             detail::optional_string(next_cursor), false};
   }
 
-  [[nodiscard]] Result<Asset> asset(const Uuid &asset_id) const {
-    const pp_uuid_t native_asset_id = detail::native_uuid(asset_id);
+  [[nodiscard]] Result<Asset> asset(const AssetId &asset_id) const {
+    const pp_asset_id_t native_asset_id = detail::native_asset_id(asset_id);
     pp_asset_set_t *raw_assets = nullptr;
     pp_error_t *error = nullptr;
     const pp_error_code_t status =
-        pp_read_session_asset(session_, &native_asset_id, &raw_assets, &error);
+        pp_read_session_asset(session_, native_asset_id, &raw_assets, &error);
     POSTPROJECT_TRY(detail::check(status, error));
     detail::AssetSetHandle assets(raw_assets);
     if (pp_asset_set_count(assets.get()) != 1) {
@@ -5257,15 +5282,15 @@ public:
   }
 
   [[nodiscard]] Result<QueryPage<Representation>>
-  representations(const Uuid &asset_id, std::uint32_t limit,
+  representations(const AssetId &asset_id, std::uint32_t limit,
                   std::optional<std::string_view> cursor = std::nullopt) const {
-    const pp_uuid_t native_asset_id = detail::native_uuid(asset_id);
+    const pp_asset_id_t native_asset_id = detail::native_asset_id(asset_id);
     POSTPROJECT_TRY_ASSIGN(const std::optional<std::string> checked_cursor,
                            detail::checked_cursor(cursor));
     pp_representation_set_t *raw_representations = nullptr;
     pp_error_t *error = nullptr;
     const pp_error_code_t status = pp_read_session_representations_page(
-        session_, &native_asset_id, limit,
+        session_, native_asset_id, limit,
         detail::optional_c_str(checked_cursor), &raw_representations, &error);
     POSTPROJECT_TRY(detail::check(status, error));
     return detail::representation_page(
@@ -5289,12 +5314,12 @@ public:
   }
 private:
   [[nodiscard]] Result<std::vector<RepresentationResolution>>
-  resolveAssets(const std::vector<Uuid> &asset_ids,
+  resolveAssets(const std::vector<AssetId> &asset_ids,
                 const pp_resolution_options_t *options) const {
-    std::vector<pp_uuid_t> native_ids;
+    std::vector<pp_asset_id_t> native_ids;
     native_ids.reserve(asset_ids.size());
-    for (const Uuid &asset_id : asset_ids) {
-      native_ids.push_back(detail::native_uuid(asset_id));
+    for (const AssetId &asset_id : asset_ids) {
+      native_ids.push_back(detail::native_asset_id(asset_id));
     }
     pp_resolution_set_t *raw_resolutions = nullptr;
     pp_error_t *error = nullptr;
@@ -5418,12 +5443,12 @@ public:
     return detail::production_id(value);
   }
 
-  [[nodiscard]] Result<bool> containsAsset(const Uuid &asset_id) const {
-    const pp_uuid_t value = detail::native_uuid(asset_id);
+  [[nodiscard]] Result<bool> containsAsset(const AssetId &asset_id) const {
+    const pp_asset_id_t value = detail::native_asset_id(asset_id);
     std::uint8_t exists = 0;
     pp_error_t *error = nullptr;
     const pp_error_code_t status =
-        pp_production_asset_exists(production_, &value, &exists, &error);
+        pp_production_asset_exists(production_, value, &exists, &error);
     POSTPROJECT_TRY(detail::check(status, error));
     return exists != 0;
   }
@@ -5472,12 +5497,12 @@ public:
   }
 
   // Reads one asset; an absent asset is ErrorCode::not_found.
-  [[nodiscard]] Result<Asset> asset(const Uuid &asset_id) const {
-    const pp_uuid_t native_asset_id = detail::native_uuid(asset_id);
+  [[nodiscard]] Result<Asset> asset(const AssetId &asset_id) const {
+    const pp_asset_id_t native_asset_id = detail::native_asset_id(asset_id);
     pp_asset_set_t *raw_assets = nullptr;
     pp_error_t *error = nullptr;
     const pp_error_code_t status =
-        pp_production_asset(production_, &native_asset_id, &raw_assets, &error);
+        pp_production_asset(production_, native_asset_id, &raw_assets, &error);
     POSTPROJECT_TRY(detail::check(status, error));
     detail::AssetSetHandle assets(raw_assets);
     if (pp_asset_set_count(assets.get()) != 1) {
@@ -5525,12 +5550,12 @@ public:
   }
 
   [[nodiscard]] Result<std::vector<Representation>>
-  representations(const Uuid &asset_id) const {
-    const pp_uuid_t native_asset_id = detail::native_uuid(asset_id);
+  representations(const AssetId &asset_id) const {
+    const pp_asset_id_t native_asset_id = detail::native_asset_id(asset_id);
     pp_representation_set_t *raw_representations = nullptr;
     pp_error_t *error = nullptr;
     const pp_error_code_t status = pp_production_representations(
-        production_, &native_asset_id, &raw_representations, &error);
+        production_, native_asset_id, &raw_representations, &error);
     POSTPROJECT_TRY(detail::check(status, error));
     detail::RepresentationSetHandle representations(raw_representations);
 
@@ -5547,15 +5572,15 @@ public:
   }
 
   [[nodiscard]] Result<QueryPage<Representation>>
-  representations(const Uuid &asset_id, std::uint32_t limit,
+  representations(const AssetId &asset_id, std::uint32_t limit,
                   std::optional<std::string_view> cursor = std::nullopt) const {
-    const pp_uuid_t native_asset_id = detail::native_uuid(asset_id);
+    const pp_asset_id_t native_asset_id = detail::native_asset_id(asset_id);
     POSTPROJECT_TRY_ASSIGN(const std::optional<std::string> checked_cursor,
                            detail::checked_cursor(cursor));
     pp_representation_set_t *raw_representations = nullptr;
     pp_error_t *error = nullptr;
     const pp_error_code_t status = pp_production_representations_page(
-        production_, &native_asset_id, limit,
+        production_, native_asset_id, limit,
         detail::optional_c_str(checked_cursor), &raw_representations, &error);
     POSTPROJECT_TRY(detail::check(status, error));
     return detail::representation_page(
@@ -5872,12 +5897,12 @@ public:
 
   // Resolves one asset with default options: known locators only.
   [[nodiscard]] Result<std::vector<RepresentationResolution>>
-  resolveAsset(const Uuid &asset_id) const {
+  resolveAsset(const AssetId &asset_id) const {
     return resolveAssets({asset_id}, nullptr);
   }
 
   [[nodiscard]] Result<std::vector<RepresentationResolution>>
-  resolveAsset(const Uuid &asset_id, const ResolutionOptions &options) const {
+  resolveAsset(const AssetId &asset_id, const ResolutionOptions &options) const {
     if (options.options_ == nullptr) {
       return Error(ErrorCode::invalid_argument, "resolution options were moved from");
     }
@@ -5885,14 +5910,14 @@ public:
   }
 
   [[nodiscard]] Result<std::vector<RepresentationResolution>>
-  resolveAssets(const std::vector<Uuid> &asset_ids) const {
+  resolveAssets(const std::vector<AssetId> &asset_ids) const {
     return resolveAssets(asset_ids, nullptr);
   }
 
   // Resolves every representation of each asset, in asset order, scanning the
   // search scope once for the whole call.
   [[nodiscard]] Result<std::vector<RepresentationResolution>>
-  resolveAssets(const std::vector<Uuid> &asset_ids,
+  resolveAssets(const std::vector<AssetId> &asset_ids,
                 const ResolutionOptions &options) const {
     if (options.options_ == nullptr) {
       return Error(ErrorCode::invalid_argument, "resolution options were moved from");
@@ -5902,12 +5927,12 @@ public:
 
 private:
   [[nodiscard]] Result<std::vector<RepresentationResolution>>
-  resolveAssets(const std::vector<Uuid> &asset_ids,
+  resolveAssets(const std::vector<AssetId> &asset_ids,
                 const pp_resolution_options_t *options) const {
-    std::vector<pp_uuid_t> native_ids;
+    std::vector<pp_asset_id_t> native_ids;
     native_ids.reserve(asset_ids.size());
-    for (const Uuid &asset_id : asset_ids) {
-      native_ids.push_back(detail::native_uuid(asset_id));
+    for (const AssetId &asset_id : asset_ids) {
+      native_ids.push_back(detail::native_asset_id(asset_id));
     }
     pp_resolution_set_t *raw_resolutions = nullptr;
     pp_error_t *error = nullptr;

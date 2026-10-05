@@ -140,7 +140,7 @@ int main(int argc, char **argv) {
   std::remove(path.c_str());
 
   try {
-    if (postproject::abi_version() != 40) {
+    if (postproject::abi_version() != 41) {
       return 3;
     }
 
@@ -160,8 +160,7 @@ int main(int argc, char **argv) {
                                      std::nullopt},
          std::string("Import fixture")}).value();
     const auto asset_id = transaction.importMedia(media_path, "C++ asset").value();
-    const postproject::ObjectRef asset_ref{postproject::ObjectKind::asset,
-                                           asset_id};
+    const postproject::ObjectRef asset_ref = postproject::ObjectRef::asset(asset_id);
     const postproject::HostObjectBinding host_binding{created_id, asset_ref};
     const auto host_binding_text = host_binding.toString().value();
     if (host_binding_text.rfind("https://postproject.org/ref/v1/", 0) != 0 ||

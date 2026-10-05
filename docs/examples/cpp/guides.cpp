@@ -30,7 +30,7 @@ void require(bool condition, const char *message) {
 }
 
 // [create-production]
-std::pair<postproject::Production, postproject::Uuid>
+std::pair<postproject::Production, postproject::AssetId>
 create_production(const std::string &path, const std::string &media) {
   auto production = postproject::Production::create(path, "Documentary").value();
 
@@ -49,8 +49,8 @@ create_production(const std::string &path, const std::string &media) {
 
 // [external-identifiers]
 void tag_camera_serial(postproject::Production &production,
-                       const postproject::Uuid &asset_id) {
-  const postproject::ObjectRef target{postproject::ObjectKind::asset, asset_id};
+                       const postproject::AssetId &asset_id) {
+  const postproject::ObjectRef target = postproject::ObjectRef::asset(asset_id);
   const postproject::ExternalIdentifier identifier{
       "com.example.camera.serial", "A-0007", std::nullopt};
 
@@ -68,8 +68,8 @@ void tag_camera_serial(postproject::Production &production,
 
 // [metadata]
 void add_title(postproject::Production &production,
-               const postproject::Uuid &asset_id) {
-  const postproject::ObjectRef target{postproject::ObjectKind::asset, asset_id};
+               const postproject::AssetId &asset_id) {
+  const postproject::ObjectRef target = postproject::ObjectRef::asset(asset_id);
 
   auto transaction = production.beginTransaction().value();
   transaction.addMetadataValue(
@@ -93,7 +93,7 @@ void add_rushes_root(postproject::Production &production) {
 // [resolve-asset]
 std::vector<postproject::RepresentationResolution>
 resolve_asset(const postproject::Production &production,
-              const postproject::Uuid &asset_id,
+              const postproject::AssetId &asset_id,
               const std::string &rushes_directory) {
   // The mapping locates the logical root on this machine for this call only.
   auto options = postproject::ResolutionOptions::create().value();
@@ -140,7 +140,7 @@ void confirm_unique_candidates(
 
 // [image-sequence]
 postproject::Uuid add_render_sequence(postproject::Production &production,
-                                      const postproject::Uuid &asset_id,
+                                      const postproject::AssetId &asset_id,
                                       const std::string &directory) {
   postproject::ImageSequenceInput sequence{};
   sequence.directory = directory;
@@ -216,10 +216,9 @@ void inspect_artifact(const postproject::Production &production,
 // [dependency-queries]
 void record_and_query_dependencies(postproject::Production &production,
                                    const postproject::Uuid &source_id,
-                                   const postproject::Uuid &target_asset_id,
+                                   const postproject::AssetId &target_asset_id,
                                    const postproject::Uuid &resolved_id) {
-  const postproject::ObjectRef target{postproject::ObjectKind::asset,
-                                      target_asset_id};
+  const postproject::ObjectRef target = postproject::ObjectRef::asset(target_asset_id);
   const postproject::Dependency dependency{
       std::nullopt, "org.example:character-reference", target, resolved_id,
       true, "characters/lead.usd"};
@@ -243,7 +242,7 @@ void record_and_query_dependencies(postproject::Production &production,
 // [job-query-pages]
 void request_and_page_jobs(postproject::Production &production,
                            const postproject::Uuid &input_id,
-                           const postproject::Uuid &output_asset_id) {
+                           const postproject::AssetId &output_asset_id) {
   const postproject::JobRequest request{
       "org.example:generate-proxy", {input_id}, output_asset_id,
       postproject::RepresentationKind::proxy, std::nullopt};
@@ -310,7 +309,7 @@ list_media_knowledge(const postproject::Production &production) {
 
 // [point-reads]
 void read_known_objects(const postproject::Production &production,
-                        const postproject::Uuid &asset_id,
+                        const postproject::AssetId &asset_id,
                         const postproject::Uuid &representation_id) {
   // A host reference names one object; read it without scanning the
   // production.
@@ -525,8 +524,7 @@ int main(int argc, char **argv) {
     require(list_media_knowledge(production) == std::vector{original_id},
             "representation under the rushes root");
     read_known_objects(production, asset_id, original_id);
-    const postproject::ObjectRef asset{postproject::ObjectKind::asset,
-                                       asset_id};
+    const postproject::ObjectRef asset = postproject::ObjectRef::asset(asset_id);
     require(find_interview_titles(production) == std::vector{asset},
             "exact title match");
     query_render_lineage(production, original_id, sequence_id);

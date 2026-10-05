@@ -54,7 +54,7 @@ constexpr const char *transcode = "https://example.com/ns/transcode/1";
 
 postproject::Uuid request_proxy(postproject::Production &production,
                                 const postproject::Uuid &original_id,
-                                const postproject::Uuid &asset_id) {
+                                const postproject::AssetId &asset_id) {
   const postproject::JobRequest request{"org.postproject:generate-proxy",
                                         {original_id},
                                         asset_id,

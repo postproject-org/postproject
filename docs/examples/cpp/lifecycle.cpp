@@ -27,6 +27,10 @@ void require(bool condition, const char *message) {
 // [asset-identity]
 void asset_identity(std::string_view saved_id) {
   const auto asset = postproject::AssetId::fromString(saved_id).value();
+  const auto target = postproject::ObjectRef::asset(asset);
+  require(target.assetId().value() == asset &&
+              target.kind == postproject::ObjectKind::asset &&
+              target.id.bytes() == asset.bytes(), "typed asset target");
   const std::set<postproject::AssetId> ordered{asset, asset};
   const std::unordered_set<postproject::AssetId> hashed{asset, asset};
   require(ordered.size() == 1 && hashed.size() == 1, "identity value semantics");
@@ -37,7 +41,7 @@ void asset_identity(std::string_view saved_id) {
 }
 // [/asset-identity]
 
-postproject::Uuid create_with_asset(const std::string &path,
+postproject::AssetId create_with_asset(const std::string &path,
                                     const std::string &media) {
   auto production = postproject::Production::create(path, "Documentary").value();
   auto transaction = production.beginTransaction().value();
@@ -47,19 +51,8 @@ postproject::Uuid create_with_asset(const std::string &path,
 }
 
 // [open-production]
-std::string format_uuid(const postproject::Uuid &id) {
-  // A Uuid is 16 raw bytes; format it however your host needs.
-  std::string text;
-  char digits[3];
-  for (const auto byte : id.bytes()) {
-    std::snprintf(digits, sizeof digits, "%02x", byte);
-    text += digits;
-  }
-  return text;
-}
-
 postproject::Production open_production(const std::string &path,
-                                        const postproject::Uuid &asset_id) {
+                                        const postproject::AssetId &asset_id) {
   auto production = postproject::Production::open(path).value();
   const auto identity = postproject::ProductionId::fromString(
       "00000000-0000-0000-0000-000000000001").value();
@@ -69,7 +62,7 @@ postproject::Production open_production(const std::string &path,
   std::cout << "production " << production.id().value().toString().value() << '\n';
 
   if (production.containsAsset(asset_id).value()) {
-    std::cout << "asset " << format_uuid(asset_id) << " is present\n";
+    std::cout << "asset " << asset_id.toString().value() << " is present\n";
   }
   // assets() reads the whole set; use the paged overload for large productions.
   for (const auto &asset : production.assets().value()) {

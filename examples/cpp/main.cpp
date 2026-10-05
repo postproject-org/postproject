@@ -18,7 +18,7 @@ void report(const postproject::Error &error) {
 // with -fno-exceptions. POSTPROJECT_TRY_ASSIGN returns the error of a failed
 // Result and otherwise declares the value; POSTPROJECT_TRY does the same for
 // Result<void>.
-postproject::Result<postproject::Uuid> import_media(const std::string &output,
+postproject::Result<postproject::AssetId> import_media(const std::string &output,
                                                    const std::string &media) {
   // Owned handles are move-only; the macro moves the value out of its Result.
   POSTPROJECT_TRY_ASSIGN(
@@ -35,14 +35,14 @@ postproject::Result<postproject::Uuid> import_media(const std::string &output,
 
 // Invalid input does not fail when it is built; the consuming call reports it.
 bool rejects_invalid_metadata(postproject::Production &production,
-                              const postproject::Uuid &asset_id) {
+                              const postproject::AssetId &asset_id) {
   const auto duration = postproject::MetadataValue::decimal("twelve", 2);
   auto transaction = production.beginTransaction();
   if (!transaction.has_value()) {
     report(transaction.error());
     return false;
   }
-  const postproject::ObjectRef asset{postproject::ObjectKind::asset, asset_id};
+  const postproject::ObjectRef asset = postproject::ObjectRef::asset(asset_id);
   const auto added =
       transaction->addMetadataValue(asset, editorial, "duration", duration);
   return !added.has_value() &&

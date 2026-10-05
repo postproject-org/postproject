@@ -34,7 +34,7 @@ void write_file(const std::filesystem::path &path, const std::string &bytes) {
 }
 
 // [import-sequence]
-postproject::Uuid import_image_strip(postproject::Production &production,
+postproject::AssetId import_image_strip(postproject::Production &production,
                                      const std::string &directory) {
   // The sequence becomes the new asset's only original representation. The
   // directory and file naming become its locator; frames and rate its
@@ -54,7 +54,7 @@ postproject::Uuid import_image_strip(postproject::Production &production,
 
 // [add-representation]
 postproject::Uuid add_proxy(postproject::Production &production,
-                            const postproject::Uuid &asset_id,
+                            const postproject::AssetId &asset_id,
                             const std::string &proxy_path) {
   auto transaction = production.beginTransaction().value();
   // A path converts to a single-file source; MediaSource::file says so
@@ -69,7 +69,7 @@ postproject::Uuid add_proxy(postproject::Production &production,
 
 // [ordered-parts]
 postproject::Uuid add_spanned_clip(postproject::Production &production,
-                                   const postproject::Uuid &asset_id,
+                                   const postproject::AssetId &asset_id,
                                    const std::string &directory) {
   // Parts are stored in this order; every part of a span is required.
   const auto parts = postproject::MediaSource::orderedParts({
@@ -86,7 +86,7 @@ postproject::Uuid add_spanned_clip(postproject::Production &production,
 
 // [package-representation]
 postproject::Uuid add_package(postproject::Production &production,
-                              const postproject::Uuid &asset_id,
+                              const postproject::AssetId &asset_id,
                               const std::string &directory) {
   // A package needs at least one required member; sidecars may be optional.
   const auto members = postproject::MediaSource::package({
@@ -104,7 +104,7 @@ postproject::Uuid add_package(postproject::Production &production,
 // [representation-structure]
 std::vector<postproject::Representation>
 print_structure(const postproject::Production &production,
-                const postproject::Uuid &asset_id) {
+                const postproject::AssetId &asset_id) {
   std::vector<postproject::Representation> all;
   std::optional<std::string> cursor;
   do {
@@ -183,7 +183,7 @@ void cycle_media_root(postproject::Production &production,
 
 // [verify-resolution]
 std::size_t verify_contents(const postproject::Production &production,
-                            const postproject::Uuid &asset_id) {
+                            const postproject::AssetId &asset_id) {
   // Content mode re-fingerprints files at known locators instead of trusting
   // their presence.
   auto options = postproject::ResolutionOptions::create().value();
@@ -210,7 +210,7 @@ std::size_t verify_contents(const postproject::Production &production,
 // [resolve-scope]
 postproject::Result<std::optional<std::string>>
 find_nearby(const postproject::Production &production,
-            const std::vector<postproject::Uuid> &asset_ids,
+            const std::vector<postproject::AssetId> &asset_ids,
             const std::string &directory,
             const postproject::CancelToken &cancel_token) {
   // A search directory is an unnamed, machine-local place such as the project
@@ -245,7 +245,7 @@ find_nearby(const postproject::Production &production,
 // [relink-renamed-sequence]
 std::optional<postproject::SequenceNaming>
 relink_renamed_sequence(postproject::Production &production,
-                        const postproject::Uuid &asset_id,
+                        const postproject::AssetId &asset_id,
                         const std::string &directory) {
   auto options = postproject::ResolutionOptions::create().value();
   options.addSearchDirectory(directory).value();
@@ -376,7 +376,7 @@ observe_new_content(postproject::Production &production,
 // [resolution-issues]
 std::vector<postproject::AvailabilityIssue>
 report_issues(const postproject::Production &production,
-              const postproject::Uuid &asset_id) {
+              const postproject::AssetId &asset_id) {
   std::vector<postproject::AvailabilityIssue> all;
   for (const auto &representation : production.resolveAsset(asset_id).value()) {
     for (const auto &issue : representation.issues) {
@@ -402,7 +402,7 @@ report_issues(const postproject::Production &production,
 // [/resolution-issues]
 
 postproject::Uuid add_sequence(postproject::Production &production,
-                               const postproject::Uuid &asset_id,
+                               const postproject::AssetId &asset_id,
                                const std::string &directory) {
   postproject::ImageSequenceInput sequence{};
   sequence.directory = directory;

@@ -9,7 +9,7 @@
 namespace {
 
 // Propagates every failure with the public macros.
-postproject::Result<postproject::Uuid> import_media(const std::string &path,
+postproject::Result<postproject::AssetId> import_media(const std::string &path,
                                                    const std::string &media) {
   POSTPROJECT_TRY_ASSIGN(auto production,
                          postproject::Production::create(path, "Propagation"));
@@ -89,7 +89,7 @@ int main(int argc, char **argv) {
   // Invalid input is reported by the operation that consumes it.
   const auto invalid = postproject::MetadataValue::decimal("not a number", 2);
   const auto rejected = transaction->addMetadataValue(
-      {postproject::ObjectKind::asset, *asset_id}, "com.example", "amount",
+      postproject::ObjectRef::asset(*asset_id), "com.example", "amount",
       invalid);
   if (rejected.has_value()) {
     return 9;

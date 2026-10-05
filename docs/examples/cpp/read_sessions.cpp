@@ -17,9 +17,9 @@ static void exercise(const std::string &path, const std::string &media) {
     throw std::runtime_error("empty planning request");
   auto edit = empty.edit().value();
   const auto asset = edit.importMedia(media).value();
-  edit.addExternalIdentifier({postproject::ObjectKind::asset, asset},
+  edit.addExternalIdentifier(postproject::ObjectRef::asset(asset),
       {"https://example.com/id", "camera", std::nullopt}).value();
-  edit.addMetadataValue({postproject::ObjectKind::asset, asset},
+  edit.addMetadataValue(postproject::ObjectRef::asset(asset),
       "https://example.com/editorial", "title",
       postproject::MetadataValue::plainString("Camera")).value();
   const auto receipt = edit.commitWithReceipt().value();
@@ -59,7 +59,7 @@ static void exercise(const std::string &path, const std::string &media) {
     throw std::runtime_error("coherent artifact reports");
   if (view.dependencySet(representation.id).value().has_value() ||
       !view.dependencies(representation.id, 64, 1000, 10).value().items.empty() ||
-      !view.dependents({postproject::ObjectKind::asset, asset}, 64, 1000, 10).value().items.empty())
+      !view.dependents(postproject::ObjectRef::asset(asset), 64, 1000, 10).value().items.empty())
     throw std::runtime_error("coherent dependency queries");
   if (!view.ancestors(representation.id, 64, 1000, 10).value().items.empty() ||
       !view.descendants(representation.id, 64, 1000, 10).value().items.empty() ||
@@ -94,7 +94,7 @@ static void exercise(const std::string &path, const std::string &media) {
       parsed.revision->id != base.revision->id ||
       postproject::DecisionBase::fromToken(token + ":extra").has_value())
     throw std::runtime_error("scoped decision token");
-  const postproject::ObjectRef target{postproject::ObjectKind::asset, asset};
+  const postproject::ObjectRef target = postproject::ObjectRef::asset(asset);
   const auto title = view.queryMetadata("https://example.com/editorial", "title", 10).value();
   if (title.items.size() != 1 ||
       title.items[0].value.getIf<postproject::MetadataString>()->value != "Camera" ||

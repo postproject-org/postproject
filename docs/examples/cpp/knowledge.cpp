@@ -25,7 +25,7 @@ void require(bool condition, const char *message) {
 }
 
 // [known-media-adoption]
-postproject::Uuid find_known_media(const std::string &production_path,
+postproject::AssetId find_known_media(const std::string &production_path,
                                    const std::string &media_path) {
   // A second host or process opens the same production explicitly.
   const auto production = postproject::Production::open(production_path).value();
@@ -50,8 +50,8 @@ postproject::Uuid find_known_media(const std::string &production_path,
 // [remove-identifier]
 std::vector<postproject::ExternalIdentifier>
 replace_reel_name(postproject::Production &production,
-                  const postproject::Uuid &asset_id) {
-  const postproject::ObjectRef target{postproject::ObjectKind::asset, asset_id};
+                  const postproject::AssetId &asset_id) {
+  const postproject::ObjectRef target = postproject::ObjectRef::asset(asset_id);
   const postproject::ExternalIdentifier reel{"com.example.reel", "A001",
                                              std::nullopt};
   const postproject::ExternalIdentifier serial{"com.example.camera.serial",
@@ -84,10 +84,10 @@ replace_reel_name(postproject::Production &production,
 constexpr const char *editorial = "https://example.com/ns/editorial/1";
 
 void add_editorial_metadata(postproject::Production &production,
-                            const postproject::Uuid &asset_id,
+                            const postproject::AssetId &asset_id,
                             const postproject::Uuid &representation_id) {
   using postproject::MetadataValue;
-  const postproject::ObjectRef asset{postproject::ObjectKind::asset, asset_id};
+  const postproject::ObjectRef asset = postproject::ObjectRef::asset(asset_id);
 
   std::vector<MetadataValue> keywords;
   keywords.push_back(MetadataValue::plainString("interview"));
@@ -181,8 +181,7 @@ int main(int argc, char **argv) {
             "second handle found imported asset");
     const auto representation_id =
         production.representations(asset_id).value().front().id;
-    const postproject::ObjectRef asset{postproject::ObjectKind::asset,
-                                       asset_id};
+    const postproject::ObjectRef asset = postproject::ObjectRef::asset(asset_id);
 
     const auto remaining = replace_reel_name(production, asset_id);
     require(remaining.size() == 1 &&
