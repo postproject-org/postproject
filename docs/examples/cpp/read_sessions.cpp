@@ -19,6 +19,10 @@ static void exercise(const std::string &path, const std::string &media) {
       !empty.assets(10).value().items.empty())
     throw std::runtime_error("coherent empty view or receipt");
   auto view = production.readSession().value();
+  if (!view.unresolvedMedia(10).value().items.empty() ||
+      view.objectsChangedSince(0, 10).value().items.empty() ||
+      view.representationsUnderMediaRoot("missing", 10).error().code() != postproject::ErrorCode::not_found)
+    throw std::runtime_error("coherent object filters");
   const auto copied = view.asset(asset).value();
   const auto representations = view.representations(asset, 10).value();
   if (representations.items.size() != 1)
