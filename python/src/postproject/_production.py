@@ -1668,23 +1668,7 @@ class Production:
     def _activity_page(
         self, function: Callable[..., int], *arguments: object
     ) -> QueryPage[Activity]:
-        handle = ctypes.POINTER(ActivitySet)()
-        error = ctypes.POINTER(Error)()
-        status = function(*arguments, ctypes.byref(handle), ctypes.byref(error))
-        self._native.check(status, error)
-        if not handle:
-            raise RuntimeError("native activity query returned no result set")
-        try:
-            count = self._native.lib.pp_activity_set_count(handle)
-            return QueryPage(
-                tuple(
-                    _activity_at(self._native, handle, index)
-                    for index in range(int(count))
-                ),
-                _decode_optional(self._native.lib.pp_activity_set_next_cursor(handle)),
-            )
-        finally:
-            self._native.lib.pp_activity_set_release(handle)
+        return _read_activity_page(self._native, function, *arguments)
 
     def _object_query_page(
         self,
@@ -1932,6 +1916,25 @@ def _metadata_set(
         native.lib.pp_metadata_set_release(handle)
 
 
+def _read_activity_page(
+    native: NativeLibrary, function: Callable[..., int], *arguments: object
+) -> QueryPage[Activity]:
+    handle = ctypes.POINTER(ActivitySet)()
+    error = ctypes.POINTER(Error)()
+    status = function(*arguments, ctypes.byref(handle), ctypes.byref(error))
+    native.check(status, error)
+    if not handle:
+        raise RuntimeError("native activity query returned no result set")
+    try:
+        count = native.lib.pp_activity_set_count(handle)
+        return QueryPage(
+            tuple(_activity_at(native, handle, index) for index in range(int(count))),
+            _decode_optional(native.lib.pp_activity_set_next_cursor(handle)),
+        )
+    finally:
+        native.lib.pp_activity_set_release(handle)
+
+
 def _read_dependency_query(
     native: NativeLibrary, function: Callable[..., int], *arguments: object
 ) -> QueryPage[DependencyMatch]:
@@ -2120,6 +2123,40 @@ class ReadSession:
             None if native_source is None else ctypes.byref(native_source),
             max_depth,
             max_representations,
+            limit,
+            _optional_text(cursor),
+        )
+
+    def outputs_by_activity_kind(
+        self, kind: str, *, limit: int, cursor: str | None = None
+    ) -> QueryPage[RepresentationId]:
+        """Return outputs produced by activities of one exact kind."""
+
+        self._require_open()
+        return _object_query_page(
+            self._native,
+            self._native.lib.pp_read_session_outputs_by_activity_kind,
+            _representation_match,
+            self._handle,
+            _utf8(kind, "activity kind"),
+            limit,
+            _optional_text(cursor),
+        )
+
+    def outputs_by_tool(
+        self, tool: ToolIdentity, *, limit: int, cursor: str | None = None
+    ) -> QueryPage[RepresentationId]:
+        """Return outputs produced by activities with one exact tool identity."""
+
+        self._require_open()
+        return _object_query_page(
+            self._native,
+            self._native.lib.pp_read_session_outputs_by_tool,
+            _representation_match,
+            self._handle,
+            _utf8(tool.name, "tool name"),
+            _optional_text(tool.version),
+            _optional_text(tool.uri),
             limit,
             _optional_text(cursor),
         )

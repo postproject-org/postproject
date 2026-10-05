@@ -27,6 +27,7 @@ from postproject import (
     Production,
     RepresentationKind,
     RepresentationRef,
+    ToolIdentity,
     VerificationMode,
     file_locator,
     fingerprint_file,
@@ -44,6 +45,7 @@ class ReadSessionTests(unittest.TestCase):
                     edit.commit()
                 with production.read_session() as before:
                     original = before.representations_page(asset, limit=1).items[0]
+                    tool = ToolIdentity("Example", "1", "https://example.com/tool")
                     with before.edit() as edit:
                         proxy = edit.add_representation(
                             asset, RepresentationKind.PROXY, media
@@ -51,6 +53,7 @@ class ReadSessionTests(unittest.TestCase):
                         edit.create_activity(
                             ActivitySpec(
                                 "example:render",
+                                tool=tool,
                                 inputs=(ActivityEdge(original.id),),
                                 outputs=(ActivityEdge(proxy),),
                             )
@@ -62,6 +65,13 @@ class ReadSessionTests(unittest.TestCase):
                         ).items,
                         (),
                     )
+                    self.assertEqual(
+                        before.outputs_by_activity_kind(
+                            "example:render", limit=10
+                        ).items,
+                        (),
+                    )
+                    self.assertEqual(before.outputs_by_tool(tool, limit=10).items, ())
                 with production.read_session() as retained:
                     ancestors = retained.provenance_ancestors_page(
                         proxy, max_depth=64, max_representations=100, limit=10
@@ -86,6 +96,21 @@ class ReadSessionTests(unittest.TestCase):
                     self.assertEqual(
                         retained.stale_artifacts(
                             max_depth=64, max_representations=100, limit=10
+                        ).items,
+                        (),
+                    )
+                    self.assertEqual(
+                        retained.outputs_by_activity_kind(
+                            "example:render", limit=10
+                        ).items,
+                        (proxy,),
+                    )
+                    self.assertEqual(
+                        retained.outputs_by_tool(tool, limit=10).items, (proxy,)
+                    )
+                    self.assertEqual(
+                        retained.outputs_by_tool(
+                            ToolIdentity("Example", "2", tool.uri), limit=10
                         ).items,
                         (),
                     )
@@ -118,6 +143,10 @@ class ReadSessionTests(unittest.TestCase):
                         )
                 self.assertEqual(ancestors.items[0].representation_id, original.id)
                 for operation in (
+                    lambda: retained.outputs_by_activity_kind(
+                        "example:render", limit=1
+                    ),
+                    lambda: retained.outputs_by_tool(tool, limit=1),
                     lambda: retained.provenance_ancestors_page(
                         proxy, max_depth=64, max_representations=100, limit=1
                     ),

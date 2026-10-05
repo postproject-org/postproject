@@ -17,6 +17,7 @@ from postproject import (
     NotFoundError,
     Production,
     RepresentationKind,
+    ToolIdentity,
     file_locator,
     fingerprint_file,
 )
@@ -94,6 +95,8 @@ def exercise(path: Path, media: Path) -> None:
                 ).items
                 == ()
             )
+            assert view.outputs_by_activity_kind("example:render", limit=10).items == ()
+            assert view.outputs_by_tool(ToolIdentity("Example"), limit=10).items == ()
             resources = view.resources_page(representation.id, limit=10)
             assert len(resources.items) == 1
             resource = resources.items[0]
