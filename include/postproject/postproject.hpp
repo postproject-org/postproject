@@ -3783,6 +3783,152 @@ private:
 
 class ReadSession final {
 public:
+  [[nodiscard]] Result<std::vector<MediaRoot>> mediaRoots() const {
+    pp_media_root_set_t *raw_roots = nullptr;
+    pp_error_t *error = nullptr;
+    const pp_error_code_t status =
+        pp_read_session_media_roots(session_, &raw_roots, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    detail::MediaRootSetHandle roots(raw_roots);
+
+    std::vector<MediaRoot> result;
+    const std::uint64_t count = pp_media_root_set_count(roots.get());
+    result.reserve(static_cast<std::size_t>(count));
+    for (std::uint64_t index = 0; index < count; ++index) {
+      pp_uuid_t id{};
+      const char *name = nullptr;
+      const char *label = nullptr;
+      const char *legacy_uri = nullptr;
+      std::int32_t priority = 0;
+      std::uint8_t enabled = 0;
+      pp_error_t *item_error = nullptr;
+      const pp_error_code_t item_status = pp_media_root_set_get(
+          roots.get(), index, &id, &name, &label, &legacy_uri, &priority,
+          &enabled, &item_error);
+      POSTPROJECT_TRY(detail::check(item_status, item_error));
+      if (name == nullptr) {
+        return Error(ErrorCode::internal, "media root has no name");
+      }
+      result.push_back(
+          {detail::uuid(id), std::string(name),
+           label != nullptr ? std::optional<std::string>(std::string(label))
+                            : std::nullopt,
+           legacy_uri != nullptr
+               ? std::optional<std::string>(std::string(legacy_uri))
+               : std::nullopt,
+           priority, enabled != 0});
+    }
+    return result;
+  }
+
+  [[nodiscard]] Result<std::vector<ExternalIdentifier>>
+  externalIdentifiers(const ObjectRef &target) const {
+    const pp_object_ref_t native_target = detail::native_object_ref(target);
+    pp_external_identifier_set_t *raw_identifiers = nullptr;
+    pp_error_t *error = nullptr;
+    const pp_error_code_t status = pp_read_session_external_identifiers(
+        session_, &native_target, &raw_identifiers, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    detail::ExternalIdentifierSetHandle identifiers(raw_identifiers);
+
+    std::vector<ExternalIdentifier> result;
+    const std::uint64_t count =
+        pp_external_identifier_set_count(identifiers.get());
+    result.reserve(static_cast<std::size_t>(count));
+    for (std::uint64_t index = 0; index < count; ++index) {
+      const char *scheme = nullptr;
+      const char *value = nullptr;
+      const char *qualifier = nullptr;
+      pp_error_t *item_error = nullptr;
+      const pp_error_code_t item_status = pp_external_identifier_set_get(
+          identifiers.get(), index, &scheme, &value, &qualifier, &item_error);
+      POSTPROJECT_TRY(detail::check(item_status, item_error));
+      result.push_back(
+          {scheme != nullptr ? std::string(scheme) : std::string(),
+           value != nullptr ? std::string(value) : std::string(),
+           qualifier != nullptr
+               ? std::optional<std::string>(std::string(qualifier))
+               : std::nullopt});
+    }
+    return result;
+  }
+
+  [[nodiscard]] Result<std::vector<ObjectRef>> findByExternalIdentifier(
+      std::string_view scheme, std::string_view value,
+      std::optional<std::string_view> qualifier = std::nullopt) const {
+    POSTPROJECT_TRY_ASSIGN(const std::string native_scheme,
+                           detail::checked_string(scheme, "scheme"));
+    POSTPROJECT_TRY_ASSIGN(const std::string native_value,
+                           detail::checked_string(value, "value"));
+    std::optional<std::string> native_qualifier;
+    if (qualifier.has_value()) {
+      POSTPROJECT_TRY_ASSIGN(native_qualifier,
+                             detail::checked_string(*qualifier, "qualifier"));
+    }
+    pp_object_ref_set_t *raw_objects = nullptr;
+    pp_error_t *error = nullptr;
+    const pp_error_code_t status = pp_read_session_find_by_external_identifier(
+        session_, native_scheme.c_str(), native_value.c_str(),
+        native_qualifier.has_value() ? native_qualifier->c_str() : nullptr,
+        &raw_objects, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    detail::ObjectRefSetHandle objects(raw_objects);
+
+    std::vector<ObjectRef> result;
+    const std::uint64_t count = pp_object_ref_set_count(objects.get());
+    result.reserve(static_cast<std::size_t>(count));
+    for (std::uint64_t index = 0; index < count; ++index) {
+      pp_object_ref_t object{};
+      pp_error_t *item_error = nullptr;
+      const pp_error_code_t item_status =
+          pp_object_ref_set_get(objects.get(), index, &object, &item_error);
+      POSTPROJECT_TRY(detail::check(item_status, item_error));
+      result.push_back(detail::object_ref(object));
+    }
+    return result;
+  }
+
+  [[nodiscard]] Result<QueryPage<KnownMediaMatch>> findKnownMediaByLocator(
+      const LocatorIdentity &locator, std::uint32_t limit,
+      std::optional<std::string_view> cursor = std::nullopt) const {
+    POSTPROJECT_TRY_ASSIGN(const std::string uri,
+                           detail::checked_string(locator.uri, "locator URI"));
+    POSTPROJECT_TRY_ASSIGN(
+        detail::NativeNaming naming,
+        detail::NativeNaming::make(locator.sequence_naming));
+    POSTPROJECT_TRY_ASSIGN(const std::optional<std::string> checked_cursor,
+                           detail::checked_cursor(cursor));
+    pp_known_media_set_t *raw_matches = nullptr;
+    pp_error_t *error = nullptr;
+    const pp_error_code_t status = pp_read_session_find_known_media_by_locator(
+        session_, uri.c_str(), naming.get(), limit,
+        detail::optional_c_str(checked_cursor), &raw_matches, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    return detail::known_media_page(
+        detail::KnownMediaSetHandle(raw_matches));
+  }
+
+  [[nodiscard]] Result<QueryPage<KnownMediaMatch>> findKnownMediaByFingerprint(
+      const Fingerprint &fingerprint, std::uint32_t limit,
+      std::optional<std::string_view> cursor = std::nullopt) const {
+    POSTPROJECT_TRY_ASSIGN(
+        const std::string algorithm,
+        detail::checked_string(fingerprint.algorithm, "fingerprint algorithm"));
+    POSTPROJECT_TRY_ASSIGN(const std::optional<std::string> checked_cursor,
+                           detail::checked_cursor(cursor));
+    pp_known_media_set_t *raw_matches = nullptr;
+    pp_error_t *error = nullptr;
+    const pp_error_code_t status =
+        pp_read_session_find_known_media_by_fingerprint(
+            session_, algorithm.c_str(), fingerprint.version,
+            fingerprint.value.data(),
+            static_cast<std::uint64_t>(fingerprint.value.size()), limit,
+            detail::optional_c_str(checked_cursor), &raw_matches, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    return detail::known_media_page(
+        detail::KnownMediaSetHandle(raw_matches));
+  }
+
   ReadSession(const ReadSession &) = delete;
   ReadSession &operator=(const ReadSession &) = delete;
   ReadSession(ReadSession &&other) noexcept : session_(std::exchange(other.session_, nullptr)) {}

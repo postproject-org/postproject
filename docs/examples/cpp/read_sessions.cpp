@@ -9,6 +9,8 @@ static void exercise(const std::string &path, const std::string &media) {
   auto empty = production.readSession().value();
   auto edit = empty.edit().value();
   const auto asset = edit.importMedia(media).value();
+  edit.addExternalIdentifier({postproject::ObjectKind::asset, asset},
+      {"https://example.com/id", "camera", std::nullopt}).value();
   const auto receipt = edit.commitWithReceipt().value();
   if (!receipt.revision || receipt.revision->sequence != 1 ||
       !empty.assets(10).value().items.empty())
@@ -20,6 +22,13 @@ static void exercise(const std::string &path, const std::string &media) {
     throw std::runtime_error("representation page");
   const auto representation = view.representation(representations.items[0].id).value();
   const auto base = view.decisionBase().value();
+  const postproject::ObjectRef target{postproject::ObjectKind::asset, asset};
+  if (!view.mediaRoots().value().empty() ||
+      view.externalIdentifiers(target).value()[0].value != "camera" ||
+      view.findByExternalIdentifier("https://example.com/id", "camera").value().size() != 1 ||
+      view.findKnownMediaByLocator({postproject::fileLocator(media).value(), std::nullopt}, 10).value().items[0].asset_id != asset ||
+      view.findKnownMediaByFingerprint(postproject::fingerprintFile(media).value(), 10).value().items[0].asset_id != asset)
+    throw std::runtime_error("coherent lookup projections");
   auto later = production.edit(base).value();
   const auto noop = later.commitWithReceipt().value();
   if (noop.revision || copied.id != asset || representation.asset_id != asset)
