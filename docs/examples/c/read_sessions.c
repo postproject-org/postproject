@@ -119,6 +119,15 @@ static int exercise(const char *path, const char *media) {
   if (!parsed.has_revision || parsed.revision_sequence != base.revision_sequence ||
       memcmp(parsed.revision_id.bytes, base.revision_id.bytes, 16)) goto cleanup;
   pp_string_release(token); token = NULL;
+  CHECK(pp_read_session_unresolved_media(view, 10, NULL, &resource_page, &error));
+  if (pp_object_query_set_count(resource_page)) goto cleanup;
+  pp_object_query_set_release(resource_page); resource_page = NULL;
+  CHECK(pp_read_session_objects_changed_since(view, 0, 10, NULL, &resource_page, &error));
+  if (!pp_object_query_set_count(resource_page)) goto cleanup;
+  pp_object_query_set_release(resource_page); resource_page = NULL;
+  if (pp_read_session_representations_under_media_root(view, "missing", 10, NULL,
+      &representations, &error) != PP_ERROR_NOT_FOUND || representations) goto cleanup;
+  pp_error_release(error); error = NULL;
   CHECK(pp_read_session_asset(view, &asset, &assets, &error));
   if (pp_asset_set_count(assets) != 1) goto cleanup;
   CHECK(pp_read_session_representations_page(view, &asset, 10, NULL, &representations, &error));

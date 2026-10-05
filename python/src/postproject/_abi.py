@@ -747,13 +747,16 @@ EXPORTED_SYMBOLS = (
     "pp_read_session_locators_page",
     "pp_read_session_media_roots",
     "pp_read_session_metadata",
+    "pp_read_session_objects_changed_since",
     "pp_read_session_query_metadata",
     "pp_read_session_release",
     "pp_read_session_representation",
     "pp_read_session_representations_page",
+    "pp_read_session_representations_under_media_root",
     "pp_read_session_representations_using_resource",
     "pp_read_session_resolve_assets",
     "pp_read_session_resources_page",
+    "pp_read_session_unresolved_media",
     "pp_read_session_verify_resource",
     "pp_regeneration_plan_set_count",
     "pp_regeneration_plan_set_get",
@@ -846,6 +849,12 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_read_session_evaluate_artifact.restype = ErrorCode
     lib.pp_read_session_artifact_reproducibility.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.POINTER(ArtifactReproducibility)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_read_session_artifact_reproducibility.restype = ErrorCode
+    lib.pp_read_session_representations_under_media_root.argtypes = [ctypes.POINTER(ReadSession), ctypes.c_char_p, ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(RepresentationSet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_read_session_representations_under_media_root.restype = ErrorCode
+    lib.pp_read_session_unresolved_media.argtypes = [ctypes.POINTER(ReadSession), ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(ObjectQuerySet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_read_session_unresolved_media.restype = ErrorCode
+    lib.pp_read_session_objects_changed_since.argtypes = [ctypes.POINTER(ReadSession), ctypes.c_uint64, ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(ObjectQuerySet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_read_session_objects_changed_since.restype = ErrorCode
     lib.pp_read_session_dependency_set.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.POINTER(DependencySet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_read_session_dependency_set.restype = ErrorCode
     lib.pp_read_session_dependencies.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(Uuid), ctypes.c_uint32, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(DependencyQuerySet)), ctypes.POINTER(ctypes.POINTER(Error))]

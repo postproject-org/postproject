@@ -34,6 +34,82 @@ unsafe fn forward_read(
     })
 }
 
+/// Copies a bounded page of representations associated with a logical root.
+///
+/// # Safety
+/// Session must be live; strings null or UTF-8, outputs writable.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_read_session_representations_under_media_root(
+    session: *const PpReadSession,
+    root_name: *const c_char,
+    limit: u32,
+    cursor: *const c_char,
+    out_representations: *mut *mut PpRepresentationSet,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: The delegate validates pointers and contains panics.
+    unsafe {
+        forward_read(session, out_error, |reader| {
+            crate::representations::pp_production_representations_under_media_root(
+                reader,
+                root_name,
+                limit,
+                cursor,
+                out_representations,
+                out_error,
+            )
+        })
+    }
+}
+
+/// Copies a bounded page of unresolved representation knowledge.
+///
+/// # Safety
+/// Session must be live; strings null or UTF-8, outputs writable.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_read_session_unresolved_media(
+    session: *const PpReadSession,
+    limit: u32,
+    cursor: *const c_char,
+    out_objects: *mut *mut crate::PpObjectQuerySet,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: The delegate validates pointers and contains panics.
+    unsafe {
+        forward_read(session, out_error, |reader| {
+            crate::pp_production_unresolved_media(reader, limit, cursor, out_objects, out_error)
+        })
+    }
+}
+
+/// Copies changed objects through the pinned journal head.
+///
+/// # Safety
+/// Session must be live; strings null or UTF-8, outputs writable.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_read_session_objects_changed_since(
+    session: *const PpReadSession,
+    sequence: u64,
+    limit: u32,
+    cursor: *const c_char,
+    out_objects: *mut *mut crate::PpObjectQuerySet,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: The delegate validates pointers and contains panics.
+    unsafe {
+        forward_read(session, out_error, |reader| {
+            crate::pp_production_objects_changed_since(
+                reader,
+                sequence,
+                limit,
+                cursor,
+                out_objects,
+                out_error,
+            )
+        })
+    }
+}
+
 /// Copies recorded dependency knowledge, preserving absence versus an empty set.
 ///
 /// # Safety
