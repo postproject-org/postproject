@@ -386,6 +386,37 @@ private:
   Bytes bytes_;
 };
 
+// A production identity has standard value semantics. Explicit UUID conversion
+// preserves bytes; existence and membership remain operation checks.
+class ProductionId final {
+public:
+  constexpr explicit ProductionId(Uuid value) noexcept : value_(value) {}
+  constexpr explicit ProductionId(Uuid::Bytes bytes) noexcept : value_(bytes) {}
+
+  [[nodiscard]] constexpr Uuid asUuid() const noexcept { return value_; }
+  [[nodiscard]] constexpr const Uuid::Bytes &bytes() const noexcept {
+    return value_.bytes();
+  }
+  [[nodiscard]] static Result<ProductionId> fromString(std::string_view text);
+  [[nodiscard]] Result<std::string> toString() const;
+
+  friend constexpr bool operator==(const ProductionId &left,
+                                   const ProductionId &right) noexcept {
+    return left.value_ == right.value_;
+  }
+  friend constexpr bool operator!=(const ProductionId &left,
+                                   const ProductionId &right) noexcept {
+    return !(left == right);
+  }
+  friend bool operator<(const ProductionId &left,
+                        const ProductionId &right) noexcept {
+    return left.bytes() < right.bytes();
+  }
+
+private:
+  Uuid value_;
+};
+
 enum class ObjectKind : std::uint32_t {
   production = PP_OBJECT_PRODUCTION,
   asset = PP_OBJECT_ASSET,
@@ -2309,6 +2340,29 @@ candidate_evidence(const pp_resolution_set_t *resolutions,
 }
 
 } // namespace detail
+
+inline Result<ProductionId> ProductionId::fromString(std::string_view text) {
+  POSTPROJECT_TRY_ASSIGN(const std::string checked,
+                         detail::checked_string(text, "production ID"));
+  pp_production_id_t id{};
+  pp_error_t *error = nullptr;
+  const auto status = pp_production_id_parse(checked.c_str(), &id, &error);
+  POSTPROJECT_TRY(detail::check(status, error));
+  Uuid::Bytes bytes{};
+  std::copy(std::begin(id.bytes), std::end(id.bytes), bytes.begin());
+  return ProductionId(bytes);
+}
+
+inline Result<std::string> ProductionId::toString() const {
+  pp_production_id_t id{};
+  std::copy(bytes().begin(), bytes().end(), std::begin(id.bytes));
+  char *text = nullptr;
+  pp_error_t *error = nullptr;
+  const auto status = pp_production_id_format(id, &text, &error);
+  detail::StringHandle owned(text);
+  POSTPROJECT_TRY(detail::check(status, error));
+  return std::string(owned.get());
+}
 
 inline Result<std::string> HostObjectBinding::toString() const {
   const pp_uuid_t native_production_id = detail::native_uuid(production_id);
@@ -5758,5 +5812,13 @@ fingerprintFile(std::string_view path) {
 }
 
 } // namespace postproject
+
+template <> struct std::hash<postproject::ProductionId> {
+  std::size_t operator()(const postproject::ProductionId &id) const noexcept {
+    const auto &bytes = id.bytes();
+    return std::hash<std::string_view>{}(std::string_view(
+        reinterpret_cast<const char *>(bytes.data()), bytes.size()));
+  }
+};
 
 #endif

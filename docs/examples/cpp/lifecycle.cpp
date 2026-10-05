@@ -46,6 +46,11 @@ std::string format_uuid(const postproject::Uuid &id) {
 postproject::Production open_production(const std::string &path,
                                         const postproject::Uuid &asset_id) {
   auto production = postproject::Production::open(path).value();
+  const auto identity = postproject::ProductionId::fromString(
+      "00000000-0000-0000-0000-000000000001").value();
+  require(identity.toString().value() == "00000000-0000-0000-0000-000000000001",
+          "typed production identity round trip");
+  require(identity.asUuid().bytes() == identity.bytes(), "explicit UUID bytes");
   std::cout << "production " << format_uuid(production.id().value()) << '\n';
 
   if (production.containsAsset(asset_id).value()) {
