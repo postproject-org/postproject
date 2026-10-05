@@ -97,5 +97,13 @@ generated C coverage and strict Sphinx pass after enabling STL support and
 distinguishing the C production-ID tag from its identity-read function.
 C/Rust/ctypes layouts agree. Final candidate qualification remains open.
 
+The journal follow-up at `95e2f51` adds retained heads, bounded revision pages
+and filtered pages: 37 native read queries and 277 exports. SQLite reuses an
+existing pinned transaction for filtered reads; live reads retain their own
+short snapshot. Five storage view tests, five live revision tests, thirteen
+Python view regressions and all three installed coherent recipes pass.
+Storage/FFI Clippy, source Ruff/ty, example coverage and direct C failure-output
+checks pass. Full checkpoint gates above predate this journal follow-up.
+
 Repository inputs and migration status are in
 [`api-safety-repositories.md`](api-safety-repositories.md).
