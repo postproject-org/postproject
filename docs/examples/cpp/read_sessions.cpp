@@ -11,6 +11,9 @@ static void exercise(const std::string &path, const std::string &media) {
   const auto asset = edit.importMedia(media).value();
   edit.addExternalIdentifier({postproject::ObjectKind::asset, asset},
       {"https://example.com/id", "camera", std::nullopt}).value();
+  edit.addMetadataValue({postproject::ObjectKind::asset, asset},
+      "https://example.com/editorial", "title",
+      postproject::MetadataValue::plainString("Camera")).value();
   const auto receipt = edit.commitWithReceipt().value();
   if (!receipt.revision || receipt.revision->sequence != 1 ||
       !empty.assets(10).value().items.empty())
@@ -31,6 +34,12 @@ static void exercise(const std::string &path, const std::string &media) {
     throw std::runtime_error("locator and resource ownership pages");
   const auto base = view.decisionBase().value();
   const postproject::ObjectRef target{postproject::ObjectKind::asset, asset};
+  const auto title = view.queryMetadata("https://example.com/editorial", "title", 10).value();
+  if (title.items.size() != 1 ||
+      title.items[0].value.getIf<postproject::MetadataString>()->value != "Camera" ||
+      view.queryMetadata("https://example.com/editorial", "title",
+          postproject::MetadataValue::plainString("Other"), 10).value().items.size() != 0)
+    throw std::runtime_error("coherent metadata queries");
   if (!view.mediaRoots().value().empty() ||
       view.externalIdentifiers(target).value()[0].value != "camera" ||
       view.findByExternalIdentifier("https://example.com/id", "camera").value().size() != 1 ||

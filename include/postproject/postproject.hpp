@@ -3796,6 +3796,24 @@ private:
 
 class ReadSession final {
 public:
+  // Assertions of one property, optionally restricted to an exact scalar value.
+  [[nodiscard]] Result<QueryPage<MetadataAssertion>>
+  queryMetadata(std::string_view vocabulary, std::string_view property,
+                std::uint32_t limit,
+                std::optional<std::string_view> cursor = std::nullopt) const {
+    return query_metadata_impl(vocabulary, property, nullptr, limit, cursor);
+  }
+
+  [[nodiscard]] Result<QueryPage<MetadataAssertion>>
+  queryMetadata(std::string_view vocabulary, std::string_view property,
+                const MetadataValue &exact_value, std::uint32_t limit,
+                std::optional<std::string_view> cursor = std::nullopt) const {
+    POSTPROJECT_TRY_ASSIGN(const detail::MetadataInputHandle native_value,
+                           detail::native_metadata_input(exact_value));
+    return query_metadata_impl(vocabulary, property, native_value.get(), limit,
+                               cursor);
+  }
+
   // Representations that use a resource, in identity order.
   [[nodiscard]] Result<QueryPage<Representation>> representationsUsingResource(
       const Uuid &resource_id, std::uint32_t limit,
@@ -4091,6 +4109,29 @@ public:
     return detail::representation(representations.get(), 0);
   }
 private:
+  [[nodiscard]] Result<QueryPage<MetadataAssertion>>
+  query_metadata_impl(std::string_view vocabulary, std::string_view property,
+                      const pp_metadata_input_t *exact_value,
+                      std::uint32_t limit,
+                      const std::optional<std::string_view> &cursor) const {
+    POSTPROJECT_TRY_ASSIGN(
+        const std::string native_vocabulary,
+        detail::checked_string(vocabulary, "metadata vocabulary"));
+    POSTPROJECT_TRY_ASSIGN(
+        const std::string native_property,
+        detail::checked_string(property, "metadata property"));
+    POSTPROJECT_TRY_ASSIGN(const std::optional<std::string> checked_cursor,
+                           detail::checked_cursor(cursor));
+    pp_metadata_set_t *raw_metadata = nullptr;
+    pp_error_t *error = nullptr;
+    const pp_error_code_t status = pp_read_session_query_metadata(
+        session_, native_vocabulary.c_str(), native_property.c_str(),
+        exact_value, limit, detail::optional_c_str(checked_cursor),
+        &raw_metadata, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    return detail::metadata_page(detail::MetadataSetHandle(raw_metadata));
+  }
+
   friend class Production;
   explicit ReadSession(pp_read_session_t *session) noexcept : session_(session) {}
   pp_read_session_t *session_ = nullptr;
