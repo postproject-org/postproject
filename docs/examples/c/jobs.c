@@ -162,6 +162,20 @@ static pp_error_code_t claim_renew_release(pp_production_t *production,
   pp_transaction_release(transaction);
   transaction = NULL;
 
+  /* Claim attribution is a checked projection of the claimed state. */
+  pp_job_set_t *claimed = NULL;
+  pp_job_claim_t detail;
+  if (status == PP_OK) {
+    status = pp_production_job(production, job_id, &claimed, error);
+  }
+  if (status == PP_OK) {
+    status = pp_job_set_get_claim(claimed, 0, &detail, error);
+  }
+  if (status == PP_OK && memcmp(&detail.id, &claim_id, sizeof claim_id) != 0) {
+    status = PP_ERROR_INTERNAL;
+  }
+  pp_job_set_release(claimed);
+
   /* Renewal and release both require the claim token. */
   if (status == PP_OK) {
     status = pp_production_begin_transaction(production, &transaction, error);
@@ -449,6 +463,7 @@ static pp_error_code_t create_production(const char *path, const char *media,
 }
 
 /* Reloads one job and checks its state and state-specific fields. */
+/* [inspect-job-status] */
 static pp_error_code_t expect_job(const pp_production_t *production,
                                   const pp_uuid_t *job_id,
                                   pp_job_state_t expected,
@@ -468,16 +483,20 @@ static pp_error_code_t expect_job(const pp_production_t *production,
     if (expected == PP_JOB_REQUESTED) {
       found = found && job.claim_tool_name == NULL;
     } else if (expected == PP_JOB_FAILED) {
+      const char *diagnostic = NULL;
+      status = pp_job_set_get_failure(jobs, i, &diagnostic, error);
       found =
-          found && job.failure_diagnostic != NULL &&
-          strcmp(job.failure_diagnostic, "encoder exited with status 1") == 0;
+          found && status == PP_OK && diagnostic != NULL &&
+          strcmp(diagnostic, "encoder exited with status 1") == 0;
     } else if (expected == PP_JOB_SUCCEEDED) {
       const pp_uuid_t zero = {{0}};
+      pp_job_completion_t completion;
+      status = pp_job_set_get_completion(jobs, i, &completion, error);
       found =
-          found &&
-          memcmp(&job.completion_representation_id, completion_representation,
-                 sizeof job.completion_representation_id) == 0 &&
-          memcmp(&job.completion_activity_id, &zero, sizeof zero) != 0;
+          found && status == PP_OK &&
+          memcmp(&completion.representation_id, completion_representation,
+                 sizeof completion.representation_id) == 0 &&
+          memcmp(&completion.activity_id, &zero, sizeof zero) != 0;
     }
   }
   pp_job_set_release(jobs);
@@ -513,6 +532,7 @@ static pp_error_code_t count_job_parameters(const pp_production_t *production,
   return status;
 }
 
+/* [/inspect-job-status] */
 int main(int argc, char **argv) {
   if (argc != 2) {
     fprintf(stderr, "usage: postproject-c-jobs WORK_DIRECTORY\n");

@@ -50,6 +50,18 @@ Check each options setter's `Result<void>` immediately; an invalid setter
 preserves the previous valid settings. Keep normal Result propagation or
 exception-oriented consumption according to the host's existing style.
 
-Job lease APIs and remaining state projections are still under development.
+## Job status
+
+C++ `Job.status` is a `JobStatus` variant; use `std::get_if<JobCompletion>`
+to inspect a completed result, or `stateKind()` for its category. Independent
+claim, completion and diagnostic fields have been removed. The `JobState`
+enum remains the category filter for job queries.
+
+Python `Job.status` holds `JobRequested`, `JobClaim`, `JobCompletion`,
+`JobFailure` or `JobCancelled`. Inspection properties (`state`, `claim`,
+`completion`, `failure_diagnostic`) derive from that value. When constructing
+copied job data, pass one `status` instead of the four old constructor arguments.
+
+Job lease APIs and other state projections are still under development.
 The {doc}`../../api-safety-audit` records the implementation and verification
 scope of each checkpoint.

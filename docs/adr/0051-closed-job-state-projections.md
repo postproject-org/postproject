@@ -15,8 +15,11 @@ or no value if a caller's throwing variant assignment left it valueless.
 Python category/payload properties are read-only views derived from the status;
 construction validates the alternative and copies input collections.
 
-The flattened C job view remains a transitional projection in the open safety
-audit. Its kind must be checked before reading state-specific fields. Claim
+The C API provides checked claim, completion and failure accessors. Wrong-state
+requests return `InvalidArgument`; absent indices return `NotFound`. Failure
+outputs are zero or null. Strings borrow their owning job set. The flattened
+C job view remains a transitional projection in the open safety audit; its kind
+must be checked before reading state-specific fields. Claim
 capabilities and authoritative lease time are separate, still-open contracts;
 claim detail in this slice retains the existing fields.
 

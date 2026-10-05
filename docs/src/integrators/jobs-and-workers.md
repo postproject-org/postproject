@@ -56,6 +56,26 @@ across commits:
 ```{code-variants} job-query-pages
 ```
 
+Job results have one applicable state payload. C++ uses `Job.status`, a standard
+variant; Python has an immutable status alternative and derived inspection
+properties. C's checked claim, completion and failure accessors reject the
+wrong state and clear their outputs on failure. Strings borrow the job set:
+
+```{code-variants} inspect-job-status
+:::{no-variant} rust
+Match the existing `JobState` enum and its payload.
+:::
+:::{no-variant} cpp
+Inspect `Job.status` with `std::get_if` or `std::visit`.
+:::
+:::{no-variant} python
+Inspect `Job.status` or the derived `claim`, `completion` and diagnostic properties.
+:::
+:::{no-variant} cli
+Inspect the job's state and applicable detail in JSON output.
+:::
+```
+
 ## Claim, renew, and release
 
 A worker claims a requested job with tool attribution, optional agent

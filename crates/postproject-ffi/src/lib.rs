@@ -10,6 +10,8 @@ mod content;
 mod dependency;
 mod identities;
 mod job_state;
+#[cfg(test)]
+mod job_state_tests;
 mod jobs;
 mod known_media;
 mod media_source;
