@@ -19,6 +19,57 @@ from postproject import (
 
 
 class ReadSessionTests(unittest.TestCase):
+    def test_resource_and_locator_pages_retain_old_storage_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            media = Path(directory) / "camera.mov"
+            moved = Path(directory) / "moved.mov"
+            media.write_bytes(b"storage evidence fixture")
+            moved.write_bytes(media.read_bytes())
+            with Production.create(Path(directory) / "storage.pproj") as production:
+                with production.read_session() as empty, empty.edit() as edit:
+                    asset = edit.import_media(media)
+                    edit.commit()
+                with production.read_session() as view:
+                    representation = view.representations_page(asset, limit=1).items[0]
+                    resources = view.resources_page(representation.id, limit=1)
+                    self.assertEqual(len(resources.items), 1)
+                    resource = resources.items[0]
+                    locators = view.locators_page(resource, limit=1)
+                    self.assertEqual(locators.items[0].locator.uri, file_locator(media))
+                    with view.edit() as edit:
+                        edit.retire_locator(locators.items[0].locator.id)
+                        edit.confirm_locator(resource, file_locator(moved))
+                        edit.commit()
+                    self.assertEqual(view.locators_page(resource, limit=1), locators)
+                    self.assertEqual(
+                        view.resources_page(representation.id, limit=1), resources
+                    )
+                    self.assertEqual(
+                        view.representations_using_resource(resource, limit=1).items,
+                        (representation,),
+                    )
+                    self.assertEqual(
+                        production.locators_page(resource, limit=1)
+                        .items[0]
+                        .locator.uri,
+                        file_locator(moved),
+                    )
+                    for operation in (
+                        lambda: view.resources_page(representation.id, limit=0),
+                        lambda: view.locators_page(resource, limit=0),
+                        lambda: view.representations_using_resource(resource, limit=0),
+                    ):
+                        with self.assertRaises(InvalidArgumentError):
+                            operation()
+                self.assertEqual(locators.items[0].locator.uri, file_locator(media))
+                for operation in (
+                    lambda: view.resources_page(representation.id, limit=1),
+                    lambda: view.locators_page(resource, limit=1),
+                    lambda: view.representations_using_resource(resource, limit=1),
+                ):
+                    with self.assertRaises(RuntimeError):
+                        operation()
+
     def test_roots_identifiers_and_known_media_use_the_same_pinned_view(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             media = Path(directory) / "camera.mov"

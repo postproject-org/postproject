@@ -31,6 +31,13 @@ def exercise(path: Path, media: Path) -> None:
             page = view.representations_page(asset, limit=10)
             assert len(page.items) == 1
             representation = view.representation(page.items[0].id)
+            resources = view.resources_page(representation.id, limit=10)
+            assert len(resources.items) == 1
+            resource = resources.items[0]
+            assert len(view.locators_page(resource, limit=10).items) == 1
+            assert view.representations_using_resource(resource, limit=10).items == (
+                representation,
+            )
             assert view.media_roots == ()
             assert view.external_identifiers(AssetRef(asset))[0].value == "camera"
             assert view.find_by_external_identifier(

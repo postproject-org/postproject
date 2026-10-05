@@ -21,7 +21,7 @@ it. Commit attempts, rollback, and disposal end the edit. Python `Edit` contexts
 require explicit commit and roll back on normal exit as well as on exceptions.
 
 The development C/C++/Python read-session surface currently provides asset and
-representation point reads and bounded pages, logical roots, external
+representation point reads and bounded pages, resources, locators, logical roots, external
 identifiers and known-media lookup. Rust exposes the full domain
 read interface. Existing production queries read current state separately.
 The CLI's `inspect --limit N` emits a bounded coherent summary and a

@@ -1008,21 +1008,7 @@ class Production:
             ctypes.byref(error),
         )
         self._native.check(status, error)
-        if not handle:
-            raise RuntimeError("native locator query returned no result set")
-        try:
-            count = self._native.lib.pp_locator_query_set_count(handle)
-            return QueryPage(
-                tuple(
-                    _locator_match_at(self._native, handle, index)
-                    for index in range(int(count))
-                ),
-                _decode_optional(
-                    self._native.lib.pp_locator_query_set_next_cursor(handle)
-                ),
-            )
-        finally:
-            self._native.lib.pp_locator_query_set_release(handle)
+        return _locator_page(self._native, handle)
 
     def find_known_media_by_locator(
         self,
@@ -1836,37 +1822,44 @@ class Production:
         convert: Callable[[ObjectReference, int], _ObjectQueryItem],
         *arguments: object,
     ) -> QueryPage[_ObjectQueryItem]:
-        handle = ctypes.POINTER(ObjectQuerySet)()
-        error = ctypes.POINTER(Error)()
-        status = function(*arguments, ctypes.byref(handle), ctypes.byref(error))
-        self._native.check(status, error)
-        if not handle:
-            raise RuntimeError("native object query returned no result set")
-        try:
-            count = self._native.lib.pp_object_query_set_count(handle)
-            items: list[_ObjectQueryItem] = []
-            for index in range(int(count)):
-                value = _abi.ObjectRef()
-                depth = ctypes.c_uint32()
-                item_error = ctypes.POINTER(Error)()
-                item_status = self._native.lib.pp_object_query_set_get(
-                    handle,
-                    index,
-                    ctypes.byref(value),
-                    ctypes.byref(depth),
-                    ctypes.byref(item_error),
-                )
-                self._native.check(item_status, item_error)
-                items.append(convert(_object_reference(value), int(depth.value)))
-            return QueryPage(
-                tuple(items),
-                _decode_optional(
-                    self._native.lib.pp_object_query_set_next_cursor(handle)
-                ),
-                bool(self._native.lib.pp_object_query_set_traversal_truncated(handle)),
+        return _object_query_page(self._native, function, convert, *arguments)
+
+
+def _object_query_page(
+    native: NativeLibrary,
+    function: Callable[..., int],
+    convert: Callable[[ObjectReference, int], _ObjectQueryItem],
+    *arguments: object,
+) -> QueryPage[_ObjectQueryItem]:
+    handle = ctypes.POINTER(ObjectQuerySet)()
+    error = ctypes.POINTER(Error)()
+    status = function(*arguments, ctypes.byref(handle), ctypes.byref(error))
+    native.check(status, error)
+    if not handle:
+        raise RuntimeError("native object query returned no result set")
+    try:
+        count = native.lib.pp_object_query_set_count(handle)
+        items: list[_ObjectQueryItem] = []
+        for index in range(int(count)):
+            value = _abi.ObjectRef()
+            depth = ctypes.c_uint32()
+            item_error = ctypes.POINTER(Error)()
+            item_status = native.lib.pp_object_query_set_get(
+                handle,
+                index,
+                ctypes.byref(value),
+                ctypes.byref(depth),
+                ctypes.byref(item_error),
             )
-        finally:
-            self._native.lib.pp_object_query_set_release(handle)
+            native.check(item_status, item_error)
+            items.append(convert(_object_reference(value), int(depth.value)))
+        return QueryPage(
+            tuple(items),
+            _decode_optional(native.lib.pp_object_query_set_next_cursor(handle)),
+            bool(native.lib.pp_object_query_set_traversal_truncated(handle)),
+        )
+    finally:
+        native.lib.pp_object_query_set_release(handle)
 
 
 _MAX_REVISION_WAIT_SECONDS = _abi.PP_REVISION_WAIT_MAX_TIMEOUT_MILLIS / 1000
@@ -1876,6 +1869,23 @@ _WAIT_RESULTS = {
     _abi.PP_REVISION_WAIT_CLOSED: RevisionWaitResult.CLOSED,
     _abi.PP_REVISION_WAIT_CANCELLED: RevisionWaitResult.CANCELLED,
 }
+
+
+def _locator_page(
+    native: NativeLibrary, handle: _Pointer[LocatorQuerySet]
+) -> QueryPage[LocatorMatch]:
+    if not handle:
+        raise RuntimeError("native locator query returned no result set")
+    try:
+        count = native.lib.pp_locator_query_set_count(handle)
+        return QueryPage(
+            tuple(
+                _locator_match_at(native, handle, index) for index in range(int(count))
+            ),
+            _decode_optional(native.lib.pp_locator_query_set_next_cursor(handle)),
+        )
+    finally:
+        native.lib.pp_locator_query_set_release(handle)
 
 
 class ReadSession:
@@ -2001,6 +2011,62 @@ class ReadSession:
             limit,
             _optional_text(cursor),
         )
+
+    def representations_using_resource(
+        self, resource_id: ResourceId, *, limit: int, cursor: str | None = None
+    ) -> QueryPage[Representation]:
+        """Return one bounded page of representations that use a resource."""
+
+        self._require_open()
+        native_id = _native_uuid(resource_id)
+        return self._representation_page(
+            self._native.lib.pp_read_session_representations_using_resource,
+            self._handle,
+            ctypes.byref(native_id),
+            limit,
+            _optional_text(cursor),
+        )
+
+    def resources_page(
+        self,
+        representation_id: RepresentationId,
+        *,
+        limit: int,
+        cursor: str | None = None,
+    ) -> QueryPage[ResourceId]:
+        """Return one bounded page of resources in representation order."""
+
+        self._require_open()
+        native_id = _native_uuid(representation_id)
+        return _object_query_page(
+            self._native,
+            self._native.lib.pp_read_session_resources_page,
+            _resource_match,
+            self._handle,
+            ctypes.byref(native_id),
+            limit,
+            _optional_text(cursor),
+        )
+
+    def locators_page(
+        self, resource_id: ResourceId, *, limit: int, cursor: str | None = None
+    ) -> QueryPage[LocatorMatch]:
+        """Return one bounded page of locators belonging to a resource."""
+
+        self._require_open()
+        native_id = _native_uuid(resource_id)
+        handle = ctypes.POINTER(LocatorQuerySet)()
+        error = ctypes.POINTER(Error)()
+        status = self._native.lib.pp_read_session_locators_page(
+            self._handle,
+            ctypes.byref(native_id),
+            limit,
+            _optional_text(cursor),
+            ctypes.byref(handle),
+            ctypes.byref(error),
+        )
+        self._native.check(status, error)
+        return _locator_page(self._native, handle)
 
     @property
     def media_roots(self) -> tuple[MediaRoot, ...]:
