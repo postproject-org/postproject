@@ -136,6 +136,84 @@ pub unsafe extern "C" fn pp_read_session_media_roots(
     }
 }
 
+/// Copies an object's metadata from the pinned view.
+///
+/// # Safety
+/// Session/target must be live/readable; outputs writable or error output null.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_read_session_metadata(
+    session: *const PpReadSession,
+    target: *const crate::PpObjectRef,
+    out_metadata: *mut *mut crate::PpMetadataSet,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: The delegate validates pointers and contains panics.
+    unsafe {
+        forward_read(session, out_error, |reader| {
+            crate::pp_production_metadata(reader, target, out_metadata, out_error)
+        })
+    }
+}
+
+/// Copies assertions of one property from the pinned view.
+///
+/// # Safety
+/// Session must be live; strings UTF-8/NUL-terminated, outputs writable.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_read_session_find_metadata(
+    session: *const PpReadSession,
+    vocabulary: *const c_char,
+    property: *const c_char,
+    out_metadata: *mut *mut crate::PpMetadataSet,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: The delegate validates pointers and contains panics.
+    unsafe {
+        forward_read(session, out_error, |reader| {
+            crate::pp_production_find_metadata(
+                reader,
+                vocabulary,
+                property,
+                out_metadata,
+                out_error,
+            )
+        })
+    }
+}
+
+/// Copies a bounded metadata page from the pinned view.
+///
+/// # Safety
+/// Session must be live; strings UTF-8/NUL-terminated, exact value readable or
+/// null, cursor nullable UTF-8/NUL-terminated, outputs writable.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_read_session_query_metadata(
+    session: *const PpReadSession,
+    vocabulary: *const c_char,
+    property: *const c_char,
+    exact_value: *const crate::PpMetadataInput,
+    limit: u32,
+    cursor: *const c_char,
+    out_metadata: *mut *mut crate::PpMetadataSet,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: The delegate validates pointers and contains panics.
+    unsafe {
+        forward_read(session, out_error, |reader| {
+            crate::pp_production_query_metadata(
+                reader,
+                vocabulary,
+                property,
+                exact_value,
+                limit,
+                cursor,
+                out_metadata,
+                out_error,
+            )
+        })
+    }
+}
+
 /// Copies external identifiers from the pinned view into an owned set.
 ///
 /// # Safety

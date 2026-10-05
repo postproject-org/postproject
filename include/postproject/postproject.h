@@ -529,6 +529,17 @@ PP_API pp_error_code_t pp_read_session_media_roots(
 PP_API pp_error_code_t pp_read_session_external_identifiers(
     const pp_read_session_t *session, const pp_object_ref_t *target,
     pp_external_identifier_set_t **out_identifiers, pp_error_t **out_error);
+/* Metadata owns recursively copied values; paging retains this view's scope. */
+PP_API pp_error_code_t pp_read_session_metadata(
+    const pp_read_session_t *session, const pp_object_ref_t *target,
+    pp_metadata_set_t **out_metadata, pp_error_t **out_error);
+PP_API pp_error_code_t pp_read_session_find_metadata(
+    const pp_read_session_t *session, const char *vocabulary, const char *property,
+    pp_metadata_set_t **out_metadata, pp_error_t **out_error);
+PP_API pp_error_code_t pp_read_session_query_metadata(
+    const pp_read_session_t *session, const char *vocabulary, const char *property,
+    const pp_metadata_input_t *exact_value, uint32_t limit, const char *cursor,
+    pp_metadata_set_t **out_metadata, pp_error_t **out_error);
 PP_API pp_error_code_t pp_read_session_find_by_external_identifier(
     const pp_read_session_t *session, const char *scheme, const char *value,
     const char *qualifier, pp_object_ref_set_t **out_objects, pp_error_t **out_error);

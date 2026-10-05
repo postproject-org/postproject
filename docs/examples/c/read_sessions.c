@@ -10,6 +10,7 @@ static int lookup(const pp_read_session_t *view, const pp_uuid_t *asset, const c
   pp_object_ref_set_t *objects = NULL;
   pp_known_media_set_t *matches = NULL;
   pp_fingerprint_t *fingerprint = NULL;
+  pp_metadata_set_t *metadata = NULL;
   pp_error_t *error = NULL;
   char *uri = NULL;
   const char *algorithm;
@@ -25,6 +26,14 @@ static int lookup(const pp_read_session_t *view, const pp_uuid_t *asset, const c
   if (pp_external_identifier_set_count(identifiers) != 1) goto cleanup;
   CHECK(pp_read_session_find_by_external_identifier(view, "https://example.com/id", "camera", NULL, &objects, &error));
   if (pp_object_ref_set_count(objects) != 1) goto cleanup;
+  CHECK(pp_read_session_metadata(view, &target, &metadata, &error));
+  if (pp_metadata_set_count(metadata) != 1) goto cleanup;
+  pp_metadata_set_release(metadata); metadata = NULL;
+  CHECK(pp_read_session_find_metadata(view, "https://example.com/editorial", "title", &metadata, &error));
+  if (pp_metadata_set_count(metadata) != 1) goto cleanup;
+  pp_metadata_set_release(metadata); metadata = NULL;
+  CHECK(pp_read_session_query_metadata(view, "https://example.com/editorial", "title", NULL, 10, NULL, &metadata, &error));
+  if (pp_metadata_set_count(metadata) != 1) goto cleanup;
   CHECK(pp_file_path_to_locator(media, &uri, &error));
   CHECK(pp_read_session_find_known_media_by_locator(view, uri, NULL, 10, NULL, &matches, &error));
   if (pp_known_media_set_count(matches) != 1) goto cleanup;
@@ -41,6 +50,7 @@ cleanup:
   pp_object_ref_set_release(objects);
   pp_known_media_set_release(matches);
   pp_fingerprint_release(fingerprint);
+  pp_metadata_set_release(metadata);
   pp_string_release(uri);
   return result;
 #undef CHECK
@@ -51,6 +61,7 @@ static int exercise(const char *path, const char *media) {
   pp_read_session_t *empty = NULL, *view = NULL;
   pp_transaction_t *edit = NULL;
   pp_media_source_t *source = NULL;
+  pp_metadata_input_t *title = NULL;
   pp_asset_set_t *assets = NULL;
   pp_representation_set_t *representations = NULL;
   pp_object_query_set_t *resource_page = NULL;
@@ -70,6 +81,8 @@ static int exercise(const char *path, const char *media) {
   CHECK(pp_transaction_import_media(edit, source, NULL, &asset, &error));
   const pp_object_ref_t target = {PP_OBJECT_ASSET, asset};
   CHECK(pp_transaction_add_external_identifier(edit, &target, "https://example.com/id", "camera", NULL, &error));
+  CHECK(pp_metadata_input_create_string("Camera", NULL, &title, &error));
+  CHECK(pp_transaction_add_metadata_value(edit, &target, "https://example.com/editorial", "title", title, &error));
   CHECK(pp_transaction_commit_with_receipt(edit, &receipt, &error));
   if (receipt.outcome != PP_COMMIT_REVISION_CREATED || receipt.revision_sequence != 1)
     goto cleanup;
@@ -120,6 +133,7 @@ cleanup:
   pp_object_query_set_release(resource_page);
   pp_locator_query_set_release(locator_page);
   pp_media_source_release(source);
+  pp_metadata_input_release(title);
   pp_transaction_release(edit);
   pp_read_session_release(empty);
   pp_read_session_release(view);

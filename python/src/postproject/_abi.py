@@ -723,8 +723,11 @@ EXPORTED_SYMBOLS = (
     "pp_read_session_find_by_external_identifier",
     "pp_read_session_find_known_media_by_fingerprint",
     "pp_read_session_find_known_media_by_locator",
+    "pp_read_session_find_metadata",
     "pp_read_session_locators_page",
     "pp_read_session_media_roots",
+    "pp_read_session_metadata",
+    "pp_read_session_query_metadata",
     "pp_read_session_release",
     "pp_read_session_representation",
     "pp_read_session_representations_page",
@@ -833,6 +836,12 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_read_session_media_roots.restype = ErrorCode
     lib.pp_read_session_external_identifiers.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(ObjectRef), ctypes.POINTER(ctypes.POINTER(ExternalIdentifierSet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_read_session_external_identifiers.restype = ErrorCode
+    lib.pp_read_session_metadata.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(ObjectRef), ctypes.POINTER(ctypes.POINTER(MetadataSet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_read_session_metadata.restype = ErrorCode
+    lib.pp_read_session_find_metadata.argtypes = [ctypes.POINTER(ReadSession), ctypes.c_char_p, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(MetadataSet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_read_session_find_metadata.restype = ErrorCode
+    lib.pp_read_session_query_metadata.argtypes = [ctypes.POINTER(ReadSession), ctypes.c_char_p, ctypes.c_char_p, ctypes.POINTER(MetadataInput), ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(MetadataSet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_read_session_query_metadata.restype = ErrorCode
     lib.pp_read_session_find_by_external_identifier.argtypes = [ctypes.POINTER(ReadSession), ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(ObjectRefSet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_read_session_find_by_external_identifier.restype = ErrorCode
     lib.pp_read_session_find_known_media_by_locator.argtypes = [ctypes.POINTER(ReadSession), ctypes.c_char_p, ctypes.POINTER(SequenceNaming), ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(KnownMediaSet)), ctypes.POINTER(ctypes.POINTER(Error))]
