@@ -514,6 +514,24 @@ PP_API pp_error_code_t pp_read_session_evaluate_artifact(
 PP_API pp_error_code_t pp_read_session_artifact_reproducibility(
     const pp_read_session_t *session, const pp_uuid_t *representation_id,
     pp_artifact_reproducibility_t **out_report, pp_error_t **out_error);
+/* Provenance traversal and staleness use pinned knowledge and explicit bounds. */
+PP_API pp_error_code_t pp_read_session_provenance_ancestors_page(
+    const pp_read_session_t *session, const pp_uuid_t *representation_id,
+    uint32_t max_depth, uint32_t max_representations, uint32_t limit,
+    const char *cursor, pp_object_query_set_t **out_objects,
+    pp_error_t **out_error);
+PP_API pp_error_code_t pp_read_session_provenance_descendants_page(
+    const pp_read_session_t *session, const pp_uuid_t *representation_id,
+    uint32_t max_depth, uint32_t max_representations, uint32_t limit,
+    const char *cursor, pp_object_query_set_t **out_objects,
+    pp_error_t **out_error);
+PP_API pp_error_code_t pp_read_session_stale_artifacts(
+    const pp_read_session_t *session,
+    const pp_uuid_t *source_representation_id,
+    uint32_t evaluation_max_depth,
+    uint32_t evaluation_max_representations, uint32_t limit,
+    const char *cursor, pp_object_query_set_t **out_objects,
+    pp_error_t **out_error);
 /* Filtered object pages retain this view and its journal head. */
 PP_API pp_error_code_t pp_read_session_representations_under_media_root(
     const pp_read_session_t *session, const char *root_name,

@@ -78,7 +78,7 @@ static int exercise(const char *path, const char *media) {
   pp_artifact_evaluation_t *evaluation = NULL;
   pp_artifact_reproducibility_t *report = NULL;
   pp_representation_set_t *representations = NULL;
-  pp_object_query_set_t *resource_page = NULL;
+  pp_object_query_set_t *resource_page = NULL, *provenance_page = NULL;
   pp_locator_query_set_t *locator_page = NULL;
   pp_error_t *error = NULL;
   pp_uuid_t asset, representation;
@@ -163,6 +163,15 @@ static int exercise(const char *path, const char *media) {
   pp_dependency_query_set_release(dependency_page); dependency_page = NULL;
   CHECK(pp_read_session_dependents(view, &target, 64, 1000, 10, NULL, &dependency_page, &error));
   if (pp_dependency_query_set_count(dependency_page) != 0) goto cleanup;
+  CHECK(pp_read_session_provenance_ancestors_page(view, &representation, 64, 1000, 10, NULL, &provenance_page, &error));
+  if (pp_object_query_set_count(provenance_page)) goto cleanup;
+  pp_object_query_set_release(provenance_page); provenance_page = NULL;
+  CHECK(pp_read_session_provenance_descendants_page(view, &representation, 64, 1000, 10, NULL, &provenance_page, &error));
+  if (pp_object_query_set_count(provenance_page)) goto cleanup;
+  pp_object_query_set_release(provenance_page); provenance_page = NULL;
+  CHECK(pp_read_session_stale_artifacts(view, NULL, 64, 1000, 10, NULL, &provenance_page, &error));
+  if (pp_object_query_set_count(provenance_page)) goto cleanup;
+  pp_object_query_set_release(provenance_page); provenance_page = NULL;
   CHECK(pp_read_session_evaluate_artifact(view, &representation, 64, 1000, &evaluation, &error));
   pp_uuid_t evaluated;
   uint32_t state, visited;
@@ -218,6 +227,7 @@ cleanup:
   pp_artifact_reproducibility_release(report);
   pp_representation_set_release(representations);
   pp_object_query_set_release(resource_page);
+  pp_object_query_set_release(provenance_page);
   pp_locator_query_set_release(locator_page);
   pp_media_source_release(source);
   pp_metadata_input_release(title);

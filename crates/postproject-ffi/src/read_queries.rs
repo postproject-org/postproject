@@ -34,6 +34,102 @@ unsafe fn forward_read(
     })
 }
 
+/// Copies bounded shortest-depth provenance ancestors from the pinned view.
+///
+/// # Safety
+/// Session/IDs must be live/readable; cursor null or UTF-8, outputs writable.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_read_session_provenance_ancestors_page(
+    session: *const PpReadSession,
+    representation_id: *const PpUuid,
+    max_depth: u32,
+    max_representations: u32,
+    limit: u32,
+    cursor: *const c_char,
+    out_objects: *mut *mut crate::PpObjectQuerySet,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: The delegate validates pointers and contains panics.
+    unsafe {
+        forward_read(session, out_error, |reader| {
+            crate::pp_production_provenance_ancestors_page(
+                reader,
+                representation_id,
+                max_depth,
+                max_representations,
+                limit,
+                cursor,
+                out_objects,
+                out_error,
+            )
+        })
+    }
+}
+
+/// Copies bounded shortest-depth provenance descendants from the pinned view.
+///
+/// # Safety
+/// Session/IDs must be live/readable; cursor null or UTF-8, outputs writable.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_read_session_provenance_descendants_page(
+    session: *const PpReadSession,
+    representation_id: *const PpUuid,
+    max_depth: u32,
+    max_representations: u32,
+    limit: u32,
+    cursor: *const c_char,
+    out_objects: *mut *mut crate::PpObjectQuerySet,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: The delegate validates pointers and contains panics.
+    unsafe {
+        forward_read(session, out_error, |reader| {
+            crate::pp_production_provenance_descendants_page(
+                reader,
+                representation_id,
+                max_depth,
+                max_representations,
+                limit,
+                cursor,
+                out_objects,
+                out_error,
+            )
+        })
+    }
+}
+
+/// Evaluates a bounded stale-artifact page from the pinned knowledge.
+///
+/// # Safety
+/// Session/IDs must be live/readable; cursor null or UTF-8, outputs writable.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_read_session_stale_artifacts(
+    session: *const PpReadSession,
+    source_representation_id: *const PpUuid,
+    evaluation_max_depth: u32,
+    evaluation_max_representations: u32,
+    limit: u32,
+    cursor: *const c_char,
+    out_objects: *mut *mut crate::PpObjectQuerySet,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: The delegate validates pointers and contains panics.
+    unsafe {
+        forward_read(session, out_error, |reader| {
+            crate::pp_production_stale_artifacts(
+                reader,
+                source_representation_id,
+                evaluation_max_depth,
+                evaluation_max_representations,
+                limit,
+                cursor,
+                out_objects,
+                out_error,
+            )
+        })
+    }
+}
+
 /// Copies a bounded page of representations associated with a logical root.
 ///
 /// # Safety
