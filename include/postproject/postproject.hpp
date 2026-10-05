@@ -4258,6 +4258,51 @@ private:
 
 class ReadSession final {
 public:
+  [[nodiscard]] Result<QueryPage<Uuid>> outputsByActivityKind(
+      std::string_view kind, std::uint32_t limit,
+      std::optional<std::string_view> cursor = std::nullopt) const {
+    POSTPROJECT_TRY_ASSIGN(const std::string native_kind,
+                           detail::checked_string(kind, "activity kind"));
+    POSTPROJECT_TRY_ASSIGN(const std::optional<std::string> checked_cursor,
+                           detail::checked_cursor(cursor));
+    pp_object_query_set_t *raw_objects = nullptr;
+    pp_error_t *error = nullptr;
+    const pp_error_code_t status = pp_read_session_outputs_by_activity_kind(
+        session_, native_kind.c_str(), limit,
+        detail::optional_c_str(checked_cursor), &raw_objects, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    POSTPROJECT_TRY_ASSIGN(
+        QueryPage<ObjectMatch> page,
+        detail::object_query_page(detail::ObjectQuerySetHandle(raw_objects)));
+    return detail::object_id_page(std::move(page), ObjectKind::representation);
+  }
+
+  [[nodiscard]] Result<QueryPage<Uuid>>
+  outputsByTool(const ToolIdentity &tool, std::uint32_t limit,
+                std::optional<std::string_view> cursor = std::nullopt) const {
+    POSTPROJECT_TRY_ASSIGN(const std::string name,
+                           detail::checked_string(tool.name, "tool name"));
+    POSTPROJECT_TRY_ASSIGN(
+        const std::optional<std::string> version,
+        detail::checked_optional_string(tool.version, "tool version"));
+    POSTPROJECT_TRY_ASSIGN(
+        const std::optional<std::string> uri,
+        detail::checked_optional_string(tool.uri, "tool URI"));
+    POSTPROJECT_TRY_ASSIGN(const std::optional<std::string> checked_cursor,
+                           detail::checked_cursor(cursor));
+    pp_object_query_set_t *raw_objects = nullptr;
+    pp_error_t *error = nullptr;
+    const pp_error_code_t status = pp_read_session_outputs_by_tool(
+        session_, name.c_str(), detail::optional_c_str(version),
+        detail::optional_c_str(uri), limit,
+        detail::optional_c_str(checked_cursor), &raw_objects, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    POSTPROJECT_TRY_ASSIGN(
+        QueryPage<ObjectMatch> page,
+        detail::object_query_page(detail::ObjectQuerySetHandle(raw_objects)));
+    return detail::object_id_page(std::move(page), ObjectKind::representation);
+  }
+
   [[nodiscard]] Result<QueryPage<ObjectMatch>>
   ancestors(const Uuid &representation_id, std::uint32_t max_depth,
             std::uint32_t max_representations, std::uint32_t limit,
