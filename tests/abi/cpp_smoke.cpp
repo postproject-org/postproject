@@ -390,7 +390,7 @@ int main(int argc, char **argv) {
         .setVerification(postproject::VerificationMode::presence)
         .setLimits(64, 1000000);
     {
-      postproject::CancelToken token;
+      auto token = postproject::CancelToken::create().value();
       options.setCancelToken(token);
     }
     const auto resolutions = production.resolveAssets({asset_id}, options).value();
@@ -411,7 +411,7 @@ int main(int argc, char **argv) {
         resolutions[0].resources[0].candidates[0].evidence.empty()) {
       return 11;
     }
-    postproject::CancelToken cancel_token;
+    auto cancel_token = postproject::CancelToken::create().value();
     options.setCancelToken(cancel_token);
     cancel_token.cancel();
     try {

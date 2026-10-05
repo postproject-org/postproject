@@ -3650,14 +3650,12 @@ private:
 // from any thread; an observing operation then returns ErrorCode::cancelled.
 class CancelToken final {
 public:
-  // Creating a token fails only when allocation fails; a token that could
-  // not be created behaves as never cancelled.
-  CancelToken() noexcept {
+  [[nodiscard]] static Result<CancelToken> create() {
+    pp_cancel_token_t *token = nullptr;
     pp_error_t *error = nullptr;
-    if (pp_cancel_token_create(&token_, &error) != PP_OK) {
-      pp_error_release(error);
-      token_ = nullptr;
-    }
+    const auto status = pp_cancel_token_create(&token, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    return CancelToken(token);
   }
   CancelToken(const CancelToken &) = delete;
   CancelToken &operator=(const CancelToken &) = delete;
@@ -3676,6 +3674,7 @@ public:
 
 private:
   friend class ResolutionOptions;
+  explicit CancelToken(pp_cancel_token_t *token) noexcept : token_(token) {}
   pp_cancel_token_t *token_ = nullptr;
 };
 

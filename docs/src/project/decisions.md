@@ -114,4 +114,5 @@ Read the relevant ADR before changing an invariant, a boundary, or a public cont
 /adr/0045-read-views-and-commit-receipts
 /adr/0046-python-identities-and-object-references
 /adr/0047-local-query-cursor-scopes
+/adr/0048-immediate-native-options-validation
 ```

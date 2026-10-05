@@ -501,7 +501,7 @@ int main(int argc, char **argv) {
     const auto &old_locator = proxy_resource.locators.front();
     // The proxy moved; find it where it went instead of spelling a URI.
     std::filesystem::remove(work / "proxies" / "A001_proxy.mov");
-    postproject::CancelToken cancel_token;
+    auto cancel_token = postproject::CancelToken::create().value();
     const auto found = find_nearby(production, {asset_id},
                                    (work / "proxies" / "moved").string(),
                                    cancel_token)
