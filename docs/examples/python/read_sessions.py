@@ -51,6 +51,16 @@ def exercise(path: Path, media: Path) -> None:
             filtered = view.changes_since_filtered(0, (AssetImportedEvent,), 10)
             assert filtered.revisions == (latest,)
             assert filtered.through_sequence == latest.sequence
+            events = view.revision_events_page(latest.id, limit=1)
+            assert len(events.items) == 1 and events.next_cursor is not None
+            next_events = view.revision_events_page(
+                latest.id, limit=1000, cursor=events.next_cursor
+            )
+            assert next_events.next_cursor is None
+            assert next_events.items[0].position > events.items[0].position
+            assert production.revision_events_page(latest.id, limit=1000).items == (
+                events.items + next_events.items
+            )
             assert view.unresolved_media(limit=10).items == ()
             assert view.objects_changed_since(0, limit=10).items
             try:

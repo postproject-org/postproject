@@ -36,6 +36,57 @@ from postproject import (
 
 
 class ReadSessionTests(unittest.TestCase):
+    def test_revision_events_are_bounded_and_scoped_to_the_retained_view(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            with Production.create(Path(directory) / "event-pages.pproj") as production:
+                with production.read_session() as empty, empty.edit() as edit:
+                    edit.add_media_root("one")
+                    edit.add_media_root("two")
+                    first = edit.commit().revision
+                assert first is not None
+                with production.read_session() as retained:
+                    page = retained.revision_events_page(first.id, limit=1)
+                    self.assertEqual(len(page.items), 1)
+                    self.assertIsNotNone(page.next_cursor)
+                    with retained.edit() as edit:
+                        edit.add_media_root("later")
+                        later = edit.commit().revision
+                    assert later is not None
+                    continuation = retained.revision_events_page(
+                        first.id, limit=1, cursor=page.next_cursor
+                    )
+                    self.assertIsNone(continuation.next_cursor)
+                    events = page.items + continuation.items
+                    self.assertEqual([event.position for event in events], [0, 1])
+                    self.assertEqual(
+                        production.revision_events_page(first.id, limit=1000).items,
+                        events,
+                    )
+                    with self.assertRaises(NotFoundError):
+                        retained.revision_events_page(later.id, limit=1)
+                    with self.assertRaises(InvalidArgumentError):
+                        retained.revision_events_page(
+                            later.id, limit=1, cursor=page.next_cursor
+                        )
+                    with production.read_session() as fresh:
+                        with self.assertRaises(InvalidArgumentError):
+                            fresh.revision_events_page(
+                                first.id, limit=1, cursor=page.next_cursor
+                            )
+                        self.assertEqual(
+                            len(fresh.revision_events_page(later.id, limit=1).items), 1
+                        )
+                    with self.assertRaises(InvalidArgumentError):
+                        production.revision_events_page(
+                            first.id, limit=1, cursor=page.next_cursor
+                        )
+                    for limit in (0, 1001):
+                        with self.assertRaises(InvalidArgumentError):
+                            retained.revision_events_page(first.id, limit=limit)
+                self.assertEqual(len(events), 2)
+                with self.assertRaises(RuntimeError):
+                    retained.revision_events_page(first.id, limit=1)
+
     def test_revision_head_and_pages_end_at_the_retained_view(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             with Production.create(Path(directory) / "journal.pproj") as production:

@@ -594,6 +594,22 @@ class Production:
         self._require_open()
         return _RevisionEvents(self)
 
+    def revision_events_page(
+        self, revision_id: RevisionId, *, limit: int, cursor: str | None = None
+    ) -> QueryPage[RevisionEvent]:
+        """Return one bounded page of immutable events in position order."""
+
+        self._require_open()
+        native_id = _native_uuid(revision_id)
+        return _read_revision_event_page(
+            self._native,
+            self._native.lib.pp_production_revision_events_page,
+            self._handle,
+            ctypes.byref(native_id),
+            limit,
+            _optional_text(cursor),
+        )
+
     @property
     def resolutions(self) -> _Resolutions:
         """Return representation-resolution results keyed by asset identity."""
@@ -1904,6 +1920,27 @@ def _metadata_set(
         native.lib.pp_metadata_set_release(handle)
 
 
+def _read_revision_event_page(
+    native: NativeLibrary, function: Callable[..., int], *arguments: object
+) -> QueryPage[RevisionEvent]:
+    handle = ctypes.POINTER(RevisionEventSet)()
+    error = ctypes.POINTER(Error)()
+    status = function(*arguments, ctypes.byref(handle), ctypes.byref(error))
+    native.check(status, error)
+    if not handle:
+        raise RuntimeError("native revision-event query returned no result set")
+    try:
+        count = native.lib.pp_revision_event_set_count(handle)
+        return QueryPage(
+            tuple(
+                _revision_event_at(native, handle, index) for index in range(int(count))
+            ),
+            _decode_optional(native.lib.pp_revision_event_set_next_cursor(handle)),
+        )
+    finally:
+        native.lib.pp_revision_event_set_release(handle)
+
+
 def _read_revisions(
     native: NativeLibrary, function: Callable[..., int], *arguments: object
 ) -> tuple[Revision, ...]:
@@ -2007,6 +2044,22 @@ class ReadSession:
         self._handle = handle
         self._finalizer = weakref.finalize(
             self, native.lib.pp_read_session_release, handle
+        )
+
+    def revision_events_page(
+        self, revision_id: RevisionId, *, limit: int, cursor: str | None = None
+    ) -> QueryPage[RevisionEvent]:
+        """Return one bounded page of events visible in this retained view."""
+
+        self._require_open()
+        native_id = _native_uuid(revision_id)
+        return _read_revision_event_page(
+            self._native,
+            self._native.lib.pp_read_session_revision_events_page,
+            self._handle,
+            ctypes.byref(native_id),
+            limit,
+            _optional_text(cursor),
         )
 
     def representations_under_media_root(
