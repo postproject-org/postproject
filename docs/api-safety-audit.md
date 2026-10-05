@@ -37,12 +37,29 @@ denied, workspace/all-features tests, workspace Rustdoc and
 `python3 tools/check_architecture.py` passed before source edits. Local logs:
 `target/api-safety-baseline/{0,1,2,3,5}.log`.
 The sandbox initially prevented `cargo deny check` from locking its advisory
-database; its unrestricted result is recorded separately when available.
+database. The approved unrestricted check subsequently passed; a development
+rerun also passed on 2026-10-05 (duplicate-version warnings remain informational).
 
 Supported floors remain Rust 1.85, C11, C++17 and Python 3.11. CI checks native
 Linux/macOS/Windows, installed CMake consumers, C/Rust/ctypes layouts, platform
 wheels, documentation examples, sanitizers and the existing Flatpak route.
 Local Linux checks do not establish the other platforms or real-host runs.
+
+## Implemented development contracts
+
+ADRs 0045–0047 record pinned views, scoped edits/receipts, Python nominal UUID
+hints and explicit references, and production/view-scoped cursors. Focused
+regressions cover intervening writers, empty bases, terminal failed commits,
+retained handles, cursor rejection and wrong-kind Python calls. Native
+read-session projection is still incomplete. C/C++ semantic IDs, validated
+state alternatives and authority-controlled job leases remain open.
+
+At `5e92680`, Linux Clippy, five storage read-session regressions, three Python
+read-session regressions, typing checks and the eight coherent-example tests
+passed. The example count includes four fixture-setup tests. Native C/C++
+examples use an installed prefix; Python examples use source annotations and
+that installed library. Earlier installed-wheel typing and downstream results
+are recorded in the repository manifest. These checks do not close the audit.
 
 Repository inputs and migration status are in
 [`api-safety-repositories.md`](api-safety-repositories.md).

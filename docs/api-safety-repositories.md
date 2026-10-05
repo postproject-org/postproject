@@ -3,8 +3,9 @@
 Inventory checked against `gh repo list postproject-org` on 2026-10-04.
 All 13 non-archived organization repositories have local checkouts; the
 12-repository release evidence excludes the landing site. All start on `main`.
-Only untracked build directories were present. Candidate migration and
-host/platform verification are pending for every row.
+Only untracked build directories were present. Final candidate migration and
+host/platform qualification remain pending for every row. The development
+checks below verify specific changes, not the coordinated release.
 
 | Repository (workspace path) | Baseline SHA | Role / consumed surface | Status |
 |---|---|---|---|
@@ -34,3 +35,39 @@ Each migrated row must record its consumer SHA, exact installed SDK build/pin,
 host/toolchain version, commands or CI links, ordinary/failure/removal results
 and platform limits before it can be marked verified. Historical 0.6 passes do
 not qualify as candidate evidence.
+
+## Python reference migration checkpoint
+
+These consumer commits replace runtime ID-class tests and bare dynamic targets
+with explicit SDK references. Tests used an installed neutral wheel containing
+the development UUID hints and typing marker, plus an installed Linux native
+library. The SDK source checkpoint is `9d5afc8` (ABI 38, schema 17); its temporary
+package version is still `0.6.0a1`. Final version selection and dependency ranges
+have not changed. Wheel SHA-256:
+`bd1f5d787305fdbb17631337f4a94f3184c8a4fe76b11f0d43dee7b6e0b245d8`.
+
+| Consumer commit | Executed result | Scope |
+|---|---|---|
+| Manager `c960d49` | pytest: 6 passed | Read resolution and publishing contract tests |
+| OpenAssetIO validation `a7f6f3b` | pytest: 1 passed | Installed SDK resolution |
+| OTIO validation `e85e0b5` | pytest: 1 passed | Upstream linker round trip |
+| Python host `bc7e568` | pytest: 1 passed | Import, persisted reference, resolve |
+| OTIO demo `aad9f5f` | pytest: 1 passed | Maintained Manager/linker round trip |
+| Blender `7724f40` | 19 passed, 1 skipped | Blender 5.2.2 LTS background suite; project-variable case requires 5.3 |
+
+The OpenAssetIO/OTIO checks used Python 3.13, editable consumer installs and the
+linker pin `ee762d7d24670f84c30baa6149123b6d252a9969`. Reproduce from each consumer:
+
+```sh
+uv run --no-project --python 3.13 --with-editable . --with pytest \
+  --with /path/to/postproject.whl \
+  --with-editable ../postproject-openassetio \
+  --with-editable ../postproject-openassetio-manager \
+  --with git+https://github.com/OpenAssetIO/otio-openassetio.git@ee762d7d24670f84c30baa6149123b6d252a9969 \
+  env POSTPROJECT_LIBRARY=/path/to/installed/libpostproject.so python -m pytest -q
+```
+
+Blender used `tools/build.py` with a platform wheel containing that SDK, then
+`tools/test.sh blender/blender /path/to/postproject_relink-0.1.0-linux_x64.zip`.
+No interactive or cross-host handoff run is claimed. All commits remain local
+on temporary branches; origin has not changed.
