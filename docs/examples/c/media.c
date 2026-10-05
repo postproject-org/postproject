@@ -1176,7 +1176,7 @@ int main(int argc, char **argv) {
     status = PP_ERROR_INTERNAL;
   }
   if (status == PP_OK) {
-    pp_uuid_t unused;
+    pp_media_root_id_t unused;
     status = find_root(production, "proxies", &unused, &found, &error);
   }
   if (status == PP_OK && found) {
