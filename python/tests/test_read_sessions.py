@@ -14,10 +14,14 @@ from postproject import (
     DecisionBase,
     ExternalIdentifier,
     InvalidArgumentError,
+    JobRequest,
+    JobState,
     LocatorIdentity,
     MetadataProperty,
     MetadataString,
+    NotFoundError,
     Production,
+    RepresentationKind,
     VerificationMode,
     file_locator,
     fingerprint_file,
@@ -25,6 +29,51 @@ from postproject import (
 
 
 class ReadSessionTests(unittest.TestCase):
+    def test_job_reads_remain_pinned_across_request_and_cancellation(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            media = Path(directory) / "camera.mov"
+            media.write_bytes(b"job view fixture")
+            with Production.create(Path(directory) / "jobs.pproj") as production:
+                with production.read_session() as empty, empty.edit() as edit:
+                    asset = edit.import_media(media)
+                    edit.commit()
+                with production.read_session() as before:
+                    source = before.representations_page(asset, limit=1).items[0]
+                    with before.edit() as edit:
+                        job = edit.request_job(
+                            JobRequest(
+                                "example:proxy",
+                                (source.id,),
+                                asset,
+                                RepresentationKind.PROXY,
+                            )
+                        )
+                        edit.commit()
+                    self.assertEqual(before.jobs(limit=1).items, ())
+                    with self.assertRaises(NotFoundError):
+                        before.job(job)
+                with production.read_session() as requested:
+                    original = requested.job(job)
+                    with requested.edit() as edit:
+                        edit.cancel_job(job)
+                        edit.commit()
+                    self.assertEqual(requested.job(job), original)
+                    self.assertEqual(
+                        requested.jobs(
+                            limit=1, state=JobState.REQUESTED, kind="example:proxy"
+                        ).items,
+                        (original,),
+                    )
+                    self.assertEqual(production.job(job).state, JobState.CANCELLED)
+                    with self.assertRaises(InvalidArgumentError):
+                        requested.jobs(limit=0)
+                for operation in (
+                    lambda: requested.job(job),
+                    lambda: requested.jobs(limit=1),
+                ):
+                    with self.assertRaises(RuntimeError):
+                        operation()
+
     def test_decision_tokens_are_canonical_bounded_and_validate_on_edit(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             with Production.create(Path(directory) / "tokens.pproj") as production:

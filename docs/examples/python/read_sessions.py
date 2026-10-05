@@ -8,10 +8,13 @@ from postproject import (
     ContentVerification,
     DecisionBase,
     ExternalIdentifier,
+    JobRequest,
+    JobState,
     LocatorIdentity,
     MetadataProperty,
     MetadataString,
     Production,
+    RepresentationKind,
     file_locator,
     fingerprint_file,
 )
@@ -82,6 +85,28 @@ def exercise(path: Path, media: Path) -> None:
             discarded.add_media_root("discarded")
         assert production.media_roots == ()
         assert copied.id == asset and representation.asset_id == asset
+        with production.read_session() as before_job:
+            with before_job.edit() as request:
+                job = request.request_job(
+                    JobRequest(
+                        "example:proxy",
+                        (representation.id,),
+                        asset,
+                        RepresentationKind.PROXY,
+                    )
+                )
+                request.commit()
+            assert before_job.jobs(limit=10).items == ()
+        with production.read_session() as after_job:
+            assert after_job.job(job).id == job
+            assert (
+                len(
+                    after_job.jobs(
+                        limit=10, state=JobState.REQUESTED, kind="example:proxy"
+                    ).items
+                )
+                == 1
+            )
         production.close()
         view.close()  # close is idempotent
 

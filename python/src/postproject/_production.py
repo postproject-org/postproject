@@ -2041,6 +2041,42 @@ class ReadSession:
             cancel_token,
         )
 
+    def job(self, job_id: JobId) -> Job:
+        """Return one durable job, raising ``NotFoundError`` when absent."""
+
+        self._require_open()
+        native_id = _native_uuid(job_id)
+        page = _read_jobs(
+            self._native,
+            self._native.lib.pp_read_session_job,
+            self._handle,
+            ctypes.byref(native_id),
+        )
+        if len(page.items) != 1:
+            raise RuntimeError("native job read returned no single job")
+        return page.items[0]
+
+    def jobs(
+        self,
+        *,
+        limit: int,
+        cursor: str | None = None,
+        state: JobState | None = None,
+        kind: str | None = None,
+    ) -> QueryPage[Job]:
+        """Return one bounded job page with optional exact predicates."""
+
+        self._require_open()
+        return _read_jobs(
+            self._native,
+            self._native.lib.pp_read_session_jobs,
+            self._handle,
+            0 if state is None else _native_job_state(state),
+            _optional_text(kind),
+            limit,
+            _optional_text(cursor),
+        )
+
     @property
     def decision_base(self) -> DecisionBase:
         """Detach the revision and production captured with this view."""
