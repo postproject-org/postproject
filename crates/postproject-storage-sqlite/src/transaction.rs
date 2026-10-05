@@ -874,6 +874,7 @@ impl<'production> SqliteTransaction<'production> {
 
     /// Enables or disables a configured media root.
     ///
+    /// Requires a decision base; early rejection leaves the transaction open.
     /// Reapplying the current state succeeds without creating a semantic event.
     ///
     /// # Errors
@@ -881,7 +882,7 @@ impl<'production> SqliteTransaction<'production> {
     /// Returns [`ErrorKind::NotFound`] when `root_id` is absent, or a
     /// transaction/storage error.
     pub fn set_media_root_enabled(&mut self, root_id: MediaRootId, enabled: bool) -> Result<()> {
-        self.lifecycle.ensure_open()?;
+        self.require_decision_base()?;
         let Some(index) = self
             .pending_roots
             .iter()
@@ -918,13 +919,14 @@ impl<'production> SqliteTransaction<'production> {
     }
 
     /// Removes a configured media root.
+    /// Requires a decision base; early rejection leaves the transaction open.
     ///
     /// # Errors
     ///
     /// Returns [`ErrorKind::NotFound`] when `root_id` is absent, or a
     /// transaction/storage error.
     pub fn remove_media_root(&mut self, root_id: MediaRootId) -> Result<()> {
-        self.lifecycle.ensure_open()?;
+        self.require_decision_base()?;
         if !self.pending_roots.iter().any(|root| root.id() == root_id) {
             return Err(Error::new(ErrorKind::NotFound, "media root does not exist"));
         }
@@ -1788,7 +1790,7 @@ impl<'production> SqliteTransaction<'production> {
         if self.base_revision.is_none() {
             return Err(Error::new(
                 ErrorKind::InvalidArgument,
-                "metadata replacement/removal requires a decision base",
+                "non-additive mutation requires a decision base",
             ));
         }
         Ok(())

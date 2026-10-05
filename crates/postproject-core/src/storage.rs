@@ -578,7 +578,8 @@ pub trait ProductionStoreTransaction {
 
     /// Enables or disables a configured resolver search root.
     ///
-    /// Setting the existing state is an idempotent no-op.
+    /// Requires an edit with a decision base. Setting the existing state is an
+    /// idempotent no-op; early rejection leaves the transaction open.
     ///
     /// # Errors
     ///
@@ -587,6 +588,7 @@ pub trait ProductionStoreTransaction {
     fn set_media_root_enabled(&mut self, root_id: crate::MediaRootId, enabled: bool) -> Result<()>;
 
     /// Stages removal of a configured resolver search root.
+    /// Requires an edit with a decision base; early rejection leaves it open.
     ///
     /// # Errors
     ///

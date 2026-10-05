@@ -473,8 +473,9 @@ fn relink_moved_media(production: &mut SqliteProduction, fixture: &Fixture, relo
             );
         }
     }
+    let base = production.read_session().unwrap().decision_base();
     let mut transaction = production
-        .begin_transaction()
+        .begin_edit(base)
         .expect("begin relink transaction");
     transaction
         .remove_media_root(fixture.media_root.id())

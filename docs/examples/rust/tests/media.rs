@@ -194,10 +194,12 @@ fn print_structure(production: &SqliteProduction, asset_id: AssetId) -> Result<u
 
 // [media-root-lifecycle]
 fn cycle_media_root(production: &mut SqliteProduction, name: &str) -> Result<()> {
-    for root in production.production().media_roots() {
+    let view = production.read_session()?;
+    for root in view.read().production().media_roots() {
         println!("root {} enabled: {}", root.name(), root.is_enabled());
     }
-    let root_id = production
+    let root_id = view
+        .read()
         .production()
         .media_roots()
         .iter()
@@ -205,13 +207,16 @@ fn cycle_media_root(production: &mut SqliteProduction, name: &str) -> Result<()>
         .map(MediaRoot::id)
         .expect("the root is configured");
 
-    let mut transaction = production.begin_transaction()?;
+    let base = view.decision_base();
+    drop(view);
+    let mut transaction = production.begin_edit(base)?;
     // A disabled root stays configured but is skipped during resolution.
     transaction.set_media_root_enabled(root_id, false)?;
     transaction.commit()?;
     drop(transaction);
 
-    let mut transaction = production.begin_transaction()?;
+    let base = production.read_session()?.decision_base();
+    let mut transaction = production.begin_edit(base)?;
     transaction.set_media_root_enabled(root_id, true)?;
     transaction.remove_media_root(root_id)?;
     transaction.commit()

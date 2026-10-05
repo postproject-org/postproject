@@ -219,9 +219,8 @@ fn roots_and_locators_have_a_complete_lifecycle() {
         transaction.commit().expect("commit import");
     }
     {
-        let mut transaction = production
-            .begin_transaction()
-            .expect("begin lifecycle change");
+        let base = production.read_session().unwrap().decision_base();
+        let mut transaction = production.begin_edit(base).expect("begin lifecycle change");
         transaction
             .set_media_root_enabled(root_id, false)
             .expect("disable root");
@@ -256,7 +255,8 @@ fn roots_and_locators_have_a_complete_lifecycle() {
     ));
 
     {
-        let mut transaction = production.begin_transaction().expect("begin root removal");
+        let base = production.read_session().unwrap().decision_base();
+        let mut transaction = production.begin_edit(base).expect("begin root removal");
         transaction.remove_media_root(root_id).expect("remove root");
         transaction.commit().expect("commit root removal");
     }
