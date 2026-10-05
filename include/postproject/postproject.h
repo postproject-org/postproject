@@ -515,6 +515,10 @@ PP_API pp_error_code_t pp_read_session_artifact_reproducibility(
     const pp_read_session_t *session, const pp_uuid_t *representation_id,
     pp_artifact_reproducibility_t **out_report, pp_error_t **out_error);
 /* Journal reads end at the revision retained by this view. */
+PP_API pp_error_code_t pp_read_session_revision_events_page(
+    const pp_read_session_t *session, const pp_uuid_t *revision_id,
+    uint32_t limit, const char *cursor, pp_revision_event_set_t **out_events,
+    pp_error_t **out_error);
 PP_API pp_error_code_t pp_read_session_changes_since_filtered(
     const pp_read_session_t *session, uint64_t sequence,
     const pp_revision_event_kind_t *kinds, uint64_t kind_count,
@@ -1264,6 +1268,14 @@ PP_API pp_error_code_t pp_production_changes_since_filtered(
 PP_API pp_error_code_t pp_revision_waiter_create(
     const pp_production_t *production, pp_revision_waiter_t **out_waiter,
     pp_error_t **out_error);
+/* Bounded position-ordered events; cursors retain production/revision scope. */
+PP_API pp_error_code_t pp_production_revision_events_page(
+    const pp_production_t *production, const pp_uuid_t *revision_id,
+    uint32_t limit, const char *cursor, pp_revision_event_set_t **out_events,
+    pp_error_t **out_error);
+/* Borrowed string, valid until events is released; null at end of page. */
+PP_API const char *pp_revision_event_set_next_cursor(
+    const pp_revision_event_set_t *events);
 /* Blocks until a revision after after_sequence exists, then returns up to
  * limit (1 to 1,000) of them with PP_REVISION_WAIT_REVISIONS. Otherwise
  * returns PP_REVISION_WAIT_TIMED_OUT after timeout_millis (0 checks once;

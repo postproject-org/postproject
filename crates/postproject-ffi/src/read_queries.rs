@@ -34,6 +34,34 @@ unsafe fn forward_read(
     })
 }
 
+/// Copies one bounded page of a revision's events from the pinned view.
+///
+/// # Safety
+/// Session/ID must be live/readable, cursor null or UTF-8, outputs writable.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_read_session_revision_events_page(
+    session: *const PpReadSession,
+    revision_id: *const PpUuid,
+    limit: u32,
+    cursor: *const c_char,
+    out_events: *mut *mut crate::PpRevisionEventSet,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: The delegate validates pointers and contains panics.
+    unsafe {
+        forward_read(session, out_error, |reader| {
+            crate::revision_events::pp_production_revision_events_page(
+                reader,
+                revision_id,
+                limit,
+                cursor,
+                out_events,
+                out_error,
+            )
+        })
+    }
+}
+
 /// Copies a bounded filtered journal page ending at the pinned view's head.
 ///
 /// # Safety

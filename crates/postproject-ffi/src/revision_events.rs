@@ -2,7 +2,7 @@
 
 use std::{ffi::CString, ptr};
 
-use postproject_core::{Error, RevisionEvent, RevisionEventKind};
+use postproject_core::{Error, QueryPage, RevisionEvent, RevisionEventKind};
 
 use crate::{
     PP_REVISION_ACTIVITY_CREATED, PP_REVISION_ACTIVITY_INPUT_ADDED,
@@ -23,6 +23,7 @@ use crate::{
 /// Opaque immutable revision-event result set owned by the C caller.
 pub struct PpRevisionEventSet {
     pub(crate) events: Vec<AbiRevisionEvent>,
+    pub(crate) next_cursor: Option<CString>,
 }
 
 pub(crate) struct AbiRevisionEvent {
@@ -55,7 +56,71 @@ impl PpRevisionEventSet {
             .iter()
             .map(AbiRevisionEvent::try_from)
             .collect::<Result<_, _>>()?;
-        Ok(Self { events })
+        Ok(Self {
+            events,
+            next_cursor: None,
+        })
+    }
+
+    pub(crate) fn from_page(page: &QueryPage<RevisionEvent>) -> Result<Self, Error> {
+        let mut set = Self::new(page.items())?;
+        set.next_cursor = crate::query_cursor_to_cstring(page.next_cursor())?;
+        Ok(set)
+    }
+}
+
+/// Returns a borrowed continuation cursor, or null at the end of a page.
+///
+/// # Safety
+/// Events must be null or a live handle; the string lives with that handle.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_revision_event_set_next_cursor(
+    events: *const PpRevisionEventSet,
+) -> *const std::ffi::c_char {
+    std::panic::catch_unwind(|| {
+        // SAFETY: Non-null handle validity is guaranteed by the caller.
+        unsafe { events.as_ref() }
+            .and_then(|set| set.next_cursor.as_ref())
+            .map_or(ptr::null(), |cursor| cursor.as_ptr())
+    })
+    .unwrap_or(ptr::null())
+}
+
+/// Copies one bounded page of a revision's immutable semantic events.
+///
+/// # Safety
+/// Production/ID must be live/readable, cursor null or UTF-8, outputs writable.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_production_revision_events_page(
+    production: *const crate::PpProduction,
+    revision_id: *const PpUuid,
+    limit: u32,
+    cursor: *const std::ffi::c_char,
+    out_events: *mut *mut PpRevisionEventSet,
+    out_error: *mut *mut crate::PpError,
+) -> u32 {
+    // SAFETY: Outputs are initialized and inputs checked before use.
+    unsafe {
+        crate::initialize_output(out_events);
+        crate::ffi_call(out_error, || {
+            let production = production
+                .as_ref()
+                .ok_or_else(|| crate::invalid_argument("production must not be null"))?;
+            let revision_id = revision_id
+                .as_ref()
+                .ok_or_else(|| crate::invalid_argument("revision_id must not be null"))?;
+            crate::require_output(out_events, "out_events")?;
+            let page = crate::query_page_request(limit, cursor)?;
+            let reader = crate::lock_production(&production.state);
+            let events = reader.events_for_revision_page(
+                postproject_core::RevisionId::from_bytes(revision_id.bytes),
+                &page,
+            )?;
+            out_events.write(Box::into_raw(Box::new(PpRevisionEventSet::from_page(
+                &events,
+            )?)));
+            Ok(())
+        })
     }
 }
 

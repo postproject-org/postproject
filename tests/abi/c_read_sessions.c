@@ -47,6 +47,10 @@ static int rejects_null_storage_reads(void) {
   status = pp_read_session_changes_since_filtered(
       NULL, 0, NULL, 0, 1, &revisions, &through, &error);
   valid = valid && status == PP_ERROR_INVALID_ARGUMENT && revisions == NULL && through == 0;
+  pp_error_release(error); error = NULL;
+  pp_revision_event_set_t *events = (pp_revision_event_set_t *)(uintptr_t)1;
+  status = pp_read_session_revision_events_page(NULL, NULL, 1, NULL, &events, &error);
+  valid = valid && status == PP_ERROR_INVALID_ARGUMENT && events == NULL;
   pp_error_release(error);
   return valid;
 }

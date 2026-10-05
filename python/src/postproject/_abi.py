@@ -725,6 +725,7 @@ EXPORTED_SYMBOLS = (
     "pp_production_resolve_assets",
     "pp_production_resources_page",
     "pp_production_revision_events",
+    "pp_production_revision_events_page",
     "pp_production_stale_artifacts",
     "pp_production_unresolved_media",
     "pp_production_verify_resource",
@@ -765,6 +766,7 @@ EXPORTED_SYMBOLS = (
     "pp_read_session_representations_using_resource",
     "pp_read_session_resolve_assets",
     "pp_read_session_resources_page",
+    "pp_read_session_revision_events_page",
     "pp_read_session_stale_artifacts",
     "pp_read_session_unresolved_media",
     "pp_read_session_verify_resource",
@@ -800,6 +802,7 @@ EXPORTED_SYMBOLS = (
     "pp_resolution_set_representation_count",
     "pp_revision_event_set_count",
     "pp_revision_event_set_get",
+    "pp_revision_event_set_next_cursor",
     "pp_revision_event_set_release",
     "pp_revision_set_count",
     "pp_revision_set_get",
@@ -859,6 +862,8 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_read_session_evaluate_artifact.restype = ErrorCode
     lib.pp_read_session_artifact_reproducibility.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.POINTER(ArtifactReproducibility)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_read_session_artifact_reproducibility.restype = ErrorCode
+    lib.pp_read_session_revision_events_page.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(Uuid), ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(RevisionEventSet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_read_session_revision_events_page.restype = ErrorCode
     lib.pp_read_session_changes_since_filtered.argtypes = [ctypes.POINTER(ReadSession), ctypes.c_uint64, ctypes.POINTER(RevisionEventKind), ctypes.c_uint64, ctypes.c_uint32, ctypes.POINTER(ctypes.POINTER(RevisionSet)), ctypes.POINTER(ctypes.c_uint64), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_read_session_changes_since_filtered.restype = ErrorCode
     lib.pp_read_session_latest_revision.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(ctypes.POINTER(RevisionSet)), ctypes.POINTER(ctypes.POINTER(Error))]
@@ -1263,6 +1268,10 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_production_changes_since_filtered.restype = ErrorCode
     lib.pp_revision_waiter_create.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(ctypes.POINTER(RevisionWaiter)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_revision_waiter_create.restype = ErrorCode
+    lib.pp_production_revision_events_page.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(Uuid), ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(RevisionEventSet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_production_revision_events_page.restype = ErrorCode
+    lib.pp_revision_event_set_next_cursor.argtypes = [ctypes.POINTER(RevisionEventSet)]
+    lib.pp_revision_event_set_next_cursor.restype = ctypes.c_char_p
     lib.pp_revision_waiter_wait.argtypes = [ctypes.POINTER(RevisionWaiter), ctypes.c_uint64, ctypes.c_uint32, ctypes.c_uint32, ctypes.POINTER(RevisionWaitResult), ctypes.POINTER(ctypes.POINTER(RevisionSet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_revision_waiter_wait.restype = ErrorCode
     lib.pp_revision_waiter_cancel.argtypes = [ctypes.POINTER(RevisionWaiter)]

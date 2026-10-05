@@ -74,6 +74,7 @@ static int exercise(const char *path, const char *media) {
   pp_asset_set_t *assets = NULL;
   pp_job_set_t *jobs = NULL;
   pp_revision_set_t *journal = NULL;
+  pp_revision_event_set_t *events = NULL, *next_events = NULL;
   pp_activity_set_t *activities = NULL;
   pp_dependency_set_t *dependencies = NULL;
   pp_dependency_query_set_t *dependency_page = NULL;
@@ -122,6 +123,17 @@ static int exercise(const char *path, const char *media) {
 
   CHECK(pp_production_read_session(production, &view, &error));
   CHECK(pp_read_session_decision_base(view, &base, &error));
+  CHECK(pp_read_session_revision_events_page(view, &base.revision_id, 1, NULL, &events, &error));
+  const char *event_cursor = pp_revision_event_set_next_cursor(events);
+  if (pp_revision_event_set_count(events) != 1 || !event_cursor) goto cleanup;
+  CHECK(pp_read_session_revision_events_page(view, &base.revision_id, 1000, event_cursor, &next_events, &error));
+  pp_revision_event_t first_event, next_event;
+  CHECK(pp_revision_event_set_get(events, 0, &first_event, &error));
+  CHECK(pp_revision_event_set_get(next_events, 0, &next_event, &error));
+  if (next_event.position <= first_event.position || pp_revision_event_set_next_cursor(next_events)) goto cleanup;
+  pp_revision_event_set_release(next_events); next_events = NULL;
+  CHECK(pp_production_revision_events_page(production, &base.revision_id, 1000, NULL, &next_events, &error));
+  if (pp_revision_event_set_count(next_events) <= 1) goto cleanup;
   CHECK(pp_decision_base_format(&base, &token, &error));
   CHECK(pp_decision_base_parse(token, &parsed, &error));
   if (!parsed.has_revision || parsed.revision_sequence != base.revision_sequence ||
@@ -215,6 +227,7 @@ static int exercise(const char *path, const char *media) {
   if (reproducible || has_activity || issues == 0) goto cleanup;
   pp_read_session_release(view); view = NULL;
   /* Copied sets and a detached base survive closing the pinned view. */
+  CHECK(pp_revision_event_set_get(events, 0, &first_event, &error));
   CHECK(pp_production_begin_edit(production, &base, &edit, &error));
   CHECK(pp_transaction_commit_with_receipt(edit, &receipt, &error));
   if (receipt.outcome != PP_COMMIT_NO_CHANGE || pp_asset_set_count(assets) != 1 ||
@@ -250,6 +263,8 @@ cleanup:
   pp_job_set_release(jobs);
   pp_activity_set_release(activities);
   pp_revision_set_release(journal);
+  pp_revision_event_set_release(events);
+  pp_revision_event_set_release(next_events);
   pp_dependency_set_release(dependencies);
   pp_dependency_query_set_release(dependency_page);
   pp_artifact_evaluation_release(evaluation);
