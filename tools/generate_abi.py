@@ -325,9 +325,9 @@ def render_layout_c(header: Header) -> str:
 
 
 def render_layout_rust(header: Header) -> str:
-    """Probe the implementation's types using the authoritative header fields."""
+    """Probe implementation types by public typedef, independently of C tags."""
     types = [
-        "".join(part.title() for part in struct.tag.split("_"))
+        "Pp" + _python_name(struct.alias)
         for struct in header.structs
         if struct.fields is not None
     ]
@@ -352,7 +352,7 @@ def render_layout_rust(header: Header) -> str:
     for struct in header.structs:
         if struct.fields is None:
             continue
-        rust_type = "".join(part.title() for part in struct.tag.split("_"))
+        rust_type = "Pp" + _python_name(struct.alias)
         fields = ", ".join(field.name for field in struct.fields)
         lines.append(f'    layout!({rust_type}, "{struct.alias}", {fields});')
     lines.extend(["}", ""])

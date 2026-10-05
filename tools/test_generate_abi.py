@@ -60,7 +60,7 @@ class GenerateAbiTests(unittest.TestCase):
 
     def test_rust_layout_probe_covers_same_fields_and_skips_opaque_handles(self) -> None:
         source = """
-        typedef struct pp_uuid { uint8_t bytes[16]; } pp_uuid_t;
+        typedef struct pp_uuid_value { uint8_t bytes[16]; } pp_uuid_t;
         typedef struct pp_production pp_production_t;
         PP_API void pp_use_uuid(pp_uuid_t value);
         """

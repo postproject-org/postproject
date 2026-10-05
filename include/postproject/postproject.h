@@ -65,7 +65,7 @@ typedef struct pp_uuid {
 /* A production ID is a distinct C type, with the same stable UUID bytes.
  * Parsing accepts the core's UUID syntax, including nil. A value alone never
  * proves existence or production membership; operations validate those facts. */
-typedef struct pp_production_id {
+typedef struct pp_production_id_value {
   uint8_t bytes[16];
 } pp_production_id_t;
 
