@@ -54,6 +54,19 @@ def exercise(path: Path, media: Path) -> None:
                 == ArtifactKnowledgeState.INDETERMINATE
             )
             assert not view.artifact_reproducibility(representation.id).reproducible
+            assert view.dependency_set(representation.id) is None
+            assert (
+                view.dependencies(
+                    representation.id, max_depth=64, max_representations=1000, limit=10
+                ).items
+                == ()
+            )
+            assert (
+                view.dependents(
+                    AssetRef(asset), max_depth=64, max_representations=1000, limit=10
+                ).items
+                == ()
+            )
             resources = view.resources_page(representation.id, limit=10)
             assert len(resources.items) == 1
             resource = resources.items[0]

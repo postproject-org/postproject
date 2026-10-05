@@ -2000,6 +2000,68 @@ class ReadSession:
             self, native.lib.pp_read_session_release, handle
         )
 
+    def dependency_set(
+        self, representation_id: RepresentationId
+    ) -> DependencySet | None:
+        """Return recorded dependency knowledge, preserving absent versus empty."""
+
+        self._require_open()
+        native_id = _native_uuid(representation_id)
+        return _read_dependency_set(
+            self._native,
+            self._native.lib.pp_read_session_dependency_set,
+            self._handle,
+            ctypes.byref(native_id),
+        )
+
+    def dependencies(
+        self,
+        representation_id: RepresentationId,
+        *,
+        max_depth: int,
+        max_representations: int,
+        limit: int,
+        cursor: str | None = None,
+    ) -> QueryPage[DependencyMatch]:
+        """Return one bounded page of direct or transitive dependencies."""
+
+        self._require_open()
+        native_id = _native_uuid(representation_id)
+        return _read_dependency_query(
+            self._native,
+            self._native.lib.pp_read_session_dependencies,
+            self._handle,
+            ctypes.byref(native_id),
+            max_depth,
+            max_representations,
+            limit,
+            _optional_text(cursor),
+        )
+
+    def dependents(
+        self,
+        target: AssetRef | RepresentationRef,
+        *,
+        max_depth: int,
+        max_representations: int,
+        limit: int,
+        cursor: str | None = None,
+    ) -> QueryPage[DependencyMatch]:
+        """Return one bounded page of direct or transitive dependents."""
+
+        self._require_open()
+        native_target = _native_object_reference(target)
+        return _read_dependency_query(
+            self._native,
+            self._native.lib.pp_read_session_dependents,
+            self._handle,
+            ctypes.byref(native_target),
+            max_depth,
+            max_representations,
+            limit,
+            _optional_text(cursor),
+        )
+
     def verify_resource(
         self,
         resource_id: ResourceId,

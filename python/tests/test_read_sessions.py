@@ -15,6 +15,7 @@ from postproject import (
     ConflictError,
     ContentVerification,
     DecisionBase,
+    Dependency,
     ExternalIdentifier,
     InvalidArgumentError,
     JobRequest,
@@ -25,6 +26,7 @@ from postproject import (
     NotFoundError,
     Production,
     RepresentationKind,
+    RepresentationRef,
     VerificationMode,
     file_locator,
     fingerprint_file,
@@ -32,6 +34,100 @@ from postproject import (
 
 
 class ReadSessionTests(unittest.TestCase):
+    def test_dependency_reads_retain_replaced_knowledge(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            media = Path(directory) / "camera.mov"
+            media.write_bytes(b"dependency view fixture")
+            with Production.create(
+                Path(directory) / "dependencies.pproj"
+            ) as production:
+                with production.read_session() as empty, empty.edit() as edit:
+                    asset = edit.import_media(media)
+                    proxy = edit.add_representation(
+                        asset, RepresentationKind.PROXY, media
+                    )
+                    edit.commit()
+                with production.read_session() as before:
+                    self.assertIsNone(before.dependency_set(proxy))
+                    dependency = Dependency("example:source", AssetRef(asset), "camera")
+                    with before.edit() as edit:
+                        edit.record_dependency_set(proxy, (dependency,))
+                        edit.commit()
+                    self.assertIsNone(before.dependency_set(proxy))
+                    self.assertEqual(
+                        before.dependencies(
+                            proxy, max_depth=1, max_representations=100, limit=1
+                        ).items,
+                        (),
+                    )
+                with production.read_session() as retained:
+                    recorded = retained.dependency_set(proxy)
+                    self.assertIsNotNone(recorded)
+                    assert recorded is not None
+                    self.assertEqual(recorded.dependencies, (dependency,))
+                    forward = retained.dependencies(
+                        proxy, max_depth=1, max_representations=100, limit=1
+                    )
+                    reverse = retained.dependents(
+                        AssetRef(asset), max_depth=1, max_representations=100, limit=1
+                    )
+                    self.assertEqual(
+                        tuple(item.target for item in forward.items), (AssetRef(asset),)
+                    )
+                    self.assertEqual(
+                        tuple(item.target for item in reverse.items),
+                        (RepresentationRef(proxy),),
+                    )
+                    with retained.edit() as edit:
+                        edit.record_dependency_set(proxy, ())
+                        edit.commit()
+                    self.assertEqual(retained.dependency_set(proxy), recorded)
+                    self.assertEqual(
+                        retained.dependencies(
+                            proxy, max_depth=1, max_representations=100, limit=1
+                        ),
+                        forward,
+                    )
+                    self.assertEqual(
+                        retained.dependents(
+                            AssetRef(asset),
+                            max_depth=1,
+                            max_representations=100,
+                            limit=1,
+                        ),
+                        reverse,
+                    )
+                    with production.read_session() as fresh:
+                        empty_set = fresh.dependency_set(proxy)
+                        self.assertIsNotNone(empty_set)
+                        assert empty_set is not None
+                        self.assertEqual(empty_set.dependencies, ())
+                        self.assertEqual(
+                            fresh.dependents(
+                                AssetRef(asset),
+                                max_depth=1,
+                                max_representations=100,
+                                limit=1,
+                            ).items,
+                            (),
+                        )
+                    with self.assertRaises(InvalidArgumentError):
+                        retained.dependencies(
+                            proxy, max_depth=1, max_representations=100, limit=0
+                        )
+                self.assertEqual(recorded.dependencies, (dependency,))
+                for operation in (
+                    lambda: retained.dependency_set(proxy),
+                    lambda: retained.dependencies(
+                        proxy, max_depth=1, max_representations=100, limit=1
+                    ),
+                    lambda: retained.dependents(
+                        AssetRef(asset), max_depth=1, max_representations=100, limit=1
+                    ),
+                ):
+                    with self.assertRaises(RuntimeError):
+                        operation()
+
     def test_artifact_reports_retain_their_provenance_view(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             media = Path(directory) / "camera.mov"
