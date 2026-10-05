@@ -4258,6 +4258,29 @@ private:
 
 class ReadSession final {
 public:
+  [[nodiscard]] Result<FilteredRevisionPage>
+  changesSinceFiltered(std::uint64_t sequence,
+                       const std::vector<RevisionEventKind> &kinds,
+                       std::uint32_t limit = 100) const {
+    std::vector<pp_revision_event_kind_t> native_kinds;
+    native_kinds.reserve(kinds.size());
+    for (const RevisionEventKind kind : kinds) {
+      native_kinds.push_back(static_cast<pp_revision_event_kind_t>(kind));
+    }
+    pp_revision_set_t *raw_revisions = nullptr;
+    std::uint64_t through_sequence = 0;
+    pp_error_t *error = nullptr;
+    const pp_error_code_t status = pp_read_session_changes_since_filtered(
+        session_, sequence, native_kinds.data(),
+        static_cast<std::uint64_t>(native_kinds.size()), limit,
+        &raw_revisions, &through_sequence, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    detail::RevisionSetHandle revisions(raw_revisions);
+    POSTPROJECT_TRY_ASSIGN(std::vector<Revision> items,
+                           detail::revisions(revisions.get()));
+    return FilteredRevisionPage{std::move(items), through_sequence};
+  }
+
   [[nodiscard]] Result<std::optional<Revision>> latestRevision() const {
     pp_revision_set_t *raw_revisions = nullptr;
     pp_error_t *error = nullptr;

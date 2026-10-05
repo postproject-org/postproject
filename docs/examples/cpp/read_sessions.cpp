@@ -22,6 +22,9 @@ static void exercise(const std::string &path, const std::string &media) {
     throw std::runtime_error("coherent empty journal");
   auto view = production.readSession().value();
   const auto latest = view.latestRevision().value();
+  const auto filtered = view.changesSinceFiltered(0, {postproject::RevisionEventKind::asset_imported}, 10).value();
+  if (filtered.revisions.size() != 1 || filtered.through_sequence != receipt.revision->sequence)
+    throw std::runtime_error("coherent filtered journal");
   if (!latest || latest->id != receipt.revision->id || view.changesSince(0, 10).value().size() != 1)
     throw std::runtime_error("coherent journal head");
   if (!view.unresolvedMedia(10).value().items.empty() ||
