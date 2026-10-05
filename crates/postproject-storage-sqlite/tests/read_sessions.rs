@@ -2,7 +2,7 @@
 
 use postproject_core::{
     DecisionBase, ErrorKind, MediaRoot, MediaRootId, ProductionReadSession, QueryPageRequest,
-    RevisionId,
+    RevisionEventFilter, RevisionEventType, RevisionId,
 };
 use postproject_media::prepare_original_media;
 use postproject_storage_sqlite::SqliteProduction;
@@ -29,12 +29,44 @@ fn view_is_pinned_before_return_and_writer_commits_without_reader_release() {
     }
     assert!(empty.read().production().media_roots().is_empty());
     assert!(empty.read().latest_revision().unwrap().is_none());
+    let added = RevisionEventFilter::new([RevisionEventType::MediaRootAdded]).unwrap();
+    let page = empty.read().changes_since_filtered(0, &added, 10).unwrap();
+    assert!(page.revisions().is_empty());
+    assert_eq!(page.through_sequence(), 0);
     let current = writer.read_session().unwrap();
     assert_eq!(current.read().production().media_roots().len(), 1);
     assert_eq!(current.decision_base().sequence(), 1);
     assert_eq!(
         current.decision_base().revision_id(),
         current.read().latest_revision().unwrap().map(|r| r.id())
+    );
+    {
+        let mut edit = writer.begin_transaction().unwrap();
+        edit.add_media_root(
+            MediaRoot::new(MediaRootId::new(), "proxies", None, None, 0, true).unwrap(),
+        )
+        .unwrap();
+        edit.commit().unwrap();
+    }
+    let page = current
+        .read()
+        .changes_since_filtered(0, &added, 10)
+        .unwrap();
+    assert_eq!(page.revisions().len(), 1);
+    assert_eq!(page.through_sequence(), 1);
+    let removed = RevisionEventFilter::new([RevisionEventType::MediaRootRemoved]).unwrap();
+    let unmatched = current
+        .read()
+        .changes_since_filtered(0, &removed, 10)
+        .unwrap();
+    assert!(unmatched.revisions().is_empty());
+    assert_eq!(unmatched.through_sequence(), 1);
+    assert_eq!(
+        writer
+            .changes_since_filtered(0, &added, 10)
+            .unwrap()
+            .through_sequence(),
+        2
     );
     // The independently owned session remains usable after the writer closes.
     drop(writer);

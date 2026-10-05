@@ -2593,12 +2593,20 @@ impl SqliteProduction {
         for event_type in filter.types() {
             parameters.push(Value::Integer(stored_revision_event_kind(event_type)?));
         }
-        let snapshot = self
-            .connection
-            .unchecked_transaction()
-            .map_err(sqlite_error("begin filtered revision snapshot"))?;
+        // A retained view already owns its read transaction. Live reads need
+        // a short snapshot covering both the page and its through sequence.
+        let snapshot = if self.is_read_only() {
+            None
+        } else {
+            Some(
+                self.connection
+                    .unchecked_transaction()
+                    .map_err(sqlite_error("begin filtered revision snapshot"))?,
+            )
+        };
+        let connection = snapshot.as_deref().unwrap_or(&self.connection);
         let revisions = {
-            let mut statement = snapshot
+            let mut statement = connection
                 .prepare(&format!(
                     "SELECT id, sequence, transaction_id, committed_at_micros,
                             origin_name, origin_version, origin_uri, message
@@ -2618,7 +2626,7 @@ impl SqliteProduction {
         let through_sequence = match revisions.last() {
             Some(last) if revisions.len() == limit as usize => last.sequence(),
             _ => {
-                let latest: i64 = snapshot
+                let latest: i64 = connection
                     .query_row(
                         "SELECT coalesce(max(sequence), 0) FROM revisions",
                         [],
