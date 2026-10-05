@@ -1967,6 +1967,50 @@ inline Result<Job> job(const pp_job_set_t *jobs, std::uint64_t index) {
              optional_string(native.failure_diagnostic)};
 }
 
+inline Result<std::optional<DependencySet>>
+dependency_set(DependencySetHandle dependencies) {
+
+  std::uint8_t present = 0;
+  pp_uuid_t source_id{};
+  std::uint64_t recorded_at_revision = 0;
+  pp_dependency_set_status_t set_status = 0;
+  std::uint64_t count = 0;
+  pp_error_t *summary_error = nullptr;
+  const pp_error_code_t summary_status = pp_dependency_set_get(
+      dependencies.get(), &present, &source_id, &recorded_at_revision,
+      &set_status, &count, &summary_error);
+  POSTPROJECT_TRY(check(summary_status, summary_error));
+  if (present == 0) {
+    return std::nullopt;
+  }
+
+  std::vector<Dependency> result;
+  result.reserve(static_cast<std::size_t>(count));
+  for (std::uint64_t index = 0; index < count; ++index) {
+    pp_dependency_t native{};
+    pp_error_t *item_error = nullptr;
+    const pp_error_code_t item_status = pp_dependency_set_get_dependency(
+        dependencies.get(), index, &native, &item_error);
+    POSTPROJECT_TRY(check(item_status, item_error));
+    if (native.kind == nullptr || native.authored_reference == nullptr) {
+      return Error(ErrorCode::internal, "dependency has a null string");
+    }
+    result.push_back(
+        {native.has_source_resource != 0
+             ? std::optional<Uuid>(uuid(native.source_resource_id))
+             : std::nullopt,
+         std::string(native.kind), object_ref(native.target),
+         native.has_resolved_representation != 0
+             ? std::optional<Uuid>(
+                   uuid(native.resolved_representation_id))
+             : std::nullopt,
+         native.required != 0, std::string(native.authored_reference)});
+  }
+  return DependencySet{uuid(source_id), recorded_at_revision,
+                       static_cast<DependencySetStatus>(set_status),
+                       std::move(result)};
+}
+
 inline Result<QueryPage<DependencyMatch>>
 dependency_query_page(DependencyQuerySetHandle matches) {
   std::vector<DependencyMatch> items;
@@ -5065,47 +5109,8 @@ public:
     const pp_error_code_t status = pp_production_dependency_set(
         production_, &native_id, &raw_dependencies, &error);
     POSTPROJECT_TRY(detail::check(status, error));
-    detail::DependencySetHandle dependencies(raw_dependencies);
-
-    std::uint8_t present = 0;
-    pp_uuid_t source_id{};
-    std::uint64_t recorded_at_revision = 0;
-    pp_dependency_set_status_t set_status = 0;
-    std::uint64_t count = 0;
-    pp_error_t *summary_error = nullptr;
-    const pp_error_code_t summary_status = pp_dependency_set_get(
-        dependencies.get(), &present, &source_id, &recorded_at_revision,
-        &set_status, &count, &summary_error);
-    POSTPROJECT_TRY(detail::check(summary_status, summary_error));
-    if (present == 0) {
-      return std::nullopt;
-    }
-
-    std::vector<Dependency> result;
-    result.reserve(static_cast<std::size_t>(count));
-    for (std::uint64_t index = 0; index < count; ++index) {
-      pp_dependency_t native{};
-      pp_error_t *item_error = nullptr;
-      const pp_error_code_t item_status = pp_dependency_set_get_dependency(
-          dependencies.get(), index, &native, &item_error);
-      POSTPROJECT_TRY(detail::check(item_status, item_error));
-      if (native.kind == nullptr || native.authored_reference == nullptr) {
-        return Error(ErrorCode::internal, "dependency has a null string");
-      }
-      result.push_back(
-          {native.has_source_resource != 0
-               ? std::optional<Uuid>(detail::uuid(native.source_resource_id))
-               : std::nullopt,
-           std::string(native.kind), detail::object_ref(native.target),
-           native.has_resolved_representation != 0
-               ? std::optional<Uuid>(
-                     detail::uuid(native.resolved_representation_id))
-               : std::nullopt,
-           native.required != 0, std::string(native.authored_reference)});
-    }
-    return DependencySet{detail::uuid(source_id), recorded_at_revision,
-                         static_cast<DependencySetStatus>(set_status),
-                         std::move(result)};
+    return detail::dependency_set(
+        detail::DependencySetHandle(raw_dependencies));
   }
 
   [[nodiscard]] Result<QueryPage<DependencyMatch>>
