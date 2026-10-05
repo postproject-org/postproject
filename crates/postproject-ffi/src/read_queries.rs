@@ -8,6 +8,163 @@ use crate::{
 use postproject_core::{AssetId, Error, RepresentationId};
 use std::ffi::c_char;
 
+// Reuse live-read validation and owned projections on the pinned connection.
+// NULL sessions delegate as NULL productions, which clear every output.
+unsafe fn forward_read(
+    session: *const PpReadSession,
+    out_error: *mut *mut PpError,
+    operation: impl FnOnce(*const crate::PpProduction) -> u32,
+) -> u32 {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        // SAFETY: A non-null session is live by the exported caller contract.
+        let reader = unsafe { session.as_ref() }
+            .map_or(std::ptr::null(), |session| &raw const session.reader);
+        operation(reader)
+    }))
+    .unwrap_or_else(|_| {
+        // SAFETY: Error output validity is the exported caller contract.
+        unsafe {
+            ffi_call(out_error, || {
+                Err(Error::new(
+                    postproject_core::ErrorKind::Internal,
+                    "read projection panicked",
+                ))
+            })
+        }
+    })
+}
+
+/// Copies logical roots from the pinned view into an owned set.
+///
+/// # Safety
+/// Session must be live; outputs writable, with a nullable error output.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_read_session_media_roots(
+    session: *const PpReadSession,
+    out_roots: *mut *mut crate::PpMediaRootSet,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: The delegate validates pointers and contains panics.
+    unsafe {
+        forward_read(session, out_error, |reader| {
+            crate::pp_production_media_roots(reader, out_roots, out_error)
+        })
+    }
+}
+
+/// Copies external identifiers from the pinned view into an owned set.
+///
+/// # Safety
+/// Session/target must be live/readable; outputs writable or error output null.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_read_session_external_identifiers(
+    session: *const PpReadSession,
+    target: *const crate::PpObjectRef,
+    out_identifiers: *mut *mut crate::PpExternalIdentifierSet,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: The delegate validates pointers and contains panics.
+    unsafe {
+        forward_read(session, out_error, |reader| {
+            crate::pp_production_external_identifiers(reader, target, out_identifiers, out_error)
+        })
+    }
+}
+
+/// Looks up exact external identifiers in the pinned view.
+///
+/// # Safety
+/// Session must be live; strings UTF-8/NUL-terminated (qualifier nullable), outputs writable.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_read_session_find_by_external_identifier(
+    session: *const PpReadSession,
+    scheme: *const c_char,
+    value: *const c_char,
+    qualifier: *const c_char,
+    out_objects: *mut *mut crate::PpObjectRefSet,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: The delegate validates pointers and contains panics.
+    unsafe {
+        forward_read(session, out_error, |reader| {
+            crate::pp_production_find_by_external_identifier(
+                reader,
+                scheme,
+                value,
+                qualifier,
+                out_objects,
+                out_error,
+            )
+        })
+    }
+}
+
+/// Finds known media by exact locator identity in the pinned view.
+///
+/// # Safety
+/// Session must be live; URI UTF-8/NUL-terminated, optional naming readable,
+/// cursor nullable UTF-8/NUL-terminated, outputs writable or error output null.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_read_session_find_known_media_by_locator(
+    session: *const PpReadSession,
+    uri: *const c_char,
+    sequence_naming: *const crate::PpSequenceNaming,
+    limit: u32,
+    cursor: *const c_char,
+    out_matches: *mut *mut crate::PpKnownMediaSet,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: The delegate validates pointers and contains panics.
+    unsafe {
+        forward_read(session, out_error, |reader| {
+            crate::known_media::pp_production_find_known_media_by_locator(
+                reader,
+                uri,
+                sequence_naming,
+                limit,
+                cursor,
+                out_matches,
+                out_error,
+            )
+        })
+    }
+}
+
+/// Finds known media by fingerprint evidence in the pinned view.
+///
+/// # Safety
+/// Session must be live; algorithm UTF-8/NUL-terminated, value readable for length,
+/// cursor nullable UTF-8/NUL-terminated, outputs writable or error output null.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_read_session_find_known_media_by_fingerprint(
+    session: *const PpReadSession,
+    algorithm: *const c_char,
+    version: u16,
+    value: *const u8,
+    value_length: u64,
+    limit: u32,
+    cursor: *const c_char,
+    out_matches: *mut *mut crate::PpKnownMediaSet,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: The delegate validates pointers and contains panics.
+    unsafe {
+        forward_read(session, out_error, |reader| {
+            crate::known_media::pp_production_find_known_media_by_fingerprint(
+                reader,
+                algorithm,
+                version,
+                value,
+                value_length,
+                limit,
+                cursor,
+                out_matches,
+                out_error,
+            )
+        })
+    }
+}
+
 /// Reads copied values from the session's pinned view.
 ///
 /// # Safety

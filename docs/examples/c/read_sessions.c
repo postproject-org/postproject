@@ -4,6 +4,48 @@
 #include <string.h>
 
 /* [coherent-reads] */
+static int lookup(const pp_read_session_t *view, const pp_uuid_t *asset, const char *media) {
+  pp_media_root_set_t *roots = NULL;
+  pp_external_identifier_set_t *identifiers = NULL;
+  pp_object_ref_set_t *objects = NULL;
+  pp_known_media_set_t *matches = NULL;
+  pp_fingerprint_t *fingerprint = NULL;
+  pp_error_t *error = NULL;
+  char *uri = NULL;
+  const char *algorithm;
+  const uint8_t *value;
+  uint16_t version;
+  uint64_t length;
+  const pp_object_ref_t target = {PP_OBJECT_ASSET, *asset};
+  int result = 1;
+#define CHECK(call) do { if ((call) != PP_OK) goto cleanup; } while (0)
+  CHECK(pp_read_session_media_roots(view, &roots, &error));
+  if (pp_media_root_set_count(roots) != 0) goto cleanup;
+  CHECK(pp_read_session_external_identifiers(view, &target, &identifiers, &error));
+  if (pp_external_identifier_set_count(identifiers) != 1) goto cleanup;
+  CHECK(pp_read_session_find_by_external_identifier(view, "https://example.com/id", "camera", NULL, &objects, &error));
+  if (pp_object_ref_set_count(objects) != 1) goto cleanup;
+  CHECK(pp_file_path_to_locator(media, &uri, &error));
+  CHECK(pp_read_session_find_known_media_by_locator(view, uri, NULL, 10, NULL, &matches, &error));
+  if (pp_known_media_set_count(matches) != 1) goto cleanup;
+  pp_known_media_set_release(matches); matches = NULL;
+  CHECK(pp_fingerprint_file(media, &fingerprint, &error));
+  CHECK(pp_fingerprint_get(fingerprint, &algorithm, &version, &value, &length, &error));
+  CHECK(pp_read_session_find_known_media_by_fingerprint(view, algorithm, version, value, length, 10, NULL, &matches, &error));
+  if (pp_known_media_set_count(matches) != 1) goto cleanup;
+  result = 0;
+cleanup:
+  pp_error_release(error);
+  pp_media_root_set_release(roots);
+  pp_external_identifier_set_release(identifiers);
+  pp_object_ref_set_release(objects);
+  pp_known_media_set_release(matches);
+  pp_fingerprint_release(fingerprint);
+  pp_string_release(uri);
+  return result;
+#undef CHECK
+}
+
 static int exercise(const char *path, const char *media) {
   pp_production_t *production = NULL;
   pp_read_session_t *empty = NULL, *view = NULL;
@@ -24,6 +66,8 @@ static int exercise(const char *path, const char *media) {
   CHECK(pp_read_session_begin_edit(empty, &edit, &error));
   CHECK(pp_media_source_create_file(media, &source, &error));
   CHECK(pp_transaction_import_media(edit, source, NULL, &asset, &error));
+  const pp_object_ref_t target = {PP_OBJECT_ASSET, asset};
+  CHECK(pp_transaction_add_external_identifier(edit, &target, "https://example.com/id", "camera", NULL, &error));
   CHECK(pp_transaction_commit_with_receipt(edit, &receipt, &error));
   if (receipt.outcome != PP_COMMIT_REVISION_CREATED || receipt.revision_sequence != 1)
     goto cleanup;
@@ -45,6 +89,7 @@ static int exercise(const char *path, const char *media) {
       &kind, &structure, &members, &resources, &fingerprints, &error));
   pp_representation_set_release(representations); representations = NULL;
   CHECK(pp_read_session_representation(view, &representation, &representations, &error));
+  if (lookup(view, &asset, media)) goto cleanup;
   pp_read_session_release(view); view = NULL;
   /* Copied sets and a detached base survive closing the pinned view. */
   CHECK(pp_production_begin_edit(production, &base, &edit, &error));

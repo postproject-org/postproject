@@ -719,6 +719,11 @@ EXPORTED_SYMBOLS = (
     "pp_read_session_assets_page",
     "pp_read_session_begin_edit",
     "pp_read_session_decision_base",
+    "pp_read_session_external_identifiers",
+    "pp_read_session_find_by_external_identifier",
+    "pp_read_session_find_known_media_by_fingerprint",
+    "pp_read_session_find_known_media_by_locator",
+    "pp_read_session_media_roots",
     "pp_read_session_release",
     "pp_read_session_representation",
     "pp_read_session_representations_page",
@@ -815,6 +820,16 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_read_session_representations_page.restype = ErrorCode
     lib.pp_read_session_representation.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.POINTER(RepresentationSet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_read_session_representation.restype = ErrorCode
+    lib.pp_read_session_media_roots.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(ctypes.POINTER(MediaRootSet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_read_session_media_roots.restype = ErrorCode
+    lib.pp_read_session_external_identifiers.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(ObjectRef), ctypes.POINTER(ctypes.POINTER(ExternalIdentifierSet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_read_session_external_identifiers.restype = ErrorCode
+    lib.pp_read_session_find_by_external_identifier.argtypes = [ctypes.POINTER(ReadSession), ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(ObjectRefSet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_read_session_find_by_external_identifier.restype = ErrorCode
+    lib.pp_read_session_find_known_media_by_locator.argtypes = [ctypes.POINTER(ReadSession), ctypes.c_char_p, ctypes.POINTER(SequenceNaming), ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(KnownMediaSet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_read_session_find_known_media_by_locator.restype = ErrorCode
+    lib.pp_read_session_find_known_media_by_fingerprint.argtypes = [ctypes.POINTER(ReadSession), ctypes.c_char_p, ctypes.c_uint16, ctypes.POINTER(ctypes.c_uint8), ctypes.c_uint64, ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(KnownMediaSet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_read_session_find_known_media_by_fingerprint.restype = ErrorCode
     lib.pp_abi_version.argtypes = []
     lib.pp_abi_version.restype = ctypes.c_uint32
     lib.pp_host_binding_format.argtypes = [ctypes.POINTER(Uuid), ctypes.POINTER(ObjectRef), ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.POINTER(Error))]

@@ -507,6 +507,25 @@ PP_API pp_error_code_t pp_read_session_representations_page(
 PP_API pp_error_code_t pp_read_session_representation(
     const pp_read_session_t *session, const pp_uuid_t *representation_id,
     pp_representation_set_t **out_representations, pp_error_t **out_error);
+/* Same owned projections as the corresponding production reads, using this
+ * session's pinned view. A NULL qualifier matches any qualifier. */
+PP_API pp_error_code_t pp_read_session_media_roots(
+    const pp_read_session_t *session, pp_media_root_set_t **out_roots,
+    pp_error_t **out_error);
+PP_API pp_error_code_t pp_read_session_external_identifiers(
+    const pp_read_session_t *session, const pp_object_ref_t *target,
+    pp_external_identifier_set_t **out_identifiers, pp_error_t **out_error);
+PP_API pp_error_code_t pp_read_session_find_by_external_identifier(
+    const pp_read_session_t *session, const char *scheme, const char *value,
+    const char *qualifier, pp_object_ref_set_t **out_objects, pp_error_t **out_error);
+PP_API pp_error_code_t pp_read_session_find_known_media_by_locator(
+    const pp_read_session_t *session, const char *uri,
+    const pp_sequence_naming_t *sequence_naming, uint32_t limit,
+    const char *cursor, pp_known_media_set_t **out_matches, pp_error_t **out_error);
+PP_API pp_error_code_t pp_read_session_find_known_media_by_fingerprint(
+    const pp_read_session_t *session, const char *algorithm, uint16_t version,
+    const uint8_t *value, uint64_t value_length, uint32_t limit,
+    const char *cursor, pp_known_media_set_t **out_matches, pp_error_t **out_error);
 
 PP_API uint32_t pp_abi_version(void);
 /* Host bindings are pure value operations and perform no network access.
