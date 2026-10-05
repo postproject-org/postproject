@@ -33,6 +33,20 @@ int main(int argc, char **argv) {
   if (argc != 2) {
     return 2;
   }
+  // Malformed native state data must fail before creating a usable variant.
+  pp_job_t native_job{};
+  native_job.state = 99;
+  const auto unknown_state = postproject::detail::job_status_value(native_job);
+  if (unknown_state || unknown_state.error().code() != postproject::ErrorCode::internal) return 20;
+  native_job.state = PP_JOB_FAILED;
+  if (postproject::detail::job_status_value(native_job)) return 21;
+  native_job.failure_diagnostic = "";
+  if (postproject::detail::job_status_value(native_job)) return 22;
+  native_job.state = PP_JOB_CLAIMED;
+  if (postproject::detail::job_status_value(native_job)) return 23;
+  native_job.claim_tool_name = "worker";
+  native_job.claim_agent_identifier_scheme = "custom";
+  if (postproject::detail::job_status_value(native_job)) return 24;
   const std::string path(argv[1]);
   std::remove(path.c_str());
   const std::string media_path = path + ".media";

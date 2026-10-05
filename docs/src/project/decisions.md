@@ -66,6 +66,7 @@ Read the relevant ADR before changing an invariant, a boundary, or a public cont
 - {doc}`ADR 0048 — Immediate option validation </adr/0048-immediate-native-options-validation>`
 - {doc}`ADR 0049 — Native semantic identities </adr/0049-native-semantic-identities>`
 - {doc}`ADR 0050 — Bounded revision events </adr/0050-bounded-revision-events>`
+- {doc}`ADR 0051 — Closed job-state projections </adr/0051-closed-job-state-projections>`
 
 ```{toctree}
 :hidden:
@@ -120,4 +121,5 @@ Read the relevant ADR before changing an invariant, a boundary, or a public cont
 /adr/0048-immediate-native-options-validation
 /adr/0049-native-semantic-identities
 /adr/0050-bounded-revision-events
+/adr/0051-closed-job-state-projections
 ```

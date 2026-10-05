@@ -821,16 +821,16 @@ int main(int argc, char **argv) {
         jobs.items[0].output_representation_kind !=
             postproject::RepresentationKind::proxy ||
         jobs.items[0].target_root.has_value() ||
-        jobs.items[0].state != postproject::JobState::requested ||
-        jobs.items[0].claim.has_value() ||
-        jobs.items[0].completion.has_value() ||
-        jobs.items[0].failure_diagnostic.has_value() ||
+        jobs.items[0].stateKind() != postproject::JobState::requested ||
+        std::holds_alternative<postproject::JobClaim>(jobs.items[0].status) ||
+        std::holds_alternative<postproject::JobCompletion>(jobs.items[0].status) ||
+        std::holds_alternative<postproject::JobFailure>(jobs.items[0].status) ||
         jobs.next_cursor.has_value()) {
       return 33;
     }
     const auto point_job = reopened.job(job_id).value();
     if (point_job.id != job_id ||
-        point_job.state != postproject::JobState::requested) {
+        point_job.stateKind() != postproject::JobState::requested) {
       return 60;
     }
 
@@ -842,14 +842,14 @@ int main(int argc, char **argv) {
     claim.commit().value();
     const auto claimed_jobs = reopened.jobs(1000).value();
     if (claimed_jobs.items.size() != 1 ||
-        !claimed_jobs.items[0].claim.has_value() ||
-        claimed_jobs.items[0].state != postproject::JobState::claimed ||
-        claimed_jobs.items[0].claim->id != claim_id ||
-        claimed_jobs.items[0].claim->tool.name != "C++ worker" ||
-        claimed_jobs.items[0].claim->tool.version != std::string("1.0") ||
-        !claimed_jobs.items[0].claim->agent.has_value() ||
-        claimed_jobs.items[0].claim->agent->name != std::string("operator") ||
-        claimed_jobs.items[0].claim->expires_at_unix_micros != 20) {
+        !std::holds_alternative<postproject::JobClaim>(claimed_jobs.items[0].status) ||
+        claimed_jobs.items[0].stateKind() != postproject::JobState::claimed ||
+        std::get<postproject::JobClaim>(claimed_jobs.items[0].status).id != claim_id ||
+        std::get<postproject::JobClaim>(claimed_jobs.items[0].status).tool.name != "C++ worker" ||
+        std::get<postproject::JobClaim>(claimed_jobs.items[0].status).tool.version != std::string("1.0") ||
+        !std::get<postproject::JobClaim>(claimed_jobs.items[0].status).agent.has_value() ||
+        std::get<postproject::JobClaim>(claimed_jobs.items[0].status).agent->name != std::string("operator") ||
+        std::get<postproject::JobClaim>(claimed_jobs.items[0].status).expires_at_unix_micros != 20) {
       return 34;
     }
 
@@ -890,11 +890,11 @@ int main(int argc, char **argv) {
         });
     if (final_jobs.items.size() != 2 ||
         failed_job == final_jobs.items.end() ||
-        failed_job->state != postproject::JobState::failed ||
-        failed_job->claim.has_value() ||
-        failed_job->failure_diagnostic != std::string("encoder exited") ||
+        failed_job->stateKind() != postproject::JobState::failed ||
+        std::holds_alternative<postproject::JobClaim>(failed_job->status) ||
+        std::get<postproject::JobFailure>(failed_job->status).diagnostic != std::string("encoder exited") ||
         cancelled_job == final_jobs.items.end() ||
-        cancelled_job->state != postproject::JobState::cancelled) {
+        cancelled_job->stateKind() != postproject::JobState::cancelled) {
       return 35;
     }
 
@@ -939,10 +939,10 @@ int main(int argc, char **argv) {
         reopened.activitiesProducing(completed_representation_id).value();
     if (completed_jobs.items.size() != 3 ||
         completed_job == completed_jobs.items.end() ||
-        completed_job->state != postproject::JobState::succeeded ||
-        !completed_job->completion.has_value() ||
-        completed_job->completion->activity_id != completion_activity_id ||
-        completed_job->completion->representation_id !=
+        completed_job->stateKind() != postproject::JobState::succeeded ||
+        !std::holds_alternative<postproject::JobCompletion>(completed_job->status) ||
+        std::get<postproject::JobCompletion>(completed_job->status).activity_id != completion_activity_id ||
+        std::get<postproject::JobCompletion>(completed_job->status).representation_id !=
             completed_representation_id ||
         completion_producing.size() != 1 ||
         completion_producing[0].id != completion_activity_id ||
@@ -1056,7 +1056,7 @@ int main(int argc, char **argv) {
         regeneration_plans[0].job.output_asset_id != asset_id ||
         regeneration_plans[0].job.output_representation_kind !=
             postproject::RepresentationKind::original ||
-        regeneration_plans[0].job.state !=
+        regeneration_plans[0].job.stateKind() !=
             postproject::JobState::requested ||
         regeneration_plans[0].parameters.size() != 1 ||
         regeneration_plans[0].parameters[0].vocabulary !=

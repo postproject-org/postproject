@@ -77,6 +77,9 @@ postproject::Uuid request_proxy(postproject::Production &production,
       production.jobs(100, std::nullopt, postproject::JobState::requested,
                       std::string_view("org.postproject:generate-proxy")).value();
   for (const auto &item : requested.items) {
+    require(item.stateKind() == postproject::JobState::requested &&
+                std::holds_alternative<postproject::JobRequested>(item.status),
+            "requested page has a requested status");
     std::cout << item.kind << " with " << item.inputs.size()
               << " input(s) into root " << item.target_root.value_or("-")
               << '\n';
@@ -213,7 +216,7 @@ int main(int argc, char **argv) {
 
     const auto job_id = request_proxy(production, original_id, asset_id);
     auto requested = load_job(production, job_id);
-    require(requested.state == postproject::JobState::requested &&
+    require(requested.stateKind() == postproject::JobState::requested &&
                 requested.inputs == std::vector{original_id} &&
                 requested.output_asset_id == asset_id &&
                 requested.target_root == std::optional<std::string>("proxies"),
@@ -229,20 +232,21 @@ int main(int argc, char **argv) {
 
     claim_renew_release(production, job_id);
     const auto released = load_job(production, job_id);
-    require(released.state == postproject::JobState::requested &&
-                !released.claim.has_value(),
+    require(released.stateKind() == postproject::JobState::requested &&
+                std::holds_alternative<postproject::JobRequested>(released.status),
             "released job is requested again");
 
     const auto proxy_id = complete_proxy(
         production, released, (work / "proxies" / "A001_proxy.mov").string());
     const auto completed = load_job(production, job_id);
-    require(completed.state == postproject::JobState::succeeded &&
-                completed.completion.has_value() &&
-                completed.completion->representation_id == proxy_id,
+    const auto *completion =
+        std::get_if<postproject::JobCompletion>(&completed.status);
+    require(completed.stateKind() == postproject::JobState::succeeded &&
+                completion != nullptr && completion->representation_id == proxy_id,
             "succeeded job");
     const auto producers = production.activitiesProducing(proxy_id).value();
     require(producers.size() == 1 &&
-                producers.front().id == completed.completion->activity_id,
+                producers.front().id == completion->activity_id,
             "job references its activity");
 
     auto more = production.beginTransaction().value();
@@ -260,16 +264,16 @@ int main(int argc, char **argv) {
         production.representations(asset_id).value().size();
     fail_proxy(production, failing_id);
     const auto failed = load_job(production, failing_id);
-    require(failed.state == postproject::JobState::failed &&
-                failed.failure_diagnostic ==
-                    std::optional<std::string>("encoder exited with status 1"),
+    require(failed.stateKind() == postproject::JobState::failed &&
+                std::get<postproject::JobFailure>(failed.status).diagnostic ==
+                    std::string("encoder exited with status 1"),
             "failed job");
     require(production.representations(asset_id).value().size() ==
                 representations_before,
             "failure adds no representation");
 
     cancel(production, cancelled_id);
-    require(load_job(production, cancelled_id).state ==
+    require(load_job(production, cancelled_id).stateKind() ==
                 postproject::JobState::cancelled,
             "cancelled job");
 
@@ -285,7 +289,7 @@ int main(int argc, char **argv) {
     const auto regenerated = regenerate(production, proxy_id);
     require(regenerated.size() == 1, "one regeneration job");
     const auto enqueued = load_job(production, regenerated.front());
-    require(enqueued.state == postproject::JobState::requested &&
+    require(enqueued.stateKind() == postproject::JobState::requested &&
                 enqueued.inputs == std::vector{original_id},
             "enqueued regeneration job");
     require(production

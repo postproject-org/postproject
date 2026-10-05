@@ -11,6 +11,7 @@ All notable changes to PostProject will be documented here. The project uses
 - Bound query cursors to their production and retained read view; restart old cursors and page revision events (ADRs 0047, 0050).
 - C++ tokens/options require `create()`; options setters return `Result<void>` immediately and preserve valid settings on failure (ADR 0048).
 - Added native production/revision/transaction IDs (C ABI 40); revision arguments use values and persisted references retain their meaning (ADR 0049).
+- Job reads use one state-specific status alternative; migrate C++ field access and Python construction (ADR 0051).
 
 ## 0.6.0-alpha.1 - 2026-10-04
 

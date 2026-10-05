@@ -251,7 +251,7 @@ void request_and_page_jobs(postproject::Production &production,
   const auto job_id = transaction.requestJob(request).value();
   transaction.requestJob(request).value();
   transaction.commit().value();
-  require(production.job(job_id).value().state == postproject::JobState::requested,
+  require(production.job(job_id).value().stateKind() == postproject::JobState::requested,
           "requested job read back by identity");
 
   std::optional<std::string> cursor;

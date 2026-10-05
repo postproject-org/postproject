@@ -1129,6 +1129,16 @@ struct JobCompletion final {
   Uuid representation_id;
 };
 
+/// A request that has no worker or result yet.
+struct JobRequested final {};
+/// A failed request with its diagnostic.
+struct JobFailure final { std::string diagnostic; };
+/// A request cancelled by its coordinator.
+struct JobCancelled final {};
+/// Exactly one lifecycle alternative, carrying only its applicable payload.
+using JobStatus = std::variant<JobRequested, JobClaim, JobCompletion, JobFailure,
+                               JobCancelled>;
+
 struct Job final {
   Uuid id;
   std::string kind;
@@ -1136,10 +1146,17 @@ struct Job final {
   Uuid output_asset_id;
   RepresentationKind output_representation_kind;
   std::optional<std::string> target_root;
-  JobState state;
-  std::optional<JobClaim> claim;
-  std::optional<JobCompletion> completion;
-  std::optional<std::string> failure_diagnostic;
+  JobStatus status;
+
+  /// Returns its category, or no value after a throwing variant assignment.
+  std::optional<JobState> stateKind() const noexcept {
+    if (status.valueless_by_exception()) return std::nullopt;
+    if (std::holds_alternative<JobRequested>(status)) return JobState::requested;
+    if (std::holds_alternative<JobClaim>(status)) return JobState::claimed;
+    if (std::holds_alternative<JobCompletion>(status)) return JobState::succeeded;
+    if (std::holds_alternative<JobFailure>(status)) return JobState::failed;
+    return JobState::cancelled;
+  }
 };
 
 struct JobRequest final {
@@ -1990,6 +2007,55 @@ inline Result<Activity> activity(const pp_activity_set_t *activities,
                   std::move(outputs)};
 }
 
+inline Result<JobStatus> job_status_value(const pp_job_t &native) {
+  const JobState state = static_cast<JobState>(native.state);
+  JobStatus job_status = JobRequested{};
+  if (state == JobState::claimed) {
+    std::optional<ExternalIdentifier> identifier;
+    if (native.claim_agent_identifier_scheme != nullptr &&
+        native.claim_agent_identifier_value != nullptr) {
+      identifier = ExternalIdentifier{
+          std::string(native.claim_agent_identifier_scheme),
+          std::string(native.claim_agent_identifier_value),
+          optional_string(native.claim_agent_identifier_qualifier)};
+    }
+    std::optional<AgentIdentity> agent;
+    if (native.claim_agent_name != nullptr || identifier.has_value()) {
+      agent = AgentIdentity{optional_string(native.claim_agent_name),
+                            std::move(identifier)};
+    }
+    if (native.claim_tool_name == nullptr || *native.claim_tool_name == '\0') {
+      return Error(ErrorCode::internal, "native claimed job lacks a tool name");
+    }
+    if ((native.claim_agent_identifier_scheme == nullptr) !=
+        (native.claim_agent_identifier_value == nullptr)) {
+      return Error(ErrorCode::internal, "native job claim has an incomplete agent identifier");
+    }
+    job_status = JobClaim{
+        uuid(native.claim_id),
+        ToolIdentity{std::string(native.claim_tool_name),
+                     optional_string(native.claim_tool_version),
+                     optional_string(native.claim_tool_uri)},
+        std::move(agent), native.claim_expires_at_unix_micros};
+  }
+  if (state == JobState::succeeded) {
+    job_status = JobCompletion{uuid(native.completion_activity_id),
+                               uuid(native.completion_representation_id)};
+  }
+  if (state == JobState::failed) {
+    if (native.failure_diagnostic == nullptr || *native.failure_diagnostic == '\0') {
+      return Error(ErrorCode::internal, "native failed job lacks a diagnostic");
+    }
+    job_status = JobFailure{std::string(native.failure_diagnostic)};
+  } else if (state == JobState::cancelled) {
+    job_status = JobCancelled{};
+  } else if (state != JobState::requested && state != JobState::claimed &&
+             state != JobState::succeeded) {
+    return Error(ErrorCode::internal, "native job has an unsupported lifecycle state");
+  }
+  return job_status;
+}
+
 inline Result<Job> job(const pp_job_set_t *jobs, std::uint64_t index) {
   pp_job_t native{};
   pp_error_t *error = nullptr;
@@ -2009,46 +2075,14 @@ inline Result<Job> job(const pp_job_set_t *jobs, std::uint64_t index) {
     inputs.push_back(uuid(input));
   }
 
-  const JobState state = static_cast<JobState>(native.state);
-  std::optional<JobClaim> claim;
-  if (state == JobState::claimed) {
-    std::optional<ExternalIdentifier> identifier;
-    if (native.claim_agent_identifier_scheme != nullptr &&
-        native.claim_agent_identifier_value != nullptr) {
-      identifier = ExternalIdentifier{
-          std::string(native.claim_agent_identifier_scheme),
-          std::string(native.claim_agent_identifier_value),
-          optional_string(native.claim_agent_identifier_qualifier)};
-    }
-    std::optional<AgentIdentity> agent;
-    if (native.claim_agent_name != nullptr || identifier.has_value()) {
-      agent = AgentIdentity{optional_string(native.claim_agent_name),
-                            std::move(identifier)};
-    }
-    claim = JobClaim{
-        uuid(native.claim_id),
-        ToolIdentity{native.claim_tool_name != nullptr
-                         ? std::string(native.claim_tool_name)
-                         : std::string(),
-                     optional_string(native.claim_tool_version),
-                     optional_string(native.claim_tool_uri)},
-        std::move(agent), native.claim_expires_at_unix_micros};
-  }
-  std::optional<JobCompletion> completion;
-  if (state == JobState::succeeded) {
-    completion = JobCompletion{uuid(native.completion_activity_id),
-                               uuid(native.completion_representation_id)};
-  }
+  POSTPROJECT_TRY_ASSIGN(auto job_status, job_status_value(native));
   return Job{uuid(native.id),
              native.kind != nullptr ? std::string(native.kind) : std::string(),
              std::move(inputs),
              uuid(native.output_asset_id),
              static_cast<RepresentationKind>(native.output_representation_kind),
              optional_string(native.target_root),
-             state,
-             std::move(claim),
-             std::move(completion),
-             optional_string(native.failure_diagnostic)};
+             std::move(job_status)};
 }
 
 inline Result<std::optional<DependencySet>>
