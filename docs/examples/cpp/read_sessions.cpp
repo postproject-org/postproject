@@ -18,7 +18,12 @@ static void exercise(const std::string &path, const std::string &media) {
   if (!receipt.revision || receipt.revision->sequence != 1 ||
       !empty.assets(10).value().items.empty())
     throw std::runtime_error("coherent empty view or receipt");
+  if (empty.latestRevision().value() || !empty.changesSince(0, 10).value().empty())
+    throw std::runtime_error("coherent empty journal");
   auto view = production.readSession().value();
+  const auto latest = view.latestRevision().value();
+  if (!latest || latest->id != receipt.revision->id || view.changesSince(0, 10).value().size() != 1)
+    throw std::runtime_error("coherent journal head");
   if (!view.unresolvedMedia(10).value().items.empty() ||
       view.objectsChangedSince(0, 10).value().items.empty() ||
       view.representationsUnderMediaRoot("missing", 10).error().code() != postproject::ErrorCode::not_found)

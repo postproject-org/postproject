@@ -4258,6 +4258,32 @@ private:
 
 class ReadSession final {
 public:
+  [[nodiscard]] Result<std::optional<Revision>> latestRevision() const {
+    pp_revision_set_t *raw_revisions = nullptr;
+    pp_error_t *error = nullptr;
+    const pp_error_code_t status =
+        pp_read_session_latest_revision(session_, &raw_revisions, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    detail::RevisionSetHandle revisions(raw_revisions);
+    if (pp_revision_set_count(revisions.get()) == 0) {
+      return std::optional<Revision>();
+    }
+    POSTPROJECT_TRY_ASSIGN(Revision revision,
+                           detail::revision(revisions.get(), 0));
+    return std::optional<Revision>(std::move(revision));
+  }
+
+  [[nodiscard]] Result<std::vector<Revision>>
+  changesSince(std::uint64_t sequence, std::uint32_t limit = 100) const {
+    pp_revision_set_t *raw_revisions = nullptr;
+    pp_error_t *error = nullptr;
+    const pp_error_code_t status = pp_read_session_changes_since(
+        session_, sequence, limit, &raw_revisions, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    detail::RevisionSetHandle revisions(raw_revisions);
+    return detail::revisions(revisions.get());
+  }
+
   [[nodiscard]] Result<QueryPage<Activity>> activitiesProducing(
       const Uuid &representation_id, std::uint32_t limit,
       std::optional<std::string_view> cursor = std::nullopt) const {
