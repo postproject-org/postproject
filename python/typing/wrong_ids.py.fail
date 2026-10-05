@@ -1,10 +1,11 @@
-"""Must fail an installed-package type check for all four annotated calls."""
+"""Must fail an installed-package type check for all five annotated calls."""
 
-from postproject import AssetId, AssetRef, Production, RepresentationId
+from postproject import AssetId, AssetRef, Production, RepresentationId, Transaction
 
 
-def wrong_kinds(production: Production, asset: AssetId, representation: RepresentationId) -> None:
+def wrong_kinds(production: Production, transaction: Transaction, asset: AssetId, representation: RepresentationId) -> None:
     production.asset(representation)
     production.representation(asset)
     AssetRef(representation)
     production.edit(asset)
+    transaction.remove_media_root(asset)
