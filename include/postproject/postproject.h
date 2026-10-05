@@ -1067,6 +1067,8 @@ PP_API pp_error_code_t pp_metadata_input_create_timestamp(
     pp_error_t **out_error);
 PP_API pp_error_code_t pp_metadata_input_create_uri(
     const char *uri, pp_metadata_input_t **out_input, pp_error_t **out_error);
+/* Copies at most 15 MiB; an oversized length rejects before reading bytes.
+ * bytes may be null only for an empty value. */
 PP_API pp_error_code_t pp_metadata_input_create_bytes(
     const uint8_t *bytes, uint64_t length, pp_metadata_input_t **out_input,
     pp_error_t **out_error);

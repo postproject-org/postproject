@@ -3,8 +3,8 @@
 use std::ffi::c_char;
 
 use postproject_core::{
-    DecimalValue, Error, MAX_METADATA_COLLECTION_ITEMS, MetadataField, MetadataValue, PropertyId,
-    RationalValue, Timestamp,
+    DecimalValue, Error, MAX_METADATA_BINARY_BYTES, MAX_METADATA_COLLECTION_ITEMS, MetadataField,
+    MetadataValue, PropertyId, RationalValue, Timestamp,
 };
 
 use crate::{
@@ -180,6 +180,7 @@ pub unsafe extern "C" fn pp_metadata_input_create_uri(
 }
 
 /// Creates an owned byte-string input.
+/// Rejects lengths above the domain's 15 MiB limit before reading the input.
 ///
 /// # Safety
 ///
@@ -197,6 +198,11 @@ pub unsafe extern "C" fn pp_metadata_input_create_bytes(
         create_input(out_input, out_error, || {
             let length = usize::try_from(length)
                 .map_err(|_| invalid_argument("byte length is too large"))?;
+            if length > MAX_METADATA_BINARY_BYTES {
+                return Err(invalid_argument(format!(
+                    "byte length must not exceed {MAX_METADATA_BINARY_BYTES}"
+                )));
+            }
             let value = if length == 0 {
                 Vec::new()
             } else {
@@ -426,6 +432,63 @@ mod tests {
         assert!(!error.is_null());
         // SAFETY: The failed call returned one owned error.
         unsafe { pp_error_release(error) };
+    }
+
+    #[test]
+    fn bytes_constructor_rejects_oversized_count_before_reading() {
+        let byte = 42;
+        for length in [MAX_METADATA_BINARY_BYTES as u64 + 1, u64::MAX] {
+            let mut input = ptr::dangling_mut();
+            let mut error = ptr::null_mut();
+            // SAFETY: Oversized counts reject before the live byte is read;
+            // both output locations are writable for the call.
+            let status = unsafe {
+                pp_metadata_input_create_bytes(
+                    &raw const byte,
+                    length,
+                    &raw mut input,
+                    &raw mut error,
+                )
+            };
+            assert_eq!(status, PP_ERROR_INVALID_ARGUMENT);
+            assert!(input.is_null());
+            assert!(!error.is_null());
+            // SAFETY: The failed call returned one owned error.
+            unsafe { pp_error_release(error) };
+        }
+    }
+
+    #[test]
+    fn bytes_constructor_accepts_empty_and_copies_input() {
+        for mut bytes in [Vec::new(), vec![0, 42, 255]] {
+            let expected = bytes.clone();
+            let mut input = ptr::null_mut();
+            let mut error = ptr::null_mut();
+            // SAFETY: Nonempty bytes remain readable; null is allowed for an
+            // empty value, and output locations are writable.
+            let status = unsafe {
+                pp_metadata_input_create_bytes(
+                    if bytes.is_empty() {
+                        ptr::null()
+                    } else {
+                        bytes.as_ptr()
+                    },
+                    bytes.len() as u64,
+                    &raw mut input,
+                    &raw mut error,
+                )
+            };
+            assert_eq!(status, PP_OK);
+            assert!(error.is_null());
+            bytes.fill(1);
+            // SAFETY: The successful call returned a live input handle.
+            assert_eq!(
+                unsafe { &*input }.value.as_bytes(),
+                Some(expected.as_slice())
+            );
+            // SAFETY: The handle is released exactly once.
+            unsafe { pp_metadata_input_release(input) };
+        }
     }
 
     #[test]
