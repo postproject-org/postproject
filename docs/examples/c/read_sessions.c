@@ -136,6 +136,11 @@ static int exercise(const char *path, const char *media) {
   if (pp_read_session_representations_under_media_root(view, "missing", 10, NULL,
       &representations, &error) != PP_ERROR_NOT_FOUND || representations) goto cleanup;
   pp_error_release(error); error = NULL;
+  const pp_revision_event_kind_t filter = PP_REVISION_ASSET_IMPORTED;
+  uint64_t through;
+  CHECK(pp_read_session_changes_since_filtered(view, 0, &filter, 1, 10, &journal, &through, &error));
+  if (pp_revision_set_count(journal) != 1 || through != base.revision_sequence) goto cleanup;
+  pp_revision_set_release(journal); journal = NULL;
   CHECK(pp_read_session_latest_revision(view, &journal, &error));
   if (pp_revision_set_count(journal) != 1) goto cleanup;
   pp_revision_set_release(journal); journal = NULL;

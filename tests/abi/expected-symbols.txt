@@ -173,6 +173,7 @@ pp_read_session_asset
 pp_read_session_assets_page
 pp_read_session_begin_edit
 pp_read_session_changes_since
+pp_read_session_changes_since_filtered
 pp_read_session_decision_base
 pp_read_session_dependencies
 pp_read_session_dependency_set

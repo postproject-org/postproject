@@ -735,6 +735,7 @@ EXPORTED_SYMBOLS = (
     "pp_read_session_assets_page",
     "pp_read_session_begin_edit",
     "pp_read_session_changes_since",
+    "pp_read_session_changes_since_filtered",
     "pp_read_session_decision_base",
     "pp_read_session_dependencies",
     "pp_read_session_dependency_set",
@@ -858,6 +859,8 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_read_session_evaluate_artifact.restype = ErrorCode
     lib.pp_read_session_artifact_reproducibility.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.POINTER(ArtifactReproducibility)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_read_session_artifact_reproducibility.restype = ErrorCode
+    lib.pp_read_session_changes_since_filtered.argtypes = [ctypes.POINTER(ReadSession), ctypes.c_uint64, ctypes.POINTER(RevisionEventKind), ctypes.c_uint64, ctypes.c_uint32, ctypes.POINTER(ctypes.POINTER(RevisionSet)), ctypes.POINTER(ctypes.c_uint64), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_read_session_changes_since_filtered.restype = ErrorCode
     lib.pp_read_session_latest_revision.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(ctypes.POINTER(RevisionSet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_read_session_latest_revision.restype = ErrorCode
     lib.pp_read_session_changes_since.argtypes = [ctypes.POINTER(ReadSession), ctypes.c_uint64, ctypes.c_uint32, ctypes.POINTER(ctypes.POINTER(RevisionSet)), ctypes.POINTER(ctypes.POINTER(Error))]

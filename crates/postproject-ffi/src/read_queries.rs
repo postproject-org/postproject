@@ -34,6 +34,38 @@ unsafe fn forward_read(
     })
 }
 
+/// Copies a bounded filtered journal page ending at the pinned view's head.
+///
+/// # Safety
+/// Session must be live; kinds readable for count, outputs writable.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_read_session_changes_since_filtered(
+    session: *const PpReadSession,
+    sequence: u64,
+    kinds: *const u32,
+    kind_count: u64,
+    limit: u32,
+    out_revisions: *mut *mut crate::PpRevisionSet,
+    out_through_sequence: *mut u64,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: The delegate validates pointers and contains panics.
+    unsafe {
+        forward_read(session, out_error, |reader| {
+            crate::revision_waits::pp_production_changes_since_filtered(
+                reader,
+                sequence,
+                kinds,
+                kind_count,
+                limit,
+                out_revisions,
+                out_through_sequence,
+                out_error,
+            )
+        })
+    }
+}
+
 /// Copies the latest revision retained by the pinned view, or an empty set.
 ///
 /// # Safety

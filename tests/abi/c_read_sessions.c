@@ -41,6 +41,12 @@ static int rejects_null_storage_reads(void) {
   matches = (pp_dependency_query_set_t *)(uintptr_t)1;
   status = pp_read_session_dependents(NULL, NULL, 64, 1000, 1, NULL, &matches, &error);
   valid = valid && status == PP_ERROR_INVALID_ARGUMENT && matches == NULL;
+  pp_error_release(error); error = NULL;
+  pp_revision_set_t *revisions = (pp_revision_set_t *)(uintptr_t)1;
+  uint64_t through = 42;
+  status = pp_read_session_changes_since_filtered(
+      NULL, 0, NULL, 0, 1, &revisions, &through, &error);
+  valid = valid && status == PP_ERROR_INVALID_ARGUMENT && revisions == NULL && through == 0;
   pp_error_release(error);
   return valid;
 }
