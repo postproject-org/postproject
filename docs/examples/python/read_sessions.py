@@ -76,6 +76,24 @@ def exercise(path: Path, media: Path) -> None:
                 ).items
                 == ()
             )
+            assert (
+                view.provenance_ancestors_page(
+                    representation.id, max_depth=64, max_representations=1000, limit=10
+                ).items
+                == ()
+            )
+            assert (
+                view.provenance_descendants_page(
+                    representation.id, max_depth=64, max_representations=1000, limit=10
+                ).items
+                == ()
+            )
+            assert (
+                view.stale_artifacts(
+                    max_depth=64, max_representations=1000, limit=10
+                ).items
+                == ()
+            )
             resources = view.resources_page(representation.id, limit=10)
             assert len(resources.items) == 1
             resource = resources.items[0]

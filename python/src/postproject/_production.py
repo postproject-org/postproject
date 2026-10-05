@@ -2045,6 +2045,85 @@ class ReadSession:
             _optional_text(cursor),
         )
 
+    def provenance_ancestors_page(
+        self,
+        representation_id: RepresentationId,
+        *,
+        max_depth: int,
+        max_representations: int,
+        limit: int,
+        cursor: str | None = None,
+    ) -> QueryPage[ProvenanceMatch]:
+        """Return one bounded page of shortest-depth provenance ancestors."""
+
+        self._require_open()
+        native_id = _native_uuid(representation_id)
+        return _object_query_page(
+            self._native,
+            self._native.lib.pp_read_session_provenance_ancestors_page,
+            _provenance_match,
+            self._handle,
+            ctypes.byref(native_id),
+            max_depth,
+            max_representations,
+            limit,
+            _optional_text(cursor),
+        )
+
+    def provenance_descendants_page(
+        self,
+        representation_id: RepresentationId,
+        *,
+        max_depth: int,
+        max_representations: int,
+        limit: int,
+        cursor: str | None = None,
+    ) -> QueryPage[ProvenanceMatch]:
+        """Return one bounded page of shortest-depth provenance descendants."""
+
+        self._require_open()
+        native_id = _native_uuid(representation_id)
+        return _object_query_page(
+            self._native,
+            self._native.lib.pp_read_session_provenance_descendants_page,
+            _provenance_match,
+            self._handle,
+            ctypes.byref(native_id),
+            max_depth,
+            max_representations,
+            limit,
+            _optional_text(cursor),
+        )
+
+    def stale_artifacts(
+        self,
+        *,
+        max_depth: int,
+        max_representations: int,
+        limit: int,
+        cursor: str | None = None,
+        source: RepresentationId | None = None,
+    ) -> QueryPage[RepresentationId]:
+        """Return produced representations currently evaluated as stale.
+
+        ``source`` restricts the query to its provenance descendants; the depth
+        and representation bounds apply to each artifact evaluation.
+        """
+
+        self._require_open()
+        native_source = None if source is None else _native_uuid(source)
+        return _object_query_page(
+            self._native,
+            self._native.lib.pp_read_session_stale_artifacts,
+            _representation_match,
+            self._handle,
+            None if native_source is None else ctypes.byref(native_source),
+            max_depth,
+            max_representations,
+            limit,
+            _optional_text(cursor),
+        )
+
     def dependency_set(
         self, representation_id: RepresentationId
     ) -> DependencySet | None:
