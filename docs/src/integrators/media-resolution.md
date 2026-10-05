@@ -57,6 +57,9 @@ history. Each change is a revision like any other:
 ```{code-variants} media-root-lifecycle
 ```
 
+Root creation is additive. Enabling or removing an existing root requires an
+edit tied to a read session; CLI commands take its `inspect` decision token.
+
 ## Resolve an asset
 
 Resolution checks the known locators of every resource and, where content is

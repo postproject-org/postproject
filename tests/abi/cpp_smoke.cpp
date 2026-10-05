@@ -92,7 +92,7 @@ int renamed_sequence_scenario(const std::string &production_path) {
     return 70;
   }
   const auto &candidate = resource.candidates[0];
-  auto confirmation = production.beginTransaction().value();
+  auto confirmation = production.readSession().value().edit().value();
   confirmation
       .confirmLocator(resource.resource_id, candidate.uri, candidate.media_root,
                       candidate.sequence_naming)
@@ -568,7 +568,18 @@ int main(int argc, char **argv) {
         !reproducibility.issues.empty()) {
       return 28;
     }
-    auto confirmation = production.beginTransaction().value();
+    {
+      auto unbased = production.beginTransaction().value();
+      const auto enabling = unbased.setMediaRootEnabled(root_id, true);
+      const auto removal = unbased.removeMediaRoot(root_id);
+      if (enabling || removal ||
+          enabling.error().code() != postproject::ErrorCode::invalid_argument ||
+          removal.error().code() != postproject::ErrorCode::invalid_argument)
+        return 151;
+      unbased.addMediaRoot("rejection-recovery").value();
+      unbased.rollback().value();
+    }
+    auto confirmation = production.readSession().value().edit().value();
     confirmation.confirmLocator(
         resolutions[0].resources[0].resource_id,
         resolutions[0].resources[0].candidates[0].uri,
@@ -643,7 +654,7 @@ int main(int argc, char **argv) {
     if (disabled_roots.size() != 1 || disabled_roots[0].enabled) {
       return 26;
     }
-    auto root_removal = production.beginTransaction().value();
+    auto root_removal = production.readSession().value().edit().value();
     root_removal.removeMediaRoot(root_id).value();
     root_removal.commit().value();
     if (!production.mediaRoots().value().empty()) {

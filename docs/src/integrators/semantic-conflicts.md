@@ -7,7 +7,8 @@ with that state's revision ID.
 
 A base revision is optimistic context, not a lock. It does not reserve the
 production or reject unrelated work. Unbased transactions permit independent
-metadata appends; metadata replacement/removal require a base. Other legacy
+metadata appends; metadata replacement/removal and root enabling/removal
+require a base. Other legacy
 unbased mutation families remain under development review.
 
 ## Use a base for read–decide–write flows

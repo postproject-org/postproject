@@ -3973,6 +3973,7 @@ public:
     return add_media_root_impl(name, native_label.c_str(), priority);
   }
 
+  // Requires a read-bound edit; rejection preserves an open transaction.
   Result<void> setMediaRootEnabled(const MediaRootId &root_id, bool enabled) {
     const pp_media_root_id_t id = detail::native_media_root_id(root_id);
     pp_error_t *error = nullptr;
@@ -3982,6 +3983,7 @@ public:
     return {};
   }
 
+  // Requires a read-bound edit; rejection preserves an open transaction.
   Result<void> removeMediaRoot(const MediaRootId &root_id) {
     const pp_media_root_id_t id = detail::native_media_root_id(root_id);
     pp_error_t *error = nullptr;

@@ -329,12 +329,12 @@ static pp_error_code_t print_asset_structure(const pp_production_t *production,
 /* [/representation-structure] */
 
 /* [media-root-lifecycle] */
-static pp_error_code_t find_root(const pp_production_t *production,
+static pp_error_code_t find_root(const pp_read_session_t *view,
                                  const char *wanted, pp_media_root_id_t *out_root_id,
                                  int *out_found, pp_error_t **error) {
   pp_media_root_set_t *roots = NULL;
   *out_found = 0;
-  pp_error_code_t status = pp_production_media_roots(production, &roots, error);
+  pp_error_code_t status = pp_read_session_media_roots(view, &roots, error);
   /* Roots are ordered by resolver priority, then stable identity. */
   for (uint64_t i = 0; status == PP_OK && i < pp_media_root_set_count(roots);
        ++i) {
@@ -357,12 +357,12 @@ static pp_error_code_t find_root(const pp_production_t *production,
   return status;
 }
 
-static pp_error_code_t apply_root_change(pp_production_t *production,
+static pp_error_code_t apply_root_change(pp_read_session_t *view,
                                          const pp_media_root_id_t *root_id, int change,
                                          pp_error_t **error) {
   pp_transaction_t *transaction = NULL;
   pp_error_code_t status =
-      pp_production_begin_transaction(production, &transaction, error);
+      pp_read_session_begin_edit(view, &transaction, error);
   if (status == PP_OK && change == 0) {
     /* A disabled root keeps its locators but is skipped by resolution. */
     status =
@@ -384,13 +384,17 @@ static pp_error_code_t cycle_media_root(pp_production_t *production,
                                         const char *name, pp_error_t **error) {
   pp_media_root_id_t root_id;
   int found = 0;
-  pp_error_code_t status = find_root(production, name, &root_id, &found, error);
-  if (status == PP_OK && !found) {
-    status = PP_ERROR_NOT_FOUND;
-  }
+  pp_error_code_t status = PP_OK;
   /* Disable, enable again, then remove: each change is its own revision. */
   for (int change = 0; status == PP_OK && change < 3; ++change) {
-    status = apply_root_change(production, &root_id, change, error);
+    pp_read_session_t *view = NULL;
+    status = pp_production_read_session(production, &view, error);
+    if (status == PP_OK)
+      status = find_root(view, name, &root_id, &found, error);
+    if (status == PP_OK && !found) status = PP_ERROR_NOT_FOUND;
+    if (status == PP_OK)
+      status = apply_root_change(view, &root_id, change, error);
+    pp_read_session_release(view);
   }
   return status;
 }
@@ -1177,7 +1181,11 @@ int main(int argc, char **argv) {
   }
   if (status == PP_OK) {
     pp_media_root_id_t unused;
-    status = find_root(production, "proxies", &unused, &found, &error);
+    pp_read_session_t *view = NULL;
+    status = pp_production_read_session(production, &view, &error);
+    if (status == PP_OK)
+      status = find_root(view, "proxies", &unused, &found, &error);
+    pp_read_session_release(view);
   }
   if (status == PP_OK && found) {
     status = PP_ERROR_INTERNAL;

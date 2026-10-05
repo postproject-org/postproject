@@ -154,8 +154,9 @@ print_structure(const postproject::Production &production,
 // [media-root-lifecycle]
 void cycle_media_root(postproject::Production &production,
                       const std::string &name) {
+  auto view = production.readSession().value();
   std::optional<postproject::MediaRootId> root_id;
-  for (const auto &root : production.mediaRoots().value()) {
+  for (const auto &root : view.mediaRoots().value()) {
     std::cout << "root " << root.name << " priority " << root.priority
               << (root.enabled ? " enabled" : " disabled") << '\n';
     if (root.name == name) {
@@ -166,16 +167,16 @@ void cycle_media_root(postproject::Production &production,
     return;
   }
 
-  auto disable = production.beginTransaction().value();
+  auto disable = view.edit().value();
   // A disabled root is kept but skipped during resolution.
   disable.setMediaRootEnabled(*root_id, false).value();
   disable.commit().value();
 
-  auto enable = production.beginTransaction().value();
+  auto enable = production.readSession().value().edit().value();
   enable.setMediaRootEnabled(*root_id, true).value();
   enable.commit().value();
 
-  auto remove = production.beginTransaction().value();
+  auto remove = production.readSession().value().edit().value();
   remove.removeMediaRoot(*root_id).value();
   remove.commit().value();
 }

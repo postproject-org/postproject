@@ -64,6 +64,11 @@ In Python, replace `production.transaction()` with
 Structured conflict JSON now goes to stdout with a failing exit status;
 other diagnostics remain on stderr. Update scripts that read conflicts there.
 
+Root enabling/removal also requires a decision base, even when setting the
+existing state. Use a read session's edit; early rejection stages nothing and
+leaves the transaction open. CLI `root enable`, `disable` and `remove` require
+`--decision-base` from `inspect`. Root creation remains additive.
+
 ## Native options
 
 C++ `CancelToken` and `ResolutionOptions` use fallible `create()` factories.
