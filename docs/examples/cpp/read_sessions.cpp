@@ -24,6 +24,10 @@ static void exercise(const std::string &path, const std::string &media) {
   if (representations.items.size() != 1)
     throw std::runtime_error("representation page");
   const auto representation = view.representation(representations.items[0].id).value();
+  if (view.evaluateArtifact(representation.id).value().state !=
+          postproject::ArtifactKnowledgeState::indeterminate ||
+      view.artifactReproducibility(representation.id).value().reproducible)
+    throw std::runtime_error("coherent artifact reports");
   const auto resources = view.resources(representation.id, 10).value();
   if (resources.items.size() != 1)
     throw std::runtime_error("resource page");

@@ -4214,6 +4214,34 @@ private:
 
 class ReadSession final {
 public:
+  [[nodiscard]] Result<ArtifactEvaluation>
+  evaluateArtifact(const Uuid &representation_id, std::uint32_t max_depth = 64,
+                   std::uint32_t max_representations = 1000) const {
+    const pp_uuid_t native_id = detail::native_uuid(representation_id);
+    pp_artifact_evaluation_t *raw_evaluation = nullptr;
+    pp_error_t *error = nullptr;
+    const pp_error_code_t status = pp_read_session_evaluate_artifact(
+        session_, &native_id, max_depth, max_representations,
+        &raw_evaluation, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    detail::ArtifactEvaluationHandle evaluation(raw_evaluation);
+
+    return detail::artifact_evaluation(std::move(evaluation));
+  }
+
+  [[nodiscard]] Result<ArtifactReproducibility>
+  artifactReproducibility(const Uuid &representation_id) const {
+    const pp_uuid_t native_id = detail::native_uuid(representation_id);
+    pp_artifact_reproducibility_t *raw_report = nullptr;
+    pp_error_t *error = nullptr;
+    const pp_error_code_t status = pp_read_session_artifact_reproducibility(
+        session_, &native_id, &raw_report, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    detail::ArtifactReproducibilityHandle report(raw_report);
+
+    return detail::artifact_reproducibility(std::move(report));
+  }
+
   // Reads one job; an absent job is ErrorCode::not_found.
   [[nodiscard]] Result<Job> job(const Uuid &job_id) const {
     const pp_uuid_t native_id = detail::native_uuid(job_id);
