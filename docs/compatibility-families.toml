@@ -143,7 +143,7 @@ id = "revision-feed"
 dependencies = ["production-lifecycle", "asset-identity"]
 introduced_release = "0.2.0-alpha.1"
 last_changed_release = "0.7.0-alpha.1"
-last_changed_abi = 41
+last_changed_abi = 42
 c_operations = [
   "pp_production_latest_revision",
   "pp_production_changes_since",
@@ -221,7 +221,7 @@ id = "base-revision-conflicts"
 dependencies = ["production-lifecycle", "transaction-lifecycle"]
 introduced_release = "0.5.0-alpha.1"
 last_changed_release = "0.7.0-alpha.1"
-last_changed_abi = 40
+last_changed_abi = 42
 c_operations = [
   "pp_production_begin_transaction_at",
   "pp_transaction_commit",
@@ -246,3 +246,23 @@ c_operations = [
 ]
 cpp_operations = ["AssetId::fromString", "AssetId::toString", "ObjectRef::asset", "ObjectRef::assetId"]
 python_operations = ["parse_id"]
+
+[[families]]
+id = "media-root-identity"
+dependencies = ["production-lifecycle", "transaction-lifecycle"]
+introduced_release = "0.7.0-alpha.1"
+last_changed_release = "0.7.0-alpha.1"
+last_changed_abi = 42
+c_operations = [
+  "pp_media_root_id_parse",
+  "pp_media_root_id_format",
+  "pp_transaction_add_media_root",
+  "pp_transaction_set_media_root_enabled",
+  "pp_transaction_remove_media_root",
+  "pp_production_media_roots",
+  "pp_media_root_set_count",
+  "pp_media_root_set_get",
+  "pp_media_root_set_release",
+]
+cpp_operations = ["MediaRootId::fromString", "MediaRootId::toString", "Transaction::addMediaRoot", "Transaction::setMediaRootEnabled", "Transaction::removeMediaRoot", "Production::mediaRoots"]
+python_operations = ["parse_id", "Transaction.add_media_root", "Transaction.set_media_root_enabled", "Transaction.remove_media_root", "Production.media_roots"]
