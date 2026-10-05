@@ -133,9 +133,10 @@ ARCHIVE_ID=$(postproject --json root add media.pproj archive --priority 10 |
   jq -r .id)
 postproject root list media.pproj
 # A disabled root stays configured but is skipped during resolution.
-postproject root disable media.pproj "$ARCHIVE_ID"
-postproject root enable media.pproj "$ARCHIVE_ID"
-postproject root remove media.pproj "$ARCHIVE_ID"
+for ACTION in disable enable remove; do
+  BASE=$(postproject --json inspect media.pproj | jq -r .decision_base)
+  postproject --decision-base "$BASE" root "$ACTION" media.pproj "$ARCHIVE_ID"
+done
 # [/media-root-lifecycle]
 
 test "$(postproject --json root list media.pproj | jq -r '[.[].name] | join(" ")')" = rushes

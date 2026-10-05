@@ -453,11 +453,11 @@ enum RootCommand {
     Add(RootAddArgs),
     /// List configured media roots in resolver order.
     List(ProductionArgs),
-    /// Include a media root in resolution.
+    /// Include a media root in resolution; requires --decision-base from inspect.
     Enable(RootMutationArgs),
-    /// Exclude a media root from resolution without removing it.
+    /// Exclude a media root; requires --decision-base from inspect.
     Disable(RootMutationArgs),
-    /// Remove a configured media root.
+    /// Remove a configured media root; requires --decision-base from inspect.
     Remove(RootMutationArgs),
 }
 
@@ -2836,6 +2836,7 @@ fn root_set_enabled(
     json: bool,
     base_revision: Option<CliDecisionBase>,
 ) -> Result<()> {
+    let base = base_revision.context("root state changes require --decision-base from inspect")?;
     let root_id = MediaRootId::from_str(&args.root_id).context("parse media-root ID")?;
     let mut production = SqliteProduction::open(&args.production).context("open production")?;
     let root = production
@@ -2848,7 +2849,7 @@ fn root_set_enabled(
         enabled,
         ..root_view(root)
     };
-    let mut transaction = begin_cli_transaction(&mut production, base_revision, "root")?;
+    let mut transaction = begin_cli_transaction(&mut production, Some(base), "root")?;
     set_cli_revision_context(
         &mut transaction,
         if enabled {
@@ -2881,6 +2882,7 @@ fn root_remove(
     json: bool,
     base_revision: Option<CliDecisionBase>,
 ) -> Result<()> {
+    let base = base_revision.context("root removal requires --decision-base from inspect")?;
     let root_id = MediaRootId::from_str(&args.root_id).context("parse media-root ID")?;
     let mut production = SqliteProduction::open(&args.production).context("open production")?;
     let root = production
@@ -2890,7 +2892,7 @@ fn root_remove(
         .find(|root| root.id() == root_id)
         .context("media root does not exist")?;
     let view = root_view(root);
-    let mut transaction = begin_cli_transaction(&mut production, base_revision, "root")?;
+    let mut transaction = begin_cli_transaction(&mut production, Some(base), "root")?;
     set_cli_revision_context(&mut transaction, "Remove media root")?;
     transaction
         .remove_media_root(root_id)

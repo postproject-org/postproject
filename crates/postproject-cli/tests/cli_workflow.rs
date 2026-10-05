@@ -750,7 +750,15 @@ fn manages_media_root_lifecycle() {
     assert_eq!(listed[0]["priority"], 7);
     assert_eq!(listed[0]["enabled"], true);
 
-    let disabled = run_json(&["root", "disable", production, root_id]);
+    let observed = run_json(&["inspect", production]);
+    let disabled = run_json(&[
+        "--decision-base",
+        observed["decision_base"].as_str().unwrap(),
+        "root",
+        "disable",
+        production,
+        root_id,
+    ]);
     assert_eq!(disabled["id"], root_id);
     assert_eq!(disabled["enabled"], false);
     assert_eq!(run_json(&["root", "list", production])[0]["enabled"], false);
@@ -759,11 +767,27 @@ fn manages_media_root_lifecycle() {
     assert_eq!(events[0]["media_root_id"], root_id);
     assert_eq!(events[0]["enabled"], false);
 
-    let enabled = run_json(&["root", "enable", production, root_id]);
+    let observed = run_json(&["inspect", production]);
+    let enabled = run_json(&[
+        "--decision-base",
+        observed["decision_base"].as_str().unwrap(),
+        "root",
+        "enable",
+        production,
+        root_id,
+    ]);
     assert_eq!(enabled["id"], root_id);
     assert_eq!(enabled["enabled"], true);
 
-    let removed = run_json(&["root", "remove", production, root_id]);
+    let observed = run_json(&["inspect", production]);
+    let removed = run_json(&[
+        "--decision-base",
+        observed["decision_base"].as_str().unwrap(),
+        "root",
+        "remove",
+        production,
+        root_id,
+    ]);
     assert_eq!(removed["id"], root_id);
     let events = latest_revision_events(production);
     assert_eq!(events[0]["kind"], "media_root_removed");
