@@ -38,8 +38,7 @@ existence and scope.
 :::
 ```
 
-Native asset-ID construction is available in the development SDK; migration of
-its operation signatures is in progress.
+Native asset operations carry the semantic type through inputs and results.
 
 ## Reopen a production
 

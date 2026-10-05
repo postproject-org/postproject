@@ -26,7 +26,7 @@
 /* [import-sequence] */
 static pp_error_code_t import_image_strip(pp_production_t *production,
                                           const char *directory,
-                                          pp_uuid_t *out_asset_id,
+                                          pp_asset_id_t *out_asset_id,
                                           pp_content_structure_kind_t *out_kind,
                                           pp_error_t **error) {
   const int64_t missing_frames[] = {1003};
@@ -53,11 +53,12 @@ static pp_error_code_t import_image_strip(pp_production_t *production,
   pp_transaction_release(transaction);
   pp_media_source_release(strip);
   if (status == PP_OK) {
-    status = pp_production_representations(production, out_asset_id,
+    status = pp_production_representations(production, *out_asset_id,
                                            &representations, error);
   }
   if (status == PP_OK) {
-    pp_uuid_t representation_id, owner;
+    pp_uuid_t representation_id;
+    pp_asset_id_t owner;
     pp_representation_kind_t kind;
     uint64_t members, resources, fingerprints;
     status = pp_representation_set_get(representations, 0, &representation_id,
@@ -74,7 +75,7 @@ static pp_error_code_t import_image_strip(pp_production_t *production,
 
 /* [add-representation] */
 static pp_error_code_t add_proxy(pp_production_t *production,
-                                 const pp_uuid_t *asset_id,
+                                 const pp_asset_id_t *asset_id,
                                  const char *proxy_path,
                                  pp_uuid_t *out_proxy_id, pp_error_t **error) {
   pp_media_source_t *proxy = NULL;
@@ -87,7 +88,7 @@ static pp_error_code_t add_proxy(pp_production_t *production,
     /* The file is fingerprinted and recorded as one more representation of
      * the same asset; it never becomes an unrelated asset. */
     status = pp_transaction_add_representation(
-        transaction, asset_id, PP_REPRESENTATION_PROXY, proxy, out_proxy_id,
+        transaction, *asset_id, PP_REPRESENTATION_PROXY, proxy, out_proxy_id,
         error);
   }
   if (status == PP_OK) {
@@ -101,7 +102,7 @@ static pp_error_code_t add_proxy(pp_production_t *production,
 
 /* [ordered-parts] */
 static pp_error_code_t
-add_spanned_clip(pp_production_t *production, const pp_uuid_t *asset_id,
+add_spanned_clip(pp_production_t *production, const pp_asset_id_t *asset_id,
                  const char *first_part, const char *second_part,
                  pp_uuid_t *out_representation_id, pp_error_t **error) {
   /* Order is significant, and every ordered part must be required. */
@@ -118,7 +119,7 @@ add_spanned_clip(pp_production_t *production, const pp_uuid_t *asset_id,
   }
   if (status == PP_OK) {
     status = pp_transaction_add_representation(
-        transaction, asset_id, PP_REPRESENTATION_OPTIMIZED, clip,
+        transaction, *asset_id, PP_REPRESENTATION_OPTIMIZED, clip,
         out_representation_id, error);
   }
   if (status == PP_OK) {
@@ -132,7 +133,7 @@ add_spanned_clip(pp_production_t *production, const pp_uuid_t *asset_id,
 
 /* [package-representation] */
 static pp_error_code_t add_package(pp_production_t *production,
-                                   const pp_uuid_t *asset_id,
+                                   const pp_asset_id_t *asset_id,
                                    const char *essence, const char *sidecar,
                                    pp_uuid_t *out_representation_id,
                                    pp_error_t **error) {
@@ -151,7 +152,7 @@ static pp_error_code_t add_package(pp_production_t *production,
   }
   if (status == PP_OK) {
     status = pp_transaction_add_representation(
-        transaction, asset_id, PP_REPRESENTATION_DERIVED, package,
+        transaction, *asset_id, PP_REPRESENTATION_DERIVED, package,
         out_representation_id, error);
   }
   if (status == PP_OK) {
@@ -229,7 +230,7 @@ static pp_error_code_t print_representation(const pp_representation_set_t *set,
                                             int64_t *out_missing_frame,
                                             pp_error_t **error) {
   pp_uuid_t id;
-  pp_uuid_t asset_id;
+  pp_asset_id_t asset_id;
   pp_representation_kind_t kind;
   pp_content_structure_kind_t structure;
   uint64_t members = 0;
@@ -289,7 +290,7 @@ static pp_error_code_t print_representation(const pp_representation_set_t *set,
 }
 
 static pp_error_code_t print_asset_structure(const pp_production_t *production,
-                                             const pp_uuid_t *asset_id,
+                                             const pp_asset_id_t *asset_id,
                                              uint64_t *out_count,
                                              int64_t *out_missing_frame,
                                              pp_error_t **error) {
@@ -300,7 +301,7 @@ static pp_error_code_t print_asset_structure(const pp_production_t *production,
   while (status == PP_OK) {
     pp_representation_set_t *page = NULL;
     status = pp_production_representations_page(
-        production, asset_id, UINT32_C(2), cursor, &page, error);
+        production, *asset_id, UINT32_C(2), cursor, &page, error);
     const uint64_t count =
         status == PP_OK ? pp_representation_set_count(page) : 0;
     for (uint64_t r = 0; status == PP_OK && r < count; ++r) {
@@ -586,7 +587,7 @@ static pp_error_code_t retire_superseded(pp_production_t *production,
 /* [resolution-issues] */
 static pp_error_code_t
 print_resolution_issues(const pp_production_t *production,
-                        const pp_uuid_t *asset_id, int64_t *out_missing_frame,
+                        const pp_asset_id_t *asset_id, int64_t *out_missing_frame,
                         uint64_t *out_evidence_count, pp_error_t **error) {
   pp_resolution_set_t *resolutions = NULL;
   /* Resolution is read-only; it never changes the production. */
@@ -595,7 +596,7 @@ print_resolution_issues(const pp_production_t *production,
   const uint64_t count =
       status == PP_OK ? pp_resolution_set_representation_count(resolutions) : 0;
   for (uint64_t r = 0; status == PP_OK && r < count; ++r) {
-    pp_uuid_t resolved_asset_id;
+    pp_asset_id_t resolved_asset_id;
     pp_uuid_t representation_id;
     pp_representation_availability_t availability;
     uint64_t resource_count = 0;
@@ -669,7 +670,7 @@ static int write_file(const char *path, const char *contents) {
 static pp_error_code_t create_production(const char *path, const char *media,
                                          const char *renders,
                                          pp_production_t **out_production,
-                                         pp_uuid_t *out_asset_id,
+                                         pp_asset_id_t *out_asset_id,
                                          pp_error_t **error) {
   const int64_t missing_frames[] = {1003};
   pp_production_t *production = NULL;
@@ -698,7 +699,7 @@ static pp_error_code_t create_production(const char *path, const char *media,
   }
   if (status == PP_OK) {
     status = pp_transaction_add_representation(
-        transaction, out_asset_id, PP_REPRESENTATION_DERIVED, sequence,
+        transaction, *out_asset_id, PP_REPRESENTATION_DERIVED, sequence,
         &sequence_id, error);
   }
   pp_media_source_release(camera);
@@ -721,16 +722,16 @@ static pp_error_code_t create_production(const char *path, const char *media,
 
 /* Finds the imported original's resource and its current locator. */
 static pp_error_code_t
-original_resource(const pp_production_t *production, const pp_uuid_t *asset_id,
+original_resource(const pp_production_t *production, const pp_asset_id_t *asset_id,
                   pp_uuid_t *out_representation_id, pp_uuid_t *out_resource_id,
                   pp_uuid_t *out_locator_id, char *out_uri, size_t uri_size,
                   pp_error_t **error) {
   pp_representation_set_t *set = NULL;
   pp_error_code_t status =
-      pp_production_representations(production, asset_id, &set, error);
+      pp_production_representations(production, *asset_id, &set, error);
   for (uint64_t r = 0; status == PP_OK && r < pp_representation_set_count(set);
        ++r) {
-    pp_uuid_t owner;
+    pp_asset_id_t owner;
     pp_representation_kind_t kind;
     pp_content_structure_kind_t structure;
     uint64_t members, resources, fingerprints;
@@ -766,7 +767,7 @@ original_resource(const pp_production_t *production, const pp_uuid_t *asset_id,
 
 /* [verify-resolution] */
 static pp_error_code_t verify_contents(const pp_production_t *production,
-                                       const pp_uuid_t *asset_id,
+                                       const pp_asset_id_t *asset_id,
                                        uint64_t *out_verified,
                                        pp_error_t **error) {
   pp_resolution_options_t *options = NULL;
@@ -786,7 +787,8 @@ static pp_error_code_t verify_contents(const pp_production_t *production,
   const uint64_t count =
       status == PP_OK ? pp_resolution_set_representation_count(resolutions) : 0;
   for (uint64_t r = 0; status == PP_OK && r < count; ++r) {
-    pp_uuid_t resolved_asset_id, representation_id;
+    pp_asset_id_t resolved_asset_id;
+  pp_uuid_t representation_id;
     pp_representation_availability_t availability;
     uint64_t resource_count = 0, issue_count = 0;
     status = pp_resolution_set_get_representation(
@@ -815,7 +817,7 @@ static pp_error_code_t verify_contents(const pp_production_t *production,
 
 /* [resolve-scope] */
 static pp_error_code_t find_nearby(const pp_production_t *production,
-                                   const pp_uuid_t *asset_ids,
+                                   const pp_asset_id_t *asset_ids,
                                    uint64_t asset_count, const char *directory,
                                    const pp_cancel_token_t *cancel_token,
                                    char *out_uri, size_t out_uri_size,
@@ -854,7 +856,8 @@ static pp_error_code_t find_nearby(const pp_production_t *production,
   const uint64_t count =
       status == PP_OK ? pp_resolution_set_representation_count(resolutions) : 0;
   for (uint64_t r = 0; status == PP_OK && r < count; ++r) {
-    pp_uuid_t asset_id, representation_id;
+    pp_asset_id_t asset_id;
+  pp_uuid_t representation_id;
     pp_representation_availability_t availability;
     uint64_t resource_count = 0, issue_count = 0;
     status = pp_resolution_set_get_representation(
@@ -904,7 +907,7 @@ static pp_error_code_t find_nearby(const pp_production_t *production,
 /* [/resolve-scope] */
 
 static pp_error_code_t confirm_moved(pp_production_t *production,
-                                     const pp_uuid_t *asset_id,
+                                     const pp_asset_id_t *asset_id,
                                      const pp_uuid_t *resource_id,
                                      const char *moved_directory,
                                      pp_error_t **error) {
@@ -1002,7 +1005,7 @@ static pp_error_code_t count_events(const pp_production_t *production,
 
 /* [relink-renamed-sequence] */
 static pp_error_code_t relink_renamed_sequence(pp_production_t *production,
-                                               const pp_uuid_t *asset_id,
+                                               const pp_asset_id_t *asset_id,
                                                const char *directory,
                                                int *out_relinked,
                                                pp_error_t **error) {
@@ -1025,7 +1028,8 @@ static pp_error_code_t relink_renamed_sequence(pp_production_t *production,
   const uint64_t count =
       status == PP_OK ? pp_resolution_set_representation_count(resolutions) : 0;
   for (uint64_t r = 0; status == PP_OK && r < count; ++r) {
-    pp_uuid_t owner, representation_id;
+    pp_asset_id_t owner;
+    pp_uuid_t representation_id;
     pp_representation_availability_t availability;
     uint64_t resource_count = 0, issue_count = 0;
     status = pp_resolution_set_get_representation(
@@ -1103,7 +1107,10 @@ int main(int argc, char **argv) {
 
   pp_production_t *production = NULL;
   pp_error_t *error = NULL;
-  pp_uuid_t asset_id, proxy_id, spanned_id, package_id;
+  pp_asset_id_t asset_id;
+  pp_uuid_t proxy_id;
+  pp_uuid_t spanned_id;
+  pp_uuid_t package_id;
   pp_uuid_t original_id, resource_id, old_locator_id;
   char old_uri[4096] = {0};
   uint64_t count = 0;
@@ -1255,7 +1262,7 @@ int main(int argc, char **argv) {
     status = PP_ERROR_INTERNAL;
   }
 
-  pp_uuid_t strip_id;
+  pp_asset_id_t strip_id;
   pp_content_structure_kind_t strip_kind = 0;
   if (status == PP_OK) {
     status = import_image_strip(production, renders, &strip_id, &strip_kind,

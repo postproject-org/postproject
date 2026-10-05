@@ -98,7 +98,7 @@ static pp_error_code_t stage_proxy_parameters(pp_transaction_t *transaction,
 
 static pp_error_code_t request_proxy(pp_production_t *production,
                                      const pp_uuid_t *input_id,
-                                     const pp_uuid_t *asset_id,
+                                     const pp_asset_id_t *asset_id,
                                      pp_uuid_t *out_job_id,
                                      pp_error_t **error) {
   pp_transaction_t *transaction = NULL;
@@ -108,7 +108,7 @@ static pp_error_code_t request_proxy(pp_production_t *production,
       pp_production_begin_transaction(production, &transaction, error);
   if (status == PP_OK) {
     status = pp_transaction_request_job(transaction, PROXY_JOB, input_id, 1,
-                                        asset_id, PP_REPRESENTATION_PROXY,
+                                        *asset_id, PP_REPRESENTATION_PROXY,
                                         "proxies", out_job_id, error);
   }
   if (status == PP_OK) {
@@ -210,7 +210,7 @@ static pp_error_code_t claim_renew_release(pp_production_t *production,
 /* [complete-job] */
 static pp_error_code_t
 complete_proxy(pp_production_t *production, const pp_uuid_t *job_id,
-               const pp_uuid_t *input_id, const pp_uuid_t *asset_id,
+               const pp_uuid_t *input_id, const pp_asset_id_t *asset_id,
                const char *output_path, pp_uuid_t *out_proxy_id,
                pp_error_t **error) {
   const int64_t started = NOW + 10 * MINUTE;
@@ -246,7 +246,7 @@ complete_proxy(pp_production_t *production, const pp_uuid_t *job_id,
   }
   if (status == PP_OK) {
     status = pp_transaction_add_representation(
-        transaction, asset_id, PP_REPRESENTATION_PROXY, output, out_proxy_id,
+        transaction, *asset_id, PP_REPRESENTATION_PROXY, output, out_proxy_id,
         error);
   }
   pp_media_source_release(output);
@@ -370,7 +370,7 @@ static pp_error_code_t enqueue_regeneration(pp_production_t *production,
   }
   if (status == PP_OK) {
     status = pp_transaction_request_job(
-        transaction, job.kind, inputs, job.input_count, &job.output_asset_id,
+        transaction, job.kind, inputs, job.input_count, job.output_asset_id,
         job.output_representation_kind, job.target_root, out_job_id, error);
   }
   for (uint64_t i = 0; status == PP_OK && i < pp_metadata_set_count(parameters);
@@ -410,7 +410,7 @@ static void join(char *buffer, size_t size, const char *directory,
 
 static pp_error_code_t create_production(const char *path, const char *media,
                                          pp_production_t **out_production,
-                                         pp_uuid_t *out_asset_id,
+                                         pp_asset_id_t *out_asset_id,
                                          pp_uuid_t *out_original_id,
                                          pp_error_t **error) {
   pp_production_t *production = NULL;
@@ -441,10 +441,10 @@ static pp_error_code_t create_production(const char *path, const char *media,
   }
   if (status == PP_OK) {
     status =
-        pp_production_representations(production, out_asset_id, &set, error);
+        pp_production_representations(production, *out_asset_id, &set, error);
   }
   if (status == PP_OK) {
-    pp_uuid_t owner;
+    pp_asset_id_t owner;
     pp_representation_kind_t kind;
     pp_content_structure_kind_t structure;
     uint64_t members, resources, fingerprints;
@@ -508,12 +508,12 @@ static pp_error_code_t expect_job(const pp_production_t *production,
 }
 
 static pp_error_code_t count_representations(const pp_production_t *production,
-                                             const pp_uuid_t *asset_id,
+                                             const pp_asset_id_t *asset_id,
                                              uint64_t *out_count,
                                              pp_error_t **error) {
   pp_representation_set_t *set = NULL;
   pp_error_code_t status =
-      pp_production_representations(production, asset_id, &set, error);
+      pp_production_representations(production, *asset_id, &set, error);
   *out_count = status == PP_OK ? pp_representation_set_count(set) : 0;
   pp_representation_set_release(set);
   return status;
@@ -548,7 +548,11 @@ int main(int argc, char **argv) {
 
   pp_production_t *production = NULL;
   pp_error_t *error = NULL;
-  pp_uuid_t asset_id, original_id, job_id, failed_id, cancelled_id;
+  pp_asset_id_t asset_id;
+  pp_uuid_t original_id;
+  pp_uuid_t job_id;
+  pp_uuid_t failed_id;
+  pp_uuid_t cancelled_id;
   pp_uuid_t proxy_id, regeneration_id;
   uint64_t before = 0;
   uint64_t count = 0;

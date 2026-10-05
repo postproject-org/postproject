@@ -407,14 +407,14 @@ static pp_error_code_t read_dependency_set(
 
 static pp_error_code_t record_dependencies(pp_production_t *production,
                                            const pp_uuid_t *source_id,
-                                           const pp_uuid_t *original_asset,
+                                           const pp_asset_id_t *original_asset,
                                            const pp_uuid_t *original_id,
                                            pp_error_t **error) {
   pp_dependency_t dependencies[2];
   memset(dependencies, 0, sizeof dependencies);
   dependencies[0].kind = "org.example:source-media";
-  dependencies[0].target.kind = PP_OBJECT_ASSET;
-  dependencies[0].target.id = *original_asset;
+  pp_error_code_t reference_status = pp_object_ref_from_asset(*original_asset, &dependencies[0].target, error);
+  if (reference_status != PP_OK) return reference_status;
   dependencies[0].has_resolved_representation = 1;
   dependencies[0].resolved_representation_id = *original_id;
   dependencies[0].required = 1;
@@ -511,7 +511,7 @@ static int write_file(const char *path, const char *contents) {
 /* Imports the original and adds the proxy, returning both IDs. */
 static pp_error_code_t
 create_production(const char *path, const char *media, const char *proxy,
-                  pp_production_t **out_production, pp_uuid_t *out_asset_id,
+                  pp_production_t **out_production, pp_asset_id_t *out_asset_id,
                   pp_uuid_t *out_original_id, pp_uuid_t *out_resource_id,
                   pp_uuid_t *out_proxy_id, pp_error_t **error) {
   pp_production_t *production = NULL;
@@ -538,10 +538,10 @@ create_production(const char *path, const char *media, const char *proxy,
   transaction = NULL;
   if (status == PP_OK) {
     status =
-        pp_production_representations(production, out_asset_id, &set, error);
+        pp_production_representations(production, *out_asset_id, &set, error);
   }
   if (status == PP_OK) {
-    pp_uuid_t owner;
+    pp_asset_id_t owner;
     pp_representation_kind_t kind;
     pp_content_structure_kind_t structure;
     uint64_t members, resources, fingerprints;
@@ -564,7 +564,7 @@ create_production(const char *path, const char *media, const char *proxy,
   }
   if (status == PP_OK) {
     status = pp_transaction_add_representation(
-        transaction, out_asset_id, PP_REPRESENTATION_PROXY, proxy_file,
+        transaction, *out_asset_id, PP_REPRESENTATION_PROXY, proxy_file,
         out_proxy_id, error);
   }
   pp_media_source_release(proxy_file);
@@ -596,7 +596,10 @@ int main(int argc, char **argv) {
 
   pp_production_t *production = NULL;
   pp_error_t *error = NULL;
-  pp_uuid_t asset_id, original_id, resource_id, proxy_id;
+  pp_asset_id_t asset_id;
+  pp_uuid_t original_id;
+  pp_uuid_t resource_id;
+  pp_uuid_t proxy_id;
   uint64_t counts[4] = {0, 0, 0, 0};
   uint64_t count = 0;
   pp_artifact_knowledge_state_t state = 0;
