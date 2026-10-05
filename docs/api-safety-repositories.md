@@ -223,3 +223,35 @@ The Ardour/Kdenlive checks use fresh detached source worktrees and preserve
 older fixtures and host checkouts. Full native hosts, interactive/background
 handoffs and platform qualification remain pending. All maintained repos remain
 on local `main`; no origin push, tag or publication occurred.
+
+## Metadata decision checks
+
+SDK `a73598b` retains ABI 41/schema 17. Native library/header inputs are
+`84650bf`; Python inputs are `191c8c4`. Installed files use the separate
+`target/api-safety-metadata-install` prefix, preserving earlier artifacts.
+Artifact SHA-256 values:
+
+- Neutral wheel: `d8e1be809ce5deaf9161d389e12b369c4b4adb2fa2e626314e76115ba9a073c7`.
+- Linux platform wheel: `51acef60504bbf59b89d8434a14b27bb9ff8f7e67d3dbb3e45c234f1914ecfe2`.
+- Blender bundle: `7eaef66d00f0f1c7bd94f96315e0d4c05d28d27e61908e3ba2cfa75fa3160645`.
+
+Wheels are in `target/api-safety-wheel/metadata-abi41/`; the bundle is in
+`target/api-safety-blender/metadata-abi41/`.
+
+| Consumer commit | Executed result | Scope |
+|---|---|---|
+| Manager `da2caaa` | 6 passed | Installed neutral wheel, Python 3.13 |
+| OpenAssetIO `5e38c31`, OTIO `81a6ee6`, demo `c18f5bc`, Python host `c42b8b8` | 1 passed each | Separate installed-wheel runs; pinned OTIO linker |
+| Blender `71f49b6` | 23 passed, 1 skipped | Rebuilt installed bundle; Blender 5.2.2 LTS `d13f752e3b9c`; 5.3-only case skipped |
+
+Source and installed-wheel Python each run 73 tests with one skip. All six
+required Rust gates, eight installed native contracts, 64 extracted tests,
+strict docs, symbol/layout checks and installed typing fixtures pass. The
+bundled platform-wheel quickstart passes without native-library overrides.
+The dependency graph declares no Rust floor above 1.85, but the local compiler
+is 1.98.1; exact MSRV execution remains pending.
+
+Maintained native-host evidence remains the preceding asset checkpoint; those
+pilots were not rebuilt for this metadata slice. Interactive host/handoff and
+final platform qualification remain pending. All repositories stay on local
+`main`, with no push, tag or publication.

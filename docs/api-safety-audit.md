@@ -164,3 +164,26 @@ negative installed identity fixtures pass. Tests reject nil, wrong-kind and
 wrong-production asset reads without treating parsing as existence.
 The repository manifest records exact wheel and host-check scope. These
 checks do not close the audit or qualify a release candidate.
+
+## Metadata decision checkpoint
+
+SDK source `a73598b` retains ABI 41/schema 17, 292 exports and 21 layouts.
+ADRs 0045/0052 require a base for metadata replacement/removal. Appends merge
+while advancing the property version checked by destructive edits. Rust,
+direct C, C++/Python and CLI regressions cover stale decisions, atomic rollback
+and usable transactions after early rejection. CLI metadata JSON returns atomic
+receipts; structured conflicts now go to stdout.
+
+Native library/header inputs are `84650bf`; Python inputs are `191c8c4`.
+The subsequent source-package manifest commit changes no runtime input.
+All six required Rust gates, eight fresh installed native contracts, all 64
+extracted tests and strict Sphinx pass. Source and installed-wheel Python each
+run 73 tests with one skip; Ruff, ty and installed identity fixtures pass.
+Binary metadata is bounded before copying and resolution arrays are checked
+for addressability before access. Asset existence uses a point query, propagates
+requested-row corruption and avoids materializing unrelated rows.
+
+Logs use `target/api-safety-metadata-*`; the repository manifest records the
+matching artifacts and consumer scope. Other unbased mutation families, native
+ID kinds, leases, bounded materializers and final qualification remain open.
+No audit row or completion gate is closed by this checkpoint.
