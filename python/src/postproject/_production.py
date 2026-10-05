@@ -2207,6 +2207,44 @@ class ReadSession:
             _optional_text(cursor),
         )
 
+    def changes_since_filtered(
+        self,
+        sequence: int,
+        kinds: Iterable[type[RevisionEventPayload]],
+        limit: int = 100,
+    ) -> FilteredRevisionPage:
+        """Return revisions after ``sequence`` with an event of one of ``kinds``.
+
+        ``kinds`` are event payload classes such as ``JobSucceededEvent``.
+        Continue from the returned ``through_sequence``, which skips unrelated
+        revisions without reading them.
+        """
+
+        self._require_open()
+        codes = [_revision_event_kind(kind) for kind in kinds]
+        native_kinds = (ctypes.c_uint32 * len(codes))(*codes)
+        handle = ctypes.POINTER(RevisionSet)()
+        through_sequence = ctypes.c_uint64()
+        error = ctypes.POINTER(Error)()
+        status = self._native.lib.pp_read_session_changes_since_filtered(
+            self._handle,
+            sequence,
+            native_kinds,
+            len(codes),
+            limit,
+            ctypes.byref(handle),
+            ctypes.byref(through_sequence),
+            ctypes.byref(error),
+        )
+        self._native.check(status, error)
+        if not handle:
+            raise RuntimeError("native filtered revision query returned no result set")
+        try:
+            revisions = _revisions_in(self._native, handle)
+        finally:
+            self._native.lib.pp_revision_set_release(handle)
+        return FilteredRevisionPage(revisions, int(through_sequence.value))
+
     @property
     def latest_revision(self) -> Revision | None:
         """Return the newest committed revision, if one exists."""

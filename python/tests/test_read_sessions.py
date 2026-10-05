@@ -21,6 +21,7 @@ from postproject import (
     JobRequest,
     JobState,
     LocatorIdentity,
+    MediaRootAddedEvent,
     MetadataProperty,
     MetadataString,
     NotFoundError,
@@ -51,16 +52,30 @@ class ReadSessionTests(unittest.TestCase):
                     self.assertEqual(latest.id, first.revision.id)
                     self.assertEqual(latest.sequence, first.revision.sequence)
                     self.assertEqual(retained.changes_since(0, 1), (latest,))
+                    filtered = retained.changes_since_filtered(
+                        0, (MediaRootAddedEvent,), 1
+                    )
+                    self.assertEqual(filtered.revisions, (latest,))
+                    self.assertEqual(filtered.through_sequence, latest.sequence)
                     with retained.edit() as edit:
                         edit.add_media_root("second")
                         second = edit.commit()
                     self.assertEqual(retained.latest_revision, latest)
+                    self.assertEqual(
+                        retained.changes_since_filtered(0, (MediaRootAddedEvent,), 1),
+                        filtered,
+                    )
                     self.assertEqual(retained.changes_since(0, 10), (latest,))
                     self.assertEqual(retained.changes_since(latest.sequence, 10), ())
                     with production.read_session() as fresh:
                         head = fresh.latest_revision
                         assert head is not None and second.revision is not None
                         self.assertEqual(head.id, second.revision.id)
+                        filtered_fresh = fresh.changes_since_filtered(
+                            latest.sequence, (MediaRootAddedEvent,), 1
+                        )
+                        self.assertEqual(filtered_fresh.revisions, (head,))
+                        self.assertEqual(filtered_fresh.through_sequence, head.sequence)
                         self.assertEqual(
                             fresh.changes_since(latest.sequence, 1), (head,)
                         )
@@ -68,6 +83,9 @@ class ReadSessionTests(unittest.TestCase):
                         retained.changes_since(0, 0)
                 self.assertEqual(latest.id, first.revision.id)
                 for operation in (
+                    lambda: retained.changes_since_filtered(
+                        0, (MediaRootAddedEvent,), 1
+                    ),
                     lambda: retained.latest_revision,
                     lambda: retained.changes_since(0, 1),
                 ):

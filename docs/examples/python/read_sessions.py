@@ -5,6 +5,7 @@ from pathlib import Path
 
 from postproject import (
     ArtifactKnowledgeState,
+    AssetImportedEvent,
     AssetRef,
     ContentVerification,
     DecisionBase,
@@ -47,6 +48,9 @@ def exercise(path: Path, media: Path) -> None:
             latest = view.latest_revision
             assert latest is not None and latest.id == receipt.revision.id
             assert view.changes_since(0, 10) == (latest,)
+            filtered = view.changes_since_filtered(0, (AssetImportedEvent,), 10)
+            assert filtered.revisions == (latest,)
+            assert filtered.through_sequence == latest.sequence
             assert view.unresolved_media(limit=10).items == ()
             assert view.objects_changed_since(0, limit=10).items
             try:
