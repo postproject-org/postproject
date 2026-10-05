@@ -2,10 +2,12 @@
 
 import tempfile
 import unittest
+from itertools import repeat
 from pathlib import Path
 
 from postproject import (
     ActivityEdge,
+    ActivityRef,
     ActivitySpec,
     ArtifactKnowledgeState,
     AssetRef,
@@ -166,6 +168,12 @@ class ReadSessionTests(unittest.TestCase):
                                 outputs=(ActivityEdge(proxy),),
                             )
                         )
+                        parameter = MetadataProperty(
+                            "https://example.com/render", "quality"
+                        )
+                        edit.add_metadata(
+                            ActivityRef(activity), parameter, MetadataString("draft")
+                        )
                         inspected = edit.add_representation(
                             asset, RepresentationKind.OPTIMIZED, media
                         )
@@ -193,7 +201,30 @@ class ReadSessionTests(unittest.TestCase):
                         (),
                     )
                     self.assertEqual(before.outputs_by_tool(tool, limit=10).items, ())
+                    with self.assertRaises(NotFoundError):
+                        before.plan_regeneration((proxy,))
                 with production.read_session() as retained:
+                    (plan,) = retained.plan_regeneration((proxy, proxy))
+                    self.assertEqual(plan.artifact_representation_id, proxy)
+                    self.assertEqual(plan.job.kind, "example:render")
+                    self.assertEqual(plan.job.inputs, (original.id,))
+                    self.assertEqual(plan.parameters[0].value, MetadataString("draft"))
+                    with retained.edit() as edit:
+                        edit.remove_metadata_property(ActivityRef(activity), parameter)
+                        edit.add_metadata(
+                            ActivityRef(activity), parameter, MetadataString("final")
+                        )
+                        edit.commit()
+                    (still,) = retained.plan_regeneration((proxy,))
+                    self.assertEqual(still.parameters[0].value, MetadataString("draft"))
+                    with production.read_session() as fresh:
+                        (updated,) = fresh.plan_regeneration((proxy,))
+                        self.assertEqual(
+                            updated.parameters[0].value, MetadataString("final")
+                        )
+                        self.assertEqual(fresh.jobs(limit=10).items, ())
+                    with self.assertRaises(ValueError):
+                        retained.plan_regeneration(repeat(proxy))
                     ancestors = retained.provenance_ancestors_page(
                         proxy, max_depth=64, max_representations=100, limit=10
                     )

@@ -28,6 +28,7 @@ from postproject import (
 def exercise(path: Path, media: Path) -> None:
     with Production.create(path) as production:
         with production.read_session() as empty:
+            assert empty.plan_regeneration(()) == ()
             with empty.edit() as edit:
                 asset = edit.import_media(media)
                 edit.add_external_identifier(

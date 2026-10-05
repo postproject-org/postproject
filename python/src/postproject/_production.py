@@ -8,6 +8,7 @@ import threading
 import weakref
 from _ctypes import _Pointer
 from collections.abc import Callable, Iterable, Iterator, Mapping
+from itertools import islice
 from pathlib import Path
 from types import TracebackType
 from typing import Self, TypeVar
@@ -501,31 +502,12 @@ class Production:
         """Derive job proposals without enqueuing or executing them."""
 
         self._require_open()
-        artifact_ids = tuple(artifact_representation_ids)
-        native_ids = (Uuid * len(artifact_ids))(
-            *(_native_uuid(artifact_id) for artifact_id in artifact_ids)
-        )
-        handle = ctypes.POINTER(RegenerationPlanSet)()
-        error = ctypes.POINTER(Error)()
-        status = self._native.lib.pp_production_plan_regeneration(
+        return _read_regeneration_plans(
+            self._native,
+            self._native.lib.pp_production_plan_regeneration,
             self._handle,
-            native_ids if artifact_ids else None,
-            len(artifact_ids),
-            ctypes.byref(handle),
-            ctypes.byref(error),
+            artifact_representation_ids,
         )
-        self._native.check(status, error)
-        if not handle:
-            raise RuntimeError("native regeneration query returned no result set")
-        try:
-            return tuple(
-                _regeneration_plan_at(self._native, handle, index)
-                for index in range(
-                    int(self._native.lib.pp_regeneration_plan_set_count(handle))
-                )
-            )
-        finally:
-            self._native.lib.pp_regeneration_plan_set_release(handle)
 
     @property
     def activities_producing(self) -> _ActivitiesByRepresentation:
@@ -1920,6 +1902,43 @@ def _metadata_set(
         native.lib.pp_metadata_set_release(handle)
 
 
+def _read_regeneration_plans(
+    native: NativeLibrary,
+    function: Callable[..., int],
+    handle: object,
+    artifact_representation_ids: Iterable[RepresentationId],
+) -> tuple[RegenerationJobPlan, ...]:
+    artifact_ids = tuple(
+        islice(artifact_representation_ids, _abi.PP_MAX_REGENERATION_PLANS + 1)
+    )
+    if len(artifact_ids) > _abi.PP_MAX_REGENERATION_PLANS:
+        raise ValueError("too many artifacts for regeneration planning")
+    native_ids = (Uuid * len(artifact_ids))(
+        *(_native_uuid(artifact_id) for artifact_id in artifact_ids)
+    )
+    result_handle = ctypes.POINTER(RegenerationPlanSet)()
+    error = ctypes.POINTER(Error)()
+    status = function(
+        handle,
+        native_ids if artifact_ids else None,
+        len(artifact_ids),
+        ctypes.byref(result_handle),
+        ctypes.byref(error),
+    )
+    native.check(status, error)
+    if not result_handle:
+        raise RuntimeError("native regeneration query returned no result set")
+    try:
+        return tuple(
+            _regeneration_plan_at(native, result_handle, index)
+            for index in range(
+                int(native.lib.pp_regeneration_plan_set_count(result_handle))
+            )
+        )
+    finally:
+        native.lib.pp_regeneration_plan_set_release(result_handle)
+
+
 def _read_revision_event_page(
     native: NativeLibrary, function: Callable[..., int], *arguments: object
 ) -> QueryPage[RevisionEvent]:
@@ -2044,6 +2063,19 @@ class ReadSession:
         self._handle = handle
         self._finalizer = weakref.finalize(
             self, native.lib.pp_read_session_release, handle
+        )
+
+    def plan_regeneration(
+        self, artifact_representation_ids: Iterable[RepresentationId]
+    ) -> tuple[RegenerationJobPlan, ...]:
+        """Derive job proposals from this view without enqueuing or executing them."""
+
+        self._require_open()
+        return _read_regeneration_plans(
+            self._native,
+            self._native.lib.pp_read_session_plan_regeneration,
+            self._handle,
+            artifact_representation_ids,
         )
 
     def revision_events_page(
