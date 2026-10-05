@@ -823,6 +823,10 @@ EXPORTED_SYMBOLS = (
 def configure_api(lib: ctypes.CDLL) -> None:
     """Configure every function declared by the public C header."""
 
+    lib.pp_decision_base_parse.argtypes = [ctypes.c_char_p, ctypes.POINTER(DecisionBase), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_decision_base_parse.restype = ErrorCode
+    lib.pp_decision_base_format.argtypes = [ctypes.POINTER(DecisionBase), ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_decision_base_format.restype = ErrorCode
     lib.pp_production_read_session.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(ctypes.POINTER(ReadSession)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_production_read_session.restype = ErrorCode
     lib.pp_read_session_decision_base.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(DecisionBase), ctypes.POINTER(ctypes.POINTER(Error))]
@@ -1333,7 +1337,3 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_error_transaction_conflict.restype = ctypes.c_uint8
     lib.pp_error_release.argtypes = [ctypes.POINTER(Error)]
     lib.pp_error_release.restype = None
-    lib.pp_decision_base_parse.argtypes = [ctypes.c_char_p, ctypes.POINTER(DecisionBase), ctypes.POINTER(ctypes.POINTER(Error))]
-    lib.pp_decision_base_parse.restype = ErrorCode
-    lib.pp_decision_base_format.argtypes = [ctypes.POINTER(DecisionBase), ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.POINTER(Error))]
-    lib.pp_decision_base_format.restype = ErrorCode

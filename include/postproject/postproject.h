@@ -482,6 +482,14 @@ typedef uint32_t pp_content_observation_t;
 #define PP_OBSERVATION_CHANGED UINT32_C(2)
 #define PP_OBSERVATION_FIRST UINT32_C(3)
 
+/** Parse a canonical production-scoped decision token (at most 128 bytes).
+ * Store membership and revision/sequence are checked when beginning an edit. */
+PP_API pp_error_code_t pp_decision_base_parse(
+    const char *text, pp_decision_base_t *out_base, pp_error_t **out_error);
+/** Format a validated base. Caller releases the owned text with pp_string_release. */
+PP_API pp_error_code_t pp_decision_base_format(
+    const pp_decision_base_t *base, char **out_text, pp_error_t **out_error);
+
 /* Sessions own a pinned read connection and retain their production for edits.
  * All session calls are caller-serialized. Returned sets own their copied
  * values and survive session release. Release accepts NULL, exactly once. */
@@ -1501,12 +1509,4 @@ PP_API void pp_error_release(pp_error_t *error);
 }
 #endif
 
-#endif/** Parse a canonical production-scoped decision token (at most 128 bytes).
- * Store membership and revision/sequence are checked when beginning an edit. */
-PP_API pp_error_code_t pp_decision_base_parse(
-    const char *text, pp_decision_base_t *out_base, pp_error_t **out_error);
-/** Format a validated base. Caller releases the owned text with pp_string_release. */
-PP_API pp_error_code_t pp_decision_base_format(
-    const pp_decision_base_t *base, char **out_text, pp_error_t **out_error);
-
-
+#endif
