@@ -321,6 +321,15 @@ static int renamed_sequence_scenario(pp_production_t *production,
   return 0;
 }
 
+static pp_error_code_t begin_root_edit(pp_production_t *production,
+                                      pp_transaction_t **edit, pp_error_t **error) {
+  pp_read_session_t *view = NULL;
+  pp_error_code_t status = pp_production_read_session(production, &view, error);
+  if (status == PP_OK) status = pp_read_session_begin_edit(view, edit, error);
+  pp_read_session_release(view);
+  return status;
+}
+
 int main(int argc, char **argv) {
   pp_production_t *production = NULL;
   pp_transaction_t *transaction = NULL;
@@ -1153,7 +1162,7 @@ int main(int argc, char **argv) {
     return 20;
   }
 
-  status = pp_production_begin_transaction(production, &transaction, &error);
+  status = begin_root_edit(production, &transaction, &error);
   const uint8_t observed_resource_fingerprint[] = {0x10, 0x20, 0x30};
   const uint8_t observed_representation_fingerprint[] = {0x40, 0x50, 0x60};
   if (status != PP_OK ||
@@ -1397,7 +1406,7 @@ int main(int argc, char **argv) {
   }
   pp_media_root_set_release(roots);
 
-  status = pp_production_begin_transaction(production, &transaction, &error);
+  status = begin_root_edit(production, &transaction, &error);
   if (status != PP_OK ||
       pp_transaction_remove_media_root(transaction, root_id, &error) != PP_OK ||
       pp_transaction_commit(transaction, &error) != PP_OK) {

@@ -5004,6 +5004,7 @@ pub unsafe extern "C" fn pp_transaction_add_media_root(
 
 /// Stages enabling or disabling one configured media root.
 ///
+/// Requires a decision base; early rejection leaves the transaction open.
 /// Reapplying the current state is an idempotent no-op at commit.
 ///
 /// # Safety
@@ -5023,7 +5024,7 @@ pub unsafe extern "C" fn pp_transaction_set_media_root_enabled(
             let transaction = transaction
                 .as_mut()
                 .ok_or_else(|| invalid_argument("transaction must not be null"))?;
-            transaction.lifecycle.ensure_open()?;
+            transaction.require_decision_base()?;
             let enabled = match enabled {
                 0 => false,
                 1 => true,
@@ -5041,6 +5042,7 @@ pub unsafe extern "C" fn pp_transaction_set_media_root_enabled(
 }
 
 /// Stages removal of one configured media root.
+/// Requires a decision base; early rejection leaves the transaction open.
 ///
 /// # Safety
 ///
@@ -5058,7 +5060,7 @@ pub unsafe extern "C" fn pp_transaction_remove_media_root(
             let transaction = transaction
                 .as_mut()
                 .ok_or_else(|| invalid_argument("transaction must not be null"))?;
-            transaction.lifecycle.ensure_open()?;
+            transaction.require_decision_base()?;
             transaction
                 .mutations
                 .push(StagedMutation::RemoveMediaRoot(MediaRootId::from_bytes(
@@ -7352,7 +7354,7 @@ impl PpTransaction {
         self.lifecycle.ensure_open()?;
         if self.decision_base.is_none() && self.base_revision.is_none() {
             return Err(invalid_argument(
-                "metadata removal requires a decision base",
+                "non-additive mutation requires a decision base",
             ));
         }
         Ok(())

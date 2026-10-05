@@ -1552,6 +1552,8 @@ PP_API pp_error_code_t pp_transaction_add_representation(
 PP_API pp_error_code_t pp_transaction_add_media_root(
     pp_transaction_t *transaction, const char *name, const char *label,
     int32_t priority, pp_media_root_id_t *out_root_id, pp_error_t **out_error);
+/* Enabling/removal requires a decision base, including idempotent requests.
+ * Unbased calls fail before staging and leave the transaction open. */
 PP_API pp_error_code_t pp_transaction_set_media_root_enabled(
     pp_transaction_t *transaction, pp_media_root_id_t root_id, uint8_t enabled,
     pp_error_t **out_error);

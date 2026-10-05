@@ -81,6 +81,58 @@ cleanup:
   return valid;
 }
 
+static int root_edits_contract(pp_production_t *production) {
+  pp_transaction_t *edit = NULL;
+  pp_read_session_t *view = NULL;
+  pp_error_t *error = NULL;
+  pp_media_root_id_t root;
+  pp_commit_receipt_t receipt;
+  pp_transaction_conflict_t conflict;
+  int valid = 0;
+  if (pp_production_begin_transaction(production, &edit, &error) != PP_OK ||
+      pp_transaction_add_media_root(edit, "protected", NULL, 0, &root, &error) != PP_OK ||
+      pp_transaction_set_media_root_enabled(edit, root, 0, &error) != PP_ERROR_INVALID_ARGUMENT ||
+      error == NULL) goto cleanup;
+  pp_error_release(error); error = NULL;
+  if (pp_transaction_remove_media_root(edit, root, &error) != PP_ERROR_INVALID_ARGUMENT ||
+      error == NULL) goto cleanup;
+  pp_error_release(error); error = NULL;
+  /* Neither rejection staged a mutation or discarded the additive creation. */
+  if (pp_transaction_commit_with_receipt(edit, &receipt, &error) != PP_OK ||
+      receipt.outcome != PP_COMMIT_REVISION_CREATED) goto cleanup;
+  pp_transaction_release(edit); edit = NULL;
+  if (pp_production_read_session(production, &view, &error) != PP_OK ||
+      pp_read_session_begin_edit(view, &edit, &error) != PP_OK ||
+      pp_transaction_set_media_root_enabled(edit, root, 0, &error) != PP_OK ||
+      pp_transaction_commit_with_receipt(edit, &receipt, &error) != PP_OK ||
+      receipt.outcome != PP_COMMIT_REVISION_CREATED) goto cleanup;
+  pp_revision_id_t superseding = receipt.revision_id;
+  pp_transaction_release(edit); edit = NULL;
+  if (pp_read_session_begin_edit(view, &edit, &error) != PP_OK ||
+      pp_transaction_remove_media_root(edit, root, &error) != PP_OK ||
+      pp_transaction_commit_with_receipt(edit, &receipt, &error) != PP_ERROR_CONFLICT ||
+      receipt.outcome != PP_COMMIT_NO_CHANGE ||
+      pp_error_transaction_conflict(error, &conflict) != 1 ||
+      conflict.kind != PP_CONFLICT_MEDIA_ROOT || conflict.target.kind != 0 ||
+      memcmp(conflict.media_root_id.bytes, root.bytes, 16) ||
+      memcmp(conflict.superseding_revision_id.bytes, superseding.bytes, 16)) goto cleanup;
+  pp_error_release(error); error = NULL;
+  pp_transaction_release(edit); edit = NULL;
+  pp_read_session_release(view); view = NULL;
+  /* Fresh removal succeeds only if the stale removal rolled back. */
+  if (pp_production_read_session(production, &view, &error) != PP_OK ||
+      pp_read_session_begin_edit(view, &edit, &error) != PP_OK ||
+      pp_transaction_remove_media_root(edit, root, &error) != PP_OK ||
+      pp_transaction_commit_with_receipt(edit, &receipt, &error) != PP_OK ||
+      receipt.outcome != PP_COMMIT_REVISION_CREATED) goto cleanup;
+  valid = 1;
+cleanup:
+  pp_error_release(error);
+  pp_transaction_release(edit);
+  pp_read_session_release(view);
+  return valid;
+}
+
 static int rejects_null_storage_reads(void) {
   pp_object_query_set_t *resources = (pp_object_query_set_t *)(uintptr_t)1;
   pp_locator_query_set_t *locators = (pp_locator_query_set_t *)(uintptr_t)1;
@@ -175,6 +227,8 @@ int main(int argc, char **argv) {
   edit = NULL;
 
   if (!metadata_edits_contract(production))
+    goto cleanup;
+  if (!root_edits_contract(production))
     goto cleanup;
 
   /* The session retains a production for edits and owns its read connection. */
