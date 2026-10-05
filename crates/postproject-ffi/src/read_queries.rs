@@ -34,6 +34,58 @@ unsafe fn forward_read(
     })
 }
 
+/// Evaluates stored artifact evidence through the pinned view, without media I/O.
+///
+/// # Safety
+/// Session/ID must be live/readable; outputs writable, error nullable/writable.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_read_session_evaluate_artifact(
+    session: *const PpReadSession,
+    representation_id: *const PpUuid,
+    max_depth: u32,
+    max_representations: u32,
+    out_evaluation: *mut *mut crate::PpArtifactEvaluation,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: The delegate validates pointers and contains panics.
+    unsafe {
+        forward_read(session, out_error, |reader| {
+            crate::pp_production_evaluate_artifact(
+                reader,
+                representation_id,
+                max_depth,
+                max_representations,
+                out_evaluation,
+                out_error,
+            )
+        })
+    }
+}
+
+/// Copies artifact reproducibility knowledge from the pinned view.
+///
+/// # Safety
+/// Session/ID must be live/readable; outputs writable, error nullable/writable.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_read_session_artifact_reproducibility(
+    session: *const PpReadSession,
+    representation_id: *const PpUuid,
+    out_report: *mut *mut crate::PpArtifactReproducibility,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: The delegate validates pointers and contains panics.
+    unsafe {
+        forward_read(session, out_error, |reader| {
+            crate::pp_production_artifact_reproducibility(
+                reader,
+                representation_id,
+                out_report,
+                out_error,
+            )
+        })
+    }
+}
+
 /// Copies one job from the pinned view; absent identities return not found.
 ///
 /// # Safety

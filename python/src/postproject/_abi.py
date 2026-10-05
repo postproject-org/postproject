@@ -728,10 +728,12 @@ EXPORTED_SYMBOLS = (
     "pp_production_stale_artifacts",
     "pp_production_unresolved_media",
     "pp_production_verify_resource",
+    "pp_read_session_artifact_reproducibility",
     "pp_read_session_asset",
     "pp_read_session_assets_page",
     "pp_read_session_begin_edit",
     "pp_read_session_decision_base",
+    "pp_read_session_evaluate_artifact",
     "pp_read_session_external_identifiers",
     "pp_read_session_find_by_external_identifier",
     "pp_read_session_find_known_media_by_fingerprint",
@@ -837,6 +839,10 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_read_session_begin_edit.restype = ErrorCode
     lib.pp_production_begin_edit.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(DecisionBase), ctypes.POINTER(ctypes.POINTER(Transaction)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_production_begin_edit.restype = ErrorCode
+    lib.pp_read_session_evaluate_artifact.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(Uuid), ctypes.c_uint32, ctypes.c_uint32, ctypes.POINTER(ctypes.POINTER(ArtifactEvaluation)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_read_session_evaluate_artifact.restype = ErrorCode
+    lib.pp_read_session_artifact_reproducibility.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.POINTER(ArtifactReproducibility)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_read_session_artifact_reproducibility.restype = ErrorCode
     lib.pp_read_session_job.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.POINTER(JobSet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_read_session_job.restype = ErrorCode
     lib.pp_read_session_jobs.argtypes = [ctypes.POINTER(ReadSession), JobState, ctypes.c_char_p, ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(JobSet)), ctypes.POINTER(ctypes.POINTER(Error))]

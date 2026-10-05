@@ -73,6 +73,8 @@ static int exercise(const char *path, const char *media) {
   pp_metadata_input_t *title = NULL;
   pp_asset_set_t *assets = NULL;
   pp_job_set_t *jobs = NULL;
+  pp_artifact_evaluation_t *evaluation = NULL;
+  pp_artifact_reproducibility_t *report = NULL;
   pp_representation_set_t *representations = NULL;
   pp_object_query_set_t *resource_page = NULL;
   pp_locator_query_set_t *locator_page = NULL;
@@ -137,6 +139,20 @@ static int exercise(const char *path, const char *media) {
   CHECK(pp_read_session_representations_using_resource(view, &resource.id, 10, NULL, &representations, &error));
   if (pp_representation_set_count(representations) != 1) goto cleanup;
   if (lookup(view, &asset, media)) goto cleanup;
+  CHECK(pp_read_session_evaluate_artifact(view, &representation, 64, 1000, &evaluation, &error));
+  pp_uuid_t evaluated;
+  uint32_t state, visited;
+  uint8_t truncated;
+  uint64_t reasons;
+  CHECK(pp_artifact_evaluation_get(evaluation, &evaluated, &state, &visited, &truncated, &reasons, &error));
+  if (memcmp(evaluated.bytes, representation.bytes, 16) || state != PP_ARTIFACT_INDETERMINATE || reasons == 0) goto cleanup;
+  CHECK(pp_read_session_artifact_reproducibility(view, &representation, &report, &error));
+  uint8_t reproducible, has_activity;
+  pp_uuid_t activity;
+  const char *activity_kind;
+  uint64_t issues;
+  CHECK(pp_artifact_reproducibility_get(report, &evaluated, &reproducible, &has_activity, &activity, &activity_kind, &issues, &error));
+  if (reproducible || has_activity || issues == 0) goto cleanup;
   pp_read_session_release(view); view = NULL;
   /* Copied sets and a detached base survive closing the pinned view. */
   CHECK(pp_production_begin_edit(production, &base, &edit, &error));
@@ -172,6 +188,8 @@ cleanup:
   pp_string_release(token);
   pp_asset_set_release(assets);
   pp_job_set_release(jobs);
+  pp_artifact_evaluation_release(evaluation);
+  pp_artifact_reproducibility_release(report);
   pp_representation_set_release(representations);
   pp_object_query_set_release(resource_page);
   pp_locator_query_set_release(locator_page);

@@ -505,6 +505,15 @@ PP_API pp_error_code_t pp_read_session_begin_edit(
 PP_API pp_error_code_t pp_production_begin_edit(
     const pp_production_t *production, const pp_decision_base_t *base,
     pp_transaction_t **out_transaction, pp_error_t **out_error);
+/* These snapshot operations inspect stored knowledge, without media I/O.
+ * Returned reports own their values and survive session release. */
+PP_API pp_error_code_t pp_read_session_evaluate_artifact(
+    const pp_read_session_t *session, const pp_uuid_t *representation_id,
+    uint32_t max_depth, uint32_t max_representations,
+    pp_artifact_evaluation_t **out_evaluation, pp_error_t **out_error);
+PP_API pp_error_code_t pp_read_session_artifact_reproducibility(
+    const pp_read_session_t *session, const pp_uuid_t *representation_id,
+    pp_artifact_reproducibility_t **out_report, pp_error_t **out_error);
 /* Snapshot job reads return the same owned sets as live production reads.
  * Zero state and NULL kind select all jobs; pages retain this view's scope. */
 PP_API pp_error_code_t pp_read_session_job(
