@@ -195,3 +195,31 @@ shared-media fixture now does too. Background checks cover saved bindings,
 ambiguity, render provenance, conflicts and disabled/missing-sidecar behavior.
 No interactive or final cross-host/platform qualification is claimed. All
 changes remain on local `main`; origins and published releases are unchanged.
+
+## ABI 41 asset migration checks
+
+Runtime SDK `26c2ec6` supplies the installed native library/header and the
+neutral wheel in `target/api-safety-wheel/asset-abi41/` (0.7.0a1, ABI 41,
+schema 17). Later `642bb71` adds asset-scope regression and evidence metadata.
+Neutral wheel SHA-256:
+`bf2c81942170d1076367b7fb691f392ff12a90423de0da0ace4ec28bd6339c8c`.
+Linux platform wheel SHA-256:
+`4ad236a76ab03ee01c3ad77f467d8050f7d1eff442671c90a0e963b802574ab4`.
+Blender bundle SHA-256:
+`9e842cbde95a69ca130385b7894df05da929e0fe04083dcc055195cf907cd9ab`.
+
+| Consumer commit | Executed result | Scope |
+|---|---|---|
+| Manager `da2caaa` | 6 passed | Installed neutral wheel, Python 3.13 |
+| OpenAssetIO `5e38c31`, OTIO `81a6ee6`, demo `c18f5bc`, Python host `c42b8b8` | 1 passed each | Separate installed-wheel runs; pinned OTIO linker |
+| Blender `71f49b6` | 23 passed, 1 skipped | Installed bundle; Blender 5.2.2 LTS `d13f752e3b9c`; 5.3 project-variable case skipped |
+| OBS `6c258e0` | 2 passed; plugin/driver built | Installed C contracts; checked reference projection; no host run |
+| Natron `97b32d6` | 1 passed; module built | Installed native contract and CPython stable-ABI module |
+| Ardour `e7a0c02` | Passed | Seven updated patches replay; renamed/ambiguous stereo-WAV resolver |
+| Kdenlive `0312999` | Compiled | Ten updated patches replay; sidecar and shared/proxy tests compiled with real host flags |
+| C++ NLE baseline | 1 passed | Fresh installed CMake consumer; version requirement still accepts 0.7 |
+
+The Ardour/Kdenlive checks use fresh detached source worktrees and preserve
+older fixtures and host checkouts. Full native hosts, interactive/background
+handoffs and platform qualification remain pending. All maintained repos remain
+on local `main`; no origin push, tag or publication occurred.

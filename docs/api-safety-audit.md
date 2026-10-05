@@ -47,13 +47,13 @@ Local Linux checks do not establish the other platforms or real-host runs.
 
 ## Implemented development contracts
 
-The development series is `0.7.0-alpha.1` (Python `0.7.0a1`, ABI 40,
+The development series is `0.7.0-alpha.1` (Python `0.7.0a1`, ABI 41,
 schema 17). ADRs 0045–0049 record pinned views, scoped edits/receipts, Python
 nominal UUID hints and explicit references, production/view-scoped cursors,
 and fallible C++ cancellation/options construction. Focused
 regressions cover intervening writers, empty bases, terminal failed commits,
 retained handles, cursor rejection and wrong-kind Python calls. Native
-read sessions offer 39 native query operations. Production, revision and
+read sessions offer 39 native query operations. Production, asset, revision and
 transaction IDs are distinct C/C++ values; the other native identity kinds,
 validated state alternatives and
 authority-controlled job leases remain open.
@@ -147,3 +147,20 @@ remaining CLI receipt paths are still open.
 
 Repository inputs and migration status are in
 [`api-safety-repositories.md`](api-safety-repositories.md).
+
+## Typed asset operations checkpoint
+
+SDK runtime `26c2ec6` (0.7.0-alpha.1 / Python 0.7.0a1 / ABI 41 / schema 17)
+carries asset IDs through every asset argument and asset-bearing result field.
+Small C scalar inputs are values; arrays borrow typed IDs and outputs write
+stack values. Checked reference construction/projection avoids caller retagging.
+C++ imports return `AssetId`; Python runtime values remain ordinary UUIDs.
+Other native IDs and the final dynamic-reference model remain open.
+
+All six required Rust gates pass. Eight installed native contracts, all 64
+extracted examples, Doxygen coverage and strict Sphinx pass. The 292 exported
+symbols match the manifest; all 21 Rust/C/ctypes layouts agree. Positive and
+negative installed identity fixtures pass. Tests reject nil, wrong-kind and
+wrong-production asset reads without treating parsing as existence.
+The repository manifest records exact wheel and host-check scope. These
+checks do not close the audit or qualify a release candidate.
