@@ -2417,6 +2417,71 @@ resolution_resource(const pp_resolution_set_t *resolutions,
                        std::move(candidates), std::move(evidence)};
 }
 
+inline Result<std::vector<RepresentationResolution>>
+resolution_values(ResolutionSetHandle resolutions) {
+  std::vector<RepresentationResolution> result;
+  const std::uint64_t count =
+      pp_resolution_set_representation_count(resolutions.get());
+  for (std::uint64_t representation_index = 0;
+       representation_index < count; ++representation_index) {
+    pp_uuid_t asset_id{};
+    pp_uuid_t representation_id{};
+    pp_representation_availability_t availability = 0;
+    std::uint64_t resource_count = 0;
+    std::uint64_t issue_count = 0;
+    pp_error_t *item_error = nullptr;
+    const pp_error_code_t item_status =
+        pp_resolution_set_get_representation(
+            resolutions.get(), representation_index, &asset_id,
+            &representation_id, &availability, &resource_count,
+            &issue_count, &item_error);
+    POSTPROJECT_TRY(check(item_status, item_error));
+
+    std::vector<ResourceResolution> resources;
+    for (std::uint64_t resource_index = 0; resource_index < resource_count;
+         ++resource_index) {
+      POSTPROJECT_TRY_ASSIGN(
+          ResourceResolution resource,
+          resolution_resource(resolutions.get(), representation_index,
+                                      resource_index));
+      resources.push_back(std::move(resource));
+    }
+
+    std::vector<AvailabilityIssue> issues;
+    for (std::uint64_t issue_index = 0; issue_index < issue_count;
+         ++issue_index) {
+      pp_uuid_t resource_id{};
+      std::uint8_t required = 0;
+      pp_availability_issue_kind_t kind = 0;
+      std::uint64_t frame_count = 0;
+      pp_error_t *issue_error = nullptr;
+      const pp_error_code_t issue_status = pp_resolution_set_get_issue(
+          resolutions.get(), representation_index, issue_index, &resource_id,
+          &required, &kind, &frame_count, &issue_error);
+      POSTPROJECT_TRY(check(issue_status, issue_error));
+      std::vector<std::int64_t> frames;
+      for (std::uint64_t frame_index = 0; frame_index < frame_count;
+           ++frame_index) {
+        std::int64_t frame = 0;
+        pp_error_t *frame_error = nullptr;
+        const pp_error_code_t frame_status =
+            pp_resolution_set_get_issue_frame(
+                resolutions.get(), representation_index, issue_index,
+                frame_index, &frame, &frame_error);
+        POSTPROJECT_TRY(check(frame_status, frame_error));
+        frames.push_back(frame);
+      }
+      issues.push_back({uuid(resource_id), required != 0,
+                        static_cast<AvailabilityIssueKind>(kind),
+                        std::move(frames)});
+    }
+    result.push_back({uuid(asset_id), uuid(representation_id),
+                      static_cast<RepresentationAvailability>(availability),
+                      std::move(resources), std::move(issues)});
+  }
+  return result;
+}
+
 } // namespace detail
 
 inline Result<ProductionId> ProductionId::fromString(std::string_view text) {
@@ -4881,67 +4946,7 @@ private:
     POSTPROJECT_TRY(detail::check(status, error));
     detail::ResolutionSetHandle resolutions(raw_resolutions);
 
-    std::vector<RepresentationResolution> result;
-    const std::uint64_t count =
-        pp_resolution_set_representation_count(resolutions.get());
-    for (std::uint64_t representation_index = 0;
-         representation_index < count; ++representation_index) {
-      pp_uuid_t asset_id{};
-      pp_uuid_t representation_id{};
-      pp_representation_availability_t availability = 0;
-      std::uint64_t resource_count = 0;
-      std::uint64_t issue_count = 0;
-      pp_error_t *item_error = nullptr;
-      const pp_error_code_t item_status =
-          pp_resolution_set_get_representation(
-              resolutions.get(), representation_index, &asset_id,
-              &representation_id, &availability, &resource_count,
-              &issue_count, &item_error);
-      POSTPROJECT_TRY(detail::check(item_status, item_error));
-
-      std::vector<ResourceResolution> resources;
-      for (std::uint64_t resource_index = 0; resource_index < resource_count;
-           ++resource_index) {
-        POSTPROJECT_TRY_ASSIGN(
-            ResourceResolution resource,
-            detail::resolution_resource(resolutions.get(), representation_index,
-                                        resource_index));
-        resources.push_back(std::move(resource));
-      }
-
-      std::vector<AvailabilityIssue> issues;
-      for (std::uint64_t issue_index = 0; issue_index < issue_count;
-           ++issue_index) {
-        pp_uuid_t resource_id{};
-        std::uint8_t required = 0;
-        pp_availability_issue_kind_t kind = 0;
-        std::uint64_t frame_count = 0;
-        pp_error_t *issue_error = nullptr;
-        const pp_error_code_t issue_status = pp_resolution_set_get_issue(
-            resolutions.get(), representation_index, issue_index, &resource_id,
-            &required, &kind, &frame_count, &issue_error);
-        POSTPROJECT_TRY(detail::check(issue_status, issue_error));
-        std::vector<std::int64_t> frames;
-        for (std::uint64_t frame_index = 0; frame_index < frame_count;
-             ++frame_index) {
-          std::int64_t frame = 0;
-          pp_error_t *frame_error = nullptr;
-          const pp_error_code_t frame_status =
-              pp_resolution_set_get_issue_frame(
-                  resolutions.get(), representation_index, issue_index,
-                  frame_index, &frame, &frame_error);
-          POSTPROJECT_TRY(detail::check(frame_status, frame_error));
-          frames.push_back(frame);
-        }
-        issues.push_back({detail::uuid(resource_id), required != 0,
-                          static_cast<AvailabilityIssueKind>(kind),
-                          std::move(frames)});
-      }
-      result.push_back({detail::uuid(asset_id), detail::uuid(representation_id),
-                        static_cast<RepresentationAvailability>(availability),
-                        std::move(resources), std::move(issues)});
-    }
-    return result;
+    return detail::resolution_values(std::move(resolutions));
   }
 
 public:
