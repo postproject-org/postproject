@@ -711,6 +711,8 @@ struct CommittedRevision final {
 };
 
 struct DecisionBase final {
+  [[nodiscard]] static Result<DecisionBase> fromToken(std::string_view token);
+  [[nodiscard]] Result<std::string> toToken() const;
   ProductionId production_id;
   std::optional<CommittedRevision> revision;
 };
@@ -2482,7 +2484,45 @@ resolution_values(ResolutionSetHandle resolutions) {
   return result;
 }
 
+inline pp_decision_base_t native_decision_base(const DecisionBase &base) {
+  pp_decision_base_t native{};
+  native.production_id = native_production_id(base.production_id);
+  if (base.revision) {
+    native.has_revision = 1;
+    native.revision_id = native_uuid(base.revision->id);
+    native.revision_sequence = base.revision->sequence;
+  }
+  return native;
+}
+
+inline DecisionBase decision_base(const pp_decision_base_t &base) {
+  DecisionBase result{production_id(base.production_id), std::nullopt};
+  if (base.has_revision)
+    result.revision = CommittedRevision{uuid(base.revision_id), base.revision_sequence};
+  return result;
+}
+
 } // namespace detail
+
+inline Result<DecisionBase> DecisionBase::fromToken(std::string_view token) {
+  POSTPROJECT_TRY_ASSIGN(const std::string text,
+                         detail::checked_string(token, "decision-base token"));
+  pp_decision_base_t base{};
+  pp_error_t *error = nullptr;
+  const auto status = pp_decision_base_parse(text.c_str(), &base, &error);
+  POSTPROJECT_TRY(detail::check(status, error));
+  return detail::decision_base(base);
+}
+
+inline Result<std::string> DecisionBase::toToken() const {
+  const auto native = detail::native_decision_base(*this);
+  char *text = nullptr;
+  pp_error_t *error = nullptr;
+  const auto status = pp_decision_base_format(&native, &text, &error);
+  detail::StringHandle owned(text);
+  POSTPROJECT_TRY(detail::check(status, error));
+  return std::string(text);
+}
 
 inline Result<ProductionId> ProductionId::fromString(std::string_view text) {
   POSTPROJECT_TRY_ASSIGN(const std::string checked,
@@ -4276,9 +4316,7 @@ public:
     pp_error_t *error = nullptr;
     const auto status = pp_read_session_decision_base(session_, &base, &error);
     POSTPROJECT_TRY(detail::check(status, error));
-    DecisionBase result{detail::production_id(base.production_id), std::nullopt};
-    if (base.has_revision) result.revision = CommittedRevision{detail::uuid(base.revision_id), base.revision_sequence};
-    return result;
+    return detail::decision_base(base);
   }
   [[nodiscard]] Result<Transaction> edit() const {
     pp_transaction_t *transaction = nullptr;
@@ -4456,13 +4494,7 @@ public:
   }
 
   [[nodiscard]] Result<Transaction> edit(const DecisionBase &base) const {
-    pp_decision_base_t native{};
-    native.production_id = detail::native_production_id(base.production_id);
-    if (base.revision) {
-      native.has_revision = 1;
-      native.revision_id = detail::native_uuid(base.revision->id);
-      native.revision_sequence = base.revision->sequence;
-    }
+    const auto native = detail::native_decision_base(base);
     pp_transaction_t *transaction = nullptr;
     pp_error_t *error = nullptr;
     const auto status = pp_production_begin_edit(production_, &native, &transaction, &error);

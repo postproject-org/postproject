@@ -41,6 +41,12 @@ static void exercise(const std::string &path, const std::string &media) {
       owners.items[0].id != representation.id)
     throw std::runtime_error("locator and resource ownership pages");
   const auto base = view.decisionBase().value();
+  const auto token = base.toToken().value();
+  const auto parsed = postproject::DecisionBase::fromToken(token).value();
+  if (parsed.production_id != base.production_id ||
+      parsed.revision->id != base.revision->id ||
+      postproject::DecisionBase::fromToken(token + ":extra").has_value())
+    throw std::runtime_error("scoped decision token");
   const postproject::ObjectRef target{postproject::ObjectKind::asset, asset};
   const auto title = view.queryMetadata("https://example.com/editorial", "title", 10).value();
   if (title.items.size() != 1 ||
