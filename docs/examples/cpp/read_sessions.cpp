@@ -21,6 +21,14 @@ static void exercise(const std::string &path, const std::string &media) {
   if (representations.items.size() != 1)
     throw std::runtime_error("representation page");
   const auto representation = view.representation(representations.items[0].id).value();
+  const auto resources = view.resources(representation.id, 10).value();
+  if (resources.items.size() != 1)
+    throw std::runtime_error("resource page");
+  const auto locators = view.locators(resources.items[0], 10).value();
+  const auto owners = view.representationsUsingResource(resources.items[0], 10).value();
+  if (locators.items.size() != 1 || owners.items.size() != 1 ||
+      owners.items[0].id != representation.id)
+    throw std::runtime_error("locator and resource ownership pages");
   const auto base = view.decisionBase().value();
   const postproject::ObjectRef target{postproject::ObjectKind::asset, asset};
   if (!view.mediaRoots().value().empty() ||

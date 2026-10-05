@@ -1986,6 +1986,45 @@ inline Result<QueryPage<Uuid>> object_id_page(QueryPage<ObjectMatch> page,
                          page.traversal_truncated};
 }
 
+inline Result<QueryPage<ResourceLocator>>
+locator_page(LocatorQuerySetHandle locators) {
+
+  std::vector<ResourceLocator> items;
+  const std::uint64_t count = pp_locator_query_set_count(locators.get());
+  items.reserve(static_cast<std::size_t>(count));
+  for (std::uint64_t index = 0; index < count; ++index) {
+    pp_uuid_t id{};
+    pp_uuid_t owner_id{};
+    const char *uri = nullptr;
+    pp_locator_availability_t availability = 0;
+    std::uint8_t has_last_seen = 0;
+    std::int64_t last_seen = 0;
+    const char *media_root = nullptr;
+    std::uint8_t has_naming = 0;
+    pp_sequence_naming_t naming{};
+    pp_error_t *item_error = nullptr;
+    const pp_error_code_t item_status = pp_locator_query_set_get(
+        locators.get(), index, &id, &owner_id, &uri, &availability,
+        &has_last_seen, &last_seen, &media_root, &has_naming, &naming,
+        &item_error);
+    POSTPROJECT_TRY(check(item_status, item_error));
+    if (uri == nullptr) {
+      return Error(ErrorCode::internal, "locator has no URI");
+    }
+    items.push_back(
+        {uuid(owner_id),
+         Locator{uuid(id), std::string(uri),
+                 static_cast<LocatorAvailability>(availability),
+                 has_last_seen != 0 ? std::optional<std::int64_t>(last_seen)
+                                    : std::nullopt,
+                 optional_naming(has_naming, naming)},
+         optional_string(media_root)});
+  }
+  const char *next_cursor = pp_locator_query_set_next_cursor(locators.get());
+  return QueryPage<ResourceLocator>{
+      std::move(items), optional_string(next_cursor), false};
+}
+
 inline Result<QueryPage<Representation>>
 representation_page(RepresentationSetHandle representations) {
   std::vector<Representation> items;
@@ -3757,6 +3796,59 @@ private:
 
 class ReadSession final {
 public:
+  // Representations that use a resource, in identity order.
+  [[nodiscard]] Result<QueryPage<Representation>> representationsUsingResource(
+      const Uuid &resource_id, std::uint32_t limit,
+      std::optional<std::string_view> cursor = std::nullopt) const {
+    const pp_uuid_t native_id = detail::native_uuid(resource_id);
+    POSTPROJECT_TRY_ASSIGN(const std::optional<std::string> checked_cursor,
+                           detail::checked_cursor(cursor));
+    pp_representation_set_t *raw_representations = nullptr;
+    pp_error_t *error = nullptr;
+    const pp_error_code_t status =
+        pp_read_session_representations_using_resource(
+            session_, &native_id, limit,
+            detail::optional_c_str(checked_cursor), &raw_representations,
+            &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    return detail::representation_page(
+        detail::RepresentationSetHandle(raw_representations));
+  }
+
+  // Resource identities of one representation in structure order.
+  [[nodiscard]] Result<QueryPage<Uuid>>
+  resources(const Uuid &representation_id, std::uint32_t limit,
+            std::optional<std::string_view> cursor = std::nullopt) const {
+    const pp_uuid_t native_id = detail::native_uuid(representation_id);
+    POSTPROJECT_TRY_ASSIGN(const std::optional<std::string> checked_cursor,
+                           detail::checked_cursor(cursor));
+    pp_object_query_set_t *raw_objects = nullptr;
+    pp_error_t *error = nullptr;
+    const pp_error_code_t status = pp_read_session_resources_page(
+        session_, &native_id, limit, detail::optional_c_str(checked_cursor),
+        &raw_objects, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    POSTPROJECT_TRY_ASSIGN(
+        QueryPage<ObjectMatch> page,
+        detail::object_query_page(detail::ObjectQuerySetHandle(raw_objects)));
+    return detail::object_id_page(std::move(page), ObjectKind::resource);
+  }
+
+  [[nodiscard]] Result<QueryPage<ResourceLocator>>
+  locators(const Uuid &resource_id, std::uint32_t limit,
+           std::optional<std::string_view> cursor = std::nullopt) const {
+    const pp_uuid_t native_id = detail::native_uuid(resource_id);
+    POSTPROJECT_TRY_ASSIGN(const std::optional<std::string> checked_cursor,
+                           detail::checked_cursor(cursor));
+    pp_locator_query_set_t *raw_locators = nullptr;
+    pp_error_t *error = nullptr;
+    const pp_error_code_t status = pp_read_session_locators_page(
+        session_, &native_id, limit, detail::optional_c_str(checked_cursor),
+        &raw_locators, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    return detail::locator_page(detail::LocatorQuerySetHandle(raw_locators));
+  }
+
   [[nodiscard]] Result<std::vector<MediaRoot>> mediaRoots() const {
     pp_media_root_set_t *raw_roots = nullptr;
     pp_error_t *error = nullptr;
@@ -4308,42 +4400,7 @@ public:
         production_, &native_id, limit, detail::optional_c_str(checked_cursor),
         &raw_locators, &error);
     POSTPROJECT_TRY(detail::check(status, error));
-    detail::LocatorQuerySetHandle locators(raw_locators);
-
-    std::vector<ResourceLocator> items;
-    const std::uint64_t count = pp_locator_query_set_count(locators.get());
-    items.reserve(static_cast<std::size_t>(count));
-    for (std::uint64_t index = 0; index < count; ++index) {
-      pp_uuid_t id{};
-      pp_uuid_t owner_id{};
-      const char *uri = nullptr;
-      pp_locator_availability_t availability = 0;
-      std::uint8_t has_last_seen = 0;
-      std::int64_t last_seen = 0;
-      const char *media_root = nullptr;
-      std::uint8_t has_naming = 0;
-      pp_sequence_naming_t naming{};
-      pp_error_t *item_error = nullptr;
-      const pp_error_code_t item_status = pp_locator_query_set_get(
-          locators.get(), index, &id, &owner_id, &uri, &availability,
-          &has_last_seen, &last_seen, &media_root, &has_naming, &naming,
-          &item_error);
-      POSTPROJECT_TRY(detail::check(item_status, item_error));
-      if (uri == nullptr) {
-        return Error(ErrorCode::internal, "locator has no URI");
-      }
-      items.push_back(
-          {detail::uuid(owner_id),
-           Locator{detail::uuid(id), std::string(uri),
-                   static_cast<LocatorAvailability>(availability),
-                   has_last_seen != 0 ? std::optional<std::int64_t>(last_seen)
-                                      : std::nullopt,
-                   detail::optional_naming(has_naming, naming)},
-           detail::optional_string(media_root)});
-    }
-    const char *next_cursor = pp_locator_query_set_next_cursor(locators.get());
-    return QueryPage<ResourceLocator>{
-        std::move(items), detail::optional_string(next_cursor), false};
+    return detail::locator_page(detail::LocatorQuerySetHandle(raw_locators));
   }
 
   // Finds every current resource ownership candidate at this exact canonical
