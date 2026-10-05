@@ -725,47 +725,12 @@ class Production:
 
         self._require_open()
         native_id = _native_uuid(representation_id)
-        handle = ctypes.POINTER(NativeDependencySet)()
-        error = ctypes.POINTER(Error)()
-        status = self._native.lib.pp_production_dependency_set(
+        return _read_dependency_set(
+            self._native,
+            self._native.lib.pp_production_dependency_set,
             self._handle,
             ctypes.byref(native_id),
-            ctypes.byref(handle),
-            ctypes.byref(error),
         )
-        self._native.check(status, error)
-        if not handle:
-            raise RuntimeError("native dependency query returned no result set")
-        try:
-            present = ctypes.c_uint8()
-            source_id = Uuid()
-            revision = ctypes.c_uint64()
-            set_status = _abi.DependencySetStatus()
-            count = ctypes.c_uint64()
-            summary_error = ctypes.POINTER(Error)()
-            summary_status = self._native.lib.pp_dependency_set_get(
-                handle,
-                ctypes.byref(present),
-                ctypes.byref(source_id),
-                ctypes.byref(revision),
-                ctypes.byref(set_status),
-                ctypes.byref(count),
-                ctypes.byref(summary_error),
-            )
-            self._native.check(summary_status, summary_error)
-            if not present.value:
-                return None
-            return DependencySet(
-                RepresentationId(_uuid(source_id)),
-                int(revision.value),
-                _dependency_set_status(int(set_status.value)),
-                tuple(
-                    _dependency_at(self._native, handle, index)
-                    for index in range(int(count.value))
-                ),
-            )
-        finally:
-            self._native.lib.pp_dependency_set_release(handle)
 
     def dependencies(
         self,
@@ -780,25 +745,16 @@ class Production:
 
         self._require_open()
         native_id = _native_uuid(representation_id)
-        handle = ctypes.POINTER(DependencyQuerySet)()
-        error = ctypes.POINTER(Error)()
-        status = self._native.lib.pp_production_dependencies(
+        return _read_dependency_query(
+            self._native,
+            self._native.lib.pp_production_dependencies,
             self._handle,
             ctypes.byref(native_id),
             max_depth,
             max_representations,
             limit,
             _optional_text(cursor),
-            ctypes.byref(handle),
-            ctypes.byref(error),
         )
-        self._native.check(status, error)
-        if not handle:
-            raise RuntimeError("native dependency query returned no result set")
-        try:
-            return _dependency_query_page(self._native, handle)
-        finally:
-            self._native.lib.pp_dependency_query_set_release(handle)
 
     def dependents(
         self,
@@ -813,25 +769,16 @@ class Production:
 
         self._require_open()
         native_target = _native_object_reference(target)
-        handle = ctypes.POINTER(DependencyQuerySet)()
-        error = ctypes.POINTER(Error)()
-        status = self._native.lib.pp_production_dependents(
+        return _read_dependency_query(
+            self._native,
+            self._native.lib.pp_production_dependents,
             self._handle,
             ctypes.byref(native_target),
             max_depth,
             max_representations,
             limit,
             _optional_text(cursor),
-            ctypes.byref(handle),
-            ctypes.byref(error),
         )
-        self._native.check(status, error)
-        if not handle:
-            raise RuntimeError("native dependents query returned no result set")
-        try:
-            return _dependency_query_page(self._native, handle)
-        finally:
-            self._native.lib.pp_dependency_query_set_release(handle)
 
     def asset(self, asset_id: AssetId) -> Asset:
         """Return one asset, raising ``NotFoundError`` when it is absent."""
@@ -1983,6 +1930,62 @@ def _metadata_set(
         return tuple(_metadata_at(native, handle, index) for index in range(int(count)))
     finally:
         native.lib.pp_metadata_set_release(handle)
+
+
+def _read_dependency_query(
+    native: NativeLibrary, function: Callable[..., int], *arguments: object
+) -> QueryPage[DependencyMatch]:
+    handle = ctypes.POINTER(DependencyQuerySet)()
+    error = ctypes.POINTER(Error)()
+    status = function(*arguments, ctypes.byref(handle), ctypes.byref(error))
+    native.check(status, error)
+    if not handle:
+        raise RuntimeError("native dependency query returned no result set")
+    try:
+        return _dependency_query_page(native, handle)
+    finally:
+        native.lib.pp_dependency_query_set_release(handle)
+
+
+def _read_dependency_set(
+    native: NativeLibrary, function: Callable[..., int], *arguments: object
+) -> DependencySet | None:
+    handle = ctypes.POINTER(NativeDependencySet)()
+    error = ctypes.POINTER(Error)()
+    status = function(*arguments, ctypes.byref(handle), ctypes.byref(error))
+    native.check(status, error)
+    if not handle:
+        raise RuntimeError("native dependency query returned no result set")
+    try:
+        present = ctypes.c_uint8()
+        source_id = Uuid()
+        revision = ctypes.c_uint64()
+        set_status = _abi.DependencySetStatus()
+        count = ctypes.c_uint64()
+        summary_error = ctypes.POINTER(Error)()
+        summary_status = native.lib.pp_dependency_set_get(
+            handle,
+            ctypes.byref(present),
+            ctypes.byref(source_id),
+            ctypes.byref(revision),
+            ctypes.byref(set_status),
+            ctypes.byref(count),
+            ctypes.byref(summary_error),
+        )
+        native.check(summary_status, summary_error)
+        if not present.value:
+            return None
+        return DependencySet(
+            RepresentationId(_uuid(source_id)),
+            int(revision.value),
+            _dependency_set_status(int(set_status.value)),
+            tuple(
+                _dependency_at(native, handle, index)
+                for index in range(int(count.value))
+            ),
+        )
+    finally:
+        native.lib.pp_dependency_set_release(handle)
 
 
 class ReadSession:
