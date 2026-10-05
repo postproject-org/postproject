@@ -41,9 +41,8 @@ not qualify as candidate evidence.
 These consumer commits replace runtime ID-class tests and bare dynamic targets
 with explicit SDK references. Tests used an installed neutral wheel containing
 the development UUID hints and typing marker, plus an installed Linux native
-library. The SDK source checkpoint is `9d5afc8` (ABI 38, schema 17); its temporary
-package version is still `0.6.0a1`. Final version selection and dependency ranges
-have not changed. Wheel SHA-256:
+library. This historical checkpoint used SDK `9d5afc8` (ABI 38, schema 17)
+with the temporary package version `0.6.0a1`. Wheel SHA-256:
 `bd1f5d787305fdbb17631337f4a94f3184c8a4fe76b11f0d43dee7b6e0b245d8`.
 
 | Consumer commit | Executed result | Scope |
@@ -69,5 +68,30 @@ uv run --no-project --python 3.13 --with-editable . --with pytest \
 
 Blender used `tools/build.py` with a platform wheel containing that SDK, then
 `tools/test.sh blender/blender /path/to/postproject_relink-0.1.0-linux_x64.zip`.
-No interactive or cross-host handoff run is claimed. All commits remain local
-on temporary branches; origin has not changed.
+No interactive or cross-host handoff run is claimed.
+
+## 0.7 development checkpoint
+
+All maintained checkouts now use local `main`; the ten edited repositories'
+temporary branches were fast-forwarded and deleted. Origin has not changed.
+The SDK is `1a7c0cb`, package `0.7.0-alpha.1` / Python `0.7.0a1`, ABI 38,
+schema 17. Python consumers require `postproject>=0.7.0a1,<0.8`; the Manager
+is 0.4.0 and the OTIO demo is 0.2.0 with `postproject-openassetio-manager>=0.4,<0.5`.
+
+| Consumer commit | Executed result against 0.7 | Scope |
+|---|---|---|
+| Manager `662de75` | 6 passed | Installed-wheel contract tests |
+| OpenAssetIO validation `a362568` | 1 passed | Installed-wheel resolution |
+| OTIO validation `33717be` | 1 passed | Installed-wheel linker round trip |
+| OTIO demo `99a7558` | 1 passed | Installed-wheel Manager/linker round trip |
+| Python host `bc7e568` | 1 passed | Installed-wheel persisted reference and resolution |
+| C++ NLE baseline | 1 passed | Installed CMake consumer |
+| Natron `017088c` | 1 passed | Installed native contract and CPython stable-ABI module build |
+| Ardour `51e459c` | Passed | Installed resolver scenario; current patches replay on pinned source |
+| Kdenlive `6205308` | Compiled | Sidecar with host compiler flags; current patches replay on pinned source |
+
+The neutral Python wheel, built at SDK `dfb264a`, has SHA-256
+`ccd191aea4d77b76d91a7cf1658099e67e03d91757e4946946aaaa04d49229ff`.
+Its Python sources match the checkpoint above. Native C++ checks use the
+installed `1a7c0cb` headers/library. Full native-host execution, Blender's 0.7
+bundle, handoffs and final platform qualification remain pending.

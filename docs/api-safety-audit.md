@@ -47,8 +47,10 @@ Local Linux checks do not establish the other platforms or real-host runs.
 
 ## Implemented development contracts
 
-ADRs 0045–0047 record pinned views, scoped edits/receipts, Python nominal UUID
-hints and explicit references, and production/view-scoped cursors. Focused
+The development series is `0.7.0-alpha.1` (Python `0.7.0a1`, ABI 38,
+schema 17). ADRs 0045–0048 record pinned views, scoped edits/receipts, Python
+nominal UUID hints and explicit references, production/view-scoped cursors,
+and fallible C++ cancellation/options construction. Focused
 regressions cover intervening writers, empty bases, terminal failed commits,
 retained handles, cursor rejection and wrong-kind Python calls. Native
 read-session projection is still incomplete. C/C++ semantic IDs, validated
@@ -60,6 +62,11 @@ passed. The example count includes four fixture-setup tests. Native C/C++
 examples use an installed prefix; Python examples use source annotations and
 that installed library. Earlier installed-wheel typing and downstream results
 are recorded in the repository manifest. These checks do not close the audit.
+
+At `1a7c0cb`, C++ options report setter failures immediately and retain their
+previous valid state; token/options creation reports allocation failures.
+Installed native contracts pass six tests, including exception-free consumption,
+moved owners and recovery after invalid settings. Workspace Clippy passes.
 
 Repository inputs and migration status are in
 [`api-safety-repositories.md`](api-safety-repositories.md).
