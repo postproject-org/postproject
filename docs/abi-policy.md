@@ -5,6 +5,10 @@ change recorded in the changelog and ABI tests. `pp_abi_version()` reports the
 implemented version. Exported symbol names are unversioned until the first stable
 release, but removals or signature changes require an explicit ABI-version bump.
 
+The development package is `0.7.0-alpha.1` (Python `0.7.0a1`). Its APIs remain
+experimental while the coordinated migration and compatibility review proceed.
+No 0.7 release has been published. The released 0.6 promise below remains intact.
+
 Release 0.6 names the C++17 `cpp-result-propagation` family (ADR 0020).
 `Result<T>` (including `Result<void>`), `POSTPROJECT_TRY` and
 `POSTPROJECT_TRY_ASSIGN` retain their success/error ownership and propagation

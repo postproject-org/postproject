@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(PostProject VERSION 0.6.0 LANGUAGES NONE)
+project(PostProject VERSION 0.7.0 LANGUAGES NONE)
 
-set(POSTPROJECT_PACKAGE_VERSION "0.6.0-alpha.1")
+set(POSTPROJECT_PACKAGE_VERSION "0.7.0-alpha.1")
 
 include(CMakePackageConfigHelpers)
 set(CMAKE_INSTALL_LIBDIR "lib" CACHE PATH "Object code libraries")

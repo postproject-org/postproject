@@ -145,10 +145,11 @@ Use <https://docs.postproject.org> for the published documentation.
 ## Project status and compatibility
 
 PostProject is in alpha development; the current development version is
-`0.6.0-alpha.1` with C ABI version 37 and SQLite schema 17. The C++17 Result
+`0.7.0-alpha.1` with C ABI version 38 and SQLite schema 17. It is an unpublished
+API-safety candidate. The latest release is `0.6.0-alpha.1`. Its C++17 Result
 propagation protocol (`Result<T>`, including `Result<void>`, `POSTPROJECT_TRY`
 and `POSTPROJECT_TRY_ASSIGN`) remains source-compatible within `0.6.x`.
-Other APIs are experimental and may change within the series. Consumers should
+Development APIs are experimental. Consumers should
 pin an exact release or commit and check the [ABI policy](docs/abi-policy.md)
 before depending on a particular interface.
 

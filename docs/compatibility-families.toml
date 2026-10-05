@@ -1,6 +1,6 @@
 format_version = 1
-baseline_release = "0.5.0-alpha.1"
-candidate_release = "0.6.0-alpha.1"
+baseline_release = "0.6.0-alpha.1"
+candidate_release = "0.7.0-alpha.1"
 release_order = [
   "0.1.0-alpha.1",
   "0.2.0-alpha.1",
@@ -9,6 +9,7 @@ release_order = [
   "0.4.0-alpha.1",
   "0.5.0-alpha.1",
   "0.6.0-alpha.1",
+  "0.7.0-alpha.1",
 ]
 
 # Families describe evidence units, not compatibility promises. A family is

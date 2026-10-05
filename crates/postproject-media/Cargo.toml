@@ -11,7 +11,7 @@ publish = false
 
 [dependencies]
 blake3 = "1.8.7"
-postproject-core = { version = "0.6.0-alpha.1", path = "../postproject-core" }
+postproject-core = { version = "0.7.0-alpha.1", path = "../postproject-core" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 url = "2"

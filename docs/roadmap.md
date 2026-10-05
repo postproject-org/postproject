@@ -79,7 +79,7 @@ verification evidence are recorded in the
 Shared access remains one local SQLite file on one machine; services, network
 filesystems, permissions, and distributed merging are outside this release.
 
-## Release 0.6 — native integration candidate
+## Release 0.6 — complete
 
 Add a direct-C OBS finalized-recording plugin and a native C++ Natron Reader
 adapter against installed public packages. OBS records capture knowledge off
@@ -94,8 +94,16 @@ the 0.6 candidate. The approved C++ Result propagation family remains
 source-compatible within `0.6.x`. Audacity and Krita were
 not selected under the documented minimum-pilot gate. The
 [acceptance report](release-0.6-report.md) records exact verification and
-release-scoped limitations. Package release tagging and publication remain
-outside this candidate handoff.
+release-scoped limitations. The package was published on 2026-10-04.
+
+## Release 0.7 — API safety in development
+
+Coordinate semantic identity types and validated state alternatives across
+Rust, C, C++, Python and CLI. Add coherent reads, scoped edits, atomic commit
+receipts, authority-controlled job leases and scoped bounded queries. Migrate
+all maintained consumers and verify installed packages, documentation and
+cross-host handoffs against one candidate. Remote services and replication
+remain outside this release. The development series has not been published.
 
 ## Explicitly later
 
