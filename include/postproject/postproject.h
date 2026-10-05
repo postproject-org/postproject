@@ -535,6 +535,16 @@ PP_API pp_error_code_t pp_read_session_representations_using_resource(
     const pp_read_session_t *session, const pp_uuid_t *resource_id,
     uint32_t limit, const char *cursor,
     pp_representation_set_t **out_representations, pp_error_t **out_error);
+/* These I/O reads use retained database facts but inspect the current
+ * filesystem; they do not pin media bytes or record observations. */
+PP_API pp_error_code_t pp_read_session_resolve_assets(
+    const pp_read_session_t *session, const pp_uuid_t *asset_ids,
+    uint64_t asset_count, const pp_resolution_options_t *options,
+    pp_resolution_set_t **out_resolutions, pp_error_t **out_error);
+PP_API pp_error_code_t pp_read_session_verify_resource(
+    const pp_read_session_t *session, const pp_uuid_t *resource_id,
+    const char *path, const pp_sequence_naming_t *sequence_naming,
+    pp_content_verification_t *out_verification, pp_error_t **out_error);
 /* Same owned projections as the corresponding production reads, using this
  * session's pinned view. A NULL qualifier matches any qualifier. */
 PP_API pp_error_code_t pp_read_session_media_roots(

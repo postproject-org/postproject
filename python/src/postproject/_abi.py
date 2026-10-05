@@ -743,7 +743,9 @@ EXPORTED_SYMBOLS = (
     "pp_read_session_representation",
     "pp_read_session_representations_page",
     "pp_read_session_representations_using_resource",
+    "pp_read_session_resolve_assets",
     "pp_read_session_resources_page",
+    "pp_read_session_verify_resource",
     "pp_regeneration_plan_set_count",
     "pp_regeneration_plan_set_get",
     "pp_regeneration_plan_set_release",
@@ -847,6 +849,10 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_read_session_locators_page.restype = ErrorCode
     lib.pp_read_session_representations_using_resource.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(Uuid), ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(RepresentationSet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_read_session_representations_using_resource.restype = ErrorCode
+    lib.pp_read_session_resolve_assets.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(Uuid), ctypes.c_uint64, ctypes.POINTER(ResolutionOptions), ctypes.POINTER(ctypes.POINTER(ResolutionSet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_read_session_resolve_assets.restype = ErrorCode
+    lib.pp_read_session_verify_resource.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(Uuid), ctypes.c_char_p, ctypes.POINTER(SequenceNaming), ctypes.POINTER(ContentVerification), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_read_session_verify_resource.restype = ErrorCode
     lib.pp_read_session_media_roots.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(ctypes.POINTER(MediaRootSet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_read_session_media_roots.restype = ErrorCode
     lib.pp_read_session_external_identifiers.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(ObjectRef), ctypes.POINTER(ctypes.POINTER(ExternalIdentifierSet)), ctypes.POINTER(ctypes.POINTER(Error))]

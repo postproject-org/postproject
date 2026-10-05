@@ -5,6 +5,8 @@ pages, and decision base come from one retained database view. Other writers
 can commit while that view stays unchanged. Close it before waiting for a UI
 decision or doing expensive media work; copied values and the detached base
 remain usable.
+Resolution and verification use that view's stored knowledge while inspecting
+the current filesystem. A read session does not freeze paths or media bytes.
 
 An edit started from the session retains its base automatically. A detached
 base includes production identity and the observed revision, including the

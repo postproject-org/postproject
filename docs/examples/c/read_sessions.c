@@ -11,6 +11,7 @@ static int lookup(const pp_read_session_t *view, const pp_uuid_t *asset, const c
   pp_known_media_set_t *matches = NULL;
   pp_fingerprint_t *fingerprint = NULL;
   pp_metadata_set_t *metadata = NULL;
+  pp_resolution_set_t *resolutions = NULL;
   pp_error_t *error = NULL;
   char *uri = NULL;
   const char *algorithm;
@@ -37,6 +38,13 @@ static int lookup(const pp_read_session_t *view, const pp_uuid_t *asset, const c
   CHECK(pp_file_path_to_locator(media, &uri, &error));
   CHECK(pp_read_session_find_known_media_by_locator(view, uri, NULL, 10, NULL, &matches, &error));
   if (pp_known_media_set_count(matches) != 1) goto cleanup;
+  pp_uuid_t matched_asset, representation, resource;
+  pp_content_verification_t verification;
+  CHECK(pp_known_media_set_get(matches, 0, &matched_asset, &representation, &resource, &error));
+  CHECK(pp_read_session_verify_resource(view, &resource, media, NULL, &verification, &error));
+  if (verification != PP_CONTENT_MATCHES) goto cleanup;
+  CHECK(pp_read_session_resolve_assets(view, asset, 1, NULL, &resolutions, &error));
+  if (pp_resolution_set_representation_count(resolutions) != 1) goto cleanup;
   pp_known_media_set_release(matches); matches = NULL;
   CHECK(pp_fingerprint_file(media, &fingerprint, &error));
   CHECK(pp_fingerprint_get(fingerprint, &algorithm, &version, &value, &length, &error));
@@ -51,6 +59,7 @@ cleanup:
   pp_known_media_set_release(matches);
   pp_fingerprint_release(fingerprint);
   pp_metadata_set_release(metadata);
+  pp_resolution_set_release(resolutions);
   pp_string_release(uri);
   return result;
 #undef CHECK

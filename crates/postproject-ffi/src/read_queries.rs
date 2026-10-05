@@ -136,6 +136,64 @@ pub unsafe extern "C" fn pp_read_session_media_roots(
     }
 }
 
+/// Resolves current files using storage knowledge from the pinned view.
+///
+/// # Safety
+/// Session must be live; IDs readable for count (null for zero), options null
+/// or live, outputs writable. The filesystem is not part of the database view.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_read_session_resolve_assets(
+    session: *const PpReadSession,
+    asset_ids: *const PpUuid,
+    asset_count: u64,
+    options: *const crate::PpResolutionOptions,
+    out_resolutions: *mut *mut crate::PpResolutionSet,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: The delegate validates pointers and contains panics.
+    unsafe {
+        forward_read(session, out_error, |reader| {
+            crate::resolution::pp_production_resolve_assets(
+                reader,
+                asset_ids,
+                asset_count,
+                options,
+                out_resolutions,
+                out_error,
+            )
+        })
+    }
+}
+
+/// Compares current files with resource fingerprints from the pinned view.
+///
+/// # Safety
+/// Session/ID must be live/readable; path UTF-8/NUL-terminated, naming null or
+/// readable, outputs writable. Filesystem contents may change independently.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_read_session_verify_resource(
+    session: *const PpReadSession,
+    resource_id: *const PpUuid,
+    path: *const c_char,
+    sequence_naming: *const crate::PpSequenceNaming,
+    out_verification: *mut u32,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: The delegate validates pointers and contains panics.
+    unsafe {
+        forward_read(session, out_error, |reader| {
+            crate::content::pp_production_verify_resource(
+                reader,
+                resource_id,
+                path,
+                sequence_naming,
+                out_verification,
+                out_error,
+            )
+        })
+    }
+}
+
 /// Copies an object's metadata from the pinned view.
 ///
 /// # Safety
