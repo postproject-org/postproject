@@ -464,23 +464,15 @@ class Production:
 
         self._require_open()
         native_id = _native_uuid(job_id)
-        handle = ctypes.POINTER(JobSet)()
-        error = ctypes.POINTER(Error)()
-        status = self._native.lib.pp_production_job(
+        page = _read_jobs(
+            self._native,
+            self._native.lib.pp_production_job,
             self._handle,
             ctypes.byref(native_id),
-            ctypes.byref(handle),
-            ctypes.byref(error),
         )
-        self._native.check(status, error)
-        if not handle:
-            raise RuntimeError("native job read returned no result set")
-        try:
-            if self._native.lib.pp_job_set_count(handle) != 1:
-                raise RuntimeError("native job read returned no single job")
-            return _job_at(self._native, handle, 0)
-        finally:
-            self._native.lib.pp_job_set_release(handle)
+        if len(page.items) != 1:
+            raise RuntimeError("native job read returned no single job")
+        return page.items[0]
 
     def jobs(
         self,
@@ -493,30 +485,15 @@ class Production:
         """Return one bounded job page with optional exact predicates."""
 
         self._require_open()
-        handle = ctypes.POINTER(JobSet)()
-        error = ctypes.POINTER(Error)()
-        status = self._native.lib.pp_production_jobs(
+        return _read_jobs(
+            self._native,
+            self._native.lib.pp_production_jobs,
             self._handle,
             0 if state is None else _native_job_state(state),
             _optional_text(kind),
             limit,
             _optional_text(cursor),
-            ctypes.byref(handle),
-            ctypes.byref(error),
         )
-        self._native.check(status, error)
-        if not handle:
-            raise RuntimeError("native job query returned no result set")
-        try:
-            count = self._native.lib.pp_job_set_count(handle)
-            return QueryPage(
-                tuple(
-                    _job_at(self._native, handle, index) for index in range(int(count))
-                ),
-                _decode_optional(self._native.lib.pp_job_set_next_cursor(handle)),
-            )
-        finally:
-            self._native.lib.pp_job_set_release(handle)
 
     def plan_regeneration(
         self, artifact_representation_ids: Iterable[RepresentationId]
@@ -1769,6 +1746,25 @@ class Production:
         *arguments: object,
     ) -> QueryPage[_ObjectQueryItem]:
         return _object_query_page(self._native, function, convert, *arguments)
+
+
+def _read_jobs(
+    native: NativeLibrary, function: Callable[..., int], *arguments: object
+) -> QueryPage[Job]:
+    handle = ctypes.POINTER(JobSet)()
+    error = ctypes.POINTER(Error)()
+    status = function(*arguments, ctypes.byref(handle), ctypes.byref(error))
+    native.check(status, error)
+    if not handle:
+        raise RuntimeError("native job query returned no result set")
+    try:
+        count = native.lib.pp_job_set_count(handle)
+        return QueryPage(
+            tuple(_job_at(native, handle, index) for index in range(int(count))),
+            _decode_optional(native.lib.pp_job_set_next_cursor(handle)),
+        )
+    finally:
+        native.lib.pp_job_set_release(handle)
 
 
 def _native_decision_base(base: DecisionBase) -> _abi.DecisionBase:
