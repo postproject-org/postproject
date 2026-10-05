@@ -28,6 +28,10 @@ static void exercise(const std::string &path, const std::string &media) {
           postproject::ArtifactKnowledgeState::indeterminate ||
       view.artifactReproducibility(representation.id).value().reproducible)
     throw std::runtime_error("coherent artifact reports");
+  if (view.dependencySet(representation.id).value().has_value() ||
+      !view.dependencies(representation.id, 64, 1000, 10).value().items.empty() ||
+      !view.dependents({postproject::ObjectKind::asset, asset}, 64, 1000, 10).value().items.empty())
+    throw std::runtime_error("coherent dependency queries");
   const auto resources = view.resources(representation.id, 10).value();
   if (resources.items.size() != 1)
     throw std::runtime_error("resource page");

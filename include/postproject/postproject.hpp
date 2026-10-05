@@ -4258,6 +4258,54 @@ private:
 
 class ReadSession final {
 public:
+  [[nodiscard]] Result<std::optional<DependencySet>>
+  dependencySet(const Uuid &representation_id) const {
+    const pp_uuid_t native_id = detail::native_uuid(representation_id);
+    pp_dependency_set_t *raw_dependencies = nullptr;
+    pp_error_t *error = nullptr;
+    const pp_error_code_t status = pp_read_session_dependency_set(
+        session_, &native_id, &raw_dependencies, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    return detail::dependency_set(
+        detail::DependencySetHandle(raw_dependencies));
+  }
+
+  [[nodiscard]] Result<QueryPage<DependencyMatch>>
+  dependencies(const Uuid &representation_id, std::uint32_t max_depth,
+               std::uint32_t max_representations, std::uint32_t limit,
+               std::optional<std::string_view> cursor = std::nullopt) const {
+    const pp_uuid_t native_id = detail::native_uuid(representation_id);
+    POSTPROJECT_TRY_ASSIGN(const std::optional<std::string> checked_cursor,
+                           detail::checked_cursor(cursor));
+    pp_dependency_query_set_t *raw_matches = nullptr;
+    pp_error_t *error = nullptr;
+    const pp_error_code_t status = pp_read_session_dependencies(
+        session_, &native_id, max_depth, max_representations, limit,
+        detail::optional_c_str(checked_cursor),
+        &raw_matches, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    return detail::dependency_query_page(
+        detail::DependencyQuerySetHandle(raw_matches));
+  }
+
+  [[nodiscard]] Result<QueryPage<DependencyMatch>>
+  dependents(const ObjectRef &target, std::uint32_t max_depth,
+             std::uint32_t max_representations, std::uint32_t limit,
+             std::optional<std::string_view> cursor = std::nullopt) const {
+    const pp_object_ref_t native_target = detail::native_object_ref(target);
+    POSTPROJECT_TRY_ASSIGN(const std::optional<std::string> checked_cursor,
+                           detail::checked_cursor(cursor));
+    pp_dependency_query_set_t *raw_matches = nullptr;
+    pp_error_t *error = nullptr;
+    const pp_error_code_t status = pp_read_session_dependents(
+        session_, &native_target, max_depth, max_representations, limit,
+        detail::optional_c_str(checked_cursor),
+        &raw_matches, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    return detail::dependency_query_page(
+        detail::DependencyQuerySetHandle(raw_matches));
+  }
+
   [[nodiscard]] Result<ArtifactEvaluation>
   evaluateArtifact(const Uuid &representation_id, std::uint32_t max_depth = 64,
                    std::uint32_t max_representations = 1000) const {
