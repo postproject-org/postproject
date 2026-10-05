@@ -3698,6 +3698,11 @@ pub unsafe extern "C" fn pp_production_plan_regeneration(
             require_output(out_plans, "out_plans")?;
             let artifact_count = usize::try_from(artifact_count)
                 .map_err(|_| invalid_argument("artifact count is too large"))?;
+            if artifact_count > postproject_core::MAX_REGENERATION_PLANS {
+                return Err(invalid_argument(
+                    "too many artifacts for regeneration planning",
+                ));
+            }
             let artifacts = if artifact_count == 0 {
                 Vec::new()
             } else {

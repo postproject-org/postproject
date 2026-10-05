@@ -34,6 +34,32 @@ unsafe fn forward_read(
     })
 }
 
+/// Plans a bounded artifact list against the pinned view without enqueuing jobs.
+///
+/// # Safety
+/// Session must be live, IDs readable for count (null for zero), outputs writable.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_read_session_plan_regeneration(
+    session: *const PpReadSession,
+    artifact_representation_ids: *const PpUuid,
+    artifact_count: u64,
+    out_plans: *mut *mut crate::PpRegenerationPlanSet,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: The delegate validates pointers and contains panics.
+    unsafe {
+        forward_read(session, out_error, |reader| {
+            crate::pp_production_plan_regeneration(
+                reader,
+                artifact_representation_ids,
+                artifact_count,
+                out_plans,
+                out_error,
+            )
+        })
+    }
+}
+
 /// Copies one bounded page of a revision's events from the pinned view.
 ///
 /// # Safety

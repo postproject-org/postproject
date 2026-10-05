@@ -73,6 +73,7 @@ static int exercise(const char *path, const char *media) {
   pp_metadata_input_t *title = NULL;
   pp_asset_set_t *assets = NULL;
   pp_job_set_t *jobs = NULL;
+  pp_regeneration_plan_set_t *plans = NULL;
   pp_revision_set_t *journal = NULL;
   pp_revision_event_set_t *events = NULL, *next_events = NULL;
   pp_activity_set_t *activities = NULL;
@@ -100,6 +101,8 @@ static int exercise(const char *path, const char *media) {
   pp_string_release(token); token = NULL;
   if (base.has_revision || base.revision_sequence != 0) goto cleanup;
   CHECK(pp_read_session_begin_edit(empty, &edit, &error));
+  CHECK(pp_read_session_plan_regeneration(empty, NULL, 0, &plans, &error));
+  if (pp_regeneration_plan_set_count(plans)) goto cleanup;
   CHECK(pp_media_source_create_file(media, &source, &error));
   CHECK(pp_transaction_import_media(edit, source, NULL, &asset, &error));
   const pp_object_ref_t target = {PP_OBJECT_ASSET, asset};
@@ -261,6 +264,7 @@ cleanup:
   pp_string_release(token);
   pp_asset_set_release(assets);
   pp_job_set_release(jobs);
+  pp_regeneration_plan_set_release(plans);
   pp_activity_set_release(activities);
   pp_revision_set_release(journal);
   pp_revision_event_set_release(events);

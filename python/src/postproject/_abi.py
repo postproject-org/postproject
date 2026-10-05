@@ -375,6 +375,7 @@ PP_CONTENT_NOT_COMPARABLE = 3
 PP_OBSERVATION_UNCHANGED = 1
 PP_OBSERVATION_CHANGED = 2
 PP_OBSERVATION_FIRST = 3
+PP_MAX_REGENERATION_PLANS = 100000
 
 
 Uuid._fields_ = [
@@ -756,6 +757,7 @@ EXPORTED_SYMBOLS = (
     "pp_read_session_objects_changed_since",
     "pp_read_session_outputs_by_activity_kind",
     "pp_read_session_outputs_by_tool",
+    "pp_read_session_plan_regeneration",
     "pp_read_session_provenance_ancestors_page",
     "pp_read_session_provenance_descendants_page",
     "pp_read_session_query_metadata",
@@ -858,6 +860,8 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_read_session_begin_edit.restype = ErrorCode
     lib.pp_production_begin_edit.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(DecisionBase), ctypes.POINTER(ctypes.POINTER(Transaction)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_production_begin_edit.restype = ErrorCode
+    lib.pp_read_session_plan_regeneration.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(Uuid), ctypes.c_uint64, ctypes.POINTER(ctypes.POINTER(RegenerationPlanSet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_read_session_plan_regeneration.restype = ErrorCode
     lib.pp_read_session_evaluate_artifact.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(Uuid), ctypes.c_uint32, ctypes.c_uint32, ctypes.POINTER(ctypes.POINTER(ArtifactEvaluation)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_read_session_evaluate_artifact.restype = ErrorCode
     lib.pp_read_session_artifact_reproducibility.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.POINTER(ArtifactReproducibility)), ctypes.POINTER(ctypes.POINTER(Error))]

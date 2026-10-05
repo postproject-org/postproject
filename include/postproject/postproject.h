@@ -507,6 +507,12 @@ PP_API pp_error_code_t pp_production_begin_edit(
     pp_transaction_t **out_transaction, pp_error_t **out_error);
 /* These snapshot operations inspect stored knowledge, without media I/O.
  * Returned reports own their values and survive session release. */
+/* At most 100000 artifact IDs; planning does not enqueue or execute jobs. */
+#define PP_MAX_REGENERATION_PLANS UINT32_C(100000)
+PP_API pp_error_code_t pp_read_session_plan_regeneration(
+    const pp_read_session_t *session,
+    const pp_uuid_t *artifact_representation_ids, uint64_t artifact_count,
+    pp_regeneration_plan_set_t **out_plans, pp_error_t **out_error);
 PP_API pp_error_code_t pp_read_session_evaluate_artifact(
     const pp_read_session_t *session, const pp_uuid_t *representation_id,
     uint32_t max_depth, uint32_t max_representations,

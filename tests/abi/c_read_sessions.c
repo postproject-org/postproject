@@ -51,6 +51,10 @@ static int rejects_null_storage_reads(void) {
   pp_revision_event_set_t *events = (pp_revision_event_set_t *)(uintptr_t)1;
   status = pp_read_session_revision_events_page(NULL, NULL, 1, NULL, &events, &error);
   valid = valid && status == PP_ERROR_INVALID_ARGUMENT && events == NULL;
+  pp_error_release(error); error = NULL;
+  pp_regeneration_plan_set_t *plans = (pp_regeneration_plan_set_t *)(uintptr_t)1;
+  status = pp_read_session_plan_regeneration(NULL, NULL, 0, &plans, &error);
+  valid = valid && status == PP_ERROR_INVALID_ARGUMENT && plans == NULL;
   pp_error_release(error);
   return valid;
 }
@@ -75,6 +79,12 @@ int main(int argc, char **argv) {
     goto cleanup;
   if (base.has_revision != 0 || base.revision_sequence != 0)
     goto cleanup;
+  pp_regeneration_plan_set_t *plans = (pp_regeneration_plan_set_t *)(uintptr_t)1;
+  /* The count cap is checked before an array is read or allocated. */
+  if (pp_read_session_plan_regeneration(view, NULL, PP_MAX_REGENERATION_PLANS + 1,
+                                      &plans, &error) != PP_ERROR_INVALID_ARGUMENT || plans)
+    goto cleanup;
+  pp_error_release(error); error = NULL;
   invalid = base;
   invalid.has_revision = 2;
   if (!rejects_base(production, invalid))
