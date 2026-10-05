@@ -34,6 +34,103 @@ from postproject import (
 
 
 class ReadSessionTests(unittest.TestCase):
+    def test_provenance_and_staleness_retain_intervening_activity_facts(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            media = Path(directory) / "camera.mov"
+            media.write_bytes(b"provenance view fixture")
+            with Production.create(Path(directory) / "provenance.pproj") as production:
+                with production.read_session() as empty, empty.edit() as edit:
+                    asset = edit.import_media(media)
+                    edit.commit()
+                with production.read_session() as before:
+                    original = before.representations_page(asset, limit=1).items[0]
+                    with before.edit() as edit:
+                        proxy = edit.add_representation(
+                            asset, RepresentationKind.PROXY, media
+                        )
+                        edit.create_activity(
+                            ActivitySpec(
+                                "example:render",
+                                inputs=(ActivityEdge(original.id),),
+                                outputs=(ActivityEdge(proxy),),
+                            )
+                        )
+                        edit.commit()
+                    self.assertEqual(
+                        before.provenance_descendants_page(
+                            original.id, max_depth=64, max_representations=100, limit=10
+                        ).items,
+                        (),
+                    )
+                with production.read_session() as retained:
+                    ancestors = retained.provenance_ancestors_page(
+                        proxy, max_depth=64, max_representations=100, limit=10
+                    )
+                    descendants = retained.provenance_descendants_page(
+                        original.id, max_depth=64, max_representations=100, limit=10
+                    )
+                    self.assertEqual(
+                        tuple(
+                            (item.representation_id, item.depth)
+                            for item in ancestors.items
+                        ),
+                        ((original.id, 1),),
+                    )
+                    self.assertEqual(
+                        tuple(
+                            (item.representation_id, item.depth)
+                            for item in descendants.items
+                        ),
+                        ((proxy, 1),),
+                    )
+                    self.assertEqual(
+                        retained.stale_artifacts(
+                            max_depth=64, max_representations=100, limit=10
+                        ).items,
+                        (),
+                    )
+                    media.write_bytes(b"changed original content")
+                    with retained.edit() as edit:
+                        edit.observe_resource_content(original.resources[0].id, media)
+                        edit.commit()
+                    self.assertEqual(
+                        retained.stale_artifacts(
+                            max_depth=64,
+                            max_representations=100,
+                            limit=10,
+                            source=original.id,
+                        ).items,
+                        (),
+                    )
+                    with production.read_session() as fresh:
+                        self.assertEqual(
+                            fresh.stale_artifacts(
+                                max_depth=64,
+                                max_representations=100,
+                                limit=10,
+                                source=original.id,
+                            ).items,
+                            (proxy,),
+                        )
+                    with self.assertRaises(InvalidArgumentError):
+                        retained.provenance_ancestors_page(
+                            proxy, max_depth=64, max_representations=100, limit=0
+                        )
+                self.assertEqual(ancestors.items[0].representation_id, original.id)
+                for operation in (
+                    lambda: retained.provenance_ancestors_page(
+                        proxy, max_depth=64, max_representations=100, limit=1
+                    ),
+                    lambda: retained.provenance_descendants_page(
+                        original.id, max_depth=64, max_representations=100, limit=1
+                    ),
+                    lambda: retained.stale_artifacts(
+                        max_depth=64, max_representations=100, limit=1
+                    ),
+                ):
+                    with self.assertRaises(RuntimeError):
+                        operation()
+
     def test_object_filters_retain_root_locator_and_journal_facts(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             media = Path(directory) / "camera.mov"
