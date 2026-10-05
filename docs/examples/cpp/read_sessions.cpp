@@ -64,6 +64,19 @@ static void exercise(const std::string &path, const std::string &media) {
   const auto noop = later.commitWithReceipt().value();
   if (noop.revision || copied.id != asset || representation.asset_id != asset)
     throw std::runtime_error("no-change receipt or copied identity");
+  auto before_job = production.readSession().value();
+  auto request = before_job.edit().value();
+  const auto job = request.requestJob({"example:proxy", {representation.id}, asset,
+      postproject::RepresentationKind::proxy, std::nullopt}).value();
+  request.commitWithReceipt().value();
+  if (!before_job.jobs(10).value().items.empty() ||
+      before_job.job(job).error().code() != postproject::ErrorCode::not_found)
+    throw std::runtime_error("coherent job view");
+  auto after_job = production.readSession().value();
+  if (after_job.job(job).value().id != job ||
+      after_job.jobs(10, std::nullopt, postproject::JobState::requested,
+          "example:proxy").value().items.size() != 1)
+    throw std::runtime_error("coherent job point and filtered page");
 }
 // [/coherent-reads]
 

@@ -2484,6 +2484,19 @@ resolution_values(ResolutionSetHandle resolutions) {
   return result;
 }
 
+inline Result<QueryPage<Job>> job_page(JobSetHandle jobs) {
+  std::vector<Job> items;
+  const std::uint64_t count = pp_job_set_count(jobs.get());
+  items.reserve(static_cast<std::size_t>(count));
+  for (std::uint64_t index = 0; index < count; ++index) {
+    POSTPROJECT_TRY_ASSIGN(auto item_11, job(jobs.get(), index));
+    items.push_back(std::move(item_11));
+  }
+  const char *next_cursor = pp_job_set_next_cursor(jobs.get());
+  return QueryPage<Job>{std::move(items),
+                        optional_string(next_cursor), false};
+}
+
 inline pp_decision_base_t native_decision_base(const DecisionBase &base) {
   pp_decision_base_t native{};
   native.production_id = native_production_id(base.production_id);
@@ -4034,6 +4047,47 @@ private:
 
 class ReadSession final {
 public:
+  // Reads one job; an absent job is ErrorCode::not_found.
+  [[nodiscard]] Result<Job> job(const Uuid &job_id) const {
+    const pp_uuid_t native_id = detail::native_uuid(job_id);
+    pp_job_set_t *raw_jobs = nullptr;
+    pp_error_t *error = nullptr;
+    const pp_error_code_t status =
+        pp_read_session_job(session_, &native_id, &raw_jobs, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    detail::JobSetHandle jobs(raw_jobs);
+    if (pp_job_set_count(jobs.get()) != 1) {
+      return Error(ErrorCode::internal, "job read returned no single job");
+    }
+    return detail::job(jobs.get(), 0);
+  }
+
+  [[nodiscard]] Result<QueryPage<Job>>
+  jobs(std::uint32_t limit,
+       std::optional<std::string_view> cursor = std::nullopt,
+       std::optional<JobState> state = std::nullopt,
+       std::optional<std::string_view> kind = std::nullopt) const {
+    POSTPROJECT_TRY_ASSIGN(const std::optional<std::string> checked_cursor,
+                           detail::checked_cursor(cursor));
+    std::optional<std::string> checked_kind;
+    if (kind.has_value()) {
+      POSTPROJECT_TRY_ASSIGN(checked_kind,
+                             detail::checked_string(*kind, "job kind"));
+    }
+    pp_job_set_t *raw_jobs = nullptr;
+    pp_error_t *error = nullptr;
+    const pp_error_code_t status = pp_read_session_jobs(
+        session_,
+        state.has_value() ? static_cast<pp_job_state_t>(*state) : 0,
+        checked_kind.has_value() ? checked_kind->c_str() : nullptr, limit,
+        detail::optional_c_str(checked_cursor),
+        &raw_jobs, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    detail::JobSetHandle jobs(raw_jobs);
+
+    return detail::job_page(std::move(jobs));
+  }
+
   // Compares current files with the resource fingerprints in this view. For
   // an image sequence, path is its directory and sequence_naming names its
   // files; empty means the naming recorded for that directory.
@@ -5111,16 +5165,7 @@ public:
     POSTPROJECT_TRY(detail::check(status, error));
     detail::JobSetHandle jobs(raw_jobs);
 
-    std::vector<Job> items;
-    const std::uint64_t count = pp_job_set_count(jobs.get());
-    items.reserve(static_cast<std::size_t>(count));
-    for (std::uint64_t index = 0; index < count; ++index) {
-      POSTPROJECT_TRY_ASSIGN(auto item_11, detail::job(jobs.get(), index));
-      items.push_back(std::move(item_11));
-    }
-    const char *next_cursor = pp_job_set_next_cursor(jobs.get());
-    return QueryPage<Job>{std::move(items),
-                          detail::optional_string(next_cursor), false};
+    return detail::job_page(std::move(jobs));
   }
 
   [[nodiscard]] Result<std::vector<RegenerationJobPlan>>
