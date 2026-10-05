@@ -35,6 +35,45 @@ from postproject import (
 
 
 class ReadSessionTests(unittest.TestCase):
+    def test_revision_head_and_pages_end_at_the_retained_view(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            with Production.create(Path(directory) / "journal.pproj") as production:
+                with production.read_session() as empty:
+                    self.assertIsNone(empty.latest_revision)
+                    with empty.edit() as edit:
+                        edit.add_media_root("first")
+                        first = edit.commit()
+                    self.assertIsNone(empty.latest_revision)
+                    self.assertEqual(empty.changes_since(0, 10), ())
+                with production.read_session() as retained:
+                    latest = retained.latest_revision
+                    assert latest is not None and first.revision is not None
+                    self.assertEqual(latest.id, first.revision.id)
+                    self.assertEqual(latest.sequence, first.revision.sequence)
+                    self.assertEqual(retained.changes_since(0, 1), (latest,))
+                    with retained.edit() as edit:
+                        edit.add_media_root("second")
+                        second = edit.commit()
+                    self.assertEqual(retained.latest_revision, latest)
+                    self.assertEqual(retained.changes_since(0, 10), (latest,))
+                    self.assertEqual(retained.changes_since(latest.sequence, 10), ())
+                    with production.read_session() as fresh:
+                        head = fresh.latest_revision
+                        assert head is not None and second.revision is not None
+                        self.assertEqual(head.id, second.revision.id)
+                        self.assertEqual(
+                            fresh.changes_since(latest.sequence, 1), (head,)
+                        )
+                    with self.assertRaises(InvalidArgumentError):
+                        retained.changes_since(0, 0)
+                self.assertEqual(latest.id, first.revision.id)
+                for operation in (
+                    lambda: retained.latest_revision,
+                    lambda: retained.changes_since(0, 1),
+                ):
+                    with self.assertRaises(RuntimeError):
+                        operation()
+
     def test_provenance_and_staleness_retain_intervening_activity_facts(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             media = Path(directory) / "camera.mov"

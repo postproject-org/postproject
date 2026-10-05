@@ -1606,19 +1606,7 @@ class Production:
     def _revision_set(
         self, function: Callable[..., int], *arguments: object
     ) -> tuple[Revision, ...]:
-        handle = ctypes.POINTER(RevisionSet)()
-        error = ctypes.POINTER(Error)()
-        status = function(*arguments, ctypes.byref(handle), ctypes.byref(error))
-        self._native.check(status, error)
-        if not handle:
-            raise RuntimeError("native revision query returned no result set")
-        try:
-            return tuple(
-                _revision_at(self._native, handle, index)
-                for index in range(int(self._native.lib.pp_revision_set_count(handle)))
-            )
-        finally:
-            self._native.lib.pp_revision_set_release(handle)
+        return _read_revisions(self._native, function, *arguments)
 
     def _activity_set(
         self, function: Callable[..., int], *arguments: object
@@ -1916,6 +1904,24 @@ def _metadata_set(
         native.lib.pp_metadata_set_release(handle)
 
 
+def _read_revisions(
+    native: NativeLibrary, function: Callable[..., int], *arguments: object
+) -> tuple[Revision, ...]:
+    handle = ctypes.POINTER(RevisionSet)()
+    error = ctypes.POINTER(Error)()
+    status = function(*arguments, ctypes.byref(handle), ctypes.byref(error))
+    native.check(status, error)
+    if not handle:
+        raise RuntimeError("native revision query returned no result set")
+    try:
+        return tuple(
+            _revision_at(native, handle, index)
+            for index in range(int(native.lib.pp_revision_set_count(handle)))
+        )
+    finally:
+        native.lib.pp_revision_set_release(handle)
+
+
 def _read_activity_page(
     native: NativeLibrary, function: Callable[..., int], *arguments: object
 ) -> QueryPage[Activity]:
@@ -2199,6 +2205,30 @@ class ReadSession:
             ctypes.byref(native_id),
             limit,
             _optional_text(cursor),
+        )
+
+    @property
+    def latest_revision(self) -> Revision | None:
+        """Return the newest committed revision, if one exists."""
+
+        self._require_open()
+        revisions = _read_revisions(
+            self._native, self._native.lib.pp_read_session_latest_revision, self._handle
+        )
+        if len(revisions) > 1:
+            raise RuntimeError("native latest-revision query returned multiple values")
+        return revisions[0] if revisions else None
+
+    def changes_since(self, sequence: int, limit: int) -> tuple[Revision, ...]:
+        """Return a bounded ascending page of revisions after ``sequence``."""
+
+        self._require_open()
+        return _read_revisions(
+            self._native,
+            self._native.lib.pp_read_session_changes_since,
+            self._handle,
+            sequence,
+            limit,
         )
 
     def dependency_set(

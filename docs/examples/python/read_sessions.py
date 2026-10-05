@@ -41,7 +41,12 @@ def exercise(path: Path, media: Path) -> None:
                 receipt = edit.commit()
             assert receipt.revision is not None and receipt.revision.sequence == 1
             assert empty.assets_page(limit=10).items == ()
+            assert empty.latest_revision is None
+            assert empty.changes_since(0, 10) == ()
         with production.read_session() as view:
+            latest = view.latest_revision
+            assert latest is not None and latest.id == receipt.revision.id
+            assert view.changes_since(0, 10) == (latest,)
             assert view.unresolved_media(limit=10).items == ()
             assert view.objects_changed_since(0, limit=10).items
             try:
