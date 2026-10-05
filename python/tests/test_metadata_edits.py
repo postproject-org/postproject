@@ -51,7 +51,9 @@ class MetadataEditTests(unittest.TestCase):
                             removal.commit()
                     conflict = rejected.exception.conflict
                     assert conflict is not None
-                    self.assertEqual(conflict.key.kind, ConflictKeyKind.METADATA_PROPERTY)
+                    self.assertEqual(
+                        conflict.key.kind, ConflictKeyKind.METADATA_PROPERTY
+                    )
                     self.assertEqual(conflict.key.target, target)
                     self.assertIsNone(conflict.base_revision_id)
                 self.assertEqual(len(production.metadata[target]), 2)

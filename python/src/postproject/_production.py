@@ -4100,7 +4100,11 @@ def _utf8(value: str, label: str) -> bytes:
 
 
 def _uuid(
-    value: Uuid | _abi.AssetId | _abi.ProductionId | _abi.RevisionId | _abi.TransactionId,
+    value: Uuid
+    | _abi.AssetId
+    | _abi.ProductionId
+    | _abi.RevisionId
+    | _abi.TransactionId,
 ) -> UUID:
     return UUID(bytes=bytes(value.bytes))
 
