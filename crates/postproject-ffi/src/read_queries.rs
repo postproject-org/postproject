@@ -34,6 +34,47 @@ unsafe fn forward_read(
     })
 }
 
+/// Copies one job from the pinned view; absent identities return not found.
+///
+/// # Safety
+/// Session/ID must be live/readable; output writable, error nullable/writable.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_read_session_job(
+    session: *const PpReadSession,
+    job_id: *const PpUuid,
+    out_jobs: *mut *mut crate::PpJobSet,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: The delegate validates pointers and contains panics.
+    unsafe {
+        forward_read(session, out_error, |reader| {
+            crate::pp_production_job(reader, job_id, out_jobs, out_error)
+        })
+    }
+}
+
+/// Copies a bounded filtered job page from the pinned view.
+///
+/// # Safety
+/// Session must be live; kind/cursor null or UTF-8, outputs writable.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_read_session_jobs(
+    session: *const PpReadSession,
+    state: u32,
+    kind: *const c_char,
+    limit: u32,
+    cursor: *const c_char,
+    out_jobs: *mut *mut crate::PpJobSet,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: The delegate validates pointers and contains panics.
+    unsafe {
+        forward_read(session, out_error, |reader| {
+            crate::pp_production_jobs(reader, state, kind, limit, cursor, out_jobs, out_error)
+        })
+    }
+}
+
 /// Copies a bounded resource page from the pinned view.
 ///
 /// # Safety

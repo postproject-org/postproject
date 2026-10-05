@@ -72,6 +72,7 @@ static int exercise(const char *path, const char *media) {
   pp_media_source_t *source = NULL;
   pp_metadata_input_t *title = NULL;
   pp_asset_set_t *assets = NULL;
+  pp_job_set_t *jobs = NULL;
   pp_representation_set_t *representations = NULL;
   pp_object_query_set_t *resource_page = NULL;
   pp_locator_query_set_t *locator_page = NULL;
@@ -144,12 +145,33 @@ static int exercise(const char *path, const char *media) {
       pp_locator_query_set_count(locator_page) != 1 ||
       pp_object_query_set_count(resource_page) != 1)
     goto cleanup;
+  pp_transaction_release(edit); edit = NULL;
+  CHECK(pp_production_read_session(production, &view, &error));
+  CHECK(pp_read_session_begin_edit(view, &edit, &error));
+  pp_uuid_t job;
+  CHECK(pp_transaction_request_job(edit, "example:proxy", &representation, 1,
+      &asset, PP_REPRESENTATION_PROXY, NULL, &job, &error));
+  CHECK(pp_transaction_commit_with_receipt(edit, &receipt, &error));
+  CHECK(pp_read_session_jobs(view, PP_JOB_REQUESTED, "example:proxy", 10, NULL, &jobs, &error));
+  if (pp_job_set_count(jobs) != 0) goto cleanup;
+  pp_job_set_release(jobs); jobs = NULL;
+  if (pp_read_session_job(view, &job, &jobs, &error) != PP_ERROR_NOT_FOUND || jobs != NULL)
+    goto cleanup;
+  pp_error_release(error); error = NULL;
+  pp_read_session_release(view); view = NULL;
+  CHECK(pp_production_read_session(production, &view, &error));
+  CHECK(pp_read_session_job(view, &job, &jobs, &error));
+  if (pp_job_set_count(jobs) != 1) goto cleanup;
+  pp_job_set_release(jobs); jobs = NULL;
+  CHECK(pp_read_session_jobs(view, PP_JOB_REQUESTED, "example:proxy", 10, NULL, &jobs, &error));
+  if (pp_job_set_count(jobs) != 1) goto cleanup;
   result = 0;
 cleanup:
   if (result) fprintf(stderr, "%s\n", error ? pp_error_message(error) : "read-view assertion");
   pp_error_release(error);
   pp_string_release(token);
   pp_asset_set_release(assets);
+  pp_job_set_release(jobs);
   pp_representation_set_release(representations);
   pp_object_query_set_release(resource_page);
   pp_locator_query_set_release(locator_page);

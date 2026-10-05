@@ -737,6 +737,8 @@ EXPORTED_SYMBOLS = (
     "pp_read_session_find_known_media_by_fingerprint",
     "pp_read_session_find_known_media_by_locator",
     "pp_read_session_find_metadata",
+    "pp_read_session_job",
+    "pp_read_session_jobs",
     "pp_read_session_locators_page",
     "pp_read_session_media_roots",
     "pp_read_session_metadata",
@@ -835,6 +837,10 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_read_session_begin_edit.restype = ErrorCode
     lib.pp_production_begin_edit.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(DecisionBase), ctypes.POINTER(ctypes.POINTER(Transaction)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_production_begin_edit.restype = ErrorCode
+    lib.pp_read_session_job.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.POINTER(JobSet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_read_session_job.restype = ErrorCode
+    lib.pp_read_session_jobs.argtypes = [ctypes.POINTER(ReadSession), JobState, ctypes.c_char_p, ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(JobSet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_read_session_jobs.restype = ErrorCode
     lib.pp_read_session_release.argtypes = [ctypes.POINTER(ReadSession)]
     lib.pp_read_session_release.restype = None
     lib.pp_production_id_parse.argtypes = [ctypes.c_char_p, ctypes.POINTER(ProductionId), ctypes.POINTER(ctypes.POINTER(Error))]

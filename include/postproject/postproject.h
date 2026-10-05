@@ -505,6 +505,15 @@ PP_API pp_error_code_t pp_read_session_begin_edit(
 PP_API pp_error_code_t pp_production_begin_edit(
     const pp_production_t *production, const pp_decision_base_t *base,
     pp_transaction_t **out_transaction, pp_error_t **out_error);
+/* Snapshot job reads return the same owned sets as live production reads.
+ * Zero state and NULL kind select all jobs; pages retain this view's scope. */
+PP_API pp_error_code_t pp_read_session_job(
+    const pp_read_session_t *session, const pp_uuid_t *job_id,
+    pp_job_set_t **out_jobs, pp_error_t **out_error);
+PP_API pp_error_code_t pp_read_session_jobs(
+    const pp_read_session_t *session, pp_job_state_t state, const char *kind,
+    uint32_t limit, const char *cursor, pp_job_set_t **out_jobs,
+    pp_error_t **out_error);
 PP_API void pp_read_session_release(pp_read_session_t *session);
 
 /* Formatting returns owned text released with pp_string_release. Parse failure
