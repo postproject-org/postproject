@@ -2574,6 +2574,34 @@ inline Result<ArtifactReason> artifact_reason(const pp_artifact_reason_t &native
   return reason;
 }
 
+inline Result<ArtifactEvaluation> artifact_evaluation(ArtifactEvaluationHandle evaluation) {
+  pp_uuid_t evaluated_id{};
+  pp_artifact_knowledge_state_t state = 0;
+  std::uint32_t visited_representations = 0;
+  std::uint8_t truncated = 0;
+  std::uint64_t reason_count = 0;
+  pp_error_t *summary_error = nullptr;
+  const pp_error_code_t summary_status = pp_artifact_evaluation_get(
+      evaluation.get(), &evaluated_id, &state, &visited_representations,
+      &truncated, &reason_count, &summary_error);
+  POSTPROJECT_TRY(check(summary_status, summary_error));
+
+  std::vector<ArtifactReason> reasons;
+  reasons.reserve(static_cast<std::size_t>(reason_count));
+  for (std::uint64_t index = 0; index < reason_count; ++index) {
+    pp_artifact_reason_t native{};
+    pp_error_t *reason_error = nullptr;
+    const pp_error_code_t reason_status = pp_artifact_evaluation_get_reason(
+        evaluation.get(), index, &native, &reason_error);
+    POSTPROJECT_TRY(check(reason_status, reason_error));
+    POSTPROJECT_TRY_ASSIGN(ArtifactReason reason, artifact_reason(native));
+    reasons.push_back(std::move(reason));
+  }
+  return ArtifactEvaluation{
+      uuid(evaluated_id), static_cast<ArtifactKnowledgeState>(state),
+      visited_representations, truncated != 0, std::move(reasons)};
+}
+
 inline Result<QueryPage<Job>> job_page(JobSetHandle jobs) {
   std::vector<Job> items;
   const std::uint64_t count = pp_job_set_count(jobs.get());
@@ -5441,31 +5469,7 @@ public:
     POSTPROJECT_TRY(detail::check(status, error));
     detail::ArtifactEvaluationHandle evaluation(raw_evaluation);
 
-    pp_uuid_t evaluated_id{};
-    pp_artifact_knowledge_state_t state = 0;
-    std::uint32_t visited_representations = 0;
-    std::uint8_t truncated = 0;
-    std::uint64_t reason_count = 0;
-    pp_error_t *summary_error = nullptr;
-    const pp_error_code_t summary_status = pp_artifact_evaluation_get(
-        evaluation.get(), &evaluated_id, &state, &visited_representations,
-        &truncated, &reason_count, &summary_error);
-    POSTPROJECT_TRY(detail::check(summary_status, summary_error));
-
-    std::vector<ArtifactReason> reasons;
-    reasons.reserve(static_cast<std::size_t>(reason_count));
-    for (std::uint64_t index = 0; index < reason_count; ++index) {
-      pp_artifact_reason_t native{};
-      pp_error_t *reason_error = nullptr;
-      const pp_error_code_t reason_status = pp_artifact_evaluation_get_reason(
-          evaluation.get(), index, &native, &reason_error);
-      POSTPROJECT_TRY(detail::check(reason_status, reason_error));
-      POSTPROJECT_TRY_ASSIGN(ArtifactReason reason, detail::artifact_reason(native));
-      reasons.push_back(std::move(reason));
-    }
-    return ArtifactEvaluation{
-        detail::uuid(evaluated_id), static_cast<ArtifactKnowledgeState>(state),
-        visited_representations, truncated != 0, std::move(reasons)};
+    return detail::artifact_evaluation(std::move(evaluation));
   }
 
   [[nodiscard]] Result<ArtifactReproducibility>
