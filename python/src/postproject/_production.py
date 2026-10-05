@@ -118,6 +118,7 @@ from ._model import (
     ImageSequenceDescriptor,
     ImageSequenceSource,
     Job,
+    JobCancelled,
     JobCancelledEvent,
     JobClaim,
     JobClaimedEvent,
@@ -126,11 +127,14 @@ from ._model import (
     JobClaimRenewedEvent,
     JobCompletion,
     JobFailedEvent,
+    JobFailure,
     JobId,
     JobRef,
     JobRequest,
+    JobRequested,
     JobRequestedEvent,
     JobState,
+    JobStatus,
     JobSucceededEvent,
     KnownMediaMatch,
     Locator,
@@ -4456,7 +4460,7 @@ def _job_at(native: NativeLibrary, jobs: _Pointer[JobSet], index: int) -> Job:
         inputs.append(RepresentationId(_uuid(input_id)))
 
     state = _job_state(int(value.state))
-    claim = None
+    job_status: JobStatus = JobRequested()
     if state is JobState.CLAIMED:
         identifier = None
         scheme = _decode_optional(value.claim_agent_identifier_scheme)
@@ -4477,7 +4481,7 @@ def _job_at(native: NativeLibrary, jobs: _Pointer[JobSet], index: int) -> Job:
             if agent_name is not None or identifier is not None
             else None
         )
-        claim = JobClaim(
+        job_status = JobClaim(
             JobClaimId(_uuid(value.claim_id)),
             ToolIdentity(
                 _decode_required(value.claim_tool_name, "job claim tool name"),
@@ -4487,12 +4491,15 @@ def _job_at(native: NativeLibrary, jobs: _Pointer[JobSet], index: int) -> Job:
             agent,
             int(value.claim_expires_at_unix_micros),
         )
-    completion = None
     if state is JobState.SUCCEEDED:
-        completion = JobCompletion(
+        job_status = JobCompletion(
             ActivityId(_uuid(value.completion_activity_id)),
             RepresentationId(_uuid(value.completion_representation_id)),
         )
+    if state is JobState.FAILED:
+        job_status = JobFailure(_decode_required(value.failure_diagnostic, "job failure diagnostic"))
+    elif state is JobState.CANCELLED:
+        job_status = JobCancelled()
     return Job(
         id=JobId(_uuid(value.id)),
         kind=_decode_required(value.kind, "job kind"),
@@ -4502,10 +4509,7 @@ def _job_at(native: NativeLibrary, jobs: _Pointer[JobSet], index: int) -> Job:
             int(value.output_representation_kind)
         ),
         target_root=_decode_optional(value.target_root),
-        state=state,
-        claim=claim,
-        completion=completion,
-        failure_diagnostic=_decode_optional(value.failure_diagnostic),
+        status=job_status,
     )
 
 

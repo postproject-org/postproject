@@ -455,6 +455,40 @@ class JobCompletion:
 
 
 @dataclass(frozen=True, slots=True)
+class JobRequested:
+    """A request with no current worker or result."""
+
+
+@dataclass(frozen=True, slots=True)
+class JobFailure:
+    """A failed request carrying its bounded diagnostic."""
+
+    diagnostic: str
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.diagnostic, str):
+            raise TypeError("job failure diagnostic must be str")
+        if (
+            not self.diagnostic
+            or "\0" in self.diagnostic
+            or len(self.diagnostic.encode("utf-8")) > 4096
+        ):
+            raise ValueError(
+                "job failure diagnostic must contain 1-4096 UTF-8 bytes without NUL"
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class JobCancelled:
+    """A request cancelled by its coordinator."""
+
+
+JobStatus: TypeAlias = (
+    JobRequested | JobClaim | JobCompletion | JobFailure | JobCancelled
+)
+
+
+@dataclass(frozen=True, slots=True)
 class Job:
     """One durable production-work request."""
 
@@ -464,10 +498,43 @@ class Job:
     output_asset_id: AssetId
     output_representation_kind: RepresentationKind
     target_root: str | None
-    state: JobState
-    claim: JobClaim | None
-    completion: JobCompletion | None
-    failure_diagnostic: str | None
+    status: JobStatus
+
+    def __post_init__(self) -> None:
+        if not isinstance(
+            self.status,
+            (JobRequested, JobClaim, JobCompletion, JobFailure, JobCancelled),
+        ):
+            raise TypeError("job status must be a supported lifecycle alternative")
+        object.__setattr__(self, "inputs", tuple(self.inputs))
+
+    @property
+    def state(self) -> JobState:
+        """Category of the active status alternative."""
+        if isinstance(self.status, JobRequested):
+            return JobState.REQUESTED
+        if isinstance(self.status, JobClaim):
+            return JobState.CLAIMED
+        if isinstance(self.status, JobCompletion):
+            return JobState.SUCCEEDED
+        if isinstance(self.status, JobFailure):
+            return JobState.FAILED
+        return JobState.CANCELLED
+
+    @property
+    def claim(self) -> JobClaim | None:
+        """Claim detail when claimed; otherwise None."""
+        return self.status if isinstance(self.status, JobClaim) else None
+
+    @property
+    def completion(self) -> JobCompletion | None:
+        """Completion detail when succeeded; otherwise None."""
+        return self.status if isinstance(self.status, JobCompletion) else None
+
+    @property
+    def failure_diagnostic(self) -> str | None:
+        """Diagnostic when failed; otherwise None."""
+        return self.status.diagnostic if isinstance(self.status, JobFailure) else None
 
 
 @dataclass(frozen=True, slots=True)
