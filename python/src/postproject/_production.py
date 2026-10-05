@@ -582,12 +582,12 @@ class Production:
         """Return one bounded page of immutable events in position order."""
 
         self._require_open()
-        native_id = _native_uuid(revision_id)
+        native_id = _native_revision_id(revision_id)
         return _read_revision_event_page(
             self._native,
             self._native.lib.pp_production_revision_events_page,
             self._handle,
-            ctypes.byref(native_id),
+            native_id,
             limit,
             _optional_text(cursor),
         )
@@ -1497,12 +1497,12 @@ class Production:
         """Return the ordered semantic events for one revision."""
 
         self._require_open()
-        native_id = _native_uuid(revision_id)
+        native_id = _native_revision_id(revision_id)
         handle = ctypes.POINTER(RevisionEventSet)()
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_production_revision_events(
             self._handle,
-            ctypes.byref(native_id),
+            native_id,
             ctypes.byref(handle),
             ctypes.byref(error),
         )
@@ -1563,10 +1563,10 @@ class Production:
                 self._handle, ctypes.byref(handle), ctypes.byref(error)
             )
         else:
-            native_base = _native_uuid(base_revision)
+            native_base = _native_revision_id(base_revision)
             status = self._native.lib.pp_production_begin_transaction_at(
                 self._handle,
-                ctypes.byref(native_base),
+                native_base,
                 ctypes.byref(handle),
                 ctypes.byref(error),
             )
@@ -1694,7 +1694,7 @@ def _native_decision_base(base: DecisionBase) -> _abi.DecisionBase:
         ):
             raise ValueError("decision sequence must be a positive uint64")
         value.has_revision = 1
-        value.revision_id = _native_uuid(base.revision.id)
+        value.revision_id = _native_revision_id(base.revision.id)
         value.revision_sequence = base.revision.sequence
     return value
 
@@ -2084,12 +2084,12 @@ class ReadSession:
         """Return one bounded page of events visible in this retained view."""
 
         self._require_open()
-        native_id = _native_uuid(revision_id)
+        native_id = _native_revision_id(revision_id)
         return _read_revision_event_page(
             self._native,
             self._native.lib.pp_read_session_revision_events_page,
             self._handle,
-            ctypes.byref(native_id),
+            native_id,
             limit,
             _optional_text(cursor),
         )
@@ -4103,7 +4103,9 @@ def _utf8(value: str, label: str) -> bytes:
     return encoded
 
 
-def _uuid(value: Uuid | _abi.ProductionId) -> UUID:
+def _uuid(
+    value: Uuid | _abi.ProductionId | _abi.RevisionId | _abi.TransactionId,
+) -> UUID:
     return UUID(bytes=bytes(value.bytes))
 
 
@@ -4111,6 +4113,14 @@ def _native_production_id(value: ProductionId) -> _abi.ProductionId:
     if not isinstance(value, UUID):
         raise TypeError("identity must be a uuid.UUID")
     native = _abi.ProductionId()
+    native.bytes[:] = value.bytes
+    return native
+
+
+def _native_revision_id(value: RevisionId) -> _abi.RevisionId:
+    if not isinstance(value, UUID):
+        raise TypeError("identity must be a uuid.UUID")
+    native = _abi.RevisionId()
     native.bytes[:] = value.bytes
     return native
 
@@ -5594,9 +5604,9 @@ def _revision_at(
     revisions: _Pointer[RevisionSet],
     index: int,
 ) -> Revision:
-    revision_id = Uuid()
+    revision_id = _abi.RevisionId()
     sequence = ctypes.c_uint64()
-    transaction_id = Uuid()
+    transaction_id = _abi.TransactionId()
     committed_at = ctypes.c_int64()
     origin_name = ctypes.c_char_p()
     origin_version = ctypes.c_char_p()
