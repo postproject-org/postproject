@@ -7,6 +7,8 @@ from postproject import (
     AssetRef,
     ExternalIdentifier,
     LocatorIdentity,
+    MetadataProperty,
+    MetadataString,
     Production,
     file_locator,
     fingerprint_file,
@@ -23,6 +25,11 @@ def exercise(path: Path, media: Path) -> None:
                     AssetRef(asset),
                     ExternalIdentifier("https://example.com/id", "camera"),
                 )
+                edit.add_metadata(
+                    AssetRef(asset),
+                    MetadataProperty("https://example.com/editorial", "title"),
+                    MetadataString("Camera"),
+                )
                 receipt = edit.commit()
             assert receipt.revision is not None and receipt.revision.sequence == 1
             assert empty.assets_page(limit=10).items == ()
@@ -31,6 +38,11 @@ def exercise(path: Path, media: Path) -> None:
             page = view.representations_page(asset, limit=10)
             assert len(page.items) == 1
             representation = view.representation(page.items[0].id)
+            title = MetadataProperty("https://example.com/editorial", "title")
+            metadata = view.metadata(AssetRef(asset))
+            assert metadata[0].value == MetadataString("Camera")
+            assert view.metadata_by_property(title) == metadata
+            assert view.query_metadata(title, limit=10).items == metadata
             resources = view.resources_page(representation.id, limit=10)
             assert len(resources.items) == 1
             resource = resources.items[0]

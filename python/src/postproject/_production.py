@@ -1758,19 +1758,7 @@ class Production:
     def _metadata_set(
         self, function: Callable[..., int], *arguments: object
     ) -> tuple[MetadataAssertion, ...]:
-        handle = ctypes.POINTER(MetadataSet)()
-        error = ctypes.POINTER(Error)()
-        status = function(*arguments, ctypes.byref(handle), ctypes.byref(error))
-        self._native.check(status, error)
-        if not handle:
-            raise RuntimeError("native metadata query returned no result set")
-        try:
-            count = self._native.lib.pp_metadata_set_count(handle)
-            return tuple(
-                _metadata_at(self._native, handle, index) for index in range(int(count))
-            )
-        finally:
-            self._native.lib.pp_metadata_set_release(handle)
+        return _metadata_set(self._native, function, *arguments)
 
     def _representation_page(
         self, function: Callable[..., int], *arguments: object
@@ -1886,6 +1874,22 @@ def _locator_page(
         )
     finally:
         native.lib.pp_locator_query_set_release(handle)
+
+
+def _metadata_set(
+    native: NativeLibrary, function: Callable[..., int], *arguments: object
+) -> tuple[MetadataAssertion, ...]:
+    handle = ctypes.POINTER(MetadataSet)()
+    error = ctypes.POINTER(Error)()
+    status = function(*arguments, ctypes.byref(handle), ctypes.byref(error))
+    native.check(status, error)
+    if not handle:
+        raise RuntimeError("native metadata query returned no result set")
+    try:
+        count = native.lib.pp_metadata_set_count(handle)
+        return tuple(_metadata_at(native, handle, index) for index in range(int(count)))
+    finally:
+        native.lib.pp_metadata_set_release(handle)
 
 
 class ReadSession:
@@ -2150,6 +2154,78 @@ class ReadSession:
         )
         self._native.check(status, error)
         return self._known_media_page(handle)
+
+    def metadata(self, target: ObjectReference) -> tuple[MetadataAssertion, ...]:
+        """Return copied metadata assertions for one object in this view."""
+
+        self._require_open()
+        native_target = _native_object_reference(target)
+        return _metadata_set(
+            self._native,
+            self._native.lib.pp_read_session_metadata,
+            self._handle,
+            ctypes.byref(native_target),
+        )
+
+    def metadata_by_property(
+        self, property: MetadataProperty
+    ) -> tuple[MetadataAssertion, ...]:
+        """Return copied assertions of one property in this view."""
+
+        self._require_open()
+        return _metadata_set(
+            self._native,
+            self._native.lib.pp_read_session_find_metadata,
+            self._handle,
+            _utf8(property.vocabulary, "metadata vocabulary"),
+            _utf8(property.property, "metadata property"),
+        )
+
+    def query_metadata(
+        self,
+        property: MetadataProperty,
+        *,
+        limit: int,
+        cursor: str | None = None,
+        value: MetadataValue | None = None,
+    ) -> QueryPage[MetadataAssertion]:
+        """Return one bounded assertion page with an optional exact scalar value."""
+
+        self._require_open()
+        vocabulary = _utf8(property.vocabulary, "metadata vocabulary")
+        property_name = _utf8(property.property, "metadata property")
+        native_cursor = _optional_text(cursor)
+        handle = ctypes.POINTER(MetadataSet)()
+        error = ctypes.POINTER(Error)()
+        native_value = None if value is None else _metadata_input(self._native, value)
+        try:
+            status = self._native.lib.pp_read_session_query_metadata(
+                self._handle,
+                vocabulary,
+                property_name,
+                native_value,
+                limit,
+                native_cursor,
+                ctypes.byref(handle),
+                ctypes.byref(error),
+            )
+        finally:
+            if native_value is not None:
+                self._native.lib.pp_metadata_input_release(native_value)
+        self._native.check(status, error)
+        if not handle:
+            raise RuntimeError("native metadata query returned no result set")
+        try:
+            count = self._native.lib.pp_metadata_set_count(handle)
+            return QueryPage(
+                tuple(
+                    _metadata_at(self._native, handle, index)
+                    for index in range(int(count))
+                ),
+                _decode_optional(self._native.lib.pp_metadata_set_next_cursor(handle)),
+            )
+        finally:
+            self._native.lib.pp_metadata_set_release(handle)
 
     def external_identifiers(
         self, target: ObjectReference

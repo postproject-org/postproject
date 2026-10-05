@@ -12,6 +12,8 @@ from postproject import (
     ExternalIdentifier,
     InvalidArgumentError,
     LocatorIdentity,
+    MetadataProperty,
+    MetadataString,
     Production,
     file_locator,
     fingerprint_file,
@@ -19,6 +21,58 @@ from postproject import (
 
 
 class ReadSessionTests(unittest.TestCase):
+    def test_metadata_pages_and_exact_values_remain_in_the_pinned_view(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            media = Path(directory) / "camera.mov"
+            media.write_bytes(b"metadata fixture")
+            title = MetadataProperty("https://example.com/editorial", "title")
+            with Production.create(Path(directory) / "metadata.pproj") as production:
+                with production.read_session() as empty, empty.edit() as edit:
+                    target = AssetRef(edit.import_media(media))
+                    for value in ("Camera", "Alternate"):
+                        edit.add_metadata(target, title, MetadataString(value))
+                    edit.commit()
+                with production.read_session() as view:
+                    original = view.metadata(target)
+                    page = view.query_metadata(title, limit=1)
+                    assert page.next_cursor is not None
+                    with view.edit() as edit:
+                        edit.remove_metadata_property(target, title)
+                        edit.add_metadata(target, title, MetadataString("Changed"))
+                        edit.commit()
+                    remainder = view.query_metadata(
+                        title, limit=1, cursor=page.next_cursor
+                    )
+                    self.assertEqual(page.items + remainder.items, original)
+                    self.assertEqual(view.metadata_by_property(title), original)
+                    exact = view.query_metadata(
+                        title, limit=1, value=MetadataString("Camera")
+                    )
+                    self.assertEqual(exact.items[0].value, MetadataString("Camera"))
+                    self.assertEqual(
+                        view.query_metadata(
+                            title, limit=1, value=MetadataString("Changed")
+                        ).items,
+                        (),
+                    )
+                    with production.read_session() as refreshed:
+                        self.assertEqual(
+                            refreshed.metadata(target)[0].value,
+                            MetadataString("Changed"),
+                        )
+                        with self.assertRaises(InvalidArgumentError):
+                            refreshed.query_metadata(
+                                title, limit=1, cursor=page.next_cursor
+                            )
+                self.assertEqual(original[0].target, target)
+                for operation in (
+                    lambda: view.metadata(target),
+                    lambda: view.metadata_by_property(title),
+                    lambda: view.query_metadata(title, limit=1),
+                ):
+                    with self.assertRaises(RuntimeError):
+                        operation()
+
     def test_resource_and_locator_pages_retain_old_storage_evidence(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             media = Path(directory) / "camera.mov"
