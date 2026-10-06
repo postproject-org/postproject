@@ -140,10 +140,10 @@ python_operations = ["Production.resolve"]
 
 [[families]]
 id = "revision-feed"
-dependencies = ["production-lifecycle", "asset-identity", "locator-identity"]
+dependencies = ["production-lifecycle", "asset-identity", "locator-identity", "job-identity"]
 introduced_release = "0.2.0-alpha.1"
 last_changed_release = "0.7.0-alpha.1"
-last_changed_abi = 43
+last_changed_abi = 44
 c_operations = [
   "pp_production_latest_revision",
   "pp_production_changes_since",
@@ -285,3 +285,12 @@ last_changed_abi = 43
 c_operations = ["pp_transaction_retire_locator"]
 cpp_operations = ["Transaction::retireLocator"]
 python_operations = ["Transaction.retire_locator"]
+
+[[families]]
+id = "job-identity"
+introduced_release = "0.7.0-alpha.1"
+last_changed_release = "0.7.0-alpha.1"
+last_changed_abi = 44
+c_operations = ["pp_job_id_parse", "pp_job_id_format", "pp_object_ref_from_job", "pp_object_ref_get_job", "pp_string_release"]
+cpp_operations = ["JobId::fromString", "JobId::toString", "ObjectRef::job", "ObjectRef::jobId"]
+python_operations = ["parse_id"]
