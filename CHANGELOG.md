@@ -5,6 +5,8 @@ All notable changes to PostProject will be documented here. The project uses
 
 ## Unreleased
 
+- Remove cached Rust production roots; open/edit stay bounded and CLI inspection pages roots.
+
 - Started the `0.7.0-alpha.1` development series; consumer builds require matching SDK artifacts.
 - Added coherent reads, scoped decisions, explicit edits and atomic receipts; Python transaction contexts require `commit()` (ADR 0045, C ABI 38).
 - Replaced Python ID wrappers with UUID NewType hints and explicit object-reference variants; use IDs directly and wrap dynamic targets (ADR 0046).

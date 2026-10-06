@@ -1,6 +1,6 @@
 # 0053: Fresh bounded media-root reads
 
-Status: accepted for development; public projection migration is in progress.
+Status: accepted for development.
 
 ## Decision
 
@@ -19,13 +19,17 @@ Migrate native getters, resolution, inventory and CLI callers through this
 fallible storage seam. Do not secretly open a retained WAL view inside a live
 getter. Convenience root reads, resolution and inventory use the current read
 interface and fail above the shared 1000-item query cap. Larger root collections
-remain available through pages. Existing cached-root access on the production
-value and materialization during open remain transitional; they still require
-review before candidate qualification.
+remain available through pages. `Production` carries identity and header
+metadata only; it has no root cache. Open, read-session creation and edit
+creation do not load root collections. Root mutations and job target checks
+use SQL point queries; CLI inspections page roots and report truncation.
+CLI root edits search a retained view in bounded pages.
 
 ## Migration and standards impact
 
-This adds domain read operations without a schema or persisted-data change.
+Rust callers replace `production().media_roots()` with the fallible reader's
+`media_roots()` or `media_roots_page()`. The production value's root getter
+and setter are removed. There is no schema or persisted-data change.
 The unreleased ABI 47 gains three exports without changing existing signatures
 or public layouts. Language projections expose the same bounds and read scope.
 Reviewed against the standards policy: root ordering and cursor behavior change

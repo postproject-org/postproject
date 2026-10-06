@@ -20,7 +20,7 @@ use crate::{
 /// The contract returns domain values and deliberately contains no generic CRUD,
 /// query language, connection, or database-row concepts.
 pub trait ProductionRead {
-    /// Returns the loaded production metadata and configured media roots.
+    /// Returns the loaded production identity and header metadata.
     fn production(&self) -> &Production;
 
     /// Queries a bounded page of roots in priority/identity order.

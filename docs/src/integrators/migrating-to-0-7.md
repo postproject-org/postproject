@@ -145,6 +145,9 @@ first, empty or identical set. CLI `dependency record` requires
 `--decision-base`; a set replaces the entire previous observation.
 
 Root getters now read current facts and cap full collections at 1000 roots.
+Rust's `Production` value carries identity and header metadata only: replace
+`production().media_roots()` with `reader.media_roots()?` or bounded pages.
+Open, read-session and edit creation no longer materialize root collections.
 Use C `pp_production_media_roots_page` / `pp_read_session_media_roots_page`,
 C++ `mediaRoots(limit, cursor)`, Python `media_roots_page(limit=..., cursor=...)`
 or CLI `root page` for bounded continuation. A retained view's cursor requires

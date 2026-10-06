@@ -4083,49 +4083,12 @@ fn load_production(connection: &Connection) -> Result<Production> {
         ));
     }
 
-    let mut production = Production::new(
+    Ok(Production::new(
         id,
         stored.1,
         Timestamp::from_unix_micros(stored.2),
         stored.3,
-    );
-    production.set_media_roots(load_media_roots(connection)?);
-    Ok(production)
-}
-
-fn load_media_roots(connection: &Connection) -> Result<Vec<MediaRoot>> {
-    let mut statement = connection
-        .prepare(
-            "SELECT id, name, label, legacy_uri, priority, enabled
-             FROM media_roots ORDER BY priority, id",
-        )
-        .map_err(sqlite_error("prepare media-root query"))?;
-    let rows = statement
-        .query_map([], |row| {
-            Ok((
-                row.get::<_, Vec<u8>>(0)?,
-                row.get::<_, String>(1)?,
-                row.get::<_, Option<String>>(2)?,
-                row.get::<_, Option<String>>(3)?,
-                row.get::<_, i32>(4)?,
-                row.get::<_, bool>(5)?,
-            ))
-        })
-        .map_err(sqlite_error("query media roots"))?;
-    rows.map(|row| {
-        let (id, name, label, legacy_uri, priority, enabled) =
-            row.map_err(sqlite_error("read media-root row"))?;
-        MediaRoot::new(
-            MediaRootId::from_bytes(id_bytes(id, "media root")?),
-            name,
-            label,
-            legacy_uri,
-            priority,
-            enabled,
-        )
-        .map_err(stored_domain_error("media root"))
-    })
-    .collect()
+    ))
 }
 
 fn decode_representation_kind(value: i64) -> Result<RepresentationKind> {

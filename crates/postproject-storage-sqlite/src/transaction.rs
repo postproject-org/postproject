@@ -33,7 +33,6 @@ pub struct SqliteTransaction<'production> {
     transaction: Option<Transaction<'production>>,
     lifecycle: TransactionLifecycle,
     production: &'production mut Production,
-    pending_roots: Vec<MediaRoot>,
     revision_context: RevisionContext,
     pending_events: Vec<RevisionEventKind>,
     base_revision: Option<(Option<RevisionId>, u64)>,
@@ -124,12 +123,10 @@ impl<'production> SqliteTransaction<'production> {
                 "production identity changed",
             ));
         }
-        let pending_roots = current.media_roots().to_vec();
         Ok(Self {
             transaction: Some(transaction),
             lifecycle: TransactionLifecycle::new(),
             production,
-            pending_roots,
             revision_context: RevisionContext::default(),
             pending_events: Vec::new(),
             base_revision,
@@ -232,11 +229,15 @@ impl<'production> SqliteTransaction<'production> {
             ));
         }
         if let Some(target_root) = job.requested_output().target_root() {
-            if !self
-                .pending_roots
-                .iter()
-                .any(|root| root.name() == target_root)
-            {
+            let exists = self
+                .open_transaction()?
+                .query_row(
+                    "SELECT EXISTS(SELECT 1 FROM media_roots WHERE name = ?1)",
+                    [target_root],
+                    |row| row.get::<_, bool>(0),
+                )
+                .map_err(mutation_error("check job target root"))?;
+            if !exists {
                 return Err(Error::new(
                     ErrorKind::NotFound,
                     "job target root does not exist",
@@ -865,9 +866,8 @@ impl<'production> SqliteTransaction<'production> {
                 ],
             )
             .map_err(mutation_error("persist media root"))?;
-        self.pending_roots.push(root);
-        self.pending_roots
-            .sort_by_key(|item| (item.priority(), item.id()));
+        // The transaction consumes this value; no in-memory root cache remains.
+        drop(root);
         self.pending_events
             .push(RevisionEventKind::MediaRootAdded { media_root_id });
         // New identities still merge independently; recording their initial
@@ -887,32 +887,25 @@ impl<'production> SqliteTransaction<'production> {
     /// transaction/storage error.
     pub fn set_media_root_enabled(&mut self, root_id: MediaRootId, enabled: bool) -> Result<()> {
         self.require_decision_base()?;
-        let Some(index) = self
-            .pending_roots
-            .iter()
-            .position(|root| root.id() == root_id)
-        else {
-            return Err(Error::new(ErrorKind::NotFound, "media root does not exist"));
-        };
-        if self.pending_roots[index].is_enabled() == enabled {
+        let current = self
+            .open_transaction()?
+            .query_row(
+                "SELECT enabled FROM media_roots WHERE id = ?1",
+                [root_id.as_bytes().as_slice()],
+                |row| row.get::<_, bool>(0),
+            )
+            .optional()
+            .map_err(mutation_error("read media-root state"))?
+            .ok_or_else(|| Error::new(ErrorKind::NotFound, "media root does not exist"))?;
+        if current == enabled {
             return Ok(());
         }
-        let current = &self.pending_roots[index];
-        let replacement = MediaRoot::new(
-            current.id(),
-            current.name(),
-            current.label().map(str::to_owned),
-            current.legacy_uri().map(str::to_owned),
-            current.priority(),
-            enabled,
-        )?;
         self.open_transaction()?
             .execute(
                 "UPDATE media_roots SET enabled = ?1 WHERE id = ?2",
                 params![enabled, root_id.as_bytes().as_slice()],
             )
             .map_err(mutation_error("update media root"))?;
-        self.pending_roots[index] = replacement;
         self.record_conflict_key(SemanticConflictKey::MediaRoot(root_id))?;
         self.pending_events
             .push(RevisionEventKind::MediaRootEnabledChanged {
@@ -931,16 +924,16 @@ impl<'production> SqliteTransaction<'production> {
     /// transaction/storage error.
     pub fn remove_media_root(&mut self, root_id: MediaRootId) -> Result<()> {
         self.require_decision_base()?;
-        if !self.pending_roots.iter().any(|root| root.id() == root_id) {
-            return Err(Error::new(ErrorKind::NotFound, "media root does not exist"));
-        }
-        self.open_transaction()?
+        let changed = self
+            .open_transaction()?
             .execute(
                 "DELETE FROM media_roots WHERE id = ?1",
                 params![root_id.as_bytes().as_slice()],
             )
             .map_err(mutation_error("remove media root"))?;
-        self.pending_roots.retain(|root| root.id() != root_id);
+        if changed == 0 {
+            return Err(Error::new(ErrorKind::NotFound, "media root does not exist"));
+        }
         self.record_conflict_key(SemanticConflictKey::MediaRoot(root_id))?;
         self.pending_events
             .push(RevisionEventKind::MediaRootRemoved {
@@ -1690,7 +1683,6 @@ impl<'production> SqliteTransaction<'production> {
             if self.lifecycle.state() == TransactionState::Open {
                 self.lifecycle.mark_rolled_back()?;
             }
-            self.pending_roots.clear();
             self.pending_events.clear();
             self.pending_conflict_keys.clear();
             self.pending_changed_keys.clear();
@@ -1753,8 +1745,6 @@ impl<'production> SqliteTransaction<'production> {
             return Err(sqlite_error("commit domain transaction")(error));
         }
         self.lifecycle.mark_committed()?;
-        self.production
-            .set_media_roots(std::mem::take(&mut self.pending_roots));
         if !self.pending_events.is_empty() {
             self.revision_signal.notify_commit();
         }
@@ -1777,7 +1767,6 @@ impl<'production> SqliteTransaction<'production> {
             .rollback()
             .map_err(sqlite_error("roll back domain transaction"))?;
         self.lifecycle.mark_rolled_back()?;
-        self.pending_roots.clear();
         self.pending_events.clear();
         self.pending_conflict_keys.clear();
         self.pending_changed_keys.clear();

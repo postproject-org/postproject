@@ -55,14 +55,13 @@ impl Timestamp {
     }
 }
 
-/// A persistent container for production state.
+/// Production identity and header metadata; mutable collections use read queries.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Production {
     id: ProductionId,
     schema_version: u32,
     created_at: Timestamp,
     display_name: Option<String>,
-    media_roots: Vec<MediaRoot>,
 }
 
 impl Production {
@@ -79,7 +78,6 @@ impl Production {
             schema_version,
             created_at,
             display_name,
-            media_roots: Vec::new(),
         }
     }
 
@@ -105,18 +103,6 @@ impl Production {
     #[must_use]
     pub fn display_name(&self) -> Option<&str> {
         self.display_name.as_deref()
-    }
-
-    /// Returns configured media roots in resolver priority order.
-    #[must_use]
-    pub fn media_roots(&self) -> &[MediaRoot] {
-        &self.media_roots
-    }
-
-    /// Replaces media roots after sorting by priority and stable identity.
-    pub fn set_media_roots(&mut self, mut roots: Vec<MediaRoot>) {
-        roots.sort_by_key(|root| (root.priority(), root.id()));
-        self.media_roots = roots;
     }
 }
 
@@ -523,23 +509,6 @@ mod tests {
             root.expect_err("path-shaped name must fail").kind(),
             ErrorKind::InvalidArgument
         );
-    }
-
-    #[test]
-    fn media_roots_have_deterministic_priority_order() {
-        let first_id = MediaRootId::from_bytes([1; 16]);
-        let second_id = MediaRootId::from_bytes([2; 16]);
-        let mut production =
-            Production::new(ProductionId::new(), 1, Timestamp::from_unix_micros(0), None);
-        production.set_media_roots(vec![
-            MediaRoot::new(second_id, "second", None, None, 10, true).expect("valid root"),
-            MediaRoot::new(first_id, "first", None, None, 10, true).expect("valid root"),
-            MediaRoot::new(MediaRootId::new(), "top", None, None, 0, true).expect("valid root"),
-        ]);
-
-        assert_eq!(production.media_roots()[0].priority(), 0);
-        assert_eq!(production.media_roots()[1].id(), first_id);
-        assert_eq!(production.media_roots()[2].id(), second_id);
     }
 
     #[test]
