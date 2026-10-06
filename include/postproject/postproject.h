@@ -108,6 +108,9 @@ typedef struct pp_activity_id_value {
 typedef struct pp_representation_id_value {
   uint8_t bytes[16];
 } pp_representation_id_t;
+typedef struct pp_resource_id_value {
+  uint8_t bytes[16];
+} pp_resource_id_t;
 
 typedef uint32_t pp_commit_outcome_t;
 #define PP_COMMIT_NO_CHANGE UINT32_C(0)
@@ -717,12 +720,24 @@ PP_API pp_error_code_t pp_representation_id_parse(
     const char *text, pp_representation_id_t *out_id, pp_error_t **out_error);
 PP_API pp_error_code_t pp_representation_id_format(
     pp_representation_id_t id, char **out_text, pp_error_t **out_error);
-/* Construct an representation target without checking existence or production scope. */
+/* Construct a representation target without checking existence or production scope. */
 PP_API pp_error_code_t pp_object_ref_from_representation(
     pp_representation_id_t id, pp_object_ref_t *out_ref, pp_error_t **out_error);
 /* Checked kind projection; failures clear out_id. */
 PP_API pp_error_code_t pp_object_ref_get_representation(
     const pp_object_ref_t *value, pp_representation_id_t *out_id, pp_error_t **out_error);
+/* Parse/format resource UUIDs without an existence or scope lookup.
+ * Failures clear outputs. Owned text uses pp_string_release. */
+PP_API pp_error_code_t pp_resource_id_parse(
+    const char *text, pp_resource_id_t *out_id, pp_error_t **out_error);
+PP_API pp_error_code_t pp_resource_id_format(
+    pp_resource_id_t id, char **out_text, pp_error_t **out_error);
+/* Construct a resource target without checking existence or production scope. */
+PP_API pp_error_code_t pp_object_ref_from_resource(
+    pp_resource_id_t id, pp_object_ref_t *out_ref, pp_error_t **out_error);
+/* Checked kind projection; failures clear out_id. */
+PP_API pp_error_code_t pp_object_ref_get_resource(
+    const pp_object_ref_t *value, pp_resource_id_t *out_id, pp_error_t **out_error);
 /* Construct an asset target without checking existence or production scope. */
 PP_API pp_error_code_t pp_object_ref_from_asset(
     pp_asset_id_t id, pp_object_ref_t *out_ref, pp_error_t **out_error);

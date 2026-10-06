@@ -3,8 +3,8 @@
 use std::{ffi::c_char, str::FromStr};
 
 use postproject_core::{
-    ActivityId, AssetId, JobId, LocatorId, MediaRootId, ProductionId, RepresentationId, RevisionId,
-    TransactionId,
+    ActivityId, AssetId, JobId, LocatorId, MediaRootId, ProductionId, RepresentationId, ResourceId,
+    RevisionId, TransactionId,
 };
 
 use crate::{PpError, exact_cstring, ffi_call, initialize_output, require_output, required_utf8};
@@ -534,6 +534,63 @@ pub unsafe extern "C" fn pp_representation_id_format(
     }
 }
 
+/// Resource identity, distinct from interchangeable UUID bytes in C.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct PpResourceId {
+    /// Stable UUID bytes; existence and membership are checked by the store.
+    pub bytes: [u8; 16],
+}
+
+/// Parses UUID text as a resource identity without checking existence.
+///
+/// # Safety
+/// Text must be UTF-8/NUL-terminated; output writable, error nullable/writable.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_resource_id_parse(
+    text: *const c_char,
+    out_id: *mut PpResourceId,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: Writable output is initialized; strings/pointers validated.
+    unsafe {
+        if !out_id.is_null() {
+            out_id.write(PpResourceId { bytes: [0; 16] });
+        }
+        ffi_call(out_error, || {
+            require_output(out_id, "out_id")?;
+            let id = ResourceId::from_str(required_utf8(text, "resource ID")?)?;
+            out_id.write(PpResourceId {
+                bytes: id.into_bytes(),
+            });
+            Ok(())
+        })
+    }
+}
+
+/// Formats a resource identity as owned canonical lowercase UUID text.
+///
+/// # Safety
+/// Output must be writable, error nullable/writable. Release text with
+/// `pp_string_release` after success.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_resource_id_format(
+    id: PpResourceId,
+    out_text: *mut *mut c_char,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: Output is initialized and validated before writing.
+    unsafe {
+        initialize_output(out_text);
+        ffi_call(out_error, || {
+            require_output(out_text, "out_text")?;
+            let text = exact_cstring(&ResourceId::from_bytes(id.bytes).to_string(), "resource ID")?;
+            out_text.write(text.into_raw());
+            Ok(())
+        })
+    }
+}
+
 /// Constructs an asset reference; existence and scope remain operation checks.
 ///
 /// # Safety
@@ -765,6 +822,65 @@ pub unsafe extern "C" fn pp_object_ref_get_representation(
                 ));
             }
             out_id.write(PpRepresentationId {
+                bytes: value.id.bytes,
+            });
+            Ok(())
+        })
+    }
+}
+
+/// Constructs a resource reference; existence and scope remain operation checks.
+///
+/// # Safety
+/// Output must be writable; error nullable/writable.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_object_ref_from_resource(
+    id: PpResourceId,
+    out_ref: *mut crate::PpObjectRef,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: Output is initialized and checked before writing.
+    unsafe {
+        crate::initialize_value(
+            out_ref,
+            crate::PpObjectRef {
+                kind: 0,
+                id: crate::PpUuid { bytes: [0; 16] },
+            },
+        );
+        ffi_call(out_error, || {
+            require_output(out_ref, "out_ref")?;
+            out_ref.write(crate::PpObjectRef {
+                kind: crate::PP_OBJECT_RESOURCE,
+                id: crate::PpUuid { bytes: id.bytes },
+            });
+            Ok(())
+        })
+    }
+}
+
+/// Reads a resource identity from a matching object-reference kind.
+///
+/// # Safety
+/// Reference must be readable, output writable; error nullable/writable.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_object_ref_get_resource(
+    value: *const crate::PpObjectRef,
+    out_id: *mut PpResourceId,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: Output is initialized and pointers checked before use.
+    unsafe {
+        crate::initialize_value(out_id, PpResourceId { bytes: [0; 16] });
+        ffi_call(out_error, || {
+            require_output(out_id, "out_id")?;
+            let value = value
+                .as_ref()
+                .ok_or_else(|| crate::invalid_argument("reference must not be null"))?;
+            if value.kind != crate::PP_OBJECT_RESOURCE {
+                return Err(crate::invalid_argument("reference must name a resource"));
+            }
+            out_id.write(PpResourceId {
                 bytes: value.id.bytes,
             });
             Ok(())

@@ -201,5 +201,28 @@ int main(void) {
   pp_string_release(text);
   if (pp_representation_id_format(representation, NULL, &error) != PP_ERROR_INVALID_ARGUMENT) return 54;
   pp_error_release(error);
+  pp_resource_id_t resource;
+  if (pp_resource_id_parse(canonical, &resource, &error) != PP_OK ||
+      pp_resource_id_format(resource, &text, &error) != PP_OK ||
+      strcmp(text, canonical)) return 55;
+  pp_string_release(text); text = NULL;
+  if (pp_object_ref_from_resource(resource, &target, &error) != PP_OK ||
+      target.kind != PP_OBJECT_RESOURCE ||
+      pp_object_ref_get_resource(&target, &resource, &error) != PP_OK) return 56;
+  target.kind = PP_OBJECT_ASSET;
+  if (pp_object_ref_get_resource(&target, &resource, &error) != PP_ERROR_INVALID_ARGUMENT ||
+      memcmp(resource.bytes, zero, 16)) return 57;
+  pp_error_release(error); error = NULL;
+  if (pp_resource_id_parse("broken", &resource, &error) != PP_ERROR_INVALID_ARGUMENT ||
+      memcmp(resource.bytes, zero, 16)) return 58;
+  pp_error_release(error); error = NULL;
+  if (pp_resource_id_parse(NULL, &resource, &error) != PP_ERROR_INVALID_ARGUMENT ||
+      memcmp(resource.bytes, zero, 16)) return 59;
+  pp_error_release(error); error = NULL;
+  if (pp_resource_id_format(resource, &text, &error) != PP_OK ||
+      strcmp(text, "00000000-0000-0000-0000-000000000000")) return 60;
+  pp_string_release(text);
+  if (pp_resource_id_format(resource, NULL, &error) != PP_ERROR_INVALID_ARGUMENT) return 61;
+  pp_error_release(error);
   return 0;
 }

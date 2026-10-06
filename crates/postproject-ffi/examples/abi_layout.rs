@@ -3,8 +3,9 @@ use postproject::{
     PpActivityEdge, PpActivityId, PpArtifactDependencyPathSegment, PpArtifactReason,
     PpArtifactReproducibilityIssue, PpAssetId, PpCommitReceipt, PpDecisionBase, PpDependency,
     PpDependencyMatch, PpFileResourceInput, PpJob, PpJobClaim, PpJobCompletion, PpJobId,
-    PpLocatorId, PpMediaRootId, PpObjectRef, PpProductionId, PpRepresentationId, PpRevisionEvent,
-    PpRevisionId, PpSequenceNaming, PpTransactionConflict, PpTransactionId, PpUuid,
+    PpLocatorId, PpMediaRootId, PpObjectRef, PpProductionId, PpRepresentationId, PpResourceId,
+    PpRevisionEvent, PpRevisionId, PpSequenceNaming, PpTransactionConflict, PpTransactionId,
+    PpUuid,
 };
 use std::mem::{align_of, offset_of, size_of};
 
@@ -30,6 +31,7 @@ fn main() {
     layout!(PpJobId, "pp_job_id_t", bytes);
     layout!(PpActivityId, "pp_activity_id_t", bytes);
     layout!(PpRepresentationId, "pp_representation_id_t", bytes);
+    layout!(PpResourceId, "pp_resource_id_t", bytes);
     layout!(
         PpCommitReceipt,
         "pp_commit_receipt_t",

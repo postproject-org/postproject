@@ -70,7 +70,7 @@ pub use content::PpFingerprint;
 pub use dependency::{PpDependency, PpDependencyMatch, PpDependencyQuerySet, PpDependencySet};
 pub use identities::{
     PpActivityId, PpAssetId, PpJobId, PpLocatorId, PpMediaRootId, PpProductionId,
-    PpRepresentationId, PpRevisionId, PpTransactionId,
+    PpRepresentationId, PpResourceId, PpRevisionId, PpTransactionId,
 };
 pub use jobs::{PpJob, PpJobClaim, PpJobCompletion, PpJobSet, PpRegenerationPlanSet};
 pub use known_media::PpKnownMediaSet;
