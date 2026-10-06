@@ -76,6 +76,7 @@ from ._abi import (
     Transaction as NativeTransaction,
 )
 from ._artifact import read_evaluation, read_reproducibility
+from ._errors import InvalidArgumentError
 from ._model import (
     Activity,
     ActivityCreatedEvent,
@@ -514,7 +515,7 @@ class Production:
             self._handle,
             0 if state is None else _native_job_state(state),
             _optional_text(kind),
-            limit,
+            _page_limit(limit),
             _optional_text(cursor),
         )
 
@@ -610,7 +611,7 @@ class Production:
             self._native.lib.pp_production_revision_events_page,
             self._handle,
             native_id,
-            limit,
+            _page_limit(limit),
             _optional_text(cursor),
         )
 
@@ -772,7 +773,7 @@ class Production:
             native_id,
             max_depth,
             max_representations,
-            limit,
+            _page_limit(limit),
             _optional_text(cursor),
         )
 
@@ -796,7 +797,7 @@ class Production:
             ctypes.byref(native_target),
             max_depth,
             max_representations,
-            limit,
+            _page_limit(limit),
             _optional_text(cursor),
         )
 
@@ -850,7 +851,7 @@ class Production:
             self._native.lib.pp_production_representations_using_resource,
             self._handle,
             native_id,
-            limit,
+            _page_limit(limit),
             _optional_text(cursor),
         )
 
@@ -862,7 +863,7 @@ class Production:
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_production_assets_page(
             self._handle,
-            limit,
+            _page_limit(limit),
             _optional_text(cursor),
             ctypes.byref(handle),
             ctypes.byref(error),
@@ -893,7 +894,7 @@ class Production:
             self._native.lib.pp_production_representations_page,
             self._handle,
             native_id,
-            limit,
+            _page_limit(limit),
             _optional_text(cursor),
         )
 
@@ -907,7 +908,7 @@ class Production:
             self._native.lib.pp_production_representations_under_media_root,
             self._handle,
             _utf8(root_name, "root name"),
-            limit,
+            _page_limit(limit),
             _optional_text(cursor),
         )
 
@@ -927,7 +928,7 @@ class Production:
             _resource_match,
             self._handle,
             native_id,
-            limit,
+            _page_limit(limit),
             _optional_text(cursor),
         )
 
@@ -943,7 +944,7 @@ class Production:
         status = self._native.lib.pp_production_locators_page(
             self._handle,
             native_id,
-            limit,
+            _page_limit(limit),
             _optional_text(cursor),
             ctypes.byref(handle),
             ctypes.byref(error),
@@ -971,7 +972,7 @@ class Production:
             self._handle,
             _utf8(locator.uri, "locator URI"),
             _native_naming(locator.sequence_naming),
-            limit,
+            _page_limit(limit),
             _optional_text(cursor),
             ctypes.byref(handle),
             ctypes.byref(error),
@@ -1004,7 +1005,7 @@ class Production:
             fingerprint.version,
             value,
             len(fingerprint.value),
-            limit,
+            _page_limit(limit),
             _optional_text(cursor),
             ctypes.byref(handle),
             ctypes.byref(error),
@@ -1022,7 +1023,7 @@ class Production:
             self._native.lib.pp_production_unresolved_media,
             _representation_match,
             self._handle,
-            limit,
+            _page_limit(limit),
             _optional_text(cursor),
         )
 
@@ -1037,7 +1038,7 @@ class Production:
             _object_match,
             self._handle,
             sequence,
-            limit,
+            _page_limit(limit),
             _optional_text(cursor),
         )
 
@@ -1064,7 +1065,7 @@ class Production:
                 vocabulary,
                 property_name,
                 native_value,
-                limit,
+                _page_limit(limit),
                 native_cursor,
                 ctypes.byref(handle),
                 ctypes.byref(error),
@@ -1102,7 +1103,7 @@ class Production:
             self._native.lib.pp_production_activities_producing_page,
             self._handle,
             native_id,
-            limit,
+            _page_limit(limit),
             _optional_text(cursor),
         )
 
@@ -1121,7 +1122,7 @@ class Production:
             self._native.lib.pp_production_activities_consuming_page,
             self._handle,
             native_id,
-            limit,
+            _page_limit(limit),
             _optional_text(cursor),
         )
 
@@ -1136,7 +1137,7 @@ class Production:
             _representation_match,
             self._handle,
             _utf8(kind, "activity kind"),
-            limit,
+            _page_limit(limit),
             _optional_text(cursor),
         )
 
@@ -1153,7 +1154,7 @@ class Production:
             _utf8(tool.name, "tool name"),
             _optional_text(tool.version),
             _optional_text(tool.uri),
-            limit,
+            _page_limit(limit),
             _optional_text(cursor),
         )
 
@@ -1177,7 +1178,7 @@ class Production:
             native_id,
             max_depth,
             max_representations,
-            limit,
+            _page_limit(limit),
             _optional_text(cursor),
         )
 
@@ -1201,7 +1202,7 @@ class Production:
             native_id,
             max_depth,
             max_representations,
-            limit,
+            _page_limit(limit),
             _optional_text(cursor),
         )
 
@@ -1229,7 +1230,7 @@ class Production:
             None if native_source is None else ctypes.byref(native_source),
             max_depth,
             max_representations,
-            limit,
+            _page_limit(limit),
             _optional_text(cursor),
         )
 
@@ -1456,7 +1457,7 @@ class Production:
             self._native.lib.pp_production_changes_since,
             self._handle,
             sequence,
-            limit,
+            _page_limit(limit),
         )
 
     def changes_since_filtered(
@@ -1483,7 +1484,7 @@ class Production:
             sequence,
             native_kinds,
             len(codes),
-            limit,
+            _page_limit(limit),
             ctypes.byref(handle),
             ctypes.byref(through_sequence),
             ctypes.byref(error),
@@ -2115,7 +2116,7 @@ class ReadSession:
             self._native.lib.pp_read_session_revision_events_page,
             self._handle,
             native_id,
-            limit,
+            _page_limit(limit),
             _optional_text(cursor),
         )
 
@@ -2129,7 +2130,7 @@ class ReadSession:
             self._native.lib.pp_read_session_representations_under_media_root,
             self._handle,
             _utf8(root_name, "root name"),
-            limit,
+            _page_limit(limit),
             _optional_text(cursor),
         )
 
@@ -2144,7 +2145,7 @@ class ReadSession:
             self._native.lib.pp_read_session_unresolved_media,
             _representation_match,
             self._handle,
-            limit,
+            _page_limit(limit),
             _optional_text(cursor),
         )
 
@@ -2160,7 +2161,7 @@ class ReadSession:
             _object_match,
             self._handle,
             sequence,
-            limit,
+            _page_limit(limit),
             _optional_text(cursor),
         )
 
@@ -2185,7 +2186,7 @@ class ReadSession:
             native_id,
             max_depth,
             max_representations,
-            limit,
+            _page_limit(limit),
             _optional_text(cursor),
         )
 
@@ -2210,7 +2211,7 @@ class ReadSession:
             native_id,
             max_depth,
             max_representations,
-            limit,
+            _page_limit(limit),
             _optional_text(cursor),
         )
 
@@ -2239,7 +2240,7 @@ class ReadSession:
             None if native_source is None else ctypes.byref(native_source),
             max_depth,
             max_representations,
-            limit,
+            _page_limit(limit),
             _optional_text(cursor),
         )
 
@@ -2255,7 +2256,7 @@ class ReadSession:
             _representation_match,
             self._handle,
             _utf8(kind, "activity kind"),
-            limit,
+            _page_limit(limit),
             _optional_text(cursor),
         )
 
@@ -2273,7 +2274,7 @@ class ReadSession:
             _utf8(tool.name, "tool name"),
             _optional_text(tool.version),
             _optional_text(tool.uri),
-            limit,
+            _page_limit(limit),
             _optional_text(cursor),
         )
 
@@ -2293,7 +2294,7 @@ class ReadSession:
             self._native.lib.pp_read_session_activities_producing_page,
             self._handle,
             native_id,
-            limit,
+            _page_limit(limit),
             _optional_text(cursor),
         )
 
@@ -2313,7 +2314,7 @@ class ReadSession:
             self._native.lib.pp_read_session_activities_consuming_page,
             self._handle,
             native_id,
-            limit,
+            _page_limit(limit),
             _optional_text(cursor),
         )
 
@@ -2341,7 +2342,7 @@ class ReadSession:
             sequence,
             native_kinds,
             len(codes),
-            limit,
+            _page_limit(limit),
             ctypes.byref(handle),
             ctypes.byref(through_sequence),
             ctypes.byref(error),
@@ -2376,7 +2377,7 @@ class ReadSession:
             self._native.lib.pp_read_session_changes_since,
             self._handle,
             sequence,
-            limit,
+            _page_limit(limit),
         )
 
     def dependency_set(
@@ -2413,7 +2414,7 @@ class ReadSession:
             native_id,
             max_depth,
             max_representations,
-            limit,
+            _page_limit(limit),
             _optional_text(cursor),
         )
 
@@ -2437,7 +2438,7 @@ class ReadSession:
             ctypes.byref(native_target),
             max_depth,
             max_representations,
-            limit,
+            _page_limit(limit),
             _optional_text(cursor),
         )
 
@@ -2517,7 +2518,7 @@ class ReadSession:
             self._handle,
             0 if state is None else _native_job_state(state),
             _optional_text(kind),
-            limit,
+            _page_limit(limit),
             _optional_text(cursor),
         )
 
@@ -2643,7 +2644,7 @@ class ReadSession:
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_read_session_assets_page(
             self._handle,
-            limit,
+            _page_limit(limit),
             _optional_text(cursor),
             ctypes.byref(handle),
             ctypes.byref(error),
@@ -2674,7 +2675,7 @@ class ReadSession:
             self._native.lib.pp_read_session_representations_page,
             self._handle,
             native_id,
-            limit,
+            _page_limit(limit),
             _optional_text(cursor),
         )
 
@@ -2689,7 +2690,7 @@ class ReadSession:
             self._native.lib.pp_read_session_representations_using_resource,
             self._handle,
             native_id,
-            limit,
+            _page_limit(limit),
             _optional_text(cursor),
         )
 
@@ -2710,7 +2711,7 @@ class ReadSession:
             _resource_match,
             self._handle,
             native_id,
-            limit,
+            _page_limit(limit),
             _optional_text(cursor),
         )
 
@@ -2726,7 +2727,7 @@ class ReadSession:
         status = self._native.lib.pp_read_session_locators_page(
             self._handle,
             native_id,
-            limit,
+            _page_limit(limit),
             _optional_text(cursor),
             ctypes.byref(handle),
             ctypes.byref(error),
@@ -2794,7 +2795,7 @@ class ReadSession:
             self._handle,
             _utf8(locator.uri, "locator URI"),
             _native_naming(locator.sequence_naming),
-            limit,
+            _page_limit(limit),
             _optional_text(cursor),
             ctypes.byref(handle),
             ctypes.byref(error),
@@ -2827,7 +2828,7 @@ class ReadSession:
             fingerprint.version,
             value,
             len(fingerprint.value),
-            limit,
+            _page_limit(limit),
             _optional_text(cursor),
             ctypes.byref(handle),
             ctypes.byref(error),
@@ -2884,7 +2885,7 @@ class ReadSession:
                 vocabulary,
                 property_name,
                 native_value,
-                limit,
+                _page_limit(limit),
                 native_cursor,
                 ctypes.byref(handle),
                 ctypes.byref(error),
@@ -3065,7 +3066,7 @@ class RevisionWaiter:
         status = self._native.lib.pp_revision_waiter_wait(
             self._handle,
             after_sequence,
-            limit,
+            _page_limit(limit),
             round(timeout * 1000),
             ctypes.byref(result),
             ctypes.byref(handle),
@@ -4321,7 +4322,9 @@ def _page_limit(limit: int) -> int:
     if isinstance(limit, bool) or not isinstance(limit, int):
         raise TypeError("page limit must be an int")
     if not 1 <= limit <= 1000:
-        raise ValueError("page limit must be between 1 and 1000")
+        raise InvalidArgumentError(
+            _abi.PP_ERROR_INVALID_ARGUMENT, "page limit must be between 1 and 1000"
+        )
     return limit
 
 

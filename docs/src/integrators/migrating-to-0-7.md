@@ -6,6 +6,10 @@ library, and install a matching Python wheel. Existing production files,
 UUID text, external identifiers and host binding strings retain their meaning.
 Rust 1.85, C11, C++17 and Python 3.11 remain the supported floors.
 
+Python page limits require an `int` from 1 through 1000. Out-of-range values
+raise `InvalidArgumentError` before native conversion; booleans and other types
+raise `TypeError`. Large integers cannot wrap into accepted page sizes.
+
 ## Identity values
 
 C uses distinct `pp_production_id_t`, `pp_asset_id_t`, `pp_media_root_id_t`,
