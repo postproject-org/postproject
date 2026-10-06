@@ -15,7 +15,7 @@ static int check_terminal_state(pp_production_t *production, int terminal) {
     goto cleanup;
 
   if (terminal == 2) {
-    const pp_uuid_t absent = {{1}};
+    const pp_resource_id_t absent = {{1}};
     if (pp_transaction_confirm_locator(a, absent, "file:///absent", NULL,
                                        NULL, &error) != PP_OK ||
         pp_transaction_commit(a, &error) == PP_OK)

@@ -33,7 +33,7 @@ int main(int argc, char **argv) {
     if (!a)
       return 4;
     if (terminal == 2) {
-      const postproject::Uuid absent({1});
+      const postproject::ResourceId absent({1});
       if (!a->confirmLocator(absent, "file:///absent"))
         return 5;
       const auto failed = a->commit();
