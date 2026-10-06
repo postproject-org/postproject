@@ -775,7 +775,7 @@ enum class DependencySetStatus : std::uint32_t {
 };
 
 struct Dependency final {
-  std::optional<Uuid> source_resource_id;
+  std::optional<ResourceId> source_resource_id;
   std::string kind;
   ObjectRef target;
   std::optional<RepresentationId> resolved_representation_id;
@@ -906,7 +906,7 @@ enum class ArtifactDependencyIssue : std::uint32_t {
 struct ArtifactDependencyPathSegment final {
   RepresentationId source_representation_id;
   std::uint32_t dependency_position;
-  std::optional<Uuid> source_resource_id;
+  std::optional<ResourceId> source_resource_id;
   std::string kind;
   ObjectRef target;
   std::optional<RepresentationId> resolved_representation_id;
@@ -1016,22 +1016,22 @@ struct RepresentationAddedEvent final {
 };
 
 struct ResourceAddedEvent final {
-  Uuid resource_id;
+  ResourceId resource_id;
 };
 
 struct RepresentationResourceAddedEvent final {
   RepresentationId representation_id;
-  Uuid resource_id;
+  ResourceId resource_id;
   std::uint32_t structural_position;
 };
 
 struct LocatorAddedEvent final {
-  Uuid resource_id;
+  ResourceId resource_id;
   LocatorId locator_id;
 };
 
 struct LocatorRetiredEvent final {
-  Uuid resource_id;
+  ResourceId resource_id;
   LocatorId locator_id;
 };
 
@@ -1088,7 +1088,7 @@ struct ActivityOutputAddedEvent final {
 };
 
 struct ResourceFingerprintObservedEvent final {
-  Uuid resource_id;
+  ResourceId resource_id;
   std::string algorithm;
   std::uint16_t version;
 };
@@ -1232,7 +1232,7 @@ struct Fingerprint final {
 };
 
 struct RepresentationMember final {
-  Uuid resource_id;
+  ResourceId resource_id;
   std::optional<std::string> role;
   bool required;
 };
@@ -1304,7 +1304,7 @@ struct Locator final {
 // A locator returned by a paginated locator query, with its owning resource
 // and the logical media root it was confirmed under, when one was recorded.
 struct ResourceLocator final {
-  Uuid resource_id;
+  ResourceId resource_id;
   Locator locator;
   std::optional<std::string> media_root;
 };
@@ -1313,11 +1313,11 @@ struct ResourceLocator final {
 struct KnownMediaMatch final {
   AssetId asset_id;
   RepresentationId representation_id;
-  Uuid resource_id;
+  ResourceId resource_id;
 };
 
 struct Resource final {
-  Uuid id;
+  ResourceId id;
   std::optional<std::uint64_t> file_size;
   std::optional<std::int64_t> modified_at_unix_micros;
   std::vector<Fingerprint> fingerprints;
@@ -1465,14 +1465,14 @@ struct ResolutionCandidate final {
 };
 
 struct ResourceResolution final {
-  Uuid resource_id;
+  ResourceId resource_id;
   ResourceResolutionState state;
   std::vector<ResolutionCandidate> candidates;
   std::vector<Evidence> evidence;
 };
 
 struct AvailabilityIssue final {
-  Uuid resource_id;
+  ResourceId resource_id;
   bool required;
   AvailabilityIssueKind kind;
   std::vector<std::int64_t> frames;
@@ -2047,7 +2047,7 @@ representation(const pp_representation_set_t *representations,
   members.reserve(static_cast<std::size_t>(member_count));
   for (std::uint64_t member_index = 0; member_index < member_count;
        ++member_index) {
-    pp_uuid_t resource_id{};
+    pp_resource_id_t resource_id{};
     const char *role = nullptr;
     std::uint8_t required = 0;
     error = nullptr;
@@ -2055,7 +2055,7 @@ representation(const pp_representation_set_t *representations,
         representations, index, member_index, &resource_id, &role, &required,
         &error);
     POSTPROJECT_TRY(check(status, error));
-    members.push_back({uuid(resource_id), optional_string(role), required != 0});
+    members.push_back({detail::resource_id(resource_id), optional_string(role), required != 0});
   }
 
   std::optional<ImageSequenceDescriptor> image_sequence;
@@ -2105,7 +2105,7 @@ representation(const pp_representation_set_t *representations,
   resources.reserve(static_cast<std::size_t>(resource_count));
   for (std::uint64_t resource_index = 0; resource_index < resource_count;
        ++resource_index) {
-    pp_uuid_t resource_id{};
+    pp_resource_id_t resource_id{};
     std::uint8_t has_file_facts = 0;
     std::uint64_t file_size = 0;
     std::uint8_t has_modified_at = 0;
@@ -2156,7 +2156,7 @@ representation(const pp_representation_set_t *representations,
            optional_naming(has_naming, naming)});
     }
     resources.push_back(
-        {uuid(resource_id),
+        {detail::resource_id(resource_id),
          has_file_facts != 0 ? std::optional<std::uint64_t>(file_size)
                              : std::nullopt,
          has_modified_at != 0 ? std::optional<std::int64_t>(modified_at)
@@ -2427,7 +2427,7 @@ dependency_set(DependencySetHandle dependencies) {
     }
     result.push_back(
         {native.has_source_resource != 0
-             ? std::optional<Uuid>(uuid(native.source_resource_id))
+             ? std::optional<ResourceId>(detail::resource_id(native.source_resource_id))
              : std::nullopt,
          std::string(native.kind), object_ref(native.target),
          native.has_resolved_representation != 0
@@ -2514,7 +2514,7 @@ locator_page(LocatorQuerySetHandle locators) {
   items.reserve(static_cast<std::size_t>(count));
   for (std::uint64_t index = 0; index < count; ++index) {
     pp_locator_id_t id{};
-    pp_uuid_t owner_id{};
+    pp_resource_id_t owner_id{};
     const char *uri = nullptr;
     pp_locator_availability_t availability = 0;
     std::uint8_t has_last_seen = 0;
@@ -2532,7 +2532,7 @@ locator_page(LocatorQuerySetHandle locators) {
       return Error(ErrorCode::internal, "locator has no URI");
     }
     items.push_back(
-        {uuid(owner_id),
+        {detail::resource_id(owner_id),
          Locator{locator_id(id), std::string(uri),
                  static_cast<LocatorAvailability>(availability),
                  has_last_seen != 0 ? std::optional<std::int64_t>(last_seen)
@@ -2569,14 +2569,14 @@ known_media_page(KnownMediaSetHandle matches) {
   for (std::uint64_t index = 0; index < count; ++index) {
     pp_asset_id_t asset_id{};
     pp_representation_id_t representation_id{};
-    pp_uuid_t resource_id{};
+    pp_resource_id_t resource_id{};
     pp_error_t *error = nullptr;
     const pp_error_code_t status = pp_known_media_set_get(
         matches.get(), index, &asset_id, &representation_id, &resource_id,
         &error);
     POSTPROJECT_TRY(check(status, error));
     items.push_back(
-        {asset_id_value(asset_id), detail::representation_id(representation_id), uuid(resource_id)});
+        {asset_id_value(asset_id), detail::representation_id(representation_id), detail::resource_id(resource_id)});
   }
   const char *cursor = pp_known_media_set_next_cursor(matches.get());
   return QueryPage<KnownMediaMatch>{std::move(items), optional_string(cursor),
@@ -2658,23 +2658,23 @@ revision_event(const pp_revision_event_set_t *events, std::uint64_t index) {
                                              detail::representation_id(event.representation_id)}};
   case PP_REVISION_RESOURCE_ADDED:
     return RevisionEvent{event.position,
-                         ResourceAddedEvent{uuid(event.resource_id)}};
+                         ResourceAddedEvent{detail::resource_id(event.resource_id)}};
   case PP_REVISION_REPRESENTATION_RESOURCE_ADDED:
     return RevisionEvent{event.position, RepresentationResourceAddedEvent{
                                              detail::representation_id(event.representation_id),
-                                             uuid(event.resource_id),
+                                             detail::resource_id(event.resource_id),
                                              event.structural_position}};
   case PP_REVISION_LOCATOR_ADDED:
     return RevisionEvent{
         event.position,
-        LocatorAddedEvent{uuid(event.resource_id), locator_id(event.locator_id)}};
+        LocatorAddedEvent{detail::resource_id(event.resource_id), locator_id(event.locator_id)}};
   case PP_REVISION_MEDIA_ROOT_ADDED:
     return RevisionEvent{event.position,
                          MediaRootAddedEvent{media_root_id(event.media_root_id)}};
   case PP_REVISION_LOCATOR_RETIRED:
     return RevisionEvent{
         event.position,
-        LocatorRetiredEvent{uuid(event.resource_id), locator_id(event.locator_id)}};
+        LocatorRetiredEvent{detail::resource_id(event.resource_id), locator_id(event.locator_id)}};
   case PP_REVISION_MEDIA_ROOT_ENABLED_CHANGED:
     return RevisionEvent{event.position,
                          MediaRootEnabledChangedEvent{media_root_id(event.media_root_id),
@@ -2756,7 +2756,7 @@ revision_event(const pp_revision_event_set_t *events, std::uint64_t index) {
                                                  "fingerprint algorithm"));
     return RevisionEvent{event.position,
                          ResourceFingerprintObservedEvent{
-                             uuid(event.resource_id), std::move(algorithm),
+                             detail::resource_id(event.resource_id), std::move(algorithm),
                              event.fingerprint_version}};
   }
   case PP_REVISION_REPRESENTATION_FINGERPRINT_OBSERVED: {
@@ -2845,7 +2845,7 @@ inline Result<ResourceResolution>
 resolution_resource(const pp_resolution_set_t *resolutions,
                     std::uint64_t representation_index,
                     std::uint64_t resource_index) {
-  pp_uuid_t resource_id{};
+  pp_resource_id_t resource_id{};
   pp_resource_resolution_state_t state = 0;
   std::uint64_t candidate_count = 0;
   std::uint64_t evidence_count = 0;
@@ -2902,7 +2902,7 @@ resolution_resource(const pp_resolution_set_t *resolutions,
                                   resource_index, evidence_index));
     evidence.push_back(std::move(item_6));
   }
-  return ResourceResolution{uuid(resource_id),
+  return ResourceResolution{detail::resource_id(resource_id),
                        static_cast<ResourceResolutionState>(state),
                        std::move(candidates), std::move(evidence)};
 }
@@ -2940,7 +2940,7 @@ resolution_values(ResolutionSetHandle resolutions) {
     std::vector<AvailabilityIssue> issues;
     for (std::uint64_t issue_index = 0; issue_index < issue_count;
          ++issue_index) {
-      pp_uuid_t resource_id{};
+      pp_resource_id_t resource_id{};
       std::uint8_t required = 0;
       pp_availability_issue_kind_t kind = 0;
       std::uint64_t frame_count = 0;
@@ -2961,7 +2961,7 @@ resolution_values(ResolutionSetHandle resolutions) {
         POSTPROJECT_TRY(check(frame_status, frame_error));
         frames.push_back(frame);
       }
-      issues.push_back({uuid(resource_id), required != 0,
+      issues.push_back({detail::resource_id(resource_id), required != 0,
                         static_cast<AvailabilityIssueKind>(kind),
                         std::move(frames)});
     }
@@ -2985,7 +2985,7 @@ artifact_dependency_path(const pp_artifact_reason_t &native) {
         {detail::representation_id(segment.source_representation_id),
          segment.dependency_position,
          segment.has_source_resource != 0
-             ? std::optional<Uuid>(uuid(segment.source_resource_id))
+             ? std::optional<ResourceId>(detail::resource_id(segment.source_resource_id))
              : std::nullopt,
          std::string(segment.kind), object_ref(segment.target),
          segment.has_resolved_representation != 0
@@ -4365,11 +4365,11 @@ public:
   // locator of an image-sequence resource: required for such a resource and
   // rejected at commit for any other.
   Result<void>
-  confirmLocator(const Uuid &resource_id, std::string_view uri,
+  confirmLocator(const ResourceId &resource_id, std::string_view uri,
                  const std::optional<std::string> &root_name = std::nullopt,
                  const std::optional<SequenceNaming> &sequence_naming =
                      std::nullopt) {
-    const pp_uuid_t id = detail::native_uuid(resource_id);
+    const pp_resource_id_t id = detail::native_resource_id(resource_id);
     POSTPROJECT_TRY_ASSIGN(const std::string native_uri,
                            detail::checked_string(uri, "uri"));
     POSTPROJECT_TRY_ASSIGN(
@@ -4379,7 +4379,7 @@ public:
                            detail::NativeNaming::make(sequence_naming));
     pp_error_t *error = nullptr;
     const pp_error_code_t status = pp_transaction_confirm_locator(
-        transaction_, &id, native_uri.c_str(),
+        transaction_, id, native_uri.c_str(),
         detail::optional_c_str(native_root), naming.get(), &error);
     POSTPROJECT_TRY(detail::check(status, error));
     return {};
@@ -4394,15 +4394,15 @@ public:
     return {};
   }
 
-  Result<void> recordResourceFingerprint(const Uuid &resource_id,
+  Result<void> recordResourceFingerprint(const ResourceId &resource_id,
                                          const Fingerprint &fingerprint) {
-    const pp_uuid_t id = detail::native_uuid(resource_id);
+    const pp_resource_id_t id = detail::native_resource_id(resource_id);
     POSTPROJECT_TRY_ASSIGN(
         const std::string algorithm,
         detail::checked_string(fingerprint.algorithm, "fingerprint algorithm"));
     pp_error_t *error = nullptr;
     const pp_error_code_t status = pp_transaction_record_resource_fingerprint(
-        transaction_, &id, algorithm.c_str(), fingerprint.version,
+        transaction_, id, algorithm.c_str(), fingerprint.version,
         fingerprint.value.data(),
         static_cast<std::uint64_t>(fingerprint.value.size()), &error);
     POSTPROJECT_TRY(detail::check(status, error));
@@ -4431,9 +4431,9 @@ public:
   // fingerprint. For an image sequence, path is its directory and
   // sequence_naming names its files; empty means the naming recorded there.
   Result<ContentObservationOutcome> observeResourceContent(
-      const Uuid &resource_id, std::string_view path,
+      const ResourceId &resource_id, std::string_view path,
       const std::optional<SequenceNaming> &sequence_naming = std::nullopt) {
-    const pp_uuid_t id = detail::native_uuid(resource_id);
+    const pp_resource_id_t id = detail::native_resource_id(resource_id);
     POSTPROJECT_TRY_ASSIGN(const std::string native_path,
                            detail::checked_string(path, "path"));
     POSTPROJECT_TRY_ASSIGN(detail::NativeNaming naming,
@@ -4441,7 +4441,7 @@ public:
     pp_content_observation_t outcome = 0;
     pp_error_t *error = nullptr;
     const pp_error_code_t status = pp_transaction_observe_resource_content(
-        transaction_, &id, native_path.c_str(), naming.get(), &outcome,
+        transaction_, id, native_path.c_str(), naming.get(), &outcome,
         &error);
     POSTPROJECT_TRY(detail::check(status, error));
     return static_cast<ContentObservationOutcome>(outcome);
@@ -4473,8 +4473,8 @@ public:
           {static_cast<std::uint8_t>(
                dependency.source_resource_id.has_value() ? 1 : 0),
            dependency.source_resource_id.has_value()
-               ? detail::native_uuid(*dependency.source_resource_id)
-               : pp_uuid_t{},
+               ? detail::native_resource_id(*dependency.source_resource_id)
+               : pp_resource_id_t{},
            kinds[index].c_str(), detail::native_object_ref(dependency.target),
            static_cast<std::uint8_t>(
                dependency.resolved_representation_id.has_value() ? 1 : 0),
@@ -5408,10 +5408,10 @@ public:
   // an image sequence, path is its directory and sequence_naming names its
   // files; empty means the naming recorded for that directory.
   [[nodiscard]] Result<ContentVerification> verifyResource(
-      const Uuid &resource_id, std::string_view path,
+      const ResourceId &resource_id, std::string_view path,
       const std::optional<SequenceNaming> &sequence_naming =
           std::nullopt) const {
-    const pp_uuid_t id = detail::native_uuid(resource_id);
+    const pp_resource_id_t id = detail::native_resource_id(resource_id);
     POSTPROJECT_TRY_ASSIGN(const std::string native_path,
                            detail::checked_string(path, "path"));
     POSTPROJECT_TRY_ASSIGN(detail::NativeNaming naming,
@@ -5419,7 +5419,7 @@ public:
     pp_content_verification_t verification = 0;
     pp_error_t *error = nullptr;
     const pp_error_code_t status = pp_read_session_verify_resource(
-        session_, &id, native_path.c_str(), naming.get(), &verification,
+        session_, id, native_path.c_str(), naming.get(), &verification,
         &error);
     POSTPROJECT_TRY(detail::check(status, error));
     return static_cast<ContentVerification>(verification);
@@ -5475,16 +5475,16 @@ public:
 
   // Representations that use a resource, in identity order.
   [[nodiscard]] Result<QueryPage<Representation>> representationsUsingResource(
-      const Uuid &resource_id, std::uint32_t limit,
+      const ResourceId &resource_id, std::uint32_t limit,
       std::optional<std::string_view> cursor = std::nullopt) const {
-    const pp_uuid_t native_id = detail::native_uuid(resource_id);
+    const pp_resource_id_t native_id = detail::native_resource_id(resource_id);
     POSTPROJECT_TRY_ASSIGN(const std::optional<std::string> checked_cursor,
                            detail::checked_cursor(cursor));
     pp_representation_set_t *raw_representations = nullptr;
     pp_error_t *error = nullptr;
     const pp_error_code_t status =
         pp_read_session_representations_using_resource(
-            session_, &native_id, limit,
+            session_, native_id, limit,
             detail::optional_c_str(checked_cursor), &raw_representations,
             &error);
     POSTPROJECT_TRY(detail::check(status, error));
@@ -5493,7 +5493,7 @@ public:
   }
 
   // Resource identities of one representation in structure order.
-  [[nodiscard]] Result<QueryPage<Uuid>>
+  [[nodiscard]] Result<QueryPage<ResourceId>>
   resources(const RepresentationId &representation_id, std::uint32_t limit,
             std::optional<std::string_view> cursor = std::nullopt) const {
     const pp_representation_id_t native_id = detail::native_representation_id(representation_id);
@@ -5508,19 +5508,19 @@ public:
     POSTPROJECT_TRY_ASSIGN(
         QueryPage<ObjectMatch> page,
         detail::object_query_page(detail::ObjectQuerySetHandle(raw_objects)));
-    return detail::object_id_page(std::move(page), ObjectKind::resource);
+    return detail::object_id_page<ResourceId>(std::move(page), ObjectKind::resource);
   }
 
   [[nodiscard]] Result<QueryPage<ResourceLocator>>
-  locators(const Uuid &resource_id, std::uint32_t limit,
+  locators(const ResourceId &resource_id, std::uint32_t limit,
            std::optional<std::string_view> cursor = std::nullopt) const {
-    const pp_uuid_t native_id = detail::native_uuid(resource_id);
+    const pp_resource_id_t native_id = detail::native_resource_id(resource_id);
     POSTPROJECT_TRY_ASSIGN(const std::optional<std::string> checked_cursor,
                            detail::checked_cursor(cursor));
     pp_locator_query_set_t *raw_locators = nullptr;
     pp_error_t *error = nullptr;
     const pp_error_code_t status = pp_read_session_locators_page(
-        session_, &native_id, limit, detail::optional_c_str(checked_cursor),
+        session_, native_id, limit, detail::optional_c_str(checked_cursor),
         &raw_locators, &error);
     POSTPROJECT_TRY(detail::check(status, error));
     return detail::locator_page(detail::LocatorQuerySetHandle(raw_locators));
@@ -6059,16 +6059,16 @@ public:
 
   // Representations that use a resource, in identity order.
   [[nodiscard]] Result<QueryPage<Representation>> representationsUsingResource(
-      const Uuid &resource_id, std::uint32_t limit,
+      const ResourceId &resource_id, std::uint32_t limit,
       std::optional<std::string_view> cursor = std::nullopt) const {
-    const pp_uuid_t native_id = detail::native_uuid(resource_id);
+    const pp_resource_id_t native_id = detail::native_resource_id(resource_id);
     POSTPROJECT_TRY_ASSIGN(const std::optional<std::string> checked_cursor,
                            detail::checked_cursor(cursor));
     pp_representation_set_t *raw_representations = nullptr;
     pp_error_t *error = nullptr;
     const pp_error_code_t status =
         pp_production_representations_using_resource(
-            production_, &native_id, limit,
+            production_, native_id, limit,
             detail::optional_c_str(checked_cursor), &raw_representations,
             &error);
     POSTPROJECT_TRY(detail::check(status, error));
@@ -6097,7 +6097,7 @@ public:
   }
 
   // Resource identities of one representation in structure order.
-  [[nodiscard]] Result<QueryPage<Uuid>>
+  [[nodiscard]] Result<QueryPage<ResourceId>>
   resources(const RepresentationId &representation_id, std::uint32_t limit,
             std::optional<std::string_view> cursor = std::nullopt) const {
     const pp_representation_id_t native_id = detail::native_representation_id(representation_id);
@@ -6112,19 +6112,19 @@ public:
     POSTPROJECT_TRY_ASSIGN(
         QueryPage<ObjectMatch> page,
         detail::object_query_page(detail::ObjectQuerySetHandle(raw_objects)));
-    return detail::object_id_page(std::move(page), ObjectKind::resource);
+    return detail::object_id_page<ResourceId>(std::move(page), ObjectKind::resource);
   }
 
   [[nodiscard]] Result<QueryPage<ResourceLocator>>
-  locators(const Uuid &resource_id, std::uint32_t limit,
+  locators(const ResourceId &resource_id, std::uint32_t limit,
            std::optional<std::string_view> cursor = std::nullopt) const {
-    const pp_uuid_t native_id = detail::native_uuid(resource_id);
+    const pp_resource_id_t native_id = detail::native_resource_id(resource_id);
     POSTPROJECT_TRY_ASSIGN(const std::optional<std::string> checked_cursor,
                            detail::checked_cursor(cursor));
     pp_locator_query_set_t *raw_locators = nullptr;
     pp_error_t *error = nullptr;
     const pp_error_code_t status = pp_production_locators_page(
-        production_, &native_id, limit, detail::optional_c_str(checked_cursor),
+        production_, native_id, limit, detail::optional_c_str(checked_cursor),
         &raw_locators, &error);
     POSTPROJECT_TRY(detail::check(status, error));
     return detail::locator_page(detail::LocatorQuerySetHandle(raw_locators));
@@ -6331,10 +6331,10 @@ public:
   // an image sequence, path is its directory and sequence_naming names its
   // files; empty means the naming recorded for that directory.
   [[nodiscard]] Result<ContentVerification> verifyResource(
-      const Uuid &resource_id, std::string_view path,
+      const ResourceId &resource_id, std::string_view path,
       const std::optional<SequenceNaming> &sequence_naming =
           std::nullopt) const {
-    const pp_uuid_t id = detail::native_uuid(resource_id);
+    const pp_resource_id_t id = detail::native_resource_id(resource_id);
     POSTPROJECT_TRY_ASSIGN(const std::string native_path,
                            detail::checked_string(path, "path"));
     POSTPROJECT_TRY_ASSIGN(detail::NativeNaming naming,
@@ -6342,7 +6342,7 @@ public:
     pp_content_verification_t verification = 0;
     pp_error_t *error = nullptr;
     const pp_error_code_t status = pp_production_verify_resource(
-        production_, &id, native_path.c_str(), naming.get(), &verification,
+        production_, id, native_path.c_str(), naming.get(), &verification,
         &error);
     POSTPROJECT_TRY(detail::check(status, error));
     return static_cast<ContentVerification>(verification);

@@ -274,7 +274,7 @@ int main(int argc, char **argv) {
     if (stale_commit.error().code() != postproject::ErrorCode::conflict ||
         conflict == nullptr ||
         conflict->key.kind != postproject::ConflictKeyKind::locator_set ||
-        std::get<postproject::ObjectRef>(conflict->key.target).id != conflict_resource_id ||
+        std::get<postproject::ObjectRef>(conflict->key.target).resourceId().value() != conflict_resource_id ||
         std::get<postproject::ObjectRef>(conflict->key.target).kind != postproject::ObjectKind::resource ||
         conflict->base_revision_id != latest_revision->id ||
         conflict->base_revision_sequence != latest_revision->sequence ||
@@ -604,7 +604,7 @@ int main(int argc, char **argv) {
         rooted.items[0].resources.size() != 1 ||
         rooted.next_cursor.has_value() ||
         resource_page.items !=
-            std::vector<postproject::Uuid>{
+            std::vector<postproject::ResourceId>{
                 resolutions[0].resources[0].resource_id} ||
         resource_page.next_cursor.has_value() ||
         locator_page.items.empty() || locator_page.next_cursor.has_value() ||
