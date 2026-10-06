@@ -7,8 +7,8 @@ use postproject_core::{
 };
 
 use crate::{
-    PpAssetId, PpError, PpLocatorId, PpProduction, PpRepresentationId, PpSequenceNaming, PpUuid,
-    exact_cstring, ffi_call, initialize_const_output, initialize_output, initialize_uuid,
+    PpAssetId, PpError, PpLocatorId, PpProduction, PpRepresentationId, PpResourceId,
+    PpSequenceNaming, exact_cstring, ffi_call, initialize_const_output, initialize_output,
     initialize_value, item_at, lock_production, query_page_request, require_output, required_utf8,
     sequence_naming::{AbiSequenceNaming, initialize_naming_output, write_naming_output},
 };
@@ -196,12 +196,11 @@ pub unsafe extern "C" fn pp_production_representation(
 ///
 /// # Safety
 ///
-/// Pointer rules match [`pp_production_representations_page`]; `resource_id`
-/// must be live.
+/// Pointer rules match [`pp_production_representations_page`].
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_representations_using_resource(
     production: *const PpProduction,
-    resource_id: *const PpUuid,
+    resource_id: PpResourceId,
     limit: u32,
     cursor: *const c_char,
     out_representations: *mut *mut PpRepresentationSet,
@@ -213,9 +212,6 @@ pub unsafe extern "C" fn pp_production_representations_using_resource(
             let production = production
                 .as_ref()
                 .ok_or_else(|| invalid_argument("production must not be null"))?;
-            let resource_id = resource_id
-                .as_ref()
-                .ok_or_else(|| invalid_argument("resource_id must not be null"))?;
             require_output(out_representations, "out_representations")?;
             let page_request = query_page_request(limit, cursor)?;
             let inner = lock_production(&production.state);
@@ -422,14 +418,14 @@ pub unsafe extern "C" fn pp_representation_set_get_member(
     representations: *const PpRepresentationSet,
     representation_index: u64,
     member_index: u64,
-    out_resource_id: *mut PpUuid,
+    out_resource_id: *mut PpResourceId,
     out_role: *mut *const c_char,
     out_required: *mut u8,
     out_error: *mut *mut PpError,
 ) -> u32 {
     // SAFETY: Outputs are initialized and checked before writes.
     unsafe {
-        initialize_uuid(out_resource_id);
+        initialize_value(out_resource_id, PpResourceId { bytes: [0; 16] });
         initialize_const_output(out_role);
         initialize_value(out_required, 0);
         ffi_call(out_error, || {
@@ -442,7 +438,7 @@ pub unsafe extern "C" fn pp_representation_set_get_member(
             let representation =
                 item_at(&set.representations, representation_index, "representation")?;
             let member = item_at(&representation.members, member_index, "member")?;
-            out_resource_id.write(PpUuid {
+            out_resource_id.write(PpResourceId {
                 bytes: member.resource_id.into_bytes(),
             });
             out_role.write(
@@ -557,7 +553,7 @@ pub unsafe extern "C" fn pp_representation_set_get_resource(
     representations: *const PpRepresentationSet,
     representation_index: u64,
     resource_index: u64,
-    out_id: *mut PpUuid,
+    out_id: *mut PpResourceId,
     out_has_file_facts: *mut u8,
     out_file_size: *mut u64,
     out_has_modified_at: *mut u8,
@@ -568,7 +564,7 @@ pub unsafe extern "C" fn pp_representation_set_get_resource(
 ) -> u32 {
     // SAFETY: Outputs are initialized and checked before writes.
     unsafe {
-        initialize_uuid(out_id);
+        initialize_value(out_id, PpResourceId { bytes: [0; 16] });
         initialize_value(out_has_file_facts, 0);
         initialize_value(out_file_size, 0);
         initialize_value(out_has_modified_at, 0);
@@ -584,7 +580,7 @@ pub unsafe extern "C" fn pp_representation_set_get_resource(
             require_output(out_locator_count, "out_locator_count")?;
             require_output(out_fingerprint_count, "out_fingerprint_count")?;
             let resource = resource_at(representations, representation_index, resource_index)?;
-            out_id.write(PpUuid {
+            out_id.write(PpResourceId {
                 bytes: resource.id.into_bytes(),
             });
             if let Some(size) = resource.file_size {

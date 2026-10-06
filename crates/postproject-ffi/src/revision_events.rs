@@ -17,8 +17,8 @@ use crate::{
     PP_REVISION_REPRESENTATION_ADDED, PP_REVISION_REPRESENTATION_FINGERPRINT_OBSERVED,
     PP_REVISION_REPRESENTATION_RESOURCE_ADDED, PP_REVISION_RESOURCE_ADDED,
     PP_REVISION_RESOURCE_FINGERPRINT_OBSERVED, PpActivityId, PpAssetId, PpJobId, PpLocatorId,
-    PpMediaRootId, PpObjectRef, PpRepresentationId, PpRevisionEvent, PpUuid, exact_cstring,
-    object_ref_to_abi,
+    PpMediaRootId, PpObjectRef, PpRepresentationId, PpResourceId, PpRevisionEvent, PpUuid,
+    exact_cstring, object_ref_to_abi,
 };
 
 /// Opaque immutable revision-event result set owned by the C caller.
@@ -32,7 +32,7 @@ pub(crate) struct AbiRevisionEvent {
     position: u32,
     asset_id: Option<PpAssetId>,
     representation_id: Option<PpRepresentationId>,
-    resource_id: Option<PpUuid>,
+    resource_id: Option<PpResourceId>,
     locator_id: Option<PpLocatorId>,
     media_root_id: Option<PpMediaRootId>,
     activity_id: Option<PpActivityId>,
@@ -131,7 +131,7 @@ impl AbiRevisionEvent {
             representation_id: self
                 .representation_id
                 .unwrap_or(PpRepresentationId { bytes: [0; 16] }),
-            resource_id: self.resource_id.unwrap_or_else(zero_uuid),
+            resource_id: self.resource_id.unwrap_or(PpResourceId { bytes: [0; 16] }),
             locator_id: self.locator_id.unwrap_or(PpLocatorId { bytes: [0; 16] }),
             media_root_id: self
                 .media_root_id
@@ -206,7 +206,9 @@ impl TryFrom<&RevisionEvent> for AbiRevisionEvent {
             }
             RevisionEventKind::ResourceAdded { resource_id } => {
                 projected.kind = PP_REVISION_RESOURCE_ADDED;
-                projected.resource_id = Some(uuid(resource_id.into_bytes()));
+                projected.resource_id = Some(PpResourceId {
+                    bytes: resource_id.into_bytes(),
+                });
             }
             RevisionEventKind::RepresentationResourceAdded {
                 representation_id,
@@ -217,7 +219,9 @@ impl TryFrom<&RevisionEvent> for AbiRevisionEvent {
                 projected.representation_id = Some(PpRepresentationId {
                     bytes: representation_id.into_bytes(),
                 });
-                projected.resource_id = Some(uuid(resource_id.into_bytes()));
+                projected.resource_id = Some(PpResourceId {
+                    bytes: resource_id.into_bytes(),
+                });
                 projected.structural_position = Some(*position);
             }
             RevisionEventKind::LocatorAdded {
@@ -225,7 +229,9 @@ impl TryFrom<&RevisionEvent> for AbiRevisionEvent {
                 locator_id,
             } => {
                 projected.kind = PP_REVISION_LOCATOR_ADDED;
-                projected.resource_id = Some(uuid(resource_id.into_bytes()));
+                projected.resource_id = Some(PpResourceId {
+                    bytes: resource_id.into_bytes(),
+                });
                 projected.locator_id = Some(PpLocatorId {
                     bytes: locator_id.into_bytes(),
                 });
@@ -241,7 +247,9 @@ impl TryFrom<&RevisionEvent> for AbiRevisionEvent {
                 locator_id,
             } => {
                 projected.kind = PP_REVISION_LOCATOR_RETIRED;
-                projected.resource_id = Some(uuid(resource_id.into_bytes()));
+                projected.resource_id = Some(PpResourceId {
+                    bytes: resource_id.into_bytes(),
+                });
                 projected.locator_id = Some(PpLocatorId {
                     bytes: locator_id.into_bytes(),
                 });
@@ -347,7 +355,9 @@ impl TryFrom<&RevisionEvent> for AbiRevisionEvent {
                 version,
             } => {
                 projected.kind = PP_REVISION_RESOURCE_FINGERPRINT_OBSERVED;
-                projected.resource_id = Some(uuid(resource_id.into_bytes()));
+                projected.resource_id = Some(PpResourceId {
+                    bytes: resource_id.into_bytes(),
+                });
                 projected.fingerprint_algorithm =
                     Some(exact_cstring(algorithm, "revision fingerprint algorithm")?);
                 projected.fingerprint_version = Some(*version);

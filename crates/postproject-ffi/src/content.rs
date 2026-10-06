@@ -14,7 +14,7 @@ use postproject_media::{
 };
 
 use crate::{
-    PpError, PpProduction, PpSequenceNaming, PpTransaction, PpUuid, StagedMutation, ffi_call,
+    PpError, PpProduction, PpResourceId, PpSequenceNaming, PpTransaction, StagedMutation, ffi_call,
     initialize_const_output, initialize_output, initialize_value, invalid_argument,
     lock_production, require_output, required_utf8, sequence_naming::optional_naming,
 };
@@ -146,13 +146,13 @@ fn naming_at(
 ///
 /// # Safety
 ///
-/// `production` and `resource_id` must be live; `path` must be NUL-terminated
+/// `production` must be live; `path` must be NUL-terminated
 /// UTF-8; `sequence_naming` must be null or readable with NUL-terminated
 /// strings; `out_verification` must be writable.
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_verify_resource(
     production: *const PpProduction,
-    resource_id: *const PpUuid,
+    resource_id: PpResourceId,
     path: *const c_char,
     sequence_naming: *const PpSequenceNaming,
     out_verification: *mut u32,
@@ -165,9 +165,6 @@ pub unsafe extern "C" fn pp_production_verify_resource(
             let production = production
                 .as_ref()
                 .ok_or_else(|| invalid_argument("production must not be null"))?;
-            let resource_id = resource_id
-                .as_ref()
-                .ok_or_else(|| invalid_argument("resource_id must not be null"))?;
             require_output(out_verification, "out_verification")?;
             let path = required_utf8(path, "path")?;
             let naming = optional_naming(sequence_naming, "sequence_naming")?;
@@ -214,13 +211,13 @@ pub unsafe extern "C" fn pp_production_verify_resource(
 ///
 /// # Safety
 ///
-/// `transaction` and `resource_id` must be live; `path` must be
+/// `transaction` must be live; `path` must be
 /// NUL-terminated UTF-8; `sequence_naming` must be null or readable with
 /// NUL-terminated strings; `out_outcome` must be writable.
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_transaction_observe_resource_content(
     transaction: *mut PpTransaction,
-    resource_id: *const PpUuid,
+    resource_id: PpResourceId,
     path: *const c_char,
     sequence_naming: *const PpSequenceNaming,
     out_outcome: *mut u32,
@@ -234,9 +231,6 @@ pub unsafe extern "C" fn pp_transaction_observe_resource_content(
                 .as_mut()
                 .ok_or_else(|| invalid_argument("transaction must not be null"))?;
             transaction.lifecycle.ensure_open()?;
-            let resource_id = resource_id
-                .as_ref()
-                .ok_or_else(|| invalid_argument("resource_id must not be null"))?;
             require_output(out_outcome, "out_outcome")?;
             let path = required_utf8(path, "path")?;
             let naming = optional_naming(sequence_naming, "sequence_naming")?;

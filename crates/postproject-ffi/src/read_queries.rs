@@ -2,8 +2,8 @@
 
 use crate::{
     AbiAsset, PpAssetId, PpAssetSet, PpError, PpReadSession, PpRepresentationId,
-    PpRepresentationSet, PpUuid, ffi_call, initialize_output, invalid_argument, lock_production,
-    query_cursor_to_cstring, query_page_request, require_output,
+    PpRepresentationSet, PpResourceId, ffi_call, initialize_output, invalid_argument,
+    lock_production, query_cursor_to_cstring, query_page_request, require_output,
 };
 use postproject_core::{AssetId, Error, RepresentationId};
 use std::ffi::c_char;
@@ -161,7 +161,7 @@ pub unsafe extern "C" fn pp_read_session_changes_since(
 /// Copies a bounded page of producing activities from the pinned view.
 ///
 /// # Safety
-/// Session/ID must be live/readable; cursor null or UTF-8, outputs writable.
+/// Session must be live; cursor null or UTF-8, outputs writable.
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_read_session_activities_producing_page(
     session: *const PpReadSession,
@@ -189,7 +189,7 @@ pub unsafe extern "C" fn pp_read_session_activities_producing_page(
 /// Copies a bounded page of consuming activities from the pinned view.
 ///
 /// # Safety
-/// Session/ID must be live/readable; cursor null or UTF-8, outputs writable.
+/// Session must be live; cursor null or UTF-8, outputs writable.
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_read_session_activities_consuming_page(
     session: *const PpReadSession,
@@ -449,7 +449,7 @@ pub unsafe extern "C" fn pp_read_session_objects_changed_since(
 /// Copies recorded dependency knowledge, preserving absence versus an empty set.
 ///
 /// # Safety
-/// Session/ID must be live/readable; output writable, error nullable/writable.
+/// Session must be live; output writable, error nullable/writable.
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_read_session_dependency_set(
     session: *const PpReadSession,
@@ -473,7 +473,7 @@ pub unsafe extern "C" fn pp_read_session_dependency_set(
 /// Traverses dependency knowledge in the pinned view with explicit bounds.
 ///
 /// # Safety
-/// Session/ID must be live/readable; cursor null or UTF-8, outputs writable.
+/// Session must be live; cursor null or UTF-8, outputs writable.
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_read_session_dependencies(
     session: *const PpReadSession,
@@ -537,7 +537,7 @@ pub unsafe extern "C" fn pp_read_session_dependents(
 /// Evaluates stored artifact evidence through the pinned view, without media I/O.
 ///
 /// # Safety
-/// Session/ID must be live/readable; outputs writable, error nullable/writable.
+/// Session must be live; outputs writable, error nullable/writable.
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_read_session_evaluate_artifact(
     session: *const PpReadSession,
@@ -565,7 +565,7 @@ pub unsafe extern "C" fn pp_read_session_evaluate_artifact(
 /// Copies artifact reproducibility knowledge from the pinned view.
 ///
 /// # Safety
-/// Session/ID must be live/readable; outputs writable, error nullable/writable.
+/// Session must be live; outputs writable, error nullable/writable.
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_read_session_artifact_reproducibility(
     session: *const PpReadSession,
@@ -630,7 +630,7 @@ pub unsafe extern "C" fn pp_read_session_jobs(
 /// Copies a bounded resource page from the pinned view.
 ///
 /// # Safety
-/// Session/ID must be live/readable; cursor null or UTF-8, outputs writable.
+/// Session must be live; cursor null or UTF-8, outputs writable.
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_read_session_resources_page(
     session: *const PpReadSession,
@@ -658,11 +658,11 @@ pub unsafe extern "C" fn pp_read_session_resources_page(
 /// Copies a bounded locator page from the pinned view.
 ///
 /// # Safety
-/// Session/ID must be live/readable; cursor null or UTF-8, outputs writable.
+/// Session must be live; cursor null or UTF-8, outputs writable.
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_read_session_locators_page(
     session: *const PpReadSession,
-    resource_id: *const PpUuid,
+    resource_id: PpResourceId,
     limit: u32,
     cursor: *const c_char,
     out_locators: *mut *mut crate::PpLocatorQuerySet,
@@ -686,11 +686,11 @@ pub unsafe extern "C" fn pp_read_session_locators_page(
 /// Copies representations using a resource from the pinned view.
 ///
 /// # Safety
-/// Session/ID must be live/readable; cursor null or UTF-8, outputs writable.
+/// Session must be live; cursor null or UTF-8, outputs writable.
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_read_session_representations_using_resource(
     session: *const PpReadSession,
-    resource_id: *const PpUuid,
+    resource_id: PpResourceId,
     limit: u32,
     cursor: *const c_char,
     out_representations: *mut *mut PpRepresentationSet,
@@ -761,12 +761,12 @@ pub unsafe extern "C" fn pp_read_session_resolve_assets(
 /// Compares current files with resource fingerprints from the pinned view.
 ///
 /// # Safety
-/// Session/ID must be live/readable; path UTF-8/NUL-terminated, naming null or
+/// Session must be live; path UTF-8/NUL-terminated, naming null or
 /// readable, outputs writable. Filesystem contents may change independently.
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_read_session_verify_resource(
     session: *const PpReadSession,
-    resource_id: *const PpUuid,
+    resource_id: PpResourceId,
     path: *const c_char,
     sequence_naming: *const crate::PpSequenceNaming,
     out_verification: *mut u32,

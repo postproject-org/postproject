@@ -11,7 +11,7 @@ use postproject_core::{
 
 use crate::{
     PP_OBJECT_ASSET, PP_OBJECT_REPRESENTATION, PpActivityId, PpObjectRef, PpRepresentationId,
-    PpUuid, exact_cstring,
+    PpResourceId, PpUuid, exact_cstring,
 };
 
 /// Opaque immutable artifact-evaluation result owned by the C caller.
@@ -78,7 +78,7 @@ pub struct PpArtifactDependencyPathSegment {
     /// Whether `source_resource_id` is present.
     pub has_source_resource: u8,
     /// Optional resource containing the authored reference.
-    pub source_resource_id: PpUuid,
+    pub source_resource_id: PpResourceId,
     /// Borrowed namespaced dependency kind.
     pub kind: *const std::ffi::c_char,
     /// Floating asset or pinned representation target.
@@ -112,7 +112,7 @@ pub(crate) struct AbiArtifactReason {
 struct AbiArtifactDependencyPathSegment {
     source_representation_id: PpRepresentationId,
     dependency_position: u32,
-    source_resource_id: Option<PpUuid>,
+    source_resource_id: Option<PpResourceId>,
     kind: CString,
     target: PpObjectRef,
     resolved_representation_id: Option<PpRepresentationId>,
@@ -434,7 +434,9 @@ impl AbiArtifactDependencyPathSegment {
             source_representation_id: self.source_representation_id,
             dependency_position: self.dependency_position,
             has_source_resource: u8::from(self.source_resource_id.is_some()),
-            source_resource_id: self.source_resource_id.unwrap_or(PpUuid { bytes: [0; 16] }),
+            source_resource_id: self
+                .source_resource_id
+                .unwrap_or(PpResourceId { bytes: [0; 16] }),
             kind: self.kind.as_ptr(),
             target: self.target,
             has_resolved_representation: u8::from(self.resolved_representation_id.is_some()),
@@ -467,7 +469,7 @@ impl TryFrom<&ArtifactDependencyPathSegment> for AbiArtifactDependencyPathSegmen
                 bytes: segment.source_representation_id().into_bytes(),
             },
             dependency_position: segment.dependency_position(),
-            source_resource_id: segment.source_resource_id().map(|id| PpUuid {
+            source_resource_id: segment.source_resource_id().map(|id| PpResourceId {
                 bytes: id.into_bytes(),
             }),
             kind: exact_cstring(segment.kind().as_str(), "dependency kind")?,

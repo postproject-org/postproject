@@ -7,10 +7,10 @@ use postproject_core::{
 };
 
 use crate::{
-    PpAssetId, PpError, PpProduction, PpRepresentationId, PpSequenceNaming, PpUuid, ffi_call,
-    initialize_output, initialize_uuid, initialize_value, invalid_argument, item_at,
-    lock_production, optional_naming, query_cursor_to_cstring, query_page_request, require_output,
-    required_bytes, required_utf8,
+    PpAssetId, PpError, PpProduction, PpRepresentationId, PpResourceId, PpSequenceNaming, PpUuid,
+    ffi_call, initialize_output, initialize_value, invalid_argument, item_at, lock_production,
+    optional_naming, query_cursor_to_cstring, query_page_request, require_output, required_bytes,
+    required_utf8,
 };
 
 /// Opaque immutable known-media result set owned by the C caller.
@@ -169,14 +169,14 @@ pub unsafe extern "C" fn pp_known_media_set_get(
     index: u64,
     out_asset_id: *mut PpAssetId,
     out_representation_id: *mut PpRepresentationId,
-    out_resource_id: *mut PpUuid,
+    out_resource_id: *mut PpResourceId,
     out_error: *mut *mut PpError,
 ) -> u32 {
     // SAFETY: Outputs are initialized and checked before writes.
     unsafe {
         initialize_value(out_asset_id, PpAssetId { bytes: [0; 16] });
         initialize_value(out_representation_id, PpRepresentationId { bytes: [0; 16] });
-        initialize_uuid(out_resource_id);
+        initialize_value(out_resource_id, PpResourceId { bytes: [0; 16] });
         ffi_call(out_error, || {
             require_output(out_asset_id, "out_asset_id")?;
             require_output(out_representation_id, "out_representation_id")?;
@@ -191,7 +191,7 @@ pub unsafe extern "C" fn pp_known_media_set_get(
             out_representation_id.write(PpRepresentationId {
                 bytes: value.representation.into_bytes(),
             });
-            out_resource_id.write(PpUuid {
+            out_resource_id.write(PpResourceId {
                 bytes: value.resource.into_bytes(),
             });
             Ok(())

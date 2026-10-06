@@ -8,8 +8,8 @@ use postproject_core::{
 };
 
 use crate::{
-    PP_OBJECT_ASSET, PP_OBJECT_REPRESENTATION, PpObjectRef, PpRepresentationId, PpUuid,
-    exact_cstring,
+    PP_OBJECT_ASSET, PP_OBJECT_REPRESENTATION, PpObjectRef, PpRepresentationId, PpResourceId,
+    PpUuid, exact_cstring,
 };
 
 /// Opaque immutable dependency observation owned by the C caller.
@@ -45,7 +45,7 @@ pub struct PpDependency {
     /// Whether `source_resource_id` is present.
     pub has_source_resource: u8,
     /// Optional resource containing the authored reference.
-    pub source_resource_id: PpUuid,
+    pub source_resource_id: PpResourceId,
     /// Required NUL-terminated namespaced dependency kind.
     pub kind: *const c_char,
     /// Floating asset or pinned representation target.
@@ -61,7 +61,7 @@ pub struct PpDependency {
 }
 
 struct AbiDependency {
-    source_resource_id: Option<PpUuid>,
+    source_resource_id: Option<PpResourceId>,
     kind: CString,
     target: PpObjectRef,
     resolved_representation_id: Option<PpRepresentationId>,
@@ -174,7 +174,9 @@ impl AbiDependency {
     fn as_abi(&self) -> PpDependency {
         PpDependency {
             has_source_resource: u8::from(self.source_resource_id.is_some()),
-            source_resource_id: self.source_resource_id.unwrap_or(PpUuid { bytes: [0; 16] }),
+            source_resource_id: self
+                .source_resource_id
+                .unwrap_or(PpResourceId { bytes: [0; 16] }),
             kind: self.kind.as_ptr(),
             target: self.target,
             has_resolved_representation: u8::from(self.resolved_representation_id.is_some()),
@@ -202,7 +204,7 @@ impl TryFrom<&Dependency> for AbiDependency {
             }
         };
         Ok(Self {
-            source_resource_id: dependency.source_resource_id().map(|id| PpUuid {
+            source_resource_id: dependency.source_resource_id().map(|id| PpResourceId {
                 bytes: id.into_bytes(),
             }),
             kind: exact_cstring(dependency.kind().as_str(), "dependency kind")?,
