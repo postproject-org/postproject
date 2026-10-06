@@ -71,6 +71,12 @@ optional stale-artifact source filters borrow typed IDs. C++ additions return
 `RepresentationId`; use checked representation reference factories/projections
 when reading saved bindings. Resource IDs remain a separate family.
 
+C++ `ObjectRef` now owns a private variant of typed IDs. Replace `.kind` with
+`.kind()` and `.id` with the kind-specific projection; use `.asUuid()` for
+explicit interchange. Inspect `.value()` with `std::get_if`. Typed factories
+replace kind/UUID aggregate construction; checked `fromUuid` rejects unknown
+kinds. Production targets use `ObjectRef::production` / `productionId()`.
+
 Resource operations use `pp_resource_id_t` / `ResourceId` through members,
 locator ownership, verification, resolution, dependencies and revision events.
 Remove `&` from required C resource inputs, including locator paging. Use

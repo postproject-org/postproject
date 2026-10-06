@@ -69,6 +69,7 @@ Read the relevant ADR before changing an invariant, a boundary, or a public cont
 - {doc}`ADR 0051 — Closed job-state projections </adr/0051-closed-job-state-projections>`
 - {doc}`ADR 0052 — Mergeable metadata and destructive decisions </adr/0052-metadata-append-conflicts>`
 - {doc}`ADR 0053 — Fresh bounded media-root reads </adr/0053-fresh-bounded-media-root-reads>`
+- {doc}`ADR 0054 — C++ dynamic reference values </adr/0054-cpp-dynamic-reference-values>`
 
 ```{toctree}
 :hidden:
@@ -126,4 +127,5 @@ Read the relevant ADR before changing an invariant, a boundary, or a public cont
 /adr/0051-closed-job-state-projections
 /adr/0052-metadata-append-conflicts
 /adr/0053-fresh-bounded-media-root-reads
+/adr/0054-cpp-dynamic-reference-values
 ```

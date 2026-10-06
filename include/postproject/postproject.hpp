@@ -687,38 +687,101 @@ enum class ObjectKind : std::uint32_t {
   job = PP_OBJECT_JOB,
 };
 
-struct ObjectRef final {
-  ObjectKind kind;
-  Uuid id;
+class ObjectRef final {
+public:
+  using Value = std::variant<ProductionId, AssetId, RepresentationId,
+                             ResourceId, ActivityId, JobId>;
 
-  [[nodiscard]] Result<AssetId> assetId() const;
-  [[nodiscard]] Result<JobId> jobId() const;
-  [[nodiscard]] Result<ActivityId> activityId() const;
-  [[nodiscard]] Result<RepresentationId> representationId() const;
-  [[nodiscard]] Result<ResourceId> resourceId() const;
+  [[nodiscard]] const Value &value() const noexcept { return value_; }
+  [[nodiscard]] ObjectKind kind() const noexcept {
+    return std::visit(
+        [](const auto &id) {
+          using Id = std::decay_t<decltype(id)>;
+          if constexpr (std::is_same_v<Id, ProductionId>) {
+            return ObjectKind::production;
+          } else if constexpr (std::is_same_v<Id, AssetId>) {
+            return ObjectKind::asset;
+          } else if constexpr (std::is_same_v<Id, RepresentationId>) {
+            return ObjectKind::representation;
+          } else if constexpr (std::is_same_v<Id, ResourceId>) {
+            return ObjectKind::resource;
+          } else if constexpr (std::is_same_v<Id, ActivityId>) {
+            return ObjectKind::activity;
+          } else {
+            static_assert(std::is_same_v<Id, JobId>);
+            return ObjectKind::job;
+          }
+        },
+        value_);
+  }
+  [[nodiscard]] Uuid asUuid() const noexcept {
+    return std::visit([](const auto &id) { return id.asUuid(); }, value_);
+  }
+
+  // Explicit interchange: kind is checked; existence/scope are store checks.
+  [[nodiscard]] static Result<ObjectRef> fromUuid(ObjectKind kind, Uuid id) {
+    switch (kind) {
+    case ObjectKind::production:
+      return production(ProductionId(id));
+    case ObjectKind::asset:
+      return asset(AssetId(id));
+    case ObjectKind::representation:
+      return representation(RepresentationId(id));
+    case ObjectKind::resource:
+      return resource(ResourceId(id));
+    case ObjectKind::activity:
+      return activity(ActivityId(id));
+    case ObjectKind::job:
+      return job(JobId(id));
+    default:
+      return Error(ErrorCode::invalid_argument,
+                   "unknown object reference kind");
+    }
+  }
+
+  [[nodiscard]] static constexpr ObjectRef
+  production(const ProductionId &id) noexcept {
+    return ObjectRef(id);
+  }
+  [[nodiscard]] Result<ProductionId> productionId() const;
 
   [[nodiscard]] static constexpr ObjectRef asset(const AssetId &id) noexcept {
-    return {ObjectKind::asset, id.asUuid()};
+    return ObjectRef(id);
   }
+  [[nodiscard]] Result<AssetId> assetId() const;
+
+  [[nodiscard]] static constexpr ObjectRef
+  representation(const RepresentationId &id) noexcept {
+    return ObjectRef(id);
+  }
+  [[nodiscard]] Result<RepresentationId> representationId() const;
+
+  [[nodiscard]] static constexpr ObjectRef
+  resource(const ResourceId &id) noexcept {
+    return ObjectRef(id);
+  }
+  [[nodiscard]] Result<ResourceId> resourceId() const;
+
+  [[nodiscard]] static constexpr ObjectRef
+  activity(const ActivityId &id) noexcept {
+    return ObjectRef(id);
+  }
+  [[nodiscard]] Result<ActivityId> activityId() const;
 
   [[nodiscard]] static constexpr ObjectRef job(const JobId &id) noexcept {
-    return {ObjectKind::job, id.asUuid()};
+    return ObjectRef(id);
+  }
+  [[nodiscard]] Result<JobId> jobId() const;
+
+  friend bool operator==(const ObjectRef &left,
+                         const ObjectRef &right) noexcept {
+    return left.value_ == right.value_;
   }
 
-  [[nodiscard]] static constexpr ObjectRef activity(const ActivityId &id) noexcept {
-    return {ObjectKind::activity, id.asUuid()};
-  }
-  [[nodiscard]] static constexpr ObjectRef representation(const RepresentationId &id) noexcept {
-    return {ObjectKind::representation, id.asUuid()};
-  }
-  [[nodiscard]] static constexpr ObjectRef resource(const ResourceId &id) noexcept {
-    return {ObjectKind::resource, id.asUuid()};
-  }
-
-  friend constexpr bool operator==(const ObjectRef &left,
-                                   const ObjectRef &right) noexcept {
-    return left.kind == right.kind && left.id == right.id;
-  }
+private:
+  template <typename Id>
+  explicit constexpr ObjectRef(const Id &id) noexcept : value_(id) {}
+  Value value_;
 };
 
 enum class ConflictKeyKind : std::uint32_t {
@@ -1682,6 +1745,7 @@ inline MediaRootId media_root_id(const pp_media_root_id_t &value);
 inline RevisionId revision_id(const pp_revision_id_t &value);
 inline TransactionId transaction_id(const pp_transaction_id_t &value);
 inline std::optional<std::string> optional_string(const char *value);
+inline Result<ObjectRef> object_ref(const pp_object_ref_t &value);
 
 // raw_error is read by reference so that check(pp_call(..., &error), error) is
 // correct whichever argument the compiler evaluates first.
@@ -1701,11 +1765,14 @@ inline Result<void> check(pp_error_code_t status,
     const bool fingerprint =
         kind == ConflictKeyKind::resource_fingerprint ||
         kind == ConflictKeyKind::representation_fingerprint;
-    std::variant<ObjectRef, MediaRootId> target =
-        kind == ConflictKeyKind::media_root
-            ? std::variant<ObjectRef, MediaRootId>(media_root_id(native.media_root_id))
-            : std::variant<ObjectRef, MediaRootId>(ObjectRef{
-                  static_cast<ObjectKind>(native.target.kind), uuid(native.target.id)});
+    auto decode_target = [&]() -> Result<std::variant<ObjectRef, MediaRootId>> {
+      if (kind == ConflictKeyKind::media_root) {
+        return std::variant<ObjectRef, MediaRootId>(media_root_id(native.media_root_id));
+      }
+      POSTPROJECT_TRY_ASSIGN(auto object, object_ref(native.target));
+      return std::variant<ObjectRef, MediaRootId>(std::move(object));
+    };
+    POSTPROJECT_TRY_ASSIGN(auto target, decode_target());
     transaction_conflict = std::make_shared<TransactionConflict>(
         TransactionConflict{
             {kind, std::move(target),
@@ -1868,12 +1935,12 @@ inline pp_transaction_id_t native_transaction_id(const TransactionId &value) {
   return native;
 }
 
-inline ObjectRef object_ref(const pp_object_ref_t &value) {
-  return {static_cast<ObjectKind>(value.kind), uuid(value.id)};
+inline Result<ObjectRef> object_ref(const pp_object_ref_t &value) {
+  return ObjectRef::fromUuid(static_cast<ObjectKind>(value.kind), uuid(value.id));
 }
 
 inline pp_object_ref_t native_object_ref(const ObjectRef &value) {
-  return {static_cast<pp_object_kind_t>(value.kind), native_uuid(value.id)};
+  return {static_cast<pp_object_kind_t>(value.kind()), native_uuid(value.asUuid())};
 }
 
 inline std::optional<std::string> optional_string(const char *value) {
@@ -2425,11 +2492,12 @@ dependency_set(DependencySetHandle dependencies) {
     if (native.kind == nullptr || native.authored_reference == nullptr) {
       return Error(ErrorCode::internal, "dependency has a null string");
     }
+    POSTPROJECT_TRY_ASSIGN(auto target, object_ref(native.target));
     result.push_back(
         {native.has_source_resource != 0
              ? std::optional<ResourceId>(detail::resource_id(native.source_resource_id))
              : std::nullopt,
-         std::string(native.kind), object_ref(native.target),
+         std::string(native.kind), std::move(target),
          native.has_resolved_representation != 0
              ? std::optional<RepresentationId>(
                    detail::representation_id(native.resolved_representation_id))
@@ -2452,7 +2520,8 @@ dependency_query_page(DependencyQuerySetHandle matches) {
     const pp_error_code_t status = pp_dependency_query_set_get(
         matches.get(), index, &native, &error);
     POSTPROJECT_TRY(check(status, error));
-    items.push_back({object_ref(native.target), native.depth});
+    POSTPROJECT_TRY_ASSIGN(auto target, object_ref(native.target));
+    items.push_back({std::move(target), native.depth});
   }
   const char *cursor = pp_dependency_query_set_next_cursor(matches.get());
   return QueryPage<DependencyMatch>{
@@ -2504,7 +2573,8 @@ object_query_page(ObjectQuerySetHandle objects) {
     const pp_error_code_t status = pp_object_query_set_get(
         objects.get(), index, &object, &depth, &error);
     POSTPROJECT_TRY(check(status, error));
-    items.push_back({object_ref(object), depth});
+    POSTPROJECT_TRY_ASSIGN(auto target, object_ref(object));
+    items.push_back({std::move(target), depth});
   }
   const char *cursor = pp_object_query_set_next_cursor(objects.get());
   return QueryPage<ObjectMatch>{
@@ -2522,17 +2592,18 @@ inline QueryPage<ObjectRef> object_ref_page(QueryPage<ObjectMatch> page) {
           page.traversal_truncated};
 }
 
-template <typename Id = Uuid>
+template <typename Id>
 inline Result<QueryPage<Id>> object_id_page(QueryPage<ObjectMatch> page,
                                               ObjectKind kind) {
   std::vector<Id> items;
   items.reserve(page.items.size());
   for (const ObjectMatch &match : page.items) {
-    if (match.object.kind != kind) {
+    const auto *id = std::get_if<Id>(&match.object.value());
+    if (match.object.kind() != kind || id == nullptr) {
       return Error(ErrorCode::internal,
                    "object query returned an unexpected object kind");
     }
-    items.push_back(Id(match.object.id));
+    items.push_back(*id);
   }
   return QueryPage<Id>{std::move(items), std::move(page.next_cursor),
                          page.traversal_truncated};
@@ -2721,9 +2792,10 @@ revision_event(const pp_revision_event_set_t *events, std::uint64_t index) {
     POSTPROJECT_TRY_ASSIGN(
         std::string value,
         required_event_string(event.identifier_value, "identifier value"));
+    POSTPROJECT_TRY_ASSIGN(auto target, object_ref(event.target));
     return RevisionEvent{event.position,
                          ExternalIdentifierAddedEvent{
-                             object_ref(event.target),
+                             std::move(target),
                              {std::move(scheme), std::move(value),
                               optional_string(event.identifier_qualifier)}}};
   }
@@ -2734,9 +2806,10 @@ revision_event(const pp_revision_event_set_t *events, std::uint64_t index) {
     POSTPROJECT_TRY_ASSIGN(
         std::string value,
         required_event_string(event.identifier_value, "identifier value"));
+    POSTPROJECT_TRY_ASSIGN(auto target, object_ref(event.target));
     return RevisionEvent{event.position,
                          ExternalIdentifierRemovedEvent{
-                             object_ref(event.target),
+                             std::move(target),
                              {std::move(scheme), std::move(value),
                               optional_string(event.identifier_qualifier)}}};
   }
@@ -2747,8 +2820,9 @@ revision_event(const pp_revision_event_set_t *events, std::uint64_t index) {
     POSTPROJECT_TRY_ASSIGN(
         std::string property,
         required_event_string(event.property, "metadata property"));
+    POSTPROJECT_TRY_ASSIGN(auto target, object_ref(event.target));
     return RevisionEvent{event.position,
-                         MetadataAddedOrReplacedEvent{object_ref(event.target),
+                         MetadataAddedOrReplacedEvent{std::move(target),
                                                       std::move(vocabulary),
                                                       std::move(property)}};
   }
@@ -2759,8 +2833,9 @@ revision_event(const pp_revision_event_set_t *events, std::uint64_t index) {
     POSTPROJECT_TRY_ASSIGN(
         std::string property,
         required_event_string(event.property, "metadata property"));
+    POSTPROJECT_TRY_ASSIGN(auto target, object_ref(event.target));
     return RevisionEvent{event.position,
-                         MetadataRemovedEvent{object_ref(event.target),
+                         MetadataRemovedEvent{std::move(target),
                                               std::move(vocabulary),
                                               std::move(property)}};
   }
@@ -3004,7 +3079,7 @@ resolution_values(ResolutionSetHandle resolutions) {
   return result;
 }
 
-inline std::vector<ArtifactDependencyPathSegment>
+inline Result<std::vector<ArtifactDependencyPathSegment>>
 artifact_dependency_path(const pp_artifact_reason_t &native) {
   std::vector<ArtifactDependencyPathSegment> dependency_path;
   dependency_path.reserve(
@@ -3013,13 +3088,14 @@ artifact_dependency_path(const pp_artifact_reason_t &native) {
        path_index < native.dependency_path_length; ++path_index) {
     const pp_artifact_dependency_path_segment_t &segment =
         native.dependency_path[path_index];
+    POSTPROJECT_TRY_ASSIGN(auto target, object_ref(segment.target));
     dependency_path.push_back(
         {detail::representation_id(segment.source_representation_id),
          segment.dependency_position,
          segment.has_source_resource != 0
              ? std::optional<ResourceId>(detail::resource_id(segment.source_resource_id))
              : std::nullopt,
-         std::string(segment.kind), object_ref(segment.target),
+         std::string(segment.kind), std::move(target),
          segment.has_resolved_representation != 0
              ? std::optional<RepresentationId>(
                    detail::representation_id(segment.resolved_representation_id))
@@ -3047,7 +3123,7 @@ inline Result<ArtifactReason> artifact_reason(const pp_artifact_reason_t &native
       kind == ArtifactReasonKind::fingerprint_recomputation_pending ||
       has_dependency;
   const bool has_edge = has_activity && !has_dependency;
-  auto dependency_path = artifact_dependency_path(native);
+  POSTPROJECT_TRY_ASSIGN(auto dependency_path, artifact_dependency_path(native));
   ArtifactReason reason{
       kind,
        has_activity ? std::optional<ActivityId>(detail::activity_id(native.activity_id))
@@ -3247,39 +3323,34 @@ inline Result<std::string> ProductionId::toString() const {
   return std::string(owned.get());
 }
 
+inline Result<ProductionId> ObjectRef::productionId() const {
+  if (const auto *id = std::get_if<ProductionId>(&value_)) return *id;
+  return Error(ErrorCode::invalid_argument, "reference must name a production");
+}
+
 inline Result<AssetId> ObjectRef::assetId() const {
-  if (kind != ObjectKind::asset) {
-    return Error(ErrorCode::invalid_argument, "reference must name an asset");
-  }
-  return AssetId(id);
-}
-
-inline Result<JobId> ObjectRef::jobId() const {
-  if (kind != ObjectKind::job) {
-    return Error(ErrorCode::invalid_argument, "reference must name an job");
-  }
-  return JobId(id);
-}
-
-inline Result<ActivityId> ObjectRef::activityId() const {
-  if (kind != ObjectKind::activity) {
-    return Error(ErrorCode::invalid_argument, "reference must name an activity");
-  }
-  return ActivityId(id);
+  if (const auto *id = std::get_if<AssetId>(&value_)) return *id;
+  return Error(ErrorCode::invalid_argument, "reference must name an asset");
 }
 
 inline Result<RepresentationId> ObjectRef::representationId() const {
-  if (kind != ObjectKind::representation) {
-    return Error(ErrorCode::invalid_argument, "reference must name a representation");
-  }
-  return RepresentationId(id);
+  if (const auto *id = std::get_if<RepresentationId>(&value_)) return *id;
+  return Error(ErrorCode::invalid_argument, "reference must name a representation");
 }
 
 inline Result<ResourceId> ObjectRef::resourceId() const {
-  if (kind != ObjectKind::resource) {
-    return Error(ErrorCode::invalid_argument, "reference must name a resource");
-  }
-  return ResourceId(id);
+  if (const auto *id = std::get_if<ResourceId>(&value_)) return *id;
+  return Error(ErrorCode::invalid_argument, "reference must name a resource");
+}
+
+inline Result<ActivityId> ObjectRef::activityId() const {
+  if (const auto *id = std::get_if<ActivityId>(&value_)) return *id;
+  return Error(ErrorCode::invalid_argument, "reference must name an activity");
+}
+
+inline Result<JobId> ObjectRef::jobId() const {
+  if (const auto *id = std::get_if<JobId>(&value_)) return *id;
+  return Error(ErrorCode::invalid_argument, "reference must name a job");
 }
 
 inline Result<AssetId> AssetId::fromString(std::string_view text) {
@@ -3511,8 +3582,8 @@ HostObjectBinding::fromString(std::string_view value) {
   const pp_error_code_t status = pp_host_binding_parse(
       checked.c_str(), &production_id, &object, &error);
   POSTPROJECT_TRY(detail::check(status, error));
-  return HostObjectBinding{detail::production_id(production_id),
-                           detail::object_ref(object)};
+  POSTPROJECT_TRY_ASSIGN(auto target, detail::object_ref(object));
+  return HostObjectBinding{detail::production_id(production_id), std::move(target)};
 }
 
 class MetadataValue;
@@ -4039,7 +4110,8 @@ inline Result<MetadataValue> metadata_value(const pp_metadata_value_t *value) {
     const pp_error_code_t status =
         pp_metadata_value_get_reference(value, &target, &error);
     POSTPROJECT_TRY(check(status, error));
-    return MetadataValue::reference(object_ref(target));
+    POSTPROJECT_TRY_ASSIGN(auto reference, object_ref(target));
+    return MetadataValue::reference(reference);
   }
   default:
     return Error(ErrorCode::internal, "unknown metadata value kind");
@@ -4064,7 +4136,8 @@ metadata_page(MetadataSetHandle metadata) {
       return Error(ErrorCode::internal, "metadata assertion is incomplete");
     }
     POSTPROJECT_TRY_ASSIGN(MetadataValue item, metadata_value(value));
-    items.push_back({object_ref(target), std::string(vocabulary),
+    POSTPROJECT_TRY_ASSIGN(auto reference, object_ref(target));
+    items.push_back({std::move(reference), std::string(vocabulary),
                      std::string(property), std::move(item)});
   }
   const char *cursor = pp_metadata_set_next_cursor(metadata.get());
@@ -5645,7 +5718,8 @@ public:
       const pp_error_code_t item_status =
           pp_object_ref_set_get(objects.get(), index, &object, &item_error);
       POSTPROJECT_TRY(detail::check(item_status, item_error));
-      result.push_back(detail::object_ref(object));
+      POSTPROJECT_TRY_ASSIGN(auto reference, detail::object_ref(object));
+      result.push_back(std::move(reference));
     }
     return result;
   }
@@ -6310,7 +6384,8 @@ public:
       const pp_error_code_t item_status =
           pp_object_ref_set_get(objects.get(), index, &object, &item_error);
       POSTPROJECT_TRY(detail::check(item_status, item_error));
-      result.push_back(detail::object_ref(object));
+      POSTPROJECT_TRY_ASSIGN(auto reference, detail::object_ref(object));
+      result.push_back(std::move(reference));
     }
     return result;
   }

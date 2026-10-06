@@ -5,6 +5,8 @@ All notable changes to PostProject will be documented here. The project uses
 
 ## Unreleased
 
+- Make C++ object references private typed variants with checked interchange and projections.
+
 - Validate Python query integers before native conversion, rejecting integer wraparound.
 
 - Remove cached Rust production roots; open/edit stay bounded and CLI inspection pages roots.
