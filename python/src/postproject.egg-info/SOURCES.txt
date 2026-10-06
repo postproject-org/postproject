@@ -22,6 +22,7 @@ tests/test_job_status.py
 tests/test_metadata_edits.py
 tests/test_native.py
 tests/test_production.py
+tests/test_query_bounds.py
 tests/test_read_sessions.py
 tests/test_root_edits.py
 tests/typing_ids.py

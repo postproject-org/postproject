@@ -5,10 +5,76 @@ import unittest
 from collections.abc import Callable
 from pathlib import Path
 
-from postproject import InvalidArgumentError, MetadataProperty, Production
+from postproject import (
+    AssetRef,
+    InvalidArgumentError,
+    MetadataProperty,
+    Production,
+    RevisionObserver,
+)
 
 
 class QueryBoundsTests(unittest.TestCase):
+    def test_sequence_traversal_and_resolver_bounds_cannot_wrap(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            media = root / "media.mov"
+            media.write_bytes(b"query bounds fixture")
+            with Production.create(root / "production.pproj") as production:
+                with production.transaction() as edit:
+                    asset = edit.import_media(media)
+                    edit.commit()
+                representation = production.representations[asset][0].id
+                with (
+                    production.read_session() as view,
+                    production.revision_waiter() as waiter,
+                ):
+                    for reader in (production, view):
+                        for invalid in (-1, 2**64, 2**64 + 1):
+                            with self.assertRaises(InvalidArgumentError):
+                                reader.changes_since(invalid, 1)
+                            with self.assertRaises(InvalidArgumentError):
+                                reader.objects_changed_since(invalid, limit=1)
+                            with self.assertRaises(InvalidArgumentError):
+                                waiter.wait(invalid, timeout=0)
+                        for invalid in (-1, 2**32 + 1):
+                            with self.assertRaises(InvalidArgumentError):
+                                reader.dependencies(
+                                    representation,
+                                    max_depth=invalid,
+                                    max_representations=10,
+                                    limit=1,
+                                )
+                            with self.assertRaises(InvalidArgumentError):
+                                reader.dependents(
+                                    AssetRef(asset),
+                                    max_depth=1,
+                                    max_representations=invalid,
+                                    limit=1,
+                                )
+                            with self.assertRaises(InvalidArgumentError):
+                                reader.evaluate_artifact(
+                                    representation, max_depth=invalid
+                                )
+                            with self.assertRaises(InvalidArgumentError):
+                                reader.resolve(asset, max_depth=invalid)
+                        with self.assertRaises(InvalidArgumentError):
+                            reader.resolve(asset, max_entries_per_directory=2**64 + 1)
+                        with self.assertRaises(TypeError):
+                            reader.changes_since(True, 1)
+                        with self.assertRaises(TypeError):
+                            reader.dependencies(
+                                representation,
+                                max_depth=True,
+                                max_representations=10,
+                                limit=1,
+                            )
+                        self.assertEqual(len(reader.changes_since(0, 1)), 1)
+                with self.assertRaises(InvalidArgumentError):
+                    RevisionObserver(
+                        production, lambda revision, events: None, after_sequence=2**64
+                    )
+
     def test_live_retained_and_waiter_limits_reject_wraparound(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
