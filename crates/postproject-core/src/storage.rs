@@ -612,6 +612,8 @@ pub trait ProductionStoreTransaction {
 
     /// Stages removal of one exact external identifier attachment.
     ///
+    /// Requires a decision base. Early rejection leaves the transaction open.
+    ///
     /// # Errors
     ///
     /// Returns a domain error when the transaction is closed, the attachment

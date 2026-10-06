@@ -30,10 +30,10 @@ it does not disable conflict checks. Validate production identity and revision
 identity/sequence together. Existing semantic conflict keys protect mutated
 facts, not every fact a caller read. This is not full read-set serializability.
 
-Metadata replacement/removal (ADR 0052), root enabling/removal and locator
-retirement require a decision base before reading or staging a mutation.
-Even a request for the
-root's existing state requires that base. Early rejection leaves the transaction
+Metadata replacement/removal (ADR 0052), root enabling/removal, locator
+retirement and external identifier removal require a decision base before
+reading or staging a mutation. Even a request for a root's existing state
+requires that base. Early rejection leaves the transaction
 open and stages nothing. Root creation and metadata appends remain additive.
 Other unbased mutation families remain under review during migration.
 

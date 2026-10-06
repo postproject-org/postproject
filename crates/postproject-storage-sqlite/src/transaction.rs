@@ -998,6 +998,8 @@ impl<'production> SqliteTransaction<'production> {
 
     /// Stages removal of an exact external identifier attachment.
     ///
+    /// Requires a decision base; early rejection leaves the transaction open.
+    ///
     /// # Errors
     ///
     /// Returns [`ErrorKind::NotFound`] if the attachment does not exist,
@@ -1008,6 +1010,8 @@ impl<'production> SqliteTransaction<'production> {
         target: ObjectRef,
         identifier: &ExternalIdentifier,
     ) -> Result<()> {
+        self.lifecycle.ensure_open()?;
+        self.require_decision_base()?;
         let (target_kind, target_id) = encode_identifier_target(&target)?;
         let changed = self
             .open_transaction()?

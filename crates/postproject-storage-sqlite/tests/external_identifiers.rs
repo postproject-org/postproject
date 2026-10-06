@@ -171,7 +171,8 @@ fn identifier_mutations_are_atomic_and_validate_targets() {
     }
 
     {
-        let mut transaction = production.begin_transaction().expect("begin transaction");
+        let base = production.read_session().unwrap().decision_base();
+        let mut transaction = production.begin_edit(base).expect("begin based edit");
         transaction
             .remove_external_identifier(target, &external_id)
             .expect("stage removal");
