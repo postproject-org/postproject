@@ -1002,7 +1002,7 @@ class Production:
         status = self._native.lib.pp_production_find_known_media_by_fingerprint(
             self._handle,
             _utf8(fingerprint.algorithm, "fingerprint algorithm"),
-            fingerprint.version,
+            _unsigned(fingerprint.version, 16, "fingerprint version"),
             value,
             len(fingerprint.value),
             _page_limit(limit),
@@ -2825,7 +2825,7 @@ class ReadSession:
         status = self._native.lib.pp_read_session_find_known_media_by_fingerprint(
             self._handle,
             _utf8(fingerprint.algorithm, "fingerprint algorithm"),
-            fingerprint.version,
+            _unsigned(fingerprint.version, 16, "fingerprint version"),
             value,
             len(fingerprint.value),
             _page_limit(limit),
@@ -3295,10 +3295,7 @@ class Transaction:
         """Stage a portable logical root used for resource discovery."""
 
         self._require_open()
-        if not isinstance(priority, int):
-            raise TypeError("root priority must be an int")
-        if not -(1 << 31) <= priority < (1 << 31):
-            raise ValueError("root priority must fit a signed 32-bit integer")
+        _signed(priority, 32, "root priority")
         root_id = _abi.MediaRootId()
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_transaction_add_media_root(
@@ -3402,7 +3399,7 @@ class Transaction:
             self._handle,
             native_id,
             _utf8(fingerprint.algorithm, "fingerprint algorithm"),
-            fingerprint.version,
+            _unsigned(fingerprint.version, 16, "fingerprint version"),
             value,
             len(fingerprint.value),
             ctypes.byref(error),
@@ -3454,7 +3451,7 @@ class Transaction:
             self._handle,
             native_id,
             _utf8(fingerprint.algorithm, "fingerprint algorithm"),
-            fingerprint.version,
+            _unsigned(fingerprint.version, 16, "fingerprint version"),
             value,
             len(fingerprint.value),
             ctypes.byref(error),
@@ -3598,8 +3595,8 @@ class Transaction:
             _optional_text(identifier.scheme if identifier else None),
             _optional_text(identifier.value if identifier else None),
             _optional_text(identifier.qualifier if identifier else None),
-            now_unix_micros,
-            expires_at_unix_micros,
+            _signed(now_unix_micros, 64, "claim time"),
+            _signed(expires_at_unix_micros, 64, "claim expiry"),
             ctypes.byref(claim_id),
             ctypes.byref(error),
         )
@@ -3623,8 +3620,8 @@ class Transaction:
             self._handle,
             native_job_id,
             ctypes.byref(native_claim_id),
-            now_unix_micros,
-            expires_at_unix_micros,
+            _signed(now_unix_micros, 64, "claim time"),
+            _signed(expires_at_unix_micros, 64, "claim expiry"),
             ctypes.byref(error),
         )
         self._native.check(status, error)
@@ -3664,7 +3661,7 @@ class Transaction:
             self._handle,
             native_job_id,
             ctypes.byref(native_claim_id),
-            now_unix_micros,
+            _signed(now_unix_micros, 64, "claim time"),
             native_output_id,
             native_activity_id,
             ctypes.byref(error),
@@ -3688,7 +3685,7 @@ class Transaction:
             self._handle,
             native_job_id,
             ctypes.byref(native_claim_id),
-            now_unix_micros,
+            _signed(now_unix_micros, 64, "claim time"),
             _utf8(diagnostic, "job failure diagnostic"),
             ctypes.byref(error),
         )
@@ -3941,15 +3938,20 @@ class _NativeMediaSource:
             )
         elif isinstance(source, ImageSequenceSource):
             missing_type = ctypes.c_int64 * len(source.missing_frames)
-            missing_frames = missing_type(*source.missing_frames)
+            missing_frames = missing_type(
+                *(
+                    _signed(frame, 64, "missing frame")
+                    for frame in source.missing_frames
+                )
+            )
             status = native.lib.pp_media_source_create_image_sequence(
                 _path_bytes(source.directory),
                 _native_naming(source.naming),
-                source.start,
-                source.end,
-                source.step,
-                source.rate_numerator,
-                source.rate_denominator,
+                _signed(source.start, 64, "start frame"),
+                _signed(source.end, 64, "end frame"),
+                _unsigned(source.step, 32, "frame step"),
+                _unsigned(source.rate_numerator, 32, "rate numerator"),
+                _unsigned(source.rate_denominator, 32, "rate denominator"),
                 missing_frames,
                 len(missing_frames),
                 ctypes.byref(self.handle),
@@ -4129,7 +4131,7 @@ def _native_naming(
         _abi.SequenceNaming(
             _utf8(naming.prefix, "sequence naming prefix"),
             _utf8(naming.suffix, "sequence naming suffix"),
-            naming.padding,
+            _unsigned(naming.padding, 8, "sequence padding"),
         )
     )
 
@@ -4265,7 +4267,7 @@ def _native_activity_edges(
 
 
 def _optional_i64(value: int | None) -> ctypes.c_int64 | None:
-    return None if value is None else ctypes.c_int64(value)
+    return None if value is None else ctypes.c_int64(_signed(value, 64, "timestamp"))
 
 
 def _native_object_reference(value: ObjectReference) -> _abi.ObjectRef:
@@ -4328,6 +4330,17 @@ def _unsigned(value: int, bits: int, name: str) -> int:
         raise InvalidArgumentError(
             _abi.PP_ERROR_INVALID_ARGUMENT,
             f"{name} is outside its unsigned {bits}-bit range",
+        )
+    return value
+
+
+def _signed(value: int, bits: int, name: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise TypeError(f"{name} must be an int")
+    if not -(2 ** (bits - 1)) <= value < 2 ** (bits - 1):
+        raise InvalidArgumentError(
+            _abi.PP_ERROR_INVALID_ARGUMENT,
+            f"{name} is outside its signed {bits}-bit range",
         )
     return value
 
@@ -4420,18 +4433,22 @@ def _metadata_input(
         )
     if isinstance(value, MetadataI64):
         return _create_metadata_input(
-            native, native.lib.pp_metadata_input_create_i64, value.value
+            native,
+            native.lib.pp_metadata_input_create_i64,
+            _signed(value.value, 64, "metadata integer"),
         )
     if isinstance(value, MetadataU64):
         return _create_metadata_input(
-            native, native.lib.pp_metadata_input_create_u64, value.value
+            native,
+            native.lib.pp_metadata_input_create_u64,
+            _unsigned(value.value, 64, "metadata integer"),
         )
     if isinstance(value, MetadataDecimal):
         return _create_metadata_input(
             native,
             native.lib.pp_metadata_input_create_decimal,
             _utf8(str(value.coefficient), "metadata decimal coefficient"),
-            value.scale,
+            _unsigned(value.scale, 32, "metadata decimal scale"),
         )
     if isinstance(value, MetadataBool):
         return _create_metadata_input(
@@ -4441,7 +4458,7 @@ def _metadata_input(
         return _create_metadata_input(
             native,
             native.lib.pp_metadata_input_create_timestamp,
-            value.unix_micros,
+            _signed(value.unix_micros, 64, "metadata timestamp"),
         )
     if isinstance(value, MetadataUri):
         return _create_metadata_input(
@@ -4461,8 +4478,8 @@ def _metadata_input(
         return _create_metadata_input(
             native,
             native.lib.pp_metadata_input_create_rational,
-            value.numerator,
-            value.denominator,
+            _signed(value.numerator, 64, "metadata rational numerator"),
+            _unsigned(value.denominator, 64, "metadata rational denominator"),
         )
     if isinstance(value, MetadataReference):
         target = _native_object_reference(value.target)

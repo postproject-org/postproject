@@ -36,6 +36,10 @@ wrong-kind arguments. Use explicit `AssetRef(asset_id)` or
 external-identifier, and host-binding targets. A runtime UUID does not retain
 its nominal type; the store checks existence and production membership.
 
+Integer arguments must fit their native ranges; conversion never wraps them.
+Booleans and other non-integers raise `TypeError`; overflowing integers raise
+`InvalidArgumentError`. Native operations also check domain limits.
+
 Production operations may run concurrently from multiple Python threads; calls
 on one native handle serialize internally. Do not call `close()` concurrently
 with an operation, and do not share a transaction between concurrent callers.

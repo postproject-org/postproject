@@ -15,6 +15,11 @@ valid setters. A moved-from options object cannot mean default options.
 The C boundary owns the validation used by every projection; multi-field
 updates validate all fields before changing any of them.
 
+Python checks integer types and representable ranges before `ctypes` conversion;
+booleans are not integers for these arguments. This covers query bounds,
+fingerprint versions, sequence values, metadata numbers and timestamps.
+Native validation still enforces domain constraints such as positive rates.
+
 ## Migration and standards impact
 
 Use `CancelToken::create()` and `ResolutionOptions::create()`, then check each
