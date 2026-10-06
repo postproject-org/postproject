@@ -323,7 +323,7 @@ typedef struct pp_revision_event {
   pp_uuid_t resource_id;
   pp_locator_id_t locator_id;
   pp_media_root_id_t media_root_id;
-  pp_uuid_t activity_id;
+  pp_activity_id_t activity_id;
   pp_job_id_t job_id;
   pp_object_ref_t target;
   uint32_t structural_position;
@@ -363,7 +363,7 @@ typedef struct pp_job {
   const char *claim_agent_identifier_scheme;
   const char *claim_agent_identifier_value;
   const char *claim_agent_identifier_qualifier;
-  pp_uuid_t completion_activity_id;
+  pp_activity_id_t completion_activity_id;
   pp_uuid_t completion_representation_id;
   const char *failure_diagnostic;
 } pp_job_t;
@@ -383,7 +383,7 @@ typedef struct pp_job_claim {
 
 /* Checked succeeded-state detail. */
 typedef struct pp_job_completion {
-  pp_uuid_t activity_id;
+  pp_activity_id_t activity_id;
   pp_uuid_t representation_id;
 } pp_job_completion_t;
 
@@ -417,7 +417,7 @@ typedef struct pp_artifact_dependency_path_segment {
  * reason kind are zero or NULL. */
 typedef struct pp_artifact_reason {
   pp_artifact_reason_kind_t kind;
-  pp_uuid_t activity_id;
+  pp_activity_id_t activity_id;
   pp_uuid_t representation_id;
   pp_uuid_t input_representation_id;
   pp_artifact_edge_kind_t edge_kind;
@@ -439,7 +439,7 @@ typedef struct pp_artifact_reason {
 
 typedef struct pp_artifact_reproducibility_issue {
   pp_artifact_reproducibility_issue_kind_t kind;
-  pp_uuid_t activity_id;
+  pp_activity_id_t activity_id;
   pp_uuid_t representation_id;
   uint32_t activity_count;
 } pp_artifact_reproducibility_issue_t;
@@ -1204,7 +1204,7 @@ PP_API pp_error_code_t pp_artifact_reproducibility_get(
     const pp_artifact_reproducibility_t *report,
     pp_uuid_t *out_representation_id, uint8_t *out_reproducible,
     uint8_t *out_has_producing_activity,
-    pp_uuid_t *out_producing_activity_id, const char **out_activity_kind,
+    pp_activity_id_t *out_producing_activity_id, const char **out_activity_kind,
     uint64_t *out_issue_count, pp_error_t **out_error);
 PP_API pp_error_code_t pp_artifact_reproducibility_get_issue(
     const pp_artifact_reproducibility_t *report, uint64_t index,
@@ -1266,7 +1266,7 @@ PP_API uint64_t pp_activity_set_count(const pp_activity_set_t *activities);
 PP_API const char *pp_activity_set_next_cursor(
     const pp_activity_set_t *activities);
 PP_API pp_error_code_t pp_activity_set_get(
-    const pp_activity_set_t *activities, uint64_t index, pp_uuid_t *out_id,
+    const pp_activity_set_t *activities, uint64_t index, pp_activity_id_t *out_id,
     const char **out_kind, uint8_t *out_has_started_at,
     int64_t *out_started_at_unix_micros, uint8_t *out_has_finished_at,
     int64_t *out_finished_at_unix_micros, uint64_t *out_input_count,
@@ -1700,7 +1700,7 @@ PP_API pp_error_code_t pp_transaction_complete_job(
     pp_transaction_t *transaction, pp_job_id_t job_id,
     const pp_uuid_t *claim_id, int64_t now_unix_micros,
     const pp_uuid_t *output_representation_id,
-    const pp_uuid_t *activity_id, pp_error_t **out_error);
+    pp_activity_id_t activity_id, pp_error_t **out_error);
 PP_API pp_error_code_t pp_transaction_fail_job(
     pp_transaction_t *transaction, pp_job_id_t job_id,
     const pp_uuid_t *claim_id, int64_t now_unix_micros,
@@ -1720,7 +1720,7 @@ PP_API pp_error_code_t pp_transaction_create_activity(
     const int64_t *finished_at_unix_micros, const char *tool_name,
     const char *tool_version, const char *tool_uri, const char *agent_name,
     const char *agent_identifier_scheme, const char *agent_identifier_value,
-    const char *agent_identifier_qualifier, pp_uuid_t *out_activity_id,
+    const char *agent_identifier_qualifier, pp_activity_id_t *out_activity_id,
     pp_error_t **out_error);
 PP_API pp_error_code_t pp_transaction_commit(pp_transaction_t *transaction,
                                             pp_error_t **out_error);

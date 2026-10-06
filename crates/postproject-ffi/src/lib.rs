@@ -187,7 +187,7 @@ const PP_REVISION_JOB_FAILED: u32 = 25;
 const PP_REVISION_JOB_CANCELLED: u32 = 26;
 
 /// Current pre-1.0 ABI version.
-pub const ABI_VERSION: u32 = 44;
+pub const ABI_VERSION: u32 = 45;
 
 /// Fixed-layout UUID-compatible public identifier.
 #[repr(C)]
@@ -311,7 +311,7 @@ pub struct PpRevisionEvent {
     /// Event media-root identity, or zero when not applicable.
     pub media_root_id: PpMediaRootId,
     /// Event activity identity, or zero when not applicable.
-    pub activity_id: PpUuid,
+    pub activity_id: PpActivityId,
     /// Event job identity, or zero when not applicable.
     pub job_id: PpJobId,
     /// Metadata/identifier target, with kind zero when not applicable.
@@ -2821,7 +2821,7 @@ pub unsafe extern "C" fn pp_artifact_reproducibility_get(
     out_representation_id: *mut PpUuid,
     out_reproducible: *mut u8,
     out_has_producing_activity: *mut u8,
-    out_producing_activity_id: *mut PpUuid,
+    out_producing_activity_id: *mut PpActivityId,
     out_activity_kind: *mut *const c_char,
     out_issue_count: *mut u64,
     out_error: *mut *mut PpError,
@@ -2831,7 +2831,7 @@ pub unsafe extern "C" fn pp_artifact_reproducibility_get(
         initialize_uuid(out_representation_id);
         initialize_value(out_reproducible, 0);
         initialize_value(out_has_producing_activity, 0);
-        initialize_uuid(out_producing_activity_id);
+        initialize_value(out_producing_activity_id, PpActivityId { bytes: [0; 16] });
         initialize_const_output(out_activity_kind);
         initialize_value(out_issue_count, 0);
         ffi_call(out_error, || {
@@ -2850,7 +2850,7 @@ pub unsafe extern "C" fn pp_artifact_reproducibility_get(
             out_reproducible.write(u8::from(report.issues.is_empty()));
             if let Some(activity_id) = report.producing_activity_id {
                 out_has_producing_activity.write(1);
-                out_producing_activity_id.write(PpUuid {
+                out_producing_activity_id.write(PpActivityId {
                     bytes: activity_id.into_bytes(),
                 });
             }
@@ -3090,7 +3090,7 @@ pub unsafe extern "C" fn pp_activity_set_next_cursor(
 pub unsafe extern "C" fn pp_activity_set_get(
     activities: *const PpActivitySet,
     index: u64,
-    out_id: *mut PpUuid,
+    out_id: *mut PpActivityId,
     out_kind: *mut *const c_char,
     out_has_started_at: *mut u8,
     out_started_at_unix_micros: *mut i64,
@@ -3102,7 +3102,7 @@ pub unsafe extern "C" fn pp_activity_set_get(
 ) -> u32 {
     // SAFETY: Outputs are initialized and checked before writes.
     unsafe {
-        initialize_uuid(out_id);
+        initialize_value(out_id, PpActivityId { bytes: [0; 16] });
         initialize_const_output(out_kind);
         initialize_value(out_has_started_at, 0);
         initialize_value(out_started_at_unix_micros, 0);
@@ -3123,7 +3123,7 @@ pub unsafe extern "C" fn pp_activity_set_get(
                 .as_ref()
                 .ok_or_else(|| invalid_argument("activities must not be null"))?;
             let activity = item_at(&activities.activities, index, "activity")?;
-            out_id.write(PpUuid {
+            out_id.write(PpActivityId {
                 bytes: activity.id.into_bytes(),
             });
             out_kind.write(activity.kind.as_ptr());
@@ -5644,7 +5644,7 @@ pub unsafe extern "C" fn pp_transaction_release_job_claim(
 ///
 /// # Safety
 ///
-/// The transaction must be live; all four IDs must be readable; `out_error`
+/// The transaction must be live; claim/output IDs must be readable; `out_error`
 /// may be null or writable.
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_transaction_complete_job(
@@ -5653,7 +5653,7 @@ pub unsafe extern "C" fn pp_transaction_complete_job(
     claim_id: *const PpUuid,
     now_unix_micros: i64,
     output_representation_id: *const PpUuid,
-    activity_id: *const PpUuid,
+    activity_id: PpActivityId,
     out_error: *mut *mut PpError,
 ) -> u32 {
     // SAFETY: IDs are checked before dereference and copied immediately.
@@ -5668,9 +5668,6 @@ pub unsafe extern "C" fn pp_transaction_complete_job(
                 .as_ref()
                 .ok_or_else(|| invalid_argument("output_representation_id must not be null"))?;
             let output_id = RepresentationId::from_bytes(output_id.bytes);
-            let activity_id = activity_id
-                .as_ref()
-                .ok_or_else(|| invalid_argument("activity_id must not be null"))?;
             let activity_id = ActivityId::from_bytes(activity_id.bytes);
             let output_index = transaction
                 .mutations
@@ -5816,12 +5813,12 @@ pub unsafe extern "C" fn pp_transaction_create_activity(
     agent_identifier_scheme: *const c_char,
     agent_identifier_value: *const c_char,
     agent_identifier_qualifier: *const c_char,
-    out_activity_id: *mut PpUuid,
+    out_activity_id: *mut PpActivityId,
     out_error: *mut *mut PpError,
 ) -> u32 {
     // SAFETY: Inputs are checked and converted to owned domain values before return.
     unsafe {
-        initialize_uuid(out_activity_id);
+        initialize_value(out_activity_id, PpActivityId { bytes: [0; 16] });
         ffi_call(out_error, || {
             let transaction = transaction
                 .as_mut()
@@ -5884,7 +5881,7 @@ pub unsafe extern "C" fn pp_transaction_create_activity(
                     agent_identifier,
                 )?);
             }
-            out_activity_id.write(PpUuid {
+            out_activity_id.write(PpActivityId {
                 bytes: activity.id().into_bytes(),
             });
             transaction
@@ -6346,7 +6343,7 @@ const fn empty_revision_event() -> PpRevisionEvent {
         resource_id: PpUuid { bytes: [0; 16] },
         locator_id: PpLocatorId { bytes: [0; 16] },
         media_root_id: PpMediaRootId { bytes: [0; 16] },
-        activity_id: PpUuid { bytes: [0; 16] },
+        activity_id: PpActivityId { bytes: [0; 16] },
         job_id: PpJobId { bytes: [0; 16] },
         target: PpObjectRef {
             kind: 0,
@@ -6369,7 +6366,7 @@ const fn empty_revision_event() -> PpRevisionEvent {
 const fn zero_artifact_reason() -> PpArtifactReason {
     PpArtifactReason {
         kind: 0,
-        activity_id: PpUuid { bytes: [0; 16] },
+        activity_id: PpActivityId { bytes: [0; 16] },
         representation_id: PpUuid { bytes: [0; 16] },
         input_representation_id: PpUuid { bytes: [0; 16] },
         edge_kind: 0,
@@ -6409,7 +6406,7 @@ const fn zero_dependency() -> PpDependency {
 const fn zero_reproducibility_issue() -> PpArtifactReproducibilityIssue {
     PpArtifactReproducibilityIssue {
         kind: 0,
-        activity_id: PpUuid { bytes: [0; 16] },
+        activity_id: PpActivityId { bytes: [0; 16] },
         representation_id: PpUuid { bytes: [0; 16] },
         activity_count: 0,
     }

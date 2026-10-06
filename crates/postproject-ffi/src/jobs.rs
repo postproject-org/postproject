@@ -6,7 +6,7 @@ use postproject_core::{
     Error, ErrorKind, Job, JobState, QueryCursor, RegenerationJobPlan, RepresentationKind,
 };
 
-use crate::{PpAssetId, PpJobId, PpUuid, exact_cstring};
+use crate::{PpActivityId, PpAssetId, PpJobId, PpUuid, exact_cstring};
 
 const PP_JOB_REQUESTED: u32 = 1;
 pub(super) const PP_JOB_CLAIMED: u32 = 2;
@@ -62,7 +62,7 @@ pub struct PpJob {
     /// Borrowed optional claiming-agent identifier qualifier.
     pub claim_agent_identifier_qualifier: *const c_char,
     /// Completion facts, or zero outside the succeeded state.
-    pub completion_activity_id: PpUuid,
+    pub completion_activity_id: PpActivityId,
     /// Output representation, or zero outside the succeeded state.
     pub completion_representation_id: PpUuid,
     /// Borrowed diagnostic, or null outside the failed state.
@@ -89,7 +89,7 @@ impl PpJob {
             claim_agent_identifier_scheme: std::ptr::null(),
             claim_agent_identifier_value: std::ptr::null(),
             claim_agent_identifier_qualifier: std::ptr::null(),
-            completion_activity_id: zero,
+            completion_activity_id: PpActivityId { bytes: [0; 16] },
             completion_representation_id: zero,
             failure_diagnostic: std::ptr::null(),
         }
@@ -145,7 +145,7 @@ impl PpJobClaim {
 #[derive(Clone, Copy, Debug)]
 pub struct PpJobCompletion {
     /// Completing activity.
-    pub activity_id: PpUuid,
+    pub activity_id: PpActivityId,
     /// Produced representation.
     pub representation_id: PpUuid,
 }
@@ -153,7 +153,7 @@ pub struct PpJobCompletion {
 impl PpJobCompletion {
     pub(crate) const fn empty() -> Self {
         Self {
-            activity_id: PpUuid { bytes: [0; 16] },
+            activity_id: PpActivityId { bytes: [0; 16] },
             representation_id: PpUuid { bytes: [0; 16] },
         }
     }
@@ -317,7 +317,7 @@ impl TryFrom<&Job> for AbiJob {
             }
             JobState::Succeeded(completion) => {
                 value.state = PP_JOB_SUCCEEDED;
-                value.completion_activity_id = PpUuid {
+                value.completion_activity_id = PpActivityId {
                     bytes: completion.activity_id().into_bytes(),
                 };
                 value.completion_representation_id = PpUuid {

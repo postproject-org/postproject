@@ -9,7 +9,9 @@ use postproject_core::{
     ErrorKind, RepresentationId,
 };
 
-use crate::{PP_OBJECT_ASSET, PP_OBJECT_REPRESENTATION, PpObjectRef, PpUuid, exact_cstring};
+use crate::{
+    PP_OBJECT_ASSET, PP_OBJECT_REPRESENTATION, PpActivityId, PpObjectRef, PpUuid, exact_cstring,
+};
 
 /// Opaque immutable artifact-evaluation result owned by the C caller.
 pub struct PpArtifactEvaluation {
@@ -27,7 +29,7 @@ pub struct PpArtifactReason {
     /// One of the `PP_ARTIFACT_REASON_*` constants.
     pub kind: u32,
     /// Related activity, or zero when not applicable.
-    pub activity_id: PpUuid,
+    pub activity_id: PpActivityId,
     /// Related representation, or zero when not applicable.
     pub representation_id: PpUuid,
     /// Direct activity input, or zero when not applicable.
@@ -131,7 +133,7 @@ pub struct PpArtifactReproducibilityIssue {
     /// One of the `PP_ARTIFACT_REPRODUCIBILITY_*` constants.
     pub kind: u32,
     /// Related activity, or zero when not applicable.
-    pub activity_id: PpUuid,
+    pub activity_id: PpActivityId,
     /// Missing input representation, or zero when not applicable.
     pub representation_id: PpUuid,
     /// Ambiguous producer count, or zero when not applicable.
@@ -158,7 +160,9 @@ impl AbiArtifactReason {
     pub(crate) fn as_abi(&self) -> PpArtifactReason {
         PpArtifactReason {
             kind: self.kind,
-            activity_id: optional_uuid(self.activity_id.map(ActivityId::into_bytes)),
+            activity_id: PpActivityId {
+                bytes: self.activity_id.map_or([0; 16], ActivityId::into_bytes),
+            },
             representation_id: PpUuid {
                 bytes: self.representation_id.into_bytes(),
             },
@@ -514,7 +518,7 @@ fn reproducibility_issue(
 ) -> Result<PpArtifactReproducibilityIssue, Error> {
     let mut projected = PpArtifactReproducibilityIssue {
         kind: 0,
-        activity_id: PpUuid { bytes: [0; 16] },
+        activity_id: PpActivityId { bytes: [0; 16] },
         representation_id: PpUuid { bytes: [0; 16] },
         activity_count: 0,
     };
@@ -565,12 +569,6 @@ const fn edge_kind(edge: ArtifactEdgeKind) -> u32 {
         ArtifactEdgeKind::Input => 1,
         ArtifactEdgeKind::Output => 2,
         _ => 0,
-    }
-}
-
-fn optional_uuid(value: Option<[u8; 16]>) -> PpUuid {
-    PpUuid {
-        bytes: value.unwrap_or([0; 16]),
     }
 }
 

@@ -16,8 +16,8 @@ use crate::{
     PP_REVISION_METADATA_ADDED_OR_REPLACED, PP_REVISION_METADATA_REMOVED,
     PP_REVISION_REPRESENTATION_ADDED, PP_REVISION_REPRESENTATION_FINGERPRINT_OBSERVED,
     PP_REVISION_REPRESENTATION_RESOURCE_ADDED, PP_REVISION_RESOURCE_ADDED,
-    PP_REVISION_RESOURCE_FINGERPRINT_OBSERVED, PpAssetId, PpJobId, PpLocatorId, PpMediaRootId,
-    PpObjectRef, PpRevisionEvent, PpUuid, exact_cstring, object_ref_to_abi,
+    PP_REVISION_RESOURCE_FINGERPRINT_OBSERVED, PpActivityId, PpAssetId, PpJobId, PpLocatorId,
+    PpMediaRootId, PpObjectRef, PpRevisionEvent, PpUuid, exact_cstring, object_ref_to_abi,
 };
 
 /// Opaque immutable revision-event result set owned by the C caller.
@@ -34,7 +34,7 @@ pub(crate) struct AbiRevisionEvent {
     resource_id: Option<PpUuid>,
     locator_id: Option<PpLocatorId>,
     media_root_id: Option<PpMediaRootId>,
-    activity_id: Option<PpUuid>,
+    activity_id: Option<PpActivityId>,
     job_id: Option<PpJobId>,
     target: Option<PpObjectRef>,
     structural_position: Option<u32>,
@@ -133,7 +133,7 @@ impl AbiRevisionEvent {
             media_root_id: self
                 .media_root_id
                 .unwrap_or(PpMediaRootId { bytes: [0; 16] }),
-            activity_id: self.activity_id.unwrap_or_else(zero_uuid),
+            activity_id: self.activity_id.unwrap_or(PpActivityId { bytes: [0; 16] }),
             job_id: self.job_id.unwrap_or(PpJobId { bytes: [0; 16] }),
             target: self.target.unwrap_or_else(zero_object_ref),
             structural_position: self.structural_position.unwrap_or(0),
@@ -301,7 +301,9 @@ impl TryFrom<&RevisionEvent> for AbiRevisionEvent {
             }
             RevisionEventKind::ActivityCreated { activity_id, kind } => {
                 projected.kind = PP_REVISION_ACTIVITY_CREATED;
-                projected.activity_id = Some(uuid(activity_id.into_bytes()));
+                projected.activity_id = Some(PpActivityId {
+                    bytes: activity_id.into_bytes(),
+                });
                 projected.activity_kind =
                     Some(exact_cstring(kind.as_str(), "revision activity kind")?);
             }
@@ -321,7 +323,9 @@ impl TryFrom<&RevisionEvent> for AbiRevisionEvent {
                     } else {
                         PP_REVISION_ACTIVITY_OUTPUT_ADDED
                     };
-                projected.activity_id = Some(uuid(activity_id.into_bytes()));
+                projected.activity_id = Some(PpActivityId {
+                    bytes: activity_id.into_bytes(),
+                });
                 projected.representation_id = Some(uuid(representation_id.into_bytes()));
                 projected.role = role
                     .as_ref()
