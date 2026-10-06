@@ -161,6 +161,10 @@ class ActivityId(ctypes.Structure):
     pass
 
 
+class RepresentationId(ctypes.Structure):
+    pass
+
+
 class CommitReceipt(ctypes.Structure):
     pass
 
@@ -450,6 +454,10 @@ ActivityId._fields_ = [
     ("bytes", ctypes.c_uint8 * 16),
 ]
 
+RepresentationId._fields_ = [
+    ("bytes", ctypes.c_uint8 * 16),
+]
+
 CommitReceipt._fields_ = [
     ("production_id", ProductionId),
     ("outcome", CommitOutcome),
@@ -632,6 +640,7 @@ PUBLIC_STRUCTS = {
     "pp_locator_id_t": (LocatorId, ("bytes",)),
     "pp_job_id_t": (JobId, ("bytes",)),
     "pp_activity_id_t": (ActivityId, ("bytes",)),
+    "pp_representation_id_t": (RepresentationId, ("bytes",)),
     "pp_commit_receipt_t": (CommitReceipt, ("production_id", "outcome", "revision_id", "revision_sequence")),
     "pp_decision_base_t": (DecisionBase, ("production_id", "has_revision", "revision_id", "revision_sequence")),
     "pp_object_ref_t": (ObjectRef, ("kind", "id")),
@@ -776,9 +785,11 @@ EXPORTED_SYMBOLS = (
     "pp_object_ref_from_activity",
     "pp_object_ref_from_asset",
     "pp_object_ref_from_job",
+    "pp_object_ref_from_representation",
     "pp_object_ref_get_activity",
     "pp_object_ref_get_asset",
     "pp_object_ref_get_job",
+    "pp_object_ref_get_representation",
     "pp_object_ref_set_count",
     "pp_object_ref_set_get",
     "pp_object_ref_set_release",
@@ -885,6 +896,8 @@ EXPORTED_SYMBOLS = (
     "pp_regeneration_plan_set_count",
     "pp_regeneration_plan_set_get",
     "pp_regeneration_plan_set_release",
+    "pp_representation_id_format",
+    "pp_representation_id_parse",
     "pp_representation_set_count",
     "pp_representation_set_get",
     "pp_representation_set_get_fingerprint",
@@ -1048,6 +1061,14 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_object_ref_from_activity.restype = ErrorCode
     lib.pp_object_ref_get_activity.argtypes = [ctypes.POINTER(ObjectRef), ctypes.POINTER(ActivityId), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_object_ref_get_activity.restype = ErrorCode
+    lib.pp_representation_id_parse.argtypes = [ctypes.c_char_p, ctypes.POINTER(RepresentationId), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_representation_id_parse.restype = ErrorCode
+    lib.pp_representation_id_format.argtypes = [RepresentationId, ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_representation_id_format.restype = ErrorCode
+    lib.pp_object_ref_from_representation.argtypes = [RepresentationId, ctypes.POINTER(ObjectRef), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_object_ref_from_representation.restype = ErrorCode
+    lib.pp_object_ref_get_representation.argtypes = [ctypes.POINTER(ObjectRef), ctypes.POINTER(RepresentationId), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_object_ref_get_representation.restype = ErrorCode
     lib.pp_object_ref_from_asset.argtypes = [AssetId, ctypes.POINTER(ObjectRef), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_object_ref_from_asset.restype = ErrorCode
     lib.pp_object_ref_get_asset.argtypes = [ctypes.POINTER(ObjectRef), ctypes.POINTER(AssetId), ctypes.POINTER(ctypes.POINTER(Error))]

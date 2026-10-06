@@ -20,6 +20,9 @@ _Static_assert(_Generic((pp_job_id_t){0}, pp_asset_id_t: 1, pp_locator_id_t: 1, 
 _Static_assert(_Generic((pp_activity_id_t){0}, pp_job_id_t: 1, pp_asset_id_t: 1, pp_uuid_t: 1, default: 0) == 0,
                "activities must have their own identity type");
 
+_Static_assert(_Generic((pp_representation_id_t){0}, pp_activity_id_t: 1, pp_job_id_t: 1, pp_uuid_t: 1, default: 0) == 0,
+               "representations must have their own identity type");
+
 int main(void) {
   pp_production_id_t id = {{0}};
   pp_error_t *error = NULL;
@@ -174,6 +177,29 @@ int main(void) {
       strcmp(text, "00000000-0000-0000-0000-000000000000")) return 46;
   pp_string_release(text);
   if (pp_activity_id_format(activity, NULL, &error) != PP_ERROR_INVALID_ARGUMENT) return 47;
+  pp_error_release(error);
+  pp_representation_id_t representation;
+  if (pp_representation_id_parse(canonical, &representation, &error) != PP_OK ||
+      pp_representation_id_format(representation, &text, &error) != PP_OK ||
+      strcmp(text, canonical)) return 48;
+  pp_string_release(text); text = NULL;
+  if (pp_object_ref_from_representation(representation, &target, &error) != PP_OK ||
+      target.kind != PP_OBJECT_REPRESENTATION ||
+      pp_object_ref_get_representation(&target, &representation, &error) != PP_OK) return 49;
+  target.kind = PP_OBJECT_ASSET;
+  if (pp_object_ref_get_representation(&target, &representation, &error) != PP_ERROR_INVALID_ARGUMENT ||
+      memcmp(representation.bytes, zero, 16)) return 50;
+  pp_error_release(error); error = NULL;
+  if (pp_representation_id_parse("broken", &representation, &error) != PP_ERROR_INVALID_ARGUMENT ||
+      memcmp(representation.bytes, zero, 16)) return 51;
+  pp_error_release(error); error = NULL;
+  if (pp_representation_id_parse(NULL, &representation, &error) != PP_ERROR_INVALID_ARGUMENT ||
+      memcmp(representation.bytes, zero, 16)) return 52;
+  pp_error_release(error); error = NULL;
+  if (pp_representation_id_format(representation, &text, &error) != PP_OK ||
+      strcmp(text, "00000000-0000-0000-0000-000000000000")) return 53;
+  pp_string_release(text);
+  if (pp_representation_id_format(representation, NULL, &error) != PP_ERROR_INVALID_ARGUMENT) return 54;
   pp_error_release(error);
   return 0;
 }
