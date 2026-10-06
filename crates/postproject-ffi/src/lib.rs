@@ -5111,6 +5111,8 @@ pub unsafe extern "C" fn pp_transaction_confirm_locator(
 
 /// Stages retirement of one superseded resource locator.
 ///
+/// Requires a decision base. Rejection leaves the transaction open.
+///
 /// # Safety
 ///
 /// `transaction` must be live, `out_error` null or
@@ -5128,6 +5130,7 @@ pub unsafe extern "C" fn pp_transaction_retire_locator(
                 .as_mut()
                 .ok_or_else(|| invalid_argument("transaction must not be null"))?;
             transaction.lifecycle.ensure_open()?;
+            transaction.require_decision_base()?;
             transaction.mutations.push(StagedMutation::RetireLocator(
                 postproject_core::LocatorId::from_bytes(locator_id.bytes),
             ));

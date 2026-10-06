@@ -1578,7 +1578,7 @@ class ProductionTests(unittest.TestCase):
                 (),
             )
 
-            with production.transaction() as transaction:
+            with production.read_session() as view, view.edit() as transaction:
                 transaction.retire_locator(locator.id)
                 transaction.commit()
             self.assertEqual(

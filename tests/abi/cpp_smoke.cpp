@@ -571,7 +571,9 @@ int main(int argc, char **argv) {
       auto unbased = production.beginTransaction().value();
       const auto enabling = unbased.setMediaRootEnabled(root_id, true);
       const auto removal = unbased.removeMediaRoot(root_id);
-      if (enabling || removal ||
+      const auto retirement = unbased.retireLocator(representations[0].resources[0].locators[0].id);
+      if (enabling || removal || retirement ||
+          retirement.error().code() != postproject::ErrorCode::invalid_argument ||
           enabling.error().code() != postproject::ErrorCode::invalid_argument ||
           removal.error().code() != postproject::ErrorCode::invalid_argument)
         return 151;

@@ -38,6 +38,56 @@ from postproject import (
 
 
 class ReadSessionTests(unittest.TestCase):
+    def test_locator_retirement_requires_a_base_and_rejects_a_stale_set(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            media = root / "clip.dat"
+            media.write_bytes(b"locator decision fixture")
+            with Production.create(root / "production.pproj") as production:
+                with production.transaction() as edit:
+                    asset = edit.import_media(media)
+                    edit.commit()
+                resource = production.representations[asset][0].resources[0]
+                locator = resource.locators[0].id
+                with production.transaction() as edit:
+                    with self.assertRaises(InvalidArgumentError):
+                        edit.retire_locator(locator)
+                    edit.add_media_root("retained")
+                    edit.commit()
+                self.assertEqual(
+                    len(production.locators_page(resource.id, limit=10).items), 1
+                )
+                with production.read_session() as retained:
+                    base = retained.decision_base
+                replacement = root / "replacement.dat"
+                replacement.write_bytes(b"replacement locator fixture")
+                with production.transaction() as winner:
+                    winner.confirm_locator(
+                        resource.id, file_locator(replacement)
+                    )
+                    head = winner.commit().revision
+                assert head is not None
+                with production.edit(base) as stale:
+                    stale.retire_locator(locator)
+                    stale.add_media_root("discarded")
+                    with self.assertRaises(ConflictError):
+                        stale.commit()
+                latest = production.latest_revision
+                assert latest is not None
+                self.assertEqual(latest.id, head.id)
+                self.assertEqual(
+                    len(production.locators_page(resource.id, limit=10).items), 2
+                )
+                self.assertEqual(
+                    [item.name for item in production.media_roots], ["retained"]
+                )
+                with production.read_session() as view, view.edit() as fresh:
+                    fresh.retire_locator(locator)
+                    fresh.commit()
+                self.assertEqual(
+                    len(production.locators_page(resource.id, limit=10).items), 1
+                )
+
     def test_revision_events_are_bounded_and_scoped_to_the_retained_view(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             with Production.create(Path(directory) / "event-pages.pproj") as production:

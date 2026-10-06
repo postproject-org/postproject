@@ -1646,6 +1646,7 @@ PP_API pp_error_code_t pp_transaction_confirm_locator(
     pp_transaction_t *transaction, pp_resource_id_t resource_id,
     const char *uri, const char *root_name,
     const pp_sequence_naming_t *sequence_naming, pp_error_t **out_error);
+/* Requires a decision base. Rejection stages nothing and leaves the edit open. */
 PP_API pp_error_code_t pp_transaction_retire_locator(
     pp_transaction_t *transaction, pp_locator_id_t locator_id,
     pp_error_t **out_error);
