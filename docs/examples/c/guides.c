@@ -603,7 +603,7 @@ print_resource_locators(const pp_production_t *production,
                         pp_error_t **error) {
   pp_locator_query_set_t *locators = NULL;
   pp_error_code_t status = pp_production_locators_page(
-      production, resource_id, UINT32_C(100), NULL, &locators, error);
+      production, *resource_id, UINT32_C(100), NULL, &locators, error);
   for (uint64_t i = 0;
        status == PP_OK && i < pp_locator_query_set_count(locators); ++i) {
     pp_locator_id_t locator_id;
@@ -657,7 +657,10 @@ static pp_error_code_t print_asset_locators(const pp_production_t *production,
       status =
           pp_object_query_set_get(resource_page, s, &resource, &depth, error);
       if (status == PP_OK) {
-        status = print_resource_locators(production, &resource.id, error);
+        pp_resource_id_t resource_id;
+        status = pp_object_ref_get_resource(&resource, &resource_id, error);
+        if (status == PP_OK)
+          status = print_resource_locators(production, &resource_id, error);
       }
     }
     pp_object_query_set_release(resource_page);

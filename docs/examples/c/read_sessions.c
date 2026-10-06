@@ -192,10 +192,12 @@ static int exercise(const char *path, const char *media) {
   uint32_t depth;
   CHECK(pp_object_query_set_get(resource_page, 0, &resource, &depth, &error));
   if (resource.kind != PP_OBJECT_RESOURCE) goto cleanup;
-  CHECK(pp_read_session_locators_page(view, resource.id, 10, NULL, &locator_page, &error));
+  pp_resource_id_t resource_id;
+  CHECK(pp_object_ref_get_resource(&resource, &resource_id, &error));
+  CHECK(pp_read_session_locators_page(view, resource_id, 10, NULL, &locator_page, &error));
   if (pp_locator_query_set_count(locator_page) != 1) goto cleanup;
   pp_representation_set_release(representations); representations = NULL;
-  CHECK(pp_read_session_representations_using_resource(view, resource.id, 10, NULL, &representations, &error));
+  CHECK(pp_read_session_representations_using_resource(view, resource_id, 10, NULL, &representations, &error));
   if (pp_representation_set_count(representations) != 1) goto cleanup;
   if (lookup(view, &asset, media)) goto cleanup;
   CHECK(pp_read_session_dependency_set(view, representation, &dependencies, &error));
