@@ -591,6 +591,35 @@ private:
   Uuid value_;
 };
 
+class ResourceId final {
+public:
+  constexpr explicit ResourceId(Uuid value) noexcept : value_(value) {}
+  constexpr explicit ResourceId(Uuid::Bytes bytes) noexcept : value_(bytes) {}
+
+  [[nodiscard]] constexpr Uuid asUuid() const noexcept { return value_; }
+  [[nodiscard]] constexpr const Uuid::Bytes &bytes() const noexcept {
+    return value_.bytes();
+  }
+  [[nodiscard]] static Result<ResourceId> fromString(std::string_view text);
+  [[nodiscard]] Result<std::string> toString() const;
+
+  friend constexpr bool operator==(const ResourceId &left,
+                                   const ResourceId &right) noexcept {
+    return left.value_ == right.value_;
+  }
+  friend constexpr bool operator!=(const ResourceId &left,
+                                   const ResourceId &right) noexcept {
+    return !(left == right);
+  }
+  friend bool operator<(const ResourceId &left,
+                        const ResourceId &right) noexcept {
+    return left.bytes() < right.bytes();
+  }
+
+private:
+  Uuid value_;
+};
+
 class RevisionId final {
 public:
   constexpr explicit RevisionId(Uuid value) noexcept : value_(value) {}
@@ -666,6 +695,7 @@ struct ObjectRef final {
   [[nodiscard]] Result<JobId> jobId() const;
   [[nodiscard]] Result<ActivityId> activityId() const;
   [[nodiscard]] Result<RepresentationId> representationId() const;
+  [[nodiscard]] Result<ResourceId> resourceId() const;
 
   [[nodiscard]] static constexpr ObjectRef asset(const AssetId &id) noexcept {
     return {ObjectKind::asset, id.asUuid()};
@@ -680,6 +710,9 @@ struct ObjectRef final {
   }
   [[nodiscard]] static constexpr ObjectRef representation(const RepresentationId &id) noexcept {
     return {ObjectKind::representation, id.asUuid()};
+  }
+  [[nodiscard]] static constexpr ObjectRef resource(const ResourceId &id) noexcept {
+    return {ObjectKind::resource, id.asUuid()};
   }
 
   friend constexpr bool operator==(const ObjectRef &left,
@@ -1783,6 +1816,18 @@ inline RepresentationId representation_id(const pp_representation_id_t &value) {
 
 inline pp_representation_id_t native_representation_id(const RepresentationId &value) {
   pp_representation_id_t native{};
+  std::copy(value.bytes().begin(), value.bytes().end(), std::begin(native.bytes));
+  return native;
+}
+
+inline ResourceId resource_id(const pp_resource_id_t &value) {
+  Uuid::Bytes bytes{};
+  std::copy(std::begin(value.bytes), std::end(value.bytes), bytes.begin());
+  return ResourceId(bytes);
+}
+
+inline pp_resource_id_t native_resource_id(const ResourceId &value) {
+  pp_resource_id_t native{};
   std::copy(value.bytes().begin(), value.bytes().end(), std::begin(native.bytes));
   return native;
 }
@@ -3198,6 +3243,13 @@ inline Result<RepresentationId> ObjectRef::representationId() const {
   return RepresentationId(id);
 }
 
+inline Result<ResourceId> ObjectRef::resourceId() const {
+  if (kind != ObjectKind::resource) {
+    return Error(ErrorCode::invalid_argument, "reference must name a resource");
+  }
+  return ResourceId(id);
+}
+
 inline Result<AssetId> AssetId::fromString(std::string_view text) {
   POSTPROJECT_TRY_ASSIGN(const std::string checked,
                          detail::checked_string(text, "asset ID"));
@@ -3331,6 +3383,29 @@ inline Result<std::string> RepresentationId::toString() const {
   char *text = nullptr;
   pp_error_t *error = nullptr;
   const auto status = pp_representation_id_format(id, &text, &error);
+  detail::StringHandle owned(text);
+  POSTPROJECT_TRY(detail::check(status, error));
+  return std::string(owned.get());
+}
+
+inline Result<ResourceId> ResourceId::fromString(std::string_view text) {
+  POSTPROJECT_TRY_ASSIGN(const std::string checked,
+                         detail::checked_string(text, "resource ID"));
+  pp_resource_id_t id{};
+  pp_error_t *error = nullptr;
+  const auto status = pp_resource_id_parse(checked.c_str(), &id, &error);
+  POSTPROJECT_TRY(detail::check(status, error));
+  Uuid::Bytes bytes{};
+  std::copy(std::begin(id.bytes), std::end(id.bytes), bytes.begin());
+  return ResourceId(bytes);
+}
+
+inline Result<std::string> ResourceId::toString() const {
+  pp_resource_id_t id{};
+  std::copy(bytes().begin(), bytes().end(), std::begin(id.bytes));
+  char *text = nullptr;
+  pp_error_t *error = nullptr;
+  const auto status = pp_resource_id_format(id, &text, &error);
   detail::StringHandle owned(text);
   POSTPROJECT_TRY(detail::check(status, error));
   return std::string(owned.get());
@@ -7070,6 +7145,14 @@ template <> struct std::hash<postproject::ActivityId> {
 
 template <> struct std::hash<postproject::RepresentationId> {
   std::size_t operator()(const postproject::RepresentationId &id) const noexcept {
+    const auto &bytes = id.bytes();
+    return std::hash<std::string_view>{}(std::string_view(
+        reinterpret_cast<const char *>(bytes.data()), bytes.size()));
+  }
+};
+
+template <> struct std::hash<postproject::ResourceId> {
+  std::size_t operator()(const postproject::ResourceId &id) const noexcept {
     const auto &bytes = id.bytes();
     return std::hash<std::string_view>{}(std::string_view(
         reinterpret_cast<const char *>(bytes.data()), bytes.size()));
