@@ -7,7 +7,7 @@
 #include <cstddef>
 
 std::size_t artifact_reason_count(const postproject::Production &production,
-                                  const postproject::Uuid &representation_id) {
+                                  const postproject::RepresentationId &representation_id) {
   // GCC 15 reported the evaluation's optional fingerprint values as possibly
   // uninitialized here.
   const auto evaluation = production.evaluateArtifact(representation_id);
