@@ -38,6 +38,55 @@ from postproject import (
 
 
 class ReadSessionTests(unittest.TestCase):
+    def test_root_pages_and_getters_observe_live_changes_and_retain_view_scope(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "production.pproj"
+            with Production.create(path) as writer, Production.open(path) as reader:
+                with reader.read_session() as empty:
+                    with writer.transaction() as edit:
+                        first = edit.add_media_root("first", priority=-1)
+                        second = edit.add_media_root("second")
+                        edit.commit()
+                    self.assertEqual(empty.media_roots_page(limit=1).items, ())
+                    self.assertEqual(reader.media_roots[0].id, first)
+                with reader.read_session() as retained:
+                    page = retained.media_roots_page(limit=1)
+                    cursor = page.next_cursor
+                    assert cursor is not None
+                    with writer.read_session() as fresh, fresh.edit() as edit:
+                        edit.set_media_root_enabled(second, False)
+                        edit.add_media_root("between", priority=-1)
+                        edit.commit()
+                    last = retained.media_roots_page(limit=1, cursor=cursor)
+                    self.assertEqual(last.items[0].id, second)
+                    self.assertTrue(last.items[0].enabled)
+                    self.assertIsNone(last.next_cursor)
+                    with self.assertRaises(InvalidArgumentError):
+                        reader.media_roots_page(limit=1, cursor=cursor)
+                    with self.assertRaises(InvalidArgumentError):
+                        retained.assets_page(limit=1, cursor=cursor)
+                    with reader.read_session() as another:
+                        with self.assertRaises(InvalidArgumentError):
+                            another.media_roots_page(limit=1, cursor=cursor)
+                self.assertEqual(len(reader.media_roots), 3)
+                self.assertFalse(
+                    next(
+                        root for root in reader.media_roots if root.id == second
+                    ).enabled
+                )
+                for limit in (0, -1, 1001, 2**32 + 1):
+                    with self.assertRaises(ValueError):
+                        reader.media_roots_page(limit=limit)
+                with self.assertRaises(TypeError):
+                    reader.media_roots_page(limit=True)
+                with reader.read_session() as closed:
+                    copied = closed.media_roots_page(limit=1).items
+                self.assertEqual(copied[0].priority, -1)
+                with self.assertRaises(RuntimeError):
+                    closed.media_roots_page(limit=1)
+
     def test_dependency_replacement_requires_a_base_and_preserves_newer_facts(
         self,
     ) -> None:

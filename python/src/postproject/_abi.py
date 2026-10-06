@@ -748,6 +748,7 @@ EXPORTED_SYMBOLS = (
     "pp_media_root_id_parse",
     "pp_media_root_set_count",
     "pp_media_root_set_get",
+    "pp_media_root_set_next_cursor",
     "pp_media_root_set_release",
     "pp_media_source_create_file",
     "pp_media_source_create_image_sequence",
@@ -837,6 +838,7 @@ EXPORTED_SYMBOLS = (
     "pp_production_latest_revision",
     "pp_production_locators_page",
     "pp_production_media_roots",
+    "pp_production_media_roots_page",
     "pp_production_metadata",
     "pp_production_objects_changed_since",
     "pp_production_open",
@@ -885,6 +887,7 @@ EXPORTED_SYMBOLS = (
     "pp_read_session_latest_revision",
     "pp_read_session_locators_page",
     "pp_read_session_media_roots",
+    "pp_read_session_media_roots_page",
     "pp_read_session_metadata",
     "pp_read_session_objects_changed_since",
     "pp_read_session_outputs_by_activity_kind",
@@ -1126,6 +1129,8 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_read_session_verify_resource.restype = ErrorCode
     lib.pp_read_session_media_roots.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(ctypes.POINTER(MediaRootSet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_read_session_media_roots.restype = ErrorCode
+    lib.pp_read_session_media_roots_page.argtypes = [ctypes.POINTER(ReadSession), ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(MediaRootSet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_read_session_media_roots_page.restype = ErrorCode
     lib.pp_read_session_external_identifiers.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(ObjectRef), ctypes.POINTER(ctypes.POINTER(ExternalIdentifierSet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_read_session_external_identifiers.restype = ErrorCode
     lib.pp_read_session_metadata.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(ObjectRef), ctypes.POINTER(ctypes.POINTER(MetadataSet)), ctypes.POINTER(ctypes.POINTER(Error))]
@@ -1176,6 +1181,10 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_asset_set_release.restype = None
     lib.pp_production_media_roots.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(ctypes.POINTER(MediaRootSet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_production_media_roots.restype = ErrorCode
+    lib.pp_production_media_roots_page.argtypes = [ctypes.POINTER(Production), ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(MediaRootSet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_production_media_roots_page.restype = ErrorCode
+    lib.pp_media_root_set_next_cursor.argtypes = [ctypes.POINTER(MediaRootSet)]
+    lib.pp_media_root_set_next_cursor.restype = ctypes.c_char_p
     lib.pp_media_root_set_count.argtypes = [ctypes.POINTER(MediaRootSet)]
     lib.pp_media_root_set_count.restype = ctypes.c_uint64
     lib.pp_media_root_set_get.argtypes = [ctypes.POINTER(MediaRootSet), ctypes.c_uint64, ctypes.POINTER(MediaRootId), ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.c_int32), ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ctypes.POINTER(Error))]

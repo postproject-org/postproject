@@ -433,9 +433,27 @@ class Production:
         self._require_open()
         return _Assets(self)
 
+    def media_roots_page(
+        self, *, limit: int, cursor: str | None = None
+    ) -> QueryPage[MediaRoot]:
+        """Read a bounded root page in priority and identity order."""
+
+        self._require_open()
+        handle = ctypes.POINTER(MediaRootSet)()
+        error = ctypes.POINTER(Error)()
+        status = self._native.lib.pp_production_media_roots_page(
+            self._handle,
+            _page_limit(limit),
+            _optional_text(cursor),
+            ctypes.byref(handle),
+            ctypes.byref(error),
+        )
+        self._native.check(status, error)
+        return _media_root_page(self._native, handle)
+
     @property
     def media_roots(self) -> tuple[MediaRoot, ...]:
-        """Return configured resolver roots in priority order."""
+        """Return resolver roots in priority order, with a 1000-root cap."""
 
         self._require_open()
         handle = ctypes.POINTER(MediaRootSet)()
@@ -2716,9 +2734,27 @@ class ReadSession:
         self._native.check(status, error)
         return _locator_page(self._native, handle)
 
+    def media_roots_page(
+        self, *, limit: int, cursor: str | None = None
+    ) -> QueryPage[MediaRoot]:
+        """Read a bounded root page in priority and identity order."""
+
+        self._require_open()
+        handle = ctypes.POINTER(MediaRootSet)()
+        error = ctypes.POINTER(Error)()
+        status = self._native.lib.pp_read_session_media_roots_page(
+            self._handle,
+            _page_limit(limit),
+            _optional_text(cursor),
+            ctypes.byref(handle),
+            ctypes.byref(error),
+        )
+        self._native.check(status, error)
+        return _media_root_page(self._native, handle)
+
     @property
     def media_roots(self) -> tuple[MediaRoot, ...]:
-        """Return configured resolver roots in priority order."""
+        """Return resolver roots in priority order, with a 1000-root cap."""
 
         self._require_open()
         handle = ctypes.POINTER(MediaRootSet)()
@@ -4279,6 +4315,30 @@ def _asset_at(native: NativeLibrary, assets: _Pointer[AssetSet], index: int) -> 
         _decode_optional(display_name.value),
         _decode_optional(import_source.value),
     )
+
+
+def _page_limit(limit: int) -> int:
+    if isinstance(limit, bool) or not isinstance(limit, int):
+        raise TypeError("page limit must be an int")
+    if not 1 <= limit <= 1000:
+        raise ValueError("page limit must be between 1 and 1000")
+    return limit
+
+
+def _media_root_page(
+    native: NativeLibrary, handle: _Pointer[MediaRootSet]
+) -> QueryPage[MediaRoot]:
+    if not handle:
+        raise RuntimeError("native media-root query returned no result set")
+    try:
+        count = native.lib.pp_media_root_set_count(handle)
+        items = tuple(
+            _media_root_at(native, handle, index) for index in range(int(count))
+        )
+        cursor = _decode_optional(native.lib.pp_media_root_set_next_cursor(handle))
+        return QueryPage(items, cursor)
+    finally:
+        native.lib.pp_media_root_set_release(handle)
 
 
 def _media_root_at(
