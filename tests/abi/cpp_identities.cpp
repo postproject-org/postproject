@@ -58,7 +58,29 @@ static_assert(std::is_same_v<decltype(postproject::LocatorRetiredEvent::locator_
 static_assert(!std::is_invocable_v<decltype(&postproject::Transaction::retireLocator),
     postproject::Transaction &, postproject::AssetId>);
 
+static_assert(!std::is_convertible_v<postproject::Uuid, postproject::JobId>);
+static_assert(!std::is_convertible_v<postproject::JobId, postproject::Uuid>);
+static_assert(!std::is_assignable_v<postproject::JobId &, postproject::AssetId>);
+static_assert(std::is_same_v<decltype(postproject::Job::id), postproject::JobId>);
+static_assert(std::is_same_v<decltype(postproject::JobRequestedEvent::job_id), postproject::JobId>);
+static_assert(std::is_same_v<decltype(postproject::JobSucceededEvent::job_id), postproject::JobId>);
+static_assert(std::is_same_v<decltype(std::declval<postproject::Transaction &>().requestJob(
+    std::declval<const postproject::JobRequest &>())), postproject::Result<postproject::JobId>>);
+static_assert(!std::is_invocable_v<decltype(&postproject::Transaction::cancelJob),
+    postproject::Transaction &, postproject::AssetId>);
+
 int main() {
+  const auto job = postproject::JobId::fromString("00000000-0000-0000-0000-000000000001").value();
+  const std::set<postproject::JobId> jobs{job, job};
+  const std::unordered_set<postproject::JobId> job_hashes{job, job};
+  if (jobs.size() != 1 || job_hashes.size() != 1 ||
+      postproject::ObjectRef::job(job).jobId().value() != job ||
+      job.toString().value() != "00000000-0000-0000-0000-000000000001") return 18;
+  if (postproject::ObjectRef::asset(postproject::AssetId(job.asUuid())).jobId()) return 19;
+  if (postproject::JobId::fromString("broken") ||
+      postproject::JobId::fromString(std::string_view("id\0tail", 7))) return 20;
+  if (!postproject::JobId::fromString("00000000-0000-0000-0000-000000000000")) return 21;
+
   const auto locator = postproject::LocatorId::fromString("00000000-0000-0000-0000-000000000001").value();
   const std::set<postproject::LocatorId> locators{locator, locator};
   const std::unordered_set<postproject::LocatorId> locator_hashes{locator, locator};

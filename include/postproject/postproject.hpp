@@ -504,6 +504,35 @@ private:
   Uuid value_;
 };
 
+class JobId final {
+public:
+  constexpr explicit JobId(Uuid value) noexcept : value_(value) {}
+  constexpr explicit JobId(Uuid::Bytes bytes) noexcept : value_(bytes) {}
+
+  [[nodiscard]] constexpr Uuid asUuid() const noexcept { return value_; }
+  [[nodiscard]] constexpr const Uuid::Bytes &bytes() const noexcept {
+    return value_.bytes();
+  }
+  [[nodiscard]] static Result<JobId> fromString(std::string_view text);
+  [[nodiscard]] Result<std::string> toString() const;
+
+  friend constexpr bool operator==(const JobId &left,
+                                   const JobId &right) noexcept {
+    return left.value_ == right.value_;
+  }
+  friend constexpr bool operator!=(const JobId &left,
+                                   const JobId &right) noexcept {
+    return !(left == right);
+  }
+  friend bool operator<(const JobId &left,
+                        const JobId &right) noexcept {
+    return left.bytes() < right.bytes();
+  }
+
+private:
+  Uuid value_;
+};
+
 class RevisionId final {
 public:
   constexpr explicit RevisionId(Uuid value) noexcept : value_(value) {}
@@ -576,9 +605,14 @@ struct ObjectRef final {
   Uuid id;
 
   [[nodiscard]] Result<AssetId> assetId() const;
+  [[nodiscard]] Result<JobId> jobId() const;
 
   [[nodiscard]] static constexpr ObjectRef asset(const AssetId &id) noexcept {
     return {ObjectKind::asset, id.asUuid()};
+  }
+
+  [[nodiscard]] static constexpr ObjectRef job(const JobId &id) noexcept {
+    return {ObjectKind::job, id.asUuid()};
   }
 
   friend constexpr bool operator==(const ObjectRef &left,
@@ -969,13 +1003,13 @@ struct DependencySetRecordedEvent final {
   Uuid representation_id;
 };
 
-struct JobRequestedEvent final { Uuid job_id; };
-struct JobClaimedEvent final { Uuid job_id; };
-struct JobClaimRenewedEvent final { Uuid job_id; };
-struct JobClaimReleasedEvent final { Uuid job_id; };
-struct JobSucceededEvent final { Uuid job_id; };
-struct JobFailedEvent final { Uuid job_id; };
-struct JobCancelledEvent final { Uuid job_id; };
+struct JobRequestedEvent final { JobId job_id; };
+struct JobClaimedEvent final { JobId job_id; };
+struct JobClaimRenewedEvent final { JobId job_id; };
+struct JobClaimReleasedEvent final { JobId job_id; };
+struct JobSucceededEvent final { JobId job_id; };
+struct JobFailedEvent final { JobId job_id; };
+struct JobCancelledEvent final { JobId job_id; };
 
 using RevisionEventPayload =
     std::variant<AssetImportedEvent, RepresentationAddedEvent,
@@ -1232,7 +1266,7 @@ using JobStatus = std::variant<JobRequested, JobClaim, JobCompletion, JobFailure
                                JobCancelled>;
 
 struct Job final {
-  Uuid id;
+  JobId id;
   std::string kind;
   std::vector<Uuid> inputs;
   AssetId output_asset_id;
@@ -1646,6 +1680,18 @@ inline LocatorId locator_id(const pp_locator_id_t &value) {
 
 inline pp_locator_id_t native_locator_id(const LocatorId &value) {
   pp_locator_id_t native{};
+  std::copy(value.bytes().begin(), value.bytes().end(), std::begin(native.bytes));
+  return native;
+}
+
+inline JobId job_id(const pp_job_id_t &value) {
+  Uuid::Bytes bytes{};
+  std::copy(std::begin(value.bytes), std::end(value.bytes), bytes.begin());
+  return JobId(bytes);
+}
+
+inline pp_job_id_t native_job_id(const JobId &value) {
+  pp_job_id_t native{};
   std::copy(value.bytes().begin(), value.bytes().end(), std::begin(native.bytes));
   return native;
 }
@@ -2206,7 +2252,7 @@ inline Result<Job> job(const pp_job_set_t *jobs, std::uint64_t index) {
   }
 
   POSTPROJECT_TRY_ASSIGN(auto job_status, job_status_value(native));
-  return Job{uuid(native.id),
+  return Job{job_id(native.id),
              native.kind != nullptr ? std::string(native.kind) : std::string(),
              std::move(inputs),
              asset_id_value(native.output_asset_id),
@@ -2589,21 +2635,21 @@ revision_event(const pp_revision_event_set_t *events, std::uint64_t index) {
     return RevisionEvent{event.position, DependencySetRecordedEvent{
                                              uuid(event.representation_id)}};
   case PP_REVISION_JOB_REQUESTED:
-    return RevisionEvent{event.position, JobRequestedEvent{uuid(event.job_id)}};
+    return RevisionEvent{event.position, JobRequestedEvent{job_id(event.job_id)}};
   case PP_REVISION_JOB_CLAIMED:
-    return RevisionEvent{event.position, JobClaimedEvent{uuid(event.job_id)}};
+    return RevisionEvent{event.position, JobClaimedEvent{job_id(event.job_id)}};
   case PP_REVISION_JOB_CLAIM_RENEWED:
     return RevisionEvent{event.position,
-                         JobClaimRenewedEvent{uuid(event.job_id)}};
+                         JobClaimRenewedEvent{job_id(event.job_id)}};
   case PP_REVISION_JOB_CLAIM_RELEASED:
     return RevisionEvent{event.position,
-                         JobClaimReleasedEvent{uuid(event.job_id)}};
+                         JobClaimReleasedEvent{job_id(event.job_id)}};
   case PP_REVISION_JOB_SUCCEEDED:
-    return RevisionEvent{event.position, JobSucceededEvent{uuid(event.job_id)}};
+    return RevisionEvent{event.position, JobSucceededEvent{job_id(event.job_id)}};
   case PP_REVISION_JOB_FAILED:
-    return RevisionEvent{event.position, JobFailedEvent{uuid(event.job_id)}};
+    return RevisionEvent{event.position, JobFailedEvent{job_id(event.job_id)}};
   case PP_REVISION_JOB_CANCELLED:
-    return RevisionEvent{event.position, JobCancelledEvent{uuid(event.job_id)}};
+    return RevisionEvent{event.position, JobCancelledEvent{job_id(event.job_id)}};
   default:
     return Error(ErrorCode::internal,
                  "revision event has an unknown semantic kind");
@@ -3039,6 +3085,13 @@ inline Result<AssetId> ObjectRef::assetId() const {
   return AssetId(id);
 }
 
+inline Result<JobId> ObjectRef::jobId() const {
+  if (kind != ObjectKind::job) {
+    return Error(ErrorCode::invalid_argument, "reference must name an job");
+  }
+  return JobId(id);
+}
+
 inline Result<AssetId> AssetId::fromString(std::string_view text) {
   POSTPROJECT_TRY_ASSIGN(const std::string checked,
                          detail::checked_string(text, "asset ID"));
@@ -3103,6 +3156,29 @@ inline Result<std::string> LocatorId::toString() const {
   char *text = nullptr;
   pp_error_t *error = nullptr;
   const auto status = pp_locator_id_format(id, &text, &error);
+  detail::StringHandle owned(text);
+  POSTPROJECT_TRY(detail::check(status, error));
+  return std::string(owned.get());
+}
+
+inline Result<JobId> JobId::fromString(std::string_view text) {
+  POSTPROJECT_TRY_ASSIGN(const std::string checked,
+                         detail::checked_string(text, "job ID"));
+  pp_job_id_t id{};
+  pp_error_t *error = nullptr;
+  const auto status = pp_job_id_parse(checked.c_str(), &id, &error);
+  POSTPROJECT_TRY(detail::check(status, error));
+  Uuid::Bytes bytes{};
+  std::copy(std::begin(id.bytes), std::end(id.bytes), bytes.begin());
+  return JobId(bytes);
+}
+
+inline Result<std::string> JobId::toString() const {
+  pp_job_id_t id{};
+  std::copy(bytes().begin(), bytes().end(), std::begin(id.bytes));
+  char *text = nullptr;
+  pp_error_t *error = nullptr;
+  const auto status = pp_job_id_format(id, &text, &error);
   detail::StringHandle owned(text);
   POSTPROJECT_TRY(detail::check(status, error));
   return std::string(owned.get());
@@ -3773,7 +3849,7 @@ regeneration_plans(RegenerationPlanSetHandle plans) {
           parameters.get(), parameter_index, &target, &vocabulary, &property,
           &value, &error);
       POSTPROJECT_TRY(detail::check(parameter_status, error));
-      if (target.kind != PP_OBJECT_JOB || detail::uuid(target.id) != job.id) {
+      if (target.kind != PP_OBJECT_JOB || detail::uuid(target.id) != job.id.asUuid()) {
         return Error(ErrorCode::internal,
                      "regeneration parameter target does not match its job");
       }
@@ -4243,7 +4319,7 @@ public:
     return {};
   }
 
-  Result<Uuid> requestJob(const JobRequest &request) {
+  Result<JobId> requestJob(const JobRequest &request) {
     POSTPROJECT_TRY_ASSIGN(const std::string kind,
                            detail::checked_string(request.kind, "job kind"));
     POSTPROJECT_TRY_ASSIGN(const std::optional<std::string> target_root,
@@ -4256,7 +4332,7 @@ public:
     }
     const pp_asset_id_t output_asset_id =
         detail::native_asset_id(request.output_asset_id);
-    pp_uuid_t job_id{};
+    pp_job_id_t job_id{};
     pp_error_t *error = nullptr;
     const pp_error_code_t status = pp_transaction_request_job(
         transaction_, kind.c_str(), inputs.empty() ? nullptr : inputs.data(),
@@ -4266,14 +4342,14 @@ public:
         target_root.has_value() ? target_root->c_str() : nullptr, &job_id,
         &error);
     POSTPROJECT_TRY(detail::check(status, error));
-    return detail::uuid(job_id);
+    return detail::job_id(job_id);
   }
 
-  Result<Uuid> claimJob(const Uuid &job_id, const ToolIdentity &tool,
+  Result<Uuid> claimJob(const JobId &job_id, const ToolIdentity &tool,
                         const std::optional<AgentIdentity> &agent,
                         std::int64_t now_unix_micros,
                         std::int64_t expires_at_unix_micros) {
-    const pp_uuid_t native_job_id = detail::native_uuid(job_id);
+    const pp_job_id_t native_job_id = detail::native_job_id(job_id);
     POSTPROJECT_TRY_ASSIGN(const std::string tool_name,
                            detail::checked_string(tool.name, "tool name"));
     POSTPROJECT_TRY_ASSIGN(
@@ -4311,7 +4387,7 @@ public:
     pp_uuid_t claim_id{};
     pp_error_t *error = nullptr;
     const pp_error_code_t status = pp_transaction_claim_job(
-        transaction_, &native_job_id, tool_name.c_str(),
+        transaction_, native_job_id, tool_name.c_str(),
         tool_version.has_value() ? tool_version->c_str() : nullptr,
         tool_uri.has_value() ? tool_uri->c_str() : nullptr,
         agent_name.has_value() ? agent_name->c_str() : nullptr,
@@ -4323,67 +4399,67 @@ public:
     return detail::uuid(claim_id);
   }
 
-  Result<void> renewJobClaim(const Uuid &job_id, const Uuid &claim_id,
+  Result<void> renewJobClaim(const JobId &job_id, const Uuid &claim_id,
                              std::int64_t now_unix_micros,
                              std::int64_t expires_at_unix_micros) {
-    const pp_uuid_t native_job_id = detail::native_uuid(job_id);
+    const pp_job_id_t native_job_id = detail::native_job_id(job_id);
     const pp_uuid_t native_claim_id = detail::native_uuid(claim_id);
     pp_error_t *error = nullptr;
     const pp_error_code_t status = pp_transaction_renew_job_claim(
-        transaction_, &native_job_id, &native_claim_id, now_unix_micros,
+        transaction_, native_job_id, &native_claim_id, now_unix_micros,
         expires_at_unix_micros, &error);
     POSTPROJECT_TRY(detail::check(status, error));
     return {};
   }
 
-  Result<void> releaseJobClaim(const Uuid &job_id, const Uuid &claim_id) {
-    const pp_uuid_t native_job_id = detail::native_uuid(job_id);
+  Result<void> releaseJobClaim(const JobId &job_id, const Uuid &claim_id) {
+    const pp_job_id_t native_job_id = detail::native_job_id(job_id);
     const pp_uuid_t native_claim_id = detail::native_uuid(claim_id);
     pp_error_t *error = nullptr;
     const pp_error_code_t status = pp_transaction_release_job_claim(
-        transaction_, &native_job_id, &native_claim_id, &error);
+        transaction_, native_job_id, &native_claim_id, &error);
     POSTPROJECT_TRY(detail::check(status, error));
     return {};
   }
 
-  Result<void> completeJob(const Uuid &job_id, const Uuid &claim_id,
+  Result<void> completeJob(const JobId &job_id, const Uuid &claim_id,
                            std::int64_t now_unix_micros,
                            const Uuid &output_representation_id,
                            const Uuid &activity_id) {
-    const pp_uuid_t native_job_id = detail::native_uuid(job_id);
+    const pp_job_id_t native_job_id = detail::native_job_id(job_id);
     const pp_uuid_t native_claim_id = detail::native_uuid(claim_id);
     const pp_uuid_t native_output_id =
         detail::native_uuid(output_representation_id);
     const pp_uuid_t native_activity_id = detail::native_uuid(activity_id);
     pp_error_t *error = nullptr;
     const pp_error_code_t status = pp_transaction_complete_job(
-        transaction_, &native_job_id, &native_claim_id, now_unix_micros,
+        transaction_, native_job_id, &native_claim_id, now_unix_micros,
         &native_output_id, &native_activity_id, &error);
     POSTPROJECT_TRY(detail::check(status, error));
     return {};
   }
 
-  Result<void> failJob(const Uuid &job_id, const Uuid &claim_id,
+  Result<void> failJob(const JobId &job_id, const Uuid &claim_id,
                        std::int64_t now_unix_micros,
                        std::string_view diagnostic) {
-    const pp_uuid_t native_job_id = detail::native_uuid(job_id);
+    const pp_job_id_t native_job_id = detail::native_job_id(job_id);
     const pp_uuid_t native_claim_id = detail::native_uuid(claim_id);
     POSTPROJECT_TRY_ASSIGN(
         const std::string native_diagnostic,
         detail::checked_string(diagnostic, "job failure diagnostic"));
     pp_error_t *error = nullptr;
     const pp_error_code_t status = pp_transaction_fail_job(
-        transaction_, &native_job_id, &native_claim_id, now_unix_micros,
+        transaction_, native_job_id, &native_claim_id, now_unix_micros,
         native_diagnostic.c_str(), &error);
     POSTPROJECT_TRY(detail::check(status, error));
     return {};
   }
 
-  Result<void> cancelJob(const Uuid &job_id) {
-    const pp_uuid_t native_job_id = detail::native_uuid(job_id);
+  Result<void> cancelJob(const JobId &job_id) {
+    const pp_job_id_t native_job_id = detail::native_job_id(job_id);
     pp_error_t *error = nullptr;
     const pp_error_code_t status =
-        pp_transaction_cancel_job(transaction_, &native_job_id, &error);
+        pp_transaction_cancel_job(transaction_, native_job_id, &error);
     POSTPROJECT_TRY(detail::check(status, error));
     return {};
   }
@@ -5061,12 +5137,12 @@ public:
   }
 
   // Reads one job; an absent job is ErrorCode::not_found.
-  [[nodiscard]] Result<Job> job(const Uuid &job_id) const {
-    const pp_uuid_t native_id = detail::native_uuid(job_id);
+  [[nodiscard]] Result<Job> job(const JobId &job_id) const {
+    const pp_job_id_t native_id = detail::native_job_id(job_id);
     pp_job_set_t *raw_jobs = nullptr;
     pp_error_t *error = nullptr;
     const pp_error_code_t status =
-        pp_read_session_job(session_, &native_id, &raw_jobs, &error);
+        pp_read_session_job(session_, native_id, &raw_jobs, &error);
     POSTPROJECT_TRY(detail::check(status, error));
     detail::JobSetHandle jobs(raw_jobs);
     if (pp_job_set_count(jobs.get()) != 1) {
@@ -6117,12 +6193,12 @@ public:
   }
 
   // Reads one job; an absent job is ErrorCode::not_found.
-  [[nodiscard]] Result<Job> job(const Uuid &job_id) const {
-    const pp_uuid_t native_id = detail::native_uuid(job_id);
+  [[nodiscard]] Result<Job> job(const JobId &job_id) const {
+    const pp_job_id_t native_id = detail::native_job_id(job_id);
     pp_job_set_t *raw_jobs = nullptr;
     pp_error_t *error = nullptr;
     const pp_error_code_t status =
-        pp_production_job(production_, &native_id, &raw_jobs, &error);
+        pp_production_job(production_, native_id, &raw_jobs, &error);
     POSTPROJECT_TRY(detail::check(status, error));
     detail::JobSetHandle jobs(raw_jobs);
     if (pp_job_set_count(jobs.get()) != 1) {
@@ -6818,6 +6894,14 @@ template <> struct std::hash<postproject::MediaRootId> {
 
 template <> struct std::hash<postproject::LocatorId> {
   std::size_t operator()(const postproject::LocatorId &id) const noexcept {
+    const auto &bytes = id.bytes();
+    return std::hash<std::string_view>{}(std::string_view(
+        reinterpret_cast<const char *>(bytes.data()), bytes.size()));
+  }
+};
+
+template <> struct std::hash<postproject::JobId> {
+  std::size_t operator()(const postproject::JobId &id) const noexcept {
     const auto &bytes = id.bytes();
     return std::hash<std::string_view>{}(std::string_view(
         reinterpret_cast<const char *>(bytes.data()), bytes.size()));
