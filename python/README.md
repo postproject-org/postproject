@@ -15,7 +15,7 @@ the loader path.
 
 The package is pre-1.0 and tracks the current PostProject ABI without backward
 compatibility guarantees: it refuses a native library that reports a C ABI
-version other than the one it was built for (development ABI 46).
+version other than the one it was built for (development ABI 47).
 
 IDs are ordinary `uuid.UUID` values annotated with nominal hints such as
 `AssetId` and `RepresentationId`. `parse_id(text, AssetId)` checks UUID syntax;
