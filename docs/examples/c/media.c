@@ -203,7 +203,7 @@ static pp_error_code_t print_resource(const pp_representation_set_t *set,
     }
   }
   for (uint64_t l = 0; status == PP_OK && l < locator_count; ++l) {
-    pp_uuid_t locator_id;
+    pp_locator_id_t locator_id;
     const char *uri = NULL;
     pp_locator_availability_t availability;
     uint8_t has_last_seen = 0;
@@ -531,12 +531,20 @@ static pp_error_code_t observe_changed_file(pp_production_t *production,
 /* [retire-locator] */
 static pp_error_code_t retire_superseded(pp_production_t *production,
                                          const pp_uuid_t *resource_id,
-                                         const pp_uuid_t *old_locator_id,
+                                         pp_locator_id_t old_locator_id,
                                          uint64_t *out_remaining,
                                          pp_error_t **error) {
+  /* Persisted UUID text is parsed into its semantic type at interchange. */
+  char *saved_id = NULL;
+  pp_locator_id_t parsed_id;
+  pp_error_code_t status = pp_locator_id_format(old_locator_id, &saved_id, error);
+  if (status == PP_OK) status = pp_locator_id_parse(saved_id, &parsed_id, error);
+  pp_string_release(saved_id);
+  if (status != PP_OK) return status;
+  if (memcmp(parsed_id.bytes, old_locator_id.bytes, 16)) return PP_ERROR_INTERNAL;
+
   pp_transaction_t *transaction = NULL;
-  pp_error_code_t status =
-      pp_production_begin_transaction(production, &transaction, error);
+  status = pp_production_begin_transaction(production, &transaction, error);
   if (status == PP_OK) {
     /* Retire only a locator already superseded by a confirmed one. */
     status = pp_transaction_retire_locator(transaction, old_locator_id, error);
@@ -555,7 +563,8 @@ static pp_error_code_t retire_superseded(pp_production_t *production,
                                          cursor, &page, error);
     for (uint64_t i = 0;
          status == PP_OK && i < pp_locator_query_set_count(page); ++i) {
-      pp_uuid_t locator_id, owner_id;
+      pp_locator_id_t locator_id;
+      pp_uuid_t owner_id;
       const char *uri, *media_root;
       pp_locator_availability_t availability;
       uint8_t has_last_seen = 0, has_naming = 0;
@@ -728,7 +737,7 @@ static pp_error_code_t create_production(const char *path, const char *media,
 static pp_error_code_t
 original_resource(const pp_production_t *production, const pp_asset_id_t *asset_id,
                   pp_uuid_t *out_representation_id, pp_uuid_t *out_resource_id,
-                  pp_uuid_t *out_locator_id, char *out_uri, size_t uri_size,
+                  pp_locator_id_t *out_locator_id, char *out_uri, size_t uri_size,
                   pp_error_t **error) {
   pp_representation_set_t *set = NULL;
   pp_error_code_t status =
@@ -1115,7 +1124,8 @@ int main(int argc, char **argv) {
   pp_uuid_t proxy_id;
   pp_uuid_t spanned_id;
   pp_uuid_t package_id;
-  pp_uuid_t original_id, resource_id, old_locator_id;
+  pp_uuid_t original_id, resource_id;
+  pp_locator_id_t old_locator_id;
   char old_uri[4096] = {0};
   uint64_t count = 0;
   uint64_t checkpoint = 0;
@@ -1239,7 +1249,7 @@ int main(int argc, char **argv) {
                            moved_directory, &error);
   }
   if (status == PP_OK) {
-    status = retire_superseded(production, &resource_id, &old_locator_id,
+    status = retire_superseded(production, &resource_id, old_locator_id,
                                &count, &error);
   }
   if (status == PP_OK && count != UINT64_C(1)) {

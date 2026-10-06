@@ -606,7 +606,7 @@ print_resource_locators(const pp_production_t *production,
       production, resource_id, UINT32_C(100), NULL, &locators, error);
   for (uint64_t i = 0;
        status == PP_OK && i < pp_locator_query_set_count(locators); ++i) {
-    pp_uuid_t locator_id;
+    pp_locator_id_t locator_id;
     pp_uuid_t owner_id;
     const char *uri = NULL;
     pp_locator_availability_t availability;

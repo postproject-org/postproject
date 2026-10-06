@@ -53,7 +53,7 @@ int main(int argc, char **argv) {
     status = pp_production_representations(production, asset_id,
                                            &representations, &error);
   }
-  pp_uuid_t locator_id = {{0}};
+  pp_locator_id_t locator_id = {{0}};
   const char *uri = NULL;
   pp_locator_availability_t availability = 0;
   uint8_t has_last_seen = 0;

@@ -19,6 +19,11 @@ static int uuid_is_zero(const pp_uuid_t *id) {
   return memcmp(id->bytes, zero, sizeof(zero)) == 0;
 }
 
+static int locator_id_is_zero(pp_locator_id_t id) {
+  static const uint8_t zero[16] = {0};
+  return memcmp(id.bytes, zero, sizeof(zero)) == 0;
+}
+
 static pp_error_code_t import_file(pp_transaction_t *transaction,
                                    const char *path, const char *display_name,
                                    pp_asset_id_t *out_asset_id,
@@ -267,7 +272,7 @@ static int renamed_sequence_scenario(pp_production_t *production,
   for (uint64_t index = 0;
        status == PP_OK && index < pp_locator_query_set_count(locators);
        ++index) {
-    pp_uuid_t locator_id = {{0}};
+    pp_locator_id_t locator_id = {{0}};
     pp_uuid_t owner_id = {{0}};
     const char *locator_uri = NULL;
     pp_locator_availability_t availability = 0;
@@ -785,7 +790,7 @@ int main(int argc, char **argv) {
     pp_error_release(error);
     return 47;
   }
-  pp_uuid_t locator_id = {{0}};
+  pp_locator_id_t locator_id = {{0}};
   const char *locator_uri = NULL;
   pp_locator_availability_t locator_availability = 0;
   uint8_t has_last_seen = 0;
@@ -796,7 +801,7 @@ int main(int argc, char **argv) {
       representations, 0, 0, 0, &locator_id, &locator_uri,
       &locator_availability, &has_last_seen, &last_seen, &has_locator_naming,
       &locator_naming, &error);
-  if (status != PP_OK || uuid_is_zero(&locator_id) || locator_uri == NULL ||
+  if (status != PP_OK || locator_id_is_zero(locator_id) || locator_uri == NULL ||
       has_locator_naming != UINT8_C(0) || locator_naming.prefix != NULL ||
       locator_availability != PP_LOCATOR_ONLINE ||
       has_last_seen != UINT8_C(1) || last_seen == 0) {
@@ -1178,7 +1183,7 @@ int main(int argc, char **argv) {
           sizeof(observed_representation_fingerprint), &error) != PP_OK ||
       pp_transaction_set_media_root_enabled(transaction, root_id, 0, &error) !=
           PP_OK ||
-      pp_transaction_retire_locator(transaction, &locator_id, &error) != PP_OK ||
+      pp_transaction_retire_locator(transaction, locator_id, &error) != PP_OK ||
       pp_transaction_commit(transaction, &error) != PP_OK) {
     pp_transaction_release(transaction);
     pp_resolution_set_release(resolutions);
@@ -1315,7 +1320,7 @@ int main(int argc, char **argv) {
   pp_locator_query_set_t *locator_page = NULL;
   status = pp_production_locators_page(
       production, &resource_id, UINT32_C(10), NULL, &locator_page, &error);
-  pp_uuid_t queried_locator_id = {{0}};
+  pp_locator_id_t queried_locator_id = {{0}};
   pp_uuid_t queried_locator_resource_id = {{0}};
   const char *queried_locator_uri = NULL;
   pp_locator_availability_t queried_locator_availability = 0;
@@ -1334,7 +1339,7 @@ int main(int argc, char **argv) {
           &queried_locator_root, &queried_locator_has_naming,
           &queried_locator_naming, &error) != PP_OK ||
       queried_locator_has_naming != UINT8_C(0) ||
-      uuid_is_zero(&queried_locator_id) || queried_locator_uri == NULL ||
+      locator_id_is_zero(queried_locator_id) || queried_locator_uri == NULL ||
       queried_locator_root == NULL ||
       strcmp(queried_locator_root, "fixtures") != 0 ||
       memcmp(queried_locator_resource_id.bytes, resource_id.bytes,
