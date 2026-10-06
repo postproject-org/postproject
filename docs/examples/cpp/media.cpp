@@ -283,8 +283,12 @@ relink_renamed_sequence(postproject::Production &production,
 
 // [retire-locator]
 std::vector<postproject::ResourceLocator> move_resource(
-    postproject::Production &production, const postproject::Uuid &resource_id,
+    postproject::Production &production, const postproject::ResourceId &resource_id,
     const postproject::LocatorId &old_locator_id, const std::string &new_uri) {
+  const auto resource_text = resource_id.toString().value();
+  require(postproject::ResourceId::fromString(resource_text).value() == resource_id &&
+              postproject::ObjectRef::resource(resource_id).resourceId().value() == resource_id,
+          "saved resource identity and checked target");
   // Saved locator text preserves identity through an explicit parse boundary.
   const auto saved = old_locator_id.toString().value();
   require(postproject::LocatorId::fromString(saved).value() == old_locator_id,
@@ -329,7 +333,7 @@ void print_file_fingerprint(const std::string &path) {
 // [fingerprint-observation]
 std::vector<postproject::RevisionEvent>
 observe_new_content(postproject::Production &production,
-                    const postproject::Uuid &resource_id,
+                    const postproject::ResourceId &resource_id,
                     const std::string &path) {
   // Verification only reads: it compares the file with the stored value.
   if (production.verifyResource(resource_id, path).value() !=

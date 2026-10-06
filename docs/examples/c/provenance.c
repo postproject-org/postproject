@@ -50,7 +50,7 @@ static int host_fingerprint(const char *path, uint8_t out_value[8]) {
 
 /* Records the host fingerprint of a single-file representation. */
 static pp_error_code_t observe_file(pp_production_t *production,
-                                    const pp_uuid_t *resource_id,
+                                    const pp_resource_id_t *resource_id,
                                     const pp_representation_id_t *representation_id,
                                     const char *path, pp_error_t **error) {
   pp_transaction_t *transaction = NULL;
@@ -62,7 +62,7 @@ static pp_error_code_t observe_file(pp_production_t *production,
       pp_production_begin_transaction(production, &transaction, error);
   if (status == PP_OK) {
     status = pp_transaction_record_resource_fingerprint(
-        transaction, resource_id, HOST_RESOURCE_ALGORITHM, 1, value,
+        transaction, *resource_id, HOST_RESOURCE_ALGORITHM, 1, value,
         sizeof value, error);
   }
   if (status == PP_OK) {
@@ -304,7 +304,7 @@ count_consumers_by_page(const pp_production_t *production,
 
 /* [stale-after-change] */
 static pp_error_code_t explain_stale_proxy(
-    pp_production_t *production, const pp_uuid_t *original_resource,
+    pp_production_t *production, const pp_resource_id_t *original_resource,
     const pp_representation_id_t *original_id, const char *original_path,
     const pp_representation_id_t *proxy_id, pp_artifact_knowledge_state_t *state,
     uint32_t *out_reason_kinds, uint32_t *out_issue_kinds, pp_error_t **error) {
@@ -325,7 +325,7 @@ static pp_error_code_t explain_stale_proxy(
       pp_production_begin_transaction(production, &transaction, error);
   if (status == PP_OK) {
     status = pp_transaction_record_resource_fingerprint(
-        transaction, original_resource, HOST_RESOURCE_ALGORITHM, 1, value,
+        transaction, *original_resource, HOST_RESOURCE_ALGORITHM, 1, value,
         sizeof value, error);
   }
   if (status == PP_OK) {
@@ -536,7 +536,7 @@ static int write_file(const char *path, const char *contents) {
 static pp_error_code_t
 create_production(const char *path, const char *media, const char *proxy,
                   pp_production_t **out_production, pp_asset_id_t *out_asset_id,
-                  pp_representation_id_t *out_original_id, pp_uuid_t *out_resource_id,
+                  pp_representation_id_t *out_original_id, pp_resource_id_t *out_resource_id,
                   pp_representation_id_t *out_proxy_id, pp_error_t **error) {
   pp_production_t *production = NULL;
   pp_transaction_t *transaction = NULL;
@@ -622,7 +622,7 @@ int main(int argc, char **argv) {
   pp_error_t *error = NULL;
   pp_asset_id_t asset_id;
   pp_representation_id_t original_id;
-  pp_uuid_t resource_id;
+  pp_resource_id_t resource_id;
   pp_representation_id_t proxy_id;
   uint64_t counts[4] = {0, 0, 0, 0};
   uint64_t count = 0;
