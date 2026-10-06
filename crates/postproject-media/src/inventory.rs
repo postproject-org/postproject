@@ -217,7 +217,8 @@ impl InventoryScanner {
         cache_path: Option<&Path>,
     ) -> Result<InventoryReport> {
         let known = load_known_resources(production)?;
-        let roots = resolve_roots(production.production().media_roots(), mappings);
+        let configured_roots = production.media_roots()?;
+        let roots = resolve_roots(&configured_roots, mappings);
         let root_signature = root_signature(&roots);
         let (cache, mut stats) =
             load_cache(cache_path, production.production().id(), &root_signature);

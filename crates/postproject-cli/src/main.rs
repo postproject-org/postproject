@@ -451,14 +451,23 @@ struct RootArgs {
 enum RootCommand {
     /// Add a logical media root to the production.
     Add(RootAddArgs),
-    /// List configured media roots in resolver order.
+    /// List up to 1000 current media roots in resolver order; use page for more.
     List(ProductionArgs),
+    /// Page current configured roots in resolver order.
+    Page(RootPageArgs),
     /// Include a media root in resolution; requires --decision-base from inspect.
     Enable(RootMutationArgs),
     /// Exclude a media root; requires --decision-base from inspect.
     Disable(RootMutationArgs),
     /// Remove a configured media root; requires --decision-base from inspect.
     Remove(RootMutationArgs),
+}
+
+#[derive(Debug, Args)]
+struct RootPageArgs {
+    production: PathBuf,
+    #[command(flatten)]
+    page: QueryPageArgs,
 }
 
 #[derive(Debug, Args)]
@@ -2001,13 +2010,7 @@ fn execute(cli: Cli) -> Result<()> {
                 representation_using_resource(&args, cli.json)
             }
         },
-        Command::Root(args) => match args.command {
-            RootCommand::Add(args) => root_add(args, cli.json, base),
-            RootCommand::List(args) => root_list(&args, cli.json),
-            RootCommand::Enable(args) => root_set_enabled(&args, true, cli.json, base),
-            RootCommand::Disable(args) => root_set_enabled(&args, false, cli.json, base),
-            RootCommand::Remove(args) => root_remove(&args, cli.json, base),
-        },
+        Command::Root(args) => execute_roots(args.command, cli.json, base),
         Command::Locator(args) => match args.command {
             LocatorCommand::Retire(args) => locator_retire(&args, cli.json, base),
             LocatorCommand::List(args) => locator_list(&args, cli.json),
@@ -2811,11 +2814,21 @@ fn root_add(args: RootAddArgs, json: bool, base_revision: Option<CliDecisionBase
     }
 }
 
+fn execute_roots(command: RootCommand, json: bool, base: Option<CliDecisionBase>) -> Result<()> {
+    match command {
+        RootCommand::Add(args) => root_add(args, json, base),
+        RootCommand::List(args) => root_list(&args, json),
+        RootCommand::Page(args) => root_page(&args, json),
+        RootCommand::Enable(args) => root_set_enabled(&args, true, json, base),
+        RootCommand::Disable(args) => root_set_enabled(&args, false, json, base),
+        RootCommand::Remove(args) => root_remove(&args, json, base),
+    }
+}
+
 fn root_list(args: &ProductionArgs, json: bool) -> Result<()> {
     let production = SqliteProduction::open(&args.production).context("open production")?;
     let roots = production
-        .production()
-        .media_roots()
+        .media_roots()?
         .iter()
         .map(root_view)
         .collect::<Vec<_>>();
@@ -2834,6 +2847,18 @@ fn root_list(args: &ProductionArgs, json: bool) -> Result<()> {
         }
         Ok(())
     }
+}
+
+fn root_page(args: &RootPageArgs, json: bool) -> Result<()> {
+    let production = SqliteProduction::open(&args.production).context("open production")?;
+    let page = production.media_roots_page(&query_page_request(&args.page)?)?;
+    let view = query_page_view(&page, |root| Ok(root_view(root)))?;
+    print_query_page(&view, json, false, |root| {
+        println!(
+            "{}\t{}\t{}\t{}",
+            root.id, root.name, root.priority, root.enabled
+        );
+    })
 }
 
 fn root_set_enabled(
@@ -4204,10 +4229,7 @@ fn prepare_executor_job(
         bail!("reference executor input {input_id} must be a single-file representation");
     }
     let input = load_resolution_input(production, representation.clone(), false)?;
-    let scope = SearchScope::new(
-        production.production().media_roots().to_vec(),
-        root_mappings.to_vec(),
-    );
+    let scope = SearchScope::new(production.media_roots()?, root_mappings.to_vec());
     let resolution = resolve_representations(
         &MediaResolver::default(),
         &scope,
@@ -5404,10 +5426,7 @@ fn media_resolve(
     })
     .context("configure resolver")?;
     let scope = args.search_directories.iter().fold(
-        SearchScope::new(
-            production.production().media_roots().to_vec(),
-            root_mappings,
-        ),
+        SearchScope::new(production.media_roots()?, root_mappings),
         SearchScope::with_search_directory,
     );
     let inspector = FfprobeInspector::with_executable(&args.ffprobe);
