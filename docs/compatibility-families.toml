@@ -294,3 +294,12 @@ last_changed_abi = 44
 c_operations = ["pp_job_id_parse", "pp_job_id_format", "pp_object_ref_from_job", "pp_object_ref_get_job", "pp_string_release"]
 cpp_operations = ["JobId::fromString", "JobId::toString", "ObjectRef::job", "ObjectRef::jobId"]
 python_operations = ["parse_id"]
+
+[[families]]
+id = "activity-identity"
+introduced_release = "0.7.0-alpha.1"
+last_changed_release = "0.7.0-alpha.1"
+last_changed_abi = 45
+c_operations = ["pp_activity_id_parse", "pp_activity_id_format", "pp_object_ref_from_activity", "pp_object_ref_get_activity", "pp_string_release"]
+cpp_operations = ["ActivityId::fromString", "ActivityId::toString", "ObjectRef::activity", "ObjectRef::activityId"]
+python_operations = ["parse_id"]

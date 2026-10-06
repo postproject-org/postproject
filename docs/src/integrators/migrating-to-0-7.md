@@ -1,6 +1,6 @@
 # Migrating to the 0.7 development SDK
 
-The unpublished `0.7.0-alpha.1` SDK currently uses C ABI 44, Python `0.7.0a1`
+The unpublished `0.7.0-alpha.1` SDK currently uses C ABI 45, Python `0.7.0a1`
 and SQLite schema 17. Rebuild native consumers with matching headers and
 library, and install a matching Python wheel. Existing production files,
 UUID text, external identifiers and host binding strings retain their meaning.
@@ -9,7 +9,7 @@ Rust 1.85, C11, C++17 and Python 3.11 remain the supported floors.
 ## Identity values
 
 C uses distinct `pp_production_id_t`, `pp_asset_id_t`, `pp_media_root_id_t`,
-`pp_locator_id_t`, `pp_job_id_t`, `pp_revision_id_t` and
+`pp_locator_id_t`, `pp_job_id_t`, `pp_activity_id_t`, `pp_revision_id_t` and
 `pp_transaction_id_t` structs. Asset inputs are values; arrays borrow typed
 IDs and outputs write typed stack values. Use `pp_object_ref_from_asset`
 for dynamic asset targets. Revision arguments are values; remove the `&`
@@ -17,7 +17,7 @@ from calls to revision-event queries and `pp_production_begin_transaction_at`.
 Use typed outputs for `pp_revision_set_get`. Parse and format through the
 corresponding `pp_*_id_parse` and `pp_*_id_format` functions.
 
-C++ uses explicit `ProductionId`, `AssetId`, `MediaRootId`, `LocatorId`, `JobId`,
+C++ uses explicit `ProductionId`, `AssetId`, `MediaRootId`, `LocatorId`, `JobId`, `ActivityId`,
 `RevisionId` and `TransactionId`
 values. Imports return `AssetId`; use `ObjectRef::asset` for dynamic targets.
 Keep IDs returned by reads in their semantic type. Explicit `asUuid()` and
@@ -49,6 +49,12 @@ C++ requests return `JobId`; use `ObjectRef::job` for metadata targets and
 `jobId()` for checked projection. C provides `pp_object_ref_from_job` and
 `pp_object_ref_get_job`. An observation ID grants no claim authority; the
 lease migration remains separate.
+
+Activity creation and provenance reads return `pp_activity_id_t` / `ActivityId`.
+Completion takes the C activity ID by value; remove its `&`. Activity revision
+events and artifact explanations carry typed IDs too. Use
+`pp_object_ref_from_activity` / `pp_object_ref_get_activity` or
+`ObjectRef::activity` / `activityId()` for dynamic targets.
 
 ## Reads and writes
 

@@ -365,3 +365,36 @@ skip; eight installed wrong-kind calls fail typing. The bundled quickstart
 passes without library overrides. Claims/time, full native hosts, interactive
 handoffs, exact MSRV and final platform qualification remain open. All changes
 are on local `main`; no push, tag or publication occurred.
+
+## ABI 45 activity identity checks
+
+SDK `eedfc35` uses native inputs `38b9fb5` plus utility documentation fixes,
+C++ inputs `49dde64` and Python inputs `a833bdf`. Installed prefix:
+`target/api-safety-activity-install`. ABI 45/schema 17 has 304 exports and
+25 agreeing layouts. SHA-256 values:
+
+- Neutral wheel: `fcbf90dcdeeded254eb1e5295b9f645e479951b6ac870df4a56fcf67ea8a634f`.
+- Linux wheel: `4ceddd4bbfb489ac6491b013150fcdff7d5360f08b401bfe467f82ff52431613`.
+- Blender bundle: `01b082d7d950cd094303956f56c5f65517d992a138ece85167108f205d7e616c`.
+
+Wheels: `target/api-safety-wheel/activity-abi45/`; bundle:
+`target/api-safety-blender/activity-abi45/`.
+
+| Consumer commit | Result | Scope |
+|---|---|---|
+| Manager `da2caaa` | 6 passed | Matching installed neutral wheel, Python 3.13 |
+| OpenAssetIO `5e38c31`, OTIO `81a6ee6`, demo `c18f5bc`, Python host `c42b8b8` | 1 passed each | Separate matching-wheel suites; existing OTIO linker pin |
+| Blender `71f49b6` | 23 passed, 1 skipped | Rebuilt bundle, 5.2.2 LTS `d13f752e3b9c`; 5.3-only case skipped |
+| Natron `e1f4f15` | 1 passed; module built | Native contract plus actual Python 3.13 bridge conflict |
+| OBS `7ede430` | 2 passed; plugin/driver built | Direct-C registration and readback |
+| Kdenlive `0a0b04c` | Replayed/compiled | Ten patches on upstream `55e16e8`; sidecar/test units with host flags |
+| Ardour `e7a0c02` | Passed | Installed stereo-WAV resolver from preserved patched source |
+| C++ NLE baseline | 1 passed | Fresh installed CMake consumer |
+
+All six Rust gates, eight native contracts, 64 extracted tests, strict docs
+and symbol/layout checks pass. Source and installed Python: 83 run, one skip;
+nine installed wrong-kind calls reject. The bundled quickstart passes without
+library overrides. Local logs include `target/activity-{examples,sphinx,
+blender}.log`, the bridge JSON and Kdenlive compilation logs. Full hosts,
+interactive handoffs, exact MSRV and platform qualification remain open.
+All changes remain on local `main`; no push, tag or publication occurred.

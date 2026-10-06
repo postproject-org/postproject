@@ -47,13 +47,13 @@ Local Linux checks do not establish the other platforms or real-host runs.
 
 ## Implemented development contracts
 
-The development series is `0.7.0-alpha.1` (Python `0.7.0a1`, ABI 44,
+The development series is `0.7.0-alpha.1` (Python `0.7.0a1`, ABI 45,
 schema 17). ADRs 0045–0049 record pinned views, scoped edits/receipts, Python
 nominal UUID hints and explicit references, production/view-scoped cursors,
 and fallible C++ cancellation/options construction. Focused
 regressions cover intervening writers, empty bases, terminal failed commits,
 retained handles, cursor rejection and wrong-kind Python calls. Native
-read sessions offer 39 native query operations. Production, asset, media-root, locator, job, revision and
+read sessions offer 39 native query operations. Production, asset, media-root, locator, job, activity, revision and
 transaction IDs are distinct C/C++ values; the other native identity kinds,
 validated state alternatives and
 authority-controlled job leases remain open.
@@ -252,3 +252,17 @@ Kdenlive's updated job fields replay in all ten patches and compile with host
 flags. Matching consumer and artifact scope is in the repository manifest;
 logs use `target/api-safety-job-*` and `api-safety-kdenlive-job-*`.
 No audit row or completion gate is closed.
+
+## Typed activity checkpoint
+
+SDK `eedfc35` carries activity IDs through creation, provenance, artifact
+explanations, job completion and revision events. ABI 45/schema 17 has 304
+exports and 25 agreeing C/Rust/ctypes layouts. C scalar completion arguments
+are values; C++ creation returns `ActivityId`. Checked dynamic references
+reject wrong kinds. Python retains standard UUIDs and validates target scope.
+
+All six Rust gates, eight installed native contracts, 64 extracted tests,
+strict docs and source lint/typing pass. Source and installed-wheel Python
+run 83 tests with one skip; nine wrong-kind typing calls reject. The repository
+manifest records matching wheel/bundle and consumer evidence. Other native
+identity kinds, state alternatives and leases remain open.
