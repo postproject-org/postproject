@@ -4,6 +4,9 @@ from typing import assert_type
 from uuid import UUID
 
 from postproject import (
+    ActivityId,
+    ActivityRef,
+    ActivitySpec,
     AssetId,
     AssetRef,
     JobId,
@@ -25,6 +28,7 @@ def correct_kinds(
     root: MediaRootId,
     locator: LocatorId,
     job: JobId,
+    activity: ActivityId,
 ) -> None:
     assert_type(parse_id(str(UUID(int=1)), AssetId), AssetId)
     assert_type(production.asset(asset).id, AssetId)
@@ -37,3 +41,8 @@ def correct_kinds(
     assert_type(production.job(job).id, JobId)
     assert_type(JobRef(job).id, JobId)
     transaction.cancel_job(job)
+    assert_type(parse_id(str(activity), ActivityId), ActivityId)
+    assert_type(ActivityRef(activity).id, ActivityId)
+    assert_type(
+        transaction.create_activity(ActivitySpec("com.example:record", ())), ActivityId
+    )

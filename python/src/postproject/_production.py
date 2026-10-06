@@ -3619,7 +3619,7 @@ class Transaction:
         native_job_id = _native_job_id(job_id)
         native_claim_id = _native_uuid(claim_id)
         native_output_id = _native_uuid(output_representation_id)
-        native_activity_id = _native_uuid(activity_id)
+        native_activity_id = _native_activity_id(activity_id)
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_transaction_complete_job(
             self._handle,
@@ -3627,7 +3627,7 @@ class Transaction:
             ctypes.byref(native_claim_id),
             now_unix_micros,
             ctypes.byref(native_output_id),
-            ctypes.byref(native_activity_id),
+            native_activity_id,
             ctypes.byref(error),
         )
         self._native.check(status, error)
@@ -3679,7 +3679,7 @@ class Transaction:
         tool = spec.tool
         agent = spec.agent
         identifier = agent.identifier if agent is not None else None
-        activity_id = Uuid()
+        activity_id = _abi.ActivityId()
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_transaction_create_activity(
             self._handle,
@@ -4113,6 +4113,7 @@ def _utf8(value: str, label: str) -> bytes:
 
 def _uuid(
     value: Uuid
+    | _abi.ActivityId
     | _abi.AssetId
     | _abi.JobId
     | _abi.LocatorId
@@ -4152,6 +4153,14 @@ def _native_job_id(value: JobId) -> _abi.JobId:
     if not isinstance(value, UUID):
         raise TypeError("identity must be a uuid.UUID")
     native = _abi.JobId()
+    native.bytes[:] = value.bytes
+    return native
+
+
+def _native_activity_id(value: ActivityId) -> _abi.ActivityId:
+    if not isinstance(value, UUID):
+        raise TypeError("identity must be a uuid.UUID")
+    native = _abi.ActivityId()
     native.bytes[:] = value.bytes
     return native
 
@@ -4718,7 +4727,7 @@ def _activity_at(
     activities: _Pointer[ActivitySet],
     index: int,
 ) -> Activity:
-    activity_id = Uuid()
+    activity_id = _abi.ActivityId()
     kind = ctypes.c_char_p()
     has_started_at = ctypes.c_uint8()
     started_at = ctypes.c_int64()

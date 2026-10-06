@@ -212,7 +212,7 @@ def read_reproducibility(
     representation_id = Uuid()
     reproducible = ctypes.c_uint8()
     has_producing_activity = ctypes.c_uint8()
-    producing_activity_id = Uuid()
+    producing_activity_id = _abi.ActivityId()
     activity_kind = ctypes.c_char_p()
     issue_count = ctypes.c_uint64()
     error = ctypes.POINTER(Error)()
@@ -391,7 +391,7 @@ def _optional_bytes(
     return bytes(value[:length])
 
 
-def _uuid(value: Uuid) -> UUID:
+def _uuid(value: Uuid | _abi.ActivityId) -> UUID:
     return UUID(bytes=bytes(value.bytes))
 
 

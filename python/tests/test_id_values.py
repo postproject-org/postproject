@@ -10,12 +10,18 @@ from typing import Any
 from uuid import UUID
 
 from postproject import (
+    ActivityEdge,
+    ActivityId,
+    ActivityRef,
+    ActivitySpec,
     AssetId,
     AssetRef,
     JobId,
     JobRequest,
     LocatorId,
     MediaRootId,
+    MetadataProperty,
+    MetadataString,
     NotFoundError,
     Production,
     RepresentationKind,
@@ -27,6 +33,61 @@ from postproject import (
 
 
 class IdentityTests(unittest.TestCase):
+    def test_native_activity_targets_reject_other_id_structures(self) -> None:
+        native = _native.NativeLibrary()
+        target = _abi.ObjectRef()
+        error = ctypes.POINTER(_abi.Error)()
+        for wrong_id in (_abi.Uuid(), _abi.JobId(), _abi.AssetId()):
+            with self.assertRaises(ctypes.ArgumentError):
+                native.lib.pp_object_ref_from_activity(
+                    wrong_id, ctypes.byref(target), ctypes.byref(error)
+                )
+
+    def test_activity_targets_validate_identity_and_production_scope(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            with (
+                Production.create(root / "first.pproj") as first,
+                Production.create(root / "second.pproj") as second,
+            ):
+                media = root / "media.dat"
+                media.write_bytes(b"scoped activity")
+                with first.transaction() as edit:
+                    asset = edit.import_media(media)
+                    edit.commit()
+                representation = first.representations[asset][0].id
+                with first.transaction() as edit:
+                    activity = edit.create_activity(
+                        ActivitySpec(
+                            "com.example:record", (ActivityEdge(representation),)
+                        )
+                    )
+                    edit.commit()
+                self.assertIsInstance(activity, UUID)
+                self.assertEqual(parse_id(str(activity), ActivityId), activity)
+                self.assertEqual(first.activities[0].id, activity)
+                with first.read_session() as view:
+                    self.assertEqual(
+                        view.activities_producing_page(representation, limit=1)
+                        .items[0]
+                        .id,
+                        activity,
+                    )
+                for identifier in (activity, ActivityId(UUID(int=0))):
+                    with second.transaction() as edit:
+                        edit.add_metadata(
+                            ActivityRef(identifier),
+                            MetadataProperty("com.example", "label"),
+                            MetadataString("value"),
+                        )
+                        with self.assertRaises(NotFoundError):
+                            edit.commit()
+                    self.assertIsNone(second.latest_revision)
+                    self.assertEqual(second.activities, ())
+                untyped: Any = "invalid"
+                with self.assertRaises(TypeError):
+                    ActivityRef(untyped)
+
     def test_native_job_operations_reject_other_id_structures(self) -> None:
         native = _native.NativeLibrary()
         jobs = ctypes.POINTER(_abi.JobSet)()
