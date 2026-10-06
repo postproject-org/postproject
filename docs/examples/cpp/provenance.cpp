@@ -46,7 +46,7 @@ void print_snapshot(
 }
 
 // [activity-snapshots]
-postproject::Uuid record_transcode(postproject::Production &production,
+postproject::ActivityId record_transcode(postproject::Production &production,
                                    const postproject::Uuid &original_id,
                                    const postproject::Uuid &proxy_id) {
   postproject::ActivitySpec spec{};
@@ -62,6 +62,10 @@ postproject::Uuid record_transcode(postproject::Production &production,
 
   auto transaction = production.beginTransaction().value();
   const auto activity_id = transaction.createActivity(spec).value();
+  require(postproject::ActivityId::fromString(activity_id.toString().value()).value()
+              == activity_id, "saved activity identity");
+  require(postproject::ObjectRef::activity(activity_id).activityId().value()
+              == activity_id, "typed activity target");
   transaction.commit().value();
 
   // Every edge carries the fingerprints its representation had at creation.

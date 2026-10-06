@@ -69,7 +69,29 @@ static_assert(std::is_same_v<decltype(std::declval<postproject::Transaction &>()
 static_assert(!std::is_invocable_v<decltype(&postproject::Transaction::cancelJob),
     postproject::Transaction &, postproject::AssetId>);
 
+static_assert(!std::is_convertible_v<postproject::Uuid, postproject::ActivityId>);
+static_assert(!std::is_convertible_v<postproject::ActivityId, postproject::Uuid>);
+static_assert(!std::is_assignable_v<postproject::ActivityId &, postproject::JobId>);
+static_assert(std::is_same_v<decltype(postproject::Activity::id), postproject::ActivityId>);
+static_assert(std::is_same_v<decltype(postproject::ActivityCreatedEvent::activity_id), postproject::ActivityId>);
+static_assert(std::is_same_v<decltype(postproject::JobCompletion::activity_id), postproject::ActivityId>);
+static_assert(std::is_same_v<decltype(std::declval<postproject::Transaction &>().createActivity(
+    std::declval<const postproject::ActivitySpec &>())), postproject::Result<postproject::ActivityId>>);
+static_assert(!std::is_invocable_v<decltype(&pp_object_ref_from_activity),
+    pp_job_id_t, pp_object_ref_t *, pp_error_t **>);
+
 int main() {
+  const auto activity = postproject::ActivityId::fromString("00000000-0000-0000-0000-000000000001").value();
+  const std::set<postproject::ActivityId> activities{activity, activity};
+  const std::unordered_set<postproject::ActivityId> activity_hashes{activity, activity};
+  if (activities.size() != 1 || activity_hashes.size() != 1 ||
+      postproject::ObjectRef::activity(activity).activityId().value() != activity ||
+      activity.toString().value() != "00000000-0000-0000-0000-000000000001") return 22;
+  if (postproject::ObjectRef::job(postproject::JobId(activity.asUuid())).activityId()) return 23;
+  if (postproject::ActivityId::fromString("broken") ||
+      postproject::ActivityId::fromString(std::string_view("id\0tail", 7))) return 24;
+  if (!postproject::ActivityId::fromString("00000000-0000-0000-0000-000000000000")) return 25;
+
   const auto job = postproject::JobId::fromString("00000000-0000-0000-0000-000000000001").value();
   const std::set<postproject::JobId> jobs{job, job};
   const std::unordered_set<postproject::JobId> job_hashes{job, job};

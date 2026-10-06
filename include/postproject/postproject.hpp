@@ -533,6 +533,35 @@ private:
   Uuid value_;
 };
 
+class ActivityId final {
+public:
+  constexpr explicit ActivityId(Uuid value) noexcept : value_(value) {}
+  constexpr explicit ActivityId(Uuid::Bytes bytes) noexcept : value_(bytes) {}
+
+  [[nodiscard]] constexpr Uuid asUuid() const noexcept { return value_; }
+  [[nodiscard]] constexpr const Uuid::Bytes &bytes() const noexcept {
+    return value_.bytes();
+  }
+  [[nodiscard]] static Result<ActivityId> fromString(std::string_view text);
+  [[nodiscard]] Result<std::string> toString() const;
+
+  friend constexpr bool operator==(const ActivityId &left,
+                                   const ActivityId &right) noexcept {
+    return left.value_ == right.value_;
+  }
+  friend constexpr bool operator!=(const ActivityId &left,
+                                   const ActivityId &right) noexcept {
+    return !(left == right);
+  }
+  friend bool operator<(const ActivityId &left,
+                        const ActivityId &right) noexcept {
+    return left.bytes() < right.bytes();
+  }
+
+private:
+  Uuid value_;
+};
+
 class RevisionId final {
 public:
   constexpr explicit RevisionId(Uuid value) noexcept : value_(value) {}
@@ -606,6 +635,7 @@ struct ObjectRef final {
 
   [[nodiscard]] Result<AssetId> assetId() const;
   [[nodiscard]] Result<JobId> jobId() const;
+  [[nodiscard]] Result<ActivityId> activityId() const;
 
   [[nodiscard]] static constexpr ObjectRef asset(const AssetId &id) noexcept {
     return {ObjectKind::asset, id.asUuid()};
@@ -613,6 +643,10 @@ struct ObjectRef final {
 
   [[nodiscard]] static constexpr ObjectRef job(const JobId &id) noexcept {
     return {ObjectKind::job, id.asUuid()};
+  }
+
+  [[nodiscard]] static constexpr ObjectRef activity(const ActivityId &id) noexcept {
+    return {ObjectKind::activity, id.asUuid()};
   }
 
   friend constexpr bool operator==(const ObjectRef &left,
@@ -738,7 +772,7 @@ struct AgentIdentity final {
 };
 
 struct Activity final {
-  Uuid id;
+  ActivityId id;
   std::string kind;
   std::optional<std::int64_t> started_at_unix_micros;
   std::optional<std::int64_t> finished_at_unix_micros;
@@ -820,7 +854,7 @@ enum class ArtifactTraversalLimit : std::uint32_t {
 
 struct ArtifactReason final {
   ArtifactReasonKind kind;
-  std::optional<Uuid> activity_id;
+  std::optional<ActivityId> activity_id;
   Uuid representation_id;
   std::optional<Uuid> input_representation_id;
   std::optional<ArtifactEdgeKind> edge_kind;
@@ -856,7 +890,7 @@ enum class ArtifactReproducibilityIssueKind : std::uint32_t {
 
 struct ArtifactReproducibilityIssue final {
   ArtifactReproducibilityIssueKind kind;
-  std::optional<Uuid> activity_id;
+  std::optional<ActivityId> activity_id;
   std::optional<Uuid> representation_id;
   std::optional<std::uint32_t> activity_count;
 };
@@ -864,7 +898,7 @@ struct ArtifactReproducibilityIssue final {
 struct ArtifactReproducibility final {
   Uuid representation_id;
   bool reproducible;
-  std::optional<Uuid> producing_activity_id;
+  std::optional<ActivityId> producing_activity_id;
   std::optional<std::string> activity_kind;
   std::vector<ArtifactReproducibilityIssue> issues;
 };
@@ -971,18 +1005,18 @@ struct MetadataRemovedEvent final {
 };
 
 struct ActivityCreatedEvent final {
-  Uuid activity_id;
+  ActivityId activity_id;
   std::string kind;
 };
 
 struct ActivityInputAddedEvent final {
-  Uuid activity_id;
+  ActivityId activity_id;
   Uuid representation_id;
   std::optional<std::string> role;
 };
 
 struct ActivityOutputAddedEvent final {
-  Uuid activity_id;
+  ActivityId activity_id;
   Uuid representation_id;
   std::optional<std::string> role;
 };
@@ -1251,7 +1285,7 @@ struct JobClaim final {
 };
 
 struct JobCompletion final {
-  Uuid activity_id;
+  ActivityId activity_id;
   Uuid representation_id;
 };
 
@@ -1696,6 +1730,18 @@ inline pp_job_id_t native_job_id(const JobId &value) {
   return native;
 }
 
+inline ActivityId activity_id(const pp_activity_id_t &value) {
+  Uuid::Bytes bytes{};
+  std::copy(std::begin(value.bytes), std::end(value.bytes), bytes.begin());
+  return ActivityId(bytes);
+}
+
+inline pp_activity_id_t native_activity_id(const ActivityId &value) {
+  pp_activity_id_t native{};
+  std::copy(value.bytes().begin(), value.bytes().end(), std::begin(native.bytes));
+  return native;
+}
+
 inline ProductionId production_id(const pp_production_id_t &value) {
   Uuid::Bytes bytes{};
   std::copy(std::begin(value.bytes), std::end(value.bytes), bytes.begin());
@@ -2092,7 +2138,7 @@ activity_edge_snapshot(const pp_activity_set_t *activities,
 
 inline Result<Activity> activity(const pp_activity_set_t *activities,
                                  std::uint64_t index) {
-  pp_uuid_t id{};
+  pp_activity_id_t id{};
   const char *kind = nullptr;
   std::uint8_t has_started_at = 0;
   std::int64_t started_at = 0;
@@ -2170,7 +2216,7 @@ inline Result<Activity> activity(const pp_activity_set_t *activities,
         {uuid(representation_id), optional_string(role), std::move(snapshot)});
   }
 
-  return Activity{uuid(id),
+  return Activity{detail::activity_id(id),
                   kind != nullptr ? std::string(kind) : std::string(),
                   has_started_at != 0 ? std::optional<std::int64_t>(started_at)
                                       : std::nullopt,
@@ -2215,7 +2261,7 @@ inline Result<JobStatus> job_status_value(const pp_job_t &native) {
         std::move(agent), native.claim_expires_at_unix_micros};
   }
   if (state == JobState::succeeded) {
-    job_status = JobCompletion{uuid(native.completion_activity_id),
+    job_status = JobCompletion{detail::activity_id(native.completion_activity_id),
                                uuid(native.completion_representation_id)};
   }
   if (state == JobState::failed) {
@@ -2601,16 +2647,16 @@ revision_event(const pp_revision_event_set_t *events, std::uint64_t index) {
         required_event_string(event.activity_kind, "activity kind"));
     return RevisionEvent{
         event.position,
-        ActivityCreatedEvent{uuid(event.activity_id), std::move(kind)}};
+        ActivityCreatedEvent{detail::activity_id(event.activity_id), std::move(kind)}};
   }
   case PP_REVISION_ACTIVITY_INPUT_ADDED:
     return RevisionEvent{event.position,
-                         ActivityInputAddedEvent{uuid(event.activity_id),
+                         ActivityInputAddedEvent{detail::activity_id(event.activity_id),
                                                  uuid(event.representation_id),
                                                  optional_string(event.role)}};
   case PP_REVISION_ACTIVITY_OUTPUT_ADDED:
     return RevisionEvent{event.position,
-                         ActivityOutputAddedEvent{uuid(event.activity_id),
+                         ActivityOutputAddedEvent{detail::activity_id(event.activity_id),
                                                   uuid(event.representation_id),
                                                   optional_string(event.role)}};
   case PP_REVISION_RESOURCE_FINGERPRINT_OBSERVED: {
@@ -2881,7 +2927,7 @@ inline Result<ArtifactReason> artifact_reason(const pp_artifact_reason_t &native
   auto dependency_path = artifact_dependency_path(native);
   ArtifactReason reason{
       kind,
-       has_activity ? std::optional<Uuid>(uuid(native.activity_id))
+       has_activity ? std::optional<ActivityId>(detail::activity_id(native.activity_id))
                     : std::nullopt,
        uuid(native.representation_id),
        has_dependency ? std::optional<Uuid>(
@@ -2957,7 +3003,7 @@ inline Result<ArtifactReproducibility> artifact_reproducibility(ArtifactReproduc
   pp_uuid_t reported_id{};
   std::uint8_t reproducible = 0;
   std::uint8_t has_activity = 0;
-  pp_uuid_t activity_id{};
+  pp_activity_id_t activity_id{};
   const char *activity_kind = nullptr;
   std::uint64_t issue_count = 0;
   pp_error_t *summary_error = nullptr;
@@ -2985,7 +3031,7 @@ inline Result<ArtifactReproducibility> artifact_reproducibility(ArtifactReproduc
     issues.push_back(
         {kind,
          issue_has_activity
-             ? std::optional<Uuid>(uuid(native.activity_id))
+             ? std::optional<ActivityId>(detail::activity_id(native.activity_id))
              : std::nullopt,
          kind ==
                  ArtifactReproducibilityIssueKind::input_representation_missing
@@ -2997,7 +3043,7 @@ inline Result<ArtifactReproducibility> artifact_reproducibility(ArtifactReproduc
   }
   return ArtifactReproducibility{
       uuid(reported_id), reproducible != 0,
-      has_activity != 0 ? std::optional<Uuid>(uuid(activity_id))
+      has_activity != 0 ? std::optional<ActivityId>(detail::activity_id(activity_id))
                         : std::nullopt,
       optional_string(activity_kind), std::move(issues)};
 }
@@ -3092,6 +3138,13 @@ inline Result<JobId> ObjectRef::jobId() const {
   return JobId(id);
 }
 
+inline Result<ActivityId> ObjectRef::activityId() const {
+  if (kind != ObjectKind::activity) {
+    return Error(ErrorCode::invalid_argument, "reference must name an activity");
+  }
+  return ActivityId(id);
+}
+
 inline Result<AssetId> AssetId::fromString(std::string_view text) {
   POSTPROJECT_TRY_ASSIGN(const std::string checked,
                          detail::checked_string(text, "asset ID"));
@@ -3179,6 +3232,29 @@ inline Result<std::string> JobId::toString() const {
   char *text = nullptr;
   pp_error_t *error = nullptr;
   const auto status = pp_job_id_format(id, &text, &error);
+  detail::StringHandle owned(text);
+  POSTPROJECT_TRY(detail::check(status, error));
+  return std::string(owned.get());
+}
+
+inline Result<ActivityId> ActivityId::fromString(std::string_view text) {
+  POSTPROJECT_TRY_ASSIGN(const std::string checked,
+                         detail::checked_string(text, "activity ID"));
+  pp_activity_id_t id{};
+  pp_error_t *error = nullptr;
+  const auto status = pp_activity_id_parse(checked.c_str(), &id, &error);
+  POSTPROJECT_TRY(detail::check(status, error));
+  Uuid::Bytes bytes{};
+  std::copy(std::begin(id.bytes), std::end(id.bytes), bytes.begin());
+  return ActivityId(bytes);
+}
+
+inline Result<std::string> ActivityId::toString() const {
+  pp_activity_id_t id{};
+  std::copy(bytes().begin(), bytes().end(), std::begin(id.bytes));
+  char *text = nullptr;
+  pp_error_t *error = nullptr;
+  const auto status = pp_activity_id_format(id, &text, &error);
   detail::StringHandle owned(text);
   POSTPROJECT_TRY(detail::check(status, error));
   return std::string(owned.get());
@@ -4425,16 +4501,16 @@ public:
   Result<void> completeJob(const JobId &job_id, const Uuid &claim_id,
                            std::int64_t now_unix_micros,
                            const Uuid &output_representation_id,
-                           const Uuid &activity_id) {
+                           const ActivityId &activity_id) {
     const pp_job_id_t native_job_id = detail::native_job_id(job_id);
     const pp_uuid_t native_claim_id = detail::native_uuid(claim_id);
     const pp_uuid_t native_output_id =
         detail::native_uuid(output_representation_id);
-    const pp_uuid_t native_activity_id = detail::native_uuid(activity_id);
+    const pp_activity_id_t native_activity_id = detail::native_activity_id(activity_id);
     pp_error_t *error = nullptr;
     const pp_error_code_t status = pp_transaction_complete_job(
         transaction_, native_job_id, &native_claim_id, now_unix_micros,
-        &native_output_id, &native_activity_id, &error);
+        &native_output_id, native_activity_id, &error);
     POSTPROJECT_TRY(detail::check(status, error));
     return {};
   }
@@ -4464,7 +4540,7 @@ public:
     return {};
   }
 
-  Result<Uuid> createActivity(const ActivitySpec &spec) {
+  Result<ActivityId> createActivity(const ActivitySpec &spec) {
     POSTPROJECT_TRY_ASSIGN(const std::string kind,
                            detail::checked_string(spec.kind, "kind"));
     std::vector<pp_activity_edge_t> inputs;
@@ -4531,7 +4607,7 @@ public:
                                           "agent identifier qualifier"));
     }
 
-    pp_uuid_t activity_id{};
+    pp_activity_id_t activity_id{};
     pp_error_t *error = nullptr;
     const pp_error_code_t status = pp_transaction_create_activity(
         transaction_, kind.c_str(), inputs.data(),
@@ -4552,7 +4628,7 @@ public:
         agent_qualifier.has_value() ? agent_qualifier->c_str() : nullptr,
         &activity_id, &error);
     POSTPROJECT_TRY(detail::check(status, error));
-    return detail::uuid(activity_id);
+    return detail::activity_id(activity_id);
   }
 
   Result<void> commit() {
@@ -6902,6 +6978,14 @@ template <> struct std::hash<postproject::LocatorId> {
 
 template <> struct std::hash<postproject::JobId> {
   std::size_t operator()(const postproject::JobId &id) const noexcept {
+    const auto &bytes = id.bytes();
+    return std::hash<std::string_view>{}(std::string_view(
+        reinterpret_cast<const char *>(bytes.data()), bytes.size()));
+  }
+};
+
+template <> struct std::hash<postproject::ActivityId> {
+  std::size_t operator()(const postproject::ActivityId &id) const noexcept {
     const auto &bytes = id.bytes();
     return std::hash<std::string_view>{}(std::string_view(
         reinterpret_cast<const char *>(bytes.data()), bytes.size()));

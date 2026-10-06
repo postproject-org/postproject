@@ -137,7 +137,7 @@ postproject::Uuid complete_proxy(postproject::Production &production,
   const auto activity_id = transaction.createActivity(activity).value();
   // Parameters on the activity let the artifact be regenerated later.
   transaction.addMetadataValue(
-      {postproject::ObjectKind::activity, activity_id}, transcode, "profile",
+      postproject::ObjectRef::activity(activity_id), transcode, "profile",
       postproject::MetadataValue::plainString("editing-proxy")).value();
   transaction.completeJob(job.id, claim_id, now + one_minute, proxy_id,
                           activity_id).value();

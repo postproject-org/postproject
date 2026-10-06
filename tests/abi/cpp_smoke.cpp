@@ -452,7 +452,7 @@ int main(int argc, char **argv) {
     const auto metadata =
         postproject::MetadataValue::structure(metadata_fields);
     provenance.addMetadataValue(
-        {postproject::ObjectKind::activity, activity_id},
+        postproject::ObjectRef::activity(activity_id),
         "com.example.ingest", "details", metadata).value();
     provenance.addMetadataValue(asset_ref, "com.example.ingest", "title",
                                 postproject::MetadataValue::plainString(
@@ -475,8 +475,7 @@ int main(int argc, char **argv) {
         !title_misses.items.empty() || title_misses.next_cursor.has_value() ||
         detail_matches.items.size() != 1 ||
         !(detail_matches.items[0].target ==
-          postproject::ObjectRef{postproject::ObjectKind::activity,
-                                 activity_id}) ||
+          postproject::ObjectRef::activity(activity_id)) ||
         detail_matches.next_cursor.has_value()) {
       return 42;
     }
@@ -509,7 +508,7 @@ int main(int argc, char **argv) {
                          });
     };
     if (changed_objects.size() < 2 || !contains_object(asset_ref) ||
-        !contains_object({postproject::ObjectKind::activity, activity_id})) {
+        !contains_object(postproject::ObjectRef::activity(activity_id))) {
       return 44;
     }
 
