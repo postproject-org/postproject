@@ -485,3 +485,18 @@ Logs: `target/locator-decisions-*.log` and
 `target/api-safety-kdenlive-locator-decisions-*.log`. Other consumer results
 remain scoped to their earlier inputs; no full-host or final-candidate claim.
 All task commits remain local `main`; no push, tag or publication occurred.
+
+## External identifier removal checks
+
+SDK `4c64491` (storage `d2144cf`, native `172134d`, CLI `dcc248f`)
+retains ABI 47/schema 17. Prefix: `target/api-safety-identifier-decisions-install`
+(debug CLI, release native library). Source binding code is unchanged; the
+neutral wheel from the locator checkpoint was tested against this prefix.
+The fresh Linux wheel in `target/api-safety-wheel/identifier-decisions/`
+has SHA-256 `17a7177a79576dcb1dd0db1dfa4b50228b5dadc5cc0da1cef257ab9304cd5c29`.
+Six Rust gates, eight native contracts, 64 extracted examples, strict docs,
+Ruff/ty and 20 tooling tests pass. Source/installed Python: 89 run, one skip;
+nine wrong-kind typing calls reject. Logs: `target/identifier-decisions-*.log`.
+The maintained hosts do not call identifier removal; their earlier results
+retain their original input scope. Final qualification remains open.
+All task commits remain local `main`; no push, tag or publication occurred.

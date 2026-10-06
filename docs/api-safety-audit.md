@@ -321,3 +321,16 @@ decision bases through save and proxy completion; both affected units compile.
 Blender's existing based path passes 23 tests with one skip against a rebuilt
 bundle. Exact artifact inputs are in the repository manifest. Other destructive
 mutation families and final qualification remain open.
+
+## External identifier removal checkpoint
+
+SDK `4c64491` requires a decision base for exact attachment removal in storage,
+native calls and CLI. Reattachment advances the conflict key even when the
+identifier text is unchanged. Storage/Python regressions verify rollback of
+staged facts; CLI checks rejection, preserved head and the fresh edit's receipt.
+Six Rust gates, eight native tests, 64 extracted examples, strict docs, source
+lint/typing and 20 tooling tests pass. Source/installed Python: 89 run, one
+skip; nine wrong-kind calls reject. The existing neutral binding wheel was
+tested with a fresh installed native library; packaging details are in the
+repository manifest. Dependency replacement and other remaining audit items
+remain open.
