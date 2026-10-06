@@ -2960,6 +2960,9 @@ fn identifier_mutate(
     json: bool,
     base_revision: Option<CliDecisionBase>,
 ) -> Result<()> {
+    if remove && base_revision.is_none() {
+        bail!("identifier removal requires --decision-base from inspect");
+    }
     let target = parse_identifier_target(args.target.target_kind, &args.target.target_id)?;
     let scheme = IdentifierScheme::new(args.scheme).context("validate identifier scheme")?;
     let identifier = ExternalIdentifier::new(scheme, args.value, args.qualifier)
