@@ -25,7 +25,7 @@ static pp_error_code_t find_known_media(pp_production_t *production,
   uint16_t version = 0;
   uint64_t value_length = 0;
   pp_asset_id_t asset;
-  pp_uuid_t representation;
+  pp_representation_id_t representation;
   pp_uuid_t resource;
 
   pp_error_code_t status = pp_file_path_to_locator(media_path, &uri, error);
@@ -170,13 +170,15 @@ enum { VALUE_COUNT = 13 };
 
 static pp_error_code_t add_typed_values(pp_production_t *production,
                                         const pp_asset_id_t *asset_id,
-                                        const pp_uuid_t *representation_id,
+                                        const pp_representation_id_t *representation_id,
                                         pp_error_t **error) {
   static const uint8_t thumbnail[] = {0x89, 0x50, 0x4e, 0x47};
   pp_object_ref_t target;
   pp_error_code_t reference_status = pp_object_ref_from_asset(*asset_id, &target, error);
   if (reference_status != PP_OK) return reference_status;
-  const pp_object_ref_t source = {PP_OBJECT_REPRESENTATION, *representation_id};
+  pp_object_ref_t source;
+  reference_status = pp_object_ref_from_representation(*representation_id, &source, error);
+  if (reference_status != PP_OK) return reference_status;
   const char *const properties[VALUE_COUNT] = {
       "slate",    "title",       "offset",   "frame-count", "gain",
       "approved", "reviewed-at", "homepage", "thumbnail",   "frame-rate",
@@ -508,7 +510,7 @@ static void join(char *buffer, size_t size, const char *directory,
 static pp_error_code_t create_production(const char *path, const char *media,
                                          pp_production_t **out_production,
                                          pp_asset_id_t *out_asset_id,
-                                         pp_uuid_t *out_representation_id,
+                                         pp_representation_id_t *out_representation_id,
                                          pp_error_t **error) {
   pp_production_t *production = NULL;
   pp_transaction_t *transaction = NULL;
@@ -556,11 +558,12 @@ static pp_error_code_t create_production(const char *path, const char *media,
 /* Records one "department" value on two objects so a query spans pages. */
 static pp_error_code_t add_departments(pp_production_t *production,
                                        const pp_asset_id_t *asset_id,
-                                       const pp_uuid_t *representation_id,
+                                       const pp_representation_id_t *representation_id,
                                        pp_error_t **error) {
-  pp_object_ref_t targets[] = {
-      {0, {{0}}}, {PP_OBJECT_REPRESENTATION, *representation_id}};
+  pp_object_ref_t targets[2];
   pp_error_code_t reference_status = pp_object_ref_from_asset(*asset_id, &targets[0], error);
+  if (reference_status != PP_OK) return reference_status;
+  reference_status = pp_object_ref_from_representation(*representation_id, &targets[1], error);
   if (reference_status != PP_OK) return reference_status;
   pp_metadata_input_t *department = NULL;
   pp_transaction_t *transaction = NULL;
@@ -595,7 +598,7 @@ int main(int argc, char **argv) {
   pp_production_t *production = NULL;
   pp_error_t *error = NULL;
   pp_asset_id_t asset_id;
-  pp_uuid_t representation_id;
+  pp_representation_id_t representation_id;
   uint64_t count = 0;
   uint32_t seen_kinds = 0;
 

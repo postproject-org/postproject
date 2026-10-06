@@ -97,7 +97,7 @@ static pp_error_code_t stage_proxy_parameters(pp_transaction_t *transaction,
 }
 
 static pp_error_code_t request_proxy(pp_production_t *production,
-                                     const pp_uuid_t *input_id,
+                                     const pp_representation_id_t *input_id,
                                      const pp_asset_id_t *asset_id,
                                      pp_job_id_t *out_job_id,
                                      pp_error_t **error) {
@@ -146,7 +146,7 @@ static pp_error_code_t request_proxy(pp_production_t *production,
              job.target_root != NULL ? job.target_root : "-");
     }
     for (uint64_t i = 0; status == PP_OK && i < job.input_count; ++i) {
-      pp_uuid_t input;
+      pp_representation_id_t input;
       status = pp_job_set_get_input(jobs, j, i, &input, error);
     }
   }
@@ -225,8 +225,8 @@ static pp_error_code_t claim_renew_release(pp_production_t *production,
 /* [complete-job] */
 static pp_error_code_t
 complete_proxy(pp_production_t *production, pp_job_id_t job_id,
-               const pp_uuid_t *input_id, const pp_asset_id_t *asset_id,
-               const char *output_path, pp_uuid_t *out_proxy_id,
+               const pp_representation_id_t *input_id, const pp_asset_id_t *asset_id,
+               const char *output_path, pp_representation_id_t *out_proxy_id,
                pp_error_t **error) {
   const int64_t started = NOW + 10 * MINUTE;
   const int64_t finished = NOW + 12 * MINUTE;
@@ -276,7 +276,7 @@ complete_proxy(pp_production_t *production, pp_job_id_t job_id,
   if (status == PP_OK) {
     status =
         pp_transaction_complete_job(transaction, job_id, &claim_id, finished,
-                                    out_proxy_id, activity_id, error);
+                                    *out_proxy_id, activity_id, error);
   }
   if (status == PP_OK) {
     /* Parameters on the activity make the artifact reproducible. */
@@ -348,16 +348,16 @@ static pp_error_code_t cancel(pp_production_t *production,
 
 /* [plan-regeneration] */
 static pp_error_code_t enqueue_regeneration(pp_production_t *production,
-                                            const pp_uuid_t *artifact_id,
+                                            const pp_representation_id_t *artifact_id,
                                             pp_job_id_t *out_job_id,
                                             pp_error_t **error) {
   pp_regeneration_plan_set_t *plans = NULL;
   pp_job_set_t *planned = NULL;
   pp_metadata_set_t *parameters = NULL;
   pp_transaction_t *transaction = NULL;
-  pp_uuid_t planned_artifact;
+  pp_representation_id_t planned_artifact;
   pp_job_t job;
-  pp_uuid_t inputs[16];
+  pp_representation_id_t inputs[16];
   memset(&job, 0, sizeof job);
 
   /* Planning is read-only; nothing is enqueued until you commit. */
@@ -429,7 +429,7 @@ static void join(char *buffer, size_t size, const char *directory,
 static pp_error_code_t create_production(const char *path, const char *media,
                                          pp_production_t **out_production,
                                          pp_asset_id_t *out_asset_id,
-                                         pp_uuid_t *out_original_id,
+                                         pp_representation_id_t *out_original_id,
                                          pp_error_t **error) {
   pp_production_t *production = NULL;
   pp_transaction_t *transaction = NULL;
@@ -485,7 +485,7 @@ static pp_error_code_t create_production(const char *path, const char *media,
 static pp_error_code_t expect_job(const pp_production_t *production,
                                   pp_job_id_t job_id,
                                   pp_job_state_t expected,
-                                  const pp_uuid_t *completion_representation,
+                                  const pp_representation_id_t *completion_representation,
                                   pp_error_t **error) {
   pp_job_set_t *jobs = NULL;
   int found = 0;
@@ -568,11 +568,11 @@ int main(int argc, char **argv) {
   pp_production_t *production = NULL;
   pp_error_t *error = NULL;
   pp_asset_id_t asset_id;
-  pp_uuid_t original_id;
+  pp_representation_id_t original_id;
   pp_job_id_t job_id;
   pp_job_id_t failed_id;
   pp_job_id_t cancelled_id;
-  pp_uuid_t proxy_id;
+  pp_representation_id_t proxy_id;
   pp_job_id_t regeneration_id;
   uint64_t before = 0;
   uint64_t count = 0;

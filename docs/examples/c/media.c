@@ -57,7 +57,7 @@ static pp_error_code_t import_image_strip(pp_production_t *production,
                                            &representations, error);
   }
   if (status == PP_OK) {
-    pp_uuid_t representation_id;
+    pp_representation_id_t representation_id;
     pp_asset_id_t owner;
     pp_representation_kind_t kind;
     uint64_t members, resources, fingerprints;
@@ -77,7 +77,7 @@ static pp_error_code_t import_image_strip(pp_production_t *production,
 static pp_error_code_t add_proxy(pp_production_t *production,
                                  const pp_asset_id_t *asset_id,
                                  const char *proxy_path,
-                                 pp_uuid_t *out_proxy_id, pp_error_t **error) {
+                                 pp_representation_id_t *out_proxy_id, pp_error_t **error) {
   pp_media_source_t *proxy = NULL;
   pp_transaction_t *transaction = NULL;
   pp_error_code_t status = pp_media_source_create_file(proxy_path, &proxy, error);
@@ -104,7 +104,7 @@ static pp_error_code_t add_proxy(pp_production_t *production,
 static pp_error_code_t
 add_spanned_clip(pp_production_t *production, const pp_asset_id_t *asset_id,
                  const char *first_part, const char *second_part,
-                 pp_uuid_t *out_representation_id, pp_error_t **error) {
+                 pp_representation_id_t *out_representation_id, pp_error_t **error) {
   /* Order is significant, and every ordered part must be required. */
   const pp_file_resource_input_t parts[] = {
       {first_part, "org.postproject:span-part", UINT8_C(1)},
@@ -135,7 +135,7 @@ add_spanned_clip(pp_production_t *production, const pp_asset_id_t *asset_id,
 static pp_error_code_t add_package(pp_production_t *production,
                                    const pp_asset_id_t *asset_id,
                                    const char *essence, const char *sidecar,
-                                   pp_uuid_t *out_representation_id,
+                                   pp_representation_id_t *out_representation_id,
                                    pp_error_t **error) {
   /* A package needs at least one required member; an optional sidecar that
    * goes missing produces an issue but does not reduce availability. */
@@ -229,7 +229,7 @@ static pp_error_code_t print_representation(const pp_representation_set_t *set,
                                             uint64_t r,
                                             int64_t *out_missing_frame,
                                             pp_error_t **error) {
-  pp_uuid_t id;
+  pp_representation_id_t id;
   pp_asset_id_t asset_id;
   pp_representation_kind_t kind;
   pp_content_structure_kind_t structure;
@@ -610,7 +610,7 @@ print_resolution_issues(const pp_production_t *production,
       status == PP_OK ? pp_resolution_set_representation_count(resolutions) : 0;
   for (uint64_t r = 0; status == PP_OK && r < count; ++r) {
     pp_asset_id_t resolved_asset_id;
-    pp_uuid_t representation_id;
+    pp_representation_id_t representation_id;
     pp_representation_availability_t availability;
     uint64_t resource_count = 0;
     uint64_t issue_count = 0;
@@ -691,7 +691,7 @@ static pp_error_code_t create_production(const char *path, const char *media,
   pp_media_source_t *camera = NULL;
   pp_media_source_t *sequence = NULL;
   pp_media_root_id_t root_id;
-  pp_uuid_t sequence_id;
+  pp_representation_id_t sequence_id;
   pp_error_code_t status =
       pp_production_create(path, "Documentary", &production, error);
   if (status == PP_OK) {
@@ -736,7 +736,7 @@ static pp_error_code_t create_production(const char *path, const char *media,
 /* Finds the imported original's resource and its current locator. */
 static pp_error_code_t
 original_resource(const pp_production_t *production, const pp_asset_id_t *asset_id,
-                  pp_uuid_t *out_representation_id, pp_uuid_t *out_resource_id,
+                  pp_representation_id_t *out_representation_id, pp_uuid_t *out_resource_id,
                   pp_locator_id_t *out_locator_id, char *out_uri, size_t uri_size,
                   pp_error_t **error) {
   pp_representation_set_t *set = NULL;
@@ -801,7 +801,7 @@ static pp_error_code_t verify_contents(const pp_production_t *production,
       status == PP_OK ? pp_resolution_set_representation_count(resolutions) : 0;
   for (uint64_t r = 0; status == PP_OK && r < count; ++r) {
     pp_asset_id_t resolved_asset_id;
-  pp_uuid_t representation_id;
+  pp_representation_id_t representation_id;
     pp_representation_availability_t availability;
     uint64_t resource_count = 0, issue_count = 0;
     status = pp_resolution_set_get_representation(
@@ -870,7 +870,7 @@ static pp_error_code_t find_nearby(const pp_production_t *production,
       status == PP_OK ? pp_resolution_set_representation_count(resolutions) : 0;
   for (uint64_t r = 0; status == PP_OK && r < count; ++r) {
     pp_asset_id_t asset_id;
-  pp_uuid_t representation_id;
+  pp_representation_id_t representation_id;
     pp_representation_availability_t availability;
     uint64_t resource_count = 0, issue_count = 0;
     status = pp_resolution_set_get_representation(
@@ -1042,7 +1042,7 @@ static pp_error_code_t relink_renamed_sequence(pp_production_t *production,
       status == PP_OK ? pp_resolution_set_representation_count(resolutions) : 0;
   for (uint64_t r = 0; status == PP_OK && r < count; ++r) {
     pp_asset_id_t owner;
-    pp_uuid_t representation_id;
+    pp_representation_id_t representation_id;
     pp_representation_availability_t availability;
     uint64_t resource_count = 0, issue_count = 0;
     status = pp_resolution_set_get_representation(
@@ -1121,10 +1121,11 @@ int main(int argc, char **argv) {
   pp_production_t *production = NULL;
   pp_error_t *error = NULL;
   pp_asset_id_t asset_id;
-  pp_uuid_t proxy_id;
-  pp_uuid_t spanned_id;
-  pp_uuid_t package_id;
-  pp_uuid_t original_id, resource_id;
+  pp_representation_id_t proxy_id;
+  pp_representation_id_t spanned_id;
+  pp_representation_id_t package_id;
+  pp_representation_id_t original_id;
+  pp_uuid_t resource_id;
   pp_locator_id_t old_locator_id;
   char old_uri[4096] = {0};
   uint64_t count = 0;
