@@ -49,7 +49,26 @@ static_assert(!std::is_invocable_v<decltype(&postproject::ReadSession::asset),
 static_assert(!std::is_invocable_v<decltype(&pp_production_asset),
     const pp_production_t *, pp_uuid_t, pp_asset_set_t **, pp_error_t **>);
 
+static_assert(!std::is_convertible_v<postproject::Uuid, postproject::LocatorId>);
+static_assert(!std::is_convertible_v<postproject::LocatorId, postproject::Uuid>);
+static_assert(!std::is_assignable_v<postproject::LocatorId &, postproject::MediaRootId>);
+static_assert(std::is_same_v<decltype(postproject::Locator::id), postproject::LocatorId>);
+static_assert(std::is_same_v<decltype(postproject::LocatorAddedEvent::locator_id), postproject::LocatorId>);
+static_assert(std::is_same_v<decltype(postproject::LocatorRetiredEvent::locator_id), postproject::LocatorId>);
+static_assert(!std::is_invocable_v<decltype(&postproject::Transaction::retireLocator),
+    postproject::Transaction &, postproject::AssetId>);
+
 int main() {
+  const auto locator = postproject::LocatorId::fromString("00000000-0000-0000-0000-000000000001").value();
+  const std::set<postproject::LocatorId> locators{locator, locator};
+  const std::unordered_set<postproject::LocatorId> locator_hashes{locator, locator};
+  if (locators.size() != 1 || locator_hashes.size() != 1 ||
+      locator.toString().value() != "00000000-0000-0000-0000-000000000001" ||
+      postproject::LocatorId(locator.asUuid()) != locator) return 15;
+  if (postproject::LocatorId::fromString("broken") ||
+      postproject::LocatorId::fromString(std::string_view("id\0tail", 7))) return 16;
+  if (!postproject::LocatorId::fromString("00000000-0000-0000-0000-000000000000")) return 17;
+
   const auto root = postproject::MediaRootId::fromString("00000000-0000-0000-0000-000000000001").value();
   const std::set<postproject::MediaRootId> roots{root, root};
   const std::unordered_set<postproject::MediaRootId> root_hashes{root, root};

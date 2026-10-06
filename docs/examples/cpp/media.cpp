@@ -280,7 +280,11 @@ relink_renamed_sequence(postproject::Production &production,
 // [retire-locator]
 std::vector<postproject::ResourceLocator> move_resource(
     postproject::Production &production, const postproject::Uuid &resource_id,
-    const postproject::Uuid &old_locator_id, const std::string &new_uri) {
+    const postproject::LocatorId &old_locator_id, const std::string &new_uri) {
+  // Saved locator text preserves identity through an explicit parse boundary.
+  const auto saved = old_locator_id.toString().value();
+  require(postproject::LocatorId::fromString(saved).value() == old_locator_id,
+          "saved locator identity");
   auto transaction = production.beginTransaction().value();
   transaction.confirmLocator(resource_id, new_uri).value();
   // Retiring keeps the old locator as history instead of deleting it.

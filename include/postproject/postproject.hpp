@@ -475,6 +475,35 @@ private:
   Uuid value_;
 };
 
+class LocatorId final {
+public:
+  constexpr explicit LocatorId(Uuid value) noexcept : value_(value) {}
+  constexpr explicit LocatorId(Uuid::Bytes bytes) noexcept : value_(bytes) {}
+
+  [[nodiscard]] constexpr Uuid asUuid() const noexcept { return value_; }
+  [[nodiscard]] constexpr const Uuid::Bytes &bytes() const noexcept {
+    return value_.bytes();
+  }
+  [[nodiscard]] static Result<LocatorId> fromString(std::string_view text);
+  [[nodiscard]] Result<std::string> toString() const;
+
+  friend constexpr bool operator==(const LocatorId &left,
+                                   const LocatorId &right) noexcept {
+    return left.value_ == right.value_;
+  }
+  friend constexpr bool operator!=(const LocatorId &left,
+                                   const LocatorId &right) noexcept {
+    return !(left == right);
+  }
+  friend bool operator<(const LocatorId &left,
+                        const LocatorId &right) noexcept {
+    return left.bytes() < right.bytes();
+  }
+
+private:
+  Uuid value_;
+};
+
 class RevisionId final {
 public:
   constexpr explicit RevisionId(Uuid value) noexcept : value_(value) {}
@@ -864,12 +893,12 @@ struct RepresentationResourceAddedEvent final {
 
 struct LocatorAddedEvent final {
   Uuid resource_id;
-  Uuid locator_id;
+  LocatorId locator_id;
 };
 
 struct LocatorRetiredEvent final {
   Uuid resource_id;
-  Uuid locator_id;
+  LocatorId locator_id;
 };
 
 struct MediaRootAddedEvent final {
@@ -1130,7 +1159,7 @@ struct FileResourceInput final {
 };
 
 struct Locator final {
-  Uuid id;
+  LocatorId id;
   std::string uri;
   LocatorAvailability availability;
   std::optional<std::int64_t> last_seen_unix_micros;
@@ -1609,6 +1638,18 @@ inline pp_media_root_id_t native_media_root_id(const MediaRootId &value) {
   return native;
 }
 
+inline LocatorId locator_id(const pp_locator_id_t &value) {
+  Uuid::Bytes bytes{};
+  std::copy(std::begin(value.bytes), std::end(value.bytes), bytes.begin());
+  return LocatorId(bytes);
+}
+
+inline pp_locator_id_t native_locator_id(const LocatorId &value) {
+  pp_locator_id_t native{};
+  std::copy(value.bytes().begin(), value.bytes().end(), std::begin(native.bytes));
+  return native;
+}
+
 inline ProductionId production_id(const pp_production_id_t &value) {
   Uuid::Bytes bytes{};
   std::copy(std::begin(value.bytes), std::end(value.bytes), bytes.begin());
@@ -1911,7 +1952,7 @@ representation(const pp_representation_set_t *representations,
     locators.reserve(static_cast<std::size_t>(locator_count));
     for (std::uint64_t locator_index = 0; locator_index < locator_count;
          ++locator_index) {
-      pp_uuid_t locator_id{};
+      pp_locator_id_t locator_id{};
       const char *uri = nullptr;
       pp_locator_availability_t availability = 0;
       std::uint8_t has_last_seen = 0;
@@ -1925,7 +1966,7 @@ representation(const pp_representation_set_t *representations,
           &naming, &error);
       POSTPROJECT_TRY(check(status, error));
       locators.push_back(
-          {uuid(locator_id), uri != nullptr ? std::string(uri) : std::string(),
+          {detail::locator_id(locator_id), uri != nullptr ? std::string(uri) : std::string(),
            static_cast<LocatorAvailability>(availability),
            has_last_seen != 0
                ? std::optional<std::int64_t>(last_seen)
@@ -2289,7 +2330,7 @@ locator_page(LocatorQuerySetHandle locators) {
   const std::uint64_t count = pp_locator_query_set_count(locators.get());
   items.reserve(static_cast<std::size_t>(count));
   for (std::uint64_t index = 0; index < count; ++index) {
-    pp_uuid_t id{};
+    pp_locator_id_t id{};
     pp_uuid_t owner_id{};
     const char *uri = nullptr;
     pp_locator_availability_t availability = 0;
@@ -2309,7 +2350,7 @@ locator_page(LocatorQuerySetHandle locators) {
     }
     items.push_back(
         {uuid(owner_id),
-         Locator{uuid(id), std::string(uri),
+         Locator{locator_id(id), std::string(uri),
                  static_cast<LocatorAvailability>(availability),
                  has_last_seen != 0 ? std::optional<std::int64_t>(last_seen)
                                     : std::nullopt,
@@ -2443,14 +2484,14 @@ revision_event(const pp_revision_event_set_t *events, std::uint64_t index) {
   case PP_REVISION_LOCATOR_ADDED:
     return RevisionEvent{
         event.position,
-        LocatorAddedEvent{uuid(event.resource_id), uuid(event.locator_id)}};
+        LocatorAddedEvent{uuid(event.resource_id), locator_id(event.locator_id)}};
   case PP_REVISION_MEDIA_ROOT_ADDED:
     return RevisionEvent{event.position,
                          MediaRootAddedEvent{media_root_id(event.media_root_id)}};
   case PP_REVISION_LOCATOR_RETIRED:
     return RevisionEvent{
         event.position,
-        LocatorRetiredEvent{uuid(event.resource_id), uuid(event.locator_id)}};
+        LocatorRetiredEvent{uuid(event.resource_id), locator_id(event.locator_id)}};
   case PP_REVISION_MEDIA_ROOT_ENABLED_CHANGED:
     return RevisionEvent{event.position,
                          MediaRootEnabledChangedEvent{media_root_id(event.media_root_id),
@@ -3039,6 +3080,29 @@ inline Result<std::string> MediaRootId::toString() const {
   char *text = nullptr;
   pp_error_t *error = nullptr;
   const auto status = pp_media_root_id_format(id, &text, &error);
+  detail::StringHandle owned(text);
+  POSTPROJECT_TRY(detail::check(status, error));
+  return std::string(owned.get());
+}
+
+inline Result<LocatorId> LocatorId::fromString(std::string_view text) {
+  POSTPROJECT_TRY_ASSIGN(const std::string checked,
+                         detail::checked_string(text, "locator ID"));
+  pp_locator_id_t id{};
+  pp_error_t *error = nullptr;
+  const auto status = pp_locator_id_parse(checked.c_str(), &id, &error);
+  POSTPROJECT_TRY(detail::check(status, error));
+  Uuid::Bytes bytes{};
+  std::copy(std::begin(id.bytes), std::end(id.bytes), bytes.begin());
+  return LocatorId(bytes);
+}
+
+inline Result<std::string> LocatorId::toString() const {
+  pp_locator_id_t id{};
+  std::copy(bytes().begin(), bytes().end(), std::begin(id.bytes));
+  char *text = nullptr;
+  pp_error_t *error = nullptr;
+  const auto status = pp_locator_id_format(id, &text, &error);
   detail::StringHandle owned(text);
   POSTPROJECT_TRY(detail::check(status, error));
   return std::string(owned.get());
@@ -4018,11 +4082,11 @@ public:
     return {};
   }
 
-  Result<void> retireLocator(const Uuid &locator_id) {
-    const pp_uuid_t id = detail::native_uuid(locator_id);
+  Result<void> retireLocator(const LocatorId &locator_id) {
+    const pp_locator_id_t id = detail::native_locator_id(locator_id);
     pp_error_t *error = nullptr;
     const pp_error_code_t status =
-        pp_transaction_retire_locator(transaction_, &id, &error);
+        pp_transaction_retire_locator(transaction_, id, &error);
     POSTPROJECT_TRY(detail::check(status, error));
     return {};
   }
@@ -6746,6 +6810,14 @@ template <> struct std::hash<postproject::AssetId> {
 
 template <> struct std::hash<postproject::MediaRootId> {
   std::size_t operator()(const postproject::MediaRootId &id) const noexcept {
+    const auto &bytes = id.bytes();
+    return std::hash<std::string_view>{}(std::string_view(
+        reinterpret_cast<const char *>(bytes.data()), bytes.size()));
+  }
+};
+
+template <> struct std::hash<postproject::LocatorId> {
+  std::size_t operator()(const postproject::LocatorId &id) const noexcept {
     const auto &bytes = id.bytes();
     return std::hash<std::string_view>{}(std::string_view(
         reinterpret_cast<const char *>(bytes.data()), bytes.size()));
