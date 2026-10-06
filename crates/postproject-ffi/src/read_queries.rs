@@ -449,7 +449,7 @@ pub unsafe extern "C" fn pp_read_session_objects_changed_since(
 /// Copies recorded dependency knowledge, preserving absence versus an empty set.
 ///
 /// # Safety
-/// Session must be live; output writable, error nullable/writable.
+/// Session/ID must be live/readable; output writable, error nullable/writable.
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_read_session_dependency_set(
     session: *const PpReadSession,
