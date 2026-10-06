@@ -2460,6 +2460,38 @@ dependency_query_page(DependencyQuerySetHandle matches) {
       pp_dependency_query_set_traversal_truncated(matches.get()) != 0};
 }
 
+inline Result<QueryPage<MediaRoot>> media_root_page(MediaRootSetHandle roots) {
+    std::vector<MediaRoot> result;
+    const std::uint64_t count = pp_media_root_set_count(roots.get());
+    result.reserve(static_cast<std::size_t>(count));
+    for (std::uint64_t index = 0; index < count; ++index) {
+      pp_media_root_id_t id{};
+      const char *name = nullptr;
+      const char *label = nullptr;
+      const char *legacy_uri = nullptr;
+      std::int32_t priority = 0;
+      std::uint8_t enabled = 0;
+      pp_error_t *item_error = nullptr;
+      const pp_error_code_t item_status = pp_media_root_set_get(
+          roots.get(), index, &id, &name, &label, &legacy_uri, &priority,
+          &enabled, &item_error);
+      POSTPROJECT_TRY(check(item_status, item_error));
+      if (name == nullptr) {
+        return Error(ErrorCode::internal, "media root has no name");
+      }
+      result.push_back(
+          {media_root_id(id), std::string(name),
+           label != nullptr ? std::optional<std::string>(std::string(label))
+                            : std::nullopt,
+           legacy_uri != nullptr
+               ? std::optional<std::string>(std::string(legacy_uri))
+               : std::nullopt,
+           priority, enabled != 0});
+    }
+    return QueryPage<MediaRoot>{std::move(result),
+        optional_string(pp_media_root_set_next_cursor(roots.get())), false};
+}
+
 inline Result<QueryPage<ObjectMatch>>
 object_query_page(ObjectQuerySetHandle objects) {
   std::vector<ObjectMatch> items;
@@ -5534,34 +5566,21 @@ public:
     POSTPROJECT_TRY(detail::check(status, error));
     detail::MediaRootSetHandle roots(raw_roots);
 
-    std::vector<MediaRoot> result;
-    const std::uint64_t count = pp_media_root_set_count(roots.get());
-    result.reserve(static_cast<std::size_t>(count));
-    for (std::uint64_t index = 0; index < count; ++index) {
-      pp_media_root_id_t id{};
-      const char *name = nullptr;
-      const char *label = nullptr;
-      const char *legacy_uri = nullptr;
-      std::int32_t priority = 0;
-      std::uint8_t enabled = 0;
-      pp_error_t *item_error = nullptr;
-      const pp_error_code_t item_status = pp_media_root_set_get(
-          roots.get(), index, &id, &name, &label, &legacy_uri, &priority,
-          &enabled, &item_error);
-      POSTPROJECT_TRY(detail::check(item_status, item_error));
-      if (name == nullptr) {
-        return Error(ErrorCode::internal, "media root has no name");
-      }
-      result.push_back(
-          {detail::media_root_id(id), std::string(name),
-           label != nullptr ? std::optional<std::string>(std::string(label))
-                            : std::nullopt,
-           legacy_uri != nullptr
-               ? std::optional<std::string>(std::string(legacy_uri))
-               : std::nullopt,
-           priority, enabled != 0});
-    }
-    return result;
+    POSTPROJECT_TRY_ASSIGN(auto page, detail::media_root_page(std::move(roots)));
+    return std::move(page.items);
+  }
+
+  [[nodiscard]] Result<QueryPage<MediaRoot>>
+  mediaRoots(std::uint32_t limit,
+             std::optional<std::string_view> cursor = std::nullopt) const {
+    POSTPROJECT_TRY_ASSIGN(const std::optional<std::string> checked_cursor,
+                           detail::checked_cursor(cursor));
+    pp_media_root_set_t *roots = nullptr;
+    pp_error_t *error = nullptr;
+    const auto status = pp_read_session_media_roots_page(session_, limit,
+        detail::optional_c_str(checked_cursor), &roots, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    return detail::media_root_page(detail::MediaRootSetHandle(roots));
   }
 
   [[nodiscard]] Result<std::vector<ExternalIdentifier>>
@@ -5972,34 +5991,21 @@ public:
     POSTPROJECT_TRY(detail::check(status, error));
     detail::MediaRootSetHandle roots(raw_roots);
 
-    std::vector<MediaRoot> result;
-    const std::uint64_t count = pp_media_root_set_count(roots.get());
-    result.reserve(static_cast<std::size_t>(count));
-    for (std::uint64_t index = 0; index < count; ++index) {
-      pp_media_root_id_t id{};
-      const char *name = nullptr;
-      const char *label = nullptr;
-      const char *legacy_uri = nullptr;
-      std::int32_t priority = 0;
-      std::uint8_t enabled = 0;
-      pp_error_t *item_error = nullptr;
-      const pp_error_code_t item_status = pp_media_root_set_get(
-          roots.get(), index, &id, &name, &label, &legacy_uri, &priority,
-          &enabled, &item_error);
-      POSTPROJECT_TRY(detail::check(item_status, item_error));
-      if (name == nullptr) {
-        return Error(ErrorCode::internal, "media root has no name");
-      }
-      result.push_back(
-          {detail::media_root_id(id), std::string(name),
-           label != nullptr ? std::optional<std::string>(std::string(label))
-                            : std::nullopt,
-           legacy_uri != nullptr
-               ? std::optional<std::string>(std::string(legacy_uri))
-               : std::nullopt,
-           priority, enabled != 0});
-    }
-    return result;
+    POSTPROJECT_TRY_ASSIGN(auto page, detail::media_root_page(std::move(roots)));
+    return std::move(page.items);
+  }
+
+  [[nodiscard]] Result<QueryPage<MediaRoot>>
+  mediaRoots(std::uint32_t limit,
+             std::optional<std::string_view> cursor = std::nullopt) const {
+    POSTPROJECT_TRY_ASSIGN(const std::optional<std::string> checked_cursor,
+                           detail::checked_cursor(cursor));
+    pp_media_root_set_t *roots = nullptr;
+    pp_error_t *error = nullptr;
+    const auto status = pp_production_media_roots_page(production_, limit,
+        detail::optional_c_str(checked_cursor), &roots, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    return detail::media_root_page(detail::MediaRootSetHandle(roots));
   }
 
   [[nodiscard]] Result<std::vector<Representation>>
