@@ -3673,11 +3673,13 @@ fn job_request(
             .add_metadata_value(ObjectRef::Job(job.id()), &property, &value)
             .context("record executor profile")?;
     }
-    transaction.commit().context("commit job request")?;
+    let receipt = transaction
+        .commit_with_receipt()
+        .context("commit job request")?;
 
     let view = job_view(&job);
     if json {
-        print_json(&view)
+        print_json_with_receipt(&view, &receipt)
     } else {
         println!("requested job {} ({})", view.id, view.kind);
         Ok(())
@@ -3722,9 +3724,11 @@ fn job_claim(args: JobClaimArgs, json: bool, base_revision: Option<CliDecisionBa
             Timestamp::from_unix_micros(args.expires_at_unix_micros),
         )
         .context("claim job")?;
-    transaction.commit().context("commit job claim")?;
+    let receipt = transaction
+        .commit_with_receipt()
+        .context("commit job claim")?;
     drop(transaction);
-    print_job_result(&production, job_id, json, "claimed")
+    print_job_result(&production, job_id, json, "claimed", &receipt)
 }
 
 fn job_renew(
@@ -3746,9 +3750,11 @@ fn job_renew(
             Timestamp::from_unix_micros(args.expires_at_unix_micros),
         )
         .context("renew job claim")?;
-    transaction.commit().context("commit job claim renewal")?;
+    let receipt = transaction
+        .commit_with_receipt()
+        .context("commit job claim renewal")?;
     drop(transaction);
-    print_job_result(&production, job_id, json, "renewed")
+    print_job_result(&production, job_id, json, "renewed", &receipt)
 }
 
 fn job_release(
@@ -3765,9 +3771,11 @@ fn job_release(
     transaction
         .release_job_claim(job_id, claim_id)
         .context("release job claim")?;
-    transaction.commit().context("commit job claim release")?;
+    let receipt = transaction
+        .commit_with_receipt()
+        .context("commit job claim release")?;
     drop(transaction);
-    print_job_result(&production, job_id, json, "released")
+    print_job_result(&production, job_id, json, "released", &receipt)
 }
 
 fn job_complete(
@@ -3814,9 +3822,11 @@ fn job_complete(
     transaction
         .complete_job(job_id, claim_id, now, &output, &activity)
         .context("complete job")?;
-    transaction.commit().context("commit job completion")?;
+    let receipt = transaction
+        .commit_with_receipt()
+        .context("commit job completion")?;
     drop(transaction);
-    print_job_result(&production, job_id, json, "completed")
+    print_job_result(&production, job_id, json, "completed", &receipt)
 }
 
 fn job_fail(args: JobFailArgs, json: bool, base_revision: Option<CliDecisionBase>) -> Result<()> {
@@ -3834,9 +3844,11 @@ fn job_fail(args: JobFailArgs, json: bool, base_revision: Option<CliDecisionBase
             &failure,
         )
         .context("fail job")?;
-    transaction.commit().context("commit job failure")?;
+    let receipt = transaction
+        .commit_with_receipt()
+        .context("commit job failure")?;
     drop(transaction);
-    print_job_result(&production, job_id, json, "failed")
+    print_job_result(&production, job_id, json, "failed", &receipt)
 }
 
 fn job_cancel(args: &JobIdArgs, json: bool, base_revision: Option<CliDecisionBase>) -> Result<()> {
@@ -3846,9 +3858,11 @@ fn job_cancel(args: &JobIdArgs, json: bool, base_revision: Option<CliDecisionBas
         begin_cli_transaction(&mut production, base_revision, "job cancellation")?;
     set_cli_revision_context(&mut transaction, "Cancel job")?;
     transaction.cancel_job(job_id).context("cancel job")?;
-    transaction.commit().context("commit job cancellation")?;
+    let receipt = transaction
+        .commit_with_receipt()
+        .context("commit job cancellation")?;
     drop(transaction);
-    print_job_result(&production, job_id, json, "cancelled")
+    print_job_result(&production, job_id, json, "cancelled", &receipt)
 }
 
 fn print_job_result(
@@ -3856,11 +3870,12 @@ fn print_job_result(
     job_id: JobId,
     json: bool,
     action: &str,
+    receipt: &CommitReceipt,
 ) -> Result<()> {
     let job = production.job(job_id).context("reload job")?;
     let view = job_view(&job);
     if json {
-        print_json(&view)
+        print_json_with_receipt(&view, receipt)
     } else {
         println!("{action} job {}", view.id);
         Ok(())

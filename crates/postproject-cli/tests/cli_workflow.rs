@@ -52,6 +52,18 @@ fn add_representation_from_spec(
     ])
 }
 
+fn assert_ordered_receipts(results: &[&Value]) {
+    let mut previous_sequence = 0;
+    for result in results {
+        let receipt = &result["commit_receipt"];
+        assert!(receipt["production_id"].is_string());
+        assert!(receipt["revision"]["id"].is_string());
+        let sequence = receipt["revision"]["sequence"].as_u64().unwrap();
+        assert!(sequence > previous_sequence);
+        previous_sequence = sequence;
+    }
+}
+
 fn exercise_job_claim_lifecycle(
     production: &str,
     job_id: &str,
@@ -145,6 +157,15 @@ fn exercise_job_claim_lifecycle(
         production,
         second_request["id"].as_str().expect("second job ID"),
     ]);
+    assert_ordered_receipts(&[
+        &claimed,
+        &renewed,
+        &released,
+        &claimed_again,
+        &failed,
+        &second_request,
+        &cancelled,
+    ]);
     assert_eq!(cancelled["state"], "cancelled");
 }
 
@@ -201,7 +222,13 @@ fn exercise_job_completion(
         .iter()
         .find(|job| job["id"] == completed_job_id)
         .expect("completed job in third process");
-    assert_eq!(observed, &completed);
+    assert_ordered_receipts(&[&completion_request, &completion_claim, &completed]);
+    let mut stored_completed = completed.clone();
+    stored_completed
+        .as_object_mut()
+        .unwrap()
+        .remove("commit_receipt");
+    assert_eq!(observed, &stored_completed);
     assert_job_events_journaled(production);
     let producing = run_json(&["activity", "producing", production, output_id])["items"].clone();
     assert_eq!(producing.as_array().expect("activity array").len(), 1);
@@ -1144,7 +1171,7 @@ fn requests_and_lists_jobs() {
     let representation_id = imported["representation_id"]
         .as_str()
         .expect("representation ID");
-    let requested = run_json(&[
+    let mut requested = run_json(&[
         "job",
         "request",
         production_path,
@@ -1162,6 +1189,8 @@ fn requests_and_lists_jobs() {
     assert!(requested["target_root"].is_null());
 
     let jobs = run_json(&["job", "list", production_path]);
+    assert_ordered_receipts(&[&requested]);
+    requested.as_object_mut().unwrap().remove("commit_receipt");
     assert_eq!(jobs["items"], serde_json::json!([requested]));
     assert!(jobs["next_cursor"].is_null());
     let revision = run_json(&["revisions", "latest", production_path]);
