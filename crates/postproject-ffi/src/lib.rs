@@ -5226,6 +5226,8 @@ pub unsafe extern "C" fn pp_transaction_record_representation_fingerprint(
 
 /// Stages replacement of one representation's complete dependency observation.
 ///
+/// Requires a decision base. Rejection leaves the transaction open.
+///
 /// The array and all strings are copied during this call. A null array is valid
 /// only when `dependency_count` is zero.
 ///
@@ -5248,6 +5250,7 @@ pub unsafe extern "C" fn pp_transaction_record_dependency_set(
                 .as_mut()
                 .ok_or_else(|| invalid_argument("transaction must not be null"))?;
             transaction.lifecycle.ensure_open()?;
+            transaction.require_decision_base()?;
             let dependencies = dependencies_from_abi(dependencies, dependency_count)?;
             transaction
                 .mutations

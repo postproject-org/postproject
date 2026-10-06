@@ -866,7 +866,7 @@ class ProductionTests(unittest.TestCase):
                 resolved_representation_id=original.id,
             )
 
-            with production.transaction() as transaction:
+            with production.read_session() as view, view.edit() as transaction:
                 transaction.record_dependency_set(proxy_id, (dependency,))
                 transaction.commit()
 
@@ -898,7 +898,7 @@ class ProductionTests(unittest.TestCase):
                 (AssetRef(asset_id),),
             )
 
-            with production.transaction() as transaction:
+            with production.read_session() as view, view.edit() as transaction:
                 transaction.record_dependency_set(proxy_id, ())
                 transaction.commit()
 

@@ -1675,7 +1675,8 @@ PP_API pp_error_code_t pp_transaction_observe_resource_content(
     const char *path, const pp_sequence_naming_t *sequence_naming,
     pp_content_observation_t *out_outcome, pp_error_t **out_error);
 /* Replaces the complete ordered dependency observation. The array and strings
- * are borrowed for this call and copied into the transaction. */
+ * are borrowed for this call and copied into the transaction. Requires a
+ * decision base; rejection leaves the transaction open. */
 PP_API pp_error_code_t pp_transaction_record_dependency_set(
     pp_transaction_t *transaction, pp_representation_id_t representation_id,
     const pp_dependency_t *dependencies, uint64_t dependency_count,

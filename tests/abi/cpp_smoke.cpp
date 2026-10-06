@@ -574,7 +574,9 @@ int main(int argc, char **argv) {
       const auto retirement = unbased.retireLocator(representations[0].resources[0].locators[0].id);
       const auto identifier_removal = unbased.removeExternalIdentifier(
           postproject::ObjectRef::asset(asset_id), {"com.example.id", "observed", std::nullopt});
-      if (enabling || removal || retirement || identifier_removal ||
+      const auto dependency_replacement = unbased.recordDependencySet(representations[0].id, {});
+      if (enabling || removal || retirement || identifier_removal || dependency_replacement ||
+          dependency_replacement.error().code() != postproject::ErrorCode::invalid_argument ||
           identifier_removal.error().code() != postproject::ErrorCode::invalid_argument ||
           retirement.error().code() != postproject::ErrorCode::invalid_argument ||
           enabling.error().code() != postproject::ErrorCode::invalid_argument ||
@@ -776,7 +778,7 @@ int main(int argc, char **argv) {
         resolutions[0].representation_id,
         true,
         "characters/lead.pproj#character/A"};
-    auto dependency_update = reopened.beginTransaction().value();
+    auto dependency_update = reopened.readSession().value().edit().value();
     dependency_update.recordDependencySet(proxy_id, {dependency}).value();
     dependency_update.commit().value();
     const auto dependency_revision = reopened.latestRevision().value();

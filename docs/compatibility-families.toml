@@ -331,3 +331,13 @@ last_changed_abi = 47
 c_operations = ["pp_transaction_remove_external_identifier"]
 cpp_operations = ["Transaction::removeExternalIdentifier"]
 python_operations = ["Transaction.remove_external_identifier"]
+
+[[families]]
+id = "dependency-observation"
+dependencies = ["transaction-lifecycle", "representation-identity"]
+introduced_release = "0.4.0-alpha.1"
+last_changed_release = "0.7.0-alpha.1"
+last_changed_abi = 47
+c_operations = ["pp_production_dependency_set", "pp_read_session_dependency_set", "pp_dependency_set_get", "pp_dependency_set_get_dependency", "pp_dependency_set_release", "pp_transaction_record_dependency_set"]
+cpp_operations = ["Production::dependencySet", "ReadSession::dependencySet", "Transaction::recordDependencySet"]
+python_operations = ["Production.dependency_set", "ReadSession.dependency_set", "Transaction.record_dependency_set"]

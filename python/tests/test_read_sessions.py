@@ -38,6 +38,57 @@ from postproject import (
 
 
 class ReadSessionTests(unittest.TestCase):
+    def test_dependency_replacement_requires_a_base_and_preserves_newer_facts(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            media = root / "clip.dat"
+            media.write_bytes(b"dependency decision fixture")
+            with Production.create(root / "production.pproj") as production:
+                with production.transaction() as edit:
+                    asset = edit.import_media(media)
+                    edit.commit()
+                source = production.representations[asset][0].id
+                with production.transaction() as unbased:
+                    with self.assertRaises(InvalidArgumentError):
+                        unbased.record_dependency_set(source, ())
+                    unbased.add_media_root("retained")
+                    unbased.commit()
+                self.assertIsNone(production.dependency_set(source))
+                with production.read_session() as view, view.edit() as initial:
+                    initial.record_dependency_set(source, ())
+                    initial.commit()
+                with production.read_session() as view:
+                    base = view.decision_base
+                dependency = Dependency(
+                    "com.example:reference",
+                    AssetRef(asset),
+                    "self",
+                    resolved_representation_id=source,
+                )
+                with production.edit(base) as winner:
+                    winner.record_dependency_set(source, (dependency,))
+                    head = winner.commit().revision
+                assert head is not None
+                with production.edit(base) as stale:
+                    stale.record_dependency_set(source, ())
+                    stale.add_media_root("discarded")
+                    with self.assertRaises(ConflictError):
+                        stale.commit()
+                latest = production.latest_revision
+                assert latest is not None
+                self.assertEqual(latest.id, head.id)
+                stored = production.dependency_set(source)
+                assert stored is not None
+                self.assertEqual(stored.dependencies, (dependency,))
+                self.assertEqual(
+                    [item.name for item in production.media_roots], ["retained"]
+                )
+                with production.read_session() as view, view.edit() as unchanged:
+                    unchanged.record_dependency_set(source, (dependency,))
+                    self.assertIsNone(unchanged.commit().revision)
+
     def test_identifier_removal_rejects_a_reattachment_after_the_read(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
