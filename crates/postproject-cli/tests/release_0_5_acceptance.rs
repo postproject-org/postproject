@@ -278,7 +278,10 @@ fn published_cli_story_runs_with_a_fake_executor() {
         .expect("serialize dependencies"),
     )
     .expect("write dependencies");
+    let inspection = run_json(&["inspect", production]);
     run_json(&[
+        "--decision-base",
+        inspection["decision_base"].as_str().unwrap(),
         "dependency",
         "record",
         production,

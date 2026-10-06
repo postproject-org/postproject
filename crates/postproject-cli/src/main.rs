@@ -3325,6 +3325,8 @@ fn dependency_record(
     json: bool,
     base_revision: Option<CliDecisionBase>,
 ) -> Result<()> {
+    let base =
+        base_revision.context("dependency replacement requires --decision-base from inspect")?;
     let representation_id = parse_representation_id(&args.representation_id)?;
     let encoded = fs::read(&args.spec_file)
         .with_context(|| format!("read dependency spec {}", args.spec_file.display()))?;
@@ -3335,7 +3337,7 @@ fn dependency_record(
         .map(DependencySpec::into_dependency)
         .collect::<Result<Vec<_>>>()?;
     let mut production = SqliteProduction::open(&args.production).context("open production")?;
-    let mut transaction = begin_cli_transaction(&mut production, base_revision, "dependency")?;
+    let mut transaction = begin_cli_transaction(&mut production, Some(base), "dependency")?;
     set_cli_revision_context(&mut transaction, "Record dependency set")?;
     transaction
         .record_dependency_set(representation_id, &dependencies)

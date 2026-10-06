@@ -272,7 +272,16 @@ fn exercise_dependencies(
     )
     .expect("write dependency spec");
     let spec_path = dependency_spec.to_str().expect("UTF-8 dependency spec");
-    let mut recorded = run_json(&["dependency", "record", production, proxy_id, spec_path]);
+    let inspection = run_json(&["inspect", production]);
+    let mut recorded = run_json(&[
+        "--decision-base",
+        inspection["decision_base"].as_str().unwrap(),
+        "dependency",
+        "record",
+        production,
+        proxy_id,
+        spec_path,
+    ]);
     assert!(recorded["commit_receipt"]["revision"]["id"].is_string());
     recorded.as_object_mut().unwrap().remove("commit_receipt");
     assert_eq!(recorded["status"], "current");
@@ -314,7 +323,16 @@ fn exercise_dependencies(
     assert!(forward["next_cursor"].is_null());
     assert_eq!(forward["traversal_truncated"], false);
     fs::write(&dependency_spec, b"[]").expect("write empty dependency spec");
-    let empty = run_json(&["dependency", "record", production, proxy_id, spec_path]);
+    let inspection = run_json(&["inspect", production]);
+    let empty = run_json(&[
+        "--decision-base",
+        inspection["decision_base"].as_str().unwrap(),
+        "dependency",
+        "record",
+        production,
+        proxy_id,
+        spec_path,
+    ]);
     assert_eq!(empty["dependencies"], serde_json::json!([]));
     assert_eq!(
         run_json(&["dependency", "dependents", production, "asset", asset_id])["items"],
