@@ -6,7 +6,7 @@ use postproject_core::{
     Error, ErrorKind, Job, JobState, QueryCursor, RegenerationJobPlan, RepresentationKind,
 };
 
-use crate::{PpActivityId, PpAssetId, PpJobId, PpUuid, exact_cstring};
+use crate::{PpActivityId, PpAssetId, PpJobId, PpRepresentationId, PpUuid, exact_cstring};
 
 const PP_JOB_REQUESTED: u32 = 1;
 pub(super) const PP_JOB_CLAIMED: u32 = 2;
@@ -64,7 +64,7 @@ pub struct PpJob {
     /// Completion facts, or zero outside the succeeded state.
     pub completion_activity_id: PpActivityId,
     /// Output representation, or zero outside the succeeded state.
-    pub completion_representation_id: PpUuid,
+    pub completion_representation_id: PpRepresentationId,
     /// Borrowed diagnostic, or null outside the failed state.
     pub failure_diagnostic: *const c_char,
 }
@@ -90,7 +90,7 @@ impl PpJob {
             claim_agent_identifier_value: std::ptr::null(),
             claim_agent_identifier_qualifier: std::ptr::null(),
             completion_activity_id: PpActivityId { bytes: [0; 16] },
-            completion_representation_id: zero,
+            completion_representation_id: PpRepresentationId { bytes: [0; 16] },
             failure_diagnostic: std::ptr::null(),
         }
     }
@@ -147,14 +147,14 @@ pub struct PpJobCompletion {
     /// Completing activity.
     pub activity_id: PpActivityId,
     /// Produced representation.
-    pub representation_id: PpUuid,
+    pub representation_id: PpRepresentationId,
 }
 
 impl PpJobCompletion {
     pub(crate) const fn empty() -> Self {
         Self {
             activity_id: PpActivityId { bytes: [0; 16] },
-            representation_id: PpUuid { bytes: [0; 16] },
+            representation_id: PpRepresentationId { bytes: [0; 16] },
         }
     }
 }
@@ -171,7 +171,7 @@ struct AbiJob {
     claim_agent_identifier_value: Option<CString>,
     claim_agent_identifier_qualifier: Option<CString>,
     failure_diagnostic: Option<CString>,
-    inputs: Vec<PpUuid>,
+    inputs: Vec<PpRepresentationId>,
 }
 
 impl PpJobSet {
@@ -211,7 +211,7 @@ impl PpJobSet {
         Ok(job)
     }
 
-    pub(crate) fn input(&self, job_index: usize, input_index: usize) -> Option<PpUuid> {
+    pub(crate) fn input(&self, job_index: usize, input_index: usize) -> Option<PpRepresentationId> {
         self.jobs.get(job_index)?.inputs.get(input_index).copied()
     }
 
@@ -320,7 +320,7 @@ impl TryFrom<&Job> for AbiJob {
                 value.completion_activity_id = PpActivityId {
                     bytes: completion.activity_id().into_bytes(),
                 };
-                value.completion_representation_id = PpUuid {
+                value.completion_representation_id = PpRepresentationId {
                     bytes: completion.representation_id().into_bytes(),
                 };
             }
@@ -349,7 +349,7 @@ impl TryFrom<&Job> for AbiJob {
             inputs: job
                 .inputs()
                 .iter()
-                .map(|id| PpUuid {
+                .map(|id| PpRepresentationId {
                     bytes: id.into_bytes(),
                 })
                 .collect(),

@@ -1,9 +1,9 @@
 //! Snapshot point reads and bounded pages using existing owned projections.
 
 use crate::{
-    AbiAsset, PpAssetId, PpAssetSet, PpError, PpReadSession, PpRepresentationSet, PpUuid, ffi_call,
-    initialize_output, invalid_argument, lock_production, query_cursor_to_cstring,
-    query_page_request, require_output,
+    AbiAsset, PpAssetId, PpAssetSet, PpError, PpReadSession, PpRepresentationId,
+    PpRepresentationSet, PpUuid, ffi_call, initialize_output, invalid_argument, lock_production,
+    query_cursor_to_cstring, query_page_request, require_output,
 };
 use postproject_core::{AssetId, Error, RepresentationId};
 use std::ffi::c_char;
@@ -41,7 +41,7 @@ unsafe fn forward_read(
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_read_session_plan_regeneration(
     session: *const PpReadSession,
-    artifact_representation_ids: *const PpUuid,
+    artifact_representation_ids: *const PpRepresentationId,
     artifact_count: u64,
     out_plans: *mut *mut crate::PpRegenerationPlanSet,
     out_error: *mut *mut PpError,
@@ -165,7 +165,7 @@ pub unsafe extern "C" fn pp_read_session_changes_since(
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_read_session_activities_producing_page(
     session: *const PpReadSession,
-    representation_id: *const PpUuid,
+    representation_id: PpRepresentationId,
     limit: u32,
     cursor: *const c_char,
     out_activities: *mut *mut crate::PpActivitySet,
@@ -193,7 +193,7 @@ pub unsafe extern "C" fn pp_read_session_activities_producing_page(
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_read_session_activities_consuming_page(
     session: *const PpReadSession,
-    representation_id: *const PpUuid,
+    representation_id: PpRepresentationId,
     limit: u32,
     cursor: *const c_char,
     out_activities: *mut *mut crate::PpActivitySet,
@@ -281,7 +281,7 @@ pub unsafe extern "C" fn pp_read_session_outputs_by_tool(
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_read_session_provenance_ancestors_page(
     session: *const PpReadSession,
-    representation_id: *const PpUuid,
+    representation_id: PpRepresentationId,
     max_depth: u32,
     max_representations: u32,
     limit: u32,
@@ -313,7 +313,7 @@ pub unsafe extern "C" fn pp_read_session_provenance_ancestors_page(
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_read_session_provenance_descendants_page(
     session: *const PpReadSession,
-    representation_id: *const PpUuid,
+    representation_id: PpRepresentationId,
     max_depth: u32,
     max_representations: u32,
     limit: u32,
@@ -345,7 +345,7 @@ pub unsafe extern "C" fn pp_read_session_provenance_descendants_page(
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_read_session_stale_artifacts(
     session: *const PpReadSession,
-    source_representation_id: *const PpUuid,
+    source_representation_id: *const PpRepresentationId,
     evaluation_max_depth: u32,
     evaluation_max_representations: u32,
     limit: u32,
@@ -453,7 +453,7 @@ pub unsafe extern "C" fn pp_read_session_objects_changed_since(
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_read_session_dependency_set(
     session: *const PpReadSession,
-    representation_id: *const PpUuid,
+    representation_id: PpRepresentationId,
     out_dependencies: *mut *mut crate::PpDependencySet,
     out_error: *mut *mut PpError,
 ) -> u32 {
@@ -477,7 +477,7 @@ pub unsafe extern "C" fn pp_read_session_dependency_set(
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_read_session_dependencies(
     session: *const PpReadSession,
-    representation_id: *const PpUuid,
+    representation_id: PpRepresentationId,
     max_depth: u32,
     max_representations: u32,
     limit: u32,
@@ -541,7 +541,7 @@ pub unsafe extern "C" fn pp_read_session_dependents(
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_read_session_evaluate_artifact(
     session: *const PpReadSession,
-    representation_id: *const PpUuid,
+    representation_id: PpRepresentationId,
     max_depth: u32,
     max_representations: u32,
     out_evaluation: *mut *mut crate::PpArtifactEvaluation,
@@ -569,7 +569,7 @@ pub unsafe extern "C" fn pp_read_session_evaluate_artifact(
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_read_session_artifact_reproducibility(
     session: *const PpReadSession,
-    representation_id: *const PpUuid,
+    representation_id: PpRepresentationId,
     out_report: *mut *mut crate::PpArtifactReproducibility,
     out_error: *mut *mut PpError,
 ) -> u32 {
@@ -634,7 +634,7 @@ pub unsafe extern "C" fn pp_read_session_jobs(
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_read_session_resources_page(
     session: *const PpReadSession,
-    representation_id: *const PpUuid,
+    representation_id: PpRepresentationId,
     limit: u32,
     cursor: *const c_char,
     out_objects: *mut *mut crate::PpObjectQuerySet,
@@ -1088,7 +1088,7 @@ pub unsafe extern "C" fn pp_read_session_representations_page(
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_read_session_representation(
     session: *const PpReadSession,
-    representation_id: *const PpUuid,
+    representation_id: PpRepresentationId,
     out_representations: *mut *mut PpRepresentationSet,
     out_error: *mut *mut PpError,
 ) -> u32 {
@@ -1098,9 +1098,6 @@ pub unsafe extern "C" fn pp_read_session_representation(
             let session = session
                 .as_ref()
                 .ok_or_else(|| invalid_argument("session must not be null"))?;
-            let representation_id = representation_id
-                .as_ref()
-                .ok_or_else(|| invalid_argument("representation_id must not be null"))?;
             require_output(out_representations, "out_representations")?;
             let inner = lock_production(&session.reader.state);
             let representation =

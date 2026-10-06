@@ -17,7 +17,8 @@ use crate::{
     PP_REVISION_REPRESENTATION_ADDED, PP_REVISION_REPRESENTATION_FINGERPRINT_OBSERVED,
     PP_REVISION_REPRESENTATION_RESOURCE_ADDED, PP_REVISION_RESOURCE_ADDED,
     PP_REVISION_RESOURCE_FINGERPRINT_OBSERVED, PpActivityId, PpAssetId, PpJobId, PpLocatorId,
-    PpMediaRootId, PpObjectRef, PpRevisionEvent, PpUuid, exact_cstring, object_ref_to_abi,
+    PpMediaRootId, PpObjectRef, PpRepresentationId, PpRevisionEvent, PpUuid, exact_cstring,
+    object_ref_to_abi,
 };
 
 /// Opaque immutable revision-event result set owned by the C caller.
@@ -30,7 +31,7 @@ pub(crate) struct AbiRevisionEvent {
     kind: u32,
     position: u32,
     asset_id: Option<PpAssetId>,
-    representation_id: Option<PpUuid>,
+    representation_id: Option<PpRepresentationId>,
     resource_id: Option<PpUuid>,
     locator_id: Option<PpLocatorId>,
     media_root_id: Option<PpMediaRootId>,
@@ -127,7 +128,9 @@ impl AbiRevisionEvent {
             kind: self.kind,
             position: self.position,
             asset_id: self.asset_id.unwrap_or(PpAssetId { bytes: [0; 16] }),
-            representation_id: self.representation_id.unwrap_or_else(zero_uuid),
+            representation_id: self
+                .representation_id
+                .unwrap_or(PpRepresentationId { bytes: [0; 16] }),
             resource_id: self.resource_id.unwrap_or_else(zero_uuid),
             locator_id: self.locator_id.unwrap_or(PpLocatorId { bytes: [0; 16] }),
             media_root_id: self
@@ -197,7 +200,9 @@ impl TryFrom<&RevisionEvent> for AbiRevisionEvent {
                 projected.asset_id = Some(PpAssetId {
                     bytes: asset_id.into_bytes(),
                 });
-                projected.representation_id = Some(uuid(representation_id.into_bytes()));
+                projected.representation_id = Some(PpRepresentationId {
+                    bytes: representation_id.into_bytes(),
+                });
             }
             RevisionEventKind::ResourceAdded { resource_id } => {
                 projected.kind = PP_REVISION_RESOURCE_ADDED;
@@ -209,7 +214,9 @@ impl TryFrom<&RevisionEvent> for AbiRevisionEvent {
                 position,
             } => {
                 projected.kind = PP_REVISION_REPRESENTATION_RESOURCE_ADDED;
-                projected.representation_id = Some(uuid(representation_id.into_bytes()));
+                projected.representation_id = Some(PpRepresentationId {
+                    bytes: representation_id.into_bytes(),
+                });
                 projected.resource_id = Some(uuid(resource_id.into_bytes()));
                 projected.structural_position = Some(*position);
             }
@@ -326,7 +333,9 @@ impl TryFrom<&RevisionEvent> for AbiRevisionEvent {
                 projected.activity_id = Some(PpActivityId {
                     bytes: activity_id.into_bytes(),
                 });
-                projected.representation_id = Some(uuid(representation_id.into_bytes()));
+                projected.representation_id = Some(PpRepresentationId {
+                    bytes: representation_id.into_bytes(),
+                });
                 projected.role = role
                     .as_ref()
                     .map(|value| exact_cstring(value.as_str(), "revision activity role"))
@@ -349,14 +358,18 @@ impl TryFrom<&RevisionEvent> for AbiRevisionEvent {
                 version,
             } => {
                 projected.kind = PP_REVISION_REPRESENTATION_FINGERPRINT_OBSERVED;
-                projected.representation_id = Some(uuid(representation_id.into_bytes()));
+                projected.representation_id = Some(PpRepresentationId {
+                    bytes: representation_id.into_bytes(),
+                });
                 projected.fingerprint_algorithm =
                     Some(exact_cstring(algorithm, "revision fingerprint algorithm")?);
                 projected.fingerprint_version = Some(*version);
             }
             RevisionEventKind::DependencySetRecorded { representation_id } => {
                 projected.kind = PP_REVISION_DEPENDENCY_SET_RECORDED;
-                projected.representation_id = Some(uuid(representation_id.into_bytes()));
+                projected.representation_id = Some(PpRepresentationId {
+                    bytes: representation_id.into_bytes(),
+                });
             }
             RevisionEventKind::JobRequested { job_id }
             | RevisionEventKind::JobClaimed { job_id }

@@ -26,7 +26,7 @@ fn checked_state_accessors_reject_and_clear_wrong_state_missing_index_and_null()
         claim.tool_name = c"marker".as_ptr();
         let mut completion = PpJobCompletion {
             activity_id: crate::PpActivityId { bytes: [7; 16] },
-            representation_id: crate::PpUuid { bytes: [7; 16] },
+            representation_id: crate::PpRepresentationId { bytes: [7; 16] },
         };
         let mut diagnostic = c"marker".as_ptr();
         // SAFETY: Handles are null or live; each output is writable.

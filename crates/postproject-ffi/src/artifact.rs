@@ -10,7 +10,8 @@ use postproject_core::{
 };
 
 use crate::{
-    PP_OBJECT_ASSET, PP_OBJECT_REPRESENTATION, PpActivityId, PpObjectRef, PpUuid, exact_cstring,
+    PP_OBJECT_ASSET, PP_OBJECT_REPRESENTATION, PpActivityId, PpObjectRef, PpRepresentationId,
+    PpUuid, exact_cstring,
 };
 
 /// Opaque immutable artifact-evaluation result owned by the C caller.
@@ -31,9 +32,9 @@ pub struct PpArtifactReason {
     /// Related activity, or zero when not applicable.
     pub activity_id: PpActivityId,
     /// Related representation, or zero when not applicable.
-    pub representation_id: PpUuid,
+    pub representation_id: PpRepresentationId,
     /// Direct activity input, or zero when not applicable.
-    pub input_representation_id: PpUuid,
+    pub input_representation_id: PpRepresentationId,
     /// Input/output edge kind, or zero when not applicable.
     pub edge_kind: u32,
     /// Upstream knowledge state, or zero when not applicable.
@@ -71,7 +72,7 @@ pub struct PpArtifactReason {
 #[derive(Clone, Copy, Debug)]
 pub struct PpArtifactDependencyPathSegment {
     /// Representation whose content authored this dependency.
-    pub source_representation_id: PpUuid,
+    pub source_representation_id: PpRepresentationId,
     /// Position in the source's complete dependency observation.
     pub dependency_position: u32,
     /// Whether `source_resource_id` is present.
@@ -85,7 +86,7 @@ pub struct PpArtifactDependencyPathSegment {
     /// Whether `resolved_representation_id` is present.
     pub has_resolved_representation: u8,
     /// Representation selected for a floating target.
-    pub resolved_representation_id: PpUuid,
+    pub resolved_representation_id: PpRepresentationId,
     /// Borrowed exact authored reference.
     pub authored_reference: *const std::ffi::c_char,
 }
@@ -109,12 +110,12 @@ pub(crate) struct AbiArtifactReason {
 }
 
 struct AbiArtifactDependencyPathSegment {
-    source_representation_id: PpUuid,
+    source_representation_id: PpRepresentationId,
     dependency_position: u32,
     source_resource_id: Option<PpUuid>,
     kind: CString,
     target: PpObjectRef,
-    resolved_representation_id: Option<PpUuid>,
+    resolved_representation_id: Option<PpRepresentationId>,
     authored_reference: CString,
 }
 
@@ -135,7 +136,7 @@ pub struct PpArtifactReproducibilityIssue {
     /// Related activity, or zero when not applicable.
     pub activity_id: PpActivityId,
     /// Missing input representation, or zero when not applicable.
-    pub representation_id: PpUuid,
+    pub representation_id: PpRepresentationId,
     /// Ambiguous producer count, or zero when not applicable.
     pub activity_count: u32,
 }
@@ -163,10 +164,10 @@ impl AbiArtifactReason {
             activity_id: PpActivityId {
                 bytes: self.activity_id.map_or([0; 16], ActivityId::into_bytes),
             },
-            representation_id: PpUuid {
+            representation_id: PpRepresentationId {
                 bytes: self.representation_id.into_bytes(),
             },
-            input_representation_id: PpUuid {
+            input_representation_id: PpRepresentationId {
                 bytes: self.input_representation_id.into_bytes(),
             },
             edge_kind: self.edge_kind,
@@ -439,7 +440,7 @@ impl AbiArtifactDependencyPathSegment {
             has_resolved_representation: u8::from(self.resolved_representation_id.is_some()),
             resolved_representation_id: self
                 .resolved_representation_id
-                .unwrap_or(PpUuid { bytes: [0; 16] }),
+                .unwrap_or(PpRepresentationId { bytes: [0; 16] }),
             authored_reference: self.authored_reference.as_ptr(),
         }
     }
@@ -462,7 +463,7 @@ impl TryFrom<&ArtifactDependencyPathSegment> for AbiArtifactDependencyPathSegmen
             }
         };
         Ok(Self {
-            source_representation_id: PpUuid {
+            source_representation_id: PpRepresentationId {
                 bytes: segment.source_representation_id().into_bytes(),
             },
             dependency_position: segment.dependency_position(),
@@ -474,8 +475,10 @@ impl TryFrom<&ArtifactDependencyPathSegment> for AbiArtifactDependencyPathSegmen
                 kind: target_kind,
                 id: PpUuid { bytes: target_id },
             },
-            resolved_representation_id: segment.resolved_representation_id().map(|id| PpUuid {
-                bytes: id.into_bytes(),
+            resolved_representation_id: segment.resolved_representation_id().map(|id| {
+                PpRepresentationId {
+                    bytes: id.into_bytes(),
+                }
             }),
             authored_reference: exact_cstring(
                 segment.authored_reference(),
@@ -519,7 +522,7 @@ fn reproducibility_issue(
     let mut projected = PpArtifactReproducibilityIssue {
         kind: 0,
         activity_id: PpActivityId { bytes: [0; 16] },
-        representation_id: PpUuid { bytes: [0; 16] },
+        representation_id: PpRepresentationId { bytes: [0; 16] },
         activity_count: 0,
     };
     match issue {

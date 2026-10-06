@@ -7,7 +7,10 @@ use postproject_core::{
     ErrorKind, QueryCursor, RepresentationId,
 };
 
-use crate::{PP_OBJECT_ASSET, PP_OBJECT_REPRESENTATION, PpObjectRef, PpUuid, exact_cstring};
+use crate::{
+    PP_OBJECT_ASSET, PP_OBJECT_REPRESENTATION, PpObjectRef, PpRepresentationId, PpUuid,
+    exact_cstring,
+};
 
 /// Opaque immutable dependency observation owned by the C caller.
 pub struct PpDependencySet {
@@ -50,7 +53,7 @@ pub struct PpDependency {
     /// Whether `resolved_representation_id` is present.
     pub has_resolved_representation: u8,
     /// Representation selected for a floating target.
-    pub resolved_representation_id: PpUuid,
+    pub resolved_representation_id: PpRepresentationId,
     /// Exactly zero or one.
     pub required: u8,
     /// Required NUL-terminated exact authored reference.
@@ -61,7 +64,7 @@ struct AbiDependency {
     source_resource_id: Option<PpUuid>,
     kind: CString,
     target: PpObjectRef,
-    resolved_representation_id: Option<PpUuid>,
+    resolved_representation_id: Option<PpRepresentationId>,
     required: bool,
     authored_reference: CString,
 }
@@ -177,7 +180,7 @@ impl AbiDependency {
             has_resolved_representation: u8::from(self.resolved_representation_id.is_some()),
             resolved_representation_id: self
                 .resolved_representation_id
-                .unwrap_or(PpUuid { bytes: [0; 16] }),
+                .unwrap_or(PpRepresentationId { bytes: [0; 16] }),
             required: u8::from(self.required),
             authored_reference: self.authored_reference.as_ptr(),
         }
@@ -207,8 +210,10 @@ impl TryFrom<&Dependency> for AbiDependency {
                 kind: target_kind,
                 id: PpUuid { bytes: target_id },
             },
-            resolved_representation_id: dependency.resolved_representation_id().map(|id| PpUuid {
-                bytes: id.into_bytes(),
+            resolved_representation_id: dependency.resolved_representation_id().map(|id| {
+                PpRepresentationId {
+                    bytes: id.into_bytes(),
+                }
             }),
             required: dependency.is_required(),
             authored_reference: exact_cstring(
