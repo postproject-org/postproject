@@ -87,6 +87,18 @@ int main(void) { pp_media_root_id_t id = {{0}};
 if(POSTPROJECT_ROOT_AS_LOCATOR_COMPILES)
     message(FATAL_ERROR "Root identity must not substitute for locator identity")
 endif()
+check_c_source_compiles("#include <postproject/postproject.h>
+int main(void) { pp_job_id_t id = {{0}};
+  return pp_transaction_cancel_job(0, id, 0); }" POSTPROJECT_JOB_ID_COMPILES)
+if(NOT POSTPROJECT_JOB_ID_COMPILES)
+    message(FATAL_ERROR "Installed typed job cancellation must compile")
+endif()
+check_c_source_compiles("#include <postproject/postproject.h>
+int main(void) { pp_asset_id_t id = {{0}};
+  return pp_transaction_cancel_job(0, id, 0); }" POSTPROJECT_ASSET_AS_JOB_COMPILES)
+if(POSTPROJECT_ASSET_AS_JOB_COMPILES)
+    message(FATAL_ERROR "Asset identity must not substitute for job identity")
+endif()
 cmake_pop_check_state()
 
 # The producer generates this source from the public header. This consumer
