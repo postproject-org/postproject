@@ -157,6 +157,10 @@ class JobId(ctypes.Structure):
     pass
 
 
+class ActivityId(ctypes.Structure):
+    pass
+
+
 class CommitReceipt(ctypes.Structure):
     pass
 
@@ -442,6 +446,10 @@ JobId._fields_ = [
     ("bytes", ctypes.c_uint8 * 16),
 ]
 
+ActivityId._fields_ = [
+    ("bytes", ctypes.c_uint8 * 16),
+]
+
 CommitReceipt._fields_ = [
     ("production_id", ProductionId),
     ("outcome", CommitOutcome),
@@ -623,6 +631,7 @@ PUBLIC_STRUCTS = {
     "pp_media_root_id_t": (MediaRootId, ("bytes",)),
     "pp_locator_id_t": (LocatorId, ("bytes",)),
     "pp_job_id_t": (JobId, ("bytes",)),
+    "pp_activity_id_t": (ActivityId, ("bytes",)),
     "pp_commit_receipt_t": (CommitReceipt, ("production_id", "outcome", "revision_id", "revision_sequence")),
     "pp_decision_base_t": (DecisionBase, ("production_id", "has_revision", "revision_id", "revision_sequence")),
     "pp_object_ref_t": (ObjectRef, ("kind", "id")),
@@ -644,6 +653,8 @@ PUBLIC_STRUCTS = {
 
 EXPORTED_SYMBOLS = (
     "pp_abi_version",
+    "pp_activity_id_format",
+    "pp_activity_id_parse",
     "pp_activity_set_count",
     "pp_activity_set_get",
     "pp_activity_set_get_agent",
@@ -762,8 +773,10 @@ EXPORTED_SYMBOLS = (
     "pp_object_query_set_next_cursor",
     "pp_object_query_set_release",
     "pp_object_query_set_traversal_truncated",
+    "pp_object_ref_from_activity",
     "pp_object_ref_from_asset",
     "pp_object_ref_from_job",
+    "pp_object_ref_get_activity",
     "pp_object_ref_get_asset",
     "pp_object_ref_get_job",
     "pp_object_ref_set_count",
@@ -1027,6 +1040,14 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_object_ref_from_job.restype = ErrorCode
     lib.pp_object_ref_get_job.argtypes = [ctypes.POINTER(ObjectRef), ctypes.POINTER(JobId), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_object_ref_get_job.restype = ErrorCode
+    lib.pp_activity_id_parse.argtypes = [ctypes.c_char_p, ctypes.POINTER(ActivityId), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_activity_id_parse.restype = ErrorCode
+    lib.pp_activity_id_format.argtypes = [ActivityId, ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_activity_id_format.restype = ErrorCode
+    lib.pp_object_ref_from_activity.argtypes = [ActivityId, ctypes.POINTER(ObjectRef), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_object_ref_from_activity.restype = ErrorCode
+    lib.pp_object_ref_get_activity.argtypes = [ctypes.POINTER(ObjectRef), ctypes.POINTER(ActivityId), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_object_ref_get_activity.restype = ErrorCode
     lib.pp_object_ref_from_asset.argtypes = [AssetId, ctypes.POINTER(ObjectRef), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_object_ref_from_asset.restype = ErrorCode
     lib.pp_object_ref_get_asset.argtypes = [ctypes.POINTER(ObjectRef), ctypes.POINTER(AssetId), ctypes.POINTER(ctypes.POINTER(Error))]

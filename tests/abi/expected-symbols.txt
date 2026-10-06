@@ -1,4 +1,6 @@
 pp_abi_version
+pp_activity_id_format
+pp_activity_id_parse
 pp_activity_set_count
 pp_activity_set_get
 pp_activity_set_get_agent
@@ -117,8 +119,10 @@ pp_object_query_set_get
 pp_object_query_set_next_cursor
 pp_object_query_set_release
 pp_object_query_set_traversal_truncated
+pp_object_ref_from_activity
 pp_object_ref_from_asset
 pp_object_ref_from_job
+pp_object_ref_get_activity
 pp_object_ref_get_asset
 pp_object_ref_get_job
 pp_object_ref_set_count

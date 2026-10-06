@@ -99,6 +99,11 @@ typedef struct pp_job_id_value {
   uint8_t bytes[16];
 } pp_job_id_t;
 
+/* Distinct semantic identity; UUID bytes and nil policy match the core. */
+typedef struct pp_activity_id_value {
+  uint8_t bytes[16];
+} pp_activity_id_t;
+
 typedef uint32_t pp_commit_outcome_t;
 #define PP_COMMIT_NO_CHANGE UINT32_C(0)
 #define PP_COMMIT_REVISION_CREATED UINT32_C(1)
@@ -689,6 +694,18 @@ PP_API pp_error_code_t pp_object_ref_from_job(
 /* Checked kind projection; failures clear out_id. */
 PP_API pp_error_code_t pp_object_ref_get_job(
     const pp_object_ref_t *value, pp_job_id_t *out_id, pp_error_t **out_error);
+/* Parse/format activity UUIDs without an existence or scope lookup.
+ * Failures clear outputs. Owned text uses pp_string_release. */
+PP_API pp_error_code_t pp_activity_id_parse(
+    const char *text, pp_activity_id_t *out_id, pp_error_t **out_error);
+PP_API pp_error_code_t pp_activity_id_format(
+    pp_activity_id_t id, char **out_text, pp_error_t **out_error);
+/* Construct an activity target without checking existence or production scope. */
+PP_API pp_error_code_t pp_object_ref_from_activity(
+    pp_activity_id_t id, pp_object_ref_t *out_ref, pp_error_t **out_error);
+/* Checked kind projection; failures clear out_id. */
+PP_API pp_error_code_t pp_object_ref_get_activity(
+    const pp_object_ref_t *value, pp_activity_id_t *out_id, pp_error_t **out_error);
 /* Construct an asset target without checking existence or production scope. */
 PP_API pp_error_code_t pp_object_ref_from_asset(
     pp_asset_id_t id, pp_object_ref_t *out_ref, pp_error_t **out_error);

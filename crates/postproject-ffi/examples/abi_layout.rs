@@ -1,6 +1,6 @@
 //! Generated implementation layout probe; do not edit manually.
 use postproject::{
-    PpActivityEdge, PpArtifactDependencyPathSegment, PpArtifactReason,
+    PpActivityEdge, PpActivityId, PpArtifactDependencyPathSegment, PpArtifactReason,
     PpArtifactReproducibilityIssue, PpAssetId, PpCommitReceipt, PpDecisionBase, PpDependency,
     PpDependencyMatch, PpFileResourceInput, PpJob, PpJobClaim, PpJobCompletion, PpJobId,
     PpLocatorId, PpMediaRootId, PpObjectRef, PpProductionId, PpRevisionEvent, PpRevisionId,
@@ -28,6 +28,7 @@ fn main() {
     layout!(PpMediaRootId, "pp_media_root_id_t", bytes);
     layout!(PpLocatorId, "pp_locator_id_t", bytes);
     layout!(PpJobId, "pp_job_id_t", bytes);
+    layout!(PpActivityId, "pp_activity_id_t", bytes);
     layout!(
         PpCommitReceipt,
         "pp_commit_receipt_t",

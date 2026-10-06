@@ -17,6 +17,9 @@ _Static_assert(_Generic((pp_locator_id_t){0}, pp_media_root_id_t: 1, pp_uuid_t: 
 _Static_assert(_Generic((pp_job_id_t){0}, pp_asset_id_t: 1, pp_locator_id_t: 1, pp_uuid_t: 1, default: 0) == 0,
                "jobs must have their own identity type");
 
+_Static_assert(_Generic((pp_activity_id_t){0}, pp_job_id_t: 1, pp_asset_id_t: 1, pp_uuid_t: 1, default: 0) == 0,
+               "activities must have their own identity type");
+
 int main(void) {
   pp_production_id_t id = {{0}};
   pp_error_t *error = NULL;
@@ -147,6 +150,30 @@ int main(void) {
       strcmp(text, "00000000-0000-0000-0000-000000000000")) return 39;
   pp_string_release(text);
   if (pp_job_id_format(job, NULL, &error) != PP_ERROR_INVALID_ARGUMENT) return 40;
+  pp_error_release(error);
+  error = NULL;
+  pp_activity_id_t activity;
+  if (pp_activity_id_parse(canonical, &activity, &error) != PP_OK ||
+      pp_activity_id_format(activity, &text, &error) != PP_OK ||
+      strcmp(text, canonical)) return 41;
+  pp_string_release(text); text = NULL;
+  if (pp_object_ref_from_activity(activity, &target, &error) != PP_OK ||
+      target.kind != PP_OBJECT_ACTIVITY ||
+      pp_object_ref_get_activity(&target, &activity, &error) != PP_OK) return 42;
+  target.kind = PP_OBJECT_ASSET;
+  if (pp_object_ref_get_activity(&target, &activity, &error) != PP_ERROR_INVALID_ARGUMENT ||
+      memcmp(activity.bytes, zero, 16)) return 43;
+  pp_error_release(error); error = NULL;
+  if (pp_activity_id_parse("broken", &activity, &error) != PP_ERROR_INVALID_ARGUMENT ||
+      memcmp(activity.bytes, zero, 16)) return 44;
+  pp_error_release(error); error = NULL;
+  if (pp_activity_id_parse(NULL, &activity, &error) != PP_ERROR_INVALID_ARGUMENT ||
+      memcmp(activity.bytes, zero, 16)) return 45;
+  pp_error_release(error); error = NULL;
+  if (pp_activity_id_format(activity, &text, &error) != PP_OK ||
+      strcmp(text, "00000000-0000-0000-0000-000000000000")) return 46;
+  pp_string_release(text);
+  if (pp_activity_id_format(activity, NULL, &error) != PP_ERROR_INVALID_ARGUMENT) return 47;
   pp_error_release(error);
   return 0;
 }

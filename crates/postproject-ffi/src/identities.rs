@@ -3,7 +3,7 @@
 use std::{ffi::c_char, str::FromStr};
 
 use postproject_core::{
-    AssetId, JobId, LocatorId, MediaRootId, ProductionId, RevisionId, TransactionId,
+    ActivityId, AssetId, JobId, LocatorId, MediaRootId, ProductionId, RevisionId, TransactionId,
 };
 
 use crate::{PpError, exact_cstring, ffi_call, initialize_output, require_output, required_utf8};
@@ -416,6 +416,63 @@ pub unsafe extern "C" fn pp_job_id_format(
     }
 }
 
+/// Activity identity, distinct from interchangeable UUID bytes in C.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct PpActivityId {
+    /// Stable UUID bytes; existence and membership are checked by the store.
+    pub bytes: [u8; 16],
+}
+
+/// Parses UUID text as a activity identity without checking existence.
+///
+/// # Safety
+/// Text must be UTF-8/NUL-terminated; output writable, error nullable/writable.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_activity_id_parse(
+    text: *const c_char,
+    out_id: *mut PpActivityId,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: Writable output is initialized; strings/pointers validated.
+    unsafe {
+        if !out_id.is_null() {
+            out_id.write(PpActivityId { bytes: [0; 16] });
+        }
+        ffi_call(out_error, || {
+            require_output(out_id, "out_id")?;
+            let id = ActivityId::from_str(required_utf8(text, "activity ID")?)?;
+            out_id.write(PpActivityId {
+                bytes: id.into_bytes(),
+            });
+            Ok(())
+        })
+    }
+}
+
+/// Formats a activity identity as owned canonical lowercase UUID text.
+///
+/// # Safety
+/// Output must be writable, error nullable/writable. Release text with
+/// `pp_string_release` after success.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_activity_id_format(
+    id: PpActivityId,
+    out_text: *mut *mut c_char,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: Output is initialized and validated before writing.
+    unsafe {
+        initialize_output(out_text);
+        ffi_call(out_error, || {
+            require_output(out_text, "out_text")?;
+            let text = exact_cstring(&ActivityId::from_bytes(id.bytes).to_string(), "activity ID")?;
+            out_text.write(text.into_raw());
+            Ok(())
+        })
+    }
+}
+
 /// Constructs an asset reference; existence and scope remain operation checks.
 ///
 /// # Safety
@@ -527,6 +584,65 @@ pub unsafe extern "C" fn pp_object_ref_get_job(
                 return Err(crate::invalid_argument("reference must name an job"));
             }
             out_id.write(PpJobId {
+                bytes: value.id.bytes,
+            });
+            Ok(())
+        })
+    }
+}
+
+/// Constructs an activity reference; existence and scope remain operation checks.
+///
+/// # Safety
+/// Output must be writable; error nullable/writable.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_object_ref_from_activity(
+    id: PpActivityId,
+    out_ref: *mut crate::PpObjectRef,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: Output is initialized and checked before writing.
+    unsafe {
+        crate::initialize_value(
+            out_ref,
+            crate::PpObjectRef {
+                kind: 0,
+                id: crate::PpUuid { bytes: [0; 16] },
+            },
+        );
+        ffi_call(out_error, || {
+            require_output(out_ref, "out_ref")?;
+            out_ref.write(crate::PpObjectRef {
+                kind: crate::PP_OBJECT_ACTIVITY,
+                id: crate::PpUuid { bytes: id.bytes },
+            });
+            Ok(())
+        })
+    }
+}
+
+/// Reads an activity identity from a matching object-reference kind.
+///
+/// # Safety
+/// Reference must be readable, output writable; error nullable/writable.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_object_ref_get_activity(
+    value: *const crate::PpObjectRef,
+    out_id: *mut PpActivityId,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: Output is initialized and pointers checked before use.
+    unsafe {
+        crate::initialize_value(out_id, PpActivityId { bytes: [0; 16] });
+        ffi_call(out_error, || {
+            require_output(out_id, "out_id")?;
+            let value = value
+                .as_ref()
+                .ok_or_else(|| crate::invalid_argument("reference must not be null"))?;
+            if value.kind != crate::PP_OBJECT_ACTIVITY {
+                return Err(crate::invalid_argument("reference must name an activity"));
+            }
+            out_id.write(PpActivityId {
                 bytes: value.id.bytes,
             });
             Ok(())
