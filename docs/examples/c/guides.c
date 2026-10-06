@@ -541,7 +541,7 @@ static pp_error_code_t request_and_page_jobs(pp_production_t *production,
                                              pp_error_t **error) {
   const char *kind = "org.example:generate-proxy";
   pp_transaction_t *transaction = NULL;
-  pp_uuid_t job_ids[2];
+  pp_job_id_t job_ids[2];
   pp_error_code_t status =
       pp_production_begin_transaction(production, &transaction, error);
   for (uint32_t i = 0; status == PP_OK && i < UINT32_C(2); ++i) {
@@ -555,7 +555,7 @@ static pp_error_code_t request_and_page_jobs(pp_production_t *production,
   pp_job_set_t *first_job = NULL;
   pp_job_t job = {0};
   if (status == PP_OK) {
-    status = pp_production_job(production, &job_ids[0], &first_job, error);
+    status = pp_production_job(production, job_ids[0], &first_job, error);
   }
   if (status == PP_OK) {
     status = pp_job_set_get(first_job, UINT64_C(0), &job, error);
