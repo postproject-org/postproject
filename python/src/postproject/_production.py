@@ -675,8 +675,8 @@ class Production:
             root_mappings,
             search_directories,
             verification,
-            max_depth,
-            max_entries_per_directory,
+            _unsigned(max_depth, 32, "max_depth"),
+            _unsigned(max_entries_per_directory, 64, "max_entries_per_directory"),
             cancel_token,
         )
 
@@ -696,8 +696,8 @@ class Production:
         status = self._native.lib.pp_production_evaluate_artifact(
             self._handle,
             native_id,
-            max_depth,
-            max_representations,
+            _unsigned(max_depth, 32, "max_depth"),
+            _unsigned(max_representations, 32, "max_representations"),
             ctypes.byref(handle),
             ctypes.byref(error),
         )
@@ -771,8 +771,8 @@ class Production:
             self._native.lib.pp_production_dependencies,
             self._handle,
             native_id,
-            max_depth,
-            max_representations,
+            _unsigned(max_depth, 32, "max_depth"),
+            _unsigned(max_representations, 32, "max_representations"),
             _page_limit(limit),
             _optional_text(cursor),
         )
@@ -795,8 +795,8 @@ class Production:
             self._native.lib.pp_production_dependents,
             self._handle,
             ctypes.byref(native_target),
-            max_depth,
-            max_representations,
+            _unsigned(max_depth, 32, "max_depth"),
+            _unsigned(max_representations, 32, "max_representations"),
             _page_limit(limit),
             _optional_text(cursor),
         )
@@ -1037,7 +1037,7 @@ class Production:
             self._native.lib.pp_production_objects_changed_since,
             _object_match,
             self._handle,
-            sequence,
+            _unsigned(sequence, 64, "sequence"),
             _page_limit(limit),
             _optional_text(cursor),
         )
@@ -1176,8 +1176,8 @@ class Production:
             _provenance_match,
             self._handle,
             native_id,
-            max_depth,
-            max_representations,
+            _unsigned(max_depth, 32, "max_depth"),
+            _unsigned(max_representations, 32, "max_representations"),
             _page_limit(limit),
             _optional_text(cursor),
         )
@@ -1200,8 +1200,8 @@ class Production:
             _provenance_match,
             self._handle,
             native_id,
-            max_depth,
-            max_representations,
+            _unsigned(max_depth, 32, "max_depth"),
+            _unsigned(max_representations, 32, "max_representations"),
             _page_limit(limit),
             _optional_text(cursor),
         )
@@ -1228,8 +1228,8 @@ class Production:
             _representation_match,
             self._handle,
             None if native_source is None else ctypes.byref(native_source),
-            max_depth,
-            max_representations,
+            _unsigned(max_depth, 32, "max_depth"),
+            _unsigned(max_representations, 32, "max_representations"),
             _page_limit(limit),
             _optional_text(cursor),
         )
@@ -1456,7 +1456,7 @@ class Production:
         return self._revision_set(
             self._native.lib.pp_production_changes_since,
             self._handle,
-            sequence,
+            _unsigned(sequence, 64, "sequence"),
             _page_limit(limit),
         )
 
@@ -1481,7 +1481,7 @@ class Production:
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_production_changes_since_filtered(
             self._handle,
-            sequence,
+            _unsigned(sequence, 64, "sequence"),
             native_kinds,
             len(codes),
             _page_limit(limit),
@@ -2160,7 +2160,7 @@ class ReadSession:
             self._native.lib.pp_read_session_objects_changed_since,
             _object_match,
             self._handle,
-            sequence,
+            _unsigned(sequence, 64, "sequence"),
             _page_limit(limit),
             _optional_text(cursor),
         )
@@ -2184,8 +2184,8 @@ class ReadSession:
             _provenance_match,
             self._handle,
             native_id,
-            max_depth,
-            max_representations,
+            _unsigned(max_depth, 32, "max_depth"),
+            _unsigned(max_representations, 32, "max_representations"),
             _page_limit(limit),
             _optional_text(cursor),
         )
@@ -2209,8 +2209,8 @@ class ReadSession:
             _provenance_match,
             self._handle,
             native_id,
-            max_depth,
-            max_representations,
+            _unsigned(max_depth, 32, "max_depth"),
+            _unsigned(max_representations, 32, "max_representations"),
             _page_limit(limit),
             _optional_text(cursor),
         )
@@ -2238,8 +2238,8 @@ class ReadSession:
             _representation_match,
             self._handle,
             None if native_source is None else ctypes.byref(native_source),
-            max_depth,
-            max_representations,
+            _unsigned(max_depth, 32, "max_depth"),
+            _unsigned(max_representations, 32, "max_representations"),
             _page_limit(limit),
             _optional_text(cursor),
         )
@@ -2339,7 +2339,7 @@ class ReadSession:
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_read_session_changes_since_filtered(
             self._handle,
-            sequence,
+            _unsigned(sequence, 64, "sequence"),
             native_kinds,
             len(codes),
             _page_limit(limit),
@@ -2376,7 +2376,7 @@ class ReadSession:
             self._native,
             self._native.lib.pp_read_session_changes_since,
             self._handle,
-            sequence,
+            _unsigned(sequence, 64, "sequence"),
             _page_limit(limit),
         )
 
@@ -2412,8 +2412,8 @@ class ReadSession:
             self._native.lib.pp_read_session_dependencies,
             self._handle,
             native_id,
-            max_depth,
-            max_representations,
+            _unsigned(max_depth, 32, "max_depth"),
+            _unsigned(max_representations, 32, "max_representations"),
             _page_limit(limit),
             _optional_text(cursor),
         )
@@ -2436,8 +2436,8 @@ class ReadSession:
             self._native.lib.pp_read_session_dependents,
             self._handle,
             ctypes.byref(native_target),
-            max_depth,
-            max_representations,
+            _unsigned(max_depth, 32, "max_depth"),
+            _unsigned(max_representations, 32, "max_representations"),
             _page_limit(limit),
             _optional_text(cursor),
         )
@@ -2481,8 +2481,8 @@ class ReadSession:
             root_mappings,
             search_directories,
             verification,
-            max_depth,
-            max_entries_per_directory,
+            _unsigned(max_depth, 32, "max_depth"),
+            _unsigned(max_entries_per_directory, 64, "max_entries_per_directory"),
             cancel_token,
         )
 
@@ -2538,8 +2538,8 @@ class ReadSession:
         status = self._native.lib.pp_read_session_evaluate_artifact(
             self._handle,
             native_id,
-            max_depth,
-            max_representations,
+            _unsigned(max_depth, 32, "max_depth"),
+            _unsigned(max_representations, 32, "max_representations"),
             ctypes.byref(handle),
             ctypes.byref(error),
         )
@@ -3065,7 +3065,7 @@ class RevisionWaiter:
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_revision_waiter_wait(
             self._handle,
-            after_sequence,
+            _unsigned(after_sequence, 64, "after_sequence"),
             _page_limit(limit),
             round(timeout * 1000),
             ctypes.byref(result),
@@ -3137,7 +3137,7 @@ class RevisionObserver:
         if self._kinds is not None:
             for kind in self._kinds:
                 _revision_event_kind(kind)
-        self._cursor = after_sequence
+        self._cursor = _unsigned(after_sequence, 64, "after_sequence")
         self._error: BaseException | None = None
         self._waiter = production.revision_waiter()
         self._thread = threading.Thread(
@@ -4036,7 +4036,10 @@ class _ResolutionOptions:
     def set_limits(self, max_depth: int, max_entries_per_directory: int) -> None:
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_resolution_options_set_limits(
-            self.handle, max_depth, max_entries_per_directory, ctypes.byref(error)
+            self.handle,
+            _unsigned(max_depth, 32, "max_depth"),
+            _unsigned(max_entries_per_directory, 64, "max_entries_per_directory"),
+            ctypes.byref(error),
         )
         self._native.check(status, error)
 
@@ -4318,9 +4321,19 @@ def _asset_at(native: NativeLibrary, assets: _Pointer[AssetSet], index: int) -> 
     )
 
 
+def _unsigned(value: int, bits: int, name: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise TypeError(f"{name} must be an int")
+    if not 0 <= value < 2**bits:
+        raise InvalidArgumentError(
+            _abi.PP_ERROR_INVALID_ARGUMENT,
+            f"{name} is outside its unsigned {bits}-bit range",
+        )
+    return value
+
+
 def _page_limit(limit: int) -> int:
-    if isinstance(limit, bool) or not isinstance(limit, int):
-        raise TypeError("page limit must be an int")
+    _unsigned(limit, 32, "page limit")
     if not 1 <= limit <= 1000:
         raise InvalidArgumentError(
             _abi.PP_ERROR_INVALID_ARGUMENT, "page limit must be between 1 and 1000"

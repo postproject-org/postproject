@@ -9,6 +9,8 @@ Rust 1.85, C11, C++17 and Python 3.11 remain the supported floors.
 Python page limits require an `int` from 1 through 1000. Out-of-range values
 raise `InvalidArgumentError` before native conversion; booleans and other types
 raise `TypeError`. Large integers cannot wrap into accepted page sizes.
+Revision sequences, traversal bounds and resolver limits also reject integer
+wraparound before native conversion. Their existing domain bounds still apply.
 
 ## Identity values
 

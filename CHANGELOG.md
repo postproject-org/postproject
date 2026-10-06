@@ -5,7 +5,7 @@ All notable changes to PostProject will be documented here. The project uses
 
 ## Unreleased
 
-- Validate Python page limits before native conversion, rejecting integer wraparound.
+- Validate Python query integers before native conversion, rejecting integer wraparound.
 
 - Remove cached Rust production roots; open/edit stay bounded and CLI inspection pages roots.
 
