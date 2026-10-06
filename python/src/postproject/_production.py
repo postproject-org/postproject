@@ -671,12 +671,12 @@ class Production:
         """Evaluate stored artifact evidence without accessing media files."""
 
         self._require_open()
-        native_id = _native_uuid(representation_id)
+        native_id = _native_representation_id(representation_id)
         handle = ctypes.POINTER(NativeArtifactEvaluation)()
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_production_evaluate_artifact(
             self._handle,
-            ctypes.byref(native_id),
+            native_id,
             max_depth,
             max_representations,
             ctypes.byref(handle),
@@ -696,12 +696,12 @@ class Production:
         """Report whether stored knowledge is sufficient to reproduce an artifact."""
 
         self._require_open()
-        native_id = _native_uuid(representation_id)
+        native_id = _native_representation_id(representation_id)
         handle = ctypes.POINTER(NativeArtifactReproducibility)()
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_production_artifact_reproducibility(
             self._handle,
-            ctypes.byref(native_id),
+            native_id,
             ctypes.byref(handle),
             ctypes.byref(error),
         )
@@ -726,12 +726,12 @@ class Production:
         """Return recorded dependency knowledge, preserving absent versus empty."""
 
         self._require_open()
-        native_id = _native_uuid(representation_id)
+        native_id = _native_representation_id(representation_id)
         return _read_dependency_set(
             self._native,
             self._native.lib.pp_production_dependency_set,
             self._handle,
-            ctypes.byref(native_id),
+            native_id,
         )
 
     def dependencies(
@@ -746,12 +746,12 @@ class Production:
         """Return one bounded page of direct or transitive dependencies."""
 
         self._require_open()
-        native_id = _native_uuid(representation_id)
+        native_id = _native_representation_id(representation_id)
         return _read_dependency_query(
             self._native,
             self._native.lib.pp_production_dependencies,
             self._handle,
-            ctypes.byref(native_id),
+            native_id,
             max_depth,
             max_representations,
             limit,
@@ -809,11 +809,11 @@ class Production:
         """Return one representation, raising ``NotFoundError`` when absent."""
 
         self._require_open()
-        native_id = _native_uuid(representation_id)
+        native_id = _native_representation_id(representation_id)
         page = self._representation_page(
             self._native.lib.pp_production_representation,
             self._handle,
-            ctypes.byref(native_id),
+            native_id,
         )
         if len(page.items) != 1:
             raise RuntimeError(
@@ -903,12 +903,12 @@ class Production:
         """Return one bounded page of resources in representation order."""
 
         self._require_open()
-        native_id = _native_uuid(representation_id)
+        native_id = _native_representation_id(representation_id)
         return self._object_query_page(
             self._native.lib.pp_production_resources_page,
             _resource_match,
             self._handle,
-            ctypes.byref(native_id),
+            native_id,
             limit,
             _optional_text(cursor),
         )
@@ -1079,11 +1079,11 @@ class Production:
         """Return one bounded page of activities producing a representation."""
 
         self._require_open()
-        native_id = _native_uuid(representation_id)
+        native_id = _native_representation_id(representation_id)
         return self._activity_page(
             self._native.lib.pp_production_activities_producing_page,
             self._handle,
-            ctypes.byref(native_id),
+            native_id,
             limit,
             _optional_text(cursor),
         )
@@ -1098,11 +1098,11 @@ class Production:
         """Return one bounded page of activities consuming a representation."""
 
         self._require_open()
-        native_id = _native_uuid(representation_id)
+        native_id = _native_representation_id(representation_id)
         return self._activity_page(
             self._native.lib.pp_production_activities_consuming_page,
             self._handle,
-            ctypes.byref(native_id),
+            native_id,
             limit,
             _optional_text(cursor),
         )
@@ -1151,12 +1151,12 @@ class Production:
         """Return one bounded page of shortest-depth provenance ancestors."""
 
         self._require_open()
-        native_id = _native_uuid(representation_id)
+        native_id = _native_representation_id(representation_id)
         return self._object_query_page(
             self._native.lib.pp_production_provenance_ancestors_page,
             _provenance_match,
             self._handle,
-            ctypes.byref(native_id),
+            native_id,
             max_depth,
             max_representations,
             limit,
@@ -1175,12 +1175,12 @@ class Production:
         """Return one bounded page of shortest-depth provenance descendants."""
 
         self._require_open()
-        native_id = _native_uuid(representation_id)
+        native_id = _native_representation_id(representation_id)
         return self._object_query_page(
             self._native.lib.pp_production_provenance_descendants_page,
             _provenance_match,
             self._handle,
-            ctypes.byref(native_id),
+            native_id,
             max_depth,
             max_representations,
             limit,
@@ -1203,7 +1203,7 @@ class Production:
         """
 
         self._require_open()
-        native_source = None if source is None else _native_uuid(source)
+        native_source = None if source is None else _native_representation_id(source)
         return self._object_query_page(
             self._native.lib.pp_production_stale_artifacts,
             _representation_match,
@@ -1287,8 +1287,8 @@ class Production:
             "producing": self._native.lib.pp_production_activities_producing,
             "consuming": self._native.lib.pp_production_activities_consuming,
         }[direction]
-        native_id = _native_uuid(representation_id)
-        return self._activity_set(function, self._handle, ctypes.byref(native_id))
+        native_id = _native_representation_id(representation_id)
+        return self._activity_set(function, self._handle, native_id)
 
     def _provenance_representations(
         self, direction: str, representation_id: RepresentationId
@@ -1298,12 +1298,12 @@ class Production:
             "ancestors": self._native.lib.pp_production_provenance_ancestors,
             "descendants": self._native.lib.pp_production_provenance_descendants,
         }[direction]
-        native_id = _native_uuid(representation_id)
+        native_id = _native_representation_id(representation_id)
         handle = ctypes.POINTER(ObjectRefSet)()
         error = ctypes.POINTER(Error)()
         status = function(
             self._handle,
-            ctypes.byref(native_id),
+            native_id,
             ctypes.byref(handle),
             ctypes.byref(error),
         )
@@ -1920,8 +1920,8 @@ def _read_regeneration_plans(
     )
     if len(artifact_ids) > _abi.PP_MAX_REGENERATION_PLANS:
         raise ValueError("too many artifacts for regeneration planning")
-    native_ids = (Uuid * len(artifact_ids))(
-        *(_native_uuid(artifact_id) for artifact_id in artifact_ids)
+    native_ids = (_abi.RepresentationId * len(artifact_ids))(
+        *(_native_representation_id(artifact_id) for artifact_id in artifact_ids)
     )
     result_handle = ctypes.POINTER(RegenerationPlanSet)()
     error = ctypes.POINTER(Error)()
@@ -2030,7 +2030,7 @@ def _read_dependency_set(
         raise RuntimeError("native dependency query returned no result set")
     try:
         present = ctypes.c_uint8()
-        source_id = Uuid()
+        source_id = _abi.RepresentationId()
         revision = ctypes.c_uint64()
         set_status = _abi.DependencySetStatus()
         count = ctypes.c_uint64()
@@ -2158,13 +2158,13 @@ class ReadSession:
         """Return one bounded page of shortest-depth provenance ancestors."""
 
         self._require_open()
-        native_id = _native_uuid(representation_id)
+        native_id = _native_representation_id(representation_id)
         return _object_query_page(
             self._native,
             self._native.lib.pp_read_session_provenance_ancestors_page,
             _provenance_match,
             self._handle,
-            ctypes.byref(native_id),
+            native_id,
             max_depth,
             max_representations,
             limit,
@@ -2183,13 +2183,13 @@ class ReadSession:
         """Return one bounded page of shortest-depth provenance descendants."""
 
         self._require_open()
-        native_id = _native_uuid(representation_id)
+        native_id = _native_representation_id(representation_id)
         return _object_query_page(
             self._native,
             self._native.lib.pp_read_session_provenance_descendants_page,
             _provenance_match,
             self._handle,
-            ctypes.byref(native_id),
+            native_id,
             max_depth,
             max_representations,
             limit,
@@ -2212,7 +2212,7 @@ class ReadSession:
         """
 
         self._require_open()
-        native_source = None if source is None else _native_uuid(source)
+        native_source = None if source is None else _native_representation_id(source)
         return _object_query_page(
             self._native,
             self._native.lib.pp_read_session_stale_artifacts,
@@ -2269,12 +2269,12 @@ class ReadSession:
         """Return one bounded page of activities producing a representation."""
 
         self._require_open()
-        native_id = _native_uuid(representation_id)
+        native_id = _native_representation_id(representation_id)
         return _read_activity_page(
             self._native,
             self._native.lib.pp_read_session_activities_producing_page,
             self._handle,
-            ctypes.byref(native_id),
+            native_id,
             limit,
             _optional_text(cursor),
         )
@@ -2289,12 +2289,12 @@ class ReadSession:
         """Return one bounded page of activities consuming a representation."""
 
         self._require_open()
-        native_id = _native_uuid(representation_id)
+        native_id = _native_representation_id(representation_id)
         return _read_activity_page(
             self._native,
             self._native.lib.pp_read_session_activities_consuming_page,
             self._handle,
-            ctypes.byref(native_id),
+            native_id,
             limit,
             _optional_text(cursor),
         )
@@ -2367,12 +2367,12 @@ class ReadSession:
         """Return recorded dependency knowledge, preserving absent versus empty."""
 
         self._require_open()
-        native_id = _native_uuid(representation_id)
+        native_id = _native_representation_id(representation_id)
         return _read_dependency_set(
             self._native,
             self._native.lib.pp_read_session_dependency_set,
             self._handle,
-            ctypes.byref(native_id),
+            native_id,
         )
 
     def dependencies(
@@ -2387,12 +2387,12 @@ class ReadSession:
         """Return one bounded page of direct or transitive dependencies."""
 
         self._require_open()
-        native_id = _native_uuid(representation_id)
+        native_id = _native_representation_id(representation_id)
         return _read_dependency_query(
             self._native,
             self._native.lib.pp_read_session_dependencies,
             self._handle,
-            ctypes.byref(native_id),
+            native_id,
             max_depth,
             max_representations,
             limit,
@@ -2513,12 +2513,12 @@ class ReadSession:
         """Evaluate stored artifact evidence without accessing media files."""
 
         self._require_open()
-        native_id = _native_uuid(representation_id)
+        native_id = _native_representation_id(representation_id)
         handle = ctypes.POINTER(NativeArtifactEvaluation)()
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_read_session_evaluate_artifact(
             self._handle,
-            ctypes.byref(native_id),
+            native_id,
             max_depth,
             max_representations,
             ctypes.byref(handle),
@@ -2538,12 +2538,12 @@ class ReadSession:
         """Report whether stored knowledge is sufficient to reproduce an artifact."""
 
         self._require_open()
-        native_id = _native_uuid(representation_id)
+        native_id = _native_representation_id(representation_id)
         handle = ctypes.POINTER(NativeArtifactReproducibility)()
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_read_session_artifact_reproducibility(
             self._handle,
-            ctypes.byref(native_id),
+            native_id,
             ctypes.byref(handle),
             ctypes.byref(error),
         )
@@ -2605,11 +2605,11 @@ class ReadSession:
         """Return one representation, raising ``NotFoundError`` when absent."""
 
         self._require_open()
-        native_id = _native_uuid(representation_id)
+        native_id = _native_representation_id(representation_id)
         page = self._representation_page(
             self._native.lib.pp_read_session_representation,
             self._handle,
-            ctypes.byref(native_id),
+            native_id,
         )
         if len(page.items) != 1:
             raise RuntimeError(
@@ -2685,13 +2685,13 @@ class ReadSession:
         """Return one bounded page of resources in representation order."""
 
         self._require_open()
-        native_id = _native_uuid(representation_id)
+        native_id = _native_representation_id(representation_id)
         return _object_query_page(
             self._native,
             self._native.lib.pp_read_session_resources_page,
             _resource_match,
             self._handle,
-            ctypes.byref(native_id),
+            native_id,
             limit,
             _optional_text(cursor),
         )
@@ -3235,7 +3235,7 @@ class Transaction:
 
         self._require_open()
         native_asset_id = _native_asset_id(asset_id)
-        representation_id = Uuid()
+        representation_id = _abi.RepresentationId()
         with _NativeMediaSource(self._native, source) as native_source:
             error = ctypes.POINTER(Error)()
             status = self._native.lib.pp_transaction_add_representation(
@@ -3408,14 +3408,14 @@ class Transaction:
         """Stage a structure-aware fingerprint observation for a representation."""
 
         self._require_open()
-        native_id = _native_uuid(representation_id)
+        native_id = _native_representation_id(representation_id)
         value = (ctypes.c_uint8 * len(fingerprint.value)).from_buffer_copy(
             fingerprint.value
         )
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_transaction_record_representation_fingerprint(
             self._handle,
-            ctypes.byref(native_id),
+            native_id,
             _utf8(fingerprint.algorithm, "fingerprint algorithm"),
             fingerprint.version,
             value,
@@ -3451,9 +3451,9 @@ class Transaction:
                     _native_object_reference(value.target),
                     int(value.resolved_representation_id is not None),
                     (
-                        _native_uuid(value.resolved_representation_id)
+                        _native_representation_id(value.resolved_representation_id)
                         if value.resolved_representation_id is not None
-                        else Uuid()
+                        else _abi.RepresentationId()
                     ),
                     int(value.required),
                     authored_references[index],
@@ -3461,11 +3461,11 @@ class Transaction:
                 for index, value in enumerate(dependencies)
             )
         )
-        native_id = _native_uuid(representation_id)
+        native_id = _native_representation_id(representation_id)
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_transaction_record_dependency_set(
             self._handle,
-            ctypes.byref(native_id),
+            native_id,
             native_dependencies if dependencies else None,
             len(native_dependencies),
             ctypes.byref(error),
@@ -3515,8 +3515,10 @@ class Transaction:
         """Stage one durable requested job."""
 
         self._require_open()
-        input_type = Uuid * len(request.inputs)
-        inputs = input_type(*(_native_uuid(value) for value in request.inputs))
+        input_type = _abi.RepresentationId * len(request.inputs)
+        inputs = input_type(
+            *(_native_representation_id(value) for value in request.inputs)
+        )
         output_asset_id = _native_asset_id(request.output_asset_id)
         job_id = _abi.JobId()
         error = ctypes.POINTER(Error)()
@@ -3618,7 +3620,7 @@ class Transaction:
         self._require_open()
         native_job_id = _native_job_id(job_id)
         native_claim_id = _native_uuid(claim_id)
-        native_output_id = _native_uuid(output_representation_id)
+        native_output_id = _native_representation_id(output_representation_id)
         native_activity_id = _native_activity_id(activity_id)
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_transaction_complete_job(
@@ -3626,7 +3628,7 @@ class Transaction:
             native_job_id,
             ctypes.byref(native_claim_id),
             now_unix_micros,
-            ctypes.byref(native_output_id),
+            native_output_id,
             native_activity_id,
             ctypes.byref(error),
         )
@@ -4113,6 +4115,7 @@ def _utf8(value: str, label: str) -> bytes:
 
 def _uuid(
     value: Uuid
+    | _abi.RepresentationId
     | _abi.ActivityId
     | _abi.AssetId
     | _abi.JobId
@@ -4165,6 +4168,14 @@ def _native_activity_id(value: ActivityId) -> _abi.ActivityId:
     return native
 
 
+def _native_representation_id(value: RepresentationId) -> _abi.RepresentationId:
+    if not isinstance(value, UUID):
+        raise TypeError("identity must be a uuid.UUID")
+    native = _abi.RepresentationId()
+    native.bytes[:] = value.bytes
+    return native
+
+
 def _native_production_id(value: ProductionId) -> _abi.ProductionId:
     if not isinstance(value, UUID):
         raise TypeError("identity must be a uuid.UUID")
@@ -4196,7 +4207,8 @@ def _native_activity_edges(
     return array_type(
         *(
             NativeActivityEdge(
-                _native_uuid(edge.representation_id), _optional_text(edge.role)
+                _native_representation_id(edge.representation_id),
+                _optional_text(edge.role),
             )
             for edge in edges
         )
@@ -4499,7 +4511,7 @@ def _job_at(native: NativeLibrary, jobs: _Pointer[JobSet], index: int) -> Job:
     native.check(status, error)
     inputs: list[RepresentationId] = []
     for input_index in range(int(value.input_count)):
-        input_id = Uuid()
+        input_id = _abi.RepresentationId()
         input_error = ctypes.POINTER(Error)()
         input_status = native.lib.pp_job_set_get_input(
             jobs,
@@ -4657,7 +4669,7 @@ def _known_media_match_at(
     native: NativeLibrary, matches: _Pointer[KnownMediaSet], index: int
 ) -> KnownMediaMatch:
     asset_id = _abi.AssetId()
-    representation_id = Uuid()
+    representation_id = _abi.RepresentationId()
     resource_id = Uuid()
     error = ctypes.POINTER(Error)()
     status = native.lib.pp_known_media_set_get(
@@ -4681,7 +4693,7 @@ def _regeneration_plan_at(
     plans: _Pointer[RegenerationPlanSet],
     index: int,
 ) -> RegenerationJobPlan:
-    artifact_id = Uuid()
+    artifact_id = _abi.RepresentationId()
     jobs = ctypes.POINTER(JobSet)()
     parameters = ctypes.POINTER(MetadataSet)()
     error = ctypes.POINTER(Error)()
@@ -4830,7 +4842,7 @@ def _activity_edge(
     edge_index: int,
     output: bool,
 ) -> ActivityEdge:
-    representation_id = Uuid()
+    representation_id = _abi.RepresentationId()
     role = ctypes.c_char_p()
     error = ctypes.POINTER(Error)()
     function = (
@@ -4938,7 +4950,7 @@ def _representation_at(
     representations: _Pointer[RepresentationSet],
     index: int,
 ) -> Representation:
-    representation_id = Uuid()
+    representation_id = _abi.RepresentationId()
     asset_id = _abi.AssetId()
     kind = _abi.RepresentationKind()
     structure_kind = _abi.ContentStructureKind()
@@ -5235,7 +5247,7 @@ def _representation_resolution_at(
     representation_index: int,
 ) -> RepresentationResolution:
     asset_id = _abi.AssetId()
-    representation_id = Uuid()
+    representation_id = _abi.RepresentationId()
     availability = _abi.RepresentationAvailability()
     resource_count = ctypes.c_uint64()
     issue_count = ctypes.c_uint64()

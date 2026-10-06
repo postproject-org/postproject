@@ -43,7 +43,7 @@ def read_evaluation(
     native: NativeLibrary,
     evaluation: _Pointer[NativeArtifactEvaluation],
 ) -> ArtifactEvaluation:
-    representation_id = Uuid()
+    representation_id = _abi.RepresentationId()
     state = _abi.ArtifactKnowledgeState()
     visited_representations = ctypes.c_uint32()
     truncated = ctypes.c_uint8()
@@ -209,7 +209,7 @@ def read_reproducibility(
     native: NativeLibrary,
     report: _Pointer[NativeArtifactReproducibility],
 ) -> ArtifactReproducibility:
-    representation_id = Uuid()
+    representation_id = _abi.RepresentationId()
     reproducible = ctypes.c_uint8()
     has_producing_activity = ctypes.c_uint8()
     producing_activity_id = _abi.ActivityId()
@@ -391,7 +391,7 @@ def _optional_bytes(
     return bytes(value[:length])
 
 
-def _uuid(value: Uuid | _abi.ActivityId) -> UUID:
+def _uuid(value: Uuid | _abi.ActivityId | _abi.RepresentationId) -> UUID:
     return UUID(bytes=bytes(value.bytes))
 
 
