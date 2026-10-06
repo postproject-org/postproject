@@ -424,7 +424,7 @@ pub struct PpActivityId {
     pub bytes: [u8; 16],
 }
 
-/// Parses UUID text as a activity identity without checking existence.
+/// Parses UUID text as an activity identity without checking existence.
 ///
 /// # Safety
 /// Text must be UTF-8/NUL-terminated; output writable, error nullable/writable.
@@ -450,7 +450,7 @@ pub unsafe extern "C" fn pp_activity_id_parse(
     }
 }
 
-/// Formats a activity identity as owned canonical lowercase UUID text.
+/// Formats an activity identity as owned canonical lowercase UUID text.
 ///
 /// # Safety
 /// Output must be writable, error nullable/writable. Release text with

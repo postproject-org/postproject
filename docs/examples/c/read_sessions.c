@@ -240,7 +240,7 @@ static int exercise(const char *path, const char *media) {
   if (memcmp(evaluated.bytes, representation.bytes, 16) || state != PP_ARTIFACT_INDETERMINATE || reasons == 0) goto cleanup;
   CHECK(pp_read_session_artifact_reproducibility(view, &representation, &report, &error));
   uint8_t reproducible, has_activity;
-  pp_uuid_t activity;
+  pp_activity_id_t activity;
   const char *activity_kind;
   uint64_t issues;
   CHECK(pp_artifact_reproducibility_get(report, &evaluated, &reproducible, &has_activity, &activity, &activity_kind, &issues, &error));

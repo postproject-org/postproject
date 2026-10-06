@@ -391,7 +391,7 @@ static pp_error_code_t record_render(pp_production_t *production,
   pp_transaction_t *transaction = NULL;
   pp_activity_set_t *producers = NULL;
   pp_object_ref_set_t *ancestors = NULL;
-  pp_uuid_t activity_id;
+  pp_activity_id_t activity_id;
 
   pp_error_code_t status =
       pp_production_begin_transaction(production, &transaction, error);
@@ -453,7 +453,7 @@ static pp_error_code_t inspect_artifact(const pp_production_t *production,
   if (status == PP_OK) {
     uint8_t reproducible = 0;
     uint8_t has_activity = 0;
-    pp_uuid_t activity_id;
+    pp_activity_id_t activity_id;
     const char *activity_kind = NULL;
     uint64_t issue_count = 0;
     status = pp_artifact_reproducibility_get(

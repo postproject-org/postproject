@@ -29,6 +29,11 @@ static int job_id_is_zero(pp_job_id_t id) {
   return memcmp(id.bytes, zero, sizeof(zero)) == 0;
 }
 
+static int activity_id_is_zero(pp_activity_id_t id) {
+  static const uint8_t zero[16] = {0};
+  return memcmp(id.bytes, zero, sizeof(zero)) == 0;
+}
+
 static pp_error_code_t import_file(pp_transaction_t *transaction,
                                    const char *path, const char *display_name,
                                    pp_asset_id_t *out_asset_id,
@@ -1450,14 +1455,15 @@ int main(int argc, char **argv) {
       representation_id, "org.postproject:output.master"};
   const int64_t started_at = INT64_C(100);
   const int64_t finished_at = INT64_C(200);
-  pp_uuid_t activity_id = {{0}};
+  pp_activity_id_t activity_id = {{0}};
   status = pp_transaction_create_activity(
       transaction, "org.postproject:ingest", NULL, 0, &activity_output, 1,
       &started_at, &finished_at, "C ingest", "1.0",
       "https://example.com/tools/ingest", "C operator", "com.example.agent",
       "operator-1", "primary", &activity_id, &error);
-  pp_object_ref_t activity_ref = {PP_OBJECT_ACTIVITY, activity_id};
-  if (status != PP_OK || uuid_is_zero(&activity_id)) {
+  pp_object_ref_t activity_ref = {0};
+  if (status == PP_OK) status = pp_object_ref_from_activity(activity_id, &activity_ref, &error);
+  if (status != PP_OK || activity_id_is_zero(activity_id)) {
     pp_transaction_release(transaction);
     pp_resolution_set_release(resolutions);
     pp_production_release(production);
@@ -1506,7 +1512,7 @@ int main(int argc, char **argv) {
 
   pp_activity_set_t *activities = NULL;
   status = pp_production_activities(production, &activities, &error);
-  pp_uuid_t read_activity_id = {{0}};
+  pp_activity_id_t read_activity_id = {{0}};
   const char *activity_kind = NULL;
   uint8_t has_started_at = 0;
   int64_t read_started_at = 0;
@@ -1668,7 +1674,7 @@ int main(int argc, char **argv) {
 
   pp_artifact_reproducibility_t *reproducibility = NULL;
   pp_uuid_t reproducibility_representation_id = {{0}};
-  pp_uuid_t producing_activity_id = {{0}};
+  pp_activity_id_t producing_activity_id = {{0}};
   uint8_t reproducible = 0;
   uint8_t has_producing_activity = 0;
   const char *producing_activity_kind = NULL;
@@ -2275,7 +2281,7 @@ int main(int argc, char **argv) {
   transaction = NULL;
 
   pp_uuid_t completed_representation_id = {{0}};
-  pp_uuid_t completion_activity_id = {{0}};
+  pp_activity_id_t completion_activity_id = {{0}};
   status = pp_production_begin_transaction(production, &transaction, &error);
   if (status == PP_OK) {
     status = add_file(transaction, &asset_id, PP_REPRESENTATION_PROXY,
@@ -2294,10 +2300,10 @@ int main(int argc, char **argv) {
   if (status == PP_OK) {
     status = pp_transaction_complete_job(
         transaction, completed_job_id, &completion_claim_id, INT64_C(42),
-        &completed_representation_id, &completion_activity_id, &error);
+        &completed_representation_id, completion_activity_id, &error);
   }
   if (status != PP_OK || uuid_is_zero(&completed_representation_id) ||
-      uuid_is_zero(&completion_activity_id) ||
+      activity_id_is_zero(completion_activity_id) ||
       pp_transaction_commit(transaction, &error) != PP_OK) {
     pp_transaction_release(transaction);
     pp_production_release(production);

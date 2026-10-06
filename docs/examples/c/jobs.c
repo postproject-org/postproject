@@ -232,7 +232,7 @@ complete_proxy(pp_production_t *production, pp_job_id_t job_id,
   const int64_t finished = NOW + 12 * MINUTE;
   pp_transaction_t *transaction = NULL;
   pp_uuid_t claim_id;
-  pp_uuid_t activity_id = {{0}};
+  pp_activity_id_t activity_id = {{0}};
   pp_error_code_t status =
       pp_production_begin_transaction(production, &transaction, error);
   if (status == PP_OK) {
@@ -276,12 +276,13 @@ complete_proxy(pp_production_t *production, pp_job_id_t job_id,
   if (status == PP_OK) {
     status =
         pp_transaction_complete_job(transaction, job_id, &claim_id, finished,
-                                    out_proxy_id, &activity_id, error);
+                                    out_proxy_id, activity_id, error);
   }
   if (status == PP_OK) {
     /* Parameters on the activity make the artifact reproducible. */
-    const pp_object_ref_t activity = {PP_OBJECT_ACTIVITY, activity_id};
-    status = stage_proxy_parameters(transaction, &activity, error);
+    pp_object_ref_t activity;
+    status = pp_object_ref_from_activity(activity_id, &activity, error);
+    if (status == PP_OK) status = stage_proxy_parameters(transaction, &activity, error);
   }
   if (status == PP_OK) {
     status = pp_transaction_commit(transaction, error);

@@ -116,7 +116,7 @@ static pp_error_code_t print_edge_snapshot(const pp_activity_set_t *set,
 
 static pp_error_code_t print_activity(const pp_activity_set_t *set, uint64_t a,
                                       pp_error_t **error) {
-  pp_uuid_t id;
+  pp_activity_id_t id;
   const char *kind;
   uint8_t has_started = 0, has_finished = 0;
   int64_t started = 0, finished = 0;
@@ -181,7 +181,7 @@ static pp_error_code_t record_transcode(pp_production_t *production,
   pp_activity_set_t *consuming = NULL;
   pp_object_ref_set_t *descendants = NULL;
   pp_object_query_set_t *descendant_page = NULL;
-  pp_uuid_t activity_id;
+  pp_activity_id_t activity_id;
 
   pp_error_code_t status =
       pp_production_begin_transaction(production, &transaction, error);
@@ -192,6 +192,18 @@ static pp_error_code_t record_transcode(pp_production_t *production,
         &started, &finished, "Example Transcoder", "3.2",
         "https://example.com/transcoder", "Assistant editor",
         "com.example.staff", "ae-17", NULL, &activity_id, error);
+  }
+  if (status == PP_OK) {
+    char *saved = NULL;
+    pp_activity_id_t parsed;
+    pp_object_ref_t target;
+    status = pp_activity_id_format(activity_id, &saved, error);
+    if (status == PP_OK) status = pp_activity_id_parse(saved, &parsed, error);
+    pp_string_release(saved);
+    if (status == PP_OK) status = pp_object_ref_from_activity(parsed, &target, error);
+    if (status == PP_OK) status = pp_object_ref_get_activity(&target, &parsed, error);
+    if (status == PP_OK && memcmp(parsed.bytes, activity_id.bytes, 16))
+      status = PP_ERROR_INTERNAL;
   }
   if (status == PP_OK) {
     status = pp_transaction_commit(transaction, error);
@@ -343,7 +355,7 @@ static pp_error_code_t explain_stale_proxy(
   if (status == PP_OK) {
     uint8_t reproducible = 0;
     uint8_t has_activity = 0;
-    pp_uuid_t activity_id;
+    pp_activity_id_t activity_id;
     const char *activity_kind;
     uint64_t issue_count = 0;
     status = pp_artifact_reproducibility_get(
