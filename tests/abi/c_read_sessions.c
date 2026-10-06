@@ -143,7 +143,7 @@ static int rejects_null_storage_reads(void) {
   pp_representation_set_t *representations = (pp_representation_set_t *)(uintptr_t)1;
   pp_error_t *error = NULL;
   pp_error_code_t status = pp_read_session_resources_page(
-      NULL, NULL, 1, NULL, &resources, &error);
+      NULL, (pp_representation_id_t){{0}}, 1, NULL, &resources, &error);
   int valid = status == PP_ERROR_INVALID_ARGUMENT && resources == NULL;
   pp_error_release(error); error = NULL;
   status = pp_read_session_locators_page(NULL, NULL, 1, NULL, &locators, &error);
@@ -154,11 +154,11 @@ static int rejects_null_storage_reads(void) {
   valid = valid && status == PP_ERROR_INVALID_ARGUMENT && representations == NULL;
   pp_error_release(error); error = NULL;
   pp_dependency_set_t *dependencies = (pp_dependency_set_t *)(uintptr_t)1;
-  status = pp_read_session_dependency_set(NULL, NULL, &dependencies, &error);
+  status = pp_read_session_dependency_set(NULL, (pp_representation_id_t){{0}}, &dependencies, &error);
   valid = valid && status == PP_ERROR_INVALID_ARGUMENT && dependencies == NULL;
   pp_error_release(error); error = NULL;
   pp_dependency_query_set_t *matches = (pp_dependency_query_set_t *)(uintptr_t)1;
-  status = pp_read_session_dependencies(NULL, NULL, 64, 1000, 1, NULL, &matches, &error);
+  status = pp_read_session_dependencies(NULL, (pp_representation_id_t){{0}}, 64, 1000, 1, NULL, &matches, &error);
   valid = valid && status == PP_ERROR_INVALID_ARGUMENT && matches == NULL;
   pp_error_release(error); error = NULL;
   matches = (pp_dependency_query_set_t *)(uintptr_t)1;

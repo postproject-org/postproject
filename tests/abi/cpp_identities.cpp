@@ -80,7 +80,30 @@ static_assert(std::is_same_v<decltype(std::declval<postproject::Transaction &>()
 static_assert(!std::is_invocable_v<decltype(&pp_object_ref_from_activity),
     pp_job_id_t, pp_object_ref_t *, pp_error_t **>);
 
+static_assert(!std::is_convertible_v<postproject::Uuid, postproject::RepresentationId>);
+static_assert(!std::is_convertible_v<postproject::RepresentationId, postproject::Uuid>);
+static_assert(!std::is_assignable_v<postproject::RepresentationId &, postproject::JobId>);
+static_assert(std::is_same_v<decltype(postproject::Representation::id), postproject::RepresentationId>);
+static_assert(std::is_same_v<decltype(postproject::RepresentationAddedEvent::representation_id), postproject::RepresentationId>);
+static_assert(std::is_same_v<decltype(postproject::JobCompletion::representation_id), postproject::RepresentationId>);
+static_assert(std::is_same_v<decltype(std::declval<postproject::Transaction &>().addRepresentation(
+    std::declval<const postproject::AssetId &>(), postproject::RepresentationKind::proxy,
+    std::declval<const postproject::MediaSource &>())), postproject::Result<postproject::RepresentationId>>);
+static_assert(!std::is_invocable_v<decltype(&pp_object_ref_from_representation),
+    pp_job_id_t, pp_object_ref_t *, pp_error_t **>);
+
 int main() {
+  const auto representation = postproject::RepresentationId::fromString("00000000-0000-0000-0000-000000000001").value();
+  const std::set<postproject::RepresentationId> representations{representation, representation};
+  const std::unordered_set<postproject::RepresentationId> representation_hashes{representation, representation};
+  if (representations.size() != 1 || representation_hashes.size() != 1 ||
+      postproject::ObjectRef::representation(representation).representationId().value() != representation ||
+      representation.toString().value() != "00000000-0000-0000-0000-000000000001") return 26;
+  if (postproject::ObjectRef::job(postproject::JobId(representation.asUuid())).representationId()) return 27;
+  if (postproject::RepresentationId::fromString("broken") ||
+      postproject::RepresentationId::fromString(std::string_view("id\0tail", 7))) return 28;
+  if (!postproject::RepresentationId::fromString("00000000-0000-0000-0000-000000000000")) return 29;
+
   const auto activity = postproject::ActivityId::fromString("00000000-0000-0000-0000-000000000001").value();
   const std::set<postproject::ActivityId> activities{activity, activity};
   const std::unordered_set<postproject::ActivityId> activity_hashes{activity, activity};

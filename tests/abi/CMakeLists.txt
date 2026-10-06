@@ -111,6 +111,18 @@ int main(void) { pp_job_id_t id = {{0}};
 if(POSTPROJECT_JOB_AS_ACTIVITY_COMPILES)
     message(FATAL_ERROR "Job identity must not substitute for activity identity")
 endif()
+check_c_source_compiles("#include <postproject/postproject.h>
+int main(void) { pp_representation_id_t id = {{0}};
+  return pp_object_ref_from_representation(id, 0, 0); }" POSTPROJECT_REPRESENTATION_ID_COMPILES)
+if(NOT POSTPROJECT_REPRESENTATION_ID_COMPILES)
+    message(FATAL_ERROR "Installed typed representation target must compile")
+endif()
+check_c_source_compiles("#include <postproject/postproject.h>
+int main(void) { pp_job_id_t id = {{0}};
+  return pp_object_ref_from_representation(id, 0, 0); }" POSTPROJECT_JOB_AS_REPRESENTATION_COMPILES)
+if(POSTPROJECT_JOB_AS_REPRESENTATION_COMPILES)
+    message(FATAL_ERROR "Job identity must not substitute for representation identity")
+endif()
 cmake_pop_check_state()
 
 # The producer generates this source from the public header. This consumer

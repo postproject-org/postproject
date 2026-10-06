@@ -19,6 +19,11 @@ static int uuid_is_zero(const pp_uuid_t *id) {
   return memcmp(id->bytes, zero, sizeof(zero)) == 0;
 }
 
+static int representation_id_is_zero(const pp_representation_id_t *id) {
+  static const uint8_t zero[16] = {0};
+  return memcmp(id->bytes, zero, sizeof(zero)) == 0;
+}
+
 static int locator_id_is_zero(pp_locator_id_t id) {
   static const uint8_t zero[16] = {0};
   return memcmp(id.bytes, zero, sizeof(zero)) == 0;
@@ -51,7 +56,7 @@ static pp_error_code_t import_file(pp_transaction_t *transaction,
 static pp_error_code_t add_file(pp_transaction_t *transaction,
                                 const pp_asset_id_t *asset_id,
                                 pp_representation_kind_t kind, const char *path,
-                                pp_uuid_t *out_representation_id,
+                                pp_representation_id_t *out_representation_id,
                                 pp_error_t **out_error) {
   pp_media_source_t *source = NULL;
   pp_error_code_t status = pp_media_source_create_file(path, &source, out_error);
@@ -353,7 +358,7 @@ int main(int argc, char **argv) {
   pp_asset_id_t asset_id = {{0}};
   pp_asset_id_t rolled_back_asset_id = {{0}};
   pp_media_root_id_t root_id = {{0}};
-  pp_uuid_t representation_id = {{0}};
+  pp_representation_id_t representation_id = {{0}};
   pp_uuid_t resource_id = {{0}};
   pp_revision_id_t revision_id = {{0}};
   pp_transaction_id_t revision_transaction_id = {{0}};
@@ -708,11 +713,11 @@ int main(int argc, char **argv) {
   }
   pp_dependency_set_t *dependencies = NULL;
   uint8_t dependencies_present = UINT8_C(1);
-  pp_uuid_t dependency_source_id = {{0}};
+  pp_representation_id_t dependency_source_id = {{0}};
   uint64_t dependency_revision = UINT64_C(1);
   pp_dependency_set_status_t dependency_status = PP_DEPENDENCY_SET_CURRENT;
   uint64_t dependency_count = UINT64_C(1);
-  status = pp_production_dependency_set(production, &representation_id,
+  status = pp_production_dependency_set(production, representation_id,
                                         &dependencies, &error);
   if (status != PP_OK || dependencies == NULL ||
       pp_dependency_set_get(dependencies, &dependencies_present,
@@ -840,7 +845,7 @@ int main(int argc, char **argv) {
   }
   pp_known_media_set_t *known_media = NULL;
   pp_asset_id_t known_asset_id = {{0}};
-  pp_uuid_t known_representation_id = {{0}};
+  pp_representation_id_t known_representation_id = {{0}};
   pp_uuid_t known_resource_id = {{0}};
   status = pp_production_find_known_media_by_locator(
       production, locator_uri, NULL, UINT32_C(1), NULL, &known_media, &error);
@@ -1126,7 +1131,7 @@ int main(int argc, char **argv) {
       &resource_count, &issue_count, &error);
   if (status != PP_OK || availability != PP_AVAILABILITY_ONLINE ||
       resource_count != UINT64_C(1) || issue_count != 0 ||
-      uuid_is_zero(&representation_id) ||
+      representation_id_is_zero(&representation_id) ||
       memcmp(resolved_asset_id.bytes, asset_id.bytes, sizeof asset_id.bytes) !=
           0) {
     pp_resolution_set_release(resolutions);
@@ -1188,7 +1193,7 @@ int main(int argc, char **argv) {
           observed_resource_fingerprint,
           sizeof(observed_resource_fingerprint), &error) != PP_OK ||
       pp_transaction_record_representation_fingerprint(
-          transaction, &representation_id, "c-smoke-tree", UINT16_C(1),
+          transaction, representation_id, "c-smoke-tree", UINT16_C(1),
           observed_representation_fingerprint,
           sizeof(observed_representation_fingerprint), &error) != PP_OK ||
       pp_transaction_set_media_root_enabled(transaction, root_id, 0, &error) !=
@@ -1220,7 +1225,7 @@ int main(int argc, char **argv) {
 
   pp_object_query_set_t *resource_page = NULL;
   status = pp_production_resources_page(
-      production, &representation_id, UINT32_C(1), NULL, &resource_page,
+      production, representation_id, UINT32_C(1), NULL, &resource_page,
       &error);
   pp_object_ref_t queried_resource = {0};
   uint32_t resource_depth = UINT32_MAX;
@@ -1262,14 +1267,14 @@ int main(int argc, char **argv) {
   pp_asset_set_release(point_asset);
 
   pp_representation_set_t *point_representation = NULL;
-  pp_uuid_t point_representation_id = {{0}};
+  pp_representation_id_t point_representation_id = {{0}};
   pp_asset_id_t point_representation_asset_id = {{0}};
   pp_representation_kind_t point_kind = 0;
   pp_content_structure_kind_t point_structure = 0;
   uint64_t point_members = 0;
   uint64_t point_resources = 0;
   uint64_t point_fingerprints = 0;
-  status = pp_production_representation(production, &representation_id,
+  status = pp_production_representation(production, representation_id,
                                         &point_representation, &error);
   if (status != PP_OK || point_representation == NULL ||
       pp_representation_set_count(point_representation) != UINT64_C(1) ||
@@ -1313,9 +1318,9 @@ int main(int argc, char **argv) {
   pp_representation_set_release(point_representation);
   point_representation = NULL;
 
-  pp_uuid_t absent_id = {{0}};
+  pp_representation_id_t absent_id = {{0}};
   absent_id.bytes[0] = 0xff;
-  status = pp_production_representation(production, &absent_id,
+  status = pp_production_representation(production, absent_id,
                                         &point_representation, &error);
   if (status != PP_ERROR_NOT_FOUND || point_representation != NULL) {
     pp_representation_set_release(point_representation);
@@ -1545,7 +1550,7 @@ int main(int argc, char **argv) {
   const char *agent_scheme = NULL;
   const char *agent_value = NULL;
   const char *agent_qualifier = NULL;
-  pp_uuid_t output_representation_id = {{0}};
+  pp_representation_id_t output_representation_id = {{0}};
   const char *output_role = NULL;
   uint8_t has_output_snapshot = 0;
   uint64_t output_snapshot_revision = 0;
@@ -1597,7 +1602,7 @@ int main(int argc, char **argv) {
   pp_activity_set_release(activities);
   activities = NULL;
   status = pp_production_activities_producing(
-      production, &representation_id, &activities, &error);
+      production, representation_id, &activities, &error);
   if (status != PP_OK || activities == NULL ||
       pp_activity_set_count(activities) != UINT64_C(1)) {
     pp_activity_set_release(activities);
@@ -1610,7 +1615,7 @@ int main(int argc, char **argv) {
 
   activities = NULL;
   status = pp_production_activities_producing_page(
-      production, &representation_id, UINT32_C(1), NULL, &activities, &error);
+      production, representation_id, UINT32_C(1), NULL, &activities, &error);
   if (status != PP_OK || activities == NULL ||
       pp_activity_set_count(activities) != UINT64_C(1) ||
       pp_activity_set_next_cursor(activities) != NULL) {
@@ -1646,13 +1651,13 @@ int main(int argc, char **argv) {
   pp_object_query_set_release(query_objects);
 
   pp_artifact_evaluation_t *artifact_evaluation = NULL;
-  pp_uuid_t evaluated_representation_id = {{0}};
+  pp_representation_id_t evaluated_representation_id = {{0}};
   pp_artifact_knowledge_state_t artifact_state = 0;
   uint32_t visited_representations = 0;
   uint8_t artifact_truncated = 0;
   uint64_t artifact_reason_count = 0;
   status = pp_production_evaluate_artifact(
-      production, &representation_id, UINT32_C(64), UINT32_C(1000),
+      production, representation_id, UINT32_C(64), UINT32_C(1000),
       &artifact_evaluation, &error);
   if (status != PP_OK || artifact_evaluation == NULL ||
       pp_artifact_evaluation_get(
@@ -1673,14 +1678,14 @@ int main(int argc, char **argv) {
   pp_artifact_evaluation_release(artifact_evaluation);
 
   pp_artifact_reproducibility_t *reproducibility = NULL;
-  pp_uuid_t reproducibility_representation_id = {{0}};
+  pp_representation_id_t reproducibility_representation_id = {{0}};
   pp_activity_id_t producing_activity_id = {{0}};
   uint8_t reproducible = 0;
   uint8_t has_producing_activity = 0;
   const char *producing_activity_kind = NULL;
   uint64_t reproducibility_issue_count = 0;
   status = pp_production_artifact_reproducibility(
-      production, &representation_id, &reproducibility, &error);
+      production, representation_id, &reproducibility, &error);
   if (status != PP_OK || reproducibility == NULL ||
       pp_artifact_reproducibility_get(
           reproducibility, &reproducibility_representation_id, &reproducible,
@@ -1724,12 +1729,12 @@ int main(int argc, char **argv) {
   }
   pp_resolution_set_release(resolutions);
 
-  pp_uuid_t proxy_representation_id = {{0}};
+  pp_representation_id_t proxy_representation_id = {{0}};
   status = pp_production_begin_transaction(production, &transaction, &error);
   if (status != PP_OK ||
       add_file(transaction, &asset_id, PP_REPRESENTATION_PROXY,
                moved_media_path, &proxy_representation_id, &error) != PP_OK ||
-      uuid_is_zero(&proxy_representation_id) ||
+      representation_id_is_zero(&proxy_representation_id) ||
       pp_transaction_commit(transaction, &error) != PP_OK) {
     pp_transaction_release(transaction);
     pp_production_release(production);
@@ -1775,14 +1780,14 @@ int main(int argc, char **argv) {
     pp_error_release(error);
     return 122;
   }
-  pp_uuid_t sequence_representation_id = {{0}};
+  pp_representation_id_t sequence_representation_id = {{0}};
   pp_asset_id_t sequence_asset_id = {{0}};
   status = pp_production_begin_transaction(production, &transaction, &error);
   if (status != PP_OK ||
       pp_transaction_add_representation(
           transaction, asset_id, PP_REPRESENTATION_DERIVED, sequence_source,
           &sequence_representation_id, &error) != PP_OK ||
-      uuid_is_zero(&sequence_representation_id) ||
+      representation_id_is_zero(&sequence_representation_id) ||
       pp_transaction_import_media(transaction, sequence_source,
                                   "C image strip", &sequence_asset_id,
                                   &error) != PP_OK ||
@@ -1798,7 +1803,7 @@ int main(int argc, char **argv) {
   pp_transaction_release(transaction);
   transaction = NULL;
   representations = NULL;
-  pp_uuid_t strip_representation_id = {{0}};
+  pp_representation_id_t strip_representation_id = {{0}};
   pp_asset_id_t strip_asset_id = {{0}};
   pp_representation_kind_t strip_kind = 0;
   pp_content_structure_kind_t strip_structure = 0;
@@ -1878,8 +1883,8 @@ int main(int argc, char **argv) {
   }
   pp_error_release(error);
   error = NULL;
-  pp_uuid_t ordered_representation_id = {{0}};
-  pp_uuid_t package_representation_id = {{0}};
+  pp_representation_id_t ordered_representation_id = {{0}};
+  pp_representation_id_t package_representation_id = {{0}};
   status = pp_production_begin_transaction(production, &transaction, &error);
   if (status != PP_OK ||
       pp_transaction_add_representation(
@@ -1888,8 +1893,8 @@ int main(int argc, char **argv) {
       pp_transaction_add_representation(
           transaction, asset_id, PP_REPRESENTATION_DERIVED, package_source,
           &package_representation_id, &error) != PP_OK ||
-      uuid_is_zero(&ordered_representation_id) ||
-      uuid_is_zero(&package_representation_id) ||
+      representation_id_is_zero(&ordered_representation_id) ||
+      representation_id_is_zero(&package_representation_id) ||
       pp_transaction_commit(transaction, &error) != PP_OK) {
     pp_media_source_release(ordered_source);
     pp_media_source_release(package_source);
@@ -1915,11 +1920,18 @@ int main(int argc, char **argv) {
   }
   pp_representation_set_release(representations);
 
+  pp_object_ref_t proxy_target;
+  status = pp_object_ref_from_representation(proxy_representation_id, &proxy_target, &error);
+  if (status != PP_OK) {
+    pp_production_release(production);
+    pp_error_release(error);
+    return 117;
+  }
   const pp_dependency_t recorded_dependency = {
       UINT8_C(0),
       {{0}},
       "org.postproject:requires",
-      {PP_OBJECT_REPRESENTATION, proxy_representation_id},
+      proxy_target,
       UINT8_C(0),
       {{0}},
       UINT8_C(1),
@@ -1928,7 +1940,7 @@ int main(int argc, char **argv) {
   status = pp_production_begin_transaction(production, &transaction, &error);
   if (status != PP_OK ||
       pp_transaction_record_dependency_set(
-          transaction, &representation_id, &recorded_dependency, UINT64_C(1),
+          transaction, representation_id, &recorded_dependency, UINT64_C(1),
           &error) != PP_OK ||
       pp_transaction_commit(transaction, &error) != PP_OK) {
     pp_transaction_release(transaction);
@@ -1968,7 +1980,7 @@ int main(int argc, char **argv) {
     return 81;
   }
   pp_revision_event_set_release(revision_events);
-  status = pp_production_dependency_set(production, &representation_id,
+  status = pp_production_dependency_set(production, representation_id,
                                         &dependencies, &error);
   pp_dependency_t read_dependency = {0};
   if (status != PP_OK || dependencies == NULL ||
@@ -1996,8 +2008,7 @@ int main(int argc, char **argv) {
   }
   pp_dependency_set_release(dependencies);
   dependencies = NULL;
-  const pp_object_ref_t dependency_target = {
-      PP_OBJECT_REPRESENTATION, proxy_representation_id};
+  const pp_object_ref_t dependency_target = proxy_target;
   pp_dependency_query_set_t *dependent_set = NULL;
   pp_dependency_match_t dependent = {0};
   if (pp_production_dependents(production, &dependency_target, UINT32_C(1),
@@ -2023,7 +2034,7 @@ int main(int argc, char **argv) {
   pp_dependency_query_set_t *dependency_matches = NULL;
   pp_dependency_match_t dependency_match = {0};
   if (pp_production_dependencies(
-          production, &representation_id, UINT32_C(2), UINT32_C(1000),
+          production, representation_id, UINT32_C(2), UINT32_C(1000),
           UINT32_C(1), NULL, &dependency_matches, &error) != PP_OK ||
       dependency_matches == NULL ||
       pp_dependency_query_set_count(dependency_matches) != UINT64_C(1) ||
@@ -2059,7 +2070,7 @@ int main(int argc, char **argv) {
   transaction = NULL;
   pp_job_set_t *jobs = NULL;
   pp_job_t job = {0};
-  pp_uuid_t job_input_id = {{0}};
+  pp_representation_id_t job_input_id = {{0}};
   status = pp_production_jobs(production, 0, NULL, UINT32_C(1000), NULL, &jobs,
                               &error);
   if (status != PP_OK || jobs == NULL ||
@@ -2280,7 +2291,7 @@ int main(int argc, char **argv) {
   pp_transaction_release(transaction);
   transaction = NULL;
 
-  pp_uuid_t completed_representation_id = {{0}};
+  pp_representation_id_t completed_representation_id = {{0}};
   pp_activity_id_t completion_activity_id = {{0}};
   status = pp_production_begin_transaction(production, &transaction, &error);
   if (status == PP_OK) {
@@ -2300,9 +2311,9 @@ int main(int argc, char **argv) {
   if (status == PP_OK) {
     status = pp_transaction_complete_job(
         transaction, completed_job_id, &completion_claim_id, INT64_C(42),
-        &completed_representation_id, completion_activity_id, &error);
+        completed_representation_id, completion_activity_id, &error);
   }
-  if (status != PP_OK || uuid_is_zero(&completed_representation_id) ||
+  if (status != PP_OK || representation_id_is_zero(&completed_representation_id) ||
       activity_id_is_zero(completion_activity_id) ||
       pp_transaction_commit(transaction, &error) != PP_OK) {
     pp_transaction_release(transaction);
@@ -2357,7 +2368,7 @@ int main(int argc, char **argv) {
 
   activities = NULL;
   if (pp_production_activities_producing(
-          production, &completed_representation_id, &activities, &error) != PP_OK ||
+          production, completed_representation_id, &activities, &error) != PP_OK ||
       activities == NULL || pp_activity_set_count(activities) != UINT64_C(1) ||
       pp_activity_set_get_output_snapshot(
           activities, UINT64_C(0), UINT64_C(0), &has_output_snapshot,
@@ -2372,9 +2383,9 @@ int main(int argc, char **argv) {
   }
   pp_activity_set_release(activities);
 
-  const pp_uuid_t planned_artifacts[2] = {representation_id, representation_id};
+  const pp_representation_id_t planned_artifacts[2] = {representation_id, representation_id};
   pp_regeneration_plan_set_t *plans = NULL;
-  pp_uuid_t planned_artifact_id = {{0}};
+  pp_representation_id_t planned_artifact_id = {{0}};
   pp_job_set_t *planned_job_set = NULL;
   pp_metadata_set_t *planned_parameters = NULL;
   pp_job_t planned_job = {0};

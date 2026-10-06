@@ -24,6 +24,7 @@ from postproject import (
     MetadataString,
     NotFoundError,
     Production,
+    RepresentationId,
     RepresentationKind,
     StorageError,
     _abi,
@@ -33,6 +34,50 @@ from postproject import (
 
 
 class IdentityTests(unittest.TestCase):
+    def test_native_representation_reads_reject_other_id_structures(self) -> None:
+        native = _native.NativeLibrary()
+        representations = ctypes.POINTER(_abi.RepresentationSet)()
+        error = ctypes.POINTER(_abi.Error)()
+        for wrong_id in (_abi.Uuid(), _abi.ActivityId(), _abi.AssetId()):
+            with self.assertRaises(ctypes.ArgumentError):
+                native.lib.pp_production_representation(
+                    None, wrong_id, ctypes.byref(representations), ctypes.byref(error)
+                )
+
+    def test_representation_reads_validate_identity_and_production_scope(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            media = root / "media.dat"
+            media.write_bytes(b"scoped representation")
+            with (
+                Production.create(root / "first.pproj") as first,
+                Production.create(root / "second.pproj") as second,
+            ):
+                with first.transaction() as edit:
+                    asset = edit.import_media(media)
+                    edit.commit()
+                representation = first.representations[asset][0].id
+                self.assertIsInstance(representation, UUID)
+                self.assertEqual(
+                    parse_id(str(representation), RepresentationId), representation
+                )
+                self.assertEqual(
+                    first.representation(representation).id, representation
+                )
+                with first.read_session() as view:
+                    self.assertEqual(
+                        view.representation(representation).id, representation
+                    )
+                with second.read_session() as view:
+                    for identifier in (representation, RepresentationId(UUID(int=0))):
+                        for reader in (second, view):
+                            with self.assertRaises(NotFoundError):
+                                reader.representation(identifier)
+                self.assertIsNone(second.latest_revision)
+                untyped: Any = "invalid"
+                with self.assertRaises(TypeError):
+                    first.representation(untyped)
+
     def test_native_activity_targets_reject_other_id_structures(self) -> None:
         native = _native.NativeLibrary()
         target = _abi.ObjectRef()
