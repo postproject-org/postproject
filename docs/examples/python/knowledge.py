@@ -77,19 +77,20 @@ def replace_tape_identifier(
         transaction.add_external_identifier(AssetRef(asset_id), tape)
         transaction.commit()
 
-    for identifier in production.external_identifiers[AssetRef(asset_id)]:
-        print(
-            f"{identifier.scheme}: {identifier.value} ({identifier.qualifier or '-'})"
-        )
-    # A qualifier restricts the lookup to identifiers with exactly that qualifier.
-    key = (tape.scheme, tape.value, "reel")
-    for target in production.objects_by_external_identifier[key]:
-        print(f"tape {tape.value} identifies {target}")
+    with production.read_session() as view:
+        for identifier in view.external_identifiers(AssetRef(asset_id)):
+            print(
+                f"{identifier.scheme}: {identifier.value} ({identifier.qualifier or '-'})"
+            )
+        # A qualifier restricts the lookup to identifiers with exactly that qualifier.
+        key = (tape.scheme, tape.value, "reel")
+        for target in view.find_by_external_identifier(*key):
+            print(f"tape {tape.value} identifies {target}")
 
-    # Removal matches the exact scheme, value, and qualifier.
-    with production.transaction() as transaction:
-        transaction.remove_external_identifier(AssetRef(asset_id), tape)
-        transaction.commit()
+        # Removal matches the exact scheme, value, and qualifier.
+        with view.edit() as transaction:
+            transaction.remove_external_identifier(AssetRef(asset_id), tape)
+            transaction.commit()
     return production.external_identifiers[AssetRef(asset_id)]
 
 

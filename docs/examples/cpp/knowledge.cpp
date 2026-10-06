@@ -62,18 +62,19 @@ replace_reel_name(postproject::Production &production,
   attach.addExternalIdentifier(target, serial).value();
   attach.commit().value();
 
-  for (const auto &identifier : production.externalIdentifiers(target).value()) {
+  auto view = production.readSession().value();
+  for (const auto &identifier : view.externalIdentifiers(target).value()) {
     std::cout << identifier.scheme << " = " << identifier.value << '\n';
   }
   for (const auto &match :
-       production.findByExternalIdentifier(reel.scheme, reel.value,
+       view.findByExternalIdentifier(reel.scheme, reel.value,
                                            reel.qualifier).value()) {
     std::cout << "reel A001 names object kind "
               << static_cast<std::uint32_t>(match.kind) << '\n';
   }
 
   // Removal needs the exact scheme, value, and qualifier that were attached.
-  auto detach = production.beginTransaction().value();
+  auto detach = view.edit().value();
   detach.removeExternalIdentifier(target, reel).value();
   detach.commit().value();
   return production.externalIdentifiers(target).value();

@@ -51,7 +51,8 @@ fn replace_reel_identifier(production: &mut SqliteProduction, asset_id: AssetId)
         transaction.commit()?;
     }
 
-    for identifier in production.external_identifiers(target)? {
+    let view = production.read_session()?;
+    for identifier in view.read().external_identifiers(target)? {
         println!(
             "{} = {} ({:?})",
             identifier.scheme().as_str(),
@@ -60,12 +61,15 @@ fn replace_reel_identifier(production: &mut SqliteProduction, asset_id: AssetId)
         );
     }
     for object in
-        production.find_by_external_identifier(reel.scheme(), reel.value(), reel.qualifier())?
+        view.read()
+            .find_by_external_identifier(reel.scheme(), reel.value(), reel.qualifier())?
     {
         println!("tagged with reel R-12: {object:?}");
     }
 
-    let mut transaction = production.begin_transaction()?;
+    let base = view.decision_base();
+    drop(view);
+    let mut transaction = production.begin_edit(base)?;
     transaction.remove_external_identifier(target, &reel)?;
     transaction.commit()
 }

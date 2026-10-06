@@ -134,3 +134,8 @@ Locator retirement requires a decision base before staging. Use a read
 session's edit and read the locator set from that session. CLI `locator retire`
 requires `--decision-base` from `inspect`; an unbased transaction may still
 confirm an independent new locator.
+
+External identifier removal likewise requires a read-derived base; CLI
+`identifier remove` requires `--decision-base`. A removal followed by
+reattachment invalidates the old decision even when the text is unchanged.
+Attaching an independent identifier remains additive.

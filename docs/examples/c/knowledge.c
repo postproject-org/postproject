@@ -88,6 +88,7 @@ static pp_error_code_t replace_identifiers(pp_production_t *production,
   pp_transaction_t *transaction = NULL;
   pp_external_identifier_set_t *identifiers = NULL;
   pp_object_ref_set_t *matches = NULL;
+  pp_read_session_t *view = NULL;
 
   pp_error_code_t status =
       pp_production_begin_transaction(production, &transaction, error);
@@ -108,7 +109,10 @@ static pp_error_code_t replace_identifiers(pp_production_t *production,
   transaction = NULL;
 
   if (status == PP_OK) {
-    status = pp_production_external_identifiers(production, &target,
+    status = pp_production_read_session(production, &view, error);
+  }
+  if (status == PP_OK) {
+    status = pp_read_session_external_identifiers(view, &target,
                                                 &identifiers, error);
   }
   for (uint64_t i = 0;
@@ -123,8 +127,8 @@ static pp_error_code_t replace_identifiers(pp_production_t *production,
     }
   }
   if (status == PP_OK) {
-    status = pp_production_find_by_external_identifier(
-        production, "com.example.mam.id", "MAM-42", "staging", &matches, error);
+    status = pp_read_session_find_by_external_identifier(
+        view, "com.example.mam.id", "MAM-42", "staging", &matches, error);
   }
   for (uint64_t i = 0; status == PP_OK && i < pp_object_ref_set_count(matches);
        ++i) {
@@ -137,8 +141,9 @@ static pp_error_code_t replace_identifiers(pp_production_t *production,
 
   /* Removal names the exact scheme, value, and qualifier. */
   if (status == PP_OK) {
-    status = pp_production_begin_transaction(production, &transaction, error);
+    status = pp_read_session_begin_edit(view, &transaction, error);
   }
+  pp_read_session_release(view);
   if (status == PP_OK) {
     status = pp_transaction_remove_external_identifier(
         transaction, &target, "com.example.mam.id", "MAM-42", "staging", error);
