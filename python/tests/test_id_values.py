@@ -12,6 +12,7 @@ from uuid import UUID
 from postproject import (
     AssetId,
     AssetRef,
+    LocatorId,
     MediaRootId,
     NotFoundError,
     Production,
@@ -23,6 +24,50 @@ from postproject import (
 
 
 class IdentityTests(unittest.TestCase):
+    def test_native_locator_mutations_reject_other_id_structures(self) -> None:
+        native = _native.NativeLibrary()
+        error = ctypes.POINTER(_abi.Error)()
+        for wrong_id in (_abi.Uuid(), _abi.MediaRootId(), _abi.AssetId()):
+            with self.assertRaises(ctypes.ArgumentError):
+                native.lib.pp_transaction_retire_locator(
+                    None, wrong_id, ctypes.byref(error)
+                )
+
+    def test_locator_retirement_validates_identity_and_scope(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            media = root / "media.dat"
+            media.write_bytes(b"scoped locator")
+            with (
+                Production.create(root / "first.pproj") as first,
+                Production.create(root / "second.pproj") as second,
+            ):
+                with first.transaction() as edit:
+                    asset = edit.import_media(media)
+                    edit.commit()
+                resource = first.representations[asset][0].resources[0]
+                locator = resource.locators[0].id
+                self.assertIsInstance(locator, UUID)
+                self.assertEqual(parse_id(str(locator), LocatorId), locator)
+                with first.read_session() as view:
+                    self.assertEqual(
+                        view.locators_page(resource_id=resource.id, limit=10)
+                        .items[0]
+                        .locator.id,
+                        locator,
+                    )
+                for identifier in (locator, LocatorId(UUID(int=0))):
+                    with second.read_session() as view, view.edit() as edit:
+                        edit.retire_locator(identifier)
+                        with self.assertRaises(NotFoundError):
+                            edit.commit()
+                    self.assertIsNone(second.latest_revision)
+                untyped: Any = "invalid"
+                with first.read_session() as view, view.edit() as edit:
+                    with self.assertRaises(TypeError):
+                        edit.retire_locator(untyped)
+                self.assertEqual(first.representations[asset][0].resources[0], resource)
+
     def test_native_root_mutations_reject_other_id_structures(self) -> None:
         native = _native.NativeLibrary()
         error = ctypes.POINTER(_abi.Error)()

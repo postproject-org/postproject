@@ -3343,10 +3343,10 @@ class Transaction:
         """Stage retirement of one superseded resource locator."""
 
         self._require_open()
-        native_id = _native_uuid(locator_id)
+        native_id = _native_locator_id(locator_id)
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_transaction_retire_locator(
-            self._handle, ctypes.byref(native_id), ctypes.byref(error)
+            self._handle, native_id, ctypes.byref(error)
         )
         self._native.check(status, error)
 
@@ -4114,6 +4114,7 @@ def _utf8(value: str, label: str) -> bytes:
 def _uuid(
     value: Uuid
     | _abi.AssetId
+    | _abi.LocatorId
     | _abi.MediaRootId
     | _abi.ProductionId
     | _abi.RevisionId
@@ -4134,6 +4135,14 @@ def _native_media_root_id(value: MediaRootId) -> _abi.MediaRootId:
     if not isinstance(value, UUID):
         raise TypeError("identity must be a uuid.UUID")
     native = _abi.MediaRootId()
+    native.bytes[:] = value.bytes
+    return native
+
+
+def _native_locator_id(value: LocatorId) -> _abi.LocatorId:
+    if not isinstance(value, UUID):
+        raise TypeError("identity must be a uuid.UUID")
+    native = _abi.LocatorId()
     native.bytes[:] = value.bytes
     return native
 
@@ -4588,7 +4597,7 @@ def _provenance_match(reference: ObjectReference, depth: int) -> ProvenanceMatch
 def _locator_match_at(
     native: NativeLibrary, locators: _Pointer[LocatorQuerySet], index: int
 ) -> LocatorMatch:
-    locator_id = Uuid()
+    locator_id = _abi.LocatorId()
     resource_id = Uuid()
     uri = ctypes.c_char_p()
     availability = _abi.LocatorAvailability()
@@ -5170,7 +5179,7 @@ def _locator_at(
     resource_index: int,
     locator_index: int,
 ) -> Locator:
-    locator_id = Uuid()
+    locator_id = _abi.LocatorId()
     uri = ctypes.c_char_p()
     availability = _abi.LocatorAvailability()
     has_last_seen = ctypes.c_uint8()

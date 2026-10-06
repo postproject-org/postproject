@@ -1,4 +1,4 @@
-"""Must fail an installed-package type check for all five annotated calls."""
+"""Must fail an installed-package type check for all six annotated calls."""
 
 from postproject import AssetId, AssetRef, Production, RepresentationId, Transaction
 
@@ -9,3 +9,4 @@ def wrong_kinds(production: Production, transaction: Transaction, asset: AssetId
     AssetRef(representation)
     production.edit(asset)
     transaction.remove_media_root(asset)
+    transaction.retire_locator(asset)
