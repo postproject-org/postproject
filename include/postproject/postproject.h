@@ -328,7 +328,7 @@ typedef struct pp_revision_event {
   uint32_t position;
   pp_asset_id_t asset_id;
   pp_representation_id_t representation_id;
-  pp_uuid_t resource_id;
+  pp_resource_id_t resource_id;
   pp_locator_id_t locator_id;
   pp_media_root_id_t media_root_id;
   pp_activity_id_t activity_id;
@@ -399,7 +399,7 @@ typedef struct pp_job_completion {
  * the owning pp_dependency_set_t. */
 typedef struct pp_dependency {
   uint8_t has_source_resource;
-  pp_uuid_t source_resource_id;
+  pp_resource_id_t source_resource_id;
   const char *kind;
   pp_object_ref_t target;
   uint8_t has_resolved_representation;
@@ -413,7 +413,7 @@ typedef struct pp_artifact_dependency_path_segment {
   pp_representation_id_t source_representation_id;
   uint32_t dependency_position;
   uint8_t has_source_resource;
-  pp_uuid_t source_resource_id;
+  pp_resource_id_t source_resource_id;
   const char *kind;
   pp_object_ref_t target;
   uint8_t has_resolved_representation;
@@ -783,11 +783,11 @@ PP_API pp_error_code_t pp_read_session_resources_page(
     uint32_t limit, const char *cursor, pp_object_query_set_t **out_objects,
     pp_error_t **out_error);
 PP_API pp_error_code_t pp_read_session_locators_page(
-    const pp_read_session_t *session, const pp_uuid_t *resource_id,
+    const pp_read_session_t *session, pp_resource_id_t resource_id,
     uint32_t limit, const char *cursor,
     pp_locator_query_set_t **out_locators, pp_error_t **out_error);
 PP_API pp_error_code_t pp_read_session_representations_using_resource(
-    const pp_read_session_t *session, const pp_uuid_t *resource_id,
+    const pp_read_session_t *session, pp_resource_id_t resource_id,
     uint32_t limit, const char *cursor,
     pp_representation_set_t **out_representations, pp_error_t **out_error);
 /* These I/O reads use retained database facts but inspect the current
@@ -797,7 +797,7 @@ PP_API pp_error_code_t pp_read_session_resolve_assets(
     uint64_t asset_count, const pp_resolution_options_t *options,
     pp_resolution_set_t **out_resolutions, pp_error_t **out_error);
 PP_API pp_error_code_t pp_read_session_verify_resource(
-    const pp_read_session_t *session, const pp_uuid_t *resource_id,
+    const pp_read_session_t *session, pp_resource_id_t resource_id,
     const char *path, const pp_sequence_naming_t *sequence_naming,
     pp_content_verification_t *out_verification, pp_error_t **out_error);
 /* Same owned projections as the corresponding production reads, using this
@@ -925,7 +925,7 @@ PP_API pp_error_code_t pp_production_representation(
     pp_representation_set_t **out_representations, pp_error_t **out_error);
 /* Pages the representations that use a resource, in identity order. */
 PP_API pp_error_code_t pp_production_representations_using_resource(
-    const pp_production_t *production, const pp_uuid_t *resource_id,
+    const pp_production_t *production, pp_resource_id_t resource_id,
     uint32_t limit, const char *cursor,
     pp_representation_set_t **out_representations, pp_error_t **out_error);
 PP_API uint64_t pp_representation_set_count(
@@ -948,7 +948,7 @@ PP_API pp_error_code_t pp_representation_set_get_fingerprint(
 PP_API pp_error_code_t pp_representation_set_get_member(
     const pp_representation_set_t *representations,
     uint64_t representation_index, uint64_t member_index,
-    pp_uuid_t *out_resource_id, const char **out_role, uint8_t *out_required,
+    pp_resource_id_t *out_resource_id, const char **out_role, uint8_t *out_required,
     pp_error_t **out_error);
 PP_API pp_error_code_t pp_representation_set_get_sequence(
     const pp_representation_set_t *representations,
@@ -962,7 +962,7 @@ PP_API pp_error_code_t pp_representation_set_get_sequence_missing_frame(
     pp_error_t **out_error);
 PP_API pp_error_code_t pp_representation_set_get_resource(
     const pp_representation_set_t *representations,
-    uint64_t representation_index, uint64_t resource_index, pp_uuid_t *out_id,
+    uint64_t representation_index, uint64_t resource_index, pp_resource_id_t *out_id,
     uint8_t *out_has_file_facts, uint64_t *out_file_size,
     uint8_t *out_has_modified_at, int64_t *out_modified_at_unix_micros,
     uint64_t *out_locator_count, uint64_t *out_fingerprint_count,
@@ -1026,14 +1026,14 @@ PP_API pp_error_code_t pp_production_resources_page(
     uint32_t limit, const char *cursor, pp_object_query_set_t **out_objects,
     pp_error_t **out_error);
 PP_API pp_error_code_t pp_production_locators_page(
-    const pp_production_t *production, const pp_uuid_t *resource_id,
+    const pp_production_t *production, pp_resource_id_t resource_id,
     uint32_t limit, const char *cursor,
     pp_locator_query_set_t **out_locators, pp_error_t **out_error);
 PP_API uint64_t pp_locator_query_set_count(
     const pp_locator_query_set_t *locators);
 PP_API pp_error_code_t pp_locator_query_set_get(
     const pp_locator_query_set_t *locators, uint64_t index,
-    pp_locator_id_t *out_id, pp_uuid_t *out_resource_id, const char **out_uri,
+    pp_locator_id_t *out_id, pp_resource_id_t *out_resource_id, const char **out_uri,
     pp_locator_availability_t *out_availability,
     uint8_t *out_has_last_seen, int64_t *out_last_seen_unix_micros,
     const char **out_media_root, uint8_t *out_has_sequence_naming,
@@ -1063,7 +1063,7 @@ PP_API const char *pp_known_media_set_next_cursor(
 PP_API pp_error_code_t pp_known_media_set_get(
     const pp_known_media_set_t *matches, uint64_t index,
     pp_asset_id_t *out_asset_id, pp_representation_id_t *out_representation_id,
-    pp_uuid_t *out_resource_id, pp_error_t **out_error);
+    pp_resource_id_t *out_resource_id, pp_error_t **out_error);
 PP_API void pp_known_media_set_release(pp_known_media_set_t *matches);
 PP_API pp_error_code_t pp_production_unresolved_media(
     const pp_production_t *production, uint32_t limit, const char *cursor,
@@ -1477,7 +1477,7 @@ PP_API void pp_fingerprint_release(pp_fingerprint_t *fingerprint);
  * files; NULL means the naming recorded for that directory. It must be NULL
  * for any other resource. */
 PP_API pp_error_code_t pp_production_verify_resource(
-    const pp_production_t *production, const pp_uuid_t *resource_id,
+    const pp_production_t *production, pp_resource_id_t resource_id,
     const char *path, const pp_sequence_naming_t *sequence_naming,
     pp_content_verification_t *out_verification, pp_error_t **out_error);
 /* A cancellation token is a flag shared by the caller and running operations.
@@ -1536,13 +1536,13 @@ PP_API pp_error_code_t pp_resolution_set_get_representation(
     pp_error_t **out_error);
 PP_API pp_error_code_t pp_resolution_set_get_resource(
     const pp_resolution_set_t *resolutions, uint64_t representation_index,
-    uint64_t resource_index, pp_uuid_t *out_resource_id,
+    uint64_t resource_index, pp_resource_id_t *out_resource_id,
     pp_resource_resolution_state_t *out_state,
     uint64_t *out_candidate_count, uint64_t *out_evidence_count,
     pp_error_t **out_error);
 PP_API pp_error_code_t pp_resolution_set_get_issue(
     const pp_resolution_set_t *resolutions, uint64_t representation_index,
-    uint64_t issue_index, pp_uuid_t *out_resource_id, uint8_t *out_required,
+    uint64_t issue_index, pp_resource_id_t *out_resource_id, uint8_t *out_required,
     pp_availability_issue_kind_t *out_kind, uint64_t *out_frame_count,
     pp_error_t **out_error);
 PP_API pp_error_code_t pp_resolution_set_get_issue_frame(
@@ -1643,7 +1643,7 @@ PP_API pp_error_code_t pp_transaction_remove_media_root(
  * other; commit rejects a mismatch. A resource may hold one directory under
  * several namings. */
 PP_API pp_error_code_t pp_transaction_confirm_locator(
-    pp_transaction_t *transaction, const pp_uuid_t *resource_id,
+    pp_transaction_t *transaction, pp_resource_id_t resource_id,
     const char *uri, const char *root_name,
     const pp_sequence_naming_t *sequence_naming, pp_error_t **out_error);
 PP_API pp_error_code_t pp_transaction_retire_locator(
@@ -1652,7 +1652,7 @@ PP_API pp_error_code_t pp_transaction_retire_locator(
 /* Fingerprint values are borrowed only for the call and copied into the
  * transaction. Re-recording the identical current value is a successful no-op. */
 PP_API pp_error_code_t pp_transaction_record_resource_fingerprint(
-    pp_transaction_t *transaction, const pp_uuid_t *resource_id,
+    pp_transaction_t *transaction, pp_resource_id_t resource_id,
     const char *algorithm, uint16_t version, const uint8_t *value,
     uint64_t value_length, pp_error_t **out_error);
 PP_API pp_error_code_t pp_transaction_record_representation_fingerprint(
@@ -1670,7 +1670,7 @@ PP_API pp_error_code_t pp_transaction_record_representation_fingerprint(
  * pp_production_verify_resource(); a locator confirmed earlier in the same
  * transaction also records a naming for its directory. */
 PP_API pp_error_code_t pp_transaction_observe_resource_content(
-    pp_transaction_t *transaction, const pp_uuid_t *resource_id,
+    pp_transaction_t *transaction, pp_resource_id_t resource_id,
     const char *path, const pp_sequence_naming_t *sequence_naming,
     pp_content_observation_t *out_outcome, pp_error_t **out_error);
 /* Replaces the complete ordered dependency observation. The array and strings

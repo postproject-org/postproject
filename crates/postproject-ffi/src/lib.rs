@@ -187,7 +187,7 @@ const PP_REVISION_JOB_FAILED: u32 = 25;
 const PP_REVISION_JOB_CANCELLED: u32 = 26;
 
 /// Current pre-1.0 ABI version.
-pub const ABI_VERSION: u32 = 46;
+pub const ABI_VERSION: u32 = 47;
 
 /// Fixed-layout UUID-compatible public identifier.
 #[repr(C)]
@@ -305,7 +305,7 @@ pub struct PpRevisionEvent {
     /// Event representation identity, or zero when not applicable.
     pub representation_id: PpRepresentationId,
     /// Event resource identity, or zero when not applicable.
-    pub resource_id: PpUuid,
+    pub resource_id: PpResourceId,
     /// Event locator identity, or zero when not applicable.
     pub locator_id: PpLocatorId,
     /// Event media-root identity, or zero when not applicable.
@@ -1617,7 +1617,7 @@ pub unsafe extern "C" fn pp_locator_query_set_get(
     locators: *const PpLocatorQuerySet,
     index: u64,
     out_id: *mut PpLocatorId,
-    out_resource_id: *mut PpUuid,
+    out_resource_id: *mut PpResourceId,
     out_uri: *mut *const c_char,
     out_availability: *mut u32,
     out_has_last_seen: *mut u8,
@@ -1629,7 +1629,7 @@ pub unsafe extern "C" fn pp_locator_query_set_get(
 ) -> u32 {
     unsafe {
         initialize_value(out_id, PpLocatorId { bytes: [0; 16] });
-        initialize_uuid(out_resource_id);
+        initialize_value(out_resource_id, PpResourceId { bytes: [0; 16] });
         initialize_const_output(out_uri);
         initialize_value(out_availability, 0);
         initialize_value(out_has_last_seen, 0);
@@ -1653,7 +1653,7 @@ pub unsafe extern "C" fn pp_locator_query_set_get(
             out_id.write(PpLocatorId {
                 bytes: locator.id.into_bytes(),
             });
-            out_resource_id.write(PpUuid {
+            out_resource_id.write(PpResourceId {
                 bytes: locator.resource_id.into_bytes(),
             });
             out_uri.write(locator.uri.as_ptr());
@@ -1758,7 +1758,7 @@ pub unsafe extern "C" fn pp_production_resources_page(
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_locators_page(
     production: *const PpProduction,
-    resource_id: *const PpUuid,
+    resource_id: PpResourceId,
     limit: u32,
     cursor: *const c_char,
     out_locators: *mut *mut PpLocatorQuerySet,
@@ -1770,9 +1770,6 @@ pub unsafe extern "C" fn pp_production_locators_page(
             let production = production
                 .as_ref()
                 .ok_or_else(|| invalid_argument("production must not be null"))?;
-            let resource_id = resource_id
-                .as_ref()
-                .ok_or_else(|| invalid_argument("resource_id must not be null"))?;
             require_output(out_locators, "out_locators")?;
             let request = query_page_request(limit, cursor)?;
             let page = lock_production(&production.state)
@@ -4515,7 +4512,7 @@ pub unsafe extern "C" fn pp_resolution_set_get_resource(
     resolutions: *const PpResolutionSet,
     representation_index: u64,
     resource_index: u64,
-    out_resource_id: *mut PpUuid,
+    out_resource_id: *mut PpResourceId,
     out_state: *mut u32,
     out_candidate_count: *mut u64,
     out_evidence_count: *mut u64,
@@ -4523,7 +4520,7 @@ pub unsafe extern "C" fn pp_resolution_set_get_resource(
 ) -> u32 {
     // SAFETY: Outputs are initialized and checked before writes.
     unsafe {
-        initialize_uuid(out_resource_id);
+        initialize_value(out_resource_id, PpResourceId { bytes: [0; 16] });
         initialize_value(out_state, 0);
         initialize_value(out_candidate_count, 0);
         initialize_value(out_evidence_count, 0);
@@ -4534,7 +4531,7 @@ pub unsafe extern "C" fn pp_resolution_set_get_resource(
             require_output(out_evidence_count, "out_evidence_count")?;
             let resolution =
                 resource_resolution_at(resolutions, representation_index, resource_index)?;
-            out_resource_id.write(PpUuid {
+            out_resource_id.write(PpResourceId {
                 bytes: resolution.resource_id.into_bytes(),
             });
             out_state.write(resolution.state);
@@ -4556,7 +4553,7 @@ pub unsafe extern "C" fn pp_resolution_set_get_issue(
     resolutions: *const PpResolutionSet,
     representation_index: u64,
     issue_index: u64,
-    out_resource_id: *mut PpUuid,
+    out_resource_id: *mut PpResourceId,
     out_required: *mut u8,
     out_kind: *mut u32,
     out_frame_count: *mut u64,
@@ -4564,7 +4561,7 @@ pub unsafe extern "C" fn pp_resolution_set_get_issue(
 ) -> u32 {
     // SAFETY: Outputs are initialized and checked before writes.
     unsafe {
-        initialize_uuid(out_resource_id);
+        initialize_value(out_resource_id, PpResourceId { bytes: [0; 16] });
         initialize_value(out_required, 0);
         initialize_value(out_kind, 0);
         initialize_value(out_frame_count, 0);
@@ -4575,7 +4572,7 @@ pub unsafe extern "C" fn pp_resolution_set_get_issue(
             require_output(out_frame_count, "out_frame_count")?;
             let representation = representation_resolution_at(resolutions, representation_index)?;
             let issue = item_at(&representation.issues, issue_index, "availability issue")?;
-            out_resource_id.write(PpUuid {
+            out_resource_id.write(PpResourceId {
                 bytes: issue.resource_id().into_bytes(),
             });
             out_required.write(u8::from(issue.is_required()));
@@ -5080,7 +5077,7 @@ pub unsafe extern "C" fn pp_transaction_remove_media_root(
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_transaction_confirm_locator(
     transaction: *mut PpTransaction,
-    resource_id: *const PpUuid,
+    resource_id: PpResourceId,
     uri: *const c_char,
     root_name: *const c_char,
     sequence_naming: *const PpSequenceNaming,
@@ -5094,9 +5091,6 @@ pub unsafe extern "C" fn pp_transaction_confirm_locator(
                 .as_mut()
                 .ok_or_else(|| invalid_argument("transaction must not be null"))?;
             transaction.lifecycle.ensure_open()?;
-            let resource_id = resource_id
-                .as_ref()
-                .ok_or_else(|| invalid_argument("resource_id must not be null"))?;
             let uri = required_utf8(uri, "uri")?;
             if uri.is_empty() {
                 return Err(invalid_argument("uri must not be empty"));
@@ -5149,13 +5143,13 @@ pub unsafe extern "C" fn pp_transaction_retire_locator(
 ///
 /// # Safety
 ///
-/// `transaction` must be live, `resource_id` readable, `algorithm` borrowed
+/// `transaction` must be live, `algorithm` borrowed
 /// NUL-terminated UTF-8, `value` readable for `value_length` bytes, and
 /// `out_error` null or writable.
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_transaction_record_resource_fingerprint(
     transaction: *mut PpTransaction,
-    resource_id: *const PpUuid,
+    resource_id: PpResourceId,
     algorithm: *const c_char,
     version: u16,
     value: *const u8,
@@ -5169,9 +5163,6 @@ pub unsafe extern "C" fn pp_transaction_record_resource_fingerprint(
                 .as_mut()
                 .ok_or_else(|| invalid_argument("transaction must not be null"))?;
             transaction.lifecycle.ensure_open()?;
-            let resource_id = resource_id
-                .as_ref()
-                .ok_or_else(|| invalid_argument("resource_id must not be null"))?;
             let fingerprint = ResourceFingerprint::new(
                 required_utf8(algorithm, "algorithm")?,
                 version,
@@ -6311,7 +6302,7 @@ const fn empty_revision_event() -> PpRevisionEvent {
         position: 0,
         asset_id: PpAssetId { bytes: [0; 16] },
         representation_id: PpRepresentationId { bytes: [0; 16] },
-        resource_id: PpUuid { bytes: [0; 16] },
+        resource_id: PpResourceId { bytes: [0; 16] },
         locator_id: PpLocatorId { bytes: [0; 16] },
         media_root_id: PpMediaRootId { bytes: [0; 16] },
         activity_id: PpActivityId { bytes: [0; 16] },
@@ -6361,7 +6352,7 @@ const fn zero_artifact_reason() -> PpArtifactReason {
 const fn zero_dependency() -> PpDependency {
     PpDependency {
         has_source_resource: 0,
-        source_resource_id: PpUuid { bytes: [0; 16] },
+        source_resource_id: PpResourceId { bytes: [0; 16] },
         kind: ptr::null(),
         target: PpObjectRef {
             kind: 0,
@@ -7702,7 +7693,7 @@ mod tests {
         assert_eq!(resource_count, 1);
         assert_eq!(issue_count, 1);
 
-        let mut resource_result = PpUuid { bytes: [0; 16] };
+        let mut resource_result = PpResourceId { bytes: [0; 16] };
         let mut required = 0;
         let mut kind = 0;
         let mut frame_count = 0;
