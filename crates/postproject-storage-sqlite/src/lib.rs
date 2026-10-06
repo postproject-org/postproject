@@ -544,6 +544,99 @@ impl SqliteProduction {
         .collect()
     }
 
+    /// Loads current roots up to [`postproject_core::MAX_QUERY_PAGE_SIZE`].
+    ///
+    /// # Errors
+    ///
+    /// Returns an unsupported error above that cap, or a storage-domain error.
+    pub fn media_roots(&self) -> Result<Vec<MediaRoot>> {
+        <Self as ProductionRead>::media_roots(self)
+    }
+
+    /// Queries one bounded page of roots in resolver priority/identity order.
+    ///
+    /// Reads use this connection's current or retained view, rather than the
+    /// production metadata cached when the connection opened.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error for an invalid cursor or unreadable stored data.
+    pub fn media_roots_page(&self, page: &QueryPageRequest) -> Result<QueryPage<MediaRoot>> {
+        let position =
+            query_cursor::position_fields(&self.cursor_scope(), page, "media-roots", "all", 2)?
+                .map(|fields| {
+                    let priority = fields[0]
+                        .parse::<i32>()
+                        .map_err(|_| invalid_query_cursor())?;
+                    let id = fields[1]
+                        .parse::<MediaRootId>()
+                        .map_err(|_| invalid_query_cursor())?;
+                    Ok((priority, id.into_bytes()))
+                })
+                .transpose()?;
+        let mut parameters = Vec::<Value>::new();
+        let predicate = if let Some((priority, id)) = position {
+            parameters.push(Value::Integer(i64::from(priority)));
+            parameters.push(Value::Blob(id.to_vec()));
+            "WHERE priority > ?1 OR (priority = ?1 AND id > ?2)"
+        } else {
+            ""
+        };
+        parameters.push(Value::Integer(i64::from(page.limit()) + 1));
+        let sql = format!(
+            "SELECT id, name, label, legacy_uri, priority, enabled
+             FROM media_roots {predicate} ORDER BY priority, id LIMIT ?"
+        );
+        let mut statement = self
+            .connection
+            .prepare(&sql)
+            .map_err(sqlite_error("prepare paginated media-root query"))?;
+        let mut roots = statement
+            .query_map(params_from_iter(parameters), |row| {
+                Ok((
+                    row.get::<_, Vec<u8>>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, Option<String>>(2)?,
+                    row.get::<_, Option<String>>(3)?,
+                    row.get::<_, i32>(4)?,
+                    row.get::<_, bool>(5)?,
+                ))
+            })
+            .map_err(sqlite_error("query paginated media roots"))?
+            .map(|row| {
+                let (id, name, label, uri, priority, enabled) =
+                    row.map_err(sqlite_error("read paginated media-root row"))?;
+                MediaRoot::new(
+                    MediaRootId::from_bytes(id_bytes(id, "media root")?),
+                    name,
+                    label,
+                    uri,
+                    priority,
+                    enabled,
+                )
+                .map_err(stored_domain_error("media root"))
+            })
+            .collect::<Result<Vec<_>>>()?;
+        let has_more = roots.len() > page.limit() as usize;
+        roots.truncate(page.limit() as usize);
+        let next_cursor = if has_more {
+            roots
+                .last()
+                .map(|root| {
+                    query_cursor::cursor(
+                        &self.cursor_scope(),
+                        "media-roots",
+                        "all",
+                        &[root.priority().to_string(), root.id().to_string()],
+                    )
+                })
+                .transpose()?
+        } else {
+            None
+        };
+        Ok(QueryPage::new(roots, next_cursor, false))
+    }
+
     /// Queries one bounded page of assets in creation/identity order.
     ///
     /// # Errors
@@ -3572,6 +3665,10 @@ impl SqliteProduction {
 impl ProductionRead for SqliteProduction {
     fn production(&self) -> &Production {
         SqliteProduction::production(self)
+    }
+
+    fn media_roots_page(&self, page: &QueryPageRequest) -> Result<QueryPage<MediaRoot>> {
+        SqliteProduction::media_roots_page(self, page)
     }
 
     fn assets(&self) -> Result<Vec<Asset>> {

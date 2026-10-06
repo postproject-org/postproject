@@ -16,6 +16,7 @@ All notable changes to PostProject will be documented here. The project uses
 - Metadata appends merge and invalidate stale destructive decisions; replacement/removal require a decision base (ADR 0052).
 - Root enabling/removal, locator retirement and identifier removal require a decision base (ADR 0045).
 - Complete dependency observations require a decision base, including initial and unchanged sets (ADR 0045).
+- Add fresh bounded media-root pages; convenience reads cap at 1000 roots (ADR 0053).
 - Validate Python root flags and signed priorities before native conversion.
 - CLI JSON emits structured conflicts on stdout and commit receipts for media/confirmation, metadata, roots, identifiers, dependencies, activity and job writes.
 

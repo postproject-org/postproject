@@ -23,6 +23,33 @@ pub trait ProductionRead {
     /// Returns the loaded production metadata and configured media roots.
     fn production(&self) -> &Production;
 
+    /// Queries a bounded page of roots in priority/identity order.
+    ///
+    /// Live readers load current facts; retained sessions use their pinned view.
+    ///
+    /// # Errors
+    ///
+    /// Returns a domain error for an invalid cursor or unreadable stored data.
+    fn media_roots_page(&self, page: &QueryPageRequest) -> Result<QueryPage<MediaRoot>>;
+
+    /// Loads current roots up to [`crate::MAX_QUERY_PAGE_SIZE`].
+    ///
+    /// # Errors
+    ///
+    /// Returns an unsupported error if the result exceeds that cap; callers
+    /// needing more roots use pages. Storage and cursor errors propagate.
+    fn media_roots(&self) -> Result<Vec<MediaRoot>> {
+        let page =
+            self.media_roots_page(&QueryPageRequest::new(crate::MAX_QUERY_PAGE_SIZE, None)?)?;
+        if page.next_cursor().is_some() {
+            return Err(crate::Error::new(
+                crate::ErrorKind::Unsupported,
+                "media-root collection exceeds 1000 roots; use bounded pages",
+            ));
+        }
+        Ok(page.into_items())
+    }
+
     /// Loads all assets in deterministic order.
     ///
     /// # Errors
