@@ -929,7 +929,16 @@ fn retires_resource_locator() {
     let locator_id = imported["locator_id"].as_str().expect("locator ID");
     let asset_id = imported["asset_id"].as_str().expect("asset ID");
 
-    let retired = run_json(&["locator", "retire", production, locator_id]);
+    let inspected = run_json(&["inspect", production]);
+    let base = inspected["decision_base"].as_str().unwrap();
+    let retired = run_json(&[
+        "--decision-base",
+        base,
+        "locator",
+        "retire",
+        production,
+        locator_id,
+    ]);
     assert_eq!(retired["id"], locator_id);
     let events = latest_revision_events(production);
     assert_eq!(events[0]["kind"], "locator_retired");

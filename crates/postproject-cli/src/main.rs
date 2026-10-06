@@ -2931,9 +2931,10 @@ fn locator_retire(
     json: bool,
     base_revision: Option<CliDecisionBase>,
 ) -> Result<()> {
+    let base = base_revision.context("locator retirement requires --decision-base from inspect")?;
     let locator_id = LocatorId::from_str(&args.locator_id).context("parse locator ID")?;
     let mut production = SqliteProduction::open(&args.production).context("open production")?;
-    let mut transaction = begin_cli_transaction(&mut production, base_revision, "locator")?;
+    let mut transaction = begin_cli_transaction(&mut production, Some(base), "locator")?;
     set_cli_revision_context(&mut transaction, "Retire media locator")?;
     transaction
         .retire_locator(locator_id)

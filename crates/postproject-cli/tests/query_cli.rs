@@ -213,7 +213,11 @@ fn queries_media_knowledge_by_root_and_resolution() {
         Vec::<Value>::new()
     );
 
+    let inspection = run_json(&["inspect", production]);
+    let base = inspection["decision_base"].as_str().unwrap();
     run_json(&[
+        "--decision-base",
+        base,
         "locator",
         "retire",
         production,
