@@ -302,3 +302,34 @@ strict docs and symbol/layout checks pass. Source and installed-wheel Python:
 77 run, one skip. Installed typing rejects five wrong-kind calls. This wheel
 was not qualified against the maintained hosts; their evidence above uses the
 preceding candidate. No publication or final qualification is claimed.
+
+## ABI 43 locator checks
+
+SDK `2501860` uses native library inputs `63d4490`, C++ header inputs `1963028`
+and Python inputs `c5f104a`. The separate `target/api-safety-locator-install`
+prefix retains schema 17. Artifact SHA-256 values:
+
+- Neutral wheel: `b75f206836b68f58143cfff5948bbf518dfd1430859d82352c605657ad5d2601`.
+- Linux platform wheel: `8baec78d72c2e90fa636ee50adb550fca9cf291b044faed09694c85837de3293`.
+- Blender bundle: `3305a066356eb60e5cc30a6aee8f5cb4a361187dd50a68095df96164b238051a`.
+
+Wheels live in `target/api-safety-wheel/locator-abi43/`; the bundle is in
+`target/api-safety-blender/locator-abi43/`.
+
+| Consumer commit | Result | Scope |
+|---|---|---|
+| Manager `da2caaa` | 6 passed | Installed neutral wheel, Python 3.13 |
+| OpenAssetIO `5e38c31`, OTIO `81a6ee6`, demo `c18f5bc`, Python host `c42b8b8` | 1 passed each | Separate matching-wheel runs; unchanged OTIO linker pin |
+| Blender `71f49b6` | 23 passed, 1 skipped | Rebuilt installed bundle; 5.2.2 LTS `d13f752e3b9c`; 5.3-only case skipped |
+| Natron `68a0304` | 1 passed; module built | Installed native contract and actual Python 3.13 bridge-conflict regression |
+| OBS `6c50cb0` | 2 passed; plugin/driver built | Installed direct-C contracts |
+| Ardour `e7a0c02` | Passed | Rebuilt stereo-WAV resolver; preserved patched source |
+| Kdenlive `0312999` | Compiled | Sidecar/shared-proxy translation units with real host flags; preserved patched source |
+| C++ NLE baseline | 1 passed | Fresh installed CMake consumer |
+
+All six Rust gates, eight installed native contracts, 64 extracted tests,
+strict docs and symbol/layout checks pass. Source and installed-wheel Python:
+79 run, one skip; six installed wrong-kind calls are rejected. The bundled
+wheel quickstart passes without library overrides. No full native-host run,
+interactive handoff, exact MSRV or final platform qualification is inferred.
+All changes remain on local `main`; no push, tag or publication occurred.

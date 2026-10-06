@@ -220,3 +220,18 @@ installed-wheel Python run 77 tests with one skip; installed typing rejects
 five wrong-kind calls. ABI 42/schema 17 retain 294 exports and 22 layouts.
 Logs and installed files use `target/api-safety-root-edits-*`. Consumer evidence
 remains the preceding typed-root checkpoint; no completion gate is closed.
+
+## Typed locator checks
+
+SDK `2501860` uses ABI 43/schema 17: 296 exports, 23 agreeing public layouts
+and 39 native read queries. Locator retirement takes a value; locator reads
+and revision events return typed identities. C++ preserves equality, ordering,
+hashing and explicit interchange. Python retains ordinary UUIDs and validates
+value shape, existence and scope through the native store.
+
+On 2026-10-06, all six Rust gates, eight installed native contracts, 64 extracted
+tests, strict docs and symbol/layout checks pass. Source and installed-wheel
+Python run 79 tests with one skip; six installed wrong-kind calls are rejected.
+Matching consumer builds and artifact hashes are in the repository manifest.
+Logs use `target/api-safety-locator-*`; Kdenlive uses `api-safety-kdenlive-locator-*`.
+Remaining identities, write restrictions, leases and final qualification stay open.
