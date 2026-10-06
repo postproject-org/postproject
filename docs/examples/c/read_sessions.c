@@ -41,10 +41,10 @@ static int lookup(const pp_read_session_t *view, const pp_asset_id_t *asset, con
   if (pp_known_media_set_count(matches) != 1) goto cleanup;
   pp_asset_id_t matched_asset;
   pp_representation_id_t representation;
-  pp_uuid_t resource;
+  pp_resource_id_t resource;
   pp_content_verification_t verification;
   CHECK(pp_known_media_set_get(matches, 0, &matched_asset, &representation, &resource, &error));
-  CHECK(pp_read_session_verify_resource(view, &resource, media, NULL, &verification, &error));
+  CHECK(pp_read_session_verify_resource(view, resource, media, NULL, &verification, &error));
   if (verification != PP_CONTENT_MATCHES) goto cleanup;
   CHECK(pp_read_session_resolve_assets(view, asset, 1, NULL, &resolutions, &error));
   if (pp_resolution_set_representation_count(resolutions) != 1) goto cleanup;
@@ -192,10 +192,10 @@ static int exercise(const char *path, const char *media) {
   uint32_t depth;
   CHECK(pp_object_query_set_get(resource_page, 0, &resource, &depth, &error));
   if (resource.kind != PP_OBJECT_RESOURCE) goto cleanup;
-  CHECK(pp_read_session_locators_page(view, &resource.id, 10, NULL, &locator_page, &error));
+  CHECK(pp_read_session_locators_page(view, resource.id, 10, NULL, &locator_page, &error));
   if (pp_locator_query_set_count(locator_page) != 1) goto cleanup;
   pp_representation_set_release(representations); representations = NULL;
-  CHECK(pp_read_session_representations_using_resource(view, &resource.id, 10, NULL, &representations, &error));
+  CHECK(pp_read_session_representations_using_resource(view, resource.id, 10, NULL, &representations, &error));
   if (pp_representation_set_count(representations) != 1) goto cleanup;
   if (lookup(view, &asset, media)) goto cleanup;
   CHECK(pp_read_session_dependency_set(view, representation, &dependencies, &error));

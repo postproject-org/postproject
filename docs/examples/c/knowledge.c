@@ -26,7 +26,7 @@ static pp_error_code_t find_known_media(pp_production_t *production,
   uint64_t value_length = 0;
   pp_asset_id_t asset;
   pp_representation_id_t representation;
-  pp_uuid_t resource;
+  pp_resource_id_t resource;
 
   pp_error_code_t status = pp_file_path_to_locator(media_path, &uri, error);
   if (status == PP_OK) {

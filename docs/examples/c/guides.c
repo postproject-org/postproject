@@ -222,7 +222,7 @@ static pp_error_code_t resolve_asset(const pp_production_t *production,
       printf("availability: %u\n", availability);
     }
     for (uint64_t s = 0; status == PP_OK && s < resource_count; ++s) {
-      pp_uuid_t resource_id;
+      pp_resource_id_t resource_id;
       pp_resource_resolution_state_t state;
       uint64_t candidate_count = 0;
       uint64_t evidence_count = 0;
@@ -275,7 +275,7 @@ confirm_unique_candidates(pp_production_t *production,
         resolutions, r, &asset_id, &representation_id, &availability,
         &resource_count, &issue_count, error);
     for (uint64_t s = 0; status == PP_OK && s < resource_count; ++s) {
-      pp_uuid_t resource_id;
+      pp_resource_id_t resource_id;
       pp_resource_resolution_state_t state;
       uint64_t candidate_count = 0;
       uint64_t evidence_count = 0;
@@ -297,7 +297,7 @@ confirm_unique_candidates(pp_production_t *production,
       }
       if (status == PP_OK && uri != NULL) {
         status = pp_transaction_confirm_locator(
-            transaction, &resource_id, uri, root, has_naming ? &naming : NULL,
+            transaction, resource_id, uri, root, has_naming ? &naming : NULL,
             error);
       }
     }
@@ -599,7 +599,7 @@ static pp_error_code_t request_and_page_jobs(pp_production_t *production,
 /* [media-structure-pages] */
 static pp_error_code_t
 print_resource_locators(const pp_production_t *production,
-                        const pp_uuid_t *resource_id,
+                        const pp_resource_id_t *resource_id,
                         pp_error_t **error) {
   pp_locator_query_set_t *locators = NULL;
   pp_error_code_t status = pp_production_locators_page(
@@ -607,7 +607,7 @@ print_resource_locators(const pp_production_t *production,
   for (uint64_t i = 0;
        status == PP_OK && i < pp_locator_query_set_count(locators); ++i) {
     pp_locator_id_t locator_id;
-    pp_uuid_t owner_id;
+    pp_resource_id_t owner_id;
     const char *uri = NULL;
     pp_locator_availability_t availability;
     uint8_t has_last_seen = 0;
@@ -747,7 +747,7 @@ static pp_error_code_t read_known_objects(const pp_production_t *production,
   int64_t created_at = 0;
   const char *name = NULL;
   const char *source = NULL;
-  pp_uuid_t resource_id;
+  pp_resource_id_t resource_id;
   const char *role = NULL;
   uint8_t required = 0;
   pp_error_code_t status =
@@ -768,7 +768,7 @@ static pp_error_code_t read_known_objects(const pp_production_t *production,
   }
   if (status == PP_OK) {
     status = pp_production_representations_using_resource(
-        production, &resource_id, UINT32_C(100), NULL, &users, error);
+        production, resource_id, UINT32_C(100), NULL, &users, error);
   }
   if (status == PP_OK) {
     printf("representations using the resource: %llu\n",

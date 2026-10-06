@@ -177,7 +177,7 @@ static void print_hex(const char *label, const char *algorithm,
 static pp_error_code_t print_resource(const pp_representation_set_t *set,
                                       uint64_t r, uint64_t s,
                                       pp_error_t **error) {
-  pp_uuid_t resource_id;
+  pp_resource_id_t resource_id;
   uint8_t has_file_facts = 0;
   uint64_t size = 0;
   uint8_t has_modified_at = 0;
@@ -187,6 +187,18 @@ static pp_error_code_t print_resource(const pp_representation_set_t *set,
   pp_error_code_t status = pp_representation_set_get_resource(
       set, r, s, &resource_id, &has_file_facts, &size, &has_modified_at,
       &modified_at, &locator_count, &fingerprint_count, error);
+  /* Saved resource text and dynamic targets use explicit checked boundaries. */
+  char *saved = NULL;
+  pp_resource_id_t parsed = {{0}};
+  pp_resource_id_t projected = {{0}};
+  pp_object_ref_t target = {0};
+  if (status == PP_OK) status = pp_resource_id_format(resource_id, &saved, error);
+  if (status == PP_OK) status = pp_resource_id_parse(saved, &parsed, error);
+  if (status == PP_OK) status = pp_object_ref_from_resource(parsed, &target, error);
+  if (status == PP_OK) status = pp_object_ref_get_resource(&target, &projected, error);
+  if (status == PP_OK && memcmp(projected.bytes, resource_id.bytes, 16) != 0)
+    status = PP_ERROR_INTERNAL;
+  pp_string_release(saved);
   if (status == PP_OK && has_file_facts != 0) {
     printf("  resource %llu: %llu bytes\n", (unsigned long long)s,
            (unsigned long long)size);
@@ -245,7 +257,7 @@ static pp_error_code_t print_representation(const pp_representation_set_t *set,
   /* Members are in structural order; single files and sequences have no role.
    */
   for (uint64_t m = 0; status == PP_OK && m < members; ++m) {
-    pp_uuid_t resource_id;
+    pp_resource_id_t resource_id;
     const char *role = NULL;
     uint8_t required = 0;
     status = pp_representation_set_get_member(set, r, m, &resource_id, &role,
@@ -446,7 +458,7 @@ static pp_error_code_t print_file_fingerprint(const char *path,
 
 /* [fingerprint-observation] */
 static pp_error_code_t observe_changed_file(pp_production_t *production,
-                                            const pp_uuid_t *resource_id,
+                                            const pp_resource_id_t *resource_id,
                                             const char *path,
                                             pp_error_t **error) {
   pp_transaction_t *transaction = NULL;
@@ -459,7 +471,7 @@ static pp_error_code_t observe_changed_file(pp_production_t *production,
   /* An image-sequence resource also takes the naming of the files at path;
    * NULL uses the naming recorded for that directory. */
   pp_error_code_t status = pp_production_verify_resource(
-      production, resource_id, path, NULL, &verification, error);
+      production, *resource_id, path, NULL, &verification, error);
   if (status == PP_OK && verification != PP_CONTENT_DIFFERS) {
     status = PP_ERROR_INTERNAL;
   }
@@ -470,7 +482,7 @@ static pp_error_code_t observe_changed_file(pp_production_t *production,
     /* Stages the new resource fingerprint and every representation
      * fingerprint recomputed from it; commit records both in one revision. */
     status = pp_transaction_observe_resource_content(
-        transaction, resource_id, path, NULL, &outcome, error);
+        transaction, *resource_id, path, NULL, &outcome, error);
   }
   if (status == PP_OK && outcome != PP_OBSERVATION_CHANGED) {
     status = PP_ERROR_INTERNAL;
@@ -486,7 +498,7 @@ static pp_error_code_t observe_changed_file(pp_production_t *production,
   }
   if (status == PP_OK) {
     status = pp_transaction_observe_resource_content(
-        transaction, resource_id, path, NULL, &outcome, error);
+        transaction, *resource_id, path, NULL, &outcome, error);
   }
   if (status == PP_OK && outcome != PP_OBSERVATION_UNCHANGED) {
     status = PP_ERROR_INTERNAL;
@@ -530,7 +542,7 @@ static pp_error_code_t observe_changed_file(pp_production_t *production,
 
 /* [retire-locator] */
 static pp_error_code_t retire_superseded(pp_production_t *production,
-                                         const pp_uuid_t *resource_id,
+                                         const pp_resource_id_t *resource_id,
                                          pp_locator_id_t old_locator_id,
                                          uint64_t *out_remaining,
                                          pp_error_t **error) {
@@ -559,12 +571,12 @@ static pp_error_code_t retire_superseded(pp_production_t *production,
   *out_remaining = 0;
   while (status == PP_OK) {
     pp_locator_query_set_t *page = NULL;
-    status = pp_production_locators_page(production, resource_id, UINT32_C(1),
+    status = pp_production_locators_page(production, *resource_id, UINT32_C(1),
                                          cursor, &page, error);
     for (uint64_t i = 0;
          status == PP_OK && i < pp_locator_query_set_count(page); ++i) {
       pp_locator_id_t locator_id;
-      pp_uuid_t owner_id;
+      pp_resource_id_t owner_id;
       const char *uri, *media_root;
       pp_locator_availability_t availability;
       uint8_t has_last_seen = 0, has_naming = 0;
@@ -618,7 +630,7 @@ print_resolution_issues(const pp_production_t *production,
         resolutions, r, &resolved_asset_id, &representation_id, &availability,
         &resource_count, &issue_count, error);
     for (uint64_t i = 0; status == PP_OK && i < issue_count; ++i) {
-      pp_uuid_t resource_id;
+      pp_resource_id_t resource_id;
       uint8_t required = 0;
       pp_availability_issue_kind_t kind;
       uint64_t frame_count = 0;
@@ -639,7 +651,7 @@ print_resolution_issues(const pp_production_t *production,
       }
     }
     for (uint64_t s = 0; status == PP_OK && s < resource_count; ++s) {
-      pp_uuid_t resource_id;
+      pp_resource_id_t resource_id;
       pp_resource_resolution_state_t state;
       uint64_t candidate_count = 0;
       uint64_t evidence_count = 0;
@@ -736,7 +748,7 @@ static pp_error_code_t create_production(const char *path, const char *media,
 /* Finds the imported original's resource and its current locator. */
 static pp_error_code_t
 original_resource(const pp_production_t *production, const pp_asset_id_t *asset_id,
-                  pp_representation_id_t *out_representation_id, pp_uuid_t *out_resource_id,
+                  pp_representation_id_t *out_representation_id, pp_resource_id_t *out_resource_id,
                   pp_locator_id_t *out_locator_id, char *out_uri, size_t uri_size,
                   pp_error_t **error) {
   pp_representation_set_t *set = NULL;
@@ -808,7 +820,7 @@ static pp_error_code_t verify_contents(const pp_production_t *production,
         resolutions, r, &resolved_asset_id, &representation_id, &availability,
         &resource_count, &issue_count, error);
     for (uint64_t s = 0; status == PP_OK && s < resource_count; ++s) {
-      pp_uuid_t resource_id;
+      pp_resource_id_t resource_id;
       pp_resource_resolution_state_t state;
       uint64_t candidate_count = 0, evidence_count = 0;
       status = pp_resolution_set_get_resource(resolutions, r, s, &resource_id,
@@ -877,7 +889,7 @@ static pp_error_code_t find_nearby(const pp_production_t *production,
         resolutions, r, &asset_id, &representation_id, &availability,
         &resource_count, &issue_count, error);
     for (uint64_t s = 0; status == PP_OK && s < resource_count; ++s) {
-      pp_uuid_t resource_id;
+      pp_resource_id_t resource_id;
       pp_resource_resolution_state_t state;
       uint64_t candidate_count = 0, evidence_count = 0;
       status = pp_resolution_set_get_resource(resolutions, r, s, &resource_id,
@@ -921,7 +933,7 @@ static pp_error_code_t find_nearby(const pp_production_t *production,
 
 static pp_error_code_t confirm_moved(pp_production_t *production,
                                      const pp_asset_id_t *asset_id,
-                                     const pp_uuid_t *resource_id,
+                                     const pp_resource_id_t *resource_id,
                                      const char *moved_directory,
                                      pp_error_t **error) {
   /* Find the moved file near where it went and confirm what was found. */
@@ -952,7 +964,7 @@ static pp_error_code_t confirm_moved(pp_production_t *production,
     status = pp_production_begin_transaction(production, &transaction, error);
   }
   if (status == PP_OK) {
-    status = pp_transaction_confirm_locator(transaction, resource_id, new_uri,
+    status = pp_transaction_confirm_locator(transaction, *resource_id, new_uri,
                                             NULL, NULL, error);
   }
   if (status == PP_OK) {
@@ -1049,7 +1061,7 @@ static pp_error_code_t relink_renamed_sequence(pp_production_t *production,
         resolutions, r, &owner, &representation_id, &availability,
         &resource_count, &issue_count, error);
     for (uint64_t s = 0; status == PP_OK && s < resource_count; ++s) {
-      pp_uuid_t resource_id;
+      pp_resource_id_t resource_id;
       pp_resource_resolution_state_t state;
       uint64_t candidate_count = 0, evidence_count = 0;
       status = pp_resolution_set_get_resource(resolutions, r, s, &resource_id,
@@ -1072,7 +1084,7 @@ static pp_error_code_t relink_renamed_sequence(pp_production_t *production,
       }
       printf("%s as %s%%0%ud%s\n", uri, naming.prefix, (unsigned)naming.padding,
              naming.suffix);
-      status = pp_transaction_confirm_locator(transaction, &resource_id, uri,
+      status = pp_transaction_confirm_locator(transaction, resource_id, uri,
                                               root, &naming, error);
       *out_relinked += status == PP_OK;
     }
@@ -1125,7 +1137,7 @@ int main(int argc, char **argv) {
   pp_representation_id_t spanned_id;
   pp_representation_id_t package_id;
   pp_representation_id_t original_id;
-  pp_uuid_t resource_id;
+  pp_resource_id_t resource_id;
   pp_locator_id_t old_locator_id;
   char old_uri[4096] = {0};
   uint64_t count = 0;
