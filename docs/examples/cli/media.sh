@@ -15,6 +15,7 @@ cd "$1"
 
 postproject init media.pproj --name "Documentary"
 postproject --json media add media.pproj rushes/A001.mov > import.json
+jq -e '.commit_receipt.revision.sequence == 1' import.json >/dev/null
 ASSET_ID=$(jq -r .asset_id import.json)
 ORIGINAL_ID=$(jq -r .representation_id import.json)
 RESOURCE_ID=$(jq -r .resource_id import.json)

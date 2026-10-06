@@ -69,9 +69,10 @@ printf 'proxy media' > proxies/A001_proxy.mov
 # job succeeded, in one transaction.
 COMPLETED=$(postproject --json job complete jobs.pproj "$JOB_ID" "$CLAIM_ID" \
   proxies/A001_proxy.mov --now-unix-micros 1767226300000000)
-jq '{state, completion_representation_id, completion_activity_id}' <<<"$COMPLETED"
+jq '{state, completion_representation_id, completion_activity_id, commit_receipt}' <<<"$COMPLETED"
 # [/complete-job]
 
+jq -e '.commit_receipt.revision.id | type == "string"' <<<"$COMPLETED" >/dev/null
 PROXY_ID=$(jq -r .completion_representation_id <<<"$COMPLETED")
 test "$(jq -r .state <<<"$COMPLETED")" = succeeded
 test "$(postproject --json activity producing jobs.pproj "$PROXY_ID" |

@@ -96,7 +96,8 @@ edit conflicts after any intervening property change, including an append.
 In Python, replace `production.transaction()` with
 `production.read_session()` and `view.edit()` for removal. C++ offers
 `removeMetadataProperty`. CLI removal requires `--decision-base` from
-`inspect`; metadata writes return their own `commit_receipt` in JSON.
+`inspect`; explicit media, representation, locator, root, identifier, metadata, dependency,
+activity and job writes return their own `commit_receipt` in JSON.
 Structured conflict JSON now goes to stdout with a failing exit status;
 other diagnostics remain on stderr. Update scripts that read conflicts there.
 

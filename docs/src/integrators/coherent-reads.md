@@ -22,6 +22,12 @@ latest revision to attribute a commit: another writer may already have advanced
 it. Commit attempts, rollback, and disposal end the edit. Python `Edit` contexts
 require explicit commit and roll back on normal exit as well as on exceptions.
 
+CLI JSON includes `commit_receipt` for explicit media, representation, locator,
+root, identifier, metadata, dependency, activity and job writes. Use its
+`production_id` and optional `revision` (`id`, `sequence`) to attribute the
+command. An unchanged observation returns `revision: null`; read commands
+have no commit receipt.
+
 The development C/C++/Python read-session surface currently provides asset and
 representation point reads and bounded pages, resources, locators, metadata,
 logical roots, external identifiers, known-media lookup, jobs, dependencies,
