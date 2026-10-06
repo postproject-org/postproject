@@ -501,7 +501,7 @@ RevisionEvent._fields_ = [
     ("kind", RevisionEventKind),
     ("position", ctypes.c_uint32),
     ("asset_id", AssetId),
-    ("representation_id", Uuid),
+    ("representation_id", RepresentationId),
     ("resource_id", Uuid),
     ("locator_id", LocatorId),
     ("media_root_id", MediaRootId),
@@ -522,7 +522,7 @@ RevisionEvent._fields_ = [
 ]
 
 ActivityEdge._fields_ = [
-    ("representation_id", Uuid),
+    ("representation_id", RepresentationId),
     ("role", ctypes.c_char_p),
 ]
 
@@ -544,7 +544,7 @@ Job._fields_ = [
     ("claim_agent_identifier_value", ctypes.c_char_p),
     ("claim_agent_identifier_qualifier", ctypes.c_char_p),
     ("completion_activity_id", ActivityId),
-    ("completion_representation_id", Uuid),
+    ("completion_representation_id", RepresentationId),
     ("failure_diagnostic", ctypes.c_char_p),
 ]
 
@@ -562,7 +562,7 @@ JobClaim._fields_ = [
 
 JobCompletion._fields_ = [
     ("activity_id", ActivityId),
-    ("representation_id", Uuid),
+    ("representation_id", RepresentationId),
 ]
 
 Dependency._fields_ = [
@@ -571,28 +571,28 @@ Dependency._fields_ = [
     ("kind", ctypes.c_char_p),
     ("target", ObjectRef),
     ("has_resolved_representation", ctypes.c_uint8),
-    ("resolved_representation_id", Uuid),
+    ("resolved_representation_id", RepresentationId),
     ("required", ctypes.c_uint8),
     ("authored_reference", ctypes.c_char_p),
 ]
 
 ArtifactDependencyPathSegment._fields_ = [
-    ("source_representation_id", Uuid),
+    ("source_representation_id", RepresentationId),
     ("dependency_position", ctypes.c_uint32),
     ("has_source_resource", ctypes.c_uint8),
     ("source_resource_id", Uuid),
     ("kind", ctypes.c_char_p),
     ("target", ObjectRef),
     ("has_resolved_representation", ctypes.c_uint8),
-    ("resolved_representation_id", Uuid),
+    ("resolved_representation_id", RepresentationId),
     ("authored_reference", ctypes.c_char_p),
 ]
 
 ArtifactReason._fields_ = [
     ("kind", ArtifactReasonKind),
     ("activity_id", ActivityId),
-    ("representation_id", Uuid),
-    ("input_representation_id", Uuid),
+    ("representation_id", RepresentationId),
+    ("input_representation_id", RepresentationId),
     ("edge_kind", ArtifactEdgeKind),
     ("upstream_state", ArtifactKnowledgeState),
     ("traversal_limit", ArtifactTraversalLimit),
@@ -613,7 +613,7 @@ ArtifactReason._fields_ = [
 ArtifactReproducibilityIssue._fields_ = [
     ("kind", ArtifactReproducibilityIssueKind),
     ("activity_id", ActivityId),
-    ("representation_id", Uuid),
+    ("representation_id", RepresentationId),
     ("activity_count", ctypes.c_uint32),
 ]
 
@@ -987,11 +987,11 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_read_session_begin_edit.restype = ErrorCode
     lib.pp_production_begin_edit.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(DecisionBase), ctypes.POINTER(ctypes.POINTER(Transaction)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_production_begin_edit.restype = ErrorCode
-    lib.pp_read_session_plan_regeneration.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(Uuid), ctypes.c_uint64, ctypes.POINTER(ctypes.POINTER(RegenerationPlanSet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_read_session_plan_regeneration.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(RepresentationId), ctypes.c_uint64, ctypes.POINTER(ctypes.POINTER(RegenerationPlanSet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_read_session_plan_regeneration.restype = ErrorCode
-    lib.pp_read_session_evaluate_artifact.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(Uuid), ctypes.c_uint32, ctypes.c_uint32, ctypes.POINTER(ctypes.POINTER(ArtifactEvaluation)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_read_session_evaluate_artifact.argtypes = [ctypes.POINTER(ReadSession), RepresentationId, ctypes.c_uint32, ctypes.c_uint32, ctypes.POINTER(ctypes.POINTER(ArtifactEvaluation)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_read_session_evaluate_artifact.restype = ErrorCode
-    lib.pp_read_session_artifact_reproducibility.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.POINTER(ArtifactReproducibility)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_read_session_artifact_reproducibility.argtypes = [ctypes.POINTER(ReadSession), RepresentationId, ctypes.POINTER(ctypes.POINTER(ArtifactReproducibility)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_read_session_artifact_reproducibility.restype = ErrorCode
     lib.pp_read_session_revision_events_page.argtypes = [ctypes.POINTER(ReadSession), RevisionId, ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(RevisionEventSet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_read_session_revision_events_page.restype = ErrorCode
@@ -1001,19 +1001,19 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_read_session_latest_revision.restype = ErrorCode
     lib.pp_read_session_changes_since.argtypes = [ctypes.POINTER(ReadSession), ctypes.c_uint64, ctypes.c_uint32, ctypes.POINTER(ctypes.POINTER(RevisionSet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_read_session_changes_since.restype = ErrorCode
-    lib.pp_read_session_activities_producing_page.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(Uuid), ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(ActivitySet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_read_session_activities_producing_page.argtypes = [ctypes.POINTER(ReadSession), RepresentationId, ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(ActivitySet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_read_session_activities_producing_page.restype = ErrorCode
-    lib.pp_read_session_activities_consuming_page.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(Uuid), ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(ActivitySet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_read_session_activities_consuming_page.argtypes = [ctypes.POINTER(ReadSession), RepresentationId, ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(ActivitySet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_read_session_activities_consuming_page.restype = ErrorCode
     lib.pp_read_session_outputs_by_activity_kind.argtypes = [ctypes.POINTER(ReadSession), ctypes.c_char_p, ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(ObjectQuerySet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_read_session_outputs_by_activity_kind.restype = ErrorCode
     lib.pp_read_session_outputs_by_tool.argtypes = [ctypes.POINTER(ReadSession), ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(ObjectQuerySet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_read_session_outputs_by_tool.restype = ErrorCode
-    lib.pp_read_session_provenance_ancestors_page.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(Uuid), ctypes.c_uint32, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(ObjectQuerySet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_read_session_provenance_ancestors_page.argtypes = [ctypes.POINTER(ReadSession), RepresentationId, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(ObjectQuerySet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_read_session_provenance_ancestors_page.restype = ErrorCode
-    lib.pp_read_session_provenance_descendants_page.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(Uuid), ctypes.c_uint32, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(ObjectQuerySet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_read_session_provenance_descendants_page.argtypes = [ctypes.POINTER(ReadSession), RepresentationId, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(ObjectQuerySet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_read_session_provenance_descendants_page.restype = ErrorCode
-    lib.pp_read_session_stale_artifacts.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(Uuid), ctypes.c_uint32, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(ObjectQuerySet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_read_session_stale_artifacts.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(RepresentationId), ctypes.c_uint32, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(ObjectQuerySet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_read_session_stale_artifacts.restype = ErrorCode
     lib.pp_read_session_representations_under_media_root.argtypes = [ctypes.POINTER(ReadSession), ctypes.c_char_p, ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(RepresentationSet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_read_session_representations_under_media_root.restype = ErrorCode
@@ -1021,9 +1021,9 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_read_session_unresolved_media.restype = ErrorCode
     lib.pp_read_session_objects_changed_since.argtypes = [ctypes.POINTER(ReadSession), ctypes.c_uint64, ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(ObjectQuerySet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_read_session_objects_changed_since.restype = ErrorCode
-    lib.pp_read_session_dependency_set.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.POINTER(DependencySet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_read_session_dependency_set.argtypes = [ctypes.POINTER(ReadSession), RepresentationId, ctypes.POINTER(ctypes.POINTER(DependencySet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_read_session_dependency_set.restype = ErrorCode
-    lib.pp_read_session_dependencies.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(Uuid), ctypes.c_uint32, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(DependencyQuerySet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_read_session_dependencies.argtypes = [ctypes.POINTER(ReadSession), RepresentationId, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(DependencyQuerySet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_read_session_dependencies.restype = ErrorCode
     lib.pp_read_session_dependents.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(ObjectRef), ctypes.c_uint32, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(DependencyQuerySet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_read_session_dependents.restype = ErrorCode
@@ -1091,9 +1091,9 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_read_session_asset.restype = ErrorCode
     lib.pp_read_session_representations_page.argtypes = [ctypes.POINTER(ReadSession), AssetId, ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(RepresentationSet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_read_session_representations_page.restype = ErrorCode
-    lib.pp_read_session_representation.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.POINTER(RepresentationSet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_read_session_representation.argtypes = [ctypes.POINTER(ReadSession), RepresentationId, ctypes.POINTER(ctypes.POINTER(RepresentationSet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_read_session_representation.restype = ErrorCode
-    lib.pp_read_session_resources_page.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(Uuid), ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(ObjectQuerySet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_read_session_resources_page.argtypes = [ctypes.POINTER(ReadSession), RepresentationId, ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(ObjectQuerySet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_read_session_resources_page.restype = ErrorCode
     lib.pp_read_session_locators_page.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(Uuid), ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(LocatorQuerySet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_read_session_locators_page.restype = ErrorCode
@@ -1167,7 +1167,7 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_production_representations_page.restype = ErrorCode
     lib.pp_production_representations_under_media_root.argtypes = [ctypes.POINTER(Production), ctypes.c_char_p, ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(RepresentationSet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_production_representations_under_media_root.restype = ErrorCode
-    lib.pp_production_representation.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.POINTER(RepresentationSet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_production_representation.argtypes = [ctypes.POINTER(Production), RepresentationId, ctypes.POINTER(ctypes.POINTER(RepresentationSet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_production_representation.restype = ErrorCode
     lib.pp_production_representations_using_resource.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(Uuid), ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(RepresentationSet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_production_representations_using_resource.restype = ErrorCode
@@ -1175,7 +1175,7 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_representation_set_count.restype = ctypes.c_uint64
     lib.pp_representation_set_next_cursor.argtypes = [ctypes.POINTER(RepresentationSet)]
     lib.pp_representation_set_next_cursor.restype = ctypes.c_char_p
-    lib.pp_representation_set_get.argtypes = [ctypes.POINTER(RepresentationSet), ctypes.c_uint64, ctypes.POINTER(Uuid), ctypes.POINTER(AssetId), ctypes.POINTER(RepresentationKind), ctypes.POINTER(ContentStructureKind), ctypes.POINTER(ctypes.c_uint64), ctypes.POINTER(ctypes.c_uint64), ctypes.POINTER(ctypes.c_uint64), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_representation_set_get.argtypes = [ctypes.POINTER(RepresentationSet), ctypes.c_uint64, ctypes.POINTER(RepresentationId), ctypes.POINTER(AssetId), ctypes.POINTER(RepresentationKind), ctypes.POINTER(ContentStructureKind), ctypes.POINTER(ctypes.c_uint64), ctypes.POINTER(ctypes.c_uint64), ctypes.POINTER(ctypes.c_uint64), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_representation_set_get.restype = ErrorCode
     lib.pp_representation_set_get_fingerprint.argtypes = [ctypes.POINTER(RepresentationSet), ctypes.c_uint64, ctypes.c_uint64, ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.c_uint16), ctypes.POINTER(ctypes.POINTER(ctypes.c_uint8)), ctypes.POINTER(ctypes.c_uint64), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_representation_set_get_fingerprint.restype = ErrorCode
@@ -1219,7 +1219,7 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_object_query_set_traversal_truncated.restype = ctypes.c_uint8
     lib.pp_object_query_set_release.argtypes = [ctypes.POINTER(ObjectQuerySet)]
     lib.pp_object_query_set_release.restype = None
-    lib.pp_production_resources_page.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(Uuid), ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(ObjectQuerySet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_production_resources_page.argtypes = [ctypes.POINTER(Production), RepresentationId, ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(ObjectQuerySet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_production_resources_page.restype = ErrorCode
     lib.pp_production_locators_page.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(Uuid), ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(LocatorQuerySet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_production_locators_page.restype = ErrorCode
@@ -1239,7 +1239,7 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_known_media_set_count.restype = ctypes.c_uint64
     lib.pp_known_media_set_next_cursor.argtypes = [ctypes.POINTER(KnownMediaSet)]
     lib.pp_known_media_set_next_cursor.restype = ctypes.c_char_p
-    lib.pp_known_media_set_get.argtypes = [ctypes.POINTER(KnownMediaSet), ctypes.c_uint64, ctypes.POINTER(AssetId), ctypes.POINTER(Uuid), ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_known_media_set_get.argtypes = [ctypes.POINTER(KnownMediaSet), ctypes.c_uint64, ctypes.POINTER(AssetId), ctypes.POINTER(RepresentationId), ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_known_media_set_get.restype = ErrorCode
     lib.pp_known_media_set_release.argtypes = [ctypes.POINTER(KnownMediaSet)]
     lib.pp_known_media_set_release.restype = None
@@ -1317,15 +1317,15 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_metadata_input_create_struct.restype = ErrorCode
     lib.pp_metadata_input_release.argtypes = [ctypes.POINTER(MetadataInput)]
     lib.pp_metadata_input_release.restype = None
-    lib.pp_production_dependency_set.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.POINTER(DependencySet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_production_dependency_set.argtypes = [ctypes.POINTER(Production), RepresentationId, ctypes.POINTER(ctypes.POINTER(DependencySet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_production_dependency_set.restype = ErrorCode
-    lib.pp_dependency_set_get.argtypes = [ctypes.POINTER(DependencySet), ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.c_uint64), ctypes.POINTER(DependencySetStatus), ctypes.POINTER(ctypes.c_uint64), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_dependency_set_get.argtypes = [ctypes.POINTER(DependencySet), ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(RepresentationId), ctypes.POINTER(ctypes.c_uint64), ctypes.POINTER(DependencySetStatus), ctypes.POINTER(ctypes.c_uint64), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_dependency_set_get.restype = ErrorCode
     lib.pp_dependency_set_get_dependency.argtypes = [ctypes.POINTER(DependencySet), ctypes.c_uint64, ctypes.POINTER(Dependency), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_dependency_set_get_dependency.restype = ErrorCode
     lib.pp_dependency_set_release.argtypes = [ctypes.POINTER(DependencySet)]
     lib.pp_dependency_set_release.restype = None
-    lib.pp_production_dependencies.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(Uuid), ctypes.c_uint32, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(DependencyQuerySet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_production_dependencies.argtypes = [ctypes.POINTER(Production), RepresentationId, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(DependencyQuerySet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_production_dependencies.restype = ErrorCode
     lib.pp_production_dependents.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(ObjectRef), ctypes.c_uint32, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(DependencyQuerySet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_production_dependents.restype = ErrorCode
@@ -1339,17 +1339,17 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_dependency_query_set_traversal_truncated.restype = ctypes.c_uint8
     lib.pp_dependency_query_set_release.argtypes = [ctypes.POINTER(DependencyQuerySet)]
     lib.pp_dependency_query_set_release.restype = None
-    lib.pp_production_evaluate_artifact.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(Uuid), ctypes.c_uint32, ctypes.c_uint32, ctypes.POINTER(ctypes.POINTER(ArtifactEvaluation)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_production_evaluate_artifact.argtypes = [ctypes.POINTER(Production), RepresentationId, ctypes.c_uint32, ctypes.c_uint32, ctypes.POINTER(ctypes.POINTER(ArtifactEvaluation)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_production_evaluate_artifact.restype = ErrorCode
-    lib.pp_artifact_evaluation_get.argtypes = [ctypes.POINTER(ArtifactEvaluation), ctypes.POINTER(Uuid), ctypes.POINTER(ArtifactKnowledgeState), ctypes.POINTER(ctypes.c_uint32), ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ctypes.c_uint64), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_artifact_evaluation_get.argtypes = [ctypes.POINTER(ArtifactEvaluation), ctypes.POINTER(RepresentationId), ctypes.POINTER(ArtifactKnowledgeState), ctypes.POINTER(ctypes.c_uint32), ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ctypes.c_uint64), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_artifact_evaluation_get.restype = ErrorCode
     lib.pp_artifact_evaluation_get_reason.argtypes = [ctypes.POINTER(ArtifactEvaluation), ctypes.c_uint64, ctypes.POINTER(ArtifactReason), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_artifact_evaluation_get_reason.restype = ErrorCode
     lib.pp_artifact_evaluation_release.argtypes = [ctypes.POINTER(ArtifactEvaluation)]
     lib.pp_artifact_evaluation_release.restype = None
-    lib.pp_production_artifact_reproducibility.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.POINTER(ArtifactReproducibility)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_production_artifact_reproducibility.argtypes = [ctypes.POINTER(Production), RepresentationId, ctypes.POINTER(ctypes.POINTER(ArtifactReproducibility)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_production_artifact_reproducibility.restype = ErrorCode
-    lib.pp_artifact_reproducibility_get.argtypes = [ctypes.POINTER(ArtifactReproducibility), ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ActivityId), ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.c_uint64), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_artifact_reproducibility_get.argtypes = [ctypes.POINTER(ArtifactReproducibility), ctypes.POINTER(RepresentationId), ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ActivityId), ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.c_uint64), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_artifact_reproducibility_get.restype = ErrorCode
     lib.pp_artifact_reproducibility_get_issue.argtypes = [ctypes.POINTER(ArtifactReproducibility), ctypes.c_uint64, ctypes.POINTER(ArtifactReproducibilityIssue), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_artifact_reproducibility_get_issue.restype = ErrorCode
@@ -1357,27 +1357,27 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_artifact_reproducibility_release.restype = None
     lib.pp_production_activities.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(ctypes.POINTER(ActivitySet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_production_activities.restype = ErrorCode
-    lib.pp_production_activities_producing.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.POINTER(ActivitySet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_production_activities_producing.argtypes = [ctypes.POINTER(Production), RepresentationId, ctypes.POINTER(ctypes.POINTER(ActivitySet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_production_activities_producing.restype = ErrorCode
-    lib.pp_production_activities_consuming.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.POINTER(ActivitySet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_production_activities_consuming.argtypes = [ctypes.POINTER(Production), RepresentationId, ctypes.POINTER(ctypes.POINTER(ActivitySet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_production_activities_consuming.restype = ErrorCode
-    lib.pp_production_activities_producing_page.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(Uuid), ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(ActivitySet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_production_activities_producing_page.argtypes = [ctypes.POINTER(Production), RepresentationId, ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(ActivitySet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_production_activities_producing_page.restype = ErrorCode
-    lib.pp_production_activities_consuming_page.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(Uuid), ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(ActivitySet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_production_activities_consuming_page.argtypes = [ctypes.POINTER(Production), RepresentationId, ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(ActivitySet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_production_activities_consuming_page.restype = ErrorCode
     lib.pp_production_outputs_by_activity_kind.argtypes = [ctypes.POINTER(Production), ctypes.c_char_p, ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(ObjectQuerySet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_production_outputs_by_activity_kind.restype = ErrorCode
     lib.pp_production_outputs_by_tool.argtypes = [ctypes.POINTER(Production), ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(ObjectQuerySet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_production_outputs_by_tool.restype = ErrorCode
-    lib.pp_production_provenance_ancestors.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.POINTER(ObjectRefSet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_production_provenance_ancestors.argtypes = [ctypes.POINTER(Production), RepresentationId, ctypes.POINTER(ctypes.POINTER(ObjectRefSet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_production_provenance_ancestors.restype = ErrorCode
-    lib.pp_production_provenance_descendants.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.POINTER(ObjectRefSet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_production_provenance_descendants.argtypes = [ctypes.POINTER(Production), RepresentationId, ctypes.POINTER(ctypes.POINTER(ObjectRefSet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_production_provenance_descendants.restype = ErrorCode
-    lib.pp_production_provenance_ancestors_page.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(Uuid), ctypes.c_uint32, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(ObjectQuerySet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_production_provenance_ancestors_page.argtypes = [ctypes.POINTER(Production), RepresentationId, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(ObjectQuerySet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_production_provenance_ancestors_page.restype = ErrorCode
-    lib.pp_production_provenance_descendants_page.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(Uuid), ctypes.c_uint32, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(ObjectQuerySet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_production_provenance_descendants_page.argtypes = [ctypes.POINTER(Production), RepresentationId, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(ObjectQuerySet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_production_provenance_descendants_page.restype = ErrorCode
-    lib.pp_production_stale_artifacts.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(Uuid), ctypes.c_uint32, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(ObjectQuerySet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_production_stale_artifacts.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(RepresentationId), ctypes.c_uint32, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(ObjectQuerySet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_production_stale_artifacts.restype = ErrorCode
     lib.pp_activity_set_count.argtypes = [ctypes.POINTER(ActivitySet)]
     lib.pp_activity_set_count.restype = ctypes.c_uint64
@@ -1389,9 +1389,9 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_activity_set_get_tool.restype = ErrorCode
     lib.pp_activity_set_get_agent.argtypes = [ctypes.POINTER(ActivitySet), ctypes.c_uint64, ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_activity_set_get_agent.restype = ErrorCode
-    lib.pp_activity_set_get_input.argtypes = [ctypes.POINTER(ActivitySet), ctypes.c_uint64, ctypes.c_uint64, ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_activity_set_get_input.argtypes = [ctypes.POINTER(ActivitySet), ctypes.c_uint64, ctypes.c_uint64, ctypes.POINTER(RepresentationId), ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_activity_set_get_input.restype = ErrorCode
-    lib.pp_activity_set_get_output.argtypes = [ctypes.POINTER(ActivitySet), ctypes.c_uint64, ctypes.c_uint64, ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_activity_set_get_output.argtypes = [ctypes.POINTER(ActivitySet), ctypes.c_uint64, ctypes.c_uint64, ctypes.POINTER(RepresentationId), ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_activity_set_get_output.restype = ErrorCode
     lib.pp_activity_set_get_input_snapshot.argtypes = [ctypes.POINTER(ActivitySet), ctypes.c_uint64, ctypes.c_uint64, ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ctypes.c_uint64), ctypes.POINTER(ctypes.c_uint64), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_activity_set_get_input_snapshot.restype = ErrorCode
@@ -1419,15 +1419,15 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_job_set_get_completion.restype = ErrorCode
     lib.pp_job_set_get_failure.argtypes = [ctypes.POINTER(JobSet), ctypes.c_uint64, ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_job_set_get_failure.restype = ErrorCode
-    lib.pp_job_set_get_input.argtypes = [ctypes.POINTER(JobSet), ctypes.c_uint64, ctypes.c_uint64, ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_job_set_get_input.argtypes = [ctypes.POINTER(JobSet), ctypes.c_uint64, ctypes.c_uint64, ctypes.POINTER(RepresentationId), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_job_set_get_input.restype = ErrorCode
     lib.pp_job_set_release.argtypes = [ctypes.POINTER(JobSet)]
     lib.pp_job_set_release.restype = None
-    lib.pp_production_plan_regeneration.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(Uuid), ctypes.c_uint64, ctypes.POINTER(ctypes.POINTER(RegenerationPlanSet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_production_plan_regeneration.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(RepresentationId), ctypes.c_uint64, ctypes.POINTER(ctypes.POINTER(RegenerationPlanSet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_production_plan_regeneration.restype = ErrorCode
     lib.pp_regeneration_plan_set_count.argtypes = [ctypes.POINTER(RegenerationPlanSet)]
     lib.pp_regeneration_plan_set_count.restype = ctypes.c_uint64
-    lib.pp_regeneration_plan_set_get.argtypes = [ctypes.POINTER(RegenerationPlanSet), ctypes.c_uint64, ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.POINTER(JobSet)), ctypes.POINTER(ctypes.POINTER(MetadataSet)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_regeneration_plan_set_get.argtypes = [ctypes.POINTER(RegenerationPlanSet), ctypes.c_uint64, ctypes.POINTER(RepresentationId), ctypes.POINTER(ctypes.POINTER(JobSet)), ctypes.POINTER(ctypes.POINTER(MetadataSet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_regeneration_plan_set_get.restype = ErrorCode
     lib.pp_regeneration_plan_set_release.argtypes = [ctypes.POINTER(RegenerationPlanSet)]
     lib.pp_regeneration_plan_set_release.restype = None
@@ -1495,7 +1495,7 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_production_resolve_assets.restype = ErrorCode
     lib.pp_resolution_set_representation_count.argtypes = [ctypes.POINTER(ResolutionSet)]
     lib.pp_resolution_set_representation_count.restype = ctypes.c_uint64
-    lib.pp_resolution_set_get_representation.argtypes = [ctypes.POINTER(ResolutionSet), ctypes.c_uint64, ctypes.POINTER(AssetId), ctypes.POINTER(Uuid), ctypes.POINTER(RepresentationAvailability), ctypes.POINTER(ctypes.c_uint64), ctypes.POINTER(ctypes.c_uint64), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_resolution_set_get_representation.argtypes = [ctypes.POINTER(ResolutionSet), ctypes.c_uint64, ctypes.POINTER(AssetId), ctypes.POINTER(RepresentationId), ctypes.POINTER(RepresentationAvailability), ctypes.POINTER(ctypes.c_uint64), ctypes.POINTER(ctypes.c_uint64), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_resolution_set_get_representation.restype = ErrorCode
     lib.pp_resolution_set_get_resource.argtypes = [ctypes.POINTER(ResolutionSet), ctypes.c_uint64, ctypes.c_uint64, ctypes.POINTER(Uuid), ctypes.POINTER(ResourceResolutionState), ctypes.POINTER(ctypes.c_uint64), ctypes.POINTER(ctypes.c_uint64), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_resolution_set_get_resource.restype = ErrorCode
@@ -1531,7 +1531,7 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_transaction_set_revision_context.restype = ErrorCode
     lib.pp_transaction_import_media.argtypes = [ctypes.POINTER(Transaction), ctypes.POINTER(MediaSource), ctypes.c_char_p, ctypes.POINTER(AssetId), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_transaction_import_media.restype = ErrorCode
-    lib.pp_transaction_add_representation.argtypes = [ctypes.POINTER(Transaction), AssetId, RepresentationKind, ctypes.POINTER(MediaSource), ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_transaction_add_representation.argtypes = [ctypes.POINTER(Transaction), AssetId, RepresentationKind, ctypes.POINTER(MediaSource), ctypes.POINTER(RepresentationId), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_transaction_add_representation.restype = ErrorCode
     lib.pp_transaction_add_media_root.argtypes = [ctypes.POINTER(Transaction), ctypes.c_char_p, ctypes.c_char_p, ctypes.c_int32, ctypes.POINTER(MediaRootId), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_transaction_add_media_root.restype = ErrorCode
@@ -1545,11 +1545,11 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_transaction_retire_locator.restype = ErrorCode
     lib.pp_transaction_record_resource_fingerprint.argtypes = [ctypes.POINTER(Transaction), ctypes.POINTER(Uuid), ctypes.c_char_p, ctypes.c_uint16, ctypes.POINTER(ctypes.c_uint8), ctypes.c_uint64, ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_transaction_record_resource_fingerprint.restype = ErrorCode
-    lib.pp_transaction_record_representation_fingerprint.argtypes = [ctypes.POINTER(Transaction), ctypes.POINTER(Uuid), ctypes.c_char_p, ctypes.c_uint16, ctypes.POINTER(ctypes.c_uint8), ctypes.c_uint64, ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_transaction_record_representation_fingerprint.argtypes = [ctypes.POINTER(Transaction), RepresentationId, ctypes.c_char_p, ctypes.c_uint16, ctypes.POINTER(ctypes.c_uint8), ctypes.c_uint64, ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_transaction_record_representation_fingerprint.restype = ErrorCode
     lib.pp_transaction_observe_resource_content.argtypes = [ctypes.POINTER(Transaction), ctypes.POINTER(Uuid), ctypes.c_char_p, ctypes.POINTER(SequenceNaming), ctypes.POINTER(ContentObservation), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_transaction_observe_resource_content.restype = ErrorCode
-    lib.pp_transaction_record_dependency_set.argtypes = [ctypes.POINTER(Transaction), ctypes.POINTER(Uuid), ctypes.POINTER(Dependency), ctypes.c_uint64, ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_transaction_record_dependency_set.argtypes = [ctypes.POINTER(Transaction), RepresentationId, ctypes.POINTER(Dependency), ctypes.c_uint64, ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_transaction_record_dependency_set.restype = ErrorCode
     lib.pp_transaction_add_external_identifier.argtypes = [ctypes.POINTER(Transaction), ctypes.POINTER(ObjectRef), ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_transaction_add_external_identifier.restype = ErrorCode
@@ -1559,7 +1559,7 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_transaction_add_metadata_value.restype = ErrorCode
     lib.pp_transaction_remove_metadata_property.argtypes = [ctypes.POINTER(Transaction), ctypes.POINTER(ObjectRef), ctypes.c_char_p, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_transaction_remove_metadata_property.restype = ErrorCode
-    lib.pp_transaction_request_job.argtypes = [ctypes.POINTER(Transaction), ctypes.c_char_p, ctypes.POINTER(Uuid), ctypes.c_uint64, AssetId, RepresentationKind, ctypes.c_char_p, ctypes.POINTER(JobId), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_transaction_request_job.argtypes = [ctypes.POINTER(Transaction), ctypes.c_char_p, ctypes.POINTER(RepresentationId), ctypes.c_uint64, AssetId, RepresentationKind, ctypes.c_char_p, ctypes.POINTER(JobId), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_transaction_request_job.restype = ErrorCode
     lib.pp_transaction_claim_job.argtypes = [ctypes.POINTER(Transaction), JobId, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_int64, ctypes.c_int64, ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_transaction_claim_job.restype = ErrorCode
@@ -1567,7 +1567,7 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_transaction_renew_job_claim.restype = ErrorCode
     lib.pp_transaction_release_job_claim.argtypes = [ctypes.POINTER(Transaction), JobId, ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_transaction_release_job_claim.restype = ErrorCode
-    lib.pp_transaction_complete_job.argtypes = [ctypes.POINTER(Transaction), JobId, ctypes.POINTER(Uuid), ctypes.c_int64, ctypes.POINTER(Uuid), ActivityId, ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_transaction_complete_job.argtypes = [ctypes.POINTER(Transaction), JobId, ctypes.POINTER(Uuid), ctypes.c_int64, RepresentationId, ActivityId, ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_transaction_complete_job.restype = ErrorCode
     lib.pp_transaction_fail_job.argtypes = [ctypes.POINTER(Transaction), JobId, ctypes.POINTER(Uuid), ctypes.c_int64, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_transaction_fail_job.restype = ErrorCode
