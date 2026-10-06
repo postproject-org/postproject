@@ -745,13 +745,13 @@ struct Dependency final {
   std::optional<Uuid> source_resource_id;
   std::string kind;
   ObjectRef target;
-  std::optional<Uuid> resolved_representation_id;
+  std::optional<RepresentationId> resolved_representation_id;
   bool required;
   std::string authored_reference;
 };
 
 struct DependencySet final {
-  Uuid source_representation_id;
+  RepresentationId source_representation_id;
   std::uint64_t recorded_at_revision;
   DependencySetStatus status;
   std::vector<Dependency> dependencies;
@@ -788,7 +788,7 @@ struct ActivityEdgeSnapshot final {
 };
 
 struct ActivityEdge final {
-  Uuid representation_id;
+  RepresentationId representation_id;
   std::optional<std::string> role;
   std::optional<ActivityEdgeSnapshot> snapshot = std::nullopt;
 };
@@ -871,12 +871,12 @@ enum class ArtifactDependencyIssue : std::uint32_t {
 };
 
 struct ArtifactDependencyPathSegment final {
-  Uuid source_representation_id;
+  RepresentationId source_representation_id;
   std::uint32_t dependency_position;
   std::optional<Uuid> source_resource_id;
   std::string kind;
   ObjectRef target;
-  std::optional<Uuid> resolved_representation_id;
+  std::optional<RepresentationId> resolved_representation_id;
   std::string authored_reference;
 };
 
@@ -888,8 +888,8 @@ enum class ArtifactTraversalLimit : std::uint32_t {
 struct ArtifactReason final {
   ArtifactReasonKind kind;
   std::optional<ActivityId> activity_id;
-  Uuid representation_id;
-  std::optional<Uuid> input_representation_id;
+  RepresentationId representation_id;
+  std::optional<RepresentationId> input_representation_id;
   std::optional<ArtifactEdgeKind> edge_kind;
   std::optional<ArtifactKnowledgeState> upstream_state;
   std::optional<ArtifactTraversalLimit> traversal_limit;
@@ -903,7 +903,7 @@ struct ArtifactReason final {
 };
 
 struct ArtifactEvaluation final {
-  Uuid representation_id;
+  RepresentationId representation_id;
   ArtifactKnowledgeState state;
   std::uint32_t visited_representations;
   bool truncated;
@@ -924,12 +924,12 @@ enum class ArtifactReproducibilityIssueKind : std::uint32_t {
 struct ArtifactReproducibilityIssue final {
   ArtifactReproducibilityIssueKind kind;
   std::optional<ActivityId> activity_id;
-  std::optional<Uuid> representation_id;
+  std::optional<RepresentationId> representation_id;
   std::optional<std::uint32_t> activity_count;
 };
 
 struct ArtifactReproducibility final {
-  Uuid representation_id;
+  RepresentationId representation_id;
   bool reproducible;
   std::optional<ActivityId> producing_activity_id;
   std::optional<std::string> activity_kind;
@@ -979,7 +979,7 @@ struct AssetImportedEvent final {
 
 struct RepresentationAddedEvent final {
   AssetId asset_id;
-  Uuid representation_id;
+  RepresentationId representation_id;
 };
 
 struct ResourceAddedEvent final {
@@ -987,7 +987,7 @@ struct ResourceAddedEvent final {
 };
 
 struct RepresentationResourceAddedEvent final {
-  Uuid representation_id;
+  RepresentationId representation_id;
   Uuid resource_id;
   std::uint32_t structural_position;
 };
@@ -1044,13 +1044,13 @@ struct ActivityCreatedEvent final {
 
 struct ActivityInputAddedEvent final {
   ActivityId activity_id;
-  Uuid representation_id;
+  RepresentationId representation_id;
   std::optional<std::string> role;
 };
 
 struct ActivityOutputAddedEvent final {
   ActivityId activity_id;
-  Uuid representation_id;
+  RepresentationId representation_id;
   std::optional<std::string> role;
 };
 
@@ -1061,13 +1061,13 @@ struct ResourceFingerprintObservedEvent final {
 };
 
 struct RepresentationFingerprintObservedEvent final {
-  Uuid representation_id;
+  RepresentationId representation_id;
   std::string algorithm;
   std::uint16_t version;
 };
 
 struct DependencySetRecordedEvent final {
-  Uuid representation_id;
+  RepresentationId representation_id;
 };
 
 struct JobRequestedEvent final { JobId job_id; };
@@ -1279,7 +1279,7 @@ struct ResourceLocator final {
 // One storage match and its owning representation and logical asset.
 struct KnownMediaMatch final {
   AssetId asset_id;
-  Uuid representation_id;
+  RepresentationId representation_id;
   Uuid resource_id;
 };
 
@@ -1292,7 +1292,7 @@ struct Resource final {
 };
 
 struct Representation final {
-  Uuid id;
+  RepresentationId id;
   AssetId asset_id;
   RepresentationKind kind;
   ContentStructureKind structure_kind;
@@ -1319,7 +1319,7 @@ struct JobClaim final {
 
 struct JobCompletion final {
   ActivityId activity_id;
-  Uuid representation_id;
+  RepresentationId representation_id;
 };
 
 /// A request that has no worker or result yet.
@@ -1335,7 +1335,7 @@ using JobStatus = std::variant<JobRequested, JobClaim, JobCompletion, JobFailure
 struct Job final {
   JobId id;
   std::string kind;
-  std::vector<Uuid> inputs;
+  std::vector<RepresentationId> inputs;
   AssetId output_asset_id;
   RepresentationKind output_representation_kind;
   std::optional<std::string> target_root;
@@ -1354,7 +1354,7 @@ struct Job final {
 
 struct JobRequest final {
   std::string kind;
-  std::vector<Uuid> inputs;
+  std::vector<RepresentationId> inputs;
   AssetId output_asset_id;
   RepresentationKind output_representation_kind;
   std::optional<std::string> target_root;
@@ -1447,7 +1447,7 @@ struct AvailabilityIssue final {
 
 struct RepresentationResolution final {
   AssetId asset_id;
-  Uuid representation_id;
+  RepresentationId representation_id;
   RepresentationAvailability availability;
   std::vector<ResourceResolution> resources;
   std::vector<AvailabilityIssue> issues;
@@ -1985,7 +1985,7 @@ resource_fingerprint(const pp_representation_set_t *representations,
 inline Result<Representation>
 representation(const pp_representation_set_t *representations,
                std::uint64_t index) {
-  pp_uuid_t id{};
+  pp_representation_id_t id{};
   pp_asset_id_t asset_id{};
   pp_representation_kind_t kind = 0;
   pp_content_structure_kind_t structure_kind = 0;
@@ -2119,7 +2119,7 @@ representation(const pp_representation_set_t *representations,
          std::move(resource_fingerprints), std::move(locators)});
   }
 
-  return Representation{uuid(id),
+  return Representation{detail::representation_id(id),
                         asset_id_value(asset_id),
                         static_cast<RepresentationKind>(kind),
                         static_cast<ContentStructureKind>(structure_kind),
@@ -2233,7 +2233,7 @@ inline Result<Activity> activity(const pp_activity_set_t *activities,
   std::vector<ActivityEdge> inputs;
   inputs.reserve(static_cast<std::size_t>(input_count));
   for (std::uint64_t edge_index = 0; edge_index < input_count; ++edge_index) {
-    pp_uuid_t representation_id{};
+    pp_representation_id_t representation_id{};
     const char *role = nullptr;
     error = nullptr;
     status = pp_activity_set_get_input(activities, index, edge_index,
@@ -2243,12 +2243,12 @@ inline Result<Activity> activity(const pp_activity_set_t *activities,
         std::optional<ActivityEdgeSnapshot> snapshot,
         activity_edge_snapshot(activities, index, edge_index, false));
     inputs.push_back(
-        {uuid(representation_id), optional_string(role), std::move(snapshot)});
+        {detail::representation_id(representation_id), optional_string(role), std::move(snapshot)});
   }
   std::vector<ActivityEdge> outputs;
   outputs.reserve(static_cast<std::size_t>(output_count));
   for (std::uint64_t edge_index = 0; edge_index < output_count; ++edge_index) {
-    pp_uuid_t representation_id{};
+    pp_representation_id_t representation_id{};
     const char *role = nullptr;
     error = nullptr;
     status = pp_activity_set_get_output(activities, index, edge_index,
@@ -2258,7 +2258,7 @@ inline Result<Activity> activity(const pp_activity_set_t *activities,
         std::optional<ActivityEdgeSnapshot> snapshot,
         activity_edge_snapshot(activities, index, edge_index, true));
     outputs.push_back(
-        {uuid(representation_id), optional_string(role), std::move(snapshot)});
+        {detail::representation_id(representation_id), optional_string(role), std::move(snapshot)});
   }
 
   return Activity{detail::activity_id(id),
@@ -2307,7 +2307,7 @@ inline Result<JobStatus> job_status_value(const pp_job_t &native) {
   }
   if (state == JobState::succeeded) {
     job_status = JobCompletion{detail::activity_id(native.completion_activity_id),
-                               uuid(native.completion_representation_id)};
+                               detail::representation_id(native.completion_representation_id)};
   }
   if (state == JobState::failed) {
     if (native.failure_diagnostic == nullptr || *native.failure_diagnostic == '\0') {
@@ -2330,16 +2330,16 @@ inline Result<Job> job(const pp_job_set_t *jobs, std::uint64_t index) {
       pp_job_set_get(jobs, index, &native, &error);
   POSTPROJECT_TRY(check(status, error));
 
-  std::vector<Uuid> inputs;
+  std::vector<RepresentationId> inputs;
   inputs.reserve(static_cast<std::size_t>(native.input_count));
   for (std::uint64_t input_index = 0; input_index < native.input_count;
        ++input_index) {
-    pp_uuid_t input{};
+    pp_representation_id_t input{};
     error = nullptr;
     const pp_error_code_t input_status = pp_job_set_get_input(
         jobs, index, input_index, &input, &error);
     POSTPROJECT_TRY(check(input_status, error));
-    inputs.push_back(uuid(input));
+    inputs.push_back(detail::representation_id(input));
   }
 
   POSTPROJECT_TRY_ASSIGN(auto job_status, job_status_value(native));
@@ -2356,7 +2356,7 @@ inline Result<std::optional<DependencySet>>
 dependency_set(DependencySetHandle dependencies) {
 
   std::uint8_t present = 0;
-  pp_uuid_t source_id{};
+  pp_representation_id_t source_id{};
   std::uint64_t recorded_at_revision = 0;
   pp_dependency_set_status_t set_status = 0;
   std::uint64_t count = 0;
@@ -2386,12 +2386,12 @@ dependency_set(DependencySetHandle dependencies) {
              : std::nullopt,
          std::string(native.kind), object_ref(native.target),
          native.has_resolved_representation != 0
-             ? std::optional<Uuid>(
-                   uuid(native.resolved_representation_id))
+             ? std::optional<RepresentationId>(
+                   detail::representation_id(native.resolved_representation_id))
              : std::nullopt,
          native.required != 0, std::string(native.authored_reference)});
   }
-  return DependencySet{uuid(source_id), recorded_at_revision,
+  return DependencySet{detail::representation_id(source_id), recorded_at_revision,
                        static_cast<DependencySetStatus>(set_status),
                        std::move(result)};
 }
@@ -2445,18 +2445,19 @@ inline QueryPage<ObjectRef> object_ref_page(QueryPage<ObjectMatch> page) {
           page.traversal_truncated};
 }
 
-inline Result<QueryPage<Uuid>> object_id_page(QueryPage<ObjectMatch> page,
+template <typename Id = Uuid>
+inline Result<QueryPage<Id>> object_id_page(QueryPage<ObjectMatch> page,
                                               ObjectKind kind) {
-  std::vector<Uuid> items;
+  std::vector<Id> items;
   items.reserve(page.items.size());
   for (const ObjectMatch &match : page.items) {
     if (match.object.kind != kind) {
       return Error(ErrorCode::internal,
                    "object query returned an unexpected object kind");
     }
-    items.push_back(match.object.id);
+    items.push_back(Id(match.object.id));
   }
-  return QueryPage<Uuid>{std::move(items), std::move(page.next_cursor),
+  return QueryPage<Id>{std::move(items), std::move(page.next_cursor),
                          page.traversal_truncated};
 }
 
@@ -2522,7 +2523,7 @@ known_media_page(KnownMediaSetHandle matches) {
   items.reserve(static_cast<std::size_t>(count));
   for (std::uint64_t index = 0; index < count; ++index) {
     pp_asset_id_t asset_id{};
-    pp_uuid_t representation_id{};
+    pp_representation_id_t representation_id{};
     pp_uuid_t resource_id{};
     pp_error_t *error = nullptr;
     const pp_error_code_t status = pp_known_media_set_get(
@@ -2530,7 +2531,7 @@ known_media_page(KnownMediaSetHandle matches) {
         &error);
     POSTPROJECT_TRY(check(status, error));
     items.push_back(
-        {asset_id_value(asset_id), uuid(representation_id), uuid(resource_id)});
+        {asset_id_value(asset_id), detail::representation_id(representation_id), uuid(resource_id)});
   }
   const char *cursor = pp_known_media_set_next_cursor(matches.get());
   return QueryPage<KnownMediaMatch>{std::move(items), optional_string(cursor),
@@ -2609,13 +2610,13 @@ revision_event(const pp_revision_event_set_t *events, std::uint64_t index) {
   case PP_REVISION_REPRESENTATION_ADDED:
     return RevisionEvent{event.position, RepresentationAddedEvent{
                                              asset_id_value(event.asset_id),
-                                             uuid(event.representation_id)}};
+                                             detail::representation_id(event.representation_id)}};
   case PP_REVISION_RESOURCE_ADDED:
     return RevisionEvent{event.position,
                          ResourceAddedEvent{uuid(event.resource_id)}};
   case PP_REVISION_REPRESENTATION_RESOURCE_ADDED:
     return RevisionEvent{event.position, RepresentationResourceAddedEvent{
-                                             uuid(event.representation_id),
+                                             detail::representation_id(event.representation_id),
                                              uuid(event.resource_id),
                                              event.structural_position}};
   case PP_REVISION_LOCATOR_ADDED:
@@ -2697,12 +2698,12 @@ revision_event(const pp_revision_event_set_t *events, std::uint64_t index) {
   case PP_REVISION_ACTIVITY_INPUT_ADDED:
     return RevisionEvent{event.position,
                          ActivityInputAddedEvent{detail::activity_id(event.activity_id),
-                                                 uuid(event.representation_id),
+                                                 detail::representation_id(event.representation_id),
                                                  optional_string(event.role)}};
   case PP_REVISION_ACTIVITY_OUTPUT_ADDED:
     return RevisionEvent{event.position,
                          ActivityOutputAddedEvent{detail::activity_id(event.activity_id),
-                                                  uuid(event.representation_id),
+                                                  detail::representation_id(event.representation_id),
                                                   optional_string(event.role)}};
   case PP_REVISION_RESOURCE_FINGERPRINT_OBSERVED: {
     POSTPROJECT_TRY_ASSIGN(std::string algorithm,
@@ -2719,12 +2720,12 @@ revision_event(const pp_revision_event_set_t *events, std::uint64_t index) {
                                                  "fingerprint algorithm"));
     return RevisionEvent{event.position,
                          RepresentationFingerprintObservedEvent{
-                             uuid(event.representation_id),
+                             detail::representation_id(event.representation_id),
                              std::move(algorithm), event.fingerprint_version}};
   }
   case PP_REVISION_DEPENDENCY_SET_RECORDED:
     return RevisionEvent{event.position, DependencySetRecordedEvent{
-                                             uuid(event.representation_id)}};
+                                             detail::representation_id(event.representation_id)}};
   case PP_REVISION_JOB_REQUESTED:
     return RevisionEvent{event.position, JobRequestedEvent{job_id(event.job_id)}};
   case PP_REVISION_JOB_CLAIMED:
@@ -2869,7 +2870,7 @@ resolution_values(ResolutionSetHandle resolutions) {
   for (std::uint64_t representation_index = 0;
        representation_index < count; ++representation_index) {
     pp_asset_id_t asset_id{};
-    pp_uuid_t representation_id{};
+    pp_representation_id_t representation_id{};
     pp_representation_availability_t availability = 0;
     std::uint64_t resource_count = 0;
     std::uint64_t issue_count = 0;
@@ -2919,7 +2920,7 @@ resolution_values(ResolutionSetHandle resolutions) {
                         static_cast<AvailabilityIssueKind>(kind),
                         std::move(frames)});
     }
-    result.push_back({asset_id_value(asset_id), uuid(representation_id),
+    result.push_back({asset_id_value(asset_id), detail::representation_id(representation_id),
                       static_cast<RepresentationAvailability>(availability),
                       std::move(resources), std::move(issues)});
   }
@@ -2936,15 +2937,15 @@ artifact_dependency_path(const pp_artifact_reason_t &native) {
     const pp_artifact_dependency_path_segment_t &segment =
         native.dependency_path[path_index];
     dependency_path.push_back(
-        {uuid(segment.source_representation_id),
+        {detail::representation_id(segment.source_representation_id),
          segment.dependency_position,
          segment.has_source_resource != 0
              ? std::optional<Uuid>(uuid(segment.source_resource_id))
              : std::nullopt,
          std::string(segment.kind), object_ref(segment.target),
          segment.has_resolved_representation != 0
-             ? std::optional<Uuid>(
-                   uuid(segment.resolved_representation_id))
+             ? std::optional<RepresentationId>(
+                   detail::representation_id(segment.resolved_representation_id))
              : std::nullopt,
          std::string(segment.authored_reference)});
   }
@@ -2974,9 +2975,9 @@ inline Result<ArtifactReason> artifact_reason(const pp_artifact_reason_t &native
       kind,
        has_activity ? std::optional<ActivityId>(detail::activity_id(native.activity_id))
                     : std::nullopt,
-       uuid(native.representation_id),
-       has_dependency ? std::optional<Uuid>(
-                            uuid(native.input_representation_id))
+       detail::representation_id(native.representation_id),
+       has_dependency ? std::optional<RepresentationId>(
+                            detail::representation_id(native.input_representation_id))
                       : std::nullopt,
        has_edge ? std::optional<ArtifactEdgeKind>(
                       static_cast<ArtifactEdgeKind>(native.edge_kind))
@@ -3017,7 +3018,7 @@ inline Result<ArtifactReason> artifact_reason(const pp_artifact_reason_t &native
 }
 
 inline Result<ArtifactEvaluation> artifact_evaluation(ArtifactEvaluationHandle evaluation) {
-  pp_uuid_t evaluated_id{};
+  pp_representation_id_t evaluated_id{};
   pp_artifact_knowledge_state_t state = 0;
   std::uint32_t visited_representations = 0;
   std::uint8_t truncated = 0;
@@ -3040,12 +3041,12 @@ inline Result<ArtifactEvaluation> artifact_evaluation(ArtifactEvaluationHandle e
     reasons.push_back(std::move(reason));
   }
   return ArtifactEvaluation{
-      uuid(evaluated_id), static_cast<ArtifactKnowledgeState>(state),
+      detail::representation_id(evaluated_id), static_cast<ArtifactKnowledgeState>(state),
       visited_representations, truncated != 0, std::move(reasons)};
 }
 
 inline Result<ArtifactReproducibility> artifact_reproducibility(ArtifactReproducibilityHandle report) {
-  pp_uuid_t reported_id{};
+  pp_representation_id_t reported_id{};
   std::uint8_t reproducible = 0;
   std::uint8_t has_activity = 0;
   pp_activity_id_t activity_id{};
@@ -3080,14 +3081,14 @@ inline Result<ArtifactReproducibility> artifact_reproducibility(ArtifactReproduc
              : std::nullopt,
          kind ==
                  ArtifactReproducibilityIssueKind::input_representation_missing
-             ? std::optional<Uuid>(uuid(native.representation_id))
+             ? std::optional<RepresentationId>(detail::representation_id(native.representation_id))
              : std::nullopt,
          kind == ArtifactReproducibilityIssueKind::producing_activity_ambiguous
              ? std::optional<std::uint32_t>(native.activity_count)
              : std::nullopt});
   }
   return ArtifactReproducibility{
-      uuid(reported_id), reproducible != 0,
+      detail::representation_id(reported_id), reproducible != 0,
       has_activity != 0 ? std::optional<ActivityId>(detail::activity_id(activity_id))
                         : std::nullopt,
       optional_string(activity_kind), std::move(issues)};
@@ -3810,7 +3811,7 @@ struct MetadataAssertion final {
 };
 
 struct RegenerationJobPlan final {
-  Uuid artifact_representation_id;
+  RepresentationId artifact_representation_id;
   Job job;
   std::vector<RegenerationParameter> parameters;
 };
@@ -3971,7 +3972,7 @@ regeneration_plans(RegenerationPlanSetHandle plans) {
   const std::uint64_t count = pp_regeneration_plan_set_count(plans.get());
   result.reserve(static_cast<std::size_t>(count));
   for (std::uint64_t index = 0; index < count; ++index) {
-    pp_uuid_t artifact_id{};
+    pp_representation_id_t artifact_id{};
     pp_job_set_t *raw_job = nullptr;
     pp_metadata_set_t *raw_parameters = nullptr;
     error = nullptr;
@@ -4010,7 +4011,7 @@ regeneration_plans(RegenerationPlanSetHandle plans) {
                                   std::string(property),
                                   std::move(parameter)});
     }
-    result.push_back({detail::uuid(artifact_id), std::move(job),
+    result.push_back({detail::representation_id(artifact_id), std::move(job),
                       std::move(parameter_values)});
   }
   return result;
@@ -4238,19 +4239,19 @@ public:
 
   // Adds a representation of the given kind, with the source's structure, to
   // an existing asset.
-  Result<Uuid> addRepresentation(const AssetId &asset_id, RepresentationKind kind,
+  Result<RepresentationId> addRepresentation(const AssetId &asset_id, RepresentationKind kind,
                                  const MediaSource &source) {
     POSTPROJECT_TRY_ASSIGN(const detail::MediaSourceHandle native_source,
                            source.native());
     const pp_asset_id_t native_asset_id = detail::native_asset_id(asset_id);
-    pp_uuid_t value{};
+    pp_representation_id_t value{};
     pp_error_t *error = nullptr;
     const pp_error_code_t status = pp_transaction_add_representation(
         transaction_, native_asset_id,
         static_cast<pp_representation_kind_t>(kind), native_source.get(),
         &value, &error);
     POSTPROJECT_TRY(detail::check(status, error));
-    return detail::uuid(value);
+    return detail::representation_id(value);
   }
 
   Result<MediaRootId> addMediaRoot(std::string_view name, std::int32_t priority = 0) {
@@ -4333,16 +4334,16 @@ public:
     return {};
   }
 
-  Result<void> recordRepresentationFingerprint(const Uuid &representation_id,
+  Result<void> recordRepresentationFingerprint(const RepresentationId &representation_id,
                                                const Fingerprint &fingerprint) {
-    const pp_uuid_t id = detail::native_uuid(representation_id);
+    const pp_representation_id_t id = detail::native_representation_id(representation_id);
     POSTPROJECT_TRY_ASSIGN(
         const std::string algorithm,
         detail::checked_string(fingerprint.algorithm, "fingerprint algorithm"));
     pp_error_t *error = nullptr;
     const pp_error_code_t status =
         pp_transaction_record_representation_fingerprint(
-            transaction_, &id, algorithm.c_str(), fingerprint.version,
+            transaction_, id, algorithm.c_str(), fingerprint.version,
             fingerprint.value.data(),
             static_cast<std::uint64_t>(fingerprint.value.size()), &error);
     POSTPROJECT_TRY(detail::check(status, error));
@@ -4372,7 +4373,7 @@ public:
   }
 
   Result<void>
-  recordDependencySet(const Uuid &representation_id,
+  recordDependencySet(const RepresentationId &representation_id,
                       const std::vector<Dependency> &dependencies) {
     std::vector<std::string> kinds;
     std::vector<std::string> authored_references;
@@ -4403,15 +4404,15 @@ public:
            static_cast<std::uint8_t>(
                dependency.resolved_representation_id.has_value() ? 1 : 0),
            dependency.resolved_representation_id.has_value()
-               ? detail::native_uuid(*dependency.resolved_representation_id)
-               : pp_uuid_t{},
+               ? detail::native_representation_id(*dependency.resolved_representation_id)
+               : pp_representation_id_t{},
            static_cast<std::uint8_t>(dependency.required ? 1 : 0),
            authored_references[index].c_str()});
     }
-    const pp_uuid_t native_id = detail::native_uuid(representation_id);
+    const pp_representation_id_t native_id = detail::native_representation_id(representation_id);
     pp_error_t *error = nullptr;
     const pp_error_code_t status = pp_transaction_record_dependency_set(
-        transaction_, &native_id,
+        transaction_, native_id,
         native_dependencies.empty() ? nullptr : native_dependencies.data(),
         static_cast<std::uint64_t>(native_dependencies.size()), &error);
     POSTPROJECT_TRY(detail::check(status, error));
@@ -4476,10 +4477,10 @@ public:
     POSTPROJECT_TRY_ASSIGN(const std::optional<std::string> target_root,
                            detail::checked_optional_string(request.target_root,
                                                            "job target root"));
-    std::vector<pp_uuid_t> inputs;
+    std::vector<pp_representation_id_t> inputs;
     inputs.reserve(request.inputs.size());
-    for (const Uuid &input : request.inputs) {
-      inputs.push_back(detail::native_uuid(input));
+    for (const RepresentationId &input : request.inputs) {
+      inputs.push_back(detail::native_representation_id(input));
     }
     const pp_asset_id_t output_asset_id =
         detail::native_asset_id(request.output_asset_id);
@@ -4575,17 +4576,17 @@ public:
 
   Result<void> completeJob(const JobId &job_id, const Uuid &claim_id,
                            std::int64_t now_unix_micros,
-                           const Uuid &output_representation_id,
+                           const RepresentationId &output_representation_id,
                            const ActivityId &activity_id) {
     const pp_job_id_t native_job_id = detail::native_job_id(job_id);
     const pp_uuid_t native_claim_id = detail::native_uuid(claim_id);
-    const pp_uuid_t native_output_id =
-        detail::native_uuid(output_representation_id);
+    const pp_representation_id_t native_output_id =
+        detail::native_representation_id(output_representation_id);
     const pp_activity_id_t native_activity_id = detail::native_activity_id(activity_id);
     pp_error_t *error = nullptr;
     const pp_error_code_t status = pp_transaction_complete_job(
         transaction_, native_job_id, &native_claim_id, now_unix_micros,
-        &native_output_id, native_activity_id, &error);
+        native_output_id, native_activity_id, &error);
     POSTPROJECT_TRY(detail::check(status, error));
     return {};
   }
@@ -4625,7 +4626,7 @@ public:
         static_cast<void>(detail::checked_string(*edge.role, "input role"));
       }
       inputs.push_back(
-          {detail::native_uuid(edge.representation_id),
+          {detail::native_representation_id(edge.representation_id),
            edge.role.has_value() ? edge.role->c_str() : nullptr});
     }
     std::vector<pp_activity_edge_t> outputs;
@@ -4635,7 +4636,7 @@ public:
         static_cast<void>(detail::checked_string(*edge.role, "output role"));
       }
       outputs.push_back(
-          {detail::native_uuid(edge.representation_id),
+          {detail::native_representation_id(edge.representation_id),
            edge.role.has_value() ? edge.role->c_str() : nullptr});
     }
 
@@ -4942,14 +4943,14 @@ private:
 class ReadSession final {
 public:
   [[nodiscard]] Result<std::vector<RegenerationJobPlan>>
-  planRegeneration(const std::vector<Uuid> &artifact_representation_ids) const {
+  planRegeneration(const std::vector<RepresentationId> &artifact_representation_ids) const {
     if (artifact_representation_ids.size() > PP_MAX_REGENERATION_PLANS) {
       return Error(ErrorCode::invalid_argument, "too many artifacts for regeneration planning");
     }
-    std::vector<pp_uuid_t> native_ids;
+    std::vector<pp_representation_id_t> native_ids;
     native_ids.reserve(artifact_representation_ids.size());
-    for (const Uuid &id : artifact_representation_ids) {
-      native_ids.push_back(detail::native_uuid(id));
+    for (const RepresentationId &id : artifact_representation_ids) {
+      native_ids.push_back(detail::native_representation_id(id));
     }
     pp_regeneration_plan_set_t *raw_plans = nullptr;
     pp_error_t *error = nullptr;
@@ -5027,36 +5028,36 @@ public:
   }
 
   [[nodiscard]] Result<QueryPage<Activity>> activitiesProducing(
-      const Uuid &representation_id, std::uint32_t limit,
+      const RepresentationId &representation_id, std::uint32_t limit,
       std::optional<std::string_view> cursor = std::nullopt) const {
-    const pp_uuid_t native_id = detail::native_uuid(representation_id);
+    const pp_representation_id_t native_id = detail::native_representation_id(representation_id);
     POSTPROJECT_TRY_ASSIGN(const std::optional<std::string> checked_cursor,
                            detail::checked_cursor(cursor));
     pp_activity_set_t *raw_activities = nullptr;
     pp_error_t *error = nullptr;
     const pp_error_code_t status = pp_read_session_activities_producing_page(
-        session_, &native_id, limit, detail::optional_c_str(checked_cursor),
+        session_, native_id, limit, detail::optional_c_str(checked_cursor),
         &raw_activities, &error);
     POSTPROJECT_TRY(detail::check(status, error));
     return detail::activity_page(detail::ActivitySetHandle(raw_activities));
   }
 
   [[nodiscard]] Result<QueryPage<Activity>> activitiesConsuming(
-      const Uuid &representation_id, std::uint32_t limit,
+      const RepresentationId &representation_id, std::uint32_t limit,
       std::optional<std::string_view> cursor = std::nullopt) const {
-    const pp_uuid_t native_id = detail::native_uuid(representation_id);
+    const pp_representation_id_t native_id = detail::native_representation_id(representation_id);
     POSTPROJECT_TRY_ASSIGN(const std::optional<std::string> checked_cursor,
                            detail::checked_cursor(cursor));
     pp_activity_set_t *raw_activities = nullptr;
     pp_error_t *error = nullptr;
     const pp_error_code_t status = pp_read_session_activities_consuming_page(
-        session_, &native_id, limit, detail::optional_c_str(checked_cursor),
+        session_, native_id, limit, detail::optional_c_str(checked_cursor),
         &raw_activities, &error);
     POSTPROJECT_TRY(detail::check(status, error));
     return detail::activity_page(detail::ActivitySetHandle(raw_activities));
   }
 
-  [[nodiscard]] Result<QueryPage<Uuid>> outputsByActivityKind(
+  [[nodiscard]] Result<QueryPage<RepresentationId>> outputsByActivityKind(
       std::string_view kind, std::uint32_t limit,
       std::optional<std::string_view> cursor = std::nullopt) const {
     POSTPROJECT_TRY_ASSIGN(const std::string native_kind,
@@ -5072,10 +5073,10 @@ public:
     POSTPROJECT_TRY_ASSIGN(
         QueryPage<ObjectMatch> page,
         detail::object_query_page(detail::ObjectQuerySetHandle(raw_objects)));
-    return detail::object_id_page(std::move(page), ObjectKind::representation);
+    return detail::object_id_page<RepresentationId>(std::move(page), ObjectKind::representation);
   }
 
-  [[nodiscard]] Result<QueryPage<Uuid>>
+  [[nodiscard]] Result<QueryPage<RepresentationId>>
   outputsByTool(const ToolIdentity &tool, std::uint32_t limit,
                 std::optional<std::string_view> cursor = std::nullopt) const {
     POSTPROJECT_TRY_ASSIGN(const std::string name,
@@ -5098,50 +5099,50 @@ public:
     POSTPROJECT_TRY_ASSIGN(
         QueryPage<ObjectMatch> page,
         detail::object_query_page(detail::ObjectQuerySetHandle(raw_objects)));
-    return detail::object_id_page(std::move(page), ObjectKind::representation);
+    return detail::object_id_page<RepresentationId>(std::move(page), ObjectKind::representation);
   }
 
   [[nodiscard]] Result<QueryPage<ObjectMatch>>
-  ancestors(const Uuid &representation_id, std::uint32_t max_depth,
+  ancestors(const RepresentationId &representation_id, std::uint32_t max_depth,
             std::uint32_t max_representations, std::uint32_t limit,
             std::optional<std::string_view> cursor = std::nullopt) const {
-    const pp_uuid_t native_id = detail::native_uuid(representation_id);
+    const pp_representation_id_t native_id = detail::native_representation_id(representation_id);
     POSTPROJECT_TRY_ASSIGN(const std::optional<std::string> checked_cursor,
                            detail::checked_cursor(cursor));
     pp_object_query_set_t *raw_objects = nullptr;
     pp_error_t *error = nullptr;
     const pp_error_code_t status = pp_read_session_provenance_ancestors_page(
-        session_, &native_id, max_depth, max_representations, limit,
+        session_, native_id, max_depth, max_representations, limit,
         detail::optional_c_str(checked_cursor), &raw_objects, &error);
     POSTPROJECT_TRY(detail::check(status, error));
     return detail::object_query_page(detail::ObjectQuerySetHandle(raw_objects));
   }
 
   [[nodiscard]] Result<QueryPage<ObjectMatch>>
-  descendants(const Uuid &representation_id, std::uint32_t max_depth,
+  descendants(const RepresentationId &representation_id, std::uint32_t max_depth,
             std::uint32_t max_representations, std::uint32_t limit,
             std::optional<std::string_view> cursor = std::nullopt) const {
-    const pp_uuid_t native_id = detail::native_uuid(representation_id);
+    const pp_representation_id_t native_id = detail::native_representation_id(representation_id);
     POSTPROJECT_TRY_ASSIGN(const std::optional<std::string> checked_cursor,
                            detail::checked_cursor(cursor));
     pp_object_query_set_t *raw_objects = nullptr;
     pp_error_t *error = nullptr;
     const pp_error_code_t status = pp_read_session_provenance_descendants_page(
-        session_, &native_id, max_depth, max_representations, limit,
+        session_, native_id, max_depth, max_representations, limit,
         detail::optional_c_str(checked_cursor), &raw_objects, &error);
     POSTPROJECT_TRY(detail::check(status, error));
     return detail::object_query_page(detail::ObjectQuerySetHandle(raw_objects));
   }
 
-  [[nodiscard]] Result<QueryPage<Uuid>> staleArtifacts(
+  [[nodiscard]] Result<QueryPage<RepresentationId>> staleArtifacts(
       std::uint32_t evaluation_max_depth,
       std::uint32_t evaluation_max_representations, std::uint32_t limit,
       std::optional<std::string_view> cursor = std::nullopt,
-      std::optional<Uuid> source_representation_id = std::nullopt) const {
-    const std::optional<pp_uuid_t> native_source =
+      std::optional<RepresentationId> source_representation_id = std::nullopt) const {
+    const std::optional<pp_representation_id_t> native_source =
         source_representation_id.has_value()
-            ? std::optional<pp_uuid_t>(
-                  detail::native_uuid(*source_representation_id))
+            ? std::optional<pp_representation_id_t>(
+                  detail::native_representation_id(*source_representation_id))
             : std::nullopt;
     POSTPROJECT_TRY_ASSIGN(const std::optional<std::string> checked_cursor,
                            detail::checked_cursor(cursor));
@@ -5155,7 +5156,7 @@ public:
     POSTPROJECT_TRY_ASSIGN(
         QueryPage<ObjectMatch> page,
         detail::object_query_page(detail::ObjectQuerySetHandle(raw_objects)));
-    return detail::object_id_page(std::move(page), ObjectKind::representation);
+    return detail::object_id_page<RepresentationId>(std::move(page), ObjectKind::representation);
   }
 
   [[nodiscard]] Result<QueryPage<Representation>> representationsUnderMediaRoot(
@@ -5177,7 +5178,7 @@ public:
         detail::RepresentationSetHandle(raw_representations));
   }
 
-  [[nodiscard]] Result<QueryPage<Uuid>>
+  [[nodiscard]] Result<QueryPage<RepresentationId>>
   unresolvedMedia(std::uint32_t limit,
                   std::optional<std::string_view> cursor = std::nullopt) const {
     POSTPROJECT_TRY_ASSIGN(const std::optional<std::string> checked_cursor,
@@ -5191,7 +5192,7 @@ public:
     POSTPROJECT_TRY_ASSIGN(
         QueryPage<ObjectMatch> page,
         detail::object_query_page(detail::ObjectQuerySetHandle(raw_objects)));
-    return detail::object_id_page(std::move(page), ObjectKind::representation);
+    return detail::object_id_page<RepresentationId>(std::move(page), ObjectKind::representation);
   }
 
   [[nodiscard]] Result<QueryPage<ObjectRef>> objectsChangedSince(
@@ -5212,28 +5213,28 @@ public:
   }
 
   [[nodiscard]] Result<std::optional<DependencySet>>
-  dependencySet(const Uuid &representation_id) const {
-    const pp_uuid_t native_id = detail::native_uuid(representation_id);
+  dependencySet(const RepresentationId &representation_id) const {
+    const pp_representation_id_t native_id = detail::native_representation_id(representation_id);
     pp_dependency_set_t *raw_dependencies = nullptr;
     pp_error_t *error = nullptr;
     const pp_error_code_t status = pp_read_session_dependency_set(
-        session_, &native_id, &raw_dependencies, &error);
+        session_, native_id, &raw_dependencies, &error);
     POSTPROJECT_TRY(detail::check(status, error));
     return detail::dependency_set(
         detail::DependencySetHandle(raw_dependencies));
   }
 
   [[nodiscard]] Result<QueryPage<DependencyMatch>>
-  dependencies(const Uuid &representation_id, std::uint32_t max_depth,
+  dependencies(const RepresentationId &representation_id, std::uint32_t max_depth,
                std::uint32_t max_representations, std::uint32_t limit,
                std::optional<std::string_view> cursor = std::nullopt) const {
-    const pp_uuid_t native_id = detail::native_uuid(representation_id);
+    const pp_representation_id_t native_id = detail::native_representation_id(representation_id);
     POSTPROJECT_TRY_ASSIGN(const std::optional<std::string> checked_cursor,
                            detail::checked_cursor(cursor));
     pp_dependency_query_set_t *raw_matches = nullptr;
     pp_error_t *error = nullptr;
     const pp_error_code_t status = pp_read_session_dependencies(
-        session_, &native_id, max_depth, max_representations, limit,
+        session_, native_id, max_depth, max_representations, limit,
         detail::optional_c_str(checked_cursor),
         &raw_matches, &error);
     POSTPROJECT_TRY(detail::check(status, error));
@@ -5260,13 +5261,13 @@ public:
   }
 
   [[nodiscard]] Result<ArtifactEvaluation>
-  evaluateArtifact(const Uuid &representation_id, std::uint32_t max_depth = 64,
+  evaluateArtifact(const RepresentationId &representation_id, std::uint32_t max_depth = 64,
                    std::uint32_t max_representations = 1000) const {
-    const pp_uuid_t native_id = detail::native_uuid(representation_id);
+    const pp_representation_id_t native_id = detail::native_representation_id(representation_id);
     pp_artifact_evaluation_t *raw_evaluation = nullptr;
     pp_error_t *error = nullptr;
     const pp_error_code_t status = pp_read_session_evaluate_artifact(
-        session_, &native_id, max_depth, max_representations,
+        session_, native_id, max_depth, max_representations,
         &raw_evaluation, &error);
     POSTPROJECT_TRY(detail::check(status, error));
     detail::ArtifactEvaluationHandle evaluation(raw_evaluation);
@@ -5275,12 +5276,12 @@ public:
   }
 
   [[nodiscard]] Result<ArtifactReproducibility>
-  artifactReproducibility(const Uuid &representation_id) const {
-    const pp_uuid_t native_id = detail::native_uuid(representation_id);
+  artifactReproducibility(const RepresentationId &representation_id) const {
+    const pp_representation_id_t native_id = detail::native_representation_id(representation_id);
     pp_artifact_reproducibility_t *raw_report = nullptr;
     pp_error_t *error = nullptr;
     const pp_error_code_t status = pp_read_session_artifact_reproducibility(
-        session_, &native_id, &raw_report, &error);
+        session_, native_id, &raw_report, &error);
     POSTPROJECT_TRY(detail::check(status, error));
     detail::ArtifactReproducibilityHandle report(raw_report);
 
@@ -5418,15 +5419,15 @@ public:
 
   // Resource identities of one representation in structure order.
   [[nodiscard]] Result<QueryPage<Uuid>>
-  resources(const Uuid &representation_id, std::uint32_t limit,
+  resources(const RepresentationId &representation_id, std::uint32_t limit,
             std::optional<std::string_view> cursor = std::nullopt) const {
-    const pp_uuid_t native_id = detail::native_uuid(representation_id);
+    const pp_representation_id_t native_id = detail::native_representation_id(representation_id);
     POSTPROJECT_TRY_ASSIGN(const std::optional<std::string> checked_cursor,
                            detail::checked_cursor(cursor));
     pp_object_query_set_t *raw_objects = nullptr;
     pp_error_t *error = nullptr;
     const pp_error_code_t status = pp_read_session_resources_page(
-        session_, &native_id, limit, detail::optional_c_str(checked_cursor),
+        session_, native_id, limit, detail::optional_c_str(checked_cursor),
         &raw_objects, &error);
     POSTPROJECT_TRY(detail::check(status, error));
     POSTPROJECT_TRY_ASSIGN(
@@ -5675,12 +5676,12 @@ public:
   }
 
   [[nodiscard]] Result<Representation>
-  representation(const Uuid &representation_id) const {
-    const pp_uuid_t native_id = detail::native_uuid(representation_id);
+  representation(const RepresentationId &representation_id) const {
+    const pp_representation_id_t native_id = detail::native_representation_id(representation_id);
     pp_representation_set_t *raw_representations = nullptr;
     pp_error_t *error = nullptr;
     const pp_error_code_t status = pp_read_session_representation(
-        session_, &native_id, &raw_representations, &error);
+        session_, native_id, &raw_representations, &error);
     POSTPROJECT_TRY(detail::check(status, error));
     detail::RepresentationSetHandle representations(raw_representations);
     if (pp_representation_set_count(representations.get()) != 1) {
@@ -5966,12 +5967,12 @@ public:
 
   // Reads one representation; an absent one is ErrorCode::not_found.
   [[nodiscard]] Result<Representation>
-  representation(const Uuid &representation_id) const {
-    const pp_uuid_t native_id = detail::native_uuid(representation_id);
+  representation(const RepresentationId &representation_id) const {
+    const pp_representation_id_t native_id = detail::native_representation_id(representation_id);
     pp_representation_set_t *raw_representations = nullptr;
     pp_error_t *error = nullptr;
     const pp_error_code_t status = pp_production_representation(
-        production_, &native_id, &raw_representations, &error);
+        production_, native_id, &raw_representations, &error);
     POSTPROJECT_TRY(detail::check(status, error));
     detail::RepresentationSetHandle representations(raw_representations);
     if (pp_representation_set_count(representations.get()) != 1) {
@@ -6022,15 +6023,15 @@ public:
 
   // Resource identities of one representation in structure order.
   [[nodiscard]] Result<QueryPage<Uuid>>
-  resources(const Uuid &representation_id, std::uint32_t limit,
+  resources(const RepresentationId &representation_id, std::uint32_t limit,
             std::optional<std::string_view> cursor = std::nullopt) const {
-    const pp_uuid_t native_id = detail::native_uuid(representation_id);
+    const pp_representation_id_t native_id = detail::native_representation_id(representation_id);
     POSTPROJECT_TRY_ASSIGN(const std::optional<std::string> checked_cursor,
                            detail::checked_cursor(cursor));
     pp_object_query_set_t *raw_objects = nullptr;
     pp_error_t *error = nullptr;
     const pp_error_code_t status = pp_production_resources_page(
-        production_, &native_id, limit, detail::optional_c_str(checked_cursor),
+        production_, native_id, limit, detail::optional_c_str(checked_cursor),
         &raw_objects, &error);
     POSTPROJECT_TRY(detail::check(status, error));
     POSTPROJECT_TRY_ASSIGN(
@@ -6100,7 +6101,7 @@ public:
   }
 
   // Representations with a required resource that has no locator knowledge.
-  [[nodiscard]] Result<QueryPage<Uuid>>
+  [[nodiscard]] Result<QueryPage<RepresentationId>>
   unresolvedMedia(std::uint32_t limit,
                   std::optional<std::string_view> cursor = std::nullopt) const {
     POSTPROJECT_TRY_ASSIGN(const std::optional<std::string> checked_cursor,
@@ -6114,32 +6115,32 @@ public:
     POSTPROJECT_TRY_ASSIGN(
         QueryPage<ObjectMatch> page,
         detail::object_query_page(detail::ObjectQuerySetHandle(raw_objects)));
-    return detail::object_id_page(std::move(page), ObjectKind::representation);
+    return detail::object_id_page<RepresentationId>(std::move(page), ObjectKind::representation);
   }
 
   [[nodiscard]] Result<std::optional<DependencySet>>
-  dependencySet(const Uuid &representation_id) const {
-    const pp_uuid_t native_id = detail::native_uuid(representation_id);
+  dependencySet(const RepresentationId &representation_id) const {
+    const pp_representation_id_t native_id = detail::native_representation_id(representation_id);
     pp_dependency_set_t *raw_dependencies = nullptr;
     pp_error_t *error = nullptr;
     const pp_error_code_t status = pp_production_dependency_set(
-        production_, &native_id, &raw_dependencies, &error);
+        production_, native_id, &raw_dependencies, &error);
     POSTPROJECT_TRY(detail::check(status, error));
     return detail::dependency_set(
         detail::DependencySetHandle(raw_dependencies));
   }
 
   [[nodiscard]] Result<QueryPage<DependencyMatch>>
-  dependencies(const Uuid &representation_id, std::uint32_t max_depth,
+  dependencies(const RepresentationId &representation_id, std::uint32_t max_depth,
                std::uint32_t max_representations, std::uint32_t limit,
                std::optional<std::string_view> cursor = std::nullopt) const {
-    const pp_uuid_t native_id = detail::native_uuid(representation_id);
+    const pp_representation_id_t native_id = detail::native_representation_id(representation_id);
     POSTPROJECT_TRY_ASSIGN(const std::optional<std::string> checked_cursor,
                            detail::checked_cursor(cursor));
     pp_dependency_query_set_t *raw_matches = nullptr;
     pp_error_t *error = nullptr;
     const pp_error_code_t status = pp_production_dependencies(
-        production_, &native_id, max_depth, max_representations, limit,
+        production_, native_id, max_depth, max_representations, limit,
         detail::optional_c_str(checked_cursor),
         &raw_matches, &error);
     POSTPROJECT_TRY(detail::check(status, error));
@@ -6385,14 +6386,14 @@ public:
   }
 
   [[nodiscard]] Result<std::vector<RegenerationJobPlan>>
-  planRegeneration(const std::vector<Uuid> &artifact_representation_ids) const {
+  planRegeneration(const std::vector<RepresentationId> &artifact_representation_ids) const {
     if (artifact_representation_ids.size() > PP_MAX_REGENERATION_PLANS) {
       return Error(ErrorCode::invalid_argument, "too many artifacts for regeneration planning");
     }
-    std::vector<pp_uuid_t> native_ids;
+    std::vector<pp_representation_id_t> native_ids;
     native_ids.reserve(artifact_representation_ids.size());
-    for (const Uuid &id : artifact_representation_ids) {
-      native_ids.push_back(detail::native_uuid(id));
+    for (const RepresentationId &id : artifact_representation_ids) {
+      native_ids.push_back(detail::native_representation_id(id));
     }
     pp_regeneration_plan_set_t *raw_plans = nullptr;
     pp_error_t *error = nullptr;
@@ -6406,19 +6407,19 @@ public:
   }
 
   [[nodiscard]] Result<std::vector<Activity>>
-  activitiesProducing(const Uuid &representation_id) const {
+  activitiesProducing(const RepresentationId &representation_id) const {
     return activities_for_representation(
         representation_id, pp_production_activities_producing);
   }
 
   [[nodiscard]] Result<std::vector<Activity>>
-  activitiesConsuming(const Uuid &representation_id) const {
+  activitiesConsuming(const RepresentationId &representation_id) const {
     return activities_for_representation(
         representation_id, pp_production_activities_consuming);
   }
 
   [[nodiscard]] Result<QueryPage<Activity>> activitiesProducing(
-      const Uuid &representation_id, std::uint32_t limit,
+      const RepresentationId &representation_id, std::uint32_t limit,
       std::optional<std::string_view> cursor = std::nullopt) const {
     return activity_page_for_representation(
         representation_id, limit, cursor,
@@ -6426,7 +6427,7 @@ public:
   }
 
   [[nodiscard]] Result<QueryPage<Activity>> activitiesConsuming(
-      const Uuid &representation_id, std::uint32_t limit,
+      const RepresentationId &representation_id, std::uint32_t limit,
       std::optional<std::string_view> cursor = std::nullopt) const {
     return activity_page_for_representation(
         representation_id, limit, cursor,
@@ -6434,7 +6435,7 @@ public:
   }
 
   // Representations produced by activities of an exact kind.
-  [[nodiscard]] Result<QueryPage<Uuid>> outputsByActivityKind(
+  [[nodiscard]] Result<QueryPage<RepresentationId>> outputsByActivityKind(
       std::string_view kind, std::uint32_t limit,
       std::optional<std::string_view> cursor = std::nullopt) const {
     POSTPROJECT_TRY_ASSIGN(const std::string native_kind,
@@ -6450,11 +6451,11 @@ public:
     POSTPROJECT_TRY_ASSIGN(
         QueryPage<ObjectMatch> page,
         detail::object_query_page(detail::ObjectQuerySetHandle(raw_objects)));
-    return detail::object_id_page(std::move(page), ObjectKind::representation);
+    return detail::object_id_page<RepresentationId>(std::move(page), ObjectKind::representation);
   }
 
   // Representations produced by activities with exactly this tool identity.
-  [[nodiscard]] Result<QueryPage<Uuid>>
+  [[nodiscard]] Result<QueryPage<RepresentationId>>
   outputsByTool(const ToolIdentity &tool, std::uint32_t limit,
                 std::optional<std::string_view> cursor = std::nullopt) const {
     POSTPROJECT_TRY_ASSIGN(const std::string name,
@@ -6477,24 +6478,24 @@ public:
     POSTPROJECT_TRY_ASSIGN(
         QueryPage<ObjectMatch> page,
         detail::object_query_page(detail::ObjectQuerySetHandle(raw_objects)));
-    return detail::object_id_page(std::move(page), ObjectKind::representation);
+    return detail::object_id_page<RepresentationId>(std::move(page), ObjectKind::representation);
   }
 
-  [[nodiscard]] Result<std::vector<Uuid>>
-  ancestors(const Uuid &representation_id) const {
+  [[nodiscard]] Result<std::vector<RepresentationId>>
+  ancestors(const RepresentationId &representation_id) const {
     return provenance_relatives(representation_id,
                                 pp_production_provenance_ancestors);
   }
 
-  [[nodiscard]] Result<std::vector<Uuid>>
-  descendants(const Uuid &representation_id) const {
+  [[nodiscard]] Result<std::vector<RepresentationId>>
+  descendants(const RepresentationId &representation_id) const {
     return provenance_relatives(representation_id,
                                 pp_production_provenance_descendants);
   }
 
   // Bounded provenance ancestors with their shortest depth.
   [[nodiscard]] Result<QueryPage<ObjectMatch>>
-  ancestors(const Uuid &representation_id, std::uint32_t max_depth,
+  ancestors(const RepresentationId &representation_id, std::uint32_t max_depth,
             std::uint32_t max_representations, std::uint32_t limit,
             std::optional<std::string_view> cursor = std::nullopt) const {
     return provenance_page(representation_id, max_depth, max_representations,
@@ -6504,7 +6505,7 @@ public:
 
   // Bounded provenance descendants with their shortest depth.
   [[nodiscard]] Result<QueryPage<ObjectMatch>>
-  descendants(const Uuid &representation_id, std::uint32_t max_depth,
+  descendants(const RepresentationId &representation_id, std::uint32_t max_depth,
               std::uint32_t max_representations, std::uint32_t limit,
               std::optional<std::string_view> cursor = std::nullopt) const {
     return provenance_page(representation_id, max_depth, max_representations,
@@ -6513,13 +6514,13 @@ public:
   }
 
   [[nodiscard]] Result<ArtifactEvaluation>
-  evaluateArtifact(const Uuid &representation_id, std::uint32_t max_depth = 64,
+  evaluateArtifact(const RepresentationId &representation_id, std::uint32_t max_depth = 64,
                    std::uint32_t max_representations = 1000) const {
-    const pp_uuid_t native_id = detail::native_uuid(representation_id);
+    const pp_representation_id_t native_id = detail::native_representation_id(representation_id);
     pp_artifact_evaluation_t *raw_evaluation = nullptr;
     pp_error_t *error = nullptr;
     const pp_error_code_t status = pp_production_evaluate_artifact(
-        production_, &native_id, max_depth, max_representations,
+        production_, native_id, max_depth, max_representations,
         &raw_evaluation, &error);
     POSTPROJECT_TRY(detail::check(status, error));
     detail::ArtifactEvaluationHandle evaluation(raw_evaluation);
@@ -6528,12 +6529,12 @@ public:
   }
 
   [[nodiscard]] Result<ArtifactReproducibility>
-  artifactReproducibility(const Uuid &representation_id) const {
-    const pp_uuid_t native_id = detail::native_uuid(representation_id);
+  artifactReproducibility(const RepresentationId &representation_id) const {
+    const pp_representation_id_t native_id = detail::native_representation_id(representation_id);
     pp_artifact_reproducibility_t *raw_report = nullptr;
     pp_error_t *error = nullptr;
     const pp_error_code_t status = pp_production_artifact_reproducibility(
-        production_, &native_id, &raw_report, &error);
+        production_, native_id, &raw_report, &error);
     POSTPROJECT_TRY(detail::check(status, error));
     detail::ArtifactReproducibilityHandle report(raw_report);
 
@@ -6542,15 +6543,15 @@ public:
 
   // Produced representations currently evaluated as stale. A source limits the
   // candidates to its provenance descendants.
-  [[nodiscard]] Result<QueryPage<Uuid>> staleArtifacts(
+  [[nodiscard]] Result<QueryPage<RepresentationId>> staleArtifacts(
       std::uint32_t evaluation_max_depth,
       std::uint32_t evaluation_max_representations, std::uint32_t limit,
       std::optional<std::string_view> cursor = std::nullopt,
-      std::optional<Uuid> source_representation_id = std::nullopt) const {
-    const std::optional<pp_uuid_t> native_source =
+      std::optional<RepresentationId> source_representation_id = std::nullopt) const {
+    const std::optional<pp_representation_id_t> native_source =
         source_representation_id.has_value()
-            ? std::optional<pp_uuid_t>(
-                  detail::native_uuid(*source_representation_id))
+            ? std::optional<pp_representation_id_t>(
+                  detail::native_representation_id(*source_representation_id))
             : std::nullopt;
     POSTPROJECT_TRY_ASSIGN(const std::optional<std::string> checked_cursor,
                            detail::checked_cursor(cursor));
@@ -6564,7 +6565,7 @@ public:
     POSTPROJECT_TRY_ASSIGN(
         QueryPage<ObjectMatch> page,
         detail::object_query_page(detail::ObjectQuerySetHandle(raw_objects)));
-    return detail::object_id_page(std::move(page), ObjectKind::representation);
+    return detail::object_id_page<RepresentationId>(std::move(page), ObjectKind::representation);
   }
 
   [[nodiscard]] Result<std::optional<Revision>> latestRevision() const {
@@ -6690,29 +6691,29 @@ public:
 
 private:
   using ActivityQuery = pp_error_code_t (*)(
-      const pp_production_t *, const pp_uuid_t *, pp_activity_set_t **,
+      const pp_production_t *, pp_representation_id_t, pp_activity_set_t **,
       pp_error_t **);
   using ProvenanceQuery = pp_error_code_t (*)(
-      const pp_production_t *, const pp_uuid_t *, pp_object_ref_set_t **,
+      const pp_production_t *, pp_representation_id_t, pp_object_ref_set_t **,
       pp_error_t **);
   using ActivityPageQuery = pp_error_code_t (*)(
-      const pp_production_t *, const pp_uuid_t *, std::uint32_t, const char *,
+      const pp_production_t *, pp_representation_id_t, std::uint32_t, const char *,
       pp_activity_set_t **, pp_error_t **);
   using ProvenancePageQuery = pp_error_code_t (*)(
-      const pp_production_t *, const pp_uuid_t *, std::uint32_t,
+      const pp_production_t *, pp_representation_id_t, std::uint32_t,
       std::uint32_t, std::uint32_t, const char *, pp_object_query_set_t **,
       pp_error_t **);
 
   explicit Production(pp_production_t *production) noexcept : production_(production) {}
 
   [[nodiscard]] Result<std::vector<Activity>>
-  activities_for_representation(const Uuid &representation_id,
+  activities_for_representation(const RepresentationId &representation_id,
                                 ActivityQuery query) const {
-    const pp_uuid_t native_id = detail::native_uuid(representation_id);
+    const pp_representation_id_t native_id = detail::native_representation_id(representation_id);
     pp_activity_set_t *raw_activities = nullptr;
     pp_error_t *error = nullptr;
     const pp_error_code_t status =
-        query(production_, &native_id, &raw_activities, &error);
+        query(production_, native_id, &raw_activities, &error);
     POSTPROJECT_TRY(detail::check(status, error));
     detail::ActivitySetHandle activities(raw_activities);
 
@@ -6728,33 +6729,33 @@ private:
   }
 
   [[nodiscard]] Result<QueryPage<Activity>> activity_page_for_representation(
-      const Uuid &representation_id, std::uint32_t limit,
+      const RepresentationId &representation_id, std::uint32_t limit,
       const std::optional<std::string_view> &cursor,
       ActivityPageQuery query) const {
-    const pp_uuid_t native_id = detail::native_uuid(representation_id);
+    const pp_representation_id_t native_id = detail::native_representation_id(representation_id);
     POSTPROJECT_TRY_ASSIGN(const std::optional<std::string> checked_cursor,
                            detail::checked_cursor(cursor));
     pp_activity_set_t *raw_activities = nullptr;
     pp_error_t *error = nullptr;
     const pp_error_code_t status =
-        query(production_, &native_id, limit,
+        query(production_, native_id, limit,
               detail::optional_c_str(checked_cursor), &raw_activities, &error);
     POSTPROJECT_TRY(detail::check(status, error));
     return detail::activity_page(detail::ActivitySetHandle(raw_activities));
   }
 
   [[nodiscard]] Result<QueryPage<ObjectMatch>>
-  provenance_page(const Uuid &representation_id, std::uint32_t max_depth,
+  provenance_page(const RepresentationId &representation_id, std::uint32_t max_depth,
                   std::uint32_t max_representations, std::uint32_t limit,
                   const std::optional<std::string_view> &cursor,
                   ProvenancePageQuery query) const {
-    const pp_uuid_t native_id = detail::native_uuid(representation_id);
+    const pp_representation_id_t native_id = detail::native_representation_id(representation_id);
     POSTPROJECT_TRY_ASSIGN(const std::optional<std::string> checked_cursor,
                            detail::checked_cursor(cursor));
     pp_object_query_set_t *raw_objects = nullptr;
     pp_error_t *error = nullptr;
     const pp_error_code_t status =
-        query(production_, &native_id, max_depth, max_representations, limit,
+        query(production_, native_id, max_depth, max_representations, limit,
               detail::optional_c_str(checked_cursor), &raw_objects, &error);
     POSTPROJECT_TRY(detail::check(status, error));
     return detail::object_query_page(detail::ObjectQuerySetHandle(raw_objects));
@@ -6783,18 +6784,18 @@ private:
     return detail::metadata_page(detail::MetadataSetHandle(raw_metadata));
   }
 
-  [[nodiscard]] Result<std::vector<Uuid>>
-  provenance_relatives(const Uuid &representation_id,
+  [[nodiscard]] Result<std::vector<RepresentationId>>
+  provenance_relatives(const RepresentationId &representation_id,
                        ProvenanceQuery query) const {
-    const pp_uuid_t native_id = detail::native_uuid(representation_id);
+    const pp_representation_id_t native_id = detail::native_representation_id(representation_id);
     pp_object_ref_set_t *raw_objects = nullptr;
     pp_error_t *error = nullptr;
     const pp_error_code_t status =
-        query(production_, &native_id, &raw_objects, &error);
+        query(production_, native_id, &raw_objects, &error);
     POSTPROJECT_TRY(detail::check(status, error));
     detail::ObjectRefSetHandle objects(raw_objects);
 
-    std::vector<Uuid> result;
+    std::vector<RepresentationId> result;
     const std::uint64_t count = pp_object_ref_set_count(objects.get());
     result.reserve(static_cast<std::size_t>(count));
     for (std::uint64_t index = 0; index < count; ++index) {
@@ -6807,7 +6808,7 @@ private:
         return Error(ErrorCode::internal,
                      "provenance query returned a non-representation object");
       }
-      result.push_back(detail::uuid(object.id));
+      result.push_back(RepresentationId(detail::uuid(object.id)));
     }
     return result;
   }

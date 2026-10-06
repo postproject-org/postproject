@@ -524,7 +524,7 @@ int main(int argc, char **argv) {
         producing_page.items[0].kind != "org.postproject:ingest" ||
         producing_page.next_cursor.has_value() ||
         ingest_outputs.items !=
-            std::vector<postproject::Uuid>{resolutions[0].representation_id} ||
+            std::vector<postproject::RepresentationId>{resolutions[0].representation_id} ||
         ingest_outputs.next_cursor.has_value() ||
         ingest_outputs.traversal_truncated ||
         !production.unresolvedMedia(100).value().items.empty()) {
@@ -642,7 +642,7 @@ int main(int argc, char **argv) {
     }
     try {
       static_cast<void>(
-          production.representation(postproject::Uuid(postproject::Uuid::Bytes{})).value());
+          production.representation(postproject::RepresentationId(postproject::Uuid::Bytes{})).value());
       return 59;
     } catch (const postproject::Exception &error) {
       if (error.code() != postproject::ErrorCode::not_found) {
@@ -743,7 +743,7 @@ int main(int argc, char **argv) {
     }
 
     const auto added_representations = reopened.representations(asset_id).value();
-    const auto has_representation = [&](const postproject::Uuid &id,
+    const auto has_representation = [&](const postproject::RepresentationId &id,
                                         postproject::ContentStructureKind kind) {
       return std::any_of(
           added_representations.begin(), added_representations.end(),
@@ -803,7 +803,7 @@ int main(int argc, char **argv) {
         dependency_matches.next_cursor.has_value() ||
         dependency_matches.traversal_truncated ||
         dependents.items.size() != 1 ||
-        dependents.items[0].target.id != proxy_id ||
+        dependents.items[0].target.representationId().value() != proxy_id ||
         dependents.items[0].target.kind != postproject::ObjectKind::representation ||
         dependents.items[0].depth != 1 || dependents.next_cursor.has_value() ||
         dependents.traversal_truncated ||
@@ -825,7 +825,7 @@ int main(int argc, char **argv) {
     if (jobs.items.size() != 1 || jobs.items[0].id != job_id ||
         jobs.items[0].kind != "org.postproject:generate-proxy" ||
         jobs.items[0].inputs !=
-            std::vector<postproject::Uuid>{resolutions[0].representation_id} ||
+            std::vector<postproject::RepresentationId>{resolutions[0].representation_id} ||
         jobs.items[0].output_asset_id != asset_id ||
         jobs.items[0].output_representation_kind !=
             postproject::RepresentationKind::proxy ||
@@ -994,18 +994,17 @@ int main(int argc, char **argv) {
         consuming_page.items[0].id != completion_activity_id ||
         consuming_page.next_cursor.has_value() ||
         tool_outputs.items !=
-            std::vector<postproject::Uuid>{completed_representation_id} ||
+            std::vector<postproject::RepresentationId>{completed_representation_id} ||
         tool_outputs.next_cursor.has_value() ||
         !versioned_tool_outputs.items.empty() ||
         ancestor_page.items.size() != 1 ||
         !(ancestor_page.items[0].object ==
-          postproject::ObjectRef{postproject::ObjectKind::representation,
-                                 resolutions[0].representation_id}) ||
+          postproject::ObjectRef::representation(resolutions[0].representation_id)) ||
         ancestor_page.items[0].depth != 1 ||
         ancestor_page.next_cursor.has_value() ||
         ancestor_page.traversal_truncated ||
         descendant_page.items.size() != 1 ||
-        descendant_page.items[0].object.id != completed_representation_id ||
+        descendant_page.items[0].object.representationId().value() != completed_representation_id ||
         descendant_page.items[0].depth != 1 ||
         descendant_page.next_cursor.has_value() ||
         descendant_page.traversal_truncated) {
@@ -1013,7 +1012,7 @@ int main(int argc, char **argv) {
     }
 
     const auto all_representations = reopened.representations(asset_id).value();
-    std::vector<postproject::Uuid> paged_representation_ids;
+    std::vector<postproject::RepresentationId> paged_representation_ids;
     std::optional<std::string> representation_cursor;
     do {
       const auto page =
@@ -1088,14 +1087,14 @@ int main(int argc, char **argv) {
     const auto stale_all = reopened.staleArtifacts(64, 1000, 100).value();
     const auto stale_downstream = reopened.staleArtifacts(
         64, 1000, 100, std::nullopt, resolutions[0].representation_id).value();
-    const auto contains_id = [](const std::vector<postproject::Uuid> &ids,
-                                const postproject::Uuid &id) {
+    const auto contains_id = [](const std::vector<postproject::RepresentationId> &ids,
+                                const postproject::RepresentationId &id) {
       return std::find(ids.begin(), ids.end(), id) != ids.end();
     };
     if (!contains_id(stale_all.items, completed_representation_id) ||
         stale_all.next_cursor.has_value() ||
         stale_downstream.items !=
-            std::vector<postproject::Uuid>{completed_representation_id} ||
+            std::vector<postproject::RepresentationId>{completed_representation_id} ||
         stale_downstream.next_cursor.has_value() ||
         stale_downstream.traversal_truncated) {
       return 51;
