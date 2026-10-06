@@ -324,7 +324,7 @@ typedef struct pp_revision_event {
   pp_revision_event_kind_t kind;
   uint32_t position;
   pp_asset_id_t asset_id;
-  pp_uuid_t representation_id;
+  pp_representation_id_t representation_id;
   pp_uuid_t resource_id;
   pp_locator_id_t locator_id;
   pp_media_root_id_t media_root_id;
@@ -345,7 +345,7 @@ typedef struct pp_revision_event {
 } pp_revision_event_t;
 
 typedef struct pp_activity_edge {
-  pp_uuid_t representation_id;
+  pp_representation_id_t representation_id;
   const char *role;
 } pp_activity_edge_t;
 
@@ -369,7 +369,7 @@ typedef struct pp_job {
   const char *claim_agent_identifier_value;
   const char *claim_agent_identifier_qualifier;
   pp_activity_id_t completion_activity_id;
-  pp_uuid_t completion_representation_id;
+  pp_representation_id_t completion_representation_id;
   const char *failure_diagnostic;
 } pp_job_t;
 
@@ -389,7 +389,7 @@ typedef struct pp_job_claim {
 /* Checked succeeded-state detail. */
 typedef struct pp_job_completion {
   pp_activity_id_t activity_id;
-  pp_uuid_t representation_id;
+  pp_representation_id_t representation_id;
 } pp_job_completion_t;
 
 /* Input strings are borrowed for a transaction call. Output strings borrow
@@ -400,21 +400,21 @@ typedef struct pp_dependency {
   const char *kind;
   pp_object_ref_t target;
   uint8_t has_resolved_representation;
-  pp_uuid_t resolved_representation_id;
+  pp_representation_id_t resolved_representation_id;
   uint8_t required;
   const char *authored_reference;
 } pp_dependency_t;
 
 /* Strings borrow the owning artifact evaluation. */
 typedef struct pp_artifact_dependency_path_segment {
-  pp_uuid_t source_representation_id;
+  pp_representation_id_t source_representation_id;
   uint32_t dependency_position;
   uint8_t has_source_resource;
   pp_uuid_t source_resource_id;
   const char *kind;
   pp_object_ref_t target;
   uint8_t has_resolved_representation;
-  pp_uuid_t resolved_representation_id;
+  pp_representation_id_t resolved_representation_id;
   const char *authored_reference;
 } pp_artifact_dependency_path_segment_t;
 
@@ -423,8 +423,8 @@ typedef struct pp_artifact_dependency_path_segment {
 typedef struct pp_artifact_reason {
   pp_artifact_reason_kind_t kind;
   pp_activity_id_t activity_id;
-  pp_uuid_t representation_id;
-  pp_uuid_t input_representation_id;
+  pp_representation_id_t representation_id;
+  pp_representation_id_t input_representation_id;
   pp_artifact_edge_kind_t edge_kind;
   pp_artifact_knowledge_state_t upstream_state;
   pp_artifact_traversal_limit_t traversal_limit;
@@ -445,7 +445,7 @@ typedef struct pp_artifact_reason {
 typedef struct pp_artifact_reproducibility_issue {
   pp_artifact_reproducibility_issue_kind_t kind;
   pp_activity_id_t activity_id;
-  pp_uuid_t representation_id;
+  pp_representation_id_t representation_id;
   uint32_t activity_count;
 } pp_artifact_reproducibility_issue_t;
 
@@ -571,14 +571,14 @@ PP_API pp_error_code_t pp_production_begin_edit(
 #define PP_MAX_REGENERATION_PLANS UINT32_C(100000)
 PP_API pp_error_code_t pp_read_session_plan_regeneration(
     const pp_read_session_t *session,
-    const pp_uuid_t *artifact_representation_ids, uint64_t artifact_count,
+    const pp_representation_id_t *artifact_representation_ids, uint64_t artifact_count,
     pp_regeneration_plan_set_t **out_plans, pp_error_t **out_error);
 PP_API pp_error_code_t pp_read_session_evaluate_artifact(
-    const pp_read_session_t *session, const pp_uuid_t *representation_id,
+    const pp_read_session_t *session, pp_representation_id_t representation_id,
     uint32_t max_depth, uint32_t max_representations,
     pp_artifact_evaluation_t **out_evaluation, pp_error_t **out_error);
 PP_API pp_error_code_t pp_read_session_artifact_reproducibility(
-    const pp_read_session_t *session, const pp_uuid_t *representation_id,
+    const pp_read_session_t *session, pp_representation_id_t representation_id,
     pp_artifact_reproducibility_t **out_report, pp_error_t **out_error);
 /* Journal reads end at the revision retained by this view. */
 PP_API pp_error_code_t pp_read_session_revision_events_page(
@@ -598,11 +598,11 @@ PP_API pp_error_code_t pp_read_session_changes_since(
     pp_revision_set_t **out_revisions, pp_error_t **out_error);
 /* Producing/consuming activity pages retain this view and cursor scope. */
 PP_API pp_error_code_t pp_read_session_activities_producing_page(
-    const pp_read_session_t *session, const pp_uuid_t *representation_id,
+    const pp_read_session_t *session, pp_representation_id_t representation_id,
     uint32_t limit, const char *cursor, pp_activity_set_t **out_activities,
     pp_error_t **out_error);
 PP_API pp_error_code_t pp_read_session_activities_consuming_page(
-    const pp_read_session_t *session, const pp_uuid_t *representation_id,
+    const pp_read_session_t *session, pp_representation_id_t representation_id,
     uint32_t limit, const char *cursor, pp_activity_set_t **out_activities,
     pp_error_t **out_error);
 /* Exact activity output filters use the same pinned view. */
@@ -616,18 +616,18 @@ PP_API pp_error_code_t pp_read_session_outputs_by_tool(
     pp_object_query_set_t **out_objects, pp_error_t **out_error);
 /* Provenance traversal and staleness use pinned knowledge and explicit bounds. */
 PP_API pp_error_code_t pp_read_session_provenance_ancestors_page(
-    const pp_read_session_t *session, const pp_uuid_t *representation_id,
+    const pp_read_session_t *session, pp_representation_id_t representation_id,
     uint32_t max_depth, uint32_t max_representations, uint32_t limit,
     const char *cursor, pp_object_query_set_t **out_objects,
     pp_error_t **out_error);
 PP_API pp_error_code_t pp_read_session_provenance_descendants_page(
-    const pp_read_session_t *session, const pp_uuid_t *representation_id,
+    const pp_read_session_t *session, pp_representation_id_t representation_id,
     uint32_t max_depth, uint32_t max_representations, uint32_t limit,
     const char *cursor, pp_object_query_set_t **out_objects,
     pp_error_t **out_error);
 PP_API pp_error_code_t pp_read_session_stale_artifacts(
     const pp_read_session_t *session,
-    const pp_uuid_t *source_representation_id,
+    const pp_representation_id_t *source_representation_id,
     uint32_t evaluation_max_depth,
     uint32_t evaluation_max_representations, uint32_t limit,
     const char *cursor, pp_object_query_set_t **out_objects,
@@ -646,10 +646,10 @@ PP_API pp_error_code_t pp_read_session_objects_changed_since(
     pp_error_t **out_error);
 /* Dependency knowledge and bounded traversal use the same pinned view. */
 PP_API pp_error_code_t pp_read_session_dependency_set(
-    const pp_read_session_t *session, const pp_uuid_t *representation_id,
+    const pp_read_session_t *session, pp_representation_id_t representation_id,
     pp_dependency_set_t **out_dependencies, pp_error_t **out_error);
 PP_API pp_error_code_t pp_read_session_dependencies(
-    const pp_read_session_t *session, const pp_uuid_t *representation_id,
+    const pp_read_session_t *session, pp_representation_id_t representation_id,
     uint32_t max_depth, uint32_t max_representations, uint32_t limit,
     const char *cursor, pp_dependency_query_set_t **out_matches,
     pp_error_t **out_error);
@@ -759,12 +759,12 @@ PP_API pp_error_code_t pp_read_session_representations_page(
     const char *cursor, pp_representation_set_t **out_representations,
     pp_error_t **out_error);
 PP_API pp_error_code_t pp_read_session_representation(
-    const pp_read_session_t *session, const pp_uuid_t *representation_id,
+    const pp_read_session_t *session, pp_representation_id_t representation_id,
     pp_representation_set_t **out_representations, pp_error_t **out_error);
 /* Bounded storage evidence uses the pinned view. IDs/cursors borrow the input;
  * result sets own their values and survive session release. */
 PP_API pp_error_code_t pp_read_session_resources_page(
-    const pp_read_session_t *session, const pp_uuid_t *representation_id,
+    const pp_read_session_t *session, pp_representation_id_t representation_id,
     uint32_t limit, const char *cursor, pp_object_query_set_t **out_objects,
     pp_error_t **out_error);
 PP_API pp_error_code_t pp_read_session_locators_page(
@@ -906,7 +906,7 @@ PP_API pp_error_code_t pp_production_representations_under_media_root(
 /* Reads one representation as a one-element set. An absent representation is
  * PP_ERROR_NOT_FOUND. */
 PP_API pp_error_code_t pp_production_representation(
-    const pp_production_t *production, const pp_uuid_t *representation_id,
+    const pp_production_t *production, pp_representation_id_t representation_id,
     pp_representation_set_t **out_representations, pp_error_t **out_error);
 /* Pages the representations that use a resource, in identity order. */
 PP_API pp_error_code_t pp_production_representations_using_resource(
@@ -919,7 +919,7 @@ PP_API const char *pp_representation_set_next_cursor(
     const pp_representation_set_t *representations);
 PP_API pp_error_code_t pp_representation_set_get(
     const pp_representation_set_t *representations, uint64_t index,
-    pp_uuid_t *out_id, pp_asset_id_t *out_asset_id,
+    pp_representation_id_t *out_id, pp_asset_id_t *out_asset_id,
     pp_representation_kind_t *out_kind,
     pp_content_structure_kind_t *out_structure_kind,
     uint64_t *out_member_count, uint64_t *out_resource_count,
@@ -1007,7 +1007,7 @@ PP_API uint8_t pp_object_query_set_traversal_truncated(
     const pp_object_query_set_t *objects);
 PP_API void pp_object_query_set_release(pp_object_query_set_t *objects);
 PP_API pp_error_code_t pp_production_resources_page(
-    const pp_production_t *production, const pp_uuid_t *representation_id,
+    const pp_production_t *production, pp_representation_id_t representation_id,
     uint32_t limit, const char *cursor, pp_object_query_set_t **out_objects,
     pp_error_t **out_error);
 PP_API pp_error_code_t pp_production_locators_page(
@@ -1047,7 +1047,7 @@ PP_API const char *pp_known_media_set_next_cursor(
     const pp_known_media_set_t *matches);
 PP_API pp_error_code_t pp_known_media_set_get(
     const pp_known_media_set_t *matches, uint64_t index,
-    pp_asset_id_t *out_asset_id, pp_uuid_t *out_representation_id,
+    pp_asset_id_t *out_asset_id, pp_representation_id_t *out_representation_id,
     pp_uuid_t *out_resource_id, pp_error_t **out_error);
 PP_API void pp_known_media_set_release(pp_known_media_set_t *matches);
 PP_API pp_error_code_t pp_production_unresolved_media(
@@ -1162,11 +1162,11 @@ PP_API void pp_metadata_input_release(pp_metadata_input_t *input);
 /* A successful read always returns a set handle. `out_present` distinguishes
  * absent knowledge from a recorded empty set. Strings borrow the set. */
 PP_API pp_error_code_t pp_production_dependency_set(
-    const pp_production_t *production, const pp_uuid_t *representation_id,
+    const pp_production_t *production, pp_representation_id_t representation_id,
     pp_dependency_set_t **out_dependencies, pp_error_t **out_error);
 PP_API pp_error_code_t pp_dependency_set_get(
     const pp_dependency_set_t *dependencies, uint8_t *out_present,
-    pp_uuid_t *out_source_representation_id,
+    pp_representation_id_t *out_source_representation_id,
     uint64_t *out_recorded_at_revision,
     pp_dependency_set_status_t *out_status, uint64_t *out_dependency_count,
     pp_error_t **out_error);
@@ -1177,7 +1177,7 @@ PP_API void pp_dependency_set_release(pp_dependency_set_t *dependencies);
 /* Dependency-query cursors and match views borrow the owning query set. A null
  * input cursor starts a query; a null next cursor marks the final page. */
 PP_API pp_error_code_t pp_production_dependencies(
-    const pp_production_t *production, const pp_uuid_t *representation_id,
+    const pp_production_t *production, pp_representation_id_t representation_id,
     uint32_t max_depth, uint32_t max_representations, uint32_t limit,
     const char *cursor, pp_dependency_query_set_t **out_matches,
     pp_error_t **out_error);
@@ -1200,12 +1200,12 @@ PP_API void pp_dependency_query_set_release(
 /* Artifact evaluation is knowledge-only. Returned strings and byte spans
  * borrow their owning result handle. */
 PP_API pp_error_code_t pp_production_evaluate_artifact(
-    const pp_production_t *production, const pp_uuid_t *representation_id,
+    const pp_production_t *production, pp_representation_id_t representation_id,
     uint32_t max_depth, uint32_t max_representations,
     pp_artifact_evaluation_t **out_evaluation, pp_error_t **out_error);
 PP_API pp_error_code_t pp_artifact_evaluation_get(
     const pp_artifact_evaluation_t *evaluation,
-    pp_uuid_t *out_representation_id,
+    pp_representation_id_t *out_representation_id,
     pp_artifact_knowledge_state_t *out_state,
     uint32_t *out_visited_representations, uint8_t *out_truncated,
     uint64_t *out_reason_count, pp_error_t **out_error);
@@ -1215,11 +1215,11 @@ PP_API pp_error_code_t pp_artifact_evaluation_get_reason(
 PP_API void
 pp_artifact_evaluation_release(pp_artifact_evaluation_t *evaluation);
 PP_API pp_error_code_t pp_production_artifact_reproducibility(
-    const pp_production_t *production, const pp_uuid_t *representation_id,
+    const pp_production_t *production, pp_representation_id_t representation_id,
     pp_artifact_reproducibility_t **out_report, pp_error_t **out_error);
 PP_API pp_error_code_t pp_artifact_reproducibility_get(
     const pp_artifact_reproducibility_t *report,
-    pp_uuid_t *out_representation_id, uint8_t *out_reproducible,
+    pp_representation_id_t *out_representation_id, uint8_t *out_reproducible,
     uint8_t *out_has_producing_activity,
     pp_activity_id_t *out_producing_activity_id, const char **out_activity_kind,
     uint64_t *out_issue_count, pp_error_t **out_error);
@@ -1235,17 +1235,17 @@ PP_API pp_error_code_t pp_production_activities(
     const pp_production_t *production, pp_activity_set_t **out_activities,
     pp_error_t **out_error);
 PP_API pp_error_code_t pp_production_activities_producing(
-    const pp_production_t *production, const pp_uuid_t *representation_id,
+    const pp_production_t *production, pp_representation_id_t representation_id,
     pp_activity_set_t **out_activities, pp_error_t **out_error);
 PP_API pp_error_code_t pp_production_activities_consuming(
-    const pp_production_t *production, const pp_uuid_t *representation_id,
+    const pp_production_t *production, pp_representation_id_t representation_id,
     pp_activity_set_t **out_activities, pp_error_t **out_error);
 PP_API pp_error_code_t pp_production_activities_producing_page(
-    const pp_production_t *production, const pp_uuid_t *representation_id,
+    const pp_production_t *production, pp_representation_id_t representation_id,
     uint32_t limit, const char *cursor, pp_activity_set_t **out_activities,
     pp_error_t **out_error);
 PP_API pp_error_code_t pp_production_activities_consuming_page(
-    const pp_production_t *production, const pp_uuid_t *representation_id,
+    const pp_production_t *production, pp_representation_id_t representation_id,
     uint32_t limit, const char *cursor, pp_activity_set_t **out_activities,
     pp_error_t **out_error);
 PP_API pp_error_code_t pp_production_outputs_by_activity_kind(
@@ -1257,24 +1257,24 @@ PP_API pp_error_code_t pp_production_outputs_by_tool(
     const char *uri, uint32_t limit, const char *cursor,
     pp_object_query_set_t **out_objects, pp_error_t **out_error);
 PP_API pp_error_code_t pp_production_provenance_ancestors(
-    const pp_production_t *production, const pp_uuid_t *representation_id,
+    const pp_production_t *production, pp_representation_id_t representation_id,
     pp_object_ref_set_t **out_representations, pp_error_t **out_error);
 PP_API pp_error_code_t pp_production_provenance_descendants(
-    const pp_production_t *production, const pp_uuid_t *representation_id,
+    const pp_production_t *production, pp_representation_id_t representation_id,
     pp_object_ref_set_t **out_representations, pp_error_t **out_error);
 PP_API pp_error_code_t pp_production_provenance_ancestors_page(
-    const pp_production_t *production, const pp_uuid_t *representation_id,
+    const pp_production_t *production, pp_representation_id_t representation_id,
     uint32_t max_depth, uint32_t max_representations, uint32_t limit,
     const char *cursor, pp_object_query_set_t **out_objects,
     pp_error_t **out_error);
 PP_API pp_error_code_t pp_production_provenance_descendants_page(
-    const pp_production_t *production, const pp_uuid_t *representation_id,
+    const pp_production_t *production, pp_representation_id_t representation_id,
     uint32_t max_depth, uint32_t max_representations, uint32_t limit,
     const char *cursor, pp_object_query_set_t **out_objects,
     pp_error_t **out_error);
 PP_API pp_error_code_t pp_production_stale_artifacts(
     const pp_production_t *production,
-    const pp_uuid_t *source_representation_id,
+    const pp_representation_id_t *source_representation_id,
     uint32_t evaluation_max_depth,
     uint32_t evaluation_max_representations, uint32_t limit,
     const char *cursor, pp_object_query_set_t **out_objects,
@@ -1297,11 +1297,11 @@ PP_API pp_error_code_t pp_activity_set_get_agent(
     const char **out_identifier_qualifier, pp_error_t **out_error);
 PP_API pp_error_code_t pp_activity_set_get_input(
     const pp_activity_set_t *activities, uint64_t activity_index,
-    uint64_t input_index, pp_uuid_t *out_representation_id,
+    uint64_t input_index, pp_representation_id_t *out_representation_id,
     const char **out_role, pp_error_t **out_error);
 PP_API pp_error_code_t pp_activity_set_get_output(
     const pp_activity_set_t *activities, uint64_t activity_index,
-    uint64_t output_index, pp_uuid_t *out_representation_id,
+    uint64_t output_index, pp_representation_id_t *out_representation_id,
     const char **out_role, pp_error_t **out_error);
 /* Edge snapshots are captured by storage at activity commit. A migrated edge
  * may report no snapshot. Returned fingerprint bytes borrow the result set. */
@@ -1359,19 +1359,19 @@ PP_API pp_error_code_t pp_job_set_get_failure(
     pp_error_t **out_error);
 PP_API pp_error_code_t pp_job_set_get_input(
     const pp_job_set_t *jobs, uint64_t job_index, uint64_t input_index,
-    pp_uuid_t *out_representation_id, pp_error_t **out_error);
+    pp_representation_id_t *out_representation_id, pp_error_t **out_error);
 PP_API void pp_job_set_release(pp_job_set_t *jobs);
 /* Planning is read-only. Each get transfers a one-job set and its job-targeted
  * parameter metadata set; release both with their normal release functions. */
 PP_API pp_error_code_t pp_production_plan_regeneration(
     const pp_production_t *production,
-    const pp_uuid_t *artifact_representation_ids, uint64_t artifact_count,
+    const pp_representation_id_t *artifact_representation_ids, uint64_t artifact_count,
     pp_regeneration_plan_set_t **out_plans, pp_error_t **out_error);
 PP_API uint64_t pp_regeneration_plan_set_count(
     const pp_regeneration_plan_set_t *plans);
 PP_API pp_error_code_t pp_regeneration_plan_set_get(
     const pp_regeneration_plan_set_t *plans, uint64_t index,
-    pp_uuid_t *out_artifact_representation_id, pp_job_set_t **out_job,
+    pp_representation_id_t *out_artifact_representation_id, pp_job_set_t **out_job,
     pp_metadata_set_t **out_parameters, pp_error_t **out_error);
 PP_API void pp_regeneration_plan_set_release(
     pp_regeneration_plan_set_t *plans);
@@ -1515,7 +1515,7 @@ PP_API uint64_t pp_resolution_set_representation_count(
     const pp_resolution_set_t *resolutions);
 PP_API pp_error_code_t pp_resolution_set_get_representation(
     const pp_resolution_set_t *resolutions, uint64_t representation_index,
-    pp_asset_id_t *out_asset_id, pp_uuid_t *out_representation_id,
+    pp_asset_id_t *out_asset_id, pp_representation_id_t *out_representation_id,
     pp_representation_availability_t *out_availability,
     uint64_t *out_resource_count, uint64_t *out_issue_count,
     pp_error_t **out_error);
@@ -1610,7 +1610,7 @@ PP_API pp_error_code_t pp_transaction_import_media(
 PP_API pp_error_code_t pp_transaction_add_representation(
     pp_transaction_t *transaction, pp_asset_id_t asset_id,
     pp_representation_kind_t kind, const pp_media_source_t *source,
-    pp_uuid_t *out_representation_id, pp_error_t **out_error);
+    pp_representation_id_t *out_representation_id, pp_error_t **out_error);
 PP_API pp_error_code_t pp_transaction_add_media_root(
     pp_transaction_t *transaction, const char *name, const char *label,
     int32_t priority, pp_media_root_id_t *out_root_id, pp_error_t **out_error);
@@ -1641,7 +1641,7 @@ PP_API pp_error_code_t pp_transaction_record_resource_fingerprint(
     const char *algorithm, uint16_t version, const uint8_t *value,
     uint64_t value_length, pp_error_t **out_error);
 PP_API pp_error_code_t pp_transaction_record_representation_fingerprint(
-    pp_transaction_t *transaction, const pp_uuid_t *representation_id,
+    pp_transaction_t *transaction, pp_representation_id_t representation_id,
     const char *algorithm, uint16_t version, const uint8_t *value,
     uint64_t value_length, pp_error_t **out_error);
 /* Fingerprints the file or image-sequence directory at path as the present
@@ -1661,7 +1661,7 @@ PP_API pp_error_code_t pp_transaction_observe_resource_content(
 /* Replaces the complete ordered dependency observation. The array and strings
  * are borrowed for this call and copied into the transaction. */
 PP_API pp_error_code_t pp_transaction_record_dependency_set(
-    pp_transaction_t *transaction, const pp_uuid_t *representation_id,
+    pp_transaction_t *transaction, pp_representation_id_t representation_id,
     const pp_dependency_t *dependencies, uint64_t dependency_count,
     pp_error_t **out_error);
 /* Scheme and value are required borrowed UTF-8 without embedded NUL. Qualifier
@@ -1689,7 +1689,7 @@ PP_API pp_error_code_t pp_transaction_remove_metadata_property(
  * for this call and copied into the transaction. */
 PP_API pp_error_code_t pp_transaction_request_job(
     pp_transaction_t *transaction, const char *kind,
-    const pp_uuid_t *input_representation_ids, uint64_t input_count,
+    const pp_representation_id_t *input_representation_ids, uint64_t input_count,
     pp_asset_id_t output_asset_id,
     pp_representation_kind_t output_representation_kind,
     const char *target_root, pp_job_id_t *out_job_id,
@@ -1716,7 +1716,7 @@ PP_API pp_error_code_t pp_transaction_release_job_claim(
 PP_API pp_error_code_t pp_transaction_complete_job(
     pp_transaction_t *transaction, pp_job_id_t job_id,
     const pp_uuid_t *claim_id, int64_t now_unix_micros,
-    const pp_uuid_t *output_representation_id,
+    pp_representation_id_t output_representation_id,
     pp_activity_id_t activity_id, pp_error_t **out_error);
 PP_API pp_error_code_t pp_transaction_fail_job(
     pp_transaction_t *transaction, pp_job_id_t job_id,
