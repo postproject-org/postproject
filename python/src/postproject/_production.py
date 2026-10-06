@@ -827,11 +827,11 @@ class Production:
         """Return one bounded page of representations that use a resource."""
 
         self._require_open()
-        native_id = _native_uuid(resource_id)
+        native_id = _native_resource_id(resource_id)
         return self._representation_page(
             self._native.lib.pp_production_representations_using_resource,
             self._handle,
-            ctypes.byref(native_id),
+            native_id,
             limit,
             _optional_text(cursor),
         )
@@ -919,12 +919,12 @@ class Production:
         """Return one bounded page of locators belonging to a resource."""
 
         self._require_open()
-        native_id = _native_uuid(resource_id)
+        native_id = _native_resource_id(resource_id)
         handle = ctypes.POINTER(LocatorQuerySet)()
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_production_locators_page(
             self._handle,
-            ctypes.byref(native_id),
+            native_id,
             limit,
             _optional_text(cursor),
             ctypes.byref(handle),
@@ -1757,12 +1757,12 @@ def _verify_resource(
     path: str | os.PathLike[str],
     sequence_naming: SequenceNaming | None,
 ) -> ContentVerification:
-    native_id = _native_uuid(resource_id)
+    native_id = _native_resource_id(resource_id)
     verification = ctypes.c_uint32()
     error = ctypes.POINTER(Error)()
     status = function(
         handle,
-        ctypes.byref(native_id),
+        native_id,
         _path_bytes(path),
         _native_naming(sequence_naming),
         ctypes.byref(verification),
@@ -2666,11 +2666,11 @@ class ReadSession:
         """Return one bounded page of representations that use a resource."""
 
         self._require_open()
-        native_id = _native_uuid(resource_id)
+        native_id = _native_resource_id(resource_id)
         return self._representation_page(
             self._native.lib.pp_read_session_representations_using_resource,
             self._handle,
-            ctypes.byref(native_id),
+            native_id,
             limit,
             _optional_text(cursor),
         )
@@ -2702,12 +2702,12 @@ class ReadSession:
         """Return one bounded page of locators belonging to a resource."""
 
         self._require_open()
-        native_id = _native_uuid(resource_id)
+        native_id = _native_resource_id(resource_id)
         handle = ctypes.POINTER(LocatorQuerySet)()
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_read_session_locators_page(
             self._handle,
-            ctypes.byref(native_id),
+            native_id,
             limit,
             _optional_text(cursor),
             ctypes.byref(handle),
@@ -3327,11 +3327,11 @@ class Transaction:
         """
 
         self._require_open()
-        native_id = _native_uuid(resource_id)
+        native_id = _native_resource_id(resource_id)
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_transaction_confirm_locator(
             self._handle,
-            ctypes.byref(native_id),
+            native_id,
             _utf8(uri, "locator URI"),
             None if media_root is None else _utf8(media_root, "root name"),
             _native_naming(sequence_naming),
@@ -3356,14 +3356,14 @@ class Transaction:
         """Stage an explicit content-fingerprint observation for one resource."""
 
         self._require_open()
-        native_id = _native_uuid(resource_id)
+        native_id = _native_resource_id(resource_id)
         value = (ctypes.c_uint8 * len(fingerprint.value)).from_buffer_copy(
             fingerprint.value
         )
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_transaction_record_resource_fingerprint(
             self._handle,
-            ctypes.byref(native_id),
+            native_id,
             _utf8(fingerprint.algorithm, "fingerprint algorithm"),
             fingerprint.version,
             value,
@@ -3388,12 +3388,12 @@ class Transaction:
         """
 
         self._require_open()
-        native_id = _native_uuid(resource_id)
+        native_id = _native_resource_id(resource_id)
         outcome = ctypes.c_uint32()
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_transaction_observe_resource_content(
             self._handle,
-            ctypes.byref(native_id),
+            native_id,
             _path_bytes(path),
             _native_naming(sequence_naming),
             ctypes.byref(outcome),
@@ -3443,9 +3443,9 @@ class Transaction:
                 NativeDependency(
                     int(value.source_resource_id is not None),
                     (
-                        _native_uuid(value.source_resource_id)
+                        _native_resource_id(value.source_resource_id)
                         if value.source_resource_id is not None
-                        else Uuid()
+                        else _abi.ResourceId()
                     ),
                     kinds[index],
                     _native_object_reference(value.target),
@@ -4115,6 +4115,7 @@ def _utf8(value: str, label: str) -> bytes:
 
 def _uuid(
     value: Uuid
+    | _abi.ResourceId
     | _abi.RepresentationId
     | _abi.ActivityId
     | _abi.AssetId
@@ -4172,6 +4173,14 @@ def _native_representation_id(value: RepresentationId) -> _abi.RepresentationId:
     if not isinstance(value, UUID):
         raise TypeError("identity must be a uuid.UUID")
     native = _abi.RepresentationId()
+    native.bytes[:] = value.bytes
+    return native
+
+
+def _native_resource_id(value: ResourceId) -> _abi.ResourceId:
+    if not isinstance(value, UUID):
+        raise TypeError("identity must be a uuid.UUID")
+    native = _abi.ResourceId()
     native.bytes[:] = value.bytes
     return native
 
@@ -4628,7 +4637,7 @@ def _locator_match_at(
     native: NativeLibrary, locators: _Pointer[LocatorQuerySet], index: int
 ) -> LocatorMatch:
     locator_id = _abi.LocatorId()
-    resource_id = Uuid()
+    resource_id = _abi.ResourceId()
     uri = ctypes.c_char_p()
     availability = _abi.LocatorAvailability()
     has_last_seen = ctypes.c_uint8()
@@ -4670,7 +4679,7 @@ def _known_media_match_at(
 ) -> KnownMediaMatch:
     asset_id = _abi.AssetId()
     representation_id = _abi.RepresentationId()
-    resource_id = Uuid()
+    resource_id = _abi.ResourceId()
     error = ctypes.POINTER(Error)()
     status = native.lib.pp_known_media_set_get(
         matches,
@@ -5003,7 +5012,7 @@ def _representation_member_at(
     representation_index: int,
     member_index: int,
 ) -> RepresentationMember:
-    resource_id = Uuid()
+    resource_id = _abi.ResourceId()
     role = ctypes.c_char_p()
     required = ctypes.c_uint8()
     error = ctypes.POINTER(Error)()
@@ -5113,7 +5122,7 @@ def _resource_at(
     representation_index: int,
     resource_index: int,
 ) -> Resource:
-    resource_id = Uuid()
+    resource_id = _abi.ResourceId()
     has_file_facts = ctypes.c_uint8()
     file_size = ctypes.c_uint64()
     has_modified_at = ctypes.c_uint8()
@@ -5288,7 +5297,7 @@ def _resource_resolution_at(
     representation_index: int,
     resource_index: int,
 ) -> ResourceResolution:
-    resource_id = Uuid()
+    resource_id = _abi.ResourceId()
     state = _abi.ResourceResolutionState()
     candidate_count = ctypes.c_uint64()
     evidence_count = ctypes.c_uint64()
@@ -5435,7 +5444,7 @@ def _availability_issue_at(
     representation_index: int,
     issue_index: int,
 ) -> AvailabilityIssue:
-    resource_id = Uuid()
+    resource_id = _abi.ResourceId()
     required = ctypes.c_uint8()
     kind = _abi.AvailabilityIssueKind()
     frame_count = ctypes.c_uint64()

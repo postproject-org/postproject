@@ -391,7 +391,7 @@ def _optional_bytes(
     return bytes(value[:length])
 
 
-def _uuid(value: Uuid | _abi.ActivityId | _abi.RepresentationId) -> UUID:
+def _uuid(value: Uuid | _abi.ActivityId | _abi.RepresentationId | _abi.ResourceId) -> UUID:
     return UUID(bytes=bytes(value.bytes))
 
 
