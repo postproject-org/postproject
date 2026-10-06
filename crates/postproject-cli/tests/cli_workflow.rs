@@ -967,6 +967,7 @@ fn confirm_relocated_candidate(production: &str, asset_id: &str, candidates: &st
         &root_mapping,
     ]);
     assert_eq!(ambiguous["resolutions"][0]["availability"], "ambiguous");
+    assert!(ambiguous.get("commit_receipt").is_none());
     let resource = &ambiguous["resolutions"][0]["resources"][0];
     assert_eq!(resource["state"], "ambiguous");
     let confirmed_uri = resource["candidates"][0]["uri"]
@@ -983,6 +984,10 @@ fn confirm_relocated_candidate(production: &str, asset_id: &str, candidates: &st
         confirmed_uri,
     ]);
     assert_eq!(confirmed["confirmed_uri"], confirmed_uri);
+    assert_eq!(
+        confirmed["commit_receipt"]["revision"]["id"],
+        run_json(&["revisions", "latest", production])["id"]
+    );
 }
 
 #[test]

@@ -5407,15 +5407,18 @@ fn media_resolve(
     let inspector = FfprobeInspector::with_executable(&args.ffprobe);
     let resolutions = resolve_representations(&resolver, &scope, &representations, &inspector)?;
 
-    let confirmed_sequence_naming = match args.confirm.as_deref() {
-        Some(uri) => confirm_candidate(
-            &mut production,
-            &resolutions,
-            uri,
-            args.confirm_naming.as_ref(),
-            base_revision,
-        )?,
-        None => None,
+    let (confirmed_sequence_naming, receipt) = match args.confirm.as_deref() {
+        Some(uri) => {
+            let (naming, receipt) = confirm_candidate(
+                &mut production,
+                &resolutions,
+                uri,
+                args.confirm_naming.as_ref(),
+                base_revision,
+            )?;
+            (naming, Some(receipt))
+        }
+        None => (None, None),
     };
 
     let view = ResolveView {
@@ -5425,7 +5428,10 @@ fn media_resolve(
         confirmed_sequence_naming,
     };
     if json {
-        print_json(&view)
+        match receipt {
+            Some(receipt) => print_json_with_receipt(&view, &receipt),
+            None => print_json(&view),
+        }
     } else {
         for resolution in &view.resolutions {
             println!(
@@ -5464,7 +5470,7 @@ fn confirm_candidate(
     uri: &str,
     confirm_naming: Option<&SequenceNamingArg>,
     base_revision: Option<CliDecisionBase>,
-) -> Result<Option<SequenceNamingView>> {
+) -> Result<(Option<SequenceNamingView>, CommitReceipt)> {
     let wanted = confirm_naming.map(|naming| &naming.0);
     let matching: Vec<_> = resolutions
         .iter()
@@ -5499,8 +5505,13 @@ fn confirm_candidate(
     transaction
         .add_locator(&locator)
         .context("stage confirmed locator")?;
-    transaction.commit().context("commit confirmed locator")?;
-    Ok(candidate.sequence_naming().map(SequenceNamingView::from))
+    let receipt = transaction
+        .commit_with_receipt()
+        .context("commit confirmed locator")?;
+    Ok((
+        candidate.sequence_naming().map(SequenceNamingView::from),
+        receipt,
+    ))
 }
 
 /// A representation with the stored knowledge its resolution needs.
