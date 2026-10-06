@@ -205,3 +205,18 @@ consumer/artifact scope is in the repository manifest; logs use
 `target/api-safety-root-*` (Kdenlive uses `api-safety-kdenlive-root-*`).
 Other identity/value families, write restrictions, leases, bounded-query audit
 and final host/platform/handoff qualification remain open.
+
+## Root decision checks
+
+At `a6e3907`, enabling/removing roots requires a decision base before staging,
+including idempotent requests. Creation remains additive. Storage, C and Python
+reject invalid inputs without poisoning an open edit; stale removal reports
+the typed root conflict. CLI commands require inspection tokens and return
+their own receipt or structured conflict. Recipes use read-bound edits.
+
+On 2026-10-06, all six Rust gates, eight installed native contracts, 64 extracted
+tests, strict docs, symbol/layout checks and source Ruff/ty pass. Source and
+installed-wheel Python run 77 tests with one skip; installed typing rejects
+five wrong-kind calls. ABI 42/schema 17 retain 294 exports and 22 layouts.
+Logs and installed files use `target/api-safety-root-edits-*`. Consumer evidence
+remains the preceding typed-root checkpoint; no completion gate is closed.

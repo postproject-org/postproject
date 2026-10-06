@@ -288,3 +288,17 @@ native-library overrides. Natron's bridge scenario records its structured
 conflict in `target/api-safety-root-natron-bridge.json`. No full native-host,
 interactive/handoff, exact MSRV or final platform qualification is inferred.
 All changes remain on local `main`; no push, tag or publication occurred.
+
+## Root decision checks
+
+SDK runtime `a6e3907` and source manifest `b66cf7e` retain ABI 42/schema 17.
+The separate `target/api-safety-root-edits-install` prefix contains the guarded
+root edits. Neutral wheel SHA-256:
+`79ee0977ffdd80cf0962a511e73d9c587394e081ff33276a5df0a11ae9bc6071`;
+path: `target/api-safety-wheel/root-edits-abi42/`.
+
+All six Rust gates, eight installed native contracts, 64 extracted tests,
+strict docs and symbol/layout checks pass. Source and installed-wheel Python:
+77 run, one skip. Installed typing rejects five wrong-kind calls. This wheel
+was not qualified against the maintained hosts; their evidence above uses the
+preceding candidate. No publication or final qualification is claimed.
