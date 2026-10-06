@@ -143,3 +143,9 @@ Attaching an independent identifier remains additive.
 Complete dependency observations require a read-derived base, including a
 first, empty or identical set. CLI `dependency record` requires
 `--decision-base`; a set replaces the entire previous observation.
+
+Root getters now read current facts and cap full collections at 1000 roots.
+Use C `pp_production_media_roots_page` / `pp_read_session_media_roots_page`,
+C++ `mediaRoots(limit, cursor)`, Python `media_roots_page(limit=..., cursor=...)`
+or CLI `root page` for bounded continuation. A retained view's cursor requires
+that same view; CLI root cursors resume live reads.

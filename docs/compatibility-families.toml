@@ -252,7 +252,7 @@ id = "media-root-identity"
 dependencies = ["production-lifecycle", "transaction-lifecycle"]
 introduced_release = "0.7.0-alpha.1"
 last_changed_release = "0.7.0-alpha.1"
-last_changed_abi = 42
+last_changed_abi = 47
 c_operations = [
   "pp_media_root_id_parse",
   "pp_media_root_id_format",
@@ -341,3 +341,13 @@ last_changed_abi = 47
 c_operations = ["pp_production_dependency_set", "pp_read_session_dependency_set", "pp_dependency_set_get", "pp_dependency_set_get_dependency", "pp_dependency_set_release", "pp_transaction_record_dependency_set"]
 cpp_operations = ["Production::dependencySet", "ReadSession::dependencySet", "Transaction::recordDependencySet"]
 python_operations = ["Production.dependency_set", "ReadSession.dependency_set", "Transaction.record_dependency_set"]
+
+[[families]]
+id = "media-root-pages"
+dependencies = ["production-lifecycle", "media-root-identity"]
+introduced_release = "0.7.0-alpha.1"
+last_changed_release = "0.7.0-alpha.1"
+last_changed_abi = 47
+c_operations = ["pp_production_media_roots_page", "pp_read_session_media_roots_page", "pp_media_root_set_next_cursor", "pp_media_root_set_count", "pp_media_root_set_get", "pp_media_root_set_release"]
+cpp_operations = ["Production::mediaRoots", "ReadSession::mediaRoots"]
+python_operations = ["Production.media_roots_page", "ReadSession.media_roots_page"]

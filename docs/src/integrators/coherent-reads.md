@@ -35,6 +35,13 @@ artifact reports, bounded activities/provenance, output filters, unresolved
 media, changed objects, journal heads/pages/filters, bounded revision events,
 regeneration planning, resolution and verification. Rust exposes the full
 domain read interface. Existing production queries read current state separately.
+Media-root pages use the same ordering and cursor rules. Convenience root reads
+are capped at 1000 and fail above that count; use pages for larger productions.
+Live getters load current roots rather than roots cached at open.
+
+```{code-variants} root-pages
+```
+
 The CLI's `inspect --limit N` emits a bounded coherent summary and a
 `--decision-base` token; a truncated summary requires a new inspection rather
 than resuming a closed view.
