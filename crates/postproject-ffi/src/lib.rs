@@ -187,7 +187,7 @@ const PP_REVISION_JOB_FAILED: u32 = 25;
 const PP_REVISION_JOB_CANCELLED: u32 = 26;
 
 /// Current pre-1.0 ABI version.
-pub const ABI_VERSION: u32 = 45;
+pub const ABI_VERSION: u32 = 46;
 
 /// Fixed-layout UUID-compatible public identifier.
 #[repr(C)]
@@ -275,7 +275,7 @@ pub struct PpTransactionConflict {
 #[derive(Clone, Copy, Debug)]
 pub struct PpActivityEdge {
     /// Representation consumed or produced by the activity.
-    pub representation_id: PpUuid,
+    pub representation_id: PpRepresentationId,
     /// Optional NUL-terminated namespaced role.
     pub role: *const c_char,
 }
@@ -303,7 +303,7 @@ pub struct PpRevisionEvent {
     /// Event asset identity, or zero when not applicable.
     pub asset_id: PpAssetId,
     /// Event representation identity, or zero when not applicable.
-    pub representation_id: PpUuid,
+    pub representation_id: PpRepresentationId,
     /// Event resource identity, or zero when not applicable.
     pub resource_id: PpUuid,
     /// Event locator identity, or zero when not applicable.
@@ -1720,7 +1720,7 @@ pub unsafe extern "C" fn pp_locator_query_set_release(locators: *mut PpLocatorQu
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_resources_page(
     production: *const PpProduction,
-    representation_id: *const PpUuid,
+    representation_id: PpRepresentationId,
     limit: u32,
     cursor: *const c_char,
     out_objects: *mut *mut PpObjectQuerySet,
@@ -1732,9 +1732,6 @@ pub unsafe extern "C" fn pp_production_resources_page(
             let production = production
                 .as_ref()
                 .ok_or_else(|| invalid_argument("production must not be null"))?;
-            let representation_id = representation_id
-                .as_ref()
-                .ok_or_else(|| invalid_argument("representation_id must not be null"))?;
             require_output(out_objects, "out_objects")?;
             let request = query_page_request(limit, cursor)?;
             let page = lock_production(&production.state).resources_page(
@@ -1912,7 +1909,7 @@ pub unsafe extern "C" fn pp_production_outputs_by_tool(
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_activities_producing_page(
     production: *const PpProduction,
-    representation_id: *const PpUuid,
+    representation_id: PpRepresentationId,
     limit: u32,
     cursor: *const c_char,
     out_activities: *mut *mut PpActivitySet,
@@ -1939,7 +1936,7 @@ pub unsafe extern "C" fn pp_production_activities_producing_page(
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_activities_consuming_page(
     production: *const PpProduction,
-    representation_id: *const PpUuid,
+    representation_id: PpRepresentationId,
     limit: u32,
     cursor: *const c_char,
     out_activities: *mut *mut PpActivitySet,
@@ -1966,7 +1963,7 @@ pub unsafe extern "C" fn pp_production_activities_consuming_page(
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_provenance_ancestors_page(
     production: *const PpProduction,
-    representation_id: *const PpUuid,
+    representation_id: PpRepresentationId,
     max_depth: u32,
     max_representations: u32,
     limit: u32,
@@ -1997,7 +1994,7 @@ pub unsafe extern "C" fn pp_production_provenance_ancestors_page(
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_provenance_descendants_page(
     production: *const PpProduction,
-    representation_id: *const PpUuid,
+    representation_id: PpRepresentationId,
     max_depth: u32,
     max_representations: u32,
     limit: u32,
@@ -2031,7 +2028,7 @@ pub unsafe extern "C" fn pp_production_provenance_descendants_page(
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_stale_artifacts(
     production: *const PpProduction,
-    source_representation_id: *const PpUuid,
+    source_representation_id: *const PpRepresentationId,
     evaluation_max_depth: u32,
     evaluation_max_representations: u32,
     limit: u32,
@@ -2320,7 +2317,7 @@ pub unsafe extern "C" fn pp_metadata_set_release(metadata: *mut PpMetadataSet) {
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_dependency_set(
     production: *const PpProduction,
-    representation_id: *const PpUuid,
+    representation_id: PpRepresentationId,
     out_dependencies: *mut *mut PpDependencySet,
     out_error: *mut *mut PpError,
 ) -> u32 {
@@ -2331,9 +2328,6 @@ pub unsafe extern "C" fn pp_production_dependency_set(
             let production = production
                 .as_ref()
                 .ok_or_else(|| invalid_argument("production must not be null"))?;
-            let representation_id = representation_id
-                .as_ref()
-                .ok_or_else(|| invalid_argument("representation_id must not be null"))?;
             require_output(out_dependencies, "out_dependencies")?;
             let representation_id = RepresentationId::from_bytes(representation_id.bytes);
             let inner = lock_production(&production.state);
@@ -2359,7 +2353,7 @@ pub unsafe extern "C" fn pp_production_dependency_set(
 pub unsafe extern "C" fn pp_dependency_set_get(
     dependencies: *const PpDependencySet,
     out_present: *mut u8,
-    out_source_representation_id: *mut PpUuid,
+    out_source_representation_id: *mut PpRepresentationId,
     out_recorded_at_revision: *mut u64,
     out_status: *mut u32,
     out_dependency_count: *mut u64,
@@ -2368,7 +2362,10 @@ pub unsafe extern "C" fn pp_dependency_set_get(
     // SAFETY: Outputs are initialized and checked before writes.
     unsafe {
         initialize_value(out_present, 0);
-        initialize_uuid(out_source_representation_id);
+        initialize_value(
+            out_source_representation_id,
+            PpRepresentationId { bytes: [0; 16] },
+        );
         initialize_value(out_recorded_at_revision, 0);
         initialize_value(out_status, 0);
         initialize_value(out_dependency_count, 0);
@@ -2382,7 +2379,7 @@ pub unsafe extern "C" fn pp_dependency_set_get(
             require_output(out_status, "out_status")?;
             require_output(out_dependency_count, "out_dependency_count")?;
             out_present.write(u8::from(dependencies.present));
-            out_source_representation_id.write(PpUuid {
+            out_source_representation_id.write(PpRepresentationId {
                 bytes: dependencies.source_representation_id.into_bytes(),
             });
             out_recorded_at_revision.write(dependencies.recorded_at_revision);
@@ -2506,7 +2503,7 @@ pub unsafe extern "C" fn pp_production_dependents(
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_dependencies(
     production: *const PpProduction,
-    representation_id: *const PpUuid,
+    representation_id: PpRepresentationId,
     max_depth: u32,
     max_representations: u32,
     limit: u32,
@@ -2521,9 +2518,6 @@ pub unsafe extern "C" fn pp_production_dependencies(
             let production = production
                 .as_ref()
                 .ok_or_else(|| invalid_argument("production must not be null"))?;
-            let representation_id = representation_id
-                .as_ref()
-                .ok_or_else(|| invalid_argument("representation_id must not be null"))?;
             require_output(out_matches, "out_matches")?;
             let page_request = query_page_request(limit, cursor)?;
             let inner = lock_production(&production.state);
@@ -2657,7 +2651,7 @@ pub unsafe extern "C" fn pp_dependency_query_set_release(matches: *mut PpDepende
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_evaluate_artifact(
     production: *const PpProduction,
-    representation_id: *const PpUuid,
+    representation_id: PpRepresentationId,
     max_depth: u32,
     max_representations: u32,
     out_evaluation: *mut *mut PpArtifactEvaluation,
@@ -2670,9 +2664,6 @@ pub unsafe extern "C" fn pp_production_evaluate_artifact(
             let production = production
                 .as_ref()
                 .ok_or_else(|| invalid_argument("production must not be null"))?;
-            let representation_id = representation_id
-                .as_ref()
-                .ok_or_else(|| invalid_argument("representation_id must not be null"))?;
             require_output(out_evaluation, "out_evaluation")?;
             let limits = ArtifactEvaluationLimits::new(max_depth, max_representations)?;
             let inner = lock_production(&production.state);
@@ -2696,7 +2687,7 @@ pub unsafe extern "C" fn pp_production_evaluate_artifact(
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_artifact_evaluation_get(
     evaluation: *const PpArtifactEvaluation,
-    out_representation_id: *mut PpUuid,
+    out_representation_id: *mut PpRepresentationId,
     out_state: *mut u32,
     out_visited_representations: *mut u32,
     out_truncated: *mut u8,
@@ -2705,7 +2696,7 @@ pub unsafe extern "C" fn pp_artifact_evaluation_get(
 ) -> u32 {
     // SAFETY: Outputs are initialized and checked before writes.
     unsafe {
-        initialize_uuid(out_representation_id);
+        initialize_value(out_representation_id, PpRepresentationId { bytes: [0; 16] });
         initialize_value(out_state, 0);
         initialize_value(out_visited_representations, 0);
         initialize_value(out_truncated, 0);
@@ -2719,7 +2710,7 @@ pub unsafe extern "C" fn pp_artifact_evaluation_get(
             require_output(out_visited_representations, "out_visited_representations")?;
             require_output(out_truncated, "out_truncated")?;
             require_output(out_reason_count, "out_reason_count")?;
-            out_representation_id.write(PpUuid {
+            out_representation_id.write(PpRepresentationId {
                 bytes: evaluation.representation_id.into_bytes(),
             });
             out_state.write(evaluation.state);
@@ -2783,7 +2774,7 @@ pub unsafe extern "C" fn pp_artifact_evaluation_release(evaluation: *mut PpArtif
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_artifact_reproducibility(
     production: *const PpProduction,
-    representation_id: *const PpUuid,
+    representation_id: PpRepresentationId,
     out_report: *mut *mut PpArtifactReproducibility,
     out_error: *mut *mut PpError,
 ) -> u32 {
@@ -2794,9 +2785,6 @@ pub unsafe extern "C" fn pp_production_artifact_reproducibility(
             let production = production
                 .as_ref()
                 .ok_or_else(|| invalid_argument("production must not be null"))?;
-            let representation_id = representation_id
-                .as_ref()
-                .ok_or_else(|| invalid_argument("representation_id must not be null"))?;
             require_output(out_report, "out_report")?;
             let inner = lock_production(&production.state);
             let report = inner
@@ -2818,7 +2806,7 @@ pub unsafe extern "C" fn pp_production_artifact_reproducibility(
 #[allow(clippy::too_many_arguments, reason = "flat C outputs are ABI-safe")]
 pub unsafe extern "C" fn pp_artifact_reproducibility_get(
     report: *const PpArtifactReproducibility,
-    out_representation_id: *mut PpUuid,
+    out_representation_id: *mut PpRepresentationId,
     out_reproducible: *mut u8,
     out_has_producing_activity: *mut u8,
     out_producing_activity_id: *mut PpActivityId,
@@ -2828,7 +2816,7 @@ pub unsafe extern "C" fn pp_artifact_reproducibility_get(
 ) -> u32 {
     // SAFETY: Outputs are initialized and checked before writes.
     unsafe {
-        initialize_uuid(out_representation_id);
+        initialize_value(out_representation_id, PpRepresentationId { bytes: [0; 16] });
         initialize_value(out_reproducible, 0);
         initialize_value(out_has_producing_activity, 0);
         initialize_value(out_producing_activity_id, PpActivityId { bytes: [0; 16] });
@@ -2844,7 +2832,7 @@ pub unsafe extern "C" fn pp_artifact_reproducibility_get(
             require_output(out_producing_activity_id, "out_producing_activity_id")?;
             require_output(out_activity_kind, "out_activity_kind")?;
             require_output(out_issue_count, "out_issue_count")?;
-            out_representation_id.write(PpUuid {
+            out_representation_id.write(PpRepresentationId {
                 bytes: report.representation_id.into_bytes(),
             });
             out_reproducible.write(u8::from(report.issues.is_empty()));
@@ -2949,7 +2937,7 @@ pub unsafe extern "C" fn pp_production_activities(
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_activities_producing(
     production: *const PpProduction,
-    representation_id: *const PpUuid,
+    representation_id: PpRepresentationId,
     out_activities: *mut *mut PpActivitySet,
     out_error: *mut *mut PpError,
 ) -> u32 {
@@ -2973,7 +2961,7 @@ pub unsafe extern "C" fn pp_production_activities_producing(
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_activities_consuming(
     production: *const PpProduction,
-    representation_id: *const PpUuid,
+    representation_id: PpRepresentationId,
     out_activities: *mut *mut PpActivitySet,
     out_error: *mut *mut PpError,
 ) -> u32 {
@@ -2998,7 +2986,7 @@ pub unsafe extern "C" fn pp_production_activities_consuming(
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_provenance_ancestors(
     production: *const PpProduction,
-    representation_id: *const PpUuid,
+    representation_id: PpRepresentationId,
     out_representations: *mut *mut PpObjectRefSet,
     out_error: *mut *mut PpError,
 ) -> u32 {
@@ -3022,7 +3010,7 @@ pub unsafe extern "C" fn pp_production_provenance_ancestors(
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_provenance_descendants(
     production: *const PpProduction,
-    representation_id: *const PpUuid,
+    representation_id: PpRepresentationId,
     out_representations: *mut *mut PpObjectRefSet,
     out_error: *mut *mut PpError,
 ) -> u32 {
@@ -3153,7 +3141,7 @@ pub unsafe extern "C" fn pp_activity_set_get_input(
     activities: *const PpActivitySet,
     activity_index: u64,
     input_index: u64,
-    out_representation_id: *mut PpUuid,
+    out_representation_id: *mut PpRepresentationId,
     out_role: *mut *const c_char,
     out_error: *mut *mut PpError,
 ) -> u32 {
@@ -3185,7 +3173,7 @@ pub unsafe extern "C" fn pp_activity_set_get_output(
     activities: *const PpActivitySet,
     activity_index: u64,
     output_index: u64,
-    out_representation_id: *mut PpUuid,
+    out_representation_id: *mut PpRepresentationId,
     out_role: *mut *const c_char,
     out_error: *mut *mut PpError,
 ) -> u32 {
@@ -3639,12 +3627,12 @@ pub unsafe extern "C" fn pp_job_set_get_input(
     jobs: *const PpJobSet,
     job_index: u64,
     input_index: u64,
-    out_representation_id: *mut PpUuid,
+    out_representation_id: *mut PpRepresentationId,
     out_error: *mut *mut PpError,
 ) -> u32 {
     // SAFETY: Outputs are initialized and checked before writes.
     unsafe {
-        initialize_uuid(out_representation_id);
+        initialize_value(out_representation_id, PpRepresentationId { bytes: [0; 16] });
         ffi_call(out_error, || {
             let jobs = jobs
                 .as_ref()
@@ -3689,7 +3677,7 @@ pub unsafe extern "C" fn pp_job_set_release(jobs: *mut PpJobSet) {
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_plan_regeneration(
     production: *const PpProduction,
-    artifact_representation_ids: *const PpUuid,
+    artifact_representation_ids: *const PpRepresentationId,
     artifact_count: u64,
     out_plans: *mut *mut PpRegenerationPlanSet,
     out_error: *mut *mut PpError,
@@ -3760,14 +3748,17 @@ pub unsafe extern "C" fn pp_regeneration_plan_set_count(
 pub unsafe extern "C" fn pp_regeneration_plan_set_get(
     plans: *const PpRegenerationPlanSet,
     index: u64,
-    out_artifact_representation_id: *mut PpUuid,
+    out_artifact_representation_id: *mut PpRepresentationId,
     out_job: *mut *mut PpJobSet,
     out_parameters: *mut *mut PpMetadataSet,
     out_error: *mut *mut PpError,
 ) -> u32 {
     // SAFETY: Outputs are initialized and checked before writes.
     unsafe {
-        initialize_uuid(out_artifact_representation_id);
+        initialize_value(
+            out_artifact_representation_id,
+            PpRepresentationId { bytes: [0; 16] },
+        );
         initialize_output(out_job);
         initialize_output(out_parameters);
         ffi_call(out_error, || {
@@ -3793,7 +3784,7 @@ pub unsafe extern "C" fn pp_regeneration_plan_set_get(
                 ObjectRef::Job(plan.job().id()),
                 plan.parameters(),
             )?);
-            out_artifact_representation_id.write(PpUuid {
+            out_artifact_representation_id.write(PpRepresentationId {
                 bytes: plan.artifact_representation_id().into_bytes(),
             });
             out_job.write(Box::into_raw(job));
@@ -4479,7 +4470,7 @@ pub unsafe extern "C" fn pp_resolution_set_get_representation(
     resolutions: *const PpResolutionSet,
     representation_index: u64,
     out_asset_id: *mut PpAssetId,
-    out_representation_id: *mut PpUuid,
+    out_representation_id: *mut PpRepresentationId,
     out_availability: *mut u32,
     out_resource_count: *mut u64,
     out_issue_count: *mut u64,
@@ -4488,7 +4479,7 @@ pub unsafe extern "C" fn pp_resolution_set_get_representation(
     // SAFETY: Outputs are initialized and checked before writes.
     unsafe {
         initialize_value(out_asset_id, PpAssetId { bytes: [0; 16] });
-        initialize_uuid(out_representation_id);
+        initialize_value(out_representation_id, PpRepresentationId { bytes: [0; 16] });
         initialize_value(out_availability, 0);
         initialize_value(out_resource_count, 0);
         initialize_value(out_issue_count, 0);
@@ -4502,7 +4493,7 @@ pub unsafe extern "C" fn pp_resolution_set_get_representation(
             out_asset_id.write(PpAssetId {
                 bytes: resolution.asset_id.into_bytes(),
             });
-            out_representation_id.write(PpUuid {
+            out_representation_id.write(PpRepresentationId {
                 bytes: resolution.representation_id.into_bytes(),
             });
             out_availability.write(representation_availability(resolution.availability));
@@ -4930,13 +4921,13 @@ pub unsafe extern "C" fn pp_transaction_add_representation(
     asset_id: PpAssetId,
     kind: u32,
     source: *const PpMediaSource,
-    out_representation_id: *mut PpUuid,
+    out_representation_id: *mut PpRepresentationId,
     out_error: *mut *mut PpError,
 ) -> u32 {
     // SAFETY: Null pointers are rejected before dereference and borrowed
     // inputs are not retained after this call.
     unsafe {
-        initialize_uuid(out_representation_id);
+        initialize_value(out_representation_id, PpRepresentationId { bytes: [0; 16] });
         ffi_call(out_error, || {
             let transaction = transaction
                 .as_mut()
@@ -4951,7 +4942,7 @@ pub unsafe extern "C" fn pp_transaction_add_representation(
                 representation_kind_from_abi(kind)?,
                 source.clone(),
             )?;
-            out_representation_id.write(PpUuid {
+            out_representation_id.write(PpRepresentationId {
                 bytes: import.representation().id().into_bytes(),
             });
             transaction
@@ -5209,7 +5200,7 @@ pub unsafe extern "C" fn pp_transaction_record_resource_fingerprint(
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_transaction_record_representation_fingerprint(
     transaction: *mut PpTransaction,
-    representation_id: *const PpUuid,
+    representation_id: PpRepresentationId,
     algorithm: *const c_char,
     version: u16,
     value: *const u8,
@@ -5223,9 +5214,6 @@ pub unsafe extern "C" fn pp_transaction_record_representation_fingerprint(
                 .as_mut()
                 .ok_or_else(|| invalid_argument("transaction must not be null"))?;
             transaction.lifecycle.ensure_open()?;
-            let representation_id = representation_id
-                .as_ref()
-                .ok_or_else(|| invalid_argument("representation_id must not be null"))?;
             let fingerprint = RepresentationFingerprint::new(
                 required_utf8(algorithm, "algorithm")?,
                 version,
@@ -5254,7 +5242,7 @@ pub unsafe extern "C" fn pp_transaction_record_representation_fingerprint(
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_transaction_record_dependency_set(
     transaction: *mut PpTransaction,
-    representation_id: *const PpUuid,
+    representation_id: PpRepresentationId,
     dependencies: *const PpDependency,
     dependency_count: u64,
     out_error: *mut *mut PpError,
@@ -5266,9 +5254,6 @@ pub unsafe extern "C" fn pp_transaction_record_dependency_set(
                 .as_mut()
                 .ok_or_else(|| invalid_argument("transaction must not be null"))?;
             transaction.lifecycle.ensure_open()?;
-            let representation_id = representation_id
-                .as_ref()
-                .ok_or_else(|| invalid_argument("representation_id must not be null"))?;
             let dependencies = dependencies_from_abi(dependencies, dependency_count)?;
             transaction
                 .mutations
@@ -5452,7 +5437,7 @@ pub unsafe extern "C" fn pp_transaction_remove_metadata_property(
 pub unsafe extern "C" fn pp_transaction_request_job(
     transaction: *mut PpTransaction,
     kind: *const c_char,
-    input_representation_ids: *const PpUuid,
+    input_representation_ids: *const PpRepresentationId,
     input_count: u64,
     output_asset_id: PpAssetId,
     output_representation_kind: u32,
@@ -5652,7 +5637,7 @@ pub unsafe extern "C" fn pp_transaction_complete_job(
     job_id: PpJobId,
     claim_id: *const PpUuid,
     now_unix_micros: i64,
-    output_representation_id: *const PpUuid,
+    output_representation_id: PpRepresentationId,
     activity_id: PpActivityId,
     out_error: *mut *mut PpError,
 ) -> u32 {
@@ -5664,9 +5649,7 @@ pub unsafe extern "C" fn pp_transaction_complete_job(
                 .ok_or_else(|| invalid_argument("transaction must not be null"))?;
             transaction.lifecycle.ensure_open()?;
             let (job_id, claim_id) = required_job_claim_ids(job_id, claim_id)?;
-            let output_id = output_representation_id
-                .as_ref()
-                .ok_or_else(|| invalid_argument("output_representation_id must not be null"))?;
+            let output_id = output_representation_id;
             let output_id = RepresentationId::from_bytes(output_id.bytes);
             let activity_id = ActivityId::from_bytes(activity_id.bytes);
             let output_index = transaction
@@ -6126,7 +6109,7 @@ enum ActivityRelation {
 
 unsafe fn production_activities_for_representation(
     production: *const PpProduction,
-    representation_id: *const PpUuid,
+    representation_id: PpRepresentationId,
     relation: ActivityRelation,
     out_activities: *mut *mut PpActivitySet,
     out_error: *mut *mut PpError,
@@ -6138,9 +6121,6 @@ unsafe fn production_activities_for_representation(
             let production = production
                 .as_ref()
                 .ok_or_else(|| invalid_argument("production must not be null"))?;
-            let representation_id = representation_id
-                .as_ref()
-                .ok_or_else(|| invalid_argument("representation_id must not be null"))?;
             require_output(out_activities, "out_activities")?;
             let inner = lock_production(&production.state);
             let representation_id = RepresentationId::from_bytes(representation_id.bytes);
@@ -6160,7 +6140,7 @@ unsafe fn production_activities_for_representation(
 )]
 unsafe fn production_activities_page(
     production: *const PpProduction,
-    representation_id: *const PpUuid,
+    representation_id: PpRepresentationId,
     limit: u32,
     cursor: *const c_char,
     producing: bool,
@@ -6174,9 +6154,6 @@ unsafe fn production_activities_page(
             let production = production
                 .as_ref()
                 .ok_or_else(|| invalid_argument("production must not be null"))?;
-            let representation_id = representation_id
-                .as_ref()
-                .ok_or_else(|| invalid_argument("representation_id must not be null"))?;
             require_output(out_activities, "out_activities")?;
             let request = query_page_request(limit, cursor)?;
             let inner = lock_production(&production.state);
@@ -6203,7 +6180,7 @@ enum ProvenanceDirection {
 
 unsafe fn production_provenance_relatives(
     production: *const PpProduction,
-    representation_id: *const PpUuid,
+    representation_id: PpRepresentationId,
     direction: ProvenanceDirection,
     out_representations: *mut *mut PpObjectRefSet,
     out_error: *mut *mut PpError,
@@ -6215,9 +6192,6 @@ unsafe fn production_provenance_relatives(
             let production = production
                 .as_ref()
                 .ok_or_else(|| invalid_argument("production must not be null"))?;
-            let representation_id = representation_id
-                .as_ref()
-                .ok_or_else(|| invalid_argument("representation_id must not be null"))?;
             require_output(out_representations, "out_representations")?;
             let inner = lock_production(&production.state);
             let representation_id = RepresentationId::from_bytes(representation_id.bytes);
@@ -6246,7 +6220,7 @@ unsafe fn production_provenance_relatives(
 )]
 unsafe fn production_provenance_page(
     production: *const PpProduction,
-    representation_id: *const PpUuid,
+    representation_id: PpRepresentationId,
     max_depth: u32,
     max_representations: u32,
     limit: u32,
@@ -6262,9 +6236,6 @@ unsafe fn production_provenance_page(
             let production = production
                 .as_ref()
                 .ok_or_else(|| invalid_argument("production must not be null"))?;
-            let representation_id = representation_id
-                .as_ref()
-                .ok_or_else(|| invalid_argument("representation_id must not be null"))?;
             require_output(out_objects, "out_objects")?;
             let limits = ProvenanceQueryLimits::new(max_depth, max_representations)?;
             let request = query_page_request(limit, cursor)?;
@@ -6339,7 +6310,7 @@ const fn empty_revision_event() -> PpRevisionEvent {
         kind: 0,
         position: 0,
         asset_id: PpAssetId { bytes: [0; 16] },
-        representation_id: PpUuid { bytes: [0; 16] },
+        representation_id: PpRepresentationId { bytes: [0; 16] },
         resource_id: PpUuid { bytes: [0; 16] },
         locator_id: PpLocatorId { bytes: [0; 16] },
         media_root_id: PpMediaRootId { bytes: [0; 16] },
@@ -6367,8 +6338,8 @@ const fn zero_artifact_reason() -> PpArtifactReason {
     PpArtifactReason {
         kind: 0,
         activity_id: PpActivityId { bytes: [0; 16] },
-        representation_id: PpUuid { bytes: [0; 16] },
-        input_representation_id: PpUuid { bytes: [0; 16] },
+        representation_id: PpRepresentationId { bytes: [0; 16] },
+        input_representation_id: PpRepresentationId { bytes: [0; 16] },
         edge_kind: 0,
         upstream_state: 0,
         traversal_limit: 0,
@@ -6397,7 +6368,7 @@ const fn zero_dependency() -> PpDependency {
             id: PpUuid { bytes: [0; 16] },
         },
         has_resolved_representation: 0,
-        resolved_representation_id: PpUuid { bytes: [0; 16] },
+        resolved_representation_id: PpRepresentationId { bytes: [0; 16] },
         required: 0,
         authored_reference: ptr::null(),
     }
@@ -6407,7 +6378,7 @@ const fn zero_reproducibility_issue() -> PpArtifactReproducibilityIssue {
     PpArtifactReproducibilityIssue {
         kind: 0,
         activity_id: PpActivityId { bytes: [0; 16] },
-        representation_id: PpUuid { bytes: [0; 16] },
+        representation_id: PpRepresentationId { bytes: [0; 16] },
         activity_count: 0,
     }
 }
@@ -6447,17 +6418,17 @@ unsafe fn write_evidence(
 unsafe fn write_activity_edge(
     edges: &[AbiActivityEdge],
     index: u64,
-    out_representation_id: *mut PpUuid,
+    out_representation_id: *mut PpRepresentationId,
     out_role: *mut *const c_char,
 ) -> Result<(), Error> {
     // SAFETY: Output validity is checked before either pointer is written.
     unsafe {
-        initialize_uuid(out_representation_id);
+        initialize_value(out_representation_id, PpRepresentationId { bytes: [0; 16] });
         initialize_const_output(out_role);
         require_output(out_representation_id, "out_representation_id")?;
         require_output(out_role, "out_role")?;
         let edge = item_at(edges, index, "activity edge")?;
-        out_representation_id.write(PpUuid {
+        out_representation_id.write(PpRepresentationId {
             bytes: edge.representation_id.into_bytes(),
         });
         out_role.write(
@@ -6725,7 +6696,7 @@ unsafe fn dependencies_from_abi(
             }?;
             let source_resource_id = optional_uuid_flagged(
                 dependency.has_source_resource,
-                dependency.source_resource_id,
+                dependency.source_resource_id.bytes,
                 "has_source_resource",
             )?
             .map(ResourceId::from_bytes);
@@ -6740,7 +6711,7 @@ unsafe fn dependencies_from_abi(
             };
             let resolved_representation_id = optional_uuid_flagged(
                 dependency.has_resolved_representation,
-                dependency.resolved_representation_id,
+                dependency.resolved_representation_id.bytes,
                 "has_resolved_representation",
             )?
             .map(RepresentationId::from_bytes);
@@ -6761,10 +6732,14 @@ unsafe fn dependencies_from_abi(
         .collect()
 }
 
-fn optional_uuid_flagged(flag: u8, value: PpUuid, label: &str) -> Result<Option<[u8; 16]>, Error> {
+fn optional_uuid_flagged(
+    flag: u8,
+    value: [u8; 16],
+    label: &str,
+) -> Result<Option<[u8; 16]>, Error> {
     match flag {
         0 => Ok(None),
-        1 => Ok(Some(value.bytes)),
+        1 => Ok(Some(value)),
         _ => Err(invalid_argument(format!("{label} must be zero or one"))),
     }
 }
@@ -7619,7 +7594,7 @@ mod tests {
     fn resolution_accessors_reject_out_of_range_indices() {
         let resolutions = Box::into_raw(Box::new(PpResolutionSet::new(Vec::new())));
         let mut asset_id = PpAssetId { bytes: [9; 16] };
-        let mut representation_id = PpUuid { bytes: [9; 16] };
+        let mut representation_id = PpRepresentationId { bytes: [9; 16] };
         let mut availability = 99;
         let mut resource_count = 99;
         let mut issue_count = 99;
@@ -7700,7 +7675,7 @@ mod tests {
             representation,
         )])));
         let mut asset_id = PpAssetId { bytes: [0; 16] };
-        let mut id = PpUuid { bytes: [0; 16] };
+        let mut id = PpRepresentationId { bytes: [0; 16] };
         let mut availability = 0;
         let mut resource_count = 0;
         let mut issue_count = 0;
@@ -7727,6 +7702,7 @@ mod tests {
         assert_eq!(resource_count, 1);
         assert_eq!(issue_count, 1);
 
+        let mut resource_result = PpUuid { bytes: [0; 16] };
         let mut required = 0;
         let mut kind = 0;
         let mut frame_count = 0;
@@ -7737,7 +7713,7 @@ mod tests {
                     resolutions,
                     0,
                     0,
-                    &raw mut id,
+                    &raw mut resource_result,
                     &raw mut required,
                     &raw mut kind,
                     &raw mut frame_count,
@@ -7746,7 +7722,7 @@ mod tests {
             },
             PP_OK
         );
-        assert_eq!(id.bytes, resource_id.into_bytes());
+        assert_eq!(resource_result.bytes, resource_id.into_bytes());
         assert_eq!(required, 1);
         assert_eq!(kind, PP_AVAILABILITY_ISSUE_MISSING_FRAMES);
         assert_eq!(frame_count, 1);
