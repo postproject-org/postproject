@@ -26,6 +26,7 @@ from postproject import (
     Production,
     RepresentationId,
     RepresentationKind,
+    ResourceId,
     StorageError,
     _abi,
     _native,
@@ -34,6 +35,58 @@ from postproject import (
 
 
 class IdentityTests(unittest.TestCase):
+    def test_native_resource_reads_reject_other_id_structures(self) -> None:
+        native = _native.NativeLibrary()
+        locators = ctypes.POINTER(_abi.LocatorQuerySet)()
+        error = ctypes.POINTER(_abi.Error)()
+        for wrong_id in (_abi.Uuid(), _abi.RepresentationId(), _abi.AssetId()):
+            with self.assertRaises(ctypes.ArgumentError):
+                native.lib.pp_production_locators_page(
+                    None,
+                    wrong_id,
+                    1,
+                    None,
+                    ctypes.byref(locators),
+                    ctypes.byref(error),
+                )
+
+    def test_resource_reads_validate_identity_and_production_scope(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            media = root / "media.dat"
+            media.write_bytes(b"scoped resource")
+            with (
+                Production.create(root / "first.pproj") as first,
+                Production.create(root / "second.pproj") as second,
+            ):
+                with first.transaction() as edit:
+                    asset = edit.import_media(media)
+                    edit.commit()
+                resource = first.representations[asset][0].resources[0].id
+                self.assertIsInstance(resource, UUID)
+                self.assertEqual(parse_id(str(resource), ResourceId), resource)
+                with first.read_session() as view:
+                    for reader in (first, view):
+                        self.assertEqual(
+                            reader.locators_page(resource, limit=1)
+                            .items[0]
+                            .resource_id,
+                            resource,
+                        )
+                with second.read_session() as view:
+                    for identifier in (resource, ResourceId(UUID(int=0))):
+                        for reader in (second, view):
+                            with self.assertRaises(NotFoundError):
+                                reader.locators_page(identifier, limit=1)
+                            with self.assertRaises(NotFoundError):
+                                reader.representations_using_resource(
+                                    identifier, limit=1
+                                )
+                self.assertIsNone(second.latest_revision)
+                untyped: Any = "invalid"
+                with self.assertRaises(TypeError):
+                    first.locators_page(untyped, limit=1)
+
     def test_native_representation_reads_reject_other_id_structures(self) -> None:
         native = _native.NativeLibrary()
         representations = ctypes.POINTER(_abi.RepresentationSet)()

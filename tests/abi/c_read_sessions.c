@@ -146,11 +146,11 @@ static int rejects_null_storage_reads(void) {
       NULL, (pp_representation_id_t){{0}}, 1, NULL, &resources, &error);
   int valid = status == PP_ERROR_INVALID_ARGUMENT && resources == NULL;
   pp_error_release(error); error = NULL;
-  status = pp_read_session_locators_page(NULL, NULL, 1, NULL, &locators, &error);
+  status = pp_read_session_locators_page(NULL, (pp_resource_id_t){{0}}, 1, NULL, &locators, &error);
   valid = valid && status == PP_ERROR_INVALID_ARGUMENT && locators == NULL;
   pp_error_release(error); error = NULL;
   status = pp_read_session_representations_using_resource(
-      NULL, NULL, 1, NULL, &representations, &error);
+      NULL, (pp_resource_id_t){{0}}, 1, NULL, &representations, &error);
   valid = valid && status == PP_ERROR_INVALID_ARGUMENT && representations == NULL;
   pp_error_release(error); error = NULL;
   pp_dependency_set_t *dependencies = (pp_dependency_set_t *)(uintptr_t)1;

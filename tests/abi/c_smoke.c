@@ -125,7 +125,7 @@ static pp_error_code_t resolve_in(pp_production_t *production,
   }
   pp_resolution_options_release(options);
   if (status == PP_OK) {
-    pp_uuid_t resource_id = {{0}};
+    pp_resource_id_t resource_id = {{0}};
     uint64_t evidence_count = 0;
     status = pp_resolution_set_get_resource(*out_resolutions, 0, 0,
                                             &resource_id, out_state,
@@ -256,7 +256,7 @@ static int renamed_sequence_scenario(pp_production_t *production,
   }
 
   // The candidate is confirmed with the naming it was found under.
-  pp_uuid_t resource_id = {{0}};
+  pp_resource_id_t resource_id = {{0}};
   pp_resource_resolution_state_t unused_state = 0;
   uint64_t unused_count = 0;
   status = pp_resolution_set_get_resource(resolutions, 0, 0, &resource_id,
@@ -266,7 +266,7 @@ static int renamed_sequence_scenario(pp_production_t *production,
     status = pp_production_begin_transaction(production, &transaction, &error);
   }
   if (status == PP_OK) {
-    status = pp_transaction_confirm_locator(transaction, &resource_id, uri,
+    status = pp_transaction_confirm_locator(transaction, resource_id, uri,
                                             media_root, &found, &error);
   }
   if (status == PP_OK) {
@@ -282,13 +282,13 @@ static int renamed_sequence_scenario(pp_production_t *production,
   pp_locator_query_set_t *locators = NULL;
   int original = 0;
   int renamed = 0;
-  status = pp_production_locators_page(production, &resource_id, 10, NULL,
+  status = pp_production_locators_page(production, resource_id, 10, NULL,
                                        &locators, &error);
   for (uint64_t index = 0;
        status == PP_OK && index < pp_locator_query_set_count(locators);
        ++index) {
     pp_locator_id_t locator_id = {{0}};
-    pp_uuid_t owner_id = {{0}};
+    pp_resource_id_t owner_id = {{0}};
     const char *locator_uri = NULL;
     pp_locator_availability_t availability = 0;
     uint8_t has_last_seen = 0;
@@ -359,7 +359,7 @@ int main(int argc, char **argv) {
   pp_asset_id_t rolled_back_asset_id = {{0}};
   pp_media_root_id_t root_id = {{0}};
   pp_representation_id_t representation_id = {{0}};
-  pp_uuid_t resource_id = {{0}};
+  pp_resource_id_t resource_id = {{0}};
   pp_revision_id_t revision_id = {{0}};
   pp_transaction_id_t revision_transaction_id = {{0}};
   pp_revision_event_t revision_event = {0};
@@ -371,7 +371,7 @@ int main(int argc, char **argv) {
     return 64;
   }
   (void)remove(argv[1]);
-  if (pp_abi_version() != UINT32_C(46)) {
+  if (pp_abi_version() != UINT32_C(47)) {
     return 1;
   }
   pp_error_code_t status =
@@ -760,14 +760,14 @@ int main(int argc, char **argv) {
   status = pp_representation_set_get_member(
       representations, 0, 0, &resource_id, &member_role, &member_required,
       &error);
-  if (status != PP_OK || uuid_is_zero(&resource_id) || member_role != NULL ||
+  if (status != PP_OK || bytes_are_zero(resource_id.bytes) || member_role != NULL ||
       member_required != UINT8_C(1)) {
     pp_representation_set_release(representations);
     pp_production_release(production);
     pp_error_release(error);
     return 44;
   }
-  pp_uuid_t inspected_resource_id = {{0}};
+  pp_resource_id_t inspected_resource_id = {{0}};
   uint8_t has_file_facts = 0;
   uint64_t file_size = 0;
   uint8_t has_modified_at = 0;
@@ -846,7 +846,7 @@ int main(int argc, char **argv) {
   pp_known_media_set_t *known_media = NULL;
   pp_asset_id_t known_asset_id = {{0}};
   pp_representation_id_t known_representation_id = {{0}};
-  pp_uuid_t known_resource_id = {{0}};
+  pp_resource_id_t known_resource_id = {{0}};
   status = pp_production_find_known_media_by_locator(
       production, locator_uri, NULL, UINT32_C(1), NULL, &known_media, &error);
   if (status != PP_OK || known_media == NULL ||
@@ -1008,7 +1008,7 @@ int main(int argc, char **argv) {
   pp_fingerprint_release(computed);
 
   pp_content_verification_t verification = 0;
-  status = pp_production_verify_resource(production, &resource_id, media_path,
+  status = pp_production_verify_resource(production, resource_id, media_path,
                                          NULL, &verification, &error);
   if (status != PP_OK || verification != PP_CONTENT_MATCHES) {
     pp_production_release(production);
@@ -1027,7 +1027,7 @@ int main(int argc, char **argv) {
   }
   fputs("different content", other_media);
   fclose(other_media);
-  status = pp_production_verify_resource(production, &resource_id,
+  status = pp_production_verify_resource(production, resource_id,
                                          other_media_path, NULL, &verification,
                                          &error);
   remove(other_media_path);
@@ -1041,7 +1041,7 @@ int main(int argc, char **argv) {
   pp_content_observation_t outcome = 0;
   status = pp_production_begin_transaction(production, &observation, &error);
   if (status == PP_OK) {
-    status = pp_transaction_observe_resource_content(observation, &resource_id,
+    status = pp_transaction_observe_resource_content(observation, resource_id,
                                                      media_path, NULL, &outcome,
                                                      &error);
   }
@@ -1146,7 +1146,7 @@ int main(int argc, char **argv) {
       resolutions, 0, 0, &resource_id, &state, &candidate_count,
       &result_evidence_count, &error);
   if (status != PP_OK || state != PP_RESOURCE_RESOLVED_EXACT ||
-      candidate_count != UINT64_C(1) || uuid_is_zero(&resource_id)) {
+      candidate_count != UINT64_C(1) || bytes_are_zero(resource_id.bytes)) {
     pp_resolution_set_release(resolutions);
     pp_production_release(production);
     pp_error_release(error);
@@ -1186,10 +1186,10 @@ int main(int argc, char **argv) {
   const uint8_t observed_resource_fingerprint[] = {0x10, 0x20, 0x30};
   const uint8_t observed_representation_fingerprint[] = {0x40, 0x50, 0x60};
   if (status != PP_OK ||
-      pp_transaction_confirm_locator(transaction, &resource_id, candidate_uri,
+      pp_transaction_confirm_locator(transaction, resource_id, candidate_uri,
                                      "fixtures", NULL, &error) != PP_OK ||
       pp_transaction_record_resource_fingerprint(
-          transaction, &resource_id, "c-smoke", UINT16_C(1),
+          transaction, resource_id, "c-smoke", UINT16_C(1),
           observed_resource_fingerprint,
           sizeof(observed_resource_fingerprint), &error) != PP_OK ||
       pp_transaction_record_representation_fingerprint(
@@ -1297,7 +1297,7 @@ int main(int argc, char **argv) {
   point_representation = NULL;
 
   status = pp_production_representations_using_resource(
-      production, &resource_id, UINT32_C(10), NULL, &point_representation,
+      production, resource_id, UINT32_C(10), NULL, &point_representation,
       &error);
   if (status != PP_OK || point_representation == NULL ||
       pp_representation_set_count(point_representation) != UINT64_C(1) ||
@@ -1334,9 +1334,9 @@ int main(int argc, char **argv) {
 
   pp_locator_query_set_t *locator_page = NULL;
   status = pp_production_locators_page(
-      production, &resource_id, UINT32_C(10), NULL, &locator_page, &error);
+      production, resource_id, UINT32_C(10), NULL, &locator_page, &error);
   pp_locator_id_t queried_locator_id = {{0}};
-  pp_uuid_t queried_locator_resource_id = {{0}};
+  pp_resource_id_t queried_locator_resource_id = {{0}};
   const char *queried_locator_uri = NULL;
   pp_locator_availability_t queried_locator_availability = 0;
   uint8_t queried_locator_has_last_seen = 0;
@@ -2593,7 +2593,7 @@ int main(int argc, char **argv) {
   revisions = NULL;
   if (pp_production_begin_transaction_at(production, revision_id, &transaction,
                                          &error) != PP_OK ||
-      pp_transaction_confirm_locator(transaction, &resource_id,
+      pp_transaction_confirm_locator(transaction, resource_id,
                                      "file:///c-smoke/conflict-first.mov", NULL,
                                      NULL, &error) != PP_OK ||
       pp_transaction_commit(transaction, &error) != PP_OK) {
@@ -2607,7 +2607,7 @@ int main(int argc, char **argv) {
   if (pp_production_begin_transaction_at(production, revision_id, &transaction,
                                          &error) != PP_OK ||
       pp_transaction_confirm_locator(
-          transaction, &resource_id, "file:///c-smoke/conflict-stale.mov",
+          transaction, resource_id, "file:///c-smoke/conflict-stale.mov",
           NULL, NULL, &error) != PP_OK) {
     pp_transaction_release(transaction);
     pp_production_release(production);

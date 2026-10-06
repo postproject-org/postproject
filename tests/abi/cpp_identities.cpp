@@ -92,7 +92,27 @@ static_assert(std::is_same_v<decltype(std::declval<postproject::Transaction &>()
 static_assert(!std::is_invocable_v<decltype(&pp_object_ref_from_representation),
     pp_job_id_t, pp_object_ref_t *, pp_error_t **>);
 
+static_assert(!std::is_convertible_v<postproject::Uuid, postproject::ResourceId>);
+static_assert(!std::is_convertible_v<postproject::ResourceId, postproject::Uuid>);
+static_assert(!std::is_assignable_v<postproject::ResourceId &, postproject::RepresentationId>);
+static_assert(std::is_same_v<decltype(postproject::Resource::id), postproject::ResourceId>);
+static_assert(std::is_same_v<decltype(postproject::ResourceAddedEvent::resource_id), postproject::ResourceId>);
+static_assert(std::is_same_v<decltype(postproject::KnownMediaMatch::resource_id), postproject::ResourceId>);
+static_assert(!std::is_invocable_v<decltype(&pp_object_ref_from_resource),
+    pp_representation_id_t, pp_object_ref_t *, pp_error_t **>);
+
 int main() {
+  const auto resource = postproject::ResourceId::fromString("00000000-0000-0000-0000-000000000001").value();
+  const std::set<postproject::ResourceId> resources{resource, resource};
+  const std::unordered_set<postproject::ResourceId> resource_hashes{resource, resource};
+  if (resources.size() != 1 || resource_hashes.size() != 1 ||
+      postproject::ObjectRef::resource(resource).resourceId().value() != resource ||
+      resource.toString().value() != "00000000-0000-0000-0000-000000000001") return 30;
+  if (postproject::ObjectRef::job(postproject::JobId(resource.asUuid())).resourceId()) return 31;
+  if (postproject::ResourceId::fromString("broken") ||
+      postproject::ResourceId::fromString(std::string_view("id\0tail", 7))) return 32;
+  if (!postproject::ResourceId::fromString("00000000-0000-0000-0000-000000000000")) return 33;
+
   const auto representation = postproject::RepresentationId::fromString("00000000-0000-0000-0000-000000000001").value();
   const std::set<postproject::RepresentationId> representations{representation, representation};
   const std::unordered_set<postproject::RepresentationId> representation_hashes{representation, representation};
