@@ -296,3 +296,14 @@ docs, source lint/typing and 20 tooling tests pass. Source/installed Python:
 and consumer scopes are recorded in the repository manifest. Dynamic-reference
 construction, remaining state alternatives, write restrictions, leases and
 final qualification remain open.
+
+## CLI receipt checkpoint
+
+SDK `bc74828` reports own receipts for explicit media, representation,
+locator/confirmation, identifier, dependency, activity and job writes, alongside
+metadata and root receipts. No-change observations return no revision. Tests
+cover later writes, duplicate failure and ordered job transitions. CLI tests,
+Clippy, all 16 installed CLI recipe tests and strict docs pass. The installed
+CLI test prefix is `target/api-safety-cli-receipts-install` (debug CLI, matching
+ABI 47 native library); this is not a release artifact. Executor outcome/error
+receipts and the remaining write restrictions are still under review.
