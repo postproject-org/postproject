@@ -462,3 +462,26 @@ Logs use `target/resource-*.log`; host compilation logs, detached qualification
 trees and bridge JSON are retained. Full hosts, handoffs, exact MSRV and final
 platform checks remain open. All task changes are local `main` commits; no
 push, tag or publication occurred.
+
+## Locator retirement checks
+
+SDK `380b57e` (storage `9e2a374`, native `c8a8368`, CLI `f442ba1`)
+retains ABI 47/schema 17. Fresh prefix:
+`target/api-safety-locator-decisions-install` (debug CLI, release native
+library; no release-artifact claim). Wheels in
+`target/api-safety-wheel/locator-decisions/`, bundle in
+`target/api-safety-blender/locator-decisions/`, SHA-256:
+
+- Neutral wheel: `04c39b07091db548a3da73aaafd1ca09a88e08d17414de8b346ae6bc6a603286`.
+- Linux wheel: `74d2076c4d488068c458605999d359e258fa277a972139e5c5ca321b2e6d0520`.
+- Blender bundle: `abacf7c8be3c5172295797ef6916a63826cadbf439a1c2b600d5659cc29d477d`.
+
+Six Rust gates, eight native tests, 64 extracted tests, strict docs, Ruff/ty
+and 20 tooling tests pass. Source/installed Python: 88 run, one skip; nine
+wrong-kind calls reject. Blender `71f49b6`: 23 passed, one 5.3-only skip on
+5.2.2 LTS `d13f752e3b9c`. Kdenlive `a9c2004`: fresh ten-patch replay on
+`55e16e8`, then the eleventh patch; both affected units compile with host flags.
+Logs: `target/locator-decisions-*.log` and
+`target/api-safety-kdenlive-locator-decisions-*.log`. Other consumer results
+remain scoped to their earlier inputs; no full-host or final-candidate claim.
+All task commits remain local `main`; no push, tag or publication occurred.

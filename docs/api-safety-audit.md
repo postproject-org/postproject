@@ -307,3 +307,17 @@ Clippy, all 16 installed CLI recipe tests and strict docs pass. The installed
 CLI test prefix is `target/api-safety-cli-receipts-install` (debug CLI, matching
 ABI 47 native library); this is not a release artifact. Executor outcome/error
 receipts and the remaining write restrictions are still under review.
+
+## Locator retirement checkpoint
+
+SDK `380b57e` requires a decision base before storage or native retirement
+staging. Unbased rejection leaves the transaction open; stale locator sets
+conflict and roll back all staged facts. CLI regression checks missing/stale
+tokens, unchanged journal/locators and the successful edit's own receipt.
+Six Rust gates, eight installed native tests, 64 extracted tests, strict docs,
+lint/typing and 20 tooling tests pass. Source/installed Python: 88 run, one
+skip; nine installed wrong-kind calls reject. Kdenlive `a9c2004` carries
+decision bases through save and proxy completion; both affected units compile.
+Blender's existing based path passes 23 tests with one skip against a rebuilt
+bundle. Exact artifact inputs are in the repository manifest. Other destructive
+mutation families and final qualification remain open.
