@@ -431,3 +431,34 @@ Kdenlive compilation logs are retained. The compatibility manifest updates
 changed-family dependency closure. Full hosts, handoffs, exact MSRV and final
 platform qualification remain open. Changes are local `main` commits;
 no push, tag or publication occurred.
+
+## ABI 47 resource identity checks
+
+SDK `1ce127e` uses native operation inputs `b9e545d`, C++ `8dc8082`, Python
+`e41e501` and import/fixture fixes `4b81cb2`. Installed prefix:
+`target/api-safety-resource-install`. ABI 47/schema 17: 312 exports, 27 layouts.
+Artifacts in `target/api-safety-wheel/resource-abi47/` and
+`target/api-safety-blender/resource-abi47/` have these SHA-256 values:
+
+- Neutral wheel: `4141a11cd2aeba993c1730e86124f5699b4be99a50e6cebf22bbb085841ed268`.
+- Linux wheel: `730e72f25747b3796e929a589e27f064fdca6c842e5c05e3c91f4b8bdaa5659f`.
+- Blender bundle: `20b1a8a83e458125298a85f3f46ec12c5014d25a6088f6a7807d453a6cba7170`.
+
+| Consumer commit | Result | Scope |
+|---|---|---|
+| Manager `da2caaa` | 6 passed | Matching wheel, Python 3.13 |
+| OpenAssetIO `5e38c31`, OTIO `81a6ee6`, demo `c18f5bc`, Python host `c42b8b8` | 1 each | Separate matching-wheel suites; pinned OTIO bridge |
+| Blender `71f49b6` | 23 passed, 1 skipped | Rebuilt bundle; 5.2.2 LTS `d13f752e3b9c`, 5.3-only skip |
+| Natron `7192a5c` | 1 passed; module built | Native contract and actual Python 3.13 bridge conflict |
+| OBS `fe68bcc` | 2 passed; plugin/driver built | Direct C registration/readback |
+| Kdenlive `956bcbf` | Replayed/compiled | Ten patches on `55e16e8`; two units with host flags |
+| Ardour `535ba87` | Passed | Fresh seven-patch replay on `7968ec504`; stereo-WAV resolver |
+| C++ NLE `8d2933a` | 1 passed | Fresh installed CMake consumer |
+
+Six Rust gates, eight native contracts, 64 extracted tests, strict docs and
+symbol/layout checks pass. Source/installed Python: 87 run, one skip; nine
+installed wrong-kind calls reject. Bundled quickstart passes without overrides.
+Logs use `target/resource-*.log`; host compilation logs, detached qualification
+trees and bridge JSON are retained. Full hosts, handoffs, exact MSRV and final
+platform checks remain open. All task changes are local `main` commits; no
+push, tag or publication occurred.

@@ -47,13 +47,13 @@ Local Linux checks do not establish the other platforms or real-host runs.
 
 ## Implemented development contracts
 
-The development series is `0.7.0-alpha.1` (Python `0.7.0a1`, ABI 46,
+The development series is `0.7.0-alpha.1` (Python `0.7.0a1`, ABI 47,
 schema 17). ADRs 0045–0049 record pinned views, scoped edits/receipts, Python
 nominal UUID hints and explicit references, production/view-scoped cursors,
 and fallible C++ cancellation/options construction. Focused
 regressions cover intervening writers, empty bases, terminal failed commits,
 retained handles, cursor rejection and wrong-kind Python calls. Native
-read sessions offer 39 native query operations. Production, asset, media-root, locator, job, activity, representation, revision and
+read sessions offer 39 native query operations. Production, asset, media-root, locator, job, activity, representation, resource, revision and
 transaction IDs are distinct C/C++ values; the other native identity kinds,
 validated state alternatives and
 authority-controlled job leases remain open.
@@ -281,3 +281,18 @@ strict docs pass. Source and installed Python run 85 tests with one skip;
 source lint/typing and nine installed wrong-kind calls pass. Matching artifacts
 and scoped consumer results are in the repository manifest. Resources,
 leases, remaining state alternatives and final qualification remain open.
+
+## Typed resource checkpoint
+
+SDK `1ce127e` carries resource IDs through membership, locators, verification,
+resolution, dependency paths and revision events. ABI 47/schema 17 has 312
+exports and 27 agreeing layouts. Required C scalars use values; C++ resource
+pages preserve `ResourceId`. Python keeps standard UUID values. Checked dynamic
+reference projections replace generic-byte calls in the executable recipes.
+
+Six Rust gates, eight installed native contracts, 64 extracted tests, strict
+docs, source lint/typing and 20 tooling tests pass. Source/installed Python:
+87 run, one skip; nine installed wrong-kind calls reject. Matching artifacts
+and consumer scopes are recorded in the repository manifest. Dynamic-reference
+construction, remaining state alternatives, write restrictions, leases and
+final qualification remain open.
