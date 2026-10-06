@@ -1,6 +1,8 @@
 //! Root page JSON preserves order, continuation and cursor production scope.
 
 use assert_cmd::cargo::cargo_bin_cmd;
+use postproject_core::{MediaRoot, MediaRootId};
+use postproject_storage_sqlite::SqliteProduction;
 use serde_json::Value;
 
 fn json(args: &[&str]) -> Value {
@@ -10,6 +12,62 @@ fn json(args: &[&str]) -> Value {
         .assert()
         .success();
     serde_json::from_slice(&output.get_output().stdout).unwrap()
+}
+
+#[test]
+fn inspection_and_root_edits_work_beyond_the_convenience_cap() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("many.pproj");
+    let mut production = SqliteProduction::create(&path, None).unwrap();
+    let mut edit = production.begin_transaction().unwrap();
+    for index in 1_u128..=1001 {
+        edit.add_media_root(
+            MediaRoot::new(
+                MediaRootId::from_bytes(index.to_be_bytes()),
+                format!("root-{index}"),
+                None,
+                None,
+                0,
+                true,
+            )
+            .unwrap(),
+        )
+        .unwrap();
+    }
+    edit.commit().unwrap();
+    drop(edit);
+    drop(production);
+    let production = path.to_str().unwrap();
+    let inspection = json(&["inspect", production, "--limit", "2"]);
+    assert_eq!(inspection["media_roots"].as_array().unwrap().len(), 2);
+    assert_eq!(inspection["truncated"], true);
+    let id = MediaRootId::from_bytes(1001_u128.to_be_bytes()).to_string();
+    let disabled = json(&[
+        "root",
+        "disable",
+        production,
+        &id,
+        "--decision-base",
+        inspection["decision_base"].as_str().unwrap(),
+    ]);
+    assert_eq!(disabled["enabled"], false);
+    let fresh = json(&["inspect", production]);
+    let removed = json(&[
+        "root",
+        "remove",
+        production,
+        &id,
+        "--decision-base",
+        fresh["decision_base"].as_str().unwrap(),
+    ]);
+    assert_eq!(removed["id"], id);
+    assert_eq!(
+        json(&["root", "list", production])
+            .as_array()
+            .unwrap()
+            .len(),
+        1000
+    );
 }
 
 #[test]

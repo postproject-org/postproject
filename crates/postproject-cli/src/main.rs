@@ -2118,13 +2118,10 @@ fn inspect(args: &ProductionQueryArgs, json: bool) -> Result<()> {
             })
         })
         .collect();
-    let roots: Vec<_> = view
+    let root_page = view
         .read()
-        .production()
-        .media_roots()
-        .iter()
-        .map(root_view)
-        .collect();
+        .media_roots_page(&query_page_request(&args.page)?)?;
+    let roots: Vec<_> = root_page.items().iter().map(root_view).collect();
     if json {
         print_json(&serde_json::json!({
             "format_version": 1,
@@ -2133,7 +2130,7 @@ fn inspect(args: &ProductionQueryArgs, json: bool) -> Result<()> {
             "revision_sequence": base.sequence(),
             "assets": assets,
             "media_roots": roots,
-            "truncated": page.next_cursor().is_some()
+            "truncated": page.next_cursor().is_some() || root_page.next_cursor().is_some()
         }))
     } else {
         println!(
@@ -2861,6 +2858,24 @@ fn root_page(args: &RootPageArgs, json: bool) -> Result<()> {
     })
 }
 
+fn root_view_by_id(production: &SqliteProduction, id: MediaRootId) -> Result<RootView> {
+    let view = production.read_session()?;
+    let mut cursor = None;
+    loop {
+        let page = view.read().media_roots_page(&QueryPageRequest::new(
+            postproject_core::MAX_QUERY_PAGE_SIZE,
+            cursor,
+        )?)?;
+        if let Some(root) = page.items().iter().find(|root| root.id() == id) {
+            return Ok(root_view(root));
+        }
+        cursor = page.next_cursor().cloned();
+        if cursor.is_none() {
+            bail!("media root does not exist");
+        }
+    }
+}
+
 fn root_set_enabled(
     args: &RootMutationArgs,
     enabled: bool,
@@ -2870,15 +2885,9 @@ fn root_set_enabled(
     let base = base_revision.context("root state changes require --decision-base from inspect")?;
     let root_id = MediaRootId::from_str(&args.root_id).context("parse media-root ID")?;
     let mut production = SqliteProduction::open(&args.production).context("open production")?;
-    let root = production
-        .production()
-        .media_roots()
-        .iter()
-        .find(|root| root.id() == root_id)
-        .context("media root does not exist")?;
     let view = RootView {
         enabled,
-        ..root_view(root)
+        ..root_view_by_id(&production, root_id)?
     };
     let mut transaction = begin_cli_transaction(&mut production, Some(base), "root")?;
     set_cli_revision_context(
@@ -2916,13 +2925,7 @@ fn root_remove(
     let base = base_revision.context("root removal requires --decision-base from inspect")?;
     let root_id = MediaRootId::from_str(&args.root_id).context("parse media-root ID")?;
     let mut production = SqliteProduction::open(&args.production).context("open production")?;
-    let root = production
-        .production()
-        .media_roots()
-        .iter()
-        .find(|root| root.id() == root_id)
-        .context("media root does not exist")?;
-    let view = root_view(root);
+    let view = root_view_by_id(&production, root_id)?;
     let mut transaction = begin_cli_transaction(&mut production, Some(base), "root")?;
     set_cli_revision_context(&mut transaction, "Remove media root")?;
     transaction
