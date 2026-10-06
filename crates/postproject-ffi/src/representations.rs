@@ -7,9 +7,9 @@ use postproject_core::{
 };
 
 use crate::{
-    PpAssetId, PpError, PpProduction, PpSequenceNaming, PpUuid, exact_cstring, ffi_call,
-    initialize_const_output, initialize_output, initialize_uuid, initialize_value, item_at,
-    lock_production, query_page_request, require_output, required_utf8,
+    PpAssetId, PpError, PpLocatorId, PpProduction, PpSequenceNaming, PpUuid, exact_cstring,
+    ffi_call, initialize_const_output, initialize_output, initialize_uuid, initialize_value,
+    item_at, lock_production, query_page_request, require_output, required_utf8,
     sequence_naming::{AbiSequenceNaming, initialize_naming_output, write_naming_output},
 };
 
@@ -665,7 +665,7 @@ pub unsafe extern "C" fn pp_representation_set_get_locator(
     representation_index: u64,
     resource_index: u64,
     locator_index: u64,
-    out_id: *mut PpUuid,
+    out_id: *mut PpLocatorId,
     out_uri: *mut *const c_char,
     out_availability: *mut u32,
     out_has_last_seen: *mut u8,
@@ -676,7 +676,7 @@ pub unsafe extern "C" fn pp_representation_set_get_locator(
 ) -> u32 {
     // SAFETY: Outputs are initialized and checked before writes.
     unsafe {
-        initialize_uuid(out_id);
+        initialize_value(out_id, PpLocatorId { bytes: [0; 16] });
         initialize_const_output(out_uri);
         initialize_value(out_availability, 0);
         initialize_value(out_has_last_seen, 0);
@@ -692,7 +692,7 @@ pub unsafe extern "C" fn pp_representation_set_get_locator(
             require_output(out_last_seen_unix_micros, "out_last_seen_unix_micros")?;
             let resource = resource_at(representations, representation_index, resource_index)?;
             let locator = item_at(&resource.locators, locator_index, "locator")?;
-            out_id.write(PpUuid {
+            out_id.write(PpLocatorId {
                 bytes: locator.id.into_bytes(),
             });
             out_uri.write(locator.uri.as_ptr());

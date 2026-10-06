@@ -311,7 +311,7 @@ typedef struct pp_revision_event {
   pp_asset_id_t asset_id;
   pp_uuid_t representation_id;
   pp_uuid_t resource_id;
-  pp_uuid_t locator_id;
+  pp_locator_id_t locator_id;
   pp_media_root_id_t media_root_id;
   pp_uuid_t activity_id;
   pp_uuid_t job_id;
@@ -912,7 +912,7 @@ PP_API pp_error_code_t pp_representation_set_get_resource_fingerprint(
 PP_API pp_error_code_t pp_representation_set_get_locator(
     const pp_representation_set_t *representations,
     uint64_t representation_index, uint64_t resource_index,
-    uint64_t locator_index, pp_uuid_t *out_id, const char **out_uri,
+    uint64_t locator_index, pp_locator_id_t *out_id, const char **out_uri,
     pp_locator_availability_t *out_availability, uint8_t *out_has_last_seen,
     int64_t *out_last_seen_unix_micros, uint8_t *out_has_sequence_naming,
     pp_sequence_naming_t *out_sequence_naming, pp_error_t **out_error);
@@ -967,7 +967,7 @@ PP_API uint64_t pp_locator_query_set_count(
     const pp_locator_query_set_t *locators);
 PP_API pp_error_code_t pp_locator_query_set_get(
     const pp_locator_query_set_t *locators, uint64_t index,
-    pp_uuid_t *out_id, pp_uuid_t *out_resource_id, const char **out_uri,
+    pp_locator_id_t *out_id, pp_uuid_t *out_resource_id, const char **out_uri,
     pp_locator_availability_t *out_availability,
     uint8_t *out_has_last_seen, int64_t *out_last_seen_unix_micros,
     const char **out_media_root, uint8_t *out_has_sequence_naming,
@@ -1581,7 +1581,7 @@ PP_API pp_error_code_t pp_transaction_confirm_locator(
     const char *uri, const char *root_name,
     const pp_sequence_naming_t *sequence_naming, pp_error_t **out_error);
 PP_API pp_error_code_t pp_transaction_retire_locator(
-    pp_transaction_t *transaction, const pp_uuid_t *locator_id,
+    pp_transaction_t *transaction, pp_locator_id_t locator_id,
     pp_error_t **out_error);
 /* Fingerprint values are borrowed only for the call and copied into the
  * transaction. Re-recording the identical current value is a successful no-op. */

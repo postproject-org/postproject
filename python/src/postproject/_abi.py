@@ -479,7 +479,7 @@ RevisionEvent._fields_ = [
     ("asset_id", AssetId),
     ("representation_id", Uuid),
     ("resource_id", Uuid),
-    ("locator_id", Uuid),
+    ("locator_id", LocatorId),
     ("media_root_id", MediaRootId),
     ("activity_id", Uuid),
     ("job_id", Uuid),
@@ -1126,7 +1126,7 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_representation_set_get_resource.restype = ErrorCode
     lib.pp_representation_set_get_resource_fingerprint.argtypes = [ctypes.POINTER(RepresentationSet), ctypes.c_uint64, ctypes.c_uint64, ctypes.c_uint64, ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.c_uint16), ctypes.POINTER(ctypes.POINTER(ctypes.c_uint8)), ctypes.POINTER(ctypes.c_uint64), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_representation_set_get_resource_fingerprint.restype = ErrorCode
-    lib.pp_representation_set_get_locator.argtypes = [ctypes.POINTER(RepresentationSet), ctypes.c_uint64, ctypes.c_uint64, ctypes.c_uint64, ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(LocatorAvailability), ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ctypes.c_int64), ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(SequenceNaming), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_representation_set_get_locator.argtypes = [ctypes.POINTER(RepresentationSet), ctypes.c_uint64, ctypes.c_uint64, ctypes.c_uint64, ctypes.POINTER(LocatorId), ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(LocatorAvailability), ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ctypes.c_int64), ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(SequenceNaming), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_representation_set_get_locator.restype = ErrorCode
     lib.pp_representation_set_release.argtypes = [ctypes.POINTER(RepresentationSet)]
     lib.pp_representation_set_release.restype = None
@@ -1162,7 +1162,7 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_production_locators_page.restype = ErrorCode
     lib.pp_locator_query_set_count.argtypes = [ctypes.POINTER(LocatorQuerySet)]
     lib.pp_locator_query_set_count.restype = ctypes.c_uint64
-    lib.pp_locator_query_set_get.argtypes = [ctypes.POINTER(LocatorQuerySet), ctypes.c_uint64, ctypes.POINTER(Uuid), ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(LocatorAvailability), ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ctypes.c_int64), ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(SequenceNaming), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_locator_query_set_get.argtypes = [ctypes.POINTER(LocatorQuerySet), ctypes.c_uint64, ctypes.POINTER(LocatorId), ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(LocatorAvailability), ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ctypes.c_int64), ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(SequenceNaming), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_locator_query_set_get.restype = ErrorCode
     lib.pp_locator_query_set_next_cursor.argtypes = [ctypes.POINTER(LocatorQuerySet)]
     lib.pp_locator_query_set_next_cursor.restype = ctypes.c_char_p
@@ -1478,7 +1478,7 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_transaction_remove_media_root.restype = ErrorCode
     lib.pp_transaction_confirm_locator.argtypes = [ctypes.POINTER(Transaction), ctypes.POINTER(Uuid), ctypes.c_char_p, ctypes.c_char_p, ctypes.POINTER(SequenceNaming), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_transaction_confirm_locator.restype = ErrorCode
-    lib.pp_transaction_retire_locator.argtypes = [ctypes.POINTER(Transaction), ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_transaction_retire_locator.argtypes = [ctypes.POINTER(Transaction), LocatorId, ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_transaction_retire_locator.restype = ErrorCode
     lib.pp_transaction_record_resource_fingerprint.argtypes = [ctypes.POINTER(Transaction), ctypes.POINTER(Uuid), ctypes.c_char_p, ctypes.c_uint16, ctypes.POINTER(ctypes.c_uint8), ctypes.c_uint64, ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_transaction_record_resource_fingerprint.restype = ErrorCode

@@ -1,6 +1,6 @@
 # ABI policy
 
-ABI version 42 is pre-release and may change during the 0.x series, with every
+ABI version 43 is pre-release and may change during the 0.x series, with every
 change recorded in the changelog and ABI tests. `pp_abi_version()` reports the
 implemented version. Exported symbol names are unversioned until the first stable
 release, but removals or signature changes require an explicit ABI-version bump.
@@ -24,6 +24,11 @@ isolation because their production and transaction lifecycle dependencies lack
 the required complete evidence from two independent hosts (ADR 0040).
 
 ## Types and ownership
+
+ABI 43 carries distinct locator IDs through retirement, locator reads and
+revision events. Scalar retirement takes `pp_locator_id_t` by value; C++ uses
+`LocatorId`. Recompile native consumers and use matching Python wheels.
+Schema 17 and persisted UUID text remain unchanged (ADR 0049).
 
 ABI 42 types media-root inputs, summaries, revision events and conflicts as
 `pp_media_root_id_t` / C++ `MediaRootId`. Scalar mutations take IDs by value.

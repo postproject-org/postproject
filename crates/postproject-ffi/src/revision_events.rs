@@ -16,7 +16,7 @@ use crate::{
     PP_REVISION_METADATA_ADDED_OR_REPLACED, PP_REVISION_METADATA_REMOVED,
     PP_REVISION_REPRESENTATION_ADDED, PP_REVISION_REPRESENTATION_FINGERPRINT_OBSERVED,
     PP_REVISION_REPRESENTATION_RESOURCE_ADDED, PP_REVISION_RESOURCE_ADDED,
-    PP_REVISION_RESOURCE_FINGERPRINT_OBSERVED, PpAssetId, PpMediaRootId, PpObjectRef,
+    PP_REVISION_RESOURCE_FINGERPRINT_OBSERVED, PpAssetId, PpLocatorId, PpMediaRootId, PpObjectRef,
     PpRevisionEvent, PpUuid, exact_cstring, object_ref_to_abi,
 };
 
@@ -32,7 +32,7 @@ pub(crate) struct AbiRevisionEvent {
     asset_id: Option<PpAssetId>,
     representation_id: Option<PpUuid>,
     resource_id: Option<PpUuid>,
-    locator_id: Option<PpUuid>,
+    locator_id: Option<PpLocatorId>,
     media_root_id: Option<PpMediaRootId>,
     activity_id: Option<PpUuid>,
     job_id: Option<PpUuid>,
@@ -129,7 +129,7 @@ impl AbiRevisionEvent {
             asset_id: self.asset_id.unwrap_or(PpAssetId { bytes: [0; 16] }),
             representation_id: self.representation_id.unwrap_or_else(zero_uuid),
             resource_id: self.resource_id.unwrap_or_else(zero_uuid),
-            locator_id: self.locator_id.unwrap_or_else(zero_uuid),
+            locator_id: self.locator_id.unwrap_or(PpLocatorId { bytes: [0; 16] }),
             media_root_id: self
                 .media_root_id
                 .unwrap_or(PpMediaRootId { bytes: [0; 16] }),
@@ -219,7 +219,9 @@ impl TryFrom<&RevisionEvent> for AbiRevisionEvent {
             } => {
                 projected.kind = PP_REVISION_LOCATOR_ADDED;
                 projected.resource_id = Some(uuid(resource_id.into_bytes()));
-                projected.locator_id = Some(uuid(locator_id.into_bytes()));
+                projected.locator_id = Some(PpLocatorId {
+                    bytes: locator_id.into_bytes(),
+                });
             }
             RevisionEventKind::MediaRootAdded { media_root_id } => {
                 projected.kind = PP_REVISION_MEDIA_ROOT_ADDED;
@@ -233,7 +235,9 @@ impl TryFrom<&RevisionEvent> for AbiRevisionEvent {
             } => {
                 projected.kind = PP_REVISION_LOCATOR_RETIRED;
                 projected.resource_id = Some(uuid(resource_id.into_bytes()));
-                projected.locator_id = Some(uuid(locator_id.into_bytes()));
+                projected.locator_id = Some(PpLocatorId {
+                    bytes: locator_id.into_bytes(),
+                });
             }
             RevisionEventKind::MediaRootEnabledChanged {
                 media_root_id,

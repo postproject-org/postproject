@@ -186,7 +186,7 @@ const PP_REVISION_JOB_FAILED: u32 = 25;
 const PP_REVISION_JOB_CANCELLED: u32 = 26;
 
 /// Current pre-1.0 ABI version.
-pub const ABI_VERSION: u32 = 42;
+pub const ABI_VERSION: u32 = 43;
 
 /// Fixed-layout UUID-compatible public identifier.
 #[repr(C)]
@@ -306,7 +306,7 @@ pub struct PpRevisionEvent {
     /// Event resource identity, or zero when not applicable.
     pub resource_id: PpUuid,
     /// Event locator identity, or zero when not applicable.
-    pub locator_id: PpUuid,
+    pub locator_id: PpLocatorId,
     /// Event media-root identity, or zero when not applicable.
     pub media_root_id: PpMediaRootId,
     /// Event activity identity, or zero when not applicable.
@@ -1615,7 +1615,7 @@ pub unsafe extern "C" fn pp_locator_query_set_count(locators: *const PpLocatorQu
 pub unsafe extern "C" fn pp_locator_query_set_get(
     locators: *const PpLocatorQuerySet,
     index: u64,
-    out_id: *mut PpUuid,
+    out_id: *mut PpLocatorId,
     out_resource_id: *mut PpUuid,
     out_uri: *mut *const c_char,
     out_availability: *mut u32,
@@ -1627,7 +1627,7 @@ pub unsafe extern "C" fn pp_locator_query_set_get(
     out_error: *mut *mut PpError,
 ) -> u32 {
     unsafe {
-        initialize_uuid(out_id);
+        initialize_value(out_id, PpLocatorId { bytes: [0; 16] });
         initialize_uuid(out_resource_id);
         initialize_const_output(out_uri);
         initialize_value(out_availability, 0);
@@ -1649,7 +1649,7 @@ pub unsafe extern "C" fn pp_locator_query_set_get(
                 .as_ref()
                 .ok_or_else(|| invalid_argument("locators must not be null"))?;
             let locator = item_at(&locators.locators, index, "locator")?;
-            out_id.write(PpUuid {
+            out_id.write(PpLocatorId {
                 bytes: locator.id.into_bytes(),
             });
             out_resource_id.write(PpUuid {
@@ -5130,12 +5130,12 @@ pub unsafe extern "C" fn pp_transaction_confirm_locator(
 ///
 /// # Safety
 ///
-/// `transaction` must be live, `locator_id` readable, and `out_error` null or
+/// `transaction` must be live, `out_error` null or
 /// writable.
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_transaction_retire_locator(
     transaction: *mut PpTransaction,
-    locator_id: *const PpUuid,
+    locator_id: PpLocatorId,
     out_error: *mut *mut PpError,
 ) -> u32 {
     // SAFETY: Inputs are validated before staging copied values.
@@ -5145,9 +5145,6 @@ pub unsafe extern "C" fn pp_transaction_retire_locator(
                 .as_mut()
                 .ok_or_else(|| invalid_argument("transaction must not be null"))?;
             transaction.lifecycle.ensure_open()?;
-            let locator_id = locator_id
-                .as_ref()
-                .ok_or_else(|| invalid_argument("locator_id must not be null"))?;
             transaction.mutations.push(StagedMutation::RetireLocator(
                 postproject_core::LocatorId::from_bytes(locator_id.bytes),
             ));
@@ -6355,7 +6352,7 @@ const fn empty_revision_event() -> PpRevisionEvent {
         asset_id: PpAssetId { bytes: [0; 16] },
         representation_id: PpUuid { bytes: [0; 16] },
         resource_id: PpUuid { bytes: [0; 16] },
-        locator_id: PpUuid { bytes: [0; 16] },
+        locator_id: PpLocatorId { bytes: [0; 16] },
         media_root_id: PpMediaRootId { bytes: [0; 16] },
         activity_id: PpUuid { bytes: [0; 16] },
         job_id: PpUuid { bytes: [0; 16] },
