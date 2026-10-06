@@ -211,7 +211,7 @@ static pp_error_code_t resolve_asset(const pp_production_t *production,
       status == PP_OK ? pp_resolution_set_representation_count(resolutions) : 0;
   for (uint64_t r = 0; status == PP_OK && r < count; ++r) {
     pp_asset_id_t resolved_asset_id;
-    pp_uuid_t representation_id;
+    pp_representation_id_t representation_id;
     pp_representation_availability_t availability;
     uint64_t resource_count = 0;
     uint64_t issue_count = 0;
@@ -267,7 +267,7 @@ confirm_unique_candidates(pp_production_t *production,
   const uint64_t count = pp_resolution_set_representation_count(resolutions);
   for (uint64_t r = 0; status == PP_OK && r < count; ++r) {
     pp_asset_id_t asset_id;
-    pp_uuid_t representation_id;
+    pp_representation_id_t representation_id;
     pp_representation_availability_t availability;
     uint64_t resource_count = 0;
     uint64_t issue_count = 0;
@@ -315,7 +315,7 @@ confirm_unique_candidates(pp_production_t *production,
 static pp_error_code_t add_render_sequence(pp_production_t *production,
                                            const pp_asset_id_t *asset_id,
                                            const char *directory,
-                                           pp_uuid_t *out_sequence_id,
+                                           pp_representation_id_t *out_sequence_id,
                                            pp_error_t **error) {
   const int64_t missing_frames[] = {1003};
   pp_media_source_t *sequence = NULL;
@@ -347,7 +347,7 @@ static pp_error_code_t add_render_sequence(pp_production_t *production,
   for (uint64_t index = 0;
        status == PP_OK && index < pp_representation_set_count(representations);
        ++index) {
-    pp_uuid_t id;
+    pp_representation_id_t id;
     pp_asset_id_t owner;
     pp_representation_kind_t kind;
     pp_content_structure_kind_t structure;
@@ -383,8 +383,8 @@ static pp_error_code_t add_render_sequence(pp_production_t *production,
 
 /* [provenance] */
 static pp_error_code_t record_render(pp_production_t *production,
-                                     const pp_uuid_t *source_id,
-                                     const pp_uuid_t *render_id,
+                                     const pp_representation_id_t *source_id,
+                                     const pp_representation_id_t *render_id,
                                      pp_error_t **error) {
   const pp_activity_edge_t inputs[] = {{*source_id, "org.postproject:primary"}};
   const pp_activity_edge_t outputs[] = {{*render_id, NULL}};
@@ -405,11 +405,11 @@ static pp_error_code_t record_render(pp_production_t *production,
     status = pp_transaction_commit(transaction, error);
   }
   if (status == PP_OK) {
-    status = pp_production_activities_producing(production, render_id,
+    status = pp_production_activities_producing(production, *render_id,
                                                 &producers, error);
   }
   if (status == PP_OK) {
-    status = pp_production_provenance_ancestors(production, render_id,
+    status = pp_production_provenance_ancestors(production, *render_id,
                                                 &ancestors, error);
   }
   if (status == PP_OK) {
@@ -427,17 +427,17 @@ static pp_error_code_t record_render(pp_production_t *production,
 
 /* [artifact-knowledge] */
 static pp_error_code_t inspect_artifact(const pp_production_t *production,
-                                        const pp_uuid_t *artifact_id,
+                                        const pp_representation_id_t *artifact_id,
                                         pp_error_t **error) {
   pp_artifact_evaluation_t *evaluation = NULL;
   pp_artifact_reproducibility_t *report = NULL;
-  pp_uuid_t evaluated_id;
+  pp_representation_id_t evaluated_id;
   pp_artifact_knowledge_state_t state = 0;
   uint32_t visited = 0;
   uint8_t truncated = 0;
   uint64_t reason_count = 0;
   pp_error_code_t status = pp_production_evaluate_artifact(
-      production, artifact_id, UINT32_C(64), UINT32_C(1000), &evaluation,
+      production, *artifact_id, UINT32_C(64), UINT32_C(1000), &evaluation,
       error);
   if (status == PP_OK) {
     status = pp_artifact_evaluation_get(
@@ -448,7 +448,7 @@ static pp_error_code_t inspect_artifact(const pp_production_t *production,
     printf("artifact state: %u, reasons: %llu\n", state,
            (unsigned long long)reason_count);
     status = pp_production_artifact_reproducibility(
-        production, artifact_id, &report, error);
+        production, *artifact_id, &report, error);
   }
   if (status == PP_OK) {
     uint8_t reproducible = 0;
@@ -474,9 +474,9 @@ static pp_error_code_t inspect_artifact(const pp_production_t *production,
 /* [dependency-queries] */
 static pp_error_code_t
 record_and_query_dependencies(pp_production_t *production,
-                              const pp_uuid_t *source_id,
+                              const pp_representation_id_t *source_id,
                               const pp_asset_id_t *target_asset_id,
-                              const pp_uuid_t *resolved_id,
+                              const pp_representation_id_t *resolved_id,
                               pp_error_t **error) {
   pp_dependency_t dependency = {0};
   dependency.kind = "org.example:character-reference";
@@ -494,13 +494,13 @@ record_and_query_dependencies(pp_production_t *production,
       pp_production_begin_transaction(production, &transaction, error);
   if (status == PP_OK) {
     status = pp_transaction_record_dependency_set(
-        transaction, source_id, &dependency, UINT64_C(1), error);
+        transaction, *source_id, &dependency, UINT64_C(1), error);
   }
   if (status == PP_OK) {
     status = pp_transaction_commit(transaction, error);
   }
   if (status == PP_OK) {
-    status = pp_production_dependencies(production, source_id, UINT32_C(4),
+    status = pp_production_dependencies(production, *source_id, UINT32_C(4),
                                         UINT32_C(1000), UINT32_C(100), NULL,
                                         &dependencies, error);
   }
@@ -536,7 +536,7 @@ record_and_query_dependencies(pp_production_t *production,
 
 /* [job-query-pages] */
 static pp_error_code_t request_and_page_jobs(pp_production_t *production,
-                                             const pp_uuid_t *input_id,
+                                             const pp_representation_id_t *input_id,
                                              const pp_asset_id_t *output_asset_id,
                                              pp_error_t **error) {
   const char *kind = "org.example:generate-proxy";
@@ -636,7 +636,7 @@ static pp_error_code_t print_asset_locators(const pp_production_t *production,
   for (uint64_t r = 0;
        status == PP_OK && r < pp_representation_set_count(representations);
        ++r) {
-    pp_uuid_t representation_id;
+    pp_representation_id_t representation_id;
     pp_asset_id_t owner;
     pp_representation_kind_t kind;
     pp_content_structure_kind_t structure;
@@ -646,7 +646,7 @@ static pp_error_code_t print_asset_locators(const pp_production_t *production,
                                        &owner, &kind, &structure, &members,
                                        &resources, &fingerprints, error);
     if (status == PP_OK) {
-      status = pp_production_resources_page(production, &representation_id,
+      status = pp_production_resources_page(production, representation_id,
                                             UINT32_C(100), NULL,
                                             &resource_page, error);
     }
@@ -736,7 +736,7 @@ static pp_error_code_t list_media_knowledge(const pp_production_t *production,
 /* [point-reads] */
 static pp_error_code_t read_known_objects(const pp_production_t *production,
                                           const pp_asset_id_t *asset_id,
-                                          const pp_uuid_t *representation_id,
+                                          const pp_representation_id_t *representation_id,
                                           pp_error_t **error) {
   /* A host reference names one object; read it without scanning the
    * production. Point reads return one-element sets. */
@@ -758,7 +758,7 @@ static pp_error_code_t read_known_objects(const pp_production_t *production,
   }
   if (status == PP_OK) {
     printf("asset: %s\n", name != NULL ? name : "unnamed");
-    status = pp_production_representation(production, representation_id,
+    status = pp_production_representation(production, *representation_id,
                                           &representation, error);
   }
   if (status == PP_OK) {
@@ -810,8 +810,8 @@ static pp_error_code_t find_interview_titles(const pp_production_t *production,
 
 /* [provenance-query-pages] */
 static pp_error_code_t query_render_lineage(const pp_production_t *production,
-                                            const pp_uuid_t *source_id,
-                                            const pp_uuid_t *render_id,
+                                            const pp_representation_id_t *source_id,
+                                            const pp_representation_id_t *render_id,
                                             pp_error_t **error) {
   pp_activity_set_t *producing = NULL;
   pp_activity_set_t *consuming = NULL;
@@ -819,10 +819,10 @@ static pp_error_code_t query_render_lineage(const pp_production_t *production,
   pp_object_query_set_t *by_tool = NULL;
   pp_object_query_set_t *ancestors = NULL;
   pp_error_code_t status = pp_production_activities_producing_page(
-      production, render_id, UINT32_C(100), NULL, &producing, error);
+      production, *render_id, UINT32_C(100), NULL, &producing, error);
   if (status == PP_OK) {
     status = pp_production_activities_consuming_page(
-        production, source_id, UINT32_C(100), NULL, &consuming, error);
+        production, *source_id, UINT32_C(100), NULL, &consuming, error);
   }
   if (status == PP_OK) {
     status = pp_production_outputs_by_activity_kind(
@@ -837,7 +837,7 @@ static pp_error_code_t query_render_lineage(const pp_production_t *production,
   }
   if (status == PP_OK) {
     status = pp_production_provenance_ancestors_page(
-        production, render_id, UINT32_C(8), UINT32_C(1000), UINT32_C(100), NULL,
+        production, *render_id, UINT32_C(8), UINT32_C(1000), UINT32_C(100), NULL,
         &ancestors, error);
   }
   for (uint64_t i = 0;
@@ -870,7 +870,7 @@ static pp_error_code_t query_render_lineage(const pp_production_t *production,
 /* [stale-artifact-pages] */
 static pp_error_code_t
 count_stale_descendants(const pp_production_t *production,
-                        const pp_uuid_t *source_id,
+                        const pp_representation_id_t *source_id,
                         uint64_t *out_count,
                         pp_error_t **error) {
   char cursor_storage[2049] = {0};
@@ -1046,10 +1046,11 @@ static pp_error_code_t wait_for_changes(const pp_production_t *production,
 
 /* [host-binding] */
 static pp_error_code_t bind_representation(const pp_production_id_t *production_id,
-                                           const pp_uuid_t *representation_id,
+                                           const pp_representation_id_t *representation_id,
                                            pp_error_t **error) {
-  const pp_object_ref_t object = {PP_OBJECT_REPRESENTATION,
-                                  *representation_id};
+  pp_object_ref_t object;
+  pp_error_code_t reference_status = pp_object_ref_from_representation(*representation_id, &object, error);
+  if (reference_status != PP_OK) return reference_status;
   char *stored = NULL;
   pp_production_id_t parsed_production = {{0}};
   pp_object_ref_t parsed_object = {0, {{0}}};
@@ -1080,7 +1081,7 @@ static void join(char *buffer, size_t size, const char *directory,
 
 static pp_error_code_t
 original_representation(const pp_production_t *production,
-                        const pp_asset_id_t *asset_id, pp_uuid_t *out_id,
+                        const pp_asset_id_t *asset_id, pp_representation_id_t *out_id,
                         pp_error_t **error) {
   pp_representation_set_t *representations = NULL;
   pp_error_code_t status =
@@ -1121,8 +1122,8 @@ int main(int argc, char **argv) {
   pp_error_t *error = NULL;
   pp_asset_id_t asset_id;
   pp_production_id_t production_id;
-  pp_uuid_t original_id;
-  pp_uuid_t sequence_id = {{0}};
+  pp_representation_id_t original_id;
+  pp_representation_id_t sequence_id = {{0}};
   uint64_t cursor = 0;
   uint64_t before_render = 0;
   uint64_t count = 0;
@@ -1202,9 +1203,12 @@ int main(int argc, char **argv) {
     status = PP_ERROR_INTERNAL;
   }
   if (status == PP_OK) {
-    const pp_object_ref_t sequence = {PP_OBJECT_REPRESENTATION, sequence_id};
-    status = object_changed_after(production, before_render, &sequence,
-                                  &changed, &error);
+    pp_object_ref_t sequence;
+    status = pp_object_ref_from_representation(sequence_id, &sequence, &error);
+    if (status == PP_OK) {
+      status = object_changed_after(production, before_render, &sequence,
+                                    &changed, &error);
+    }
   }
   if (status == PP_OK && changed == 0) {
     status = PP_ERROR_INTERNAL;

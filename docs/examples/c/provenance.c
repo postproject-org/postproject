@@ -51,7 +51,7 @@ static int host_fingerprint(const char *path, uint8_t out_value[8]) {
 /* Records the host fingerprint of a single-file representation. */
 static pp_error_code_t observe_file(pp_production_t *production,
                                     const pp_uuid_t *resource_id,
-                                    const pp_uuid_t *representation_id,
+                                    const pp_representation_id_t *representation_id,
                                     const char *path, pp_error_t **error) {
   pp_transaction_t *transaction = NULL;
   uint8_t value[8];
@@ -67,7 +67,7 @@ static pp_error_code_t observe_file(pp_production_t *production,
   }
   if (status == PP_OK) {
     status = pp_transaction_record_representation_fingerprint(
-        transaction, representation_id, HOST_REPRESENTATION_ALGORITHM, 1, value,
+        transaction, *representation_id, HOST_REPRESENTATION_ALGORITHM, 1, value,
         sizeof value, error);
   }
   if (status == PP_OK) {
@@ -143,7 +143,7 @@ static pp_error_code_t print_activity(const pp_activity_set_t *set, uint64_t a,
            agent_value != NULL ? agent_value : "");
   }
   for (uint64_t e = 0; status == PP_OK && e < input_count; ++e) {
-    pp_uuid_t representation_id;
+    pp_representation_id_t representation_id;
     const char *role;
     status =
         pp_activity_set_get_input(set, a, e, &representation_id, &role, error);
@@ -153,7 +153,7 @@ static pp_error_code_t print_activity(const pp_activity_set_t *set, uint64_t a,
     }
   }
   for (uint64_t e = 0; status == PP_OK && e < output_count; ++e) {
-    pp_uuid_t representation_id;
+    pp_representation_id_t representation_id;
     const char *role;
     status =
         pp_activity_set_get_output(set, a, e, &representation_id, &role, error);
@@ -166,8 +166,8 @@ static pp_error_code_t print_activity(const pp_activity_set_t *set, uint64_t a,
 }
 
 static pp_error_code_t record_transcode(pp_production_t *production,
-                                        const pp_uuid_t *original_id,
-                                        const pp_uuid_t *proxy_id,
+                                        const pp_representation_id_t *original_id,
+                                        const pp_representation_id_t *proxy_id,
                                         uint64_t counts[4],
                                         pp_error_t **error) {
   const pp_activity_edge_t inputs[] = {
@@ -206,6 +206,18 @@ static pp_error_code_t record_transcode(pp_production_t *production,
       status = PP_ERROR_INTERNAL;
   }
   if (status == PP_OK) {
+    char *saved = NULL;
+    pp_representation_id_t parsed;
+    pp_object_ref_t target;
+    status = pp_representation_id_format(*original_id, &saved, error);
+    if (status == PP_OK) status = pp_representation_id_parse(saved, &parsed, error);
+    pp_string_release(saved);
+    if (status == PP_OK) status = pp_object_ref_from_representation(parsed, &target, error);
+    if (status == PP_OK) status = pp_object_ref_get_representation(&target, &parsed, error);
+    if (status == PP_OK && memcmp(parsed.bytes, original_id->bytes, 16))
+      status = PP_ERROR_INTERNAL;
+  }
+  if (status == PP_OK) {
     status = pp_transaction_commit(transaction, error);
   }
   if (status == PP_OK) {
@@ -216,17 +228,17 @@ static pp_error_code_t record_transcode(pp_production_t *production,
     status = print_activity(activities, a, error);
   }
   if (status == PP_OK) {
-    status = pp_production_activities_consuming(production, original_id,
+    status = pp_production_activities_consuming(production, *original_id,
                                                 &consuming, error);
   }
   if (status == PP_OK) {
-    status = pp_production_provenance_descendants(production, original_id,
+    status = pp_production_provenance_descendants(production, *original_id,
                                                   &descendants, error);
   }
   if (status == PP_OK) {
     /* The page form bounds depth and visited representations. */
     status = pp_production_provenance_descendants_page(
-        production, original_id, UINT32_C(8), UINT32_C(1000), UINT32_C(100),
+        production, *original_id, UINT32_C(8), UINT32_C(1000), UINT32_C(100),
         NULL, &descendant_page, error);
   }
   for (uint64_t i = 0;
@@ -259,7 +271,7 @@ static pp_error_code_t record_transcode(pp_production_t *production,
 
 static pp_error_code_t
 count_consumers_by_page(const pp_production_t *production,
-                        const pp_uuid_t *original_id, uint64_t *out_count,
+                        const pp_representation_id_t *original_id, uint64_t *out_count,
                         pp_error_t **error) {
   char cursor_storage[2049] = {0};
   const char *cursor = NULL;
@@ -268,7 +280,7 @@ count_consumers_by_page(const pp_production_t *production,
   while (status == PP_OK) {
     pp_activity_set_t *page = NULL;
     status = pp_production_activities_consuming_page(
-        production, original_id, UINT32_C(1), cursor, &page, error);
+        production, *original_id, UINT32_C(1), cursor, &page, error);
     *out_count += status == PP_OK ? pp_activity_set_count(page) : 0;
     /* The cursor borrows the page; copy it before releasing the page. */
     const char *next =
@@ -293,13 +305,13 @@ count_consumers_by_page(const pp_production_t *production,
 /* [stale-after-change] */
 static pp_error_code_t explain_stale_proxy(
     pp_production_t *production, const pp_uuid_t *original_resource,
-    const pp_uuid_t *original_id, const char *original_path,
-    const pp_uuid_t *proxy_id, pp_artifact_knowledge_state_t *state,
+    const pp_representation_id_t *original_id, const char *original_path,
+    const pp_representation_id_t *proxy_id, pp_artifact_knowledge_state_t *state,
     uint32_t *out_reason_kinds, uint32_t *out_issue_kinds, pp_error_t **error) {
   pp_transaction_t *transaction = NULL;
   pp_artifact_evaluation_t *evaluation = NULL;
   pp_artifact_reproducibility_t *report = NULL;
-  pp_uuid_t evaluated_id;
+  pp_representation_id_t evaluated_id;
   uint32_t visited = 0;
   uint8_t truncated = 0;
   uint64_t reason_count = 0;
@@ -318,7 +330,7 @@ static pp_error_code_t explain_stale_proxy(
   }
   if (status == PP_OK) {
     status = pp_transaction_record_representation_fingerprint(
-        transaction, original_id, HOST_REPRESENTATION_ALGORITHM, 1, value,
+        transaction, *original_id, HOST_REPRESENTATION_ALGORITHM, 1, value,
         sizeof value, error);
   }
   if (status == PP_OK) {
@@ -326,7 +338,7 @@ static pp_error_code_t explain_stale_proxy(
   }
   if (status == PP_OK) {
     status = pp_production_evaluate_artifact(
-        production, proxy_id, UINT32_C(64), UINT32_C(1000), &evaluation, error);
+        production, *proxy_id, UINT32_C(64), UINT32_C(1000), &evaluation, error);
   }
   if (status == PP_OK) {
     status =
@@ -349,7 +361,7 @@ static pp_error_code_t explain_stale_proxy(
     }
   }
   if (status == PP_OK) {
-    status = pp_production_artifact_reproducibility(production, proxy_id,
+    status = pp_production_artifact_reproducibility(production, *proxy_id,
                                                     &report, error);
   }
   if (status == PP_OK) {
@@ -381,15 +393,15 @@ static pp_error_code_t explain_stale_proxy(
 
 /* [dependency-set] */
 static pp_error_code_t read_dependency_set(
-    const pp_production_t *production, const pp_uuid_t *representation_id,
+    const pp_production_t *production, const pp_representation_id_t *representation_id,
     pp_dependency_set_status_t *out_status, pp_error_t **error) {
   pp_dependency_set_t *set = NULL;
   uint8_t present = 0;
-  pp_uuid_t source_id;
+  pp_representation_id_t source_id;
   uint64_t recorded_at = 0;
   uint64_t count = 0;
   pp_error_code_t status =
-      pp_production_dependency_set(production, representation_id, &set, error);
+      pp_production_dependency_set(production, *representation_id, &set, error);
   if (status == PP_OK) {
     status = pp_dependency_set_get(set, &present, &source_id, &recorded_at,
                                    out_status, &count, error);
@@ -418,9 +430,9 @@ static pp_error_code_t read_dependency_set(
 }
 
 static pp_error_code_t record_dependencies(pp_production_t *production,
-                                           const pp_uuid_t *source_id,
+                                           const pp_representation_id_t *source_id,
                                            const pp_asset_id_t *original_asset,
-                                           const pp_uuid_t *original_id,
+                                           const pp_representation_id_t *original_id,
                                            pp_error_t **error) {
   pp_dependency_t dependencies[2];
   memset(dependencies, 0, sizeof dependencies);
@@ -432,8 +444,8 @@ static pp_error_code_t record_dependencies(pp_production_t *production,
   dependencies[0].required = 1;
   dependencies[0].authored_reference = "rushes/A001.mov";
   dependencies[1].kind = "org.example:timecode-reference";
-  dependencies[1].target.kind = PP_OBJECT_REPRESENTATION;
-  dependencies[1].target.id = *original_id;
+  reference_status = pp_object_ref_from_representation(*original_id, &dependencies[1].target, error);
+  if (reference_status != PP_OK) return reference_status;
   dependencies[1].required = 0;
   dependencies[1].authored_reference = "A001.mov#timecode";
 
@@ -442,7 +454,7 @@ static pp_error_code_t record_dependencies(pp_production_t *production,
       pp_production_begin_transaction(production, &transaction, error);
   if (status == PP_OK) {
     /* The call replaces the complete, ordered dependency observation. */
-    status = pp_transaction_record_dependency_set(transaction, source_id,
+    status = pp_transaction_record_dependency_set(transaction, *source_id,
                                                   dependencies, 2, error);
   }
   if (status == PP_OK) {
@@ -453,7 +465,7 @@ static pp_error_code_t record_dependencies(pp_production_t *production,
 }
 
 static pp_error_code_t observe_source(pp_production_t *production,
-                                      const pp_uuid_t *source_id,
+                                      const pp_representation_id_t *source_id,
                                       const uint8_t value[8],
                                       pp_error_t **error) {
   pp_transaction_t *transaction = NULL;
@@ -462,7 +474,7 @@ static pp_error_code_t observe_source(pp_production_t *production,
   if (status == PP_OK) {
     /* A new source fingerprint marks its dependency set for re-extraction. */
     status = pp_transaction_record_representation_fingerprint(
-        transaction, source_id, HOST_REPRESENTATION_ALGORITHM, 1, value, 8,
+        transaction, *source_id, HOST_REPRESENTATION_ALGORITHM, 1, value, 8,
         error);
   }
   if (status == PP_OK) {
@@ -474,7 +486,7 @@ static pp_error_code_t observe_source(pp_production_t *production,
 
 static pp_error_code_t
 count_dependencies_by_page(const pp_production_t *production,
-                           const pp_uuid_t *source_id, uint64_t *out_count,
+                           const pp_representation_id_t *source_id, uint64_t *out_count,
                            pp_error_t **error) {
   char cursor_storage[2049] = {0};
   const char *cursor = NULL;
@@ -482,7 +494,7 @@ count_dependencies_by_page(const pp_production_t *production,
   *out_count = 0;
   while (status == PP_OK) {
     pp_dependency_query_set_t *page = NULL;
-    status = pp_production_dependencies(production, source_id, UINT32_C(4),
+    status = pp_production_dependencies(production, *source_id, UINT32_C(4),
                                         UINT32_C(1000), UINT32_C(1), cursor,
                                         &page, error);
     *out_count += status == PP_OK ? pp_dependency_query_set_count(page) : 0;
@@ -524,8 +536,8 @@ static int write_file(const char *path, const char *contents) {
 static pp_error_code_t
 create_production(const char *path, const char *media, const char *proxy,
                   pp_production_t **out_production, pp_asset_id_t *out_asset_id,
-                  pp_uuid_t *out_original_id, pp_uuid_t *out_resource_id,
-                  pp_uuid_t *out_proxy_id, pp_error_t **error) {
+                  pp_representation_id_t *out_original_id, pp_uuid_t *out_resource_id,
+                  pp_representation_id_t *out_proxy_id, pp_error_t **error) {
   pp_production_t *production = NULL;
   pp_transaction_t *transaction = NULL;
   pp_media_source_t *camera = NULL;
@@ -609,9 +621,9 @@ int main(int argc, char **argv) {
   pp_production_t *production = NULL;
   pp_error_t *error = NULL;
   pp_asset_id_t asset_id;
-  pp_uuid_t original_id;
+  pp_representation_id_t original_id;
   pp_uuid_t resource_id;
-  pp_uuid_t proxy_id;
+  pp_representation_id_t proxy_id;
   uint64_t counts[4] = {0, 0, 0, 0};
   uint64_t count = 0;
   pp_artifact_knowledge_state_t state = 0;
