@@ -53,7 +53,7 @@ nominal UUID hints and explicit references, production/view-scoped cursors,
 and fallible C++ cancellation/options construction. Focused
 regressions cover intervening writers, empty bases, terminal failed commits,
 retained handles, cursor rejection and wrong-kind Python calls. Native
-read sessions offer 39 native query operations. Production, asset, media-root, locator, job, activity, representation, resource, revision and
+read sessions offer 40 native query operations. Production, asset, media-root, locator, job, activity, representation, resource, revision and
 transaction IDs are distinct C/C++ values; the other native identity kinds,
 validated state alternatives and
 authority-controlled job leases remain open.
@@ -348,3 +348,18 @@ Native/wheel inputs and logs are in the repository manifest. Remaining
 observation guards, value/query/lease contracts and final qualification remain
 open. The CLI dependency response still reloads facts after commit; its receipt
 is exact, but atomic attribution of the echoed facts remains under review.
+
+## Fresh root-page checkpoint
+
+SDK `7679927` adds live and retained root pages in priority/identity order.
+Native convenience reads, resolution, inventory and CLI use fresh fallible
+queries with a 1000-root cap. Regression tests cover intervening writers,
+pinned empty views, cursor scopes and collections above the convenience cap.
+ABI 47/schema 17 has 315 exports, 27 layouts and 40 native read queries.
+Six Rust gates, eight installed native contracts, 72 extracted tests, strict
+docs, Ruff/ty and 20 tooling tests pass. Source/installed Python: 91 run, one
+skip; nine wrong-kind calls reject. Matching wheels, bundle and scoped consumer
+results are in the repository manifest. Cached roots on the production value
+and their materialization during open remain transitional (ADR 0053).
+Other observation guards, value/lease contracts and final qualification remain
+open; this checkpoint closes no completion gate.

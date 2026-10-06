@@ -516,3 +516,35 @@ nine wrong-kind typing calls reject. Logs: `target/dependency-decisions-*.log`.
 Maintained hosts do not call complete dependency replacement; their earlier
 results retain their original inputs. Final qualification remains open.
 All task commits remain local `main`; no push, tag or publication occurred.
+
+## Fresh root-page checks
+
+SDK `7679927` (storage `59f486e`, native `922b563`, C++ `01e187f`,
+Python `c27837d`, CLI `338766b`) retains ABI 47/schema 17: 315 exports,
+27 layouts. Prefix: `target/api-safety-root-pages-install` (debug CLI,
+release native library). Artifacts in `target/api-safety-wheel/root-pages/`
+and `target/api-safety-blender/root-pages/`, SHA-256:
+
+- Neutral wheel: `e7144626c1b39ee6c30bc2b6b404f1ec7fcc13def696412684a26c9711a53a80`.
+- Linux wheel: `8fea2918193152e7575f7fa0af7997dcb769c1abb29985f3b3d58d538a505d98`.
+- Blender bundle: `fd8fcf1d3edf4282dd981f942c253cfb576afc203f63f83e7372d82bf71ec749`.
+
+| Consumer commit | Result | Scope |
+|---|---|---|
+| Manager `da2caaa` | 6 passed | Matching wheel, Python 3.13 |
+| OpenAssetIO `5e38c31`, OTIO `81a6ee6`, demo `c18f5bc`, Python host `c42b8b8` | 1 each | Separate matching-wheel suites; existing OTIO trait warnings |
+| Blender `71f49b6` | 23 passed, 1 skipped | Fresh bundle; 5.2.2 LTS `d13f752e3b9c`, 5.3-only skip |
+| Natron `7192a5c` | 1 passed; module built | Native contract and actual Python 3.13 bridge conflict |
+| OBS `fe68bcc` | 2 passed; plugin/driver built | Direct C registration/readback |
+| Kdenlive `a9c2004` | Compiled | Two units with host flags from the preserved eleven-patch tree |
+| Ardour `535ba87` | Passed | Stereo-WAV resolver using the preserved seven-patch tree |
+| C++ NLE `8d2933a` | 1 passed | Fresh installed CMake consumer |
+
+Six Rust gates, eight native contracts, 72 extracted tests, strict docs,
+Ruff/ty and 20 tooling tests pass. Source/installed Python: 91 run, one skip;
+nine wrong-kind typing calls reject. Bundled root-page recipe passes without
+library overrides. Logs: `target/root-pages-*.log` and
+`target/api-safety-kdenlive-root-pages-*.log`; bridge JSON is retained.
+These are scoped Linux development checks. Full hosts, exact MSRV, platform
+checks and final handoffs remain open. All task commits remain local `main`;
+no push, tag or publication occurred.
