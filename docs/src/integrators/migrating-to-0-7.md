@@ -68,6 +68,7 @@ Root enabling/removal also requires a decision base, even when setting the
 existing state. Use a read session's edit; early rejection stages nothing and
 leaves the transaction open. CLI `root enable`, `disable` and `remove` require
 `--decision-base` from `inspect`. Root creation remains additive.
+Python root flags require `bool`; priorities must fit a signed 32-bit integer.
 
 ## Native options
 

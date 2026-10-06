@@ -3258,6 +3258,10 @@ class Transaction:
         """Stage a portable logical root used for resource discovery."""
 
         self._require_open()
+        if not isinstance(priority, int):
+            raise TypeError("root priority must be an int")
+        if not -(1 << 31) <= priority < (1 << 31):
+            raise ValueError("root priority must fit a signed 32-bit integer")
         root_id = _abi.MediaRootId()
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_transaction_add_media_root(
@@ -3278,6 +3282,8 @@ class Transaction:
         """
 
         self._require_open()
+        if not isinstance(enabled, bool):
+            raise TypeError("enabled must be a bool")
         native_id = _native_media_root_id(root_id)
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_transaction_set_media_root_enabled(

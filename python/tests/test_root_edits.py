@@ -3,11 +3,35 @@
 import tempfile
 import unittest
 from pathlib import Path
+from typing import Any
 
 from postproject import ConflictError, ConflictKeyKind, InvalidArgumentError, Production
 
 
 class RootEditTests(unittest.TestCase):
+    def test_root_inputs_reject_native_wrapping_and_preserve_valid_values(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            with Production.create(Path(directory) / "values.pproj") as production:
+                with production.transaction() as setup:
+                    root = setup.add_media_root("first", priority=-(1 << 31))
+                    setup.commit()
+                with production.read_session() as view, view.edit() as edit:
+                    for value in (257, None, "yes"):
+                        untyped: Any = value
+                        with self.assertRaises(TypeError):
+                            edit.set_media_root_enabled(root, untyped)
+                    for priority in (-(1 << 31) - 1, 1 << 31):
+                        with self.assertRaises(ValueError):
+                            edit.add_media_root("invalid", priority=priority)
+                    edit.add_media_root("last", priority=(1 << 31) - 1)
+                    edit.commit()
+                roots = production.media_roots
+                self.assertEqual([item.name for item in roots], ["first", "last"])
+                self.assertEqual(
+                    [item.priority for item in roots], [-(1 << 31), (1 << 31) - 1]
+                )
+                self.assertTrue(roots[0].enabled)
+
     def test_unbased_rejection_preserves_creation_and_stale_removal_rolls_back(
         self,
     ) -> None:

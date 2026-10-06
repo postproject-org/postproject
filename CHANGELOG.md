@@ -15,6 +15,7 @@ All notable changes to PostProject will be documented here. The project uses
 - Reject oversized native binary metadata and unaddressable resolution arrays before access.
 - Metadata appends merge and invalidate stale destructive decisions; replacement/removal require a decision base (ADR 0052).
 - Root enabling/removal require a decision base; root creation remains additive (ADR 0045).
+- Validate Python root flags and signed priorities before native conversion.
 - CLI JSON emits structured conflicts on stdout and metadata commit receipts.
 
 ## 0.6.0-alpha.1 - 2026-10-04

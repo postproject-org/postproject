@@ -102,8 +102,12 @@ static int root_edits_contract(pp_production_t *production) {
       receipt.outcome != PP_COMMIT_REVISION_CREATED) goto cleanup;
   pp_transaction_release(edit); edit = NULL;
   if (pp_production_read_session(production, &view, &error) != PP_OK ||
-      pp_read_session_begin_edit(view, &edit, &error) != PP_OK ||
-      pp_transaction_set_media_root_enabled(edit, root, 0, &error) != PP_OK ||
+      pp_read_session_begin_edit(view, &edit, &error) != PP_OK)
+    goto cleanup;
+  if (pp_transaction_set_media_root_enabled(edit, root, 2, &error) != PP_ERROR_INVALID_ARGUMENT ||
+      error == NULL) goto cleanup;
+  pp_error_release(error); error = NULL;
+  if (pp_transaction_set_media_root_enabled(edit, root, 0, &error) != PP_OK ||
       pp_transaction_commit_with_receipt(edit, &receipt, &error) != PP_OK ||
       receipt.outcome != PP_COMMIT_REVISION_CREATED) goto cleanup;
   pp_revision_id_t superseding = receipt.revision_id;
