@@ -47,13 +47,13 @@ Local Linux checks do not establish the other platforms or real-host runs.
 
 ## Implemented development contracts
 
-The development series is `0.7.0-alpha.1` (Python `0.7.0a1`, ABI 42,
+The development series is `0.7.0-alpha.1` (Python `0.7.0a1`, ABI 43,
 schema 17). ADRs 0045–0049 record pinned views, scoped edits/receipts, Python
 nominal UUID hints and explicit references, production/view-scoped cursors,
 and fallible C++ cancellation/options construction. Focused
 regressions cover intervening writers, empty bases, terminal failed commits,
 retained handles, cursor rejection and wrong-kind Python calls. Native
-read sessions offer 39 native query operations. Production, asset, media-root, revision and
+read sessions offer 39 native query operations. Production, asset, media-root, locator, revision and
 transaction IDs are distinct C/C++ values; the other native identity kinds,
 validated state alternatives and
 authority-controlled job leases remain open.

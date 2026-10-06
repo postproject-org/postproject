@@ -100,10 +100,10 @@ python_operations = [
 
 [[families]]
 id = "locator-inspection"
-dependencies = ["production-lifecycle"]
+dependencies = ["production-lifecycle", "locator-identity"]
 introduced_release = "0.2.0-alpha.1"
-last_changed_release = "0.4.0-alpha.1"
-last_changed_abi = 35
+last_changed_release = "0.7.0-alpha.1"
+last_changed_abi = 43
 c_operations = [
   "pp_production_locators_page",
   "pp_locator_query_set_count",
@@ -140,10 +140,10 @@ python_operations = ["Production.resolve"]
 
 [[families]]
 id = "revision-feed"
-dependencies = ["production-lifecycle", "asset-identity"]
+dependencies = ["production-lifecycle", "asset-identity", "locator-identity"]
 introduced_release = "0.2.0-alpha.1"
 last_changed_release = "0.7.0-alpha.1"
-last_changed_abi = 42
+last_changed_abi = 43
 c_operations = [
   "pp_production_latest_revision",
   "pp_production_changes_since",
@@ -266,3 +266,22 @@ c_operations = [
 ]
 cpp_operations = ["MediaRootId::fromString", "MediaRootId::toString", "Transaction::addMediaRoot", "Transaction::setMediaRootEnabled", "Transaction::removeMediaRoot", "Production::mediaRoots"]
 python_operations = ["parse_id", "Transaction.add_media_root", "Transaction.set_media_root_enabled", "Transaction.remove_media_root", "Production.media_roots"]
+
+[[families]]
+id = "locator-identity"
+introduced_release = "0.7.0-alpha.1"
+last_changed_release = "0.7.0-alpha.1"
+last_changed_abi = 43
+c_operations = ["pp_locator_id_parse", "pp_locator_id_format", "pp_string_release"]
+cpp_operations = ["LocatorId::fromString", "LocatorId::toString"]
+python_operations = ["parse_id"]
+
+[[families]]
+id = "locator-retirement"
+dependencies = ["transaction-lifecycle", "locator-inspection", "locator-identity"]
+introduced_release = "0.3.0-alpha.1"
+last_changed_release = "0.7.0-alpha.1"
+last_changed_abi = 43
+c_operations = ["pp_transaction_retire_locator"]
+cpp_operations = ["Transaction::retireLocator"]
+python_operations = ["Transaction.retire_locator"]
