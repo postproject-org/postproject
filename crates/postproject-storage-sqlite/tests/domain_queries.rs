@@ -201,7 +201,8 @@ fn bounded_queries_cover_media_metadata_provenance_staleness_and_changes() {
     assert_eq!(descendants.items()[1].depth(), 2);
 
     {
-        let mut transaction = production.begin_transaction().expect("begin change");
+        let base = production.read_session().unwrap().decision_base();
+        let mut transaction = production.begin_edit(base).expect("begin change");
         transaction
             .record_representation_fingerprint(
                 source.representation().id(),

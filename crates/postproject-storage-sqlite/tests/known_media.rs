@@ -188,7 +188,8 @@ fn lookup_uses_only_current_locator_and_fingerprint_state() {
         transaction.commit().expect("commit import");
     }
     {
-        let mut transaction = production.begin_transaction().expect("begin update");
+        let base = production.read_session().unwrap().decision_base();
+        let mut transaction = production.begin_edit(base).expect("begin update");
         transaction
             .record_resource_fingerprint(
                 resource_id,

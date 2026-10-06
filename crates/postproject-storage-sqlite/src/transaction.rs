@@ -804,11 +804,15 @@ impl<'production> SqliteTransaction<'production> {
 
     /// Stages retirement of a superseded locator.
     ///
+    /// Requires a decision base; early rejection leaves the transaction open.
+    ///
     /// # Errors
     ///
     /// Returns [`ErrorKind::NotFound`] when `locator_id` is absent, or a
     /// transaction/storage error.
     pub fn retire_locator(&mut self, locator_id: LocatorId) -> Result<()> {
+        self.lifecycle.ensure_open()?;
+        self.require_decision_base()?;
         let transaction = self.open_transaction()?;
         let resource_id = transaction
             .query_row(

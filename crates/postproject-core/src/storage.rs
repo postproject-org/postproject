@@ -562,6 +562,8 @@ pub trait ProductionStoreTransaction {
 
     /// Stages retirement of one superseded resource locator.
     ///
+    /// Requires a decision base. Early rejection leaves the transaction open.
+    ///
     /// # Errors
     ///
     /// Returns a domain error when the transaction is closed, the locator does
