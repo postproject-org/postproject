@@ -334,3 +334,17 @@ skip; nine wrong-kind calls reject. The existing neutral binding wheel was
 tested with a fresh installed native library; packaging details are in the
 repository manifest. Dependency replacement and other remaining audit items
 remain open.
+
+## Dependency observation checkpoint
+
+SDK `4e19978` requires a decision base for complete dependency observations,
+including initial, empty and unchanged sets. Storage/Python tests preserve a
+newer set and roll back staged facts after stale replacement. CLI checks
+missing/stale tokens and own/no-change receipts. Six Rust gates, eight native
+contracts, 64 extracted examples, strict docs, Ruff/ty and 20 tooling tests
+pass. Source/installed Python: 90 run, one skip; nine wrong-kind calls reject.
+The SDK still has ABI 47/schema 17, 312 exports and 27 agreeing layouts.
+Native/wheel inputs and logs are in the repository manifest. Remaining
+observation guards, value/query/lease contracts and final qualification remain
+open. The CLI dependency response still reloads facts after commit; its receipt
+is exact, but atomic attribution of the echoed facts remains under review.

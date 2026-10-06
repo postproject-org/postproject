@@ -500,3 +500,19 @@ nine wrong-kind typing calls reject. Logs: `target/identifier-decisions-*.log`.
 The maintained hosts do not call identifier removal; their earlier results
 retain their original input scope. Final qualification remains open.
 All task commits remain local `main`; no push, tag or publication occurred.
+
+## Dependency observation checks
+
+SDK `4e19978` (storage `308aaa4`, native `fabf3e8`, CLI `b53e9a8`)
+retains ABI 47/schema 17, 312 exports and 27 agreeing layouts. Prefix:
+`target/api-safety-dependency-decisions-install` (debug CLI, release native
+library). The unchanged neutral binding wheel from the locator checkpoint was
+tested with this prefix. The fresh Linux wheel in
+`target/api-safety-wheel/dependency-decisions/` has SHA-256
+`03293ef1cf9a620a013817117d43104b2416e7027a628c7b7852c3c6788c66f8`.
+Six Rust gates, eight native contracts, 64 extracted examples, strict docs,
+Ruff/ty and 20 tooling tests pass. Source/installed Python: 90 run, one skip;
+nine wrong-kind typing calls reject. Logs: `target/dependency-decisions-*.log`.
+Maintained hosts do not call complete dependency replacement; their earlier
+results retain their original inputs. Final qualification remains open.
+All task commits remain local `main`; no push, tag or publication occurred.
