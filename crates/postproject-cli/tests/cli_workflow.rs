@@ -245,7 +245,9 @@ fn exercise_dependencies(
     )
     .expect("write dependency spec");
     let spec_path = dependency_spec.to_str().expect("UTF-8 dependency spec");
-    let recorded = run_json(&["dependency", "record", production, proxy_id, spec_path]);
+    let mut recorded = run_json(&["dependency", "record", production, proxy_id, spec_path]);
+    assert!(recorded["commit_receipt"]["revision"]["id"].is_string());
+    recorded.as_object_mut().unwrap().remove("commit_receipt");
     assert_eq!(recorded["status"], "current");
     assert_eq!(
         recorded["dependencies"][0]["source_resource_id"],

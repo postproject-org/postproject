@@ -2177,10 +2177,12 @@ fn media_add(
             )
             .context("stage technical metadata")?;
     }
-    transaction.commit().context("commit media import")?;
+    let receipt = transaction
+        .commit_with_receipt()
+        .context("commit media import")?;
 
     if json {
-        print_json(&view)
+        print_json_with_receipt(&view, &receipt)
     } else {
         println!("imported asset {} from {}", view.asset_id, view.uri);
         for inspection in &view.inspections {
@@ -2333,10 +2335,12 @@ fn representation_add(
     transaction
         .add_representation(&prepared)
         .context("stage representation")?;
-    transaction.commit().context("commit representation")?;
+    let receipt = transaction
+        .commit_with_receipt()
+        .context("commit representation")?;
 
     if json {
-        print_json(&view)
+        print_json_with_receipt(&view, &receipt)
     } else {
         println!("added representation {}", view.representation_id);
         Ok(())
@@ -2370,7 +2374,9 @@ fn media_fingerprint(
             .record_representation_fingerprint(*representation_id, fingerprint)
             .context("stage representation fingerprint")?;
     }
-    transaction.commit().context("commit fingerprints")?;
+    let receipt = transaction
+        .commit_with_receipt()
+        .context("commit fingerprints")?;
 
     let view = FingerprintObservationView {
         resource_id: resource_id.to_string(),
@@ -2400,7 +2406,7 @@ fn media_fingerprint(
             .collect(),
     };
     if json {
-        print_json(&view)
+        print_json_with_receipt(&view, &receipt)
     } else {
         println!(
             "{} content of resource {}; fingerprints for {} representation(s)",
@@ -2932,10 +2938,15 @@ fn locator_retire(
     transaction
         .retire_locator(locator_id)
         .context("stage locator retirement")?;
-    transaction.commit().context("commit locator retirement")?;
+    let receipt = transaction
+        .commit_with_receipt()
+        .context("commit locator retirement")?;
 
     if json {
-        print_json(&serde_json::json!({ "id": locator_id.to_string() }))
+        print_json_with_receipt(
+            &serde_json::json!({ "id": locator_id.to_string() }),
+            &receipt,
+        )
     } else {
         println!("retired locator {locator_id}");
         Ok(())
@@ -2973,12 +2984,12 @@ fn identifier_mutate(
             .add_external_identifier(target, &identifier)
             .context("stage external identifier attachment")?;
     }
-    transaction
-        .commit()
+    let receipt = transaction
+        .commit_with_receipt()
         .context("commit external identifier mutation")?;
 
     if json {
-        print_json(&view)
+        print_json_with_receipt(&view, &receipt)
     } else {
         println!(
             "{} {}:{} on {} {}",
@@ -3325,14 +3336,20 @@ fn dependency_record(
     transaction
         .record_dependency_set(representation_id, &dependencies)
         .context("stage dependency set")?;
-    transaction.commit().context("commit dependency set")?;
+    let receipt = transaction
+        .commit_with_receipt()
+        .context("commit dependency set")?;
     drop(transaction);
     let stored = production
         .dependency_set(representation_id)
         .context("reload dependency set")?
         .context("committed dependency set is missing")?;
     let view = dependency_set_view(&stored)?;
-    print_dependency_set(Some(&view), json)
+    if json {
+        print_json_with_receipt(&view, &receipt)
+    } else {
+        print_dependency_set(Some(&view), false)
+    }
 }
 
 fn print_dependency_set(view: Option<&DependencySetView>, json: bool) -> Result<()> {
@@ -3553,7 +3570,9 @@ fn activity_add(
     transaction
         .create_activity(&activity)
         .context("stage activity")?;
-    transaction.commit().context("commit activity")?;
+    let receipt = transaction
+        .commit_with_receipt()
+        .context("commit activity")?;
     drop(transaction);
     let stored_activity = production
         .activities()
@@ -3564,7 +3583,7 @@ fn activity_add(
     let view = activity_view(&stored_activity);
 
     if json {
-        print_json(&view)
+        print_json_with_receipt(&view, &receipt)
     } else {
         println!("recorded activity {} ({})", view.id, view.kind);
         Ok(())
