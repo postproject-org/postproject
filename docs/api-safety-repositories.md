@@ -289,6 +289,38 @@ conflict in `target/api-safety-root-natron-bridge.json`. No full native-host,
 interactive/handoff, exact MSRV or final platform qualification is inferred.
 All changes remain on local `main`; no push, tag or publication occurred.
 
+## ABI 44 job identity checks
+
+SDK `28e24d9` uses native library inputs `1072ac6`, C++ header inputs `c96356d`
+and Python inputs `10d50f7`. Installed files use `target/api-safety-job-install`.
+ABI 44/schema 17 has 300 exports and 24 agreeing public layouts. Artifact
+SHA-256 values:
+
+- Neutral wheel: `25dd71a0d1b5c8282663473d4e183ceed98c804a4d53526a2d6922b48300aff5`.
+- Linux platform wheel: `8fca72ee99aae193365f84f9868118ab5c9e2ebbb3e54df7b963cc587613b00b`.
+- Blender bundle: `57ee56b1b9d372ad48d47b708a37bb9a6e89561d07a2acc1fe14e7641a476f1a`.
+
+Wheels are in `target/api-safety-wheel/job-abi44/`; the bundle is in
+`target/api-safety-blender/job-abi44/`.
+
+| Consumer commit | Result | Scope |
+|---|---|---|
+| Manager `da2caaa` | 6 passed | Installed neutral wheel, Python 3.13 |
+| OpenAssetIO `5e38c31`, OTIO `81a6ee6`, demo `c18f5bc`, Python host `c42b8b8` | 1 passed each | Separate matching-wheel runs; unchanged OTIO linker pin |
+| Blender `71f49b6` | 23 passed, 1 skipped | Rebuilt installed bundle; 5.2.2 LTS `d13f752e3b9c`; 5.3-only case skipped |
+| Natron `b48b40a` | 1 passed; module built | Installed native contract and actual Python 3.13 bridge-conflict regression |
+| OBS `bc9297c` | 2 passed; plugin/driver built | Installed direct-C contracts |
+| Ardour `e7a0c02` | Passed | Rebuilt stereo-WAV resolver from the preserved patched source |
+| Kdenlive `925e5b8` | Replayed/compiled | Ten patches on pinned upstream; sidecar/shared-proxy units with real host flags |
+| C++ NLE baseline | 1 passed | Fresh installed CMake consumer |
+
+All six Rust gates, eight native contracts, 64 extracted tests, strict docs
+and symbol/layout checks pass. Source and installed-wheel Python: 81 run, one
+skip; eight installed wrong-kind calls fail typing. The bundled quickstart
+passes without library overrides. Claims/time, full native hosts, interactive
+handoffs, exact MSRV and final platform qualification remain open. All changes
+are on local `main`; no push, tag or publication occurred.
+
 ## Root decision checks
 
 SDK runtime `a6e3907` and source manifest `b66cf7e` retain ABI 42/schema 17.

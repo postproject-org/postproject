@@ -235,3 +235,20 @@ Python run 79 tests with one skip; six installed wrong-kind calls are rejected.
 Matching consumer builds and artifact hashes are in the repository manifest.
 Logs use `target/api-safety-locator-*`; Kdenlive uses `api-safety-kdenlive-locator-*`.
 Remaining identities, write restrictions, leases and final qualification stay open.
+
+## Typed job checks
+
+At `28e24d9`, ABI 44/schema 17 has 300 exports, 24 agreeing layouts and
+39 native read queries. Job operations, summaries, regeneration plans and
+revision events carry distinct native IDs. Checked C/C++ reference helpers
+support job metadata targets. Python retains UUID values, rejects malformed
+input before conversion and checks nil/foreign job identities through storage.
+Claim IDs, clock inputs and lease authority remain separate unfinished work.
+
+On 2026-10-06, all six Rust gates, eight installed native contracts, 64 extracted
+tests, strict docs and symbol/layout checks pass. Source and installed-wheel
+Python run 81 tests with one skip; eight installed wrong-kind calls fail typing.
+Kdenlive's updated job fields replay in all ten patches and compile with host
+flags. Matching consumer and artifact scope is in the repository manifest;
+logs use `target/api-safety-job-*` and `api-safety-kdenlive-job-*`.
+No audit row or completion gate is closed.
