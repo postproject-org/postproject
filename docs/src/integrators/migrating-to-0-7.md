@@ -1,6 +1,6 @@
 # Migrating to the 0.7 development SDK
 
-The unpublished `0.7.0-alpha.1` SDK currently uses C ABI 46, Python `0.7.0a1`
+The unpublished `0.7.0-alpha.1` SDK currently uses C ABI 47, Python `0.7.0a1`
 and SQLite schema 17. Rebuild native consumers with matching headers and
 library, and install a matching Python wheel. Existing production files,
 UUID text, external identifiers and host binding strings retain their meaning.
@@ -10,7 +10,7 @@ Rust 1.85, C11, C++17 and Python 3.11 remain the supported floors.
 
 C uses distinct `pp_production_id_t`, `pp_asset_id_t`, `pp_media_root_id_t`,
 `pp_locator_id_t`, `pp_job_id_t`, `pp_activity_id_t`,
-`pp_representation_id_t`, `pp_revision_id_t` and
+`pp_representation_id_t`, `pp_resource_id_t`, `pp_revision_id_t` and
 `pp_transaction_id_t` structs. Asset inputs are values; arrays borrow typed
 IDs and outputs write typed stack values. Use `pp_object_ref_from_asset`
 for dynamic asset targets. Revision arguments are values; remove the `&`
@@ -20,7 +20,7 @@ corresponding `pp_*_id_parse` and `pp_*_id_format` functions.
 
 C++ uses explicit `ProductionId`, `AssetId`, `MediaRootId`, `LocatorId`,
 `JobId`, `ActivityId`,
-`RepresentationId`, `RevisionId` and `TransactionId`
+`RepresentationId`, `ResourceId`, `RevisionId` and `TransactionId`
 values. Imports return `AssetId`; use `ObjectRef::asset` for dynamic targets.
 Keep IDs returned by reads in their semantic type. Explicit `asUuid()` and
 byte construction are for interchange. Equality, ordering and hashing work
@@ -64,6 +64,13 @@ and revision events. Remove `&` from required C scalar inputs; arrays and
 optional stale-artifact source filters borrow typed IDs. C++ additions return
 `RepresentationId`; use checked representation reference factories/projections
 when reading saved bindings. Resource IDs remain a separate family.
+
+Resource operations use `pp_resource_id_t` / `ResourceId` through members,
+locator ownership, verification, resolution, dependencies and revision events.
+Remove `&` from required C resource inputs, including locator paging. Use
+`pp_object_ref_from_resource` / `pp_object_ref_get_resource` or
+`ObjectRef::resource` / `resourceId()` for dynamic targets. C++ resource pages
+return `ResourceId`; Python IDs remain ordinary UUID values.
 
 ## Reads and writes
 

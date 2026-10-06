@@ -100,10 +100,10 @@ python_operations = [
 
 [[families]]
 id = "locator-inspection"
-dependencies = ["production-lifecycle", "locator-identity"]
+dependencies = ["resource-identity", "production-lifecycle", "locator-identity"]
 introduced_release = "0.2.0-alpha.1"
 last_changed_release = "0.7.0-alpha.1"
-last_changed_abi = 43
+last_changed_abi = 47
 c_operations = [
   "pp_production_locators_page",
   "pp_locator_query_set_count",
@@ -116,10 +116,10 @@ python_operations = ["Production.locators_page"]
 
 [[families]]
 id = "resolution"
-dependencies = ["production-lifecycle", "asset-identity", "representation-identity"]
+dependencies = ["resource-identity", "production-lifecycle", "asset-identity", "representation-identity"]
 introduced_release = "0.1.0-alpha.1"
 last_changed_release = "0.7.0-alpha.1"
-last_changed_abi = 46
+last_changed_abi = 47
 c_operations = [
   "pp_resolution_options_create",
   "pp_resolution_options_add_search_directory",
@@ -140,10 +140,10 @@ python_operations = ["Production.resolve"]
 
 [[families]]
 id = "revision-feed"
-dependencies = ["production-lifecycle", "asset-identity", "locator-identity", "job-identity", "representation-identity", "activity-identity"]
+dependencies = ["resource-identity", "production-lifecycle", "asset-identity", "locator-identity", "job-identity", "representation-identity", "activity-identity"]
 introduced_release = "0.2.0-alpha.1"
 last_changed_release = "0.7.0-alpha.1"
-last_changed_abi = 46
+last_changed_abi = 47
 c_operations = [
   "pp_production_latest_revision",
   "pp_production_changes_since",
@@ -168,10 +168,10 @@ python_operations = [
 
 [[families]]
 id = "content-verification"
-dependencies = ["production-lifecycle"]
+dependencies = ["resource-identity", "production-lifecycle"]
 introduced_release = "0.4.0-alpha.1"
-last_changed_release = "0.4.0-alpha.1"
-last_changed_abi = 29
+last_changed_release = "0.7.0-alpha.1"
+last_changed_abi = 47
 c_operations = ["pp_production_verify_resource"]
 cpp_operations = ["Production::verifyResource"]
 python_operations = ["Production.verify_resource"]
@@ -201,10 +201,10 @@ projection_only = true
 
 [[families]]
 id = "known-media-lookup"
-dependencies = ["production-lifecycle", "asset-identity", "representation-identity"]
+dependencies = ["resource-identity", "production-lifecycle", "asset-identity", "representation-identity"]
 introduced_release = "0.5.0-alpha.1"
 last_changed_release = "0.7.0-alpha.1"
-last_changed_abi = 46
+last_changed_abi = 47
 c_operations = [
   "pp_production_find_known_media_by_locator",
   "pp_production_find_known_media_by_fingerprint",
@@ -311,4 +311,13 @@ last_changed_release = "0.7.0-alpha.1"
 last_changed_abi = 46
 c_operations = ["pp_representation_id_parse", "pp_representation_id_format", "pp_object_ref_from_representation", "pp_object_ref_get_representation", "pp_string_release"]
 cpp_operations = ["RepresentationId::fromString", "RepresentationId::toString", "ObjectRef::representation", "ObjectRef::representationId"]
+python_operations = ["parse_id"]
+
+[[families]]
+id = "resource-identity"
+introduced_release = "0.7.0-alpha.1"
+last_changed_release = "0.7.0-alpha.1"
+last_changed_abi = 47
+c_operations = ["pp_resource_id_parse", "pp_resource_id_format", "pp_object_ref_from_resource", "pp_object_ref_get_resource", "pp_string_release"]
+cpp_operations = ["ResourceId::fromString", "ResourceId::toString", "ObjectRef::resource", "ObjectRef::resourceId"]
 python_operations = ["parse_id"]
