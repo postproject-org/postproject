@@ -35,7 +35,7 @@ const postproject::AgentIdentity worker{
                                                       "04", std::nullopt}};
 
 postproject::Job load_job(const postproject::Production &production,
-                          const postproject::Uuid &job_id) {
+                          const postproject::JobId &job_id) {
   std::optional<std::string> cursor;
   do {
     const auto page = production.jobs(100, cursor).value();
@@ -52,7 +52,7 @@ postproject::Job load_job(const postproject::Production &production,
 // [request-job]
 constexpr const char *transcode = "https://example.com/ns/transcode/1";
 
-postproject::Uuid request_proxy(postproject::Production &production,
+postproject::JobId request_proxy(postproject::Production &production,
                                 const postproject::Uuid &original_id,
                                 const postproject::AssetId &asset_id) {
   const postproject::JobRequest request{"org.postproject:generate-proxy",
@@ -64,7 +64,10 @@ postproject::Uuid request_proxy(postproject::Production &production,
   auto transaction = production.beginTransaction().value();
   const auto job_id = transaction.requestJob(request).value();
   // Typed job parameters are metadata on the job itself.
-  const postproject::ObjectRef job{postproject::ObjectKind::job, job_id};
+  const auto job = postproject::ObjectRef::job(job_id);
+  require(job.jobId().value() == job_id, "typed job target");
+  require(postproject::JobId::fromString(job_id.toString().value()).value()
+              == job_id, "saved job identity");
   transaction.addMetadataValue(
       job, transcode, "profile",
       postproject::MetadataValue::plainString("editing-proxy")).value();
@@ -90,7 +93,7 @@ postproject::Uuid request_proxy(postproject::Production &production,
 
 // [claim-job]
 void claim_renew_release(postproject::Production &production,
-                         const postproject::Uuid &job_id) {
+                         const postproject::JobId &job_id) {
   auto claim = production.beginTransaction().value();
   const auto claim_id =
       claim.claimJob(job_id, encoder, worker, t0, t0 + one_minute).value();
@@ -145,7 +148,7 @@ postproject::Uuid complete_proxy(postproject::Production &production,
 
 // [fail-job]
 void fail_proxy(postproject::Production &production,
-                const postproject::Uuid &job_id) {
+                const postproject::JobId &job_id) {
   const std::int64_t now = t0 + 5 * one_minute;
   auto claim = production.beginTransaction().value();
   const auto claim_id =
@@ -161,7 +164,7 @@ void fail_proxy(postproject::Production &production,
 
 // [cancel-job]
 void cancel(postproject::Production &production,
-            const postproject::Uuid &job_id) {
+            const postproject::JobId &job_id) {
   auto transaction = production.beginTransaction().value();
   transaction.cancelJob(job_id).value(); // no claim is needed to cancel
   transaction.commit().value();
@@ -169,13 +172,13 @@ void cancel(postproject::Production &production,
 // [/cancel-job]
 
 // [plan-regeneration]
-std::vector<postproject::Uuid>
+std::vector<postproject::JobId>
 regenerate(postproject::Production &production,
            const postproject::Uuid &artifact_id) {
   // Planning is read-only: it derives requests from the producing activity.
   const auto plans = production.planRegeneration({artifact_id}).value();
 
-  std::vector<postproject::Uuid> job_ids;
+  std::vector<postproject::JobId> job_ids;
   auto transaction = production.beginTransaction().value();
   for (const auto &plan : plans) {
     const postproject::JobRequest request{
@@ -183,7 +186,7 @@ regenerate(postproject::Production &production,
         plan.job.output_representation_kind, plan.job.target_root};
     const auto job_id = transaction.requestJob(request).value();
     for (const auto &parameter : plan.parameters) {
-      transaction.addMetadataValue({postproject::ObjectKind::job, job_id},
+      transaction.addMetadataValue(postproject::ObjectRef::job(job_id),
                                    parameter.vocabulary, parameter.property,
                                    parameter.value).value();
     }
@@ -227,7 +230,7 @@ int main(int argc, char **argv) {
                         postproject::MetadataValue::unsignedInteger(1920), 10).value()
                     .items.front()
                     .target ==
-                postproject::ObjectRef{postproject::ObjectKind::job, job_id},
+                postproject::ObjectRef::job(job_id),
             "typed job parameter");
 
     claim_renew_release(production, job_id);
