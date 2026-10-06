@@ -12,10 +12,13 @@ from uuid import UUID
 from postproject import (
     AssetId,
     AssetRef,
+    JobId,
+    JobRequest,
     LocatorId,
     MediaRootId,
     NotFoundError,
     Production,
+    RepresentationKind,
     StorageError,
     _abi,
     _native,
@@ -24,6 +27,66 @@ from postproject import (
 
 
 class IdentityTests(unittest.TestCase):
+    def test_native_job_operations_reject_other_id_structures(self) -> None:
+        native = _native.NativeLibrary()
+        jobs = ctypes.POINTER(_abi.JobSet)()
+        error = ctypes.POINTER(_abi.Error)()
+        for wrong_id in (_abi.Uuid(), _abi.AssetId(), _abi.LocatorId()):
+            with self.assertRaises(ctypes.ArgumentError):
+                native.lib.pp_production_job(
+                    None, wrong_id, ctypes.byref(jobs), ctypes.byref(error)
+                )
+            with self.assertRaises(ctypes.ArgumentError):
+                native.lib.pp_transaction_cancel_job(
+                    None, wrong_id, ctypes.byref(error)
+                )
+
+    def test_job_reads_and_cancellation_validate_identity_and_scope(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            media = root / "media.dat"
+            media.write_bytes(b"scoped job")
+            with (
+                Production.create(root / "first.pproj") as first,
+                Production.create(root / "second.pproj") as second,
+            ):
+                with first.transaction() as edit:
+                    asset = edit.import_media(media)
+                    edit.commit()
+                representation = first.representations[asset][0]
+                with first.transaction() as edit:
+                    job = edit.request_job(
+                        JobRequest(
+                            "com.example:proxy",
+                            (representation.id,),
+                            asset,
+                            RepresentationKind.PROXY,
+                        )
+                    )
+                    edit.commit()
+                self.assertIsInstance(job, UUID)
+                self.assertEqual(parse_id(str(job), JobId), job)
+                self.assertEqual(first.job(job).id, job)
+                with first.read_session() as view:
+                    self.assertEqual(view.job(job).id, job)
+                with second.read_session() as view:
+                    for identifier in (job, JobId(UUID(int=0))):
+                        for reader in (second, view):
+                            with self.assertRaises(NotFoundError):
+                                reader.job(identifier)
+                        with view.edit() as edit:
+                            edit.cancel_job(identifier)
+                            with self.assertRaises(NotFoundError):
+                                edit.commit()
+                        self.assertIsNone(second.latest_revision)
+                untyped: Any = "invalid"
+                with first.transaction() as edit:
+                    with self.assertRaises(TypeError):
+                        edit.cancel_job(untyped)
+                with self.assertRaises(TypeError):
+                    first.job(untyped)
+                self.assertEqual(first.job(job).id, job)
+
     def test_native_locator_mutations_reject_other_id_structures(self) -> None:
         native = _native.NativeLibrary()
         error = ctypes.POINTER(_abi.Error)()

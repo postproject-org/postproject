@@ -468,12 +468,12 @@ class Production:
         """Return one durable job, raising ``NotFoundError`` when absent."""
 
         self._require_open()
-        native_id = _native_uuid(job_id)
+        native_id = _native_job_id(job_id)
         page = _read_jobs(
             self._native,
             self._native.lib.pp_production_job,
             self._handle,
-            ctypes.byref(native_id),
+            native_id,
         )
         if len(page.items) != 1:
             raise RuntimeError("native job read returned no single job")
@@ -2471,12 +2471,12 @@ class ReadSession:
         """Return one durable job, raising ``NotFoundError`` when absent."""
 
         self._require_open()
-        native_id = _native_uuid(job_id)
+        native_id = _native_job_id(job_id)
         page = _read_jobs(
             self._native,
             self._native.lib.pp_read_session_job,
             self._handle,
-            ctypes.byref(native_id),
+            native_id,
         )
         if len(page.items) != 1:
             raise RuntimeError("native job read returned no single job")
@@ -3518,7 +3518,7 @@ class Transaction:
         input_type = Uuid * len(request.inputs)
         inputs = input_type(*(_native_uuid(value) for value in request.inputs))
         output_asset_id = _native_asset_id(request.output_asset_id)
-        job_id = Uuid()
+        job_id = _abi.JobId()
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_transaction_request_job(
             self._handle,
@@ -3545,13 +3545,13 @@ class Transaction:
         """Stage an atomic claim and return its capability token."""
 
         self._require_open()
-        native_job_id = _native_uuid(job_id)
+        native_job_id = _native_job_id(job_id)
         identifier = agent.identifier if agent is not None else None
         claim_id = Uuid()
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_transaction_claim_job(
             self._handle,
-            ctypes.byref(native_job_id),
+            native_job_id,
             _utf8(tool.name, "tool name"),
             _optional_text(tool.version),
             _optional_text(tool.uri),
@@ -3577,12 +3577,12 @@ class Transaction:
         """Stage renewal of an active job claim."""
 
         self._require_open()
-        native_job_id = _native_uuid(job_id)
+        native_job_id = _native_job_id(job_id)
         native_claim_id = _native_uuid(claim_id)
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_transaction_renew_job_claim(
             self._handle,
-            ctypes.byref(native_job_id),
+            native_job_id,
             ctypes.byref(native_claim_id),
             now_unix_micros,
             expires_at_unix_micros,
@@ -3594,12 +3594,12 @@ class Transaction:
         """Stage release of an active job claim."""
 
         self._require_open()
-        native_job_id = _native_uuid(job_id)
+        native_job_id = _native_job_id(job_id)
         native_claim_id = _native_uuid(claim_id)
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_transaction_release_job_claim(
             self._handle,
-            ctypes.byref(native_job_id),
+            native_job_id,
             ctypes.byref(native_claim_id),
             ctypes.byref(error),
         )
@@ -3616,14 +3616,14 @@ class Transaction:
         """Bind a staged representation and activity into one completion."""
 
         self._require_open()
-        native_job_id = _native_uuid(job_id)
+        native_job_id = _native_job_id(job_id)
         native_claim_id = _native_uuid(claim_id)
         native_output_id = _native_uuid(output_representation_id)
         native_activity_id = _native_uuid(activity_id)
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_transaction_complete_job(
             self._handle,
-            ctypes.byref(native_job_id),
+            native_job_id,
             ctypes.byref(native_claim_id),
             now_unix_micros,
             ctypes.byref(native_output_id),
@@ -3642,12 +3642,12 @@ class Transaction:
         """Stage failure of an active, unexpired job claim."""
 
         self._require_open()
-        native_job_id = _native_uuid(job_id)
+        native_job_id = _native_job_id(job_id)
         native_claim_id = _native_uuid(claim_id)
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_transaction_fail_job(
             self._handle,
-            ctypes.byref(native_job_id),
+            native_job_id,
             ctypes.byref(native_claim_id),
             now_unix_micros,
             _utf8(diagnostic, "job failure diagnostic"),
@@ -3659,11 +3659,11 @@ class Transaction:
         """Stage administrative cancellation of a requested or claimed job."""
 
         self._require_open()
-        native_job_id = _native_uuid(job_id)
+        native_job_id = _native_job_id(job_id)
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_transaction_cancel_job(
             self._handle,
-            ctypes.byref(native_job_id),
+            native_job_id,
             ctypes.byref(error),
         )
         self._native.check(status, error)
@@ -4114,6 +4114,7 @@ def _utf8(value: str, label: str) -> bytes:
 def _uuid(
     value: Uuid
     | _abi.AssetId
+    | _abi.JobId
     | _abi.LocatorId
     | _abi.MediaRootId
     | _abi.ProductionId
@@ -4143,6 +4144,14 @@ def _native_locator_id(value: LocatorId) -> _abi.LocatorId:
     if not isinstance(value, UUID):
         raise TypeError("identity must be a uuid.UUID")
     native = _abi.LocatorId()
+    native.bytes[:] = value.bytes
+    return native
+
+
+def _native_job_id(value: JobId) -> _abi.JobId:
+    if not isinstance(value, UUID):
+        raise TypeError("identity must be a uuid.UUID")
+    native = _abi.JobId()
     native.bytes[:] = value.bytes
     return native
 

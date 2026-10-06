@@ -6,6 +6,8 @@ from uuid import UUID
 from postproject import (
     AssetId,
     AssetRef,
+    JobId,
+    JobRef,
     LocatorId,
     MediaRootId,
     Production,
@@ -22,6 +24,7 @@ def correct_kinds(
     representation: RepresentationId,
     root: MediaRootId,
     locator: LocatorId,
+    job: JobId,
 ) -> None:
     assert_type(parse_id(str(UUID(int=1)), AssetId), AssetId)
     assert_type(production.asset(asset).id, AssetId)
@@ -31,3 +34,6 @@ def correct_kinds(
     transaction.set_media_root_enabled(root, False)
     assert_type(parse_id(str(locator), LocatorId), LocatorId)
     transaction.retire_locator(locator)
+    assert_type(production.job(job).id, JobId)
+    assert_type(JobRef(job).id, JobId)
+    transaction.cancel_job(job)
