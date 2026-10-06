@@ -193,7 +193,7 @@ pub struct PpAssetId {
     pub bytes: [u8; 16],
 }
 
-/// Parses UUID text as a asset identity without checking existence.
+/// Parses UUID text as an asset identity without checking existence.
 ///
 /// # Safety
 /// Text must be UTF-8/NUL-terminated; output writable, error nullable/writable.
@@ -219,7 +219,7 @@ pub unsafe extern "C" fn pp_asset_id_parse(
     }
 }
 
-/// Formats a asset identity as owned canonical lowercase UUID text.
+/// Formats an asset identity as owned canonical lowercase UUID text.
 ///
 /// # Safety
 /// Output must be writable, error nullable/writable. Release text with
@@ -359,7 +359,7 @@ pub unsafe extern "C" fn pp_locator_id_format(
     }
 }
 
-/// Locator identity, distinct from interchangeable UUID bytes in C.
+/// Job identity, distinct from interchangeable UUID bytes in C.
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct PpJobId {
@@ -475,7 +475,7 @@ pub unsafe extern "C" fn pp_object_ref_get_asset(
     }
 }
 
-/// Constructs an job reference; existence and scope remain operation checks.
+/// Constructs a job reference; existence and scope remain operation checks.
 ///
 /// # Safety
 /// Output must be writable; error nullable/writable.
@@ -505,7 +505,7 @@ pub unsafe extern "C" fn pp_object_ref_from_job(
     }
 }
 
-/// Reads an job identity from a matching object-reference kind.
+/// Reads a job identity from a matching object-reference kind.
 ///
 /// # Safety
 /// Reference must be readable, output writable; error nullable/writable.
