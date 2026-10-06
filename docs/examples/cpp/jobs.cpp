@@ -53,7 +53,7 @@ postproject::Job load_job(const postproject::Production &production,
 constexpr const char *transcode = "https://example.com/ns/transcode/1";
 
 postproject::JobId request_proxy(postproject::Production &production,
-                                const postproject::Uuid &original_id,
+                                const postproject::RepresentationId &original_id,
                                 const postproject::AssetId &asset_id) {
   const postproject::JobRequest request{"org.postproject:generate-proxy",
                                         {original_id},
@@ -111,7 +111,7 @@ void claim_renew_release(postproject::Production &production,
 // [/claim-job]
 
 // [complete-job]
-postproject::Uuid complete_proxy(postproject::Production &production,
+postproject::RepresentationId complete_proxy(postproject::Production &production,
                                  const postproject::Job &job,
                                  const std::string &output_path) {
   const std::int64_t now = t0 + 3 * one_minute;
@@ -174,7 +174,7 @@ void cancel(postproject::Production &production,
 // [plan-regeneration]
 std::vector<postproject::JobId>
 regenerate(postproject::Production &production,
-           const postproject::Uuid &artifact_id) {
+           const postproject::RepresentationId &artifact_id) {
   // Planning is read-only: it derives requests from the producing activity.
   const auto plans = production.planRegeneration({artifact_id}).value();
 

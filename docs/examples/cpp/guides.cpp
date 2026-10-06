@@ -139,7 +139,7 @@ void confirm_unique_candidates(
 // [/confirm-locator]
 
 // [image-sequence]
-postproject::Uuid add_render_sequence(postproject::Production &production,
+postproject::RepresentationId add_render_sequence(postproject::Production &production,
                                       const postproject::AssetId &asset_id,
                                       const std::string &directory) {
   postproject::ImageSequenceInput sequence{};
@@ -173,8 +173,8 @@ postproject::Uuid add_render_sequence(postproject::Production &production,
 
 // [provenance]
 void record_render(postproject::Production &production,
-                   const postproject::Uuid &source_id,
-                   const postproject::Uuid &render_id) {
+                   const postproject::RepresentationId &source_id,
+                   const postproject::RepresentationId &render_id) {
   postproject::ActivitySpec activity{};
   activity.kind = "org.postproject:render";
   activity.inputs = {{source_id, "org.postproject:primary"}};
@@ -198,7 +198,7 @@ void record_render(postproject::Production &production,
 
 // [artifact-knowledge]
 void inspect_artifact(const postproject::Production &production,
-                      const postproject::Uuid &artifact_id) {
+                      const postproject::RepresentationId &artifact_id) {
   const auto evaluation = production.evaluateArtifact(artifact_id, 64, 1000).value();
   std::cout << "artifact state: " << static_cast<std::uint32_t>(evaluation.state)
             << '\n';
@@ -215,9 +215,9 @@ void inspect_artifact(const postproject::Production &production,
 
 // [dependency-queries]
 void record_and_query_dependencies(postproject::Production &production,
-                                   const postproject::Uuid &source_id,
+                                   const postproject::RepresentationId &source_id,
                                    const postproject::AssetId &target_asset_id,
-                                   const postproject::Uuid &resolved_id) {
+                                   const postproject::RepresentationId &resolved_id) {
   const postproject::ObjectRef target = postproject::ObjectRef::asset(target_asset_id);
   const postproject::Dependency dependency{
       std::nullopt, "org.example:character-reference", target, resolved_id,
@@ -234,14 +234,14 @@ void record_and_query_dependencies(postproject::Production &production,
 
   const auto dependents = production.dependents(target, 4, 1000, 100).value();
   require(dependents.items.size() == 1 &&
-              dependents.items.front().target.id == source_id,
+              dependents.items.front().target == postproject::ObjectRef::representation(source_id),
           "reverse dependency query");
 }
 // [/dependency-queries]
 
 // [job-query-pages]
 void request_and_page_jobs(postproject::Production &production,
-                           const postproject::Uuid &input_id,
+                           const postproject::RepresentationId &input_id,
                            const postproject::AssetId &output_asset_id) {
   const postproject::JobRequest request{
       "org.example:generate-proxy", {input_id}, output_asset_id,
@@ -291,14 +291,14 @@ void print_recorded_locators(const postproject::Production &production) {
 // [/media-structure-pages]
 
 // [knowledge-only-media]
-std::vector<postproject::Uuid>
+std::vector<postproject::RepresentationId>
 list_media_knowledge(const postproject::Production &production) {
   // Both queries read recorded knowledge; neither touches the filesystem.
   const auto unresolved = production.unresolvedMedia(100).value();
   std::cout << "representations without a recorded locator: "
             << unresolved.items.size() << '\n';
 
-  std::vector<postproject::Uuid> under_rushes;
+  std::vector<postproject::RepresentationId> under_rushes;
   for (const auto &representation :
        production.representationsUnderMediaRoot("rushes", 100).value().items) {
     under_rushes.push_back(representation.id);
@@ -310,7 +310,7 @@ list_media_knowledge(const postproject::Production &production) {
 // [point-reads]
 void read_known_objects(const postproject::Production &production,
                         const postproject::AssetId &asset_id,
-                        const postproject::Uuid &representation_id) {
+                        const postproject::RepresentationId &representation_id) {
   // A host reference names one object; read it without scanning the
   // production.
   const auto asset = production.asset(asset_id).value();
@@ -346,8 +346,8 @@ find_interview_titles(const postproject::Production &production) {
 
 // [provenance-query-pages]
 void query_render_lineage(const postproject::Production &production,
-                          const postproject::Uuid &source_id,
-                          const postproject::Uuid &render_id) {
+                          const postproject::RepresentationId &source_id,
+                          const postproject::RepresentationId &render_id) {
   const auto producing = production.activitiesProducing(render_id, 100).value();
   const auto consuming = production.activitiesConsuming(source_id, 100).value();
   require(producing.items.size() == 1 && consuming.items.size() == 1 &&
@@ -369,16 +369,16 @@ void query_render_lineage(const postproject::Production &production,
   require(!ancestors.traversal_truncated, "complete ancestor traversal");
 
   const auto descendants = production.descendants(source_id, 8, 1000, 100).value();
-  require(descendants.items.front().object.id == render_id,
+  require(descendants.items.front().object == postproject::ObjectRef::representation(render_id),
           "render descends from its source");
 }
 // [/provenance-query-pages]
 
 // [stale-artifact-pages]
-std::vector<postproject::Uuid>
+std::vector<postproject::RepresentationId>
 stale_descendants(const postproject::Production &production,
-                  const postproject::Uuid &source_id) {
-  std::vector<postproject::Uuid> stale;
+                  const postproject::RepresentationId &source_id) {
+  std::vector<postproject::RepresentationId> stale;
   std::optional<std::string> cursor;
   do {
     const auto page =
@@ -473,10 +473,9 @@ watch_new_media(const postproject::Production &production,
 
 // [host-binding]
 std::string bind_representation(const postproject::Production &production,
-                                const postproject::Uuid &representation_id) {
+                                const postproject::RepresentationId &representation_id) {
   const postproject::HostObjectBinding binding{
-      production.id().value(), {postproject::ObjectKind::representation,
-                        representation_id}};
+      production.id().value(), postproject::ObjectRef::representation(representation_id)};
   const std::string stored = binding.toString().value();
 
   const auto reopened = postproject::HostObjectBinding::fromString(stored).value();
@@ -530,8 +529,7 @@ int main(int argc, char **argv) {
     query_render_lineage(production, original_id, sequence_id);
     require(stale_descendants(production, original_id).empty(),
             "no stale renders");
-    const postproject::ObjectRef sequence{
-        postproject::ObjectKind::representation, sequence_id};
+    const auto sequence = postproject::ObjectRef::representation(sequence_id);
     const auto changed = objects_changed_after(production, before_render);
     require(std::find(changed.begin(), changed.end(), sequence) !=
                 changed.end(),

@@ -47,8 +47,8 @@ void print_snapshot(
 
 // [activity-snapshots]
 postproject::ActivityId record_transcode(postproject::Production &production,
-                                   const postproject::Uuid &original_id,
-                                   const postproject::Uuid &proxy_id) {
+                                   const postproject::RepresentationId &original_id,
+                                   const postproject::RepresentationId &proxy_id) {
   postproject::ActivitySpec spec{};
   spec.kind = "org.postproject:transcode";
   spec.started_at_unix_micros = 1'700'000'000'000'000;
@@ -100,7 +100,7 @@ postproject::ArtifactEvaluation evaluate_after_change(
     const postproject::Representation &original,
     const postproject::Fingerprint &new_resource_fingerprint,
     const postproject::Fingerprint &new_representation_fingerprint,
-    const postproject::Uuid &proxy_id) {
+    const postproject::RepresentationId &proxy_id) {
   // Record what the host observed after the original was re-exported.
   auto transaction = production.beginTransaction().value();
   transaction.recordResourceFingerprint(original.resources.front().id,
@@ -129,7 +129,7 @@ postproject::ArtifactEvaluation evaluate_after_change(
 
 // [dependency-set]
 std::vector<postproject::DependencyMatch> record_scene_dependencies(
-    postproject::Production &production, const postproject::Uuid &scene_id,
+    postproject::Production &production, const postproject::RepresentationId &scene_id,
     const std::vector<postproject::Dependency> &observed) {
   // A dependency set replaces the complete previous observation.
   auto transaction = production.beginTransaction().value();
@@ -157,7 +157,7 @@ std::vector<postproject::DependencyMatch> record_scene_dependencies(
 
 postproject::Representation find(const postproject::Production &production,
                                  const postproject::AssetId &asset_id,
-                                 const postproject::Uuid &id) {
+                                 const postproject::RepresentationId &id) {
   for (auto &representation : production.representations(asset_id).value()) {
     if (representation.id == id) {
       return representation;
@@ -229,7 +229,7 @@ int main(int argc, char **argv) {
             "whole-set descendants");
     const auto page = production.descendants(original_id, 8, 1000, 100).value();
     require(page.items.size() == 1 &&
-                page.items.front().object.id == proxy_id &&
+                page.items.front().object == postproject::ObjectRef::representation(proxy_id) &&
                 page.items.front().depth == 1,
             "paged descendants");
     require(production.evaluateArtifact(proxy_id).value().state ==

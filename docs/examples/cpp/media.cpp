@@ -53,7 +53,7 @@ postproject::AssetId import_image_strip(postproject::Production &production,
 // [/import-sequence]
 
 // [add-representation]
-postproject::Uuid add_proxy(postproject::Production &production,
+postproject::RepresentationId add_proxy(postproject::Production &production,
                             const postproject::AssetId &asset_id,
                             const std::string &proxy_path) {
   auto transaction = production.beginTransaction().value();
@@ -63,12 +63,16 @@ postproject::Uuid add_proxy(postproject::Production &production,
       asset_id, postproject::RepresentationKind::proxy,
       postproject::MediaSource::file(proxy_path)).value();
   transaction.commit().value();
+  require(postproject::RepresentationId::fromString(proxy_id.toString().value()).value()
+              == proxy_id, "saved representation identity");
+  require(postproject::ObjectRef::representation(proxy_id).representationId().value()
+              == proxy_id, "typed representation target");
   return proxy_id;
 }
 // [/add-representation]
 
 // [ordered-parts]
-postproject::Uuid add_spanned_clip(postproject::Production &production,
+postproject::RepresentationId add_spanned_clip(postproject::Production &production,
                                    const postproject::AssetId &asset_id,
                                    const std::string &directory) {
   // Parts are stored in this order; every part of a span is required.
@@ -85,7 +89,7 @@ postproject::Uuid add_spanned_clip(postproject::Production &production,
 // [/ordered-parts]
 
 // [package-representation]
-postproject::Uuid add_package(postproject::Production &production,
+postproject::RepresentationId add_package(postproject::Production &production,
                               const postproject::AssetId &asset_id,
                               const std::string &directory) {
   // A package needs at least one required member; sidecars may be optional.
@@ -406,7 +410,7 @@ report_issues(const postproject::Production &production,
 }
 // [/resolution-issues]
 
-postproject::Uuid add_sequence(postproject::Production &production,
+postproject::RepresentationId add_sequence(postproject::Production &production,
                                const postproject::AssetId &asset_id,
                                const std::string &directory) {
   postproject::ImageSequenceInput sequence{};
@@ -428,7 +432,7 @@ postproject::Uuid add_sequence(postproject::Production &production,
 
 const postproject::Representation &
 find(const std::vector<postproject::Representation> &representations,
-     const postproject::Uuid &id) {
+     const postproject::RepresentationId &id) {
   const auto found = std::find_if(
       representations.begin(), representations.end(),
       [&](const postproject::Representation &item) { return item.id == id; });

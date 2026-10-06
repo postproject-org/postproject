@@ -85,7 +85,7 @@ constexpr const char *editorial = "https://example.com/ns/editorial/1";
 
 void add_editorial_metadata(postproject::Production &production,
                             const postproject::AssetId &asset_id,
-                            const postproject::Uuid &representation_id) {
+                            const postproject::RepresentationId &representation_id) {
   using postproject::MetadataValue;
   const postproject::ObjectRef asset = postproject::ObjectRef::asset(asset_id);
 
@@ -114,7 +114,7 @@ void add_editorial_metadata(postproject::Production &production,
   add("slate", MetadataValue::structure(slate));
   add("preferred-representation",
       MetadataValue::reference(
-          {postproject::ObjectKind::representation, representation_id}));
+          postproject::ObjectRef::representation(representation_id)));
   transaction.commit().value();
 }
 
@@ -260,8 +260,7 @@ int main(int argc, char **argv) {
             "rational round trip");
     require(
         exact("preferred-representation",
-              MetadataValue::reference({postproject::ObjectKind::representation,
-                                        representation_id})),
+              MetadataValue::reference(postproject::ObjectRef::representation(representation_id))),
         "reference round trip");
     require(!exact("circled", MetadataValue::boolean(false)),
             "exact query rejects other values");
