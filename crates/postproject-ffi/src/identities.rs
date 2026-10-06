@@ -2,7 +2,9 @@
 
 use std::{ffi::c_char, str::FromStr};
 
-use postproject_core::{AssetId, LocatorId, MediaRootId, ProductionId, RevisionId, TransactionId};
+use postproject_core::{
+    AssetId, JobId, LocatorId, MediaRootId, ProductionId, RevisionId, TransactionId,
+};
 
 use crate::{PpError, exact_cstring, ffi_call, initialize_output, require_output, required_utf8};
 
@@ -357,6 +359,63 @@ pub unsafe extern "C" fn pp_locator_id_format(
     }
 }
 
+/// Locator identity, distinct from interchangeable UUID bytes in C.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct PpJobId {
+    /// Stable UUID bytes; existence and membership are checked by the store.
+    pub bytes: [u8; 16],
+}
+
+/// Parses UUID text as a job identity without checking existence.
+///
+/// # Safety
+/// Text must be UTF-8/NUL-terminated; output writable, error nullable/writable.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_job_id_parse(
+    text: *const c_char,
+    out_id: *mut PpJobId,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: Writable output is initialized; strings/pointers validated.
+    unsafe {
+        if !out_id.is_null() {
+            out_id.write(PpJobId { bytes: [0; 16] });
+        }
+        ffi_call(out_error, || {
+            require_output(out_id, "out_id")?;
+            let id = JobId::from_str(required_utf8(text, "job ID")?)?;
+            out_id.write(PpJobId {
+                bytes: id.into_bytes(),
+            });
+            Ok(())
+        })
+    }
+}
+
+/// Formats a job identity as owned canonical lowercase UUID text.
+///
+/// # Safety
+/// Output must be writable, error nullable/writable. Release text with
+/// `pp_string_release` after success.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_job_id_format(
+    id: PpJobId,
+    out_text: *mut *mut c_char,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: Output is initialized and validated before writing.
+    unsafe {
+        initialize_output(out_text);
+        ffi_call(out_error, || {
+            require_output(out_text, "out_text")?;
+            let text = exact_cstring(&JobId::from_bytes(id.bytes).to_string(), "job ID")?;
+            out_text.write(text.into_raw());
+            Ok(())
+        })
+    }
+}
+
 /// Constructs an asset reference; existence and scope remain operation checks.
 ///
 /// # Safety
@@ -409,6 +468,65 @@ pub unsafe extern "C" fn pp_object_ref_get_asset(
                 return Err(crate::invalid_argument("reference must name an asset"));
             }
             out_id.write(PpAssetId {
+                bytes: value.id.bytes,
+            });
+            Ok(())
+        })
+    }
+}
+
+/// Constructs an job reference; existence and scope remain operation checks.
+///
+/// # Safety
+/// Output must be writable; error nullable/writable.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_object_ref_from_job(
+    id: PpJobId,
+    out_ref: *mut crate::PpObjectRef,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: Output is initialized and checked before writing.
+    unsafe {
+        crate::initialize_value(
+            out_ref,
+            crate::PpObjectRef {
+                kind: 0,
+                id: crate::PpUuid { bytes: [0; 16] },
+            },
+        );
+        ffi_call(out_error, || {
+            require_output(out_ref, "out_ref")?;
+            out_ref.write(crate::PpObjectRef {
+                kind: crate::PP_OBJECT_JOB,
+                id: crate::PpUuid { bytes: id.bytes },
+            });
+            Ok(())
+        })
+    }
+}
+
+/// Reads an job identity from a matching object-reference kind.
+///
+/// # Safety
+/// Reference must be readable, output writable; error nullable/writable.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_object_ref_get_job(
+    value: *const crate::PpObjectRef,
+    out_id: *mut PpJobId,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: Output is initialized and pointers checked before use.
+    unsafe {
+        crate::initialize_value(out_id, PpJobId { bytes: [0; 16] });
+        ffi_call(out_error, || {
+            require_output(out_id, "out_id")?;
+            let value = value
+                .as_ref()
+                .ok_or_else(|| crate::invalid_argument("reference must not be null"))?;
+            if value.kind != crate::PP_OBJECT_JOB {
+                return Err(crate::invalid_argument("reference must name an job"));
+            }
+            out_id.write(PpJobId {
                 bytes: value.id.bytes,
             });
             Ok(())

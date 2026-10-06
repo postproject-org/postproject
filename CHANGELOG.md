@@ -10,7 +10,7 @@ All notable changes to PostProject will be documented here. The project uses
 - Replaced Python ID wrappers with UUID NewType hints and explicit object-reference variants; use IDs directly and wrap dynamic targets (ADR 0046).
 - Bound query cursors to their production and retained read view; restart old cursors and page revision events (ADRs 0047, 0050).
 - C++ tokens/options require `create()`; options setters return `Result<void>` immediately and preserve valid settings on failure (ADR 0048).
-- Added native production/asset/media-root/locator/revision/transaction IDs (C ABI 43); persisted references retain their meaning (ADR 0049).
+- Added native production/asset/media-root/locator/job/revision/transaction IDs (C ABI 43); persisted references retain their meaning (ADR 0049).
 - Job reads use checked C payloads and one C++/Python status alternative; migrate C++ field access and Python construction (ADR 0051).
 - Reject oversized native binary metadata and unaddressable resolution arrays before access.
 - Metadata appends merge and invalidate stale destructive decisions; replacement/removal require a decision base (ADR 0052).

@@ -153,6 +153,10 @@ class LocatorId(ctypes.Structure):
     pass
 
 
+class JobId(ctypes.Structure):
+    pass
+
+
 class CommitReceipt(ctypes.Structure):
     pass
 
@@ -434,6 +438,10 @@ LocatorId._fields_ = [
     ("bytes", ctypes.c_uint8 * 16),
 ]
 
+JobId._fields_ = [
+    ("bytes", ctypes.c_uint8 * 16),
+]
+
 CommitReceipt._fields_ = [
     ("production_id", ProductionId),
     ("outcome", CommitOutcome),
@@ -614,6 +622,7 @@ PUBLIC_STRUCTS = {
     "pp_asset_id_t": (AssetId, ("bytes",)),
     "pp_media_root_id_t": (MediaRootId, ("bytes",)),
     "pp_locator_id_t": (LocatorId, ("bytes",)),
+    "pp_job_id_t": (JobId, ("bytes",)),
     "pp_commit_receipt_t": (CommitReceipt, ("production_id", "outcome", "revision_id", "revision_sequence")),
     "pp_decision_base_t": (DecisionBase, ("production_id", "has_revision", "revision_id", "revision_sequence")),
     "pp_object_ref_t": (ObjectRef, ("kind", "id")),
@@ -685,6 +694,8 @@ EXPORTED_SYMBOLS = (
     "pp_fingerprint_release",
     "pp_host_binding_format",
     "pp_host_binding_parse",
+    "pp_job_id_format",
+    "pp_job_id_parse",
     "pp_job_set_count",
     "pp_job_set_get",
     "pp_job_set_get_claim",
@@ -752,7 +763,9 @@ EXPORTED_SYMBOLS = (
     "pp_object_query_set_release",
     "pp_object_query_set_traversal_truncated",
     "pp_object_ref_from_asset",
+    "pp_object_ref_from_job",
     "pp_object_ref_get_asset",
+    "pp_object_ref_get_job",
     "pp_object_ref_set_count",
     "pp_object_ref_set_get",
     "pp_object_ref_set_release",
@@ -1006,6 +1019,14 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_locator_id_parse.restype = ErrorCode
     lib.pp_locator_id_format.argtypes = [LocatorId, ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_locator_id_format.restype = ErrorCode
+    lib.pp_job_id_parse.argtypes = [ctypes.c_char_p, ctypes.POINTER(JobId), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_job_id_parse.restype = ErrorCode
+    lib.pp_job_id_format.argtypes = [JobId, ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_job_id_format.restype = ErrorCode
+    lib.pp_object_ref_from_job.argtypes = [JobId, ctypes.POINTER(ObjectRef), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_object_ref_from_job.restype = ErrorCode
+    lib.pp_object_ref_get_job.argtypes = [ctypes.POINTER(ObjectRef), ctypes.POINTER(JobId), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_object_ref_get_job.restype = ErrorCode
     lib.pp_object_ref_from_asset.argtypes = [AssetId, ctypes.POINTER(ObjectRef), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_object_ref_from_asset.restype = ErrorCode
     lib.pp_object_ref_get_asset.argtypes = [ctypes.POINTER(ObjectRef), ctypes.POINTER(AssetId), ctypes.POINTER(ctypes.POINTER(Error))]

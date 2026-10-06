@@ -14,6 +14,9 @@ _Static_assert(_Generic((pp_media_root_id_t){0}, pp_asset_id_t: 1, pp_uuid_t: 1,
 _Static_assert(_Generic((pp_locator_id_t){0}, pp_media_root_id_t: 1, pp_uuid_t: 1, default: 0) == 0,
                "locators must have their own identity type");
 
+_Static_assert(_Generic((pp_job_id_t){0}, pp_asset_id_t: 1, pp_locator_id_t: 1, pp_uuid_t: 1, default: 0) == 0,
+               "jobs must have their own identity type");
+
 int main(void) {
   pp_production_id_t id = {{0}};
   pp_error_t *error = NULL;
@@ -121,6 +124,29 @@ int main(void) {
       strcmp(text, "00000000-0000-0000-0000-000000000000")) return 32;
   pp_string_release(text);
   if (pp_locator_id_format(locator, NULL, &error) != PP_ERROR_INVALID_ARGUMENT) return 33;
+  pp_error_release(error); error = NULL;
+  pp_job_id_t job;
+  if (pp_job_id_parse(canonical, &job, &error) != PP_OK ||
+      pp_job_id_format(job, &text, &error) != PP_OK ||
+      strcmp(text, canonical)) return 34;
+  pp_string_release(text); text = NULL;
+  if (pp_object_ref_from_job(job, &target, &error) != PP_OK ||
+      target.kind != PP_OBJECT_JOB ||
+      pp_object_ref_get_job(&target, &job, &error) != PP_OK) return 35;
+  target.kind = PP_OBJECT_ASSET;
+  if (pp_object_ref_get_job(&target, &job, &error) != PP_ERROR_INVALID_ARGUMENT ||
+      memcmp(job.bytes, zero, 16)) return 36;
+  pp_error_release(error); error = NULL;
+  if (pp_job_id_parse("broken", &job, &error) != PP_ERROR_INVALID_ARGUMENT ||
+      memcmp(job.bytes, zero, 16)) return 37;
+  pp_error_release(error); error = NULL;
+  if (pp_job_id_parse(NULL, &job, &error) != PP_ERROR_INVALID_ARGUMENT ||
+      memcmp(job.bytes, zero, 16)) return 38;
+  pp_error_release(error); error = NULL;
+  if (pp_job_id_format(job, &text, &error) != PP_OK ||
+      strcmp(text, "00000000-0000-0000-0000-000000000000")) return 39;
+  pp_string_release(text);
+  if (pp_job_id_format(job, NULL, &error) != PP_ERROR_INVALID_ARGUMENT) return 40;
   pp_error_release(error);
   return 0;
 }

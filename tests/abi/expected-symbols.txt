@@ -49,6 +49,8 @@ pp_fingerprint_get
 pp_fingerprint_release
 pp_host_binding_format
 pp_host_binding_parse
+pp_job_id_format
+pp_job_id_parse
 pp_job_set_count
 pp_job_set_get
 pp_job_set_get_claim
@@ -116,7 +118,9 @@ pp_object_query_set_next_cursor
 pp_object_query_set_release
 pp_object_query_set_traversal_truncated
 pp_object_ref_from_asset
+pp_object_ref_from_job
 pp_object_ref_get_asset
+pp_object_ref_get_job
 pp_object_ref_set_count
 pp_object_ref_set_get
 pp_object_ref_set_release
