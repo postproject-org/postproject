@@ -39,6 +39,10 @@ existence and scope.
 ```
 
 Native asset operations carry the semantic type through inputs and results.
+C++ dynamic references retain a private variant of typed IDs. Inspect its const
+`value()` with `std::get_if`, or use a kind-specific projection. UUID conversion
+is explicit interchange; entity existence and production scope remain checks
+performed by the operation.
 
 ## Reopen a production
 

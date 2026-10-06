@@ -33,6 +33,10 @@ int main(int argc, char **argv) {
   if (argc != 2) {
     return 2;
   }
+  pp_object_ref_t native_reference{};
+  native_reference.kind = 99;
+  const auto invalid_reference = postproject::detail::object_ref(native_reference);
+  if (invalid_reference || invalid_reference.error().code() != postproject::ErrorCode::invalid_argument) return 25;
   // Malformed native state data must fail before creating a usable variant.
   pp_job_t native_job{};
   native_job.state = 99;

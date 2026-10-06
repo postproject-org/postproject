@@ -275,7 +275,7 @@ int main(int argc, char **argv) {
         conflict == nullptr ||
         conflict->key.kind != postproject::ConflictKeyKind::locator_set ||
         std::get<postproject::ObjectRef>(conflict->key.target).resourceId().value() != conflict_resource_id ||
-        std::get<postproject::ObjectRef>(conflict->key.target).kind != postproject::ObjectKind::resource ||
+        std::get<postproject::ObjectRef>(conflict->key.target).kind() != postproject::ObjectKind::resource ||
         conflict->base_revision_id != latest_revision->id ||
         conflict->base_revision_sequence != latest_revision->sequence ||
         conflict->superseding_revision_id != superseding_revision->id ||
@@ -811,7 +811,7 @@ int main(int argc, char **argv) {
         dependency_matches.traversal_truncated ||
         dependents.items.size() != 1 ||
         dependents.items[0].target.representationId().value() != proxy_id ||
-        dependents.items[0].target.kind != postproject::ObjectKind::representation ||
+        dependents.items[0].target.kind() != postproject::ObjectKind::representation ||
         dependents.items[0].depth != 1 || dependents.next_cursor.has_value() ||
         dependents.traversal_truncated ||
         dependency_events.size() != 1 ||

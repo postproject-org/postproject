@@ -29,8 +29,16 @@ void asset_identity(std::string_view saved_id) {
   const auto asset = postproject::AssetId::fromString(saved_id).value();
   const auto target = postproject::ObjectRef::asset(asset);
   require(target.assetId().value() == asset &&
-              target.kind == postproject::ObjectKind::asset &&
-              target.id.bytes() == asset.bytes(), "typed asset target");
+              target.kind() == postproject::ObjectKind::asset &&
+              target.asUuid().bytes() == asset.bytes(), "typed asset target");
+  require(std::get_if<postproject::AssetId>(&target.value()) != nullptr,
+          "reference retains the semantic identity alternative");
+  require(postproject::ObjectRef::fromUuid(postproject::ObjectKind::asset,
+                                          asset.asUuid()).value() == target,
+          "checked explicit interchange");
+  require(!postproject::ObjectRef::fromUuid(
+              static_cast<postproject::ObjectKind>(99), asset.asUuid()),
+          "unknown reference kind rejected");
   const std::set<postproject::AssetId> ordered{asset, asset};
   const std::unordered_set<postproject::AssetId> hashed{asset, asset};
   require(ordered.size() == 1 && hashed.size() == 1, "identity value semantics");
@@ -59,6 +67,8 @@ postproject::Production open_production(const std::string &path,
   require(identity.toString().value() == "00000000-0000-0000-0000-000000000001",
           "typed production identity round trip");
   require(identity.asUuid().bytes() == identity.bytes(), "explicit UUID bytes");
+  const auto target = postproject::ObjectRef::production(identity);
+  require(target.productionId().value() == identity, "typed production target");
   std::cout << "production " << production.id().value().toString().value() << '\n';
 
   if (production.containsAsset(asset_id).value()) {

@@ -4,6 +4,11 @@
 #include <type_traits>
 #include <unordered_set>
 
+static_assert(!std::is_aggregate_v<postproject::ObjectRef>);
+static_assert(!std::is_constructible_v<postproject::ObjectRef, postproject::ObjectKind, postproject::Uuid>);
+static_assert(!std::is_invocable_v<decltype(&postproject::ObjectRef::asset), postproject::ResourceId>);
+static_assert(std::is_same_v<decltype(std::declval<const postproject::ObjectRef &>().value()), const postproject::ObjectRef::Value &>);
+
 static_assert(!std::is_convertible_v<postproject::Uuid, postproject::ProductionId>);
 static_assert(!std::is_convertible_v<postproject::ProductionId, postproject::Uuid>);
 static_assert(!std::is_same_v<postproject::ProductionId, postproject::Uuid>);
@@ -168,9 +173,12 @@ int main() {
   const auto asset = postproject::AssetId::fromString("00000000-0000-0000-0000-000000000001").value();
   const auto target = postproject::ObjectRef::asset(asset);
   if (target.assetId().value() != asset) return 12;
-  const postproject::ObjectRef wrong{postproject::ObjectKind::resource, asset.asUuid()};
+  const auto wrong = postproject::ObjectRef::resource(postproject::ResourceId(asset.asUuid()));
   const auto rejected = wrong.assetId();
   if (rejected || rejected.error().code() != postproject::ErrorCode::invalid_argument) return 13;
+  const auto invalid_kind = postproject::ObjectRef::fromUuid(static_cast<postproject::ObjectKind>(99), asset.asUuid());
+  if (invalid_kind || invalid_kind.error().code() != postproject::ErrorCode::invalid_argument) return 14;
+  if (!std::get_if<postproject::AssetId>(&target.value()) || std::get_if<postproject::ResourceId>(&target.value())) return 15;
   const std::set<postproject::AssetId> assets{asset, asset};
   const std::unordered_set<postproject::AssetId> asset_hashes{asset, asset};
   if (assets.size() != 1 || asset_hashes.size() != 1 ||

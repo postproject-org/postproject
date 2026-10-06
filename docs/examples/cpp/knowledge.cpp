@@ -70,7 +70,7 @@ replace_reel_name(postproject::Production &production,
        view.findByExternalIdentifier(reel.scheme, reel.value,
                                            reel.qualifier).value()) {
     std::cout << "reel A001 names object kind "
-              << static_cast<std::uint32_t>(match.kind) << '\n';
+              << static_cast<std::uint32_t>(match.kind()) << '\n';
   }
 
   // Removal needs the exact scheme, value, and qualifier that were attached.
