@@ -69,13 +69,13 @@ fn moved_media_resolves_and_confirmed_location_persists() {
     transaction.commit().expect("commit root");
     drop(transaction);
 
-    let unique = resolve(&known_locators, production.production().media_roots())
-        .expect("resolve unique media");
+    let unique =
+        resolve(&known_locators, &production.media_roots().unwrap()).expect("resolve unique media");
     assert_eq!(unique.state(), ResourceResolutionState::ResolvedExact);
 
     let duplicate_path = relocated_directory.join("duplicate.mov");
     fs::copy(&relocated_path, &duplicate_path).expect("create duplicate");
-    let ambiguous = resolve(&known_locators, production.production().media_roots())
+    let ambiguous = resolve(&known_locators, &production.media_roots().unwrap())
         .expect("resolve duplicate media");
     assert_eq!(ambiguous.state(), ResourceResolutionState::Ambiguous);
     assert_eq!(ambiguous.candidates().len(), 2);
@@ -105,7 +105,7 @@ fn moved_media_resolves_and_confirmed_location_persists() {
         .expect("load confirmed locators");
     assert_eq!(locators.len(), 2);
     let online =
-        resolve(&locators, reopened.production().media_roots()).expect("resolve confirmed locator");
+        resolve(&locators, &reopened.media_roots().unwrap()).expect("resolve confirmed locator");
     assert_eq!(
         online.state(),
         ResourceResolutionState::OnlineAtKnownLocator

@@ -195,13 +195,12 @@ fn print_structure(production: &SqliteProduction, asset_id: AssetId) -> Result<u
 // [media-root-lifecycle]
 fn cycle_media_root(production: &mut SqliteProduction, name: &str) -> Result<()> {
     let view = production.read_session()?;
-    for root in view.read().production().media_roots() {
+    for root in view.read().media_roots()? {
         println!("root {} enabled: {}", root.name(), root.is_enabled());
     }
     let root_id = view
         .read()
-        .production()
-        .media_roots()
+        .media_roots()?
         .iter()
         .find(|root| root.name() == name)
         .map(MediaRoot::id)
@@ -438,7 +437,7 @@ fn print_resolution_issues(
     asset_id: AssetId,
 ) -> Result<Vec<RepresentationResolution>> {
     let resolver = MediaResolver::default();
-    let roots = production.production().media_roots();
+    let roots = production.media_roots()?;
     let mut resolutions = Vec::new();
     for representation in production.representations(asset_id)? {
         let structure = representation.content_structure();
@@ -449,7 +448,7 @@ fn print_resolution_issues(
                 &resource,
                 structure,
                 &locators,
-                roots,
+                &roots,
                 &[],
             )?);
         }
@@ -537,7 +536,7 @@ fn verify_contents(
             ResolutionItem::new(resource, representation.content_structure(), locators)
         })
         .collect::<Vec<_>>();
-    let scope = SearchScope::new(production.production().media_roots().to_vec(), Vec::new());
+    let scope = SearchScope::new(production.media_roots()?, Vec::new());
     let mut states = Vec::new();
     for resolution in resolver.resolve(&items, &scope)? {
         for evidence in resolution.evidence() {
@@ -838,12 +837,8 @@ fn media_examples_run_in_order() -> Result<()> {
     assert_eq!(production.resources(recognized[0].id())?.len(), 2);
 
     cycle_media_root(&mut production, "archive")?;
-    let roots: Vec<&str> = production
-        .production()
-        .media_roots()
-        .iter()
-        .map(MediaRoot::name)
-        .collect();
+    let configured_roots = production.media_roots()?;
+    let roots: Vec<&str> = configured_roots.iter().map(MediaRoot::name).collect();
     assert_eq!(roots, ["rushes"]);
 
     let archived = work.join("archive/A001.mov");

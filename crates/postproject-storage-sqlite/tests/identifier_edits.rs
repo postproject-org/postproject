@@ -87,7 +87,7 @@ fn identifier_removal_rejects_unbased_work_and_stale_reattachments() {
         production.external_identifiers(target).unwrap(),
         std::slice::from_ref(&identifier)
     );
-    assert_eq!(production.production().media_roots().len(), 1);
+    assert_eq!(production.media_roots().unwrap().len(), 1);
     let fresh = production.read_session().unwrap().decision_base();
     let mut removal = production.begin_edit(fresh).unwrap();
     removal

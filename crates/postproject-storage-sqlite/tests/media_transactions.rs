@@ -54,7 +54,7 @@ fn imported_original_and_root_survive_reopen() {
         );
     }
     assert_eq!(
-        production.production().media_roots(),
+        production.media_roots().unwrap(),
         std::slice::from_ref(&root)
     );
     drop(production);
@@ -82,7 +82,7 @@ fn imported_original_and_root_survive_reopen() {
     assert_eq!(locators.len(), 1);
     assert_eq!(locators[0].id(), locator_id);
     assert_eq!(locators[0].uri(), prepared.locators()[0].uri());
-    assert_eq!(reopened.production().media_roots(), [root]);
+    assert_eq!(reopened.media_roots().unwrap(), [root]);
 }
 
 #[test]
@@ -191,7 +191,7 @@ fn duplicate_media_root_is_explicit_and_can_be_rolled_back() {
     transaction.rollback().expect("roll back transaction");
     drop(transaction);
 
-    assert_eq!(production.production().media_roots(), []);
+    assert_eq!(production.media_roots().unwrap(), []);
 }
 
 #[test]
@@ -233,7 +233,7 @@ fn roots_and_locators_have_a_complete_lifecycle() {
         transaction.commit().expect("commit lifecycle change");
     }
 
-    assert!(!production.production().media_roots()[0].is_enabled());
+    assert!(!production.media_roots().unwrap()[0].is_enabled());
     assert_eq!(production.locators(resource_id).expect("load locators"), []);
     let revision = production
         .latest_revision()
@@ -260,11 +260,11 @@ fn roots_and_locators_have_a_complete_lifecycle() {
         transaction.remove_media_root(root_id).expect("remove root");
         transaction.commit().expect("commit root removal");
     }
-    assert_eq!(production.production().media_roots(), []);
+    assert_eq!(production.media_roots().unwrap(), []);
     drop(production);
 
     let reopened = SqliteProduction::open(production_path).expect("reopen production");
-    assert_eq!(reopened.production().media_roots(), []);
+    assert_eq!(reopened.media_roots().unwrap(), []);
     let revision = reopened.latest_revision().expect("load revision").unwrap();
     let events = reopened
         .events_for_revision(revision.id())

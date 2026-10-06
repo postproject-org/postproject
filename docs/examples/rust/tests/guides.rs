@@ -129,7 +129,7 @@ fn resolve_asset(
     rushes_directory: &Path,
 ) -> Result<Vec<RepresentationResolution>> {
     let mappings = [MediaRootMapping::new("rushes", rushes_directory)?];
-    let roots = production.production().media_roots();
+    let roots = production.media_roots()?;
     let resolver = MediaResolver::default();
 
     let mut resolutions = Vec::new();
@@ -141,7 +141,7 @@ fn resolve_asset(
                 &resource,
                 representation.content_structure(),
                 &locators,
-                roots,
+                &roots,
                 &mappings,
             )?);
         }

@@ -119,7 +119,7 @@ fn relocation_workflow_handles_unique_and_ambiguous_media() {
                     &resource,
                     representation.content_structure(),
                     &locators,
-                    production.production().media_roots(),
+                    &production.media_roots().unwrap(),
                     &[],
                 )
                 .expect("resolve relocated media");

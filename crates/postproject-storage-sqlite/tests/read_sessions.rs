@@ -27,14 +27,14 @@ fn view_is_pinned_before_return_and_writer_commits_without_reader_release() {
         .unwrap();
         edit.commit().unwrap();
     }
-    assert!(empty.read().production().media_roots().is_empty());
+    assert!(empty.read().media_roots().unwrap().is_empty());
     assert!(empty.read().latest_revision().unwrap().is_none());
     let added = RevisionEventFilter::new([RevisionEventType::MediaRootAdded]).unwrap();
     let page = empty.read().changes_since_filtered(0, &added, 10).unwrap();
     assert!(page.revisions().is_empty());
     assert_eq!(page.through_sequence(), 0);
     let current = writer.read_session().unwrap();
-    assert_eq!(current.read().production().media_roots().len(), 1);
+    assert_eq!(current.read().media_roots().unwrap().len(), 1);
     assert_eq!(current.decision_base().sequence(), 1);
     assert_eq!(
         current.decision_base().revision_id(),
@@ -70,10 +70,7 @@ fn view_is_pinned_before_return_and_writer_commits_without_reader_release() {
     );
     // The independently owned session remains usable after the writer closes.
     drop(writer);
-    assert_eq!(
-        current.read().production().media_roots()[0].name(),
-        "rushes"
-    );
+    assert_eq!(current.read().media_roots().unwrap()[0].name(), "rushes");
 }
 
 #[test]
@@ -355,7 +352,7 @@ fn adapter_facade_stays_pinned_and_rejects_write_and_live_operations() {
     let receipt = edit.commit_with_receipt().unwrap();
     drop(edit);
     assert!(reader.latest_revision().unwrap().is_none());
-    assert!(reader.production().media_roots().is_empty());
+    assert!(reader.media_roots().unwrap().is_empty());
     assert_eq!(
         reader.begin_transaction().err().unwrap().kind(),
         ErrorKind::InvalidArgument

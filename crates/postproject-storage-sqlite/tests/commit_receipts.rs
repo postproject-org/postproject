@@ -99,12 +99,12 @@ fn journal_preparation_failure_is_terminal_and_rolls_back_facts() {
         );
     }
     assert!(production.latest_revision().unwrap().is_none());
-    assert!(production.production().media_roots().is_empty());
+    assert!(production.media_roots().unwrap().is_empty());
     assert!(
         SqliteProduction::open(&path)
             .unwrap()
-            .production()
             .media_roots()
+            .unwrap()
             .is_empty()
     );
     connection

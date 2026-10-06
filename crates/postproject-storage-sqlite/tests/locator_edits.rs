@@ -58,7 +58,7 @@ fn retirement_rejects_unbased_work_and_stale_locator_sets_atomically() {
         assert_eq!(conflict.superseding_revision(), head.id());
     }
     assert_eq!(production.locators(resource).unwrap().len(), 2);
-    assert_eq!(production.production().media_roots().len(), 1);
+    assert_eq!(production.media_roots().unwrap().len(), 1);
     assert_eq!(
         production.latest_revision().unwrap().unwrap().id(),
         head.id()

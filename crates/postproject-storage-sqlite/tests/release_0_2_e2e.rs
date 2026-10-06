@@ -391,7 +391,7 @@ fn assert_original_online(production: &SqliteProduction, fixture: &Fixture) {
             &production
                 .locators(resource.id())
                 .expect("load replacement locator"),
-            production.production().media_roots(),
+            &production.media_roots().unwrap(),
             &[],
         )
         .expect("resolve relinked original");

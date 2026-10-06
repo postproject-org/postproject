@@ -30,7 +30,7 @@ fn root_edits_require_bases_and_reject_intervening_changes_atomically() {
         assert_eq!(additive.state(), TransactionState::Open);
         additive.commit().unwrap();
     }
-    assert!(production.production().media_roots()[0].is_enabled());
+    assert!(production.media_roots().unwrap()[0].is_enabled());
     let old_base = production.read_session().unwrap().decision_base();
     {
         let mut winner = production.begin_edit(old_base).unwrap();
@@ -47,8 +47,8 @@ fn root_edits_require_bases_and_reject_intervening_changes_atomically() {
         assert_eq!(conflict.key(), &SemanticConflictKey::MediaRoot(root_id));
         assert_eq!(conflict.superseding_revision(), head.id());
     }
-    assert_eq!(production.production().media_roots().len(), 1);
-    assert!(!production.production().media_roots()[0].is_enabled());
+    assert_eq!(production.media_roots().unwrap().len(), 1);
+    assert!(!production.media_roots().unwrap()[0].is_enabled());
     assert_eq!(
         production.latest_revision().unwrap().unwrap().id(),
         head.id()
@@ -58,5 +58,5 @@ fn root_edits_require_bases_and_reject_intervening_changes_atomically() {
     removal.remove_media_root(root_id).unwrap();
     removal.commit().unwrap();
     drop(removal);
-    assert!(production.production().media_roots().is_empty());
+    assert!(production.media_roots().unwrap().is_empty());
 }
