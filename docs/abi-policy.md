@@ -1,6 +1,6 @@
 # ABI policy
 
-ABI version 43 is pre-release and may change during the 0.x series, with every
+ABI version 44 is pre-release and may change during the 0.x series, with every
 change recorded in the changelog and ABI tests. `pp_abi_version()` reports the
 implemented version. Exported symbol names are unversioned until the first stable
 release, but removals or signature changes require an explicit ABI-version bump.
@@ -24,6 +24,13 @@ isolation because their production and transaction lifecycle dependencies lack
 the required complete evidence from two independent hosts (ADR 0040).
 
 ## Types and ownership
+
+ABI 44 carries distinct job identities through job operations, summaries,
+regeneration plans and revision events. Scalar job arguments use `pp_job_id_t`
+by value; C++ uses `JobId`. Checked object-reference helpers support job
+metadata targets. A job identity grants no worker authority; the claim/lease
+migration remains separate. Recompile consumers and use matching Python
+wheels. Schema 17 and UUID text retain their meaning (ADR 0049).
 
 ABI 43 carries distinct locator IDs through retirement, locator reads and
 revision events. Scalar retirement takes `pp_locator_id_t` by value; C++ uses

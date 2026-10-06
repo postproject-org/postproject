@@ -16,8 +16,8 @@ use crate::{
     PP_REVISION_METADATA_ADDED_OR_REPLACED, PP_REVISION_METADATA_REMOVED,
     PP_REVISION_REPRESENTATION_ADDED, PP_REVISION_REPRESENTATION_FINGERPRINT_OBSERVED,
     PP_REVISION_REPRESENTATION_RESOURCE_ADDED, PP_REVISION_RESOURCE_ADDED,
-    PP_REVISION_RESOURCE_FINGERPRINT_OBSERVED, PpAssetId, PpLocatorId, PpMediaRootId, PpObjectRef,
-    PpRevisionEvent, PpUuid, exact_cstring, object_ref_to_abi,
+    PP_REVISION_RESOURCE_FINGERPRINT_OBSERVED, PpAssetId, PpJobId, PpLocatorId, PpMediaRootId,
+    PpObjectRef, PpRevisionEvent, PpUuid, exact_cstring, object_ref_to_abi,
 };
 
 /// Opaque immutable revision-event result set owned by the C caller.
@@ -35,7 +35,7 @@ pub(crate) struct AbiRevisionEvent {
     locator_id: Option<PpLocatorId>,
     media_root_id: Option<PpMediaRootId>,
     activity_id: Option<PpUuid>,
-    job_id: Option<PpUuid>,
+    job_id: Option<PpJobId>,
     target: Option<PpObjectRef>,
     structural_position: Option<u32>,
     enabled: Option<bool>,
@@ -134,7 +134,7 @@ impl AbiRevisionEvent {
                 .media_root_id
                 .unwrap_or(PpMediaRootId { bytes: [0; 16] }),
             activity_id: self.activity_id.unwrap_or_else(zero_uuid),
-            job_id: self.job_id.unwrap_or_else(zero_uuid),
+            job_id: self.job_id.unwrap_or(PpJobId { bytes: [0; 16] }),
             target: self.target.unwrap_or_else(zero_object_ref),
             structural_position: self.structural_position.unwrap_or(0),
             enabled: self.enabled.map_or(0, u8::from),
@@ -371,7 +371,9 @@ impl TryFrom<&RevisionEvent> for AbiRevisionEvent {
                     RevisionEventKind::JobCancelled { .. } => PP_REVISION_JOB_CANCELLED,
                     _ => unreachable!("job event arm only contains job events"),
                 };
-                projected.job_id = Some(uuid(job_id.into_bytes()));
+                projected.job_id = Some(PpJobId {
+                    bytes: job_id.into_bytes(),
+                });
             }
             _ => {
                 return Err(postproject_core::Error::new(

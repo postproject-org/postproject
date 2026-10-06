@@ -593,7 +593,7 @@ pub unsafe extern "C" fn pp_read_session_artifact_reproducibility(
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_read_session_job(
     session: *const PpReadSession,
-    job_id: *const PpUuid,
+    job_id: crate::PpJobId,
     out_jobs: *mut *mut crate::PpJobSet,
     out_error: *mut *mut PpError,
 ) -> u32 {

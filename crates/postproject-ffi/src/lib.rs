@@ -186,7 +186,7 @@ const PP_REVISION_JOB_FAILED: u32 = 25;
 const PP_REVISION_JOB_CANCELLED: u32 = 26;
 
 /// Current pre-1.0 ABI version.
-pub const ABI_VERSION: u32 = 43;
+pub const ABI_VERSION: u32 = 44;
 
 /// Fixed-layout UUID-compatible public identifier.
 #[repr(C)]
@@ -312,7 +312,7 @@ pub struct PpRevisionEvent {
     /// Event activity identity, or zero when not applicable.
     pub activity_id: PpUuid,
     /// Event job identity, or zero when not applicable.
-    pub job_id: PpUuid,
+    pub job_id: PpJobId,
     /// Metadata/identifier target, with kind zero when not applicable.
     pub target: PpObjectRef,
     /// Structural member position for representation-resource events.
@@ -3500,12 +3500,12 @@ pub unsafe extern "C" fn pp_activity_set_release(activities: *mut PpActivitySet)
 ///
 /// # Safety
 ///
-/// `production` and `job_id` must be live, `out_jobs` must be writable, and
+/// `production` must be live, `out_jobs` must be writable, and
 /// `out_error` may be null or writable. The returned set is caller-owned.
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_job(
     production: *const PpProduction,
-    job_id: *const PpUuid,
+    job_id: PpJobId,
     out_jobs: *mut *mut PpJobSet,
     out_error: *mut *mut PpError,
 ) -> u32 {
@@ -3516,9 +3516,6 @@ pub unsafe extern "C" fn pp_production_job(
             let production = production
                 .as_ref()
                 .ok_or_else(|| invalid_argument("production must not be null"))?;
-            let job_id = job_id
-                .as_ref()
-                .ok_or_else(|| invalid_argument("job_id must not be null"))?;
             require_output(out_jobs, "out_jobs")?;
             let job = lock_production(&production.state).job(JobId::from_bytes(job_id.bytes))?;
             out_jobs.write(Box::into_raw(Box::new(PpJobSet::new_page(&[job], None)?)));
@@ -5459,12 +5456,12 @@ pub unsafe extern "C" fn pp_transaction_request_job(
     output_asset_id: PpAssetId,
     output_representation_kind: u32,
     target_root: *const c_char,
-    out_job_id: *mut PpUuid,
+    out_job_id: *mut PpJobId,
     out_error: *mut *mut PpError,
 ) -> u32 {
     // SAFETY: Inputs are checked and copied before this call returns.
     unsafe {
-        initialize_uuid(out_job_id);
+        initialize_value(out_job_id, PpJobId { bytes: [0; 16] });
         ffi_call(out_error, || {
             let transaction = transaction
                 .as_mut()
@@ -5502,7 +5499,7 @@ pub unsafe extern "C" fn pp_transaction_request_job(
                     optional_utf8(target_root, "target_root")?.map(str::to_owned),
                 )?,
             )?;
-            out_job_id.write(PpUuid {
+            out_job_id.write(PpJobId {
                 bytes: job.id().into_bytes(),
             });
             transaction.mutations.push(StagedMutation::RequestJob(job));
@@ -5518,7 +5515,7 @@ pub unsafe extern "C" fn pp_transaction_request_job(
 ///
 /// # Safety
 ///
-/// `transaction` must be live, `job_id` readable, `tool_name` valid UTF-8,
+/// `transaction` must be live, `tool_name` valid UTF-8,
 /// `out_claim_id` writable, and `out_error` null or writable. Other strings
 /// may be null or must follow the same UTF-8 contract.
 #[postproject_ffi_macros::ffi_export]
@@ -5528,7 +5525,7 @@ pub unsafe extern "C" fn pp_transaction_request_job(
 )]
 pub unsafe extern "C" fn pp_transaction_claim_job(
     transaction: *mut PpTransaction,
-    job_id: *const PpUuid,
+    job_id: PpJobId,
     tool_name: *const c_char,
     tool_version: *const c_char,
     tool_uri: *const c_char,
@@ -5549,9 +5546,6 @@ pub unsafe extern "C" fn pp_transaction_claim_job(
                 .as_mut()
                 .ok_or_else(|| invalid_argument("transaction must not be null"))?;
             transaction.lifecycle.ensure_open()?;
-            let job_id = job_id
-                .as_ref()
-                .ok_or_else(|| invalid_argument("job_id must not be null"))?;
             require_output(out_claim_id, "out_claim_id")?;
             let (tool, agent) = worker_identity_from_abi(
                 tool_name,
@@ -5588,7 +5582,7 @@ pub unsafe extern "C" fn pp_transaction_claim_job(
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_transaction_renew_job_claim(
     transaction: *mut PpTransaction,
-    job_id: *const PpUuid,
+    job_id: PpJobId,
     claim_id: *const PpUuid,
     now_unix_micros: i64,
     expires_at_unix_micros: i64,
@@ -5622,7 +5616,7 @@ pub unsafe extern "C" fn pp_transaction_renew_job_claim(
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_transaction_release_job_claim(
     transaction: *mut PpTransaction,
-    job_id: *const PpUuid,
+    job_id: PpJobId,
     claim_id: *const PpUuid,
     out_error: *mut *mut PpError,
 ) -> u32 {
@@ -5654,7 +5648,7 @@ pub unsafe extern "C" fn pp_transaction_release_job_claim(
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_transaction_complete_job(
     transaction: *mut PpTransaction,
-    job_id: *const PpUuid,
+    job_id: PpJobId,
     claim_id: *const PpUuid,
     now_unix_micros: i64,
     output_representation_id: *const PpUuid,
@@ -5737,7 +5731,7 @@ pub unsafe extern "C" fn pp_transaction_complete_job(
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_transaction_fail_job(
     transaction: *mut PpTransaction,
-    job_id: *const PpUuid,
+    job_id: PpJobId,
     claim_id: *const PpUuid,
     now_unix_micros: i64,
     diagnostic: *const c_char,
@@ -5766,12 +5760,12 @@ pub unsafe extern "C" fn pp_transaction_fail_job(
 ///
 /// # Safety
 ///
-/// The transaction must be live, `job_id` readable, and `out_error` null or
+/// The transaction must be live, and `out_error` null or
 /// writable.
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_transaction_cancel_job(
     transaction: *mut PpTransaction,
-    job_id: *const PpUuid,
+    job_id: PpJobId,
     out_error: *mut *mut PpError,
 ) -> u32 {
     // SAFETY: The job ID is checked before dereference and copied immediately.
@@ -5781,9 +5775,6 @@ pub unsafe extern "C" fn pp_transaction_cancel_job(
                 .as_mut()
                 .ok_or_else(|| invalid_argument("transaction must not be null"))?;
             transaction.lifecycle.ensure_open()?;
-            let job_id = job_id
-                .as_ref()
-                .ok_or_else(|| invalid_argument("job_id must not be null"))?;
             transaction
                 .mutations
                 .push(StagedMutation::CancelJob(JobId::from_bytes(job_id.bytes)));
@@ -6355,7 +6346,7 @@ const fn empty_revision_event() -> PpRevisionEvent {
         locator_id: PpLocatorId { bytes: [0; 16] },
         media_root_id: PpMediaRootId { bytes: [0; 16] },
         activity_id: PpUuid { bytes: [0; 16] },
-        job_id: PpUuid { bytes: [0; 16] },
+        job_id: PpJobId { bytes: [0; 16] },
         target: PpObjectRef {
             kind: 0,
             id: PpUuid { bytes: [0; 16] },
@@ -6781,13 +6772,11 @@ fn optional_uuid_flagged(flag: u8, value: PpUuid, label: &str) -> Result<Option<
 }
 
 unsafe fn required_job_claim_ids(
-    job_id: *const PpUuid,
+    job_id: PpJobId,
     claim_id: *const PpUuid,
 ) -> Result<(JobId, JobClaimId), Error> {
     // SAFETY: Callers of this helper carry the exported readable-pointer contract.
-    let job_id =
-        unsafe { job_id.as_ref() }.ok_or_else(|| invalid_argument("job_id must not be null"))?;
-    // SAFETY: Same contract as `job_id`.
+    // SAFETY: The caller guarantees a readable claim identity.
     let claim_id = unsafe { claim_id.as_ref() }
         .ok_or_else(|| invalid_argument("claim_id must not be null"))?;
     Ok((

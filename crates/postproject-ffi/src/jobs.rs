@@ -6,7 +6,7 @@ use postproject_core::{
     Error, ErrorKind, Job, JobState, QueryCursor, RegenerationJobPlan, RepresentationKind,
 };
 
-use crate::{PpAssetId, PpUuid, exact_cstring};
+use crate::{PpAssetId, PpJobId, PpUuid, exact_cstring};
 
 const PP_JOB_REQUESTED: u32 = 1;
 pub(super) const PP_JOB_CLAIMED: u32 = 2;
@@ -30,7 +30,7 @@ pub struct PpRegenerationPlanSet {
 #[derive(Clone, Copy, Debug)]
 pub struct PpJob {
     /// Stable job identity.
-    pub id: PpUuid,
+    pub id: PpJobId,
     /// Borrowed open-world job kind.
     pub kind: *const c_char,
     /// Asset that will own the requested output.
@@ -73,7 +73,7 @@ impl PpJob {
     pub(crate) const fn empty() -> Self {
         let zero = PpUuid { bytes: [0; 16] };
         Self {
-            id: zero,
+            id: PpJobId { bytes: [0; 16] },
             kind: std::ptr::null(),
             output_asset_id: PpAssetId { bytes: [0; 16] },
             output_representation_kind: 0,
@@ -359,7 +359,7 @@ impl TryFrom<&Job> for AbiJob {
 
 fn empty_job(job: &Job, kind: *const c_char, target_root: Option<&CString>) -> PpJob {
     PpJob {
-        id: PpUuid {
+        id: PpJobId {
             bytes: job.id().into_bytes(),
         },
         kind,

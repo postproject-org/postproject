@@ -319,7 +319,7 @@ typedef struct pp_revision_event {
   pp_locator_id_t locator_id;
   pp_media_root_id_t media_root_id;
   pp_uuid_t activity_id;
-  pp_uuid_t job_id;
+  pp_job_id_t job_id;
   pp_object_ref_t target;
   uint32_t structural_position;
   uint8_t enabled;
@@ -342,7 +342,7 @@ typedef struct pp_activity_edge {
 /* Strings borrow the owning pp_job_set_t. State-specific fields are zero or
  * NULL outside their applicable state. */
 typedef struct pp_job {
-  pp_uuid_t id;
+  pp_job_id_t id;
   const char *kind;
   pp_asset_id_t output_asset_id;
   pp_representation_kind_t output_representation_kind;
@@ -651,7 +651,7 @@ PP_API pp_error_code_t pp_read_session_dependents(
 /* Snapshot job reads return the same owned sets as live production reads.
  * Zero state and NULL kind select all jobs; pages retain this view's scope. */
 PP_API pp_error_code_t pp_read_session_job(
-    const pp_read_session_t *session, const pp_uuid_t *job_id,
+    const pp_read_session_t *session, pp_job_id_t job_id,
     pp_job_set_t **out_jobs, pp_error_t **out_error);
 PP_API pp_error_code_t pp_read_session_jobs(
     const pp_read_session_t *session, pp_job_state_t state, const char *kind,
@@ -1304,7 +1304,7 @@ PP_API pp_error_code_t pp_production_jobs(
     pp_error_t **out_error);
 /* Reads one job as a one-element set. An absent job is PP_ERROR_NOT_FOUND. */
 PP_API pp_error_code_t pp_production_job(
-    const pp_production_t *production, const pp_uuid_t *job_id,
+    const pp_production_t *production, pp_job_id_t job_id,
     pp_job_set_t **out_jobs, pp_error_t **out_error);
 PP_API uint64_t pp_job_set_count(const pp_job_set_t *jobs);
 PP_API const char *pp_job_set_next_cursor(const pp_job_set_t *jobs);
@@ -1658,12 +1658,12 @@ PP_API pp_error_code_t pp_transaction_request_job(
     const pp_uuid_t *input_representation_ids, uint64_t input_count,
     pp_asset_id_t output_asset_id,
     pp_representation_kind_t output_representation_kind,
-    const char *target_root, pp_uuid_t *out_job_id,
+    const char *target_root, pp_job_id_t *out_job_id,
     pp_error_t **out_error);
 /* Claim returns a random token that becomes usable only after commit. Worker
  * identity strings are borrowed for the call. Lease times are caller-supplied. */
 PP_API pp_error_code_t pp_transaction_claim_job(
-    pp_transaction_t *transaction, const pp_uuid_t *job_id,
+    pp_transaction_t *transaction, pp_job_id_t job_id,
     const char *tool_name, const char *tool_version, const char *tool_uri,
     const char *agent_name, const char *agent_identifier_scheme,
     const char *agent_identifier_value,
@@ -1671,26 +1671,26 @@ PP_API pp_error_code_t pp_transaction_claim_job(
     int64_t expires_at_unix_micros, pp_uuid_t *out_claim_id,
     pp_error_t **out_error);
 PP_API pp_error_code_t pp_transaction_renew_job_claim(
-    pp_transaction_t *transaction, const pp_uuid_t *job_id,
+    pp_transaction_t *transaction, pp_job_id_t job_id,
     const pp_uuid_t *claim_id, int64_t now_unix_micros,
     int64_t expires_at_unix_micros, pp_error_t **out_error);
 PP_API pp_error_code_t pp_transaction_release_job_claim(
-    pp_transaction_t *transaction, const pp_uuid_t *job_id,
+    pp_transaction_t *transaction, pp_job_id_t job_id,
     const pp_uuid_t *claim_id, pp_error_t **out_error);
 /* Atomically completes a job with a representation and activity already
  * staged, in that order, in this transaction. */
 PP_API pp_error_code_t pp_transaction_complete_job(
-    pp_transaction_t *transaction, const pp_uuid_t *job_id,
+    pp_transaction_t *transaction, pp_job_id_t job_id,
     const pp_uuid_t *claim_id, int64_t now_unix_micros,
     const pp_uuid_t *output_representation_id,
     const pp_uuid_t *activity_id, pp_error_t **out_error);
 PP_API pp_error_code_t pp_transaction_fail_job(
-    pp_transaction_t *transaction, const pp_uuid_t *job_id,
+    pp_transaction_t *transaction, pp_job_id_t job_id,
     const pp_uuid_t *claim_id, int64_t now_unix_micros,
     const char *diagnostic, pp_error_t **out_error);
 /* Cancellation is administrative and therefore does not require a claim token. */
 PP_API pp_error_code_t pp_transaction_cancel_job(
-    pp_transaction_t *transaction, const pp_uuid_t *job_id,
+    pp_transaction_t *transaction, pp_job_id_t job_id,
     pp_error_t **out_error);
 /* Arrays and strings are borrowed only for this call. A NULL timestamp pointer
  * means absent. Tool and agent fields are independently optional subject to
