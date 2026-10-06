@@ -1,6 +1,6 @@
 # Migrating to the 0.7 development SDK
 
-The unpublished `0.7.0-alpha.1` SDK currently uses C ABI 42, Python `0.7.0a1`
+The unpublished `0.7.0-alpha.1` SDK currently uses C ABI 43, Python `0.7.0a1`
 and SQLite schema 17. Rebuild native consumers with matching headers and
 library, and install a matching Python wheel. Existing production files,
 UUID text, external identifiers and host binding strings retain their meaning.
@@ -8,7 +8,8 @@ Rust 1.85, C11, C++17 and Python 3.11 remain the supported floors.
 
 ## Identity values
 
-C uses distinct `pp_production_id_t`, `pp_asset_id_t`, `pp_media_root_id_t`, `pp_revision_id_t` and
+C uses distinct `pp_production_id_t`, `pp_asset_id_t`, `pp_media_root_id_t`,
+`pp_locator_id_t`, `pp_revision_id_t` and
 `pp_transaction_id_t` structs. Asset inputs are values; arrays borrow typed
 IDs and outputs write typed stack values. Use `pp_object_ref_from_asset`
 for dynamic asset targets. Revision arguments are values; remove the `&`
@@ -16,7 +17,8 @@ from calls to revision-event queries and `pp_production_begin_transaction_at`.
 Use typed outputs for `pp_revision_set_get`. Parse and format through the
 corresponding `pp_*_id_parse` and `pp_*_id_format` functions.
 
-C++ uses explicit `ProductionId`, `AssetId`, `MediaRootId`, `RevisionId` and `TransactionId`
+C++ uses explicit `ProductionId`, `AssetId`, `MediaRootId`, `LocatorId`,
+`RevisionId` and `TransactionId`
 values. Imports return `AssetId`; use `ObjectRef::asset` for dynamic targets.
 Keep IDs returned by reads in their semantic type. Explicit `asUuid()` and
 byte construction are for interchange. Equality, ordering and hashing work
@@ -35,6 +37,11 @@ events carry that type too. C root conflicts now use `media_root_id`, with a
 zero `target`; other conflicts use `target`. C++ `ConflictKey::target` is an
 `ObjectRef` or `MediaRootId` variant, replacing `target_id`/`target_kind`.
 Inspect it with `std::get_if` as shown in {doc}`semantic-conflicts`.
+
+Locator reads and revision events return `pp_locator_id_t` / `LocatorId`.
+Retirement takes the C identity by value; remove the argument's `&`.
+Saved text uses the locator parse/format helpers. Resource ownership still
+uses the resource ID; a locator is not a dynamic metadata target.
 
 ## Reads and writes
 

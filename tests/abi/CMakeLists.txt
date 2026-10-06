@@ -73,6 +73,20 @@ int main(void) { pp_asset_id_t id = {{0}};
 if(POSTPROJECT_ASSET_AS_ROOT_COMPILES)
     message(FATAL_ERROR "Asset identity must not substitute for root identity")
 endif()
+check_c_source_compiles("#include <postproject/postproject.h>
+int main(void) { pp_locator_id_t id = {{0}};
+  return pp_transaction_retire_locator(0, id, 0); }"
+    POSTPROJECT_LOCATOR_ID_COMPILES)
+if(NOT POSTPROJECT_LOCATOR_ID_COMPILES)
+    message(FATAL_ERROR "Installed typed locator retirement must compile")
+endif()
+check_c_source_compiles("#include <postproject/postproject.h>
+int main(void) { pp_media_root_id_t id = {{0}};
+  return pp_transaction_retire_locator(0, id, 0); }"
+    POSTPROJECT_ROOT_AS_LOCATOR_COMPILES)
+if(POSTPROJECT_ROOT_AS_LOCATOR_COMPILES)
+    message(FATAL_ERROR "Root identity must not substitute for locator identity")
+endif()
 cmake_pop_check_state()
 
 # The producer generates this source from the public header. This consumer
