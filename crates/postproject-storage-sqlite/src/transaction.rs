@@ -1606,6 +1606,9 @@ impl<'production> SqliteTransaction<'production> {
 
     /// Replaces one representation's complete dependency observation.
     ///
+    /// Requires a decision base, including initial and unchanged observations.
+    /// Early rejection leaves the transaction open.
+    ///
     /// # Errors
     ///
     /// Returns [`ErrorKind::NotFound`] for an absent source or target, an
@@ -1616,6 +1619,8 @@ impl<'production> SqliteTransaction<'production> {
         representation_id: RepresentationId,
         dependencies: &[Dependency],
     ) -> Result<bool> {
+        self.lifecycle.ensure_open()?;
+        self.require_decision_base()?;
         if dependencies.len() > MAX_DEPENDENCIES_PER_SET {
             return Err(Error::new(
                 ErrorKind::InvalidArgument,

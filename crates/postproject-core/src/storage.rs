@@ -679,6 +679,8 @@ pub trait ProductionStoreTransaction {
     ///
     /// Returns `true` when state changed and `false` for an identical current
     /// observation. An empty slice explicitly records a known empty set.
+    /// Requires a decision base, including initial and unchanged observations;
+    /// early rejection leaves the transaction open.
     ///
     /// # Errors
     ///

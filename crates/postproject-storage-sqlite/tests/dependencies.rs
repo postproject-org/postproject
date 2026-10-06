@@ -7,7 +7,7 @@ use postproject_core::{
     QueryPageRequest, Representation, RepresentationFingerprint, RepresentationId,
     RepresentationKind, Resource, ResourceId, RevisionEventKind, Timestamp,
 };
-use postproject_storage_sqlite::SqliteProduction;
+use postproject_storage_sqlite::{SqliteProduction, SqliteTransaction};
 use rusqlite::Connection;
 
 fn media(label: u8) -> OriginalMediaImport {
@@ -80,6 +80,11 @@ fn assert_direct_dependents(
     );
 }
 
+fn edit(production: &mut SqliteProduction) -> SqliteTransaction<'_> {
+    let base = production.read_session().unwrap().decision_base();
+    production.begin_edit(base).unwrap()
+}
+
 #[test]
 #[allow(
     clippy::too_many_lines,
@@ -94,7 +99,7 @@ fn dependency_queries_are_transitive_bounded_and_keyset_paginated() {
     let third = media(3);
     let fourth = media(4);
     {
-        let mut transaction = production.begin_transaction().expect("begin setup");
+        let mut transaction = edit(&mut production);
         for item in [&first, &second, &third, &fourth] {
             transaction.import_original(item).expect("import media");
         }
@@ -314,7 +319,7 @@ fn complete_dependency_sets_replace_atomically_and_are_journaled() {
         .expect("pinned dependency"),
     ];
     {
-        let mut transaction = production.begin_transaction().expect("begin observation");
+        let mut transaction = edit(&mut production);
         assert!(
             transaction
                 .record_dependency_set(source.representation().id(), &dependencies)
@@ -347,7 +352,7 @@ fn complete_dependency_sets_replace_atomically_and_are_journaled() {
     ));
 
     {
-        let mut transaction = production.begin_transaction().expect("begin no-op");
+        let mut transaction = edit(&mut production);
         assert!(
             !transaction
                 .record_dependency_set(source.representation().id(), &dependencies)
@@ -365,7 +370,7 @@ fn complete_dependency_sets_replace_atomically_and_are_journaled() {
     );
 
     {
-        let mut transaction = production.begin_transaction().expect("begin empty set");
+        let mut transaction = edit(&mut production);
         assert!(
             transaction
                 .record_dependency_set(source.representation().id(), &[])
@@ -404,7 +409,7 @@ fn invalid_dependency_references_leave_no_partial_observation() {
     )
     .expect("domain-valid dependency");
 
-    let mut transaction = production.begin_transaction().expect("begin invalid set");
+    let mut transaction = edit(&mut production);
     let error = transaction
         .record_dependency_set(source.representation().id(), &[invalid])
         .expect_err("reject foreign source resource");
@@ -444,7 +449,7 @@ fn representation_observation_marks_dependencies_for_extraction() {
     )
     .expect("dependency");
     {
-        let mut transaction = production.begin_transaction().expect("begin setup");
+        let mut transaction = edit(&mut production);
         transaction.import_original(&source).expect("import source");
         transaction.import_original(&target).expect("import target");
         transaction
@@ -471,7 +476,7 @@ fn representation_observation_marks_dependencies_for_extraction() {
     assert_eq!(dirty.status(), DependencySetStatus::NeedsExtraction);
     assert_eq!(dirty.recorded_at_revision(), 1);
 
-    let mut transaction = production.begin_transaction().expect("begin extraction");
+    let mut transaction = edit(&mut production);
     assert!(
         transaction
             .record_dependency_set(
@@ -529,7 +534,7 @@ fn activity_inputs_capture_required_dependency_paths() {
     )
     .expect("activity");
     {
-        let mut transaction = production.begin_transaction().expect("begin setup");
+        let mut transaction = edit(&mut production);
         for import in [&source, &required, &optional, &output] {
             transaction.import_original(import).expect("import media");
         }

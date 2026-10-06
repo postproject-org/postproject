@@ -35,7 +35,8 @@ fn changed_dependency_fingerprint_makes_render_stale_not_source() {
     )
     .expect("dependency");
     let mut production = SqliteProduction::create(&production_path, None).expect("create");
-    let mut transaction = production.begin_transaction().expect("begin setup");
+    let base = production.read_session().unwrap().decision_base();
+    let mut transaction = production.begin_edit(base).expect("begin setup");
     for import in &imports {
         transaction.import_original(import).expect("stage import");
     }
@@ -110,7 +111,8 @@ fn changed_authored_dependency_path_makes_artifact_stale() {
     )
     .expect("dependency");
     let mut production = SqliteProduction::create(&production_path, None).expect("create");
-    let mut transaction = production.begin_transaction().expect("begin setup");
+    let base = production.read_session().unwrap().decision_base();
+    let mut transaction = production.begin_edit(base).expect("begin setup");
     for import in &imports {
         transaction.import_original(import).expect("stage import");
     }
@@ -130,7 +132,8 @@ fn changed_authored_dependency_path_makes_artifact_stale() {
         ArtifactKnowledgeState::Current
     );
 
-    let mut transaction = production.begin_transaction().expect("begin replacement");
+    let base = production.read_session().unwrap().decision_base();
+    let mut transaction = production.begin_edit(base).expect("begin replacement");
     transaction
         .record_dependency_set(shot_id, &[])
         .expect("remove dependency");
@@ -169,7 +172,8 @@ fn unresolved_dependency_snapshot_is_indeterminate_with_its_authored_path() {
     )
     .expect("unresolved dependency");
     let mut production = SqliteProduction::create(&production_path, None).expect("create");
-    let mut transaction = production.begin_transaction().expect("begin setup");
+    let base = production.read_session().unwrap().decision_base();
+    let mut transaction = production.begin_edit(base).expect("begin setup");
     for import in &imports {
         transaction.import_original(import).expect("stage import");
     }

@@ -31,11 +31,16 @@ identity/sequence together. Existing semantic conflict keys protect mutated
 facts, not every fact a caller read. This is not full read-set serializability.
 
 Metadata replacement/removal (ADR 0052), root enabling/removal, locator
-retirement and external identifier removal require a decision base before
+retirement, external identifier removal and complete dependency observations
+require a decision base before
 reading or staging a mutation. Even a request for a root's existing state
 requires that base. Early rejection leaves the transaction
 open and stages nothing. Root creation and metadata appends remain additive.
 Other unbased mutation families remain under review during migration.
+
+Dependency observations require a base even for a first or identical set:
+the caller declares the complete ordered observation, including any omissions.
+An empty set is explicit known absence, not an additive append.
 
 The commit path returns `CommitReceipt { production_id, revision }`, capturing
 the new revision before the atomic SQLite commit. `revision: None` means the
