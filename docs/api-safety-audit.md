@@ -363,3 +363,18 @@ results are in the repository manifest. Cached roots on the production value
 and their materialization during open remain transitional (ADR 0053).
 Other observation guards, value/lease contracts and final qualification remain
 open; this checkpoint closes no completion gate.
+
+## Root-cache removal checkpoint
+
+SDK `4ae868d` removes the root collection from Rust's `Production` value.
+Open, retained-view creation and edit creation load only header metadata;
+root mutations and job target validation query individual rows. CLI inspection
+pages roots and reports truncation; root edits search bounded retained pages.
+Regressions prove unrequested-root corruption does not break open/edit and
+inspection/edit works beyond the convenience cap. ADR 0053's transitional
+root-cache item is resolved; other materialization families remain under audit.
+Six Rust gates, eight fresh installed native contracts, 72 extracted tests,
+strict docs and symbol/layout checks pass. Source/installed Python: 91 run,
+one skip; nine wrong-kind calls reject. Manager: six passed. Blender: 23 passed,
+one skip against the rebuilt bundle. Exact inputs are in the repository manifest.
+Observation guards, value/lease contracts and final qualification remain open.

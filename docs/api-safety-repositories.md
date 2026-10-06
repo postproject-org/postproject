@@ -548,3 +548,22 @@ library overrides. Logs: `target/root-pages-*.log` and
 These are scoped Linux development checks. Full hosts, exact MSRV, platform
 checks and final handoffs remain open. All task commits remain local `main`;
 no push, tag or publication occurred.
+
+## Root-cache removal checks
+
+SDK `4ae868d` (storage `dd4b68e`, fixtures `88445fe`) retains ABI 47/schema 17,
+315 exports and 27 layouts. Prefix: `target/api-safety-root-cache-install`
+(debug CLI, release native library). The root-page neutral binding wheel is
+unchanged and tested with this prefix. Rebuilt artifacts, SHA-256:
+
+- Linux wheel, `target/api-safety-wheel/root-cache/`: `cc7dd67cce6b824d2d0e8aa4e34a3a1dd5922d24ac957c19f1baff4018ec46b3`.
+- Blender bundle, `target/api-safety-blender/root-cache/`: `13596846ddbcea149c643ea8bf26a47bf1e2529a595181d167951e2ec38e649d`.
+
+Six Rust gates, eight fresh native contracts, 72 extracted tests, strict docs,
+symbol/layout and example coverage pass. Source/installed Python: 91 run,
+one skip; nine installed wrong-kind calls reject. The bundled root-page recipe
+passes without overrides. Manager `da2caaa`: six passed; Blender `71f49b6`:
+23 passed, one 5.3-only skip on 5.2.2 LTS `d13f752e3b9c`. Other consumer results
+keep their preceding input scope. Logs: `target/root-cache-*.log`.
+Final qualification remains open. All task commits remain local `main`;
+no push, tag or publication occurred.
