@@ -168,7 +168,8 @@ postproject media resolve media.pproj "$ASSET_ID" \
 
 # [retire-locator]
 # The file moved and its new location was confirmed; retire the old route.
-postproject locator retire media.pproj "$OLD_LOCATOR_ID"
+BASE=$(postproject --json inspect media.pproj | jq -r .decision_base)
+postproject --decision-base "$BASE" locator retire media.pproj "$OLD_LOCATOR_ID"
 CURSOR=
 while :; do
   ARGS=(--json locator list media.pproj "$RESOURCE_ID" --limit 100)

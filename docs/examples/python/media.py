@@ -213,8 +213,8 @@ def remove_root(production: Production, root_id: MediaRootId) -> None:
 def retire_superseded_locator(
     production: Production, resource_id: ResourceId, superseded_uri: str
 ) -> list[LocatorMatch]:
-    with production.transaction() as transaction:
-        for match in production.locators_page(resource_id, limit=100).items:
+    with production.read_session() as view, view.edit() as transaction:
+        for match in view.locators_page(resource_id, limit=100).items:
             if match.locator.uri == superseded_uri:
                 transaction.retire_locator(match.locator.id)
         transaction.commit()

@@ -229,11 +229,14 @@ fn move_to_archive(
     resource_id: ResourceId,
     archived: &Path,
 ) -> Result<()> {
-    let superseded: Vec<_> = production.locators(resource_id)?;
+    let view = production.read_session()?;
+    let superseded: Vec<_> = view.read().locators(resource_id)?;
+    let base = view.decision_base();
+    drop(view);
     let replacement =
         prepare_confirmed_locator(resource_id, canonical_file_uri(archived)?, None, None)?;
     {
-        let mut transaction = production.begin_transaction()?;
+        let mut transaction = production.begin_edit(base)?;
         transaction.add_locator(&replacement)?;
         for locator in &superseded {
             transaction.retire_locator(locator.id())?;

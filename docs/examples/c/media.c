@@ -556,7 +556,11 @@ static pp_error_code_t retire_superseded(pp_production_t *production,
   if (memcmp(parsed_id.bytes, old_locator_id.bytes, 16)) return PP_ERROR_INTERNAL;
 
   pp_transaction_t *transaction = NULL;
-  status = pp_production_begin_transaction(production, &transaction, error);
+  pp_read_session_t *view = NULL;
+  status = pp_production_read_session(production, &view, error);
+  if (status == PP_OK)
+    status = pp_read_session_begin_edit(view, &transaction, error);
+  pp_read_session_release(view);
   if (status == PP_OK) {
     /* Retire only a locator already superseded by a confirmed one. */
     status = pp_transaction_retire_locator(transaction, old_locator_id, error);

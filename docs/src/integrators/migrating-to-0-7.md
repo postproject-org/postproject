@@ -129,3 +129,8 @@ copied job data, pass one `status` instead of the four old constructor arguments
 Job lease APIs and other state projections are still under development.
 The {doc}`../../api-safety-audit` records the implementation and verification
 scope of each checkpoint.
+
+Locator retirement requires a decision base before staging. Use a read
+session's edit and read the locator set from that session. CLI `locator retire`
+requires `--decision-base` from `inspect`; an unbased transaction may still
+confirm an independent new locator.
