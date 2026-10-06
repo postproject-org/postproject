@@ -378,3 +378,16 @@ strict docs and symbol/layout checks pass. Source/installed Python: 91 run,
 one skip; nine wrong-kind calls reject. Manager: six passed. Blender: 23 passed,
 one skip against the rebuilt bundle. Exact inputs are in the repository manifest.
 Observation guards, value/lease contracts and final qualification remain open.
+
+## Python query-integer checkpoint
+
+SDK `07a2c22` checks Python page limits, revision sequences, traversal bounds
+and resolver limits before `ctypes` conversion. Non-integers and booleans raise
+`TypeError`; out-of-range integers raise `InvalidArgumentError`. Regression
+tests cover unsigned wraparound through live/retained queries and revision
+waits, valid endpoints, unchanged journal state and observer construction.
+Source/installed Python: 93 run, one skip; Ruff/ty and nine installed wrong-kind
+calls pass. All 18 extracted Python tests and strict docs pass. Native inputs
+remain the root-cache checkpoint; ABI 47/schema 17 is unchanged. Matching
+wheel/bundle and consumer checks are in the repository manifest. Other numeric
+input families, closed value alternatives and leases remain open.

@@ -567,3 +567,24 @@ passes without overrides. Manager `da2caaa`: six passed; Blender `71f49b6`:
 keep their preceding input scope. Logs: `target/root-cache-*.log`.
 Final qualification remains open. All task commits remain local `main`;
 no push, tag or publication occurred.
+
+## Python query-integer checks
+
+SDK `07a2c22` (page guards `5e873e0`, numeric guards `92973f4`) uses the
+unchanged native SDK from `4ae868d`, installed in
+`target/api-safety-root-cache-install`. ABI 47/schema 17: 315 exports, 27 layouts.
+New artifacts in `target/api-safety-wheel/query-integers/` and
+`target/api-safety-blender/query-integers/`, SHA-256:
+
+- Neutral wheel: `b93b322929450b21db4709b151f2b4b6f724f07e014f3065150f80df1e073477`.
+- Linux wheel: `185ce4b305e364741b6472432298381f63b7153dcebcd73f38b52da84cdfee87`.
+- Blender bundle: `2d334b8e383566473c0f2dba6131b065b0e2e3d3bffc44e27f296c29f7a60e00`.
+
+Source/installed Python: 93 run, one skip; Ruff/ty and nine installed wrong-kind
+calls pass. All 18 extracted Python tests and strict docs pass. Manager
+`da2caaa`: six passed against the new neutral wheel. Blender `71f49b6`:
+23 passed, one 5.3-only skip against the rebuilt bundle on 5.2.2 LTS
+`d13f752e3b9c`. Other consumer/native checks retain their root-page/cache inputs.
+Logs: `target/query-limits-*.log`, `target/query-integers-*.log`.
+Final qualification remains open. All task commits remain local `main`;
+no push, tag or publication occurred.
