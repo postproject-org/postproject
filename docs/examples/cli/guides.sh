@@ -115,7 +115,8 @@ cat > dependency.json <<EOF
   }
 ]
 EOF
-postproject dependency record production.pproj "$SEQUENCE_ID" dependency.json
+BASE=$(postproject --json inspect production.pproj | jq -r .decision_base)
+postproject --decision-base "$BASE" dependency record production.pproj "$SEQUENCE_ID" dependency.json
 postproject --json dependency dependencies production.pproj "$SEQUENCE_ID" \
   --max-depth 4 --max-representations 1000 --limit 100 |
   jq '.items[] | {target, depth}'

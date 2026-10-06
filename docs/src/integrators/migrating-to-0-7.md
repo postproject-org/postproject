@@ -139,3 +139,7 @@ External identifier removal likewise requires a read-derived base; CLI
 `identifier remove` requires `--decision-base`. A removal followed by
 reattachment invalidates the old decision even when the text is unchanged.
 Attaching an independent identifier remains additive.
+
+Complete dependency observations require a read-derived base, including a
+first, empty or identical set. CLI `dependency record` requires
+`--decision-base`; a set replaces the entire previous observation.

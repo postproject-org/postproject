@@ -252,7 +252,7 @@ def record_and_query_dependencies(
         authored_reference="characters/lead.usd",
         resolved_representation_id=resolved_id,
     )
-    with production.transaction() as transaction:
+    with production.read_session() as view, view.edit() as transaction:
         transaction.record_dependency_set(source_id, (dependency,))
         transaction.commit()
 

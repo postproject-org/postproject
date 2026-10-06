@@ -178,7 +178,7 @@ def record_edit_dependencies(
             required=False,
         ),
     )
-    with production.transaction() as transaction:
+    with production.read_session() as view, view.edit() as transaction:
         transaction.record_dependency_set(edit_id, dependencies)
         transaction.commit()
 

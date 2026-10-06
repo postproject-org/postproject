@@ -292,7 +292,8 @@ fn record_and_query_dependencies(
         "characters/lead.usd",
     )?;
     {
-        let mut transaction = production.begin_transaction()?;
+        let base = production.read_session()?.decision_base();
+        let mut transaction = production.begin_edit(base)?;
         transaction.record_dependency_set(source_id, &[dependency])?;
         transaction.commit()?;
     }

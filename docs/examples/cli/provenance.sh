@@ -111,7 +111,8 @@ cat > dependencies.json <<EOF
   }
 ]
 EOF
-postproject dependency record provenance.pproj "$COMP_ID" dependencies.json
+BASE=$(postproject --json inspect provenance.pproj | jq -r .decision_base)
+postproject --decision-base "$BASE" dependency record provenance.pproj "$COMP_ID" dependencies.json
 postproject dependency show provenance.pproj "$COMP_ID"
 CURSOR=
 while :; do

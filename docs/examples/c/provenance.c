@@ -449,9 +449,14 @@ static pp_error_code_t record_dependencies(pp_production_t *production,
   dependencies[1].required = 0;
   dependencies[1].authored_reference = "A001.mov#timecode";
 
+  pp_read_session_t *view = NULL;
   pp_transaction_t *transaction = NULL;
   pp_error_code_t status =
-      pp_production_begin_transaction(production, &transaction, error);
+      pp_production_read_session(production, &view, error);
+  if (status == PP_OK) {
+    status = pp_read_session_begin_edit(view, &transaction, error);
+  }
+  pp_read_session_release(view);
   if (status == PP_OK) {
     /* The call replaces the complete, ordered dependency observation. */
     status = pp_transaction_record_dependency_set(transaction, *source_id,

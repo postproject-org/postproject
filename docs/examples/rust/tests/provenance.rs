@@ -197,7 +197,8 @@ fn record_comp_dependencies(
         )?,
     ];
     {
-        let mut transaction = production.begin_transaction()?;
+        let base = production.read_session()?.decision_base();
+        let mut transaction = production.begin_edit(base)?;
         // The set replaces the previous observation as a whole.
         transaction.record_dependency_set(comp_id, &dependencies)?;
         transaction.commit()?;

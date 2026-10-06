@@ -222,7 +222,7 @@ void record_and_query_dependencies(postproject::Production &production,
   const postproject::Dependency dependency{
       std::nullopt, "org.example:character-reference", target, resolved_id,
       true, "characters/lead.usd"};
-  auto transaction = production.beginTransaction().value();
+  auto transaction = production.readSession().value().edit().value();
   transaction.recordDependencySet(source_id, {dependency}).value();
   transaction.commit().value();
 

@@ -132,7 +132,7 @@ std::vector<postproject::DependencyMatch> record_scene_dependencies(
     postproject::Production &production, const postproject::RepresentationId &scene_id,
     const std::vector<postproject::Dependency> &observed) {
   // A dependency set replaces the complete previous observation.
-  auto transaction = production.beginTransaction().value();
+  auto transaction = production.readSession().value().edit().value();
   transaction.recordDependencySet(scene_id, observed).value();
   transaction.commit().value();
 
