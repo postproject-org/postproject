@@ -61,6 +61,8 @@ pp_known_media_set_count
 pp_known_media_set_get
 pp_known_media_set_next_cursor
 pp_known_media_set_release
+pp_locator_id_format
+pp_locator_id_parse
 pp_locator_query_set_count
 pp_locator_query_set_get
 pp_locator_query_set_next_cursor

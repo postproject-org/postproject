@@ -89,6 +89,11 @@ typedef struct pp_media_root_id_value {
   uint8_t bytes[16];
 } pp_media_root_id_t;
 
+/* Distinct semantic identity; UUID bytes and nil policy match the core. */
+typedef struct pp_locator_id_value {
+  uint8_t bytes[16];
+} pp_locator_id_t;
+
 typedef uint32_t pp_commit_outcome_t;
 #define PP_COMMIT_NO_CHANGE UINT32_C(0)
 #define PP_COMMIT_REVISION_CREATED UINT32_C(1)
@@ -661,6 +666,12 @@ PP_API pp_error_code_t pp_media_root_id_parse(
     const char *text, pp_media_root_id_t *out_id, pp_error_t **out_error);
 PP_API pp_error_code_t pp_media_root_id_format(
     pp_media_root_id_t id, char **out_text, pp_error_t **out_error);
+/* Parse/format locator UUIDs; failures clear outputs. Owned text uses
+ * pp_string_release. Parsing does not check existence or production scope. */
+PP_API pp_error_code_t pp_locator_id_parse(
+    const char *text, pp_locator_id_t *out_id, pp_error_t **out_error);
+PP_API pp_error_code_t pp_locator_id_format(
+    pp_locator_id_t id, char **out_text, pp_error_t **out_error);
 /* Construct an asset target without checking existence or production scope. */
 PP_API pp_error_code_t pp_object_ref_from_asset(
     pp_asset_id_t id, pp_object_ref_t *out_ref, pp_error_t **out_error);

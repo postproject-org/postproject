@@ -2,7 +2,7 @@
 
 use std::{ffi::c_char, str::FromStr};
 
-use postproject_core::{AssetId, MediaRootId, ProductionId, RevisionId, TransactionId};
+use postproject_core::{AssetId, LocatorId, MediaRootId, ProductionId, RevisionId, TransactionId};
 
 use crate::{PpError, exact_cstring, ffi_call, initialize_output, require_output, required_utf8};
 
@@ -240,7 +240,7 @@ pub unsafe extern "C" fn pp_asset_id_format(
     }
 }
 
-/// Asset identity, distinct from interchangeable UUID bytes in C.
+/// Media-root identity, distinct from interchangeable UUID bytes in C.
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct PpMediaRootId {
@@ -294,6 +294,63 @@ pub unsafe extern "C" fn pp_media_root_id_format(
                 &MediaRootId::from_bytes(id.bytes).to_string(),
                 "media-root ID",
             )?;
+            out_text.write(text.into_raw());
+            Ok(())
+        })
+    }
+}
+
+/// Locator identity, distinct from interchangeable UUID bytes in C.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct PpLocatorId {
+    /// Stable UUID bytes; existence and membership are checked by the store.
+    pub bytes: [u8; 16],
+}
+
+/// Parses UUID text as a locator identity without checking existence.
+///
+/// # Safety
+/// Text must be UTF-8/NUL-terminated; output writable, error nullable/writable.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_locator_id_parse(
+    text: *const c_char,
+    out_id: *mut PpLocatorId,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: Writable output is initialized; strings/pointers validated.
+    unsafe {
+        if !out_id.is_null() {
+            out_id.write(PpLocatorId { bytes: [0; 16] });
+        }
+        ffi_call(out_error, || {
+            require_output(out_id, "out_id")?;
+            let id = LocatorId::from_str(required_utf8(text, "locator ID")?)?;
+            out_id.write(PpLocatorId {
+                bytes: id.into_bytes(),
+            });
+            Ok(())
+        })
+    }
+}
+
+/// Formats a locator identity as owned canonical lowercase UUID text.
+///
+/// # Safety
+/// Output must be writable, error nullable/writable. Release text with
+/// `pp_string_release` after success.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_locator_id_format(
+    id: PpLocatorId,
+    out_text: *mut *mut c_char,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: Output is initialized and validated before writing.
+    unsafe {
+        initialize_output(out_text);
+        ffi_call(out_error, || {
+            require_output(out_text, "out_text")?;
+            let text = exact_cstring(&LocatorId::from_bytes(id.bytes).to_string(), "locator ID")?;
             out_text.write(text.into_raw());
             Ok(())
         })

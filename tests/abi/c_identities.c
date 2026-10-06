@@ -11,6 +11,9 @@ _Static_assert(_Generic((pp_asset_id_t){0}, pp_uuid_t: 1, pp_production_id_t: 1,
 _Static_assert(_Generic((pp_media_root_id_t){0}, pp_asset_id_t: 1, pp_uuid_t: 1, default: 0) == 0,
                "media roots must have their own identity type");
 
+_Static_assert(_Generic((pp_locator_id_t){0}, pp_media_root_id_t: 1, pp_uuid_t: 1, default: 0) == 0,
+               "locators must have their own identity type");
+
 int main(void) {
   pp_production_id_t id = {{0}};
   pp_error_t *error = NULL;
@@ -102,6 +105,22 @@ int main(void) {
       strcmp(text, "00000000-0000-0000-0000-000000000000")) return 27;
   pp_string_release(text);
   if (pp_media_root_id_format(root, NULL, &error) != PP_ERROR_INVALID_ARGUMENT) return 28;
+  pp_error_release(error); error = NULL;
+  pp_locator_id_t locator;
+  if (pp_locator_id_parse(canonical, &locator, &error) != PP_OK ||
+      pp_locator_id_format(locator, &text, &error) != PP_OK ||
+      strcmp(text, canonical)) return 29;
+  pp_string_release(text); text = NULL;
+  if (pp_locator_id_parse("broken", &locator, &error) != PP_ERROR_INVALID_ARGUMENT ||
+      memcmp(locator.bytes, zero, 16)) return 30;
+  pp_error_release(error); error = NULL;
+  if (pp_locator_id_parse(NULL, &locator, &error) != PP_ERROR_INVALID_ARGUMENT ||
+      memcmp(locator.bytes, zero, 16)) return 31;
+  pp_error_release(error); error = NULL;
+  if (pp_locator_id_format(locator, &text, &error) != PP_OK ||
+      strcmp(text, "00000000-0000-0000-0000-000000000000")) return 32;
+  pp_string_release(text);
+  if (pp_locator_id_format(locator, NULL, &error) != PP_ERROR_INVALID_ARGUMENT) return 33;
   pp_error_release(error);
   return 0;
 }
