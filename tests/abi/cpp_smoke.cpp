@@ -572,7 +572,10 @@ int main(int argc, char **argv) {
       const auto enabling = unbased.setMediaRootEnabled(root_id, true);
       const auto removal = unbased.removeMediaRoot(root_id);
       const auto retirement = unbased.retireLocator(representations[0].resources[0].locators[0].id);
-      if (enabling || removal || retirement ||
+      const auto identifier_removal = unbased.removeExternalIdentifier(
+          postproject::ObjectRef::asset(asset_id), {"com.example.id", "observed", std::nullopt});
+      if (enabling || removal || retirement || identifier_removal ||
+          identifier_removal.error().code() != postproject::ErrorCode::invalid_argument ||
           retirement.error().code() != postproject::ErrorCode::invalid_argument ||
           enabling.error().code() != postproject::ErrorCode::invalid_argument ||
           removal.error().code() != postproject::ErrorCode::invalid_argument)

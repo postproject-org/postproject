@@ -1686,6 +1686,7 @@ PP_API pp_error_code_t pp_transaction_add_external_identifier(
     pp_transaction_t *transaction, const pp_object_ref_t *target,
     const char *scheme, const char *value, const char *qualifier,
     pp_error_t **out_error);
+/* Requires a decision base. Rejection leaves the transaction open. */
 PP_API pp_error_code_t pp_transaction_remove_external_identifier(
     pp_transaction_t *transaction, const pp_object_ref_t *target,
     const char *scheme, const char *value, const char *qualifier,

@@ -5300,6 +5300,8 @@ pub unsafe extern "C" fn pp_transaction_add_external_identifier(
 
 /// Stages removal of one exact external identifier attachment.
 ///
+/// Requires a decision base. Rejection leaves the transaction open.
+///
 /// # Safety
 ///
 /// The pointer and UTF-8 contracts are identical to
@@ -5320,6 +5322,7 @@ pub unsafe extern "C" fn pp_transaction_remove_external_identifier(
                 .as_mut()
                 .ok_or_else(|| invalid_argument("transaction must not be null"))?;
             transaction.lifecycle.ensure_open()?;
+            transaction.require_decision_base()?;
             let target = target
                 .as_ref()
                 .ok_or_else(|| invalid_argument("target must not be null"))?;

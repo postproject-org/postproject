@@ -321,3 +321,13 @@ last_changed_abi = 47
 c_operations = ["pp_resource_id_parse", "pp_resource_id_format", "pp_object_ref_from_resource", "pp_object_ref_get_resource", "pp_string_release"]
 cpp_operations = ["ResourceId::fromString", "ResourceId::toString", "ObjectRef::resource", "ObjectRef::resourceId"]
 python_operations = ["parse_id"]
+
+[[families]]
+id = "external-identifier-removal"
+dependencies = ["transaction-lifecycle", "external-identifiers"]
+introduced_release = "0.2.0-alpha.1"
+last_changed_release = "0.7.0-alpha.1"
+last_changed_abi = 47
+c_operations = ["pp_transaction_remove_external_identifier"]
+cpp_operations = ["Transaction::removeExternalIdentifier"]
+python_operations = ["Transaction.remove_external_identifier"]

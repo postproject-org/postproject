@@ -38,6 +38,46 @@ from postproject import (
 
 
 class ReadSessionTests(unittest.TestCase):
+    def test_identifier_removal_rejects_a_reattachment_after_the_read(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            media = root / "clip.dat"
+            media.write_bytes(b"identifier decision fixture")
+            with Production.create(root / "production.pproj") as production:
+                identifier = ExternalIdentifier("com.example.clip", "observed", "reel")
+                with production.transaction() as edit:
+                    target = AssetRef(edit.import_media(media))
+                    edit.add_external_identifier(target, identifier)
+                    edit.commit()
+                with production.transaction() as unbased:
+                    with self.assertRaises(InvalidArgumentError):
+                        unbased.remove_external_identifier(target, identifier)
+                    unbased.add_media_root("retained")
+                    unbased.commit()
+                with production.read_session() as view:
+                    base = view.decision_base
+                with production.edit(base) as replacement:
+                    replacement.remove_external_identifier(target, identifier)
+                    replacement.add_external_identifier(target, identifier)
+                    head = replacement.commit().revision
+                assert head is not None
+                with production.edit(base) as stale:
+                    stale.remove_external_identifier(target, identifier)
+                    stale.add_media_root("discarded")
+                    with self.assertRaises(ConflictError):
+                        stale.commit()
+                latest = production.latest_revision
+                assert latest is not None
+                self.assertEqual(latest.id, head.id)
+                self.assertEqual(production.external_identifiers[target], (identifier,))
+                self.assertEqual(
+                    [item.name for item in production.media_roots], ["retained"]
+                )
+                with production.read_session() as view, view.edit() as fresh:
+                    fresh.remove_external_identifier(target, identifier)
+                    fresh.commit()
+                self.assertEqual(production.external_identifiers[target], ())
+
     def test_locator_retirement_requires_a_base_and_rejects_a_stale_set(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -62,9 +102,7 @@ class ReadSessionTests(unittest.TestCase):
                 replacement = root / "replacement.dat"
                 replacement.write_bytes(b"replacement locator fixture")
                 with production.transaction() as winner:
-                    winner.confirm_locator(
-                        resource.id, file_locator(replacement)
-                    )
+                    winner.confirm_locator(resource.id, file_locator(replacement))
                     head = winner.commit().revision
                 assert head is not None
                 with production.edit(base) as stale:

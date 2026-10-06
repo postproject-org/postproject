@@ -1130,7 +1130,7 @@ class ProductionTests(unittest.TestCase):
                 )
             )
 
-            with production.transaction() as transaction:
+            with production.read_session() as view, view.edit() as transaction:
                 transaction.remove_external_identifier(AssetRef(asset_id), camera_id)
                 transaction.commit()
 
