@@ -120,12 +120,12 @@ class CompatibilityUsageTests(unittest.TestCase):
         )
         self.assertIn(
             "Required closure: `asset-identity`, `external-identifiers`, `production-lifecycle`, "
-            "`resolution`, `transaction-lifecycle`",
+            "`representation-identity`, `resolution`, `transaction-lifecycle`",
             report,
         )
         self.assertIn(
             "Ineligible required families: `asset-identity`, `production-lifecycle`, "
-            "`resolution`, `transaction-lifecycle`",
+            "`representation-identity`, `resolution`, `transaction-lifecycle`",
             report,
         )
         self.assertIn("| ABI | ABI | no | no |", report)

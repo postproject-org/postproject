@@ -47,13 +47,13 @@ Local Linux checks do not establish the other platforms or real-host runs.
 
 ## Implemented development contracts
 
-The development series is `0.7.0-alpha.1` (Python `0.7.0a1`, ABI 45,
+The development series is `0.7.0-alpha.1` (Python `0.7.0a1`, ABI 46,
 schema 17). ADRs 0045–0049 record pinned views, scoped edits/receipts, Python
 nominal UUID hints and explicit references, production/view-scoped cursors,
 and fallible C++ cancellation/options construction. Focused
 regressions cover intervening writers, empty bases, terminal failed commits,
 retained handles, cursor rejection and wrong-kind Python calls. Native
-read sessions offer 39 native query operations. Production, asset, media-root, locator, job, activity, revision and
+read sessions offer 39 native query operations. Production, asset, media-root, locator, job, activity, representation, revision and
 transaction IDs are distinct C/C++ values; the other native identity kinds,
 validated state alternatives and
 authority-controlled job leases remain open.
@@ -266,3 +266,18 @@ strict docs and source lint/typing pass. Source and installed-wheel Python
 run 83 tests with one skip; nine wrong-kind typing calls reject. The repository
 manifest records matching wheel/bundle and consumer evidence. Other native
 identity kinds, state alternatives and leases remain open.
+
+## Typed representation checkpoint
+
+SDK `ec7c38a` carries representation IDs through native operations, reads,
+resolution, dependency paths, artifact reports, activity edges, jobs and
+revision events. ABI 46/schema 17 has 308 exports and 26 agreeing layouts.
+Required scalar C inputs use values; optional filters and arrays borrow typed
+IDs. C++ references project checked representation identities from saved
+bindings. Python retains standard UUID values.
+
+All six Rust gates, eight installed native contracts, 64 extracted tests and
+strict docs pass. Source and installed Python run 85 tests with one skip;
+source lint/typing and nine installed wrong-kind calls pass. Matching artifacts
+and scoped consumer results are in the repository manifest. Resources,
+leases, remaining state alternatives and final qualification remain open.

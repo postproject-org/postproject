@@ -398,3 +398,36 @@ library overrides. Local logs include `target/activity-{examples,sphinx,
 blender}.log`, the bridge JSON and Kdenlive compilation logs. Full hosts,
 interactive handoffs, exact MSRV and platform qualification remain open.
 All changes remain on local `main`; no push, tag or publication occurred.
+
+## ABI 46 representation identity checks
+
+SDK `ec7c38a` uses native inputs `9d8828d`, C++ inputs `de7f820` and Python
+inputs `69c4412`. Prefix: `target/api-safety-representation-install`.
+ABI 46/schema 17 has 308 exports and 26 agreeing layouts. SHA-256 values:
+
+- Neutral wheel: `34310f14d9cf26a5ecb652ad7eff8ab164193fdb8c6e30b8baea599354d61075`.
+- Linux wheel: `aa908c8982c91a3df77f1a5bb54c27b34e52f928ce413fa9baaad43f3dd6dda1`.
+- Blender bundle: `f759ab0ac6bbccef6aeda5e3ee7e7c2a3723dbf05c9b55f4c3638198df7f1d4a`.
+
+Wheels: `target/api-safety-wheel/representation-abi46/`; bundle:
+`target/api-safety-blender/representation-abi46/`.
+
+| Consumer commit | Result | Scope |
+|---|---|---|
+| Manager `da2caaa` | 6 passed | Matching installed wheel, Python 3.13 |
+| OpenAssetIO `5e38c31`, OTIO `81a6ee6`, demo `c18f5bc`, Python host `c42b8b8` | 1 passed each | Separate matching-wheel suites; existing OTIO linker pin |
+| Blender `71f49b6` | 23 passed, 1 skipped | Rebuilt bundle, 5.2.2 LTS `d13f752e3b9c`; 5.3-only case skipped |
+| Natron `b33afd2` | 1 passed; module built | Native contract plus actual Python 3.13 bridge conflict |
+| OBS `eb26ad6` | 2 passed; plugin/driver built | Direct-C registration/readback |
+| Kdenlive `10c5445` | Replayed/compiled | Ten patches on upstream `55e16e8`; sidecar/test units with host flags |
+| Ardour `e7a0c02` | Passed | Installed stereo-WAV resolver from preserved patched source |
+| C++ NLE `8d2933a` | 1 passed | Fresh installed CMake consumer |
+
+Six Rust gates, eight native contracts, 64 extracted tests, strict docs and
+symbol/layout checks pass. Source/installed Python: 85 run, one skip; nine
+installed wrong-kind calls reject. The bundled quickstart passes without
+library overrides. Logs use `target/representation-*.log`; bridge JSON and
+Kdenlive compilation logs are retained. The compatibility manifest updates
+changed-family dependency closure. Full hosts, handoffs, exact MSRV and final
+platform qualification remain open. Changes are local `main` commits;
+no push, tag or publication occurred.
