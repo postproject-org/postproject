@@ -24,6 +24,11 @@ static int locator_id_is_zero(pp_locator_id_t id) {
   return memcmp(id.bytes, zero, sizeof(zero)) == 0;
 }
 
+static int job_id_is_zero(pp_job_id_t id) {
+  static const uint8_t zero[16] = {0};
+  return memcmp(id.bytes, zero, sizeof(zero)) == 0;
+}
+
 static pp_error_code_t import_file(pp_transaction_t *transaction,
                                    const char *path, const char *display_name,
                                    pp_asset_id_t *out_asset_id,
@@ -2029,14 +2034,14 @@ int main(int argc, char **argv) {
   }
   pp_dependency_query_set_release(dependency_matches);
 
-  pp_uuid_t job_id = {{0}};
+  pp_job_id_t job_id = {{0}};
   status = pp_production_begin_transaction(production, &transaction, &error);
   if (status != PP_OK ||
       pp_transaction_request_job(
           transaction, "org.postproject:generate-proxy", &representation_id,
           UINT64_C(1), asset_id, PP_REPRESENTATION_PROXY, NULL, &job_id,
           &error) != PP_OK ||
-      uuid_is_zero(&job_id) || pp_transaction_commit(transaction, &error) != PP_OK) {
+      job_id_is_zero(job_id) || pp_transaction_commit(transaction, &error) != PP_OK) {
     fprintf(stderr, "job request failed (%u): %s\n", status,
             error != NULL ? pp_error_message(error) : "no details");
     pp_transaction_release(transaction);
@@ -2074,7 +2079,7 @@ int main(int argc, char **argv) {
   pp_job_set_release(jobs);
   jobs = NULL;
 
-  status = pp_production_job(production, &job_id, &jobs, &error);
+  status = pp_production_job(production, job_id, &jobs, &error);
   if (status != PP_OK || jobs == NULL ||
       pp_job_set_count(jobs) != UINT64_C(1) ||
       pp_job_set_get(jobs, UINT64_C(0), &job, &error) != PP_OK ||
@@ -2091,7 +2096,7 @@ int main(int argc, char **argv) {
   status = pp_production_begin_transaction(production, &transaction, &error);
   if (status != PP_OK ||
       pp_transaction_claim_job(
-          transaction, &job_id, "C worker", "1.0", NULL, "operator", NULL,
+          transaction, job_id, "C worker", "1.0", NULL, "operator", NULL,
           NULL, NULL, INT64_C(10), INT64_C(20), &claim_id, &error) != PP_OK ||
       uuid_is_zero(&claim_id) ||
       pp_transaction_commit(transaction, &error) != PP_OK) {
@@ -2124,7 +2129,7 @@ int main(int argc, char **argv) {
 
   status = pp_production_begin_transaction(production, &transaction, &error);
   if (status != PP_OK ||
-      pp_transaction_renew_job_claim(transaction, &job_id, &claim_id,
+      pp_transaction_renew_job_claim(transaction, job_id, &claim_id,
                                      INT64_C(11), INT64_C(30), &error) != PP_OK ||
       pp_transaction_commit(transaction, &error) != PP_OK) {
     pp_transaction_release(transaction);
@@ -2137,7 +2142,7 @@ int main(int argc, char **argv) {
 
   status = pp_production_begin_transaction(production, &transaction, &error);
   if (status != PP_OK ||
-      pp_transaction_release_job_claim(transaction, &job_id, &claim_id,
+      pp_transaction_release_job_claim(transaction, job_id, &claim_id,
                                        &error) != PP_OK ||
       pp_transaction_commit(transaction, &error) != PP_OK) {
     pp_transaction_release(transaction);
@@ -2152,7 +2157,7 @@ int main(int argc, char **argv) {
   status = pp_production_begin_transaction(production, &transaction, &error);
   if (status != PP_OK ||
       pp_transaction_claim_job(
-          transaction, &job_id, "C worker", NULL, NULL, NULL, NULL, NULL,
+          transaction, job_id, "C worker", NULL, NULL, NULL, NULL, NULL,
           NULL, INT64_C(31), INT64_C(40), &second_claim_id, &error) != PP_OK ||
       uuid_is_zero(&second_claim_id) ||
       memcmp(second_claim_id.bytes, claim_id.bytes, sizeof(claim_id.bytes)) == 0 ||
@@ -2167,7 +2172,7 @@ int main(int argc, char **argv) {
 
   status = pp_production_begin_transaction(production, &transaction, &error);
   if (status != PP_OK ||
-      pp_transaction_fail_job(transaction, &job_id, &second_claim_id,
+      pp_transaction_fail_job(transaction, job_id, &second_claim_id,
                               INT64_C(32), "encoder exited", &error) != PP_OK ||
       pp_transaction_commit(transaction, &error) != PP_OK) {
     pp_transaction_release(transaction);
@@ -2178,7 +2183,7 @@ int main(int argc, char **argv) {
   pp_transaction_release(transaction);
   transaction = NULL;
 
-  pp_uuid_t cancelled_job_id = {{0}};
+  pp_job_id_t cancelled_job_id = {{0}};
   status = pp_production_begin_transaction(production, &transaction, &error);
   if (status != PP_OK ||
       pp_transaction_request_job(
@@ -2195,7 +2200,7 @@ int main(int argc, char **argv) {
   transaction = NULL;
   status = pp_production_begin_transaction(production, &transaction, &error);
   if (status != PP_OK ||
-      pp_transaction_cancel_job(transaction, &cancelled_job_id, &error) != PP_OK ||
+      pp_transaction_cancel_job(transaction, cancelled_job_id, &error) != PP_OK ||
       pp_transaction_commit(transaction, &error) != PP_OK) {
     pp_transaction_release(transaction);
     pp_production_release(production);
@@ -2237,7 +2242,7 @@ int main(int argc, char **argv) {
   }
   pp_job_set_release(jobs);
 
-  pp_uuid_t completed_job_id = {{0}};
+  pp_job_id_t completed_job_id = {{0}};
   status = pp_production_begin_transaction(production, &transaction, &error);
   if (status != PP_OK ||
       pp_transaction_request_job(
@@ -2257,7 +2262,7 @@ int main(int argc, char **argv) {
   status = pp_production_begin_transaction(production, &transaction, &error);
   if (status != PP_OK ||
       pp_transaction_claim_job(
-          transaction, &completed_job_id, "C worker", NULL, NULL, NULL, NULL,
+          transaction, completed_job_id, "C worker", NULL, NULL, NULL, NULL,
           NULL, NULL, INT64_C(41), INT64_C(50), &completion_claim_id,
           &error) != PP_OK ||
       pp_transaction_commit(transaction, &error) != PP_OK) {
@@ -2288,7 +2293,7 @@ int main(int argc, char **argv) {
   }
   if (status == PP_OK) {
     status = pp_transaction_complete_job(
-        transaction, &completed_job_id, &completion_claim_id, INT64_C(42),
+        transaction, completed_job_id, &completion_claim_id, INT64_C(42),
         &completed_representation_id, &completion_activity_id, &error);
   }
   if (status != PP_OK || uuid_is_zero(&completed_representation_id) ||

@@ -99,7 +99,7 @@ static pp_error_code_t stage_proxy_parameters(pp_transaction_t *transaction,
 static pp_error_code_t request_proxy(pp_production_t *production,
                                      const pp_uuid_t *input_id,
                                      const pp_asset_id_t *asset_id,
-                                     pp_uuid_t *out_job_id,
+                                     pp_job_id_t *out_job_id,
                                      pp_error_t **error) {
   pp_transaction_t *transaction = NULL;
   pp_job_set_t *jobs = NULL;
@@ -112,8 +112,23 @@ static pp_error_code_t request_proxy(pp_production_t *production,
                                         "proxies", out_job_id, error);
   }
   if (status == PP_OK) {
-    const pp_object_ref_t job = {PP_OBJECT_JOB, *out_job_id};
-    status = stage_proxy_parameters(transaction, &job, error);
+    char *saved = NULL;
+    pp_job_id_t parsed;
+    pp_object_ref_t reference;
+    status = pp_job_id_format(*out_job_id, &saved, error);
+    if (status == PP_OK) status = pp_job_id_parse(saved, &parsed, error);
+    pp_string_release(saved);
+    if (status == PP_OK && memcmp(parsed.bytes, out_job_id->bytes, 16))
+      status = PP_ERROR_INTERNAL;
+    if (status == PP_OK) status = pp_object_ref_from_job(parsed, &reference, error);
+    if (status == PP_OK) status = pp_object_ref_get_job(&reference, &parsed, error);
+    if (status == PP_OK && memcmp(parsed.bytes, out_job_id->bytes, 16))
+      status = PP_ERROR_INTERNAL;
+  }
+  if (status == PP_OK) {
+    pp_object_ref_t job;
+    status = pp_object_ref_from_job(*out_job_id, &job, error);
+    if (status == PP_OK) status = stage_proxy_parameters(transaction, &job, error);
   }
   if (status == PP_OK) {
     status = pp_transaction_commit(transaction, error);
@@ -143,7 +158,7 @@ static pp_error_code_t request_proxy(pp_production_t *production,
 
 /* [claim-job] */
 static pp_error_code_t claim_renew_release(pp_production_t *production,
-                                           const pp_uuid_t *job_id,
+                                           pp_job_id_t job_id,
                                            pp_error_t **error) {
   pp_transaction_t *transaction = NULL;
   pp_uuid_t claim_id;
@@ -209,7 +224,7 @@ static pp_error_code_t claim_renew_release(pp_production_t *production,
 
 /* [complete-job] */
 static pp_error_code_t
-complete_proxy(pp_production_t *production, const pp_uuid_t *job_id,
+complete_proxy(pp_production_t *production, pp_job_id_t job_id,
                const pp_uuid_t *input_id, const pp_asset_id_t *asset_id,
                const char *output_path, pp_uuid_t *out_proxy_id,
                pp_error_t **error) {
@@ -278,7 +293,7 @@ complete_proxy(pp_production_t *production, const pp_uuid_t *job_id,
 
 /* [fail-job] */
 static pp_error_code_t fail_proxy(pp_production_t *production,
-                                  const pp_uuid_t *job_id, pp_error_t **error) {
+                                  pp_job_id_t job_id, pp_error_t **error) {
   pp_transaction_t *transaction = NULL;
   pp_uuid_t claim_id;
   const int64_t now = NOW + 20 * MINUTE;
@@ -314,7 +329,7 @@ static pp_error_code_t fail_proxy(pp_production_t *production,
 
 /* [cancel-job] */
 static pp_error_code_t cancel(pp_production_t *production,
-                              const pp_uuid_t *job_id, pp_error_t **error) {
+                              pp_job_id_t job_id, pp_error_t **error) {
   pp_transaction_t *transaction = NULL;
   pp_error_code_t status =
       pp_production_begin_transaction(production, &transaction, error);
@@ -333,7 +348,7 @@ static pp_error_code_t cancel(pp_production_t *production,
 /* [plan-regeneration] */
 static pp_error_code_t enqueue_regeneration(pp_production_t *production,
                                             const pp_uuid_t *artifact_id,
-                                            pp_uuid_t *out_job_id,
+                                            pp_job_id_t *out_job_id,
                                             pp_error_t **error) {
   pp_regeneration_plan_set_t *plans = NULL;
   pp_job_set_t *planned = NULL;
@@ -375,7 +390,9 @@ static pp_error_code_t enqueue_regeneration(pp_production_t *production,
   }
   for (uint64_t i = 0; status == PP_OK && i < pp_metadata_set_count(parameters);
        ++i) {
-    const pp_object_ref_t target = {PP_OBJECT_JOB, *out_job_id};
+    pp_object_ref_t target;
+    status = pp_object_ref_from_job(*out_job_id, &target, error);
+    if (status != PP_OK) break;
     pp_object_ref_t owner;
     const char *vocabulary, *property;
     const pp_metadata_value_t *value;
@@ -465,7 +482,7 @@ static pp_error_code_t create_production(const char *path, const char *media,
 /* Reloads one job and checks its state and state-specific fields. */
 /* [inspect-job-status] */
 static pp_error_code_t expect_job(const pp_production_t *production,
-                                  const pp_uuid_t *job_id,
+                                  pp_job_id_t job_id,
                                   pp_job_state_t expected,
                                   const pp_uuid_t *completion_representation,
                                   pp_error_t **error) {
@@ -476,7 +493,7 @@ static pp_error_code_t expect_job(const pp_production_t *production,
   for (uint64_t i = 0; status == PP_OK && i < pp_job_set_count(jobs); ++i) {
     pp_job_t job;
     status = pp_job_set_get(jobs, i, &job, error);
-    if (status != PP_OK || memcmp(&job.id, job_id, sizeof job.id) != 0) {
+    if (status != PP_OK || memcmp(job.id.bytes, job_id.bytes, sizeof job.id.bytes) != 0) {
       continue;
     }
     found = job.state == expected;
@@ -520,13 +537,14 @@ static pp_error_code_t count_representations(const pp_production_t *production,
 }
 
 static pp_error_code_t count_job_parameters(const pp_production_t *production,
-                                            const pp_uuid_t *job_id,
+                                            pp_job_id_t job_id,
                                             uint64_t *out_count,
                                             pp_error_t **error) {
-  const pp_object_ref_t target = {PP_OBJECT_JOB, *job_id};
+  pp_object_ref_t target;
+  pp_error_code_t status = pp_object_ref_from_job(job_id, &target, error);
+  if (status != PP_OK) return status;
   pp_metadata_set_t *metadata = NULL;
-  pp_error_code_t status =
-      pp_production_metadata(production, &target, &metadata, error);
+  status = pp_production_metadata(production, &target, &metadata, error);
   *out_count = status == PP_OK ? pp_metadata_set_count(metadata) : 0;
   pp_metadata_set_release(metadata);
   return status;
@@ -550,10 +568,11 @@ int main(int argc, char **argv) {
   pp_error_t *error = NULL;
   pp_asset_id_t asset_id;
   pp_uuid_t original_id;
-  pp_uuid_t job_id;
-  pp_uuid_t failed_id;
-  pp_uuid_t cancelled_id;
-  pp_uuid_t proxy_id, regeneration_id;
+  pp_job_id_t job_id;
+  pp_job_id_t failed_id;
+  pp_job_id_t cancelled_id;
+  pp_uuid_t proxy_id;
+  pp_job_id_t regeneration_id;
   uint64_t before = 0;
   uint64_t count = 0;
 
@@ -564,27 +583,27 @@ int main(int argc, char **argv) {
         request_proxy(production, &original_id, &asset_id, &job_id, &error);
   }
   if (status == PP_OK) {
-    status = expect_job(production, &job_id, PP_JOB_REQUESTED, NULL, &error);
+    status = expect_job(production, job_id, PP_JOB_REQUESTED, NULL, &error);
   }
   if (status == PP_OK) {
-    status = count_job_parameters(production, &job_id, &count, &error);
+    status = count_job_parameters(production, job_id, &count, &error);
   }
   if (status == PP_OK && count != 2) {
     status = PP_ERROR_INTERNAL;
   }
   if (status == PP_OK) {
-    status = claim_renew_release(production, &job_id, &error);
+    status = claim_renew_release(production, job_id, &error);
   }
   if (status == PP_OK) {
-    status = expect_job(production, &job_id, PP_JOB_REQUESTED, NULL, &error);
+    status = expect_job(production, job_id, PP_JOB_REQUESTED, NULL, &error);
   }
   if (status == PP_OK) {
-    status = complete_proxy(production, &job_id, &original_id, &asset_id,
+    status = complete_proxy(production, job_id, &original_id, &asset_id,
                             output, &proxy_id, &error);
   }
   if (status == PP_OK) {
     status =
-        expect_job(production, &job_id, PP_JOB_SUCCEEDED, &proxy_id, &error);
+        expect_job(production, job_id, PP_JOB_SUCCEEDED, &proxy_id, &error);
   }
 
   if (status == PP_OK) {
@@ -595,10 +614,10 @@ int main(int argc, char **argv) {
     status = count_representations(production, &asset_id, &before, &error);
   }
   if (status == PP_OK) {
-    status = fail_proxy(production, &failed_id, &error);
+    status = fail_proxy(production, failed_id, &error);
   }
   if (status == PP_OK) {
-    status = expect_job(production, &failed_id, PP_JOB_FAILED, NULL, &error);
+    status = expect_job(production, failed_id, PP_JOB_FAILED, NULL, &error);
   }
   if (status == PP_OK) {
     status = count_representations(production, &asset_id, &count, &error);
@@ -612,11 +631,11 @@ int main(int argc, char **argv) {
                            &error);
   }
   if (status == PP_OK) {
-    status = cancel(production, &cancelled_id, &error);
+    status = cancel(production, cancelled_id, &error);
   }
   if (status == PP_OK) {
     status =
-        expect_job(production, &cancelled_id, PP_JOB_CANCELLED, NULL, &error);
+        expect_job(production, cancelled_id, PP_JOB_CANCELLED, NULL, &error);
   }
 
   if (status == PP_OK) {
@@ -624,11 +643,11 @@ int main(int argc, char **argv) {
         enqueue_regeneration(production, &proxy_id, &regeneration_id, &error);
   }
   if (status == PP_OK) {
-    status = expect_job(production, &regeneration_id, PP_JOB_REQUESTED, NULL,
+    status = expect_job(production, regeneration_id, PP_JOB_REQUESTED, NULL,
                         &error);
   }
   if (status == PP_OK) {
-    status = count_job_parameters(production, &regeneration_id, &count, &error);
+    status = count_job_parameters(production, regeneration_id, &count, &error);
   }
   if (status == PP_OK && count != 2) {
     status = PP_ERROR_INTERNAL;

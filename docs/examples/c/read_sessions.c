@@ -257,19 +257,19 @@ static int exercise(const char *path, const char *media) {
   pp_transaction_release(edit); edit = NULL;
   CHECK(pp_production_read_session(production, &view, &error));
   CHECK(pp_read_session_begin_edit(view, &edit, &error));
-  pp_uuid_t job;
+  pp_job_id_t job;
   CHECK(pp_transaction_request_job(edit, "example:proxy", &representation, 1,
       asset, PP_REPRESENTATION_PROXY, NULL, &job, &error));
   CHECK(pp_transaction_commit_with_receipt(edit, &receipt, &error));
   CHECK(pp_read_session_jobs(view, PP_JOB_REQUESTED, "example:proxy", 10, NULL, &jobs, &error));
   if (pp_job_set_count(jobs) != 0) goto cleanup;
   pp_job_set_release(jobs); jobs = NULL;
-  if (pp_read_session_job(view, &job, &jobs, &error) != PP_ERROR_NOT_FOUND || jobs != NULL)
+  if (pp_read_session_job(view, job, &jobs, &error) != PP_ERROR_NOT_FOUND || jobs != NULL)
     goto cleanup;
   pp_error_release(error); error = NULL;
   pp_read_session_release(view); view = NULL;
   CHECK(pp_production_read_session(production, &view, &error));
-  CHECK(pp_read_session_job(view, &job, &jobs, &error));
+  CHECK(pp_read_session_job(view, job, &jobs, &error));
   if (pp_job_set_count(jobs) != 1) goto cleanup;
   pp_job_set_release(jobs); jobs = NULL;
   CHECK(pp_read_session_jobs(view, PP_JOB_REQUESTED, "example:proxy", 10, NULL, &jobs, &error));
