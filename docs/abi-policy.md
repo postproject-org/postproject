@@ -25,6 +25,12 @@ the required complete evidence from two independent hosts (ADR 0040).
 
 ## Types and ownership
 
+The ABI 47 development tree adds bounded live/retained media-root pages and a
+borrowed set continuation (ADR 0053). Existing root getters read current facts
+and return `PP_ERROR_UNSUPPORTED` above 1000 roots. Page reads accept 1–1000;
+their cursors retain the existing production/view scope. No public layout or
+existing signature changes. Use matching development headers and Python wheels.
+
 ABI 47 carries resource IDs through membership, locators, resolution,
 verification, dependencies and revision events. Required scalar C inputs use
 `pp_resource_id_t` values; C++ uses `ResourceId`. Recompile consumers and use

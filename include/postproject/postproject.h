@@ -805,6 +805,10 @@ PP_API pp_error_code_t pp_read_session_verify_resource(
 PP_API pp_error_code_t pp_read_session_media_roots(
     const pp_read_session_t *session, pp_media_root_set_t **out_roots,
     pp_error_t **out_error);
+/* Bounded roots retain the session view and cursor scope. Limit is 1..1000. */
+PP_API pp_error_code_t pp_read_session_media_roots_page(
+    const pp_read_session_t *session, uint32_t limit, const char *cursor,
+    pp_media_root_set_t **out_roots, pp_error_t **out_error);
 PP_API pp_error_code_t pp_read_session_external_identifiers(
     const pp_read_session_t *session, const pp_object_ref_t *target,
     pp_external_identifier_set_t **out_identifiers, pp_error_t **out_error);
@@ -895,10 +899,17 @@ PP_API pp_error_code_t pp_asset_set_get(
     const char **out_import_source, pp_error_t **out_error);
 PP_API void pp_asset_set_release(pp_asset_set_t *assets);
 /* Media-root strings borrow the owning result set. Roots are ordered by
- * resolver priority and stable identity. */
+ * resolver priority and stable identity. The convenience read loads current
+ * facts and fails with PP_ERROR_UNSUPPORTED above 1000 roots; use pages then. */
 PP_API pp_error_code_t pp_production_media_roots(
     const pp_production_t *production, pp_media_root_set_t **out_roots,
     pp_error_t **out_error);
+/* Live root page: limit 1..1000, cursor NULL initially. No view is retained. */
+PP_API pp_error_code_t pp_production_media_roots_page(
+    const pp_production_t *production, uint32_t limit, const char *cursor,
+    pp_media_root_set_t **out_roots, pp_error_t **out_error);
+/* Borrowed continuation, NULL at end. Release with the owning set. */
+PP_API const char *pp_media_root_set_next_cursor(const pp_media_root_set_t *roots);
 PP_API uint64_t pp_media_root_set_count(const pp_media_root_set_t *roots);
 PP_API pp_error_code_t pp_media_root_set_get(
     const pp_media_root_set_t *roots, uint64_t index, pp_media_root_id_t *out_id,

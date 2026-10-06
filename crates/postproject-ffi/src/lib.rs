@@ -375,6 +375,7 @@ pub struct PpAssetSet {
 /// Opaque immutable media-root result set owned by the C caller.
 pub struct PpMediaRootSet {
     roots: Vec<AbiMediaRoot>,
+    next_cursor: Option<CString>,
 }
 
 struct AbiMediaRoot {
@@ -1150,7 +1151,7 @@ pub unsafe extern "C" fn pp_asset_set_release(assets: *mut PpAssetSet) {
     }
 }
 
-/// Returns every configured media root in resolver order.
+/// Returns current configured roots in resolver order, capped at 1000.
 ///
 /// # Safety
 ///
@@ -1172,14 +1173,71 @@ pub unsafe extern "C" fn pp_production_media_roots(
             require_output(out_roots, "out_roots")?;
             let inner = lock_production(&production.state);
             let roots = inner
-                .production()
-                .media_roots()
+                .media_roots()?
                 .iter()
                 .map(AbiMediaRoot::try_from)
                 .collect::<Result<Vec<_>, Error>>()?;
-            out_roots.write(Box::into_raw(Box::new(PpMediaRootSet { roots })));
+            out_roots.write(Box::into_raw(Box::new(PpMediaRootSet {
+                roots,
+                next_cursor: None,
+            })));
             Ok(())
         })
+    }
+}
+
+/// Returns one bounded page of current roots in priority/identity order.
+///
+/// # Safety
+///
+/// Production must be live, cursor null or borrowed UTF-8, outputs writable.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_production_media_roots_page(
+    production: *const PpProduction,
+    limit: u32,
+    cursor: *const c_char,
+    out_roots: *mut *mut PpMediaRootSet,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: Outputs are cleared before validating borrowed caller inputs.
+    unsafe {
+        initialize_output(out_roots);
+        ffi_call(out_error, || {
+            require_output(out_roots, "out_roots")?;
+            let production = production
+                .as_ref()
+                .ok_or_else(|| invalid_argument("production must not be null"))?;
+            let request = query_page_request(limit, cursor)?;
+            let page = lock_production(&production.state).media_roots_page(&request)?;
+            let roots = page
+                .items()
+                .iter()
+                .map(AbiMediaRoot::try_from)
+                .collect::<Result<Vec<_>, Error>>()?;
+            out_roots.write(Box::into_raw(Box::new(PpMediaRootSet {
+                roots,
+                next_cursor: query_cursor_to_cstring(page.next_cursor())?,
+            })));
+            Ok(())
+        })
+    }
+}
+
+/// Borrows the root page's continuation, or returns null at its end.
+///
+/// # Safety
+///
+/// A non-null set must be live; the returned string borrows it.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_media_root_set_next_cursor(
+    roots: *const PpMediaRootSet,
+) -> *const c_char {
+    // SAFETY: A non-null result set is live by the caller contract.
+    unsafe {
+        roots
+            .as_ref()
+            .and_then(|roots| roots.next_cursor.as_ref())
+            .map_or(ptr::null(), |cursor| cursor.as_ptr())
     }
 }
 

@@ -348,7 +348,7 @@ fn resolve_assets(
                 work.push((asset_id, representation, resources));
             }
         }
-        (inner.production().media_roots().to_vec(), work)
+        (inner.media_roots()?, work)
     };
 
     let scope = options.search_directories.iter().fold(

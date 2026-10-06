@@ -729,6 +729,26 @@ pub unsafe extern "C" fn pp_read_session_media_roots(
     }
 }
 
+/// Copies one bounded root page from the retained view.
+///
+/// # Safety
+/// Session must be live; cursor nullable/UTF-8, outputs writable.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_read_session_media_roots_page(
+    session: *const PpReadSession,
+    limit: u32,
+    cursor: *const c_char,
+    out_roots: *mut *mut crate::PpMediaRootSet,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: The delegate validates pointers and contains panics.
+    unsafe {
+        forward_read(session, out_error, |reader| {
+            crate::pp_production_media_roots_page(reader, limit, cursor, out_roots, out_error)
+        })
+    }
+}
+
 /// Resolves current files using storage knowledge from the pinned view.
 ///
 /// # Safety

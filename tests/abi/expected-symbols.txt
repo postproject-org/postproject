@@ -76,6 +76,7 @@ pp_media_root_id_format
 pp_media_root_id_parse
 pp_media_root_set_count
 pp_media_root_set_get
+pp_media_root_set_next_cursor
 pp_media_root_set_release
 pp_media_source_create_file
 pp_media_source_create_image_sequence
@@ -165,6 +166,7 @@ pp_production_jobs
 pp_production_latest_revision
 pp_production_locators_page
 pp_production_media_roots
+pp_production_media_roots_page
 pp_production_metadata
 pp_production_objects_changed_since
 pp_production_open
@@ -213,6 +215,7 @@ pp_read_session_jobs
 pp_read_session_latest_revision
 pp_read_session_locators_page
 pp_read_session_media_roots
+pp_read_session_media_roots_page
 pp_read_session_metadata
 pp_read_session_objects_changed_since
 pp_read_session_outputs_by_activity_kind
