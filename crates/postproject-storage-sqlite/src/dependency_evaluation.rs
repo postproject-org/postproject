@@ -264,14 +264,17 @@ fn load_paths(production: &SqliteProduction, input_id: i64) -> Result<Vec<Captur
         )
         .map_err(sqlite_error("prepare dependency snapshot path query"))?;
     let rows = statement
-        .query_map([input_id], |row| {
-            Ok((
-                row.get::<_, i64>(0)?,
-                row.get::<_, i64>(1)?,
-                row.get::<_, i64>(2)?,
-                row.get::<_, Vec<u8>>(3)?,
-            ))
-        })
+        .query_map(
+            [input_id],
+            crate::read_budget::bounded(|row| {
+                Ok((
+                    row.get::<_, i64>(0)?,
+                    row.get::<_, i64>(1)?,
+                    row.get::<_, i64>(2)?,
+                    row.get::<_, Vec<u8>>(3)?,
+                ))
+            }),
+        )
         .map_err(sqlite_error("query dependency snapshot paths"))?
         .collect::<std::result::Result<Vec<_>, _>>()
         .map_err(sqlite_error("read dependency snapshot path"))?;
@@ -310,13 +313,16 @@ fn load_fingerprints(production: &SqliteProduction, path_id: i64) -> Result<Fing
             "prepare dependency fingerprint snapshot query",
         ))?;
     let rows = statement
-        .query_map([path_id], |row| {
-            Ok((
-                row.get::<_, String>(0)?,
-                row.get::<_, i64>(1)?,
-                row.get::<_, Vec<u8>>(2)?,
-            ))
-        })
+        .query_map(
+            [path_id],
+            crate::read_budget::bounded(|row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, i64>(1)?,
+                    row.get::<_, Vec<u8>>(2)?,
+                ))
+            }),
+        )
         .map_err(sqlite_error("query dependency fingerprint snapshots"))?;
     rows.map(|row| {
         let (algorithm, version, value) =
@@ -343,19 +349,22 @@ fn load_segments(
         )
         .map_err(sqlite_error("prepare dependency snapshot edge query"))?;
     let rows = statement
-        .query_map([path_id], |row| {
-            Ok((
-                row.get::<_, i64>(0)?,
-                row.get::<_, Vec<u8>>(1)?,
-                row.get::<_, i64>(2)?,
-                row.get::<_, Option<Vec<u8>>>(3)?,
-                row.get::<_, String>(4)?,
-                row.get::<_, i64>(5)?,
-                row.get::<_, Vec<u8>>(6)?,
-                row.get::<_, Option<Vec<u8>>>(7)?,
-                row.get::<_, String>(8)?,
-            ))
-        })
+        .query_map(
+            [path_id],
+            crate::read_budget::bounded(|row| {
+                Ok((
+                    row.get::<_, i64>(0)?,
+                    row.get::<_, Vec<u8>>(1)?,
+                    row.get::<_, i64>(2)?,
+                    row.get::<_, Option<Vec<u8>>>(3)?,
+                    row.get::<_, String>(4)?,
+                    row.get::<_, i64>(5)?,
+                    row.get::<_, Vec<u8>>(6)?,
+                    row.get::<_, Option<Vec<u8>>>(7)?,
+                    row.get::<_, String>(8)?,
+                ))
+            }),
+        )
         .map_err(sqlite_error("query dependency snapshot edges"))?
         .collect::<std::result::Result<Vec<_>, _>>()
         .map_err(sqlite_error("read dependency snapshot edge"))?;

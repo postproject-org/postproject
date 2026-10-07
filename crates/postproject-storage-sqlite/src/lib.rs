@@ -1699,21 +1699,24 @@ impl SqliteProduction {
             )
             .map_err(sqlite_error("prepare activity query"))?;
         let rows = statement
-            .query_map([], |row| {
-                Ok(StoredActivity {
-                    id: row.get(0)?,
-                    kind: row.get(1)?,
-                    started_at: row.get(2)?,
-                    finished_at: row.get(3)?,
-                    tool_name: row.get(4)?,
-                    tool_version: row.get(5)?,
-                    tool_uri: row.get(6)?,
-                    agent_name: row.get(7)?,
-                    agent_scheme: row.get(8)?,
-                    agent_value: row.get(9)?,
-                    agent_qualifier: row.get(10)?,
-                })
-            })
+            .query_map(
+                [],
+                crate::read_budget::bounded(|row| {
+                    Ok(StoredActivity {
+                        id: row.get(0)?,
+                        kind: row.get(1)?,
+                        started_at: row.get(2)?,
+                        finished_at: row.get(3)?,
+                        tool_name: row.get(4)?,
+                        tool_version: row.get(5)?,
+                        tool_uri: row.get(6)?,
+                        agent_name: row.get(7)?,
+                        agent_scheme: row.get(8)?,
+                        agent_value: row.get(9)?,
+                        agent_qualifier: row.get(10)?,
+                    })
+                }),
+            )
             .map_err(sqlite_error("query activities"))?
             .collect::<std::result::Result<Vec<_>, _>>()
             .map_err(sqlite_error("read activity row"))?;
@@ -1848,7 +1851,10 @@ impl SqliteProduction {
             .prepare(&sql)
             .map_err(sqlite_error("prepare activity-output query"))?;
         let mut ids = statement
-            .query_map(params_from_iter(parameters), |row| row.get::<_, Vec<u8>>(0))
+            .query_map(
+                params_from_iter(parameters),
+                crate::read_budget::bounded(|row| row.get::<_, Vec<u8>>(0)),
+            )
             .map_err(sqlite_error("query activity outputs"))?
             .map(|row| {
                 row.map_err(sqlite_error("read activity-output row"))
@@ -2083,9 +2089,10 @@ impl SqliteProduction {
             .prepare(sql)
             .map_err(sqlite_error("prepare direct provenance query"))?;
         statement
-            .query_map([representation_id.as_bytes().as_slice()], |row| {
-                row.get::<_, Vec<u8>>(0)
-            })
+            .query_map(
+                [representation_id.as_bytes().as_slice()],
+                crate::read_budget::bounded(|row| row.get::<_, Vec<u8>>(0)),
+            )
             .map_err(sqlite_error("query direct provenance"))?
             .map(|row| {
                 row.map_err(sqlite_error("read direct provenance row"))
@@ -2234,7 +2241,10 @@ impl SqliteProduction {
             .prepare(query)
             .map_err(sqlite_error("prepare dependent query"))?;
         statement
-            .query_map([target_id.as_slice()], |row| row.get::<_, Vec<u8>>(0))
+            .query_map(
+                [target_id.as_slice()],
+                crate::read_budget::bounded(|row| row.get::<_, Vec<u8>>(0)),
+            )
             .map_err(sqlite_error("query dependents"))?
             .map(|row| {
                 let id = row.map_err(sqlite_error("read dependent row"))?;
@@ -2384,8 +2394,9 @@ impl SqliteProduction {
             .connection
             .prepare(&sql)
             .map_err(sqlite_error("prepare stale-artifact query"))?;
+        let decode = crate::read_budget::bounded(|row| row.get::<_, Vec<u8>>(0));
         let mut candidates = statement
-            .query_map(params_from_iter(parameters), |row| row.get::<_, Vec<u8>>(0))
+            .query_map(params_from_iter(parameters), decode)
             .map_err(sqlite_error("query stale artifacts"))?
             .map(|row| {
                 row.map_err(sqlite_error("read stale-artifact row"))
@@ -2460,7 +2471,10 @@ impl SqliteProduction {
             .prepare(&sql)
             .map_err(sqlite_error("prepare paginated job query"))?;
         let mut stored = statement
-            .query_map(params_from_iter(parameters), stored_job_row)
+            .query_map(
+                params_from_iter(parameters),
+                crate::read_budget::bounded(stored_job_row),
+            )
             .map_err(sqlite_error("query paginated jobs"))?
             .collect::<std::result::Result<Vec<_>, _>>()
             .map_err(sqlite_error("read paginated job row"))?;
@@ -2637,7 +2651,10 @@ impl SqliteProduction {
             )
             .map_err(sqlite_error("prepare revision page query"))?;
         statement
-            .query_map(params![sequence, i64::from(limit)], stored_revision_row)
+            .query_map(
+                params![sequence, i64::from(limit)],
+                crate::read_budget::bounded(stored_revision_row),
+            )
             .map_err(sqlite_error("query revision page"))?
             .map(|row| {
                 row.map_err(sqlite_error("read revision row"))
@@ -2713,7 +2730,10 @@ impl SqliteProduction {
                 ))
                 .map_err(sqlite_error("prepare filtered revision page query"))?;
             statement
-                .query_map(params_from_iter(parameters), stored_revision_row)
+                .query_map(
+                    params_from_iter(parameters),
+                    crate::read_budget::bounded(stored_revision_row),
+                )
                 .map_err(sqlite_error("query filtered revision page"))?
                 .map(|row| {
                     row.map_err(sqlite_error("read revision row"))
@@ -2808,7 +2828,7 @@ impl SqliteProduction {
                     position.map_or(-1, i64::from),
                     i64::from(page.limit()) + 1
                 ],
-                stored_revision_event_row,
+                crate::read_budget::bounded(stored_revision_event_row),
             )
             .map_err(sqlite_error("query revision event page"))?
             .map(|row| {
@@ -2901,7 +2921,9 @@ impl SqliteProduction {
         let mut rows = statement
             .query_map(
                 params![sequence, kind, id.as_slice(), i64::from(page.limit()) + 1],
-                |row| Ok((row.get::<_, i64>(0)?, row.get::<_, Vec<u8>>(1)?)),
+                crate::read_budget::bounded(|row| {
+                    Ok((row.get::<_, i64>(0)?, row.get::<_, Vec<u8>>(1)?))
+                }),
             )
             .map_err(sqlite_error("query changed objects"))?
             .collect::<std::result::Result<Vec<_>, _>>()
@@ -3015,7 +3037,7 @@ impl SqliteProduction {
                     position.copied().unwrap_or([0; 16]).as_slice(),
                     i64::from(limit) + 1,
                 ],
-                |row| row.get::<_, Vec<u8>>(0),
+                crate::read_budget::bounded(|row| row.get::<_, Vec<u8>>(0)),
             )
             .map_err(sqlite_error("query paginated representations"))?
             .map(|row| {
