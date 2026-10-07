@@ -13,6 +13,7 @@
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <numeric>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -4381,6 +4382,105 @@ private:
   Content content_;
 };
 
+struct PendingJobLease {};
+struct ActiveJobLease { std::int64_t expires_at_unix_micros; };
+struct ClosedJobLease {};
+using JobLeaseState = std::variant<PendingJobLease, ActiveJobLease, ClosedJobLease>;
+
+namespace detail {
+// Integral chrono counts only: conversion never rounds or multiplies unchecked.
+template <typename Rep, typename Period>
+Result<std::uint64_t> lease_duration(std::chrono::duration<Rep, Period> duration) {
+  constexpr std::uint64_t maximum = UINT64_C(86400000000);
+  if constexpr (!std::is_integral_v<Rep> || std::is_same_v<Rep, bool> ||
+                sizeof(Rep) > sizeof(std::uint64_t)) {
+    return Error(ErrorCode::invalid_argument, "lease duration needs an integral chrono count");
+  } else {
+    if (duration.count() <= 0) {
+      return Error(ErrorCode::invalid_argument, "lease duration must be positive");
+    }
+    constexpr auto divisor = std::gcd(Period::den, std::intmax_t{1000000});
+    constexpr auto denominator = static_cast<std::uint64_t>(Period::den / divisor);
+    constexpr auto numerator = static_cast<std::uint64_t>(Period::num);
+    constexpr auto units = static_cast<std::uint64_t>(1000000 / divisor);
+    const auto count = static_cast<std::uint64_t>(duration.count());
+    if (count % denominator != 0) {
+      return Error(ErrorCode::invalid_argument, "lease duration loses microsecond precision");
+    }
+    const auto whole = count / denominator;
+    if (whole > maximum / numerator || whole * numerator > maximum / units) {
+      return Error(ErrorCode::invalid_argument, "lease duration exceeds 24 hours");
+    }
+    return whole * numerator * units;
+  }
+}
+} // namespace detail
+
+// An owning worker capability. Destruction/free only releases local memory.
+class JobLease final {
+public:
+  JobLease(const JobLease &) = delete;
+  JobLease &operator=(const JobLease &) = delete;
+  JobLease(JobLease &&other) noexcept : lease_(std::exchange(other.lease_, nullptr)) {}
+  JobLease &operator=(JobLease &&other) noexcept {
+    if (this != &other) { close(); lease_ = std::exchange(other.lease_, nullptr); }
+    return *this;
+  }
+  ~JobLease() { close(); }
+
+  [[nodiscard]] Result<ProductionId> productionId() const {
+    POSTPROJECT_TRY_ASSIGN(Info info, read_info());
+    return info.production;
+  }
+  [[nodiscard]] Result<JobId> jobId() const {
+    POSTPROJECT_TRY_ASSIGN(Info info, read_info());
+    return info.job;
+  }
+  [[nodiscard]] Result<JobLeaseState> state() const {
+    POSTPROJECT_TRY_ASSIGN(Info info, read_info());
+    return info.state;
+  }
+  // Explicit secret transport for a protected file/pipe, never ordinary logs.
+  [[nodiscard]] Result<std::string> exportToken() const {
+    POSTPROJECT_TRY(require_open());
+    char *text = nullptr;
+    pp_error_t *error = nullptr;
+    const auto status = pp_job_lease_export_token(lease_, &text, &error);
+    detail::StringHandle owned(text);
+    POSTPROJECT_TRY(detail::check(status, error));
+    if (!owned) return Error(ErrorCode::internal, "native lease export returned no token");
+    return std::string(owned.get());
+  }
+  void close() noexcept { pp_job_lease_free(std::exchange(lease_, nullptr)); }
+
+private:
+  friend class Transaction;
+  friend class Production;
+  explicit JobLease(pp_job_lease_t *lease) : lease_(lease) {}
+  struct Info { ProductionId production; JobId job; JobLeaseState state; };
+  Result<void> require_open() const {
+    if (!lease_) return Error(ErrorCode::conflict, "job lease handle is closed");
+    return {};
+  }
+  Result<Info> read_info() const {
+    POSTPROJECT_TRY(require_open());
+    pp_production_id_t production{};
+    pp_job_id_t job{};
+    std::uint32_t state = 0;
+    std::int64_t expiry = 0;
+    pp_error_t *error = nullptr;
+    const auto status = pp_job_lease_get(lease_, &production, &job, &state, &expiry, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    JobLeaseState ownership;
+    if (state == PP_JOB_LEASE_ACTIVE) ownership = ActiveJobLease{expiry};
+    else if (state == PP_JOB_LEASE_PENDING && expiry == 0) ownership = PendingJobLease{};
+    else if (state == PP_JOB_LEASE_CLOSED && expiry == 0) ownership = ClosedJobLease{};
+    else return Error(ErrorCode::internal, "native lease state is unknown or inconsistent");
+    return Info{detail::production_id(production), detail::job_id(job), std::move(ownership)};
+  }
+  pp_job_lease_t *lease_ = nullptr;
+};
+
 class Transaction final {
 public:
   Result<void> setRevisionContext(const RevisionContext &context) {
@@ -4685,6 +4785,70 @@ public:
         &error);
     POSTPROJECT_TRY(detail::check(status, error));
     return detail::job_id(job_id);
+  }
+
+  template <typename Rep, typename Period>
+  Result<JobLease> claimJobLease(const JobId &job_id, const ToolIdentity &tool,
+                                 std::chrono::duration<Rep, Period> duration,
+                                 const std::optional<AgentIdentity> &agent = std::nullopt) {
+    POSTPROJECT_TRY_ASSIGN(const auto micros, detail::lease_duration(duration));
+    POSTPROJECT_TRY_ASSIGN(const auto tool_name, detail::checked_string(tool.name, "tool name"));
+    POSTPROJECT_TRY_ASSIGN(const auto version, detail::checked_optional_string(tool.version, "tool version"));
+    POSTPROJECT_TRY_ASSIGN(const auto uri, detail::checked_optional_string(tool.uri, "tool URI"));
+    const auto identity = agent.has_value() ? agent->identifier : std::nullopt;
+    POSTPROJECT_TRY_ASSIGN(const auto agent_name, detail::checked_optional_string(
+        agent.has_value() ? agent->name : std::nullopt, "agent name"));
+    POSTPROJECT_TRY_ASSIGN(const auto scheme, detail::checked_optional_string(
+        identity.has_value() ? std::optional<std::string>{identity->scheme} : std::nullopt, "agent identifier scheme"));
+    POSTPROJECT_TRY_ASSIGN(const auto value, detail::checked_optional_string(
+        identity.has_value() ? std::optional<std::string>{identity->value} : std::nullopt, "agent identifier value"));
+    POSTPROJECT_TRY_ASSIGN(const auto qualifier, detail::checked_optional_string(
+        identity.has_value() ? identity->qualifier : std::nullopt, "agent identifier qualifier"));
+    pp_job_lease_t *lease = nullptr;
+    pp_error_t *error = nullptr;
+    const auto status = pp_transaction_claim_job_lease(
+        transaction_, detail::native_job_id(job_id), tool_name.c_str(),
+        version.has_value() ? version->c_str() : nullptr,
+        uri.has_value() ? uri->c_str() : nullptr,
+        agent_name.has_value() ? agent_name->c_str() : nullptr,
+        scheme.has_value() ? scheme->c_str() : nullptr,
+        value.has_value() ? value->c_str() : nullptr,
+        qualifier.has_value() ? qualifier->c_str() : nullptr, micros, &lease, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    if (!lease) return Error(ErrorCode::internal, "native claim returned no lease");
+    return JobLease(lease);
+  }
+
+  template <typename Rep, typename Period>
+  Result<void> renewJobLease(const JobLease &lease, std::chrono::duration<Rep, Period> duration) {
+    POSTPROJECT_TRY(lease.require_open());
+    POSTPROJECT_TRY_ASSIGN(const auto micros, detail::lease_duration(duration));
+    pp_error_t *error = nullptr;
+    const auto status = pp_transaction_renew_job_lease(transaction_, lease.lease_, micros, &error);
+    return detail::check(status, error);
+  }
+
+  Result<void> releaseJobLease(const JobLease &lease) {
+    POSTPROJECT_TRY(lease.require_open());
+    pp_error_t *error = nullptr;
+    const auto status = pp_transaction_release_job_lease(transaction_, lease.lease_, &error);
+    return detail::check(status, error);
+  }
+
+  Result<void> failJobLease(const JobLease &lease, std::string_view diagnostic) {
+    POSTPROJECT_TRY(lease.require_open());
+    POSTPROJECT_TRY_ASSIGN(const auto text, detail::checked_string(diagnostic, "job failure diagnostic"));
+    pp_error_t *error = nullptr;
+    const auto status = pp_transaction_fail_job_lease(transaction_, lease.lease_, text.c_str(), &error);
+    return detail::check(status, error);
+  }
+
+  Result<void> completeJobLease(const JobLease &lease, const RepresentationId &output, const ActivityId &activity) {
+    POSTPROJECT_TRY(lease.require_open());
+    pp_error_t *error = nullptr;
+    const auto status = pp_transaction_complete_job_lease(transaction_, lease.lease_,
+        detail::native_representation_id(output), detail::native_activity_id(activity), &error);
+    return detail::check(status, error);
   }
 
   Result<Uuid> claimJob(const JobId &job_id, const ToolIdentity &tool,
@@ -5972,6 +6136,17 @@ public:
   }
 
   ~Production() { pp_production_release(production_); }
+
+  [[nodiscard]] Result<JobLease> importJobLease(std::string_view token) const {
+    if (token.size() != 115) return Error(ErrorCode::invalid_argument, "invalid scoped job lease token");
+    pp_job_lease_t *lease = nullptr;
+    pp_error_t *error = nullptr;
+    const auto status = pp_production_import_job_lease(production_,
+        reinterpret_cast<const std::uint8_t *>(token.data()), token.size(), &lease, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    if (!lease) return Error(ErrorCode::internal, "native import returned no lease");
+    return JobLease(lease);
+  }
 
   [[nodiscard]] Result<ReadSession> readSession() const {
     pp_read_session_t *session = nullptr;

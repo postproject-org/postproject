@@ -11,8 +11,12 @@ checks production, job, current claim, state and expiry under the writer lock.
 Coordinator cancellation continues to use the job ID.
 
 Claim and renewal accept positive whole-microsecond durations up to 24 hours.
-No rounding or caller-selected current time is supported. The SQLite authority
-samples its private clock on transitions and again before commit. Renewal must
+No rounding or caller-selected current time is supported.
+Rust accepts `Duration`; C++ accepts integral `std::chrono::duration` counts,
+Python accepts `timedelta`, and C names its scalar microsecond unit explicitly.
+Floating/custom C++ count types and fractional-microsecond durations reject.
+The SQLite authority samples its private clock on transitions and again before
+commit. Renewal must
 extend the current expiry and commit before that previous expiry. Release also
 requires an unexpired claim.
 
