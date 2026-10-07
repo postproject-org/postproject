@@ -4007,8 +4007,13 @@ impl Drop for SqliteProduction {
 }
 
 impl ProductionStore for SqliteProduction {
+    type Lease = SqliteJobLease;
     type Transaction<'production> = SqliteTransaction<'production>;
     type ReadSession = SqliteReadSession;
+
+    fn import_job_lease(&mut self, token: &str) -> Result<Self::Lease> {
+        SqliteProduction::import_job_lease(self, token)
+    }
 
     fn read_session(&self) -> Result<Self::ReadSession> {
         SqliteProduction::read_session(self)

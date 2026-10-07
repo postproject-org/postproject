@@ -70,7 +70,7 @@ pub use job::{
     MAX_JOB_DIAGNOSTIC_BYTES, MAX_JOB_INPUTS, MAX_JOB_KIND_BYTES, MAX_REGENERATION_PLANS,
     RegenerationJobPlan, RequestedJobOutput,
 };
-pub use job_lease::{JobLeaseState, MAX_JOB_LEASE_DURATION, validate_job_lease_duration};
+pub use job_lease::{JobLease, JobLeaseState, MAX_JOB_LEASE_DURATION, validate_job_lease_duration};
 pub use metadata::{
     DecimalValue, MAX_LANGUAGE_TAG_BYTES, MAX_METADATA_BINARY_BYTES, MAX_METADATA_COLLECTION_ITEMS,
     MAX_METADATA_DECIMAL_SCALE, MAX_METADATA_NESTING_DEPTH, MAX_METADATA_TEXT_BYTES,

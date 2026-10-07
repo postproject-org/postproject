@@ -2340,6 +2340,38 @@ fn stored_event(event: &RevisionEventKind) -> Result<StoredEvent<'_>> {
 }
 
 impl ProductionStoreTransaction for SqliteTransaction<'_> {
+    type Lease = crate::SqliteJobLease;
+
+    fn claim_job_lease(
+        &mut self,
+        job: JobId,
+        tool: &ToolIdentity,
+        agent: Option<&AgentIdentity>,
+        duration: std::time::Duration,
+    ) -> Result<Self::Lease> {
+        SqliteTransaction::claim_job_lease(self, job, tool, agent, duration)
+    }
+    fn renew_job_lease(
+        &mut self,
+        lease: &Self::Lease,
+        duration: std::time::Duration,
+    ) -> Result<()> {
+        SqliteTransaction::renew_job_lease(self, lease, duration)
+    }
+    fn release_job_lease(&mut self, lease: &Self::Lease) -> Result<()> {
+        SqliteTransaction::release_job_lease(self, lease)
+    }
+    fn fail_job_lease(&mut self, lease: &Self::Lease, failure: &JobFailure) -> Result<()> {
+        SqliteTransaction::fail_job_lease(self, lease, failure)
+    }
+    fn complete_job_lease(
+        &mut self,
+        lease: &Self::Lease,
+        output: &RepresentationImport,
+        activity: &Activity,
+    ) -> Result<()> {
+        SqliteTransaction::complete_job_lease(self, lease, output, activity)
+    }
     fn id(&self) -> TransactionId {
         SqliteTransaction::id(self)
     }

@@ -2,7 +2,28 @@
 
 use std::time::Duration;
 
-use crate::{Error, ErrorKind, Result, Timestamp};
+use crate::{Error, ErrorKind, JobId, ProductionId, Result, Timestamp};
+
+/// Backend-owned, production-bound worker capability; never a claim-ID pair.
+///
+/// Implementations keep credentials private and omit them from diagnostics.
+/// Dropping ownership never renews, releases or writes a claim.
+pub trait JobLease {
+    /// Returns the production scope without a credential.
+    fn production_id(&self) -> ProductionId;
+    /// Returns the claimed job without a credential.
+    fn job_id(&self) -> JobId;
+    /// Returns cached local ownership; transitions always recheck the store.
+    ///
+    /// # Errors
+    /// Returns an ownership-state error when local state cannot be read.
+    fn state(&self) -> Result<JobLeaseState>;
+    /// Explicitly exports a bounded versioned credential for file/pipe transport.
+    ///
+    /// # Errors
+    /// Rejects pending or closed ownership. Import revalidates current authority.
+    fn export_token(&self) -> Result<String>;
+}
 
 /// Longest supported job lease: one day.
 pub const MAX_JOB_LEASE_DURATION: Duration = Duration::from_secs(86_400);

@@ -140,6 +140,21 @@ pub(crate) fn parse_token(token: &str) -> Result<(ProductionId, JobId, JobClaimI
     Ok((production, job, secret))
 }
 
+impl postproject_core::JobLease for SqliteJobLease {
+    fn production_id(&self) -> ProductionId {
+        self.production_id()
+    }
+    fn job_id(&self) -> JobId {
+        self.job_id()
+    }
+    fn state(&self) -> Result<JobLeaseState> {
+        self.state()
+    }
+    fn export_token(&self) -> Result<String> {
+        self.export_token()
+    }
+}
+
 pub(crate) fn state_error() -> Error {
     Error::new(
         ErrorKind::Internal,

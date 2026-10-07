@@ -1,5 +1,7 @@
 //! Domain-shaped contracts implemented by persistence backends.
 
+use std::time::Duration;
+
 use crate::{
     Activity, ActivityOutputQuery, AgentIdentity, ArtifactEvaluation, ArtifactEvaluationLimits,
     ArtifactReproducibilityReport, Asset, AssetId, CommitReceipt, DecisionBase, Dependency,
@@ -550,6 +552,8 @@ pub trait ProductionRead {
 
 /// Transactional mutation operations required from a persistence backend.
 pub trait ProductionStoreTransaction {
+    /// Backend-owned worker capability activated by this edit's commit.
+    type Lease: crate::JobLease;
     /// Returns this transaction's stable identity.
     fn id(&self) -> TransactionId;
 
@@ -775,6 +779,47 @@ pub trait ProductionStoreTransaction {
     /// or persistence fails.
     fn request_job(&mut self, job: &Job) -> Result<()>;
 
+    /// Claims work for a checked duration using current store authority time.
+    ///
+    /// # Errors
+    /// Rejects invalid durations, unavailable jobs, clock rollback or storage errors.
+    fn claim_job_lease(
+        &mut self,
+        job: JobId,
+        tool: &ToolIdentity,
+        agent: Option<&AgentIdentity>,
+        duration: Duration,
+    ) -> Result<Self::Lease>;
+
+    /// Renews current ownership; the edit must commit before its previous expiry.
+    ///
+    /// # Errors
+    /// Rejects wrong scope, expired/superseded ownership, invalid duration or storage errors.
+    fn renew_job_lease(&mut self, lease: &Self::Lease, duration: Duration) -> Result<()>;
+
+    /// Releases current unexpired ownership, closing the handle on commit.
+    ///
+    /// # Errors
+    /// Rejects wrong scope, expired/superseded ownership or storage errors.
+    fn release_job_lease(&mut self, lease: &Self::Lease) -> Result<()>;
+
+    /// Fails current unexpired ownership, closing the handle on commit.
+    ///
+    /// # Errors
+    /// Rejects wrong scope, expired/superseded ownership or storage errors.
+    fn fail_job_lease(&mut self, lease: &Self::Lease, failure: &JobFailure) -> Result<()>;
+
+    /// Atomically publishes requested output/provenance and closes ownership.
+    ///
+    /// # Errors
+    /// Rejects wrong scope, expired/superseded ownership, invalid facts or storage errors.
+    fn complete_job_lease(
+        &mut self,
+        lease: &Self::Lease,
+        output: &RepresentationImport,
+        activity: &Activity,
+    ) -> Result<()>;
+
     /// Atomically claims a requested or expired job with a new random token.
     ///
     /// `now` and `expires_at` are caller supplied so storage never reads the
@@ -886,6 +931,14 @@ pub trait ProductionStoreTransaction {
 
 /// A production persistence backend with explicit domain transactions.
 pub trait ProductionStore: ProductionRead {
+    /// Backend-owned worker capability shared by its domain edits.
+    type Lease: crate::JobLease;
+
+    /// Imports explicit scoped credentials against current store authority.
+    ///
+    /// # Errors
+    /// Rejects invalid scope/encoding, expired/superseded claims or storage errors.
+    fn import_job_lease(&mut self, token: &str) -> Result<Self::Lease>;
     /// Independently owned coherent read view.
     type ReadSession: ProductionReadSession;
 
@@ -903,7 +956,7 @@ pub trait ProductionStore: ProductionRead {
     /// Rejects wrong scope and invalid revisions, or returns storage errors.
     fn begin_edit(&mut self, base: DecisionBase) -> Result<Self::Transaction<'_>>;
     /// Backend-specific transaction implementation borrowing this store.
-    type Transaction<'production>: ProductionStoreTransaction
+    type Transaction<'production>: ProductionStoreTransaction<Lease = Self::Lease>
     where
         Self: 'production;
 
