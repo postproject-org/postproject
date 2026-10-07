@@ -23,6 +23,8 @@ pub enum ConflictKeyKind {
     ResourceFingerprint,
     /// One current representation-fingerprint domain.
     RepresentationFingerprint,
+    /// The current size and modification time of one resource.
+    ResourceFileFacts,
 }
 
 impl ConflictKeyKind {
@@ -37,6 +39,7 @@ impl ConflictKeyKind {
             Self::ExternalIdentifier => "external_identifier",
             Self::ResourceFingerprint => "resource_fingerprint",
             Self::RepresentationFingerprint => "representation_fingerprint",
+            Self::ResourceFileFacts => "resource_file_facts",
         }
     }
 }
@@ -45,6 +48,8 @@ impl ConflictKeyKind {
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 #[non_exhaustive]
 pub enum SemanticConflictKey {
+    /// The current size and modification time of one resource.
+    ResourceFileFacts(ResourceId),
     /// The complete current locator set of one resource.
     LocatorSet(ResourceId),
     /// One metadata property on one object.
@@ -90,6 +95,7 @@ impl SemanticConflictKey {
     #[must_use]
     pub const fn kind(&self) -> ConflictKeyKind {
         match self {
+            Self::ResourceFileFacts(_) => ConflictKeyKind::ResourceFileFacts,
             Self::LocatorSet(_) => ConflictKeyKind::LocatorSet,
             Self::MetadataProperty { .. } => ConflictKeyKind::MetadataProperty,
             Self::DependencySet(_) => ConflictKeyKind::DependencySet,

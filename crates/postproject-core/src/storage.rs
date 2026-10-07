@@ -721,6 +721,7 @@ pub trait ProductionStoreTransaction {
 
     /// Records a resource fingerprint as the current observation in its domain.
     ///
+    /// Requires a decision base, including first and unchanged observations.
     /// Returns `true` when state changed and `false` for an identical no-op.
     ///
     /// # Errors
@@ -734,7 +735,8 @@ pub trait ProductionStoreTransaction {
     ) -> Result<bool>;
 
     /// Records a resource's current size and modification time as part of a
-    /// content observation. Facts have no history and no event of their own.
+    /// content observation. Changed facts emit an event and guard the resource's
+    /// file-facts conflict key. Requires a decision base; facts have no history.
     ///
     /// Returns `true` when state changed and `false` for identical facts.
     ///
@@ -750,6 +752,7 @@ pub trait ProductionStoreTransaction {
 
     /// Records a representation fingerprint as the current observation.
     ///
+    /// Requires a decision base, including first and unchanged observations.
     /// Returns `true` when state changed and `false` for an identical no-op.
     /// A changed observation clears that representation's recomputation marker.
     ///

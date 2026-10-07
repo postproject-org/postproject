@@ -219,6 +219,11 @@ pub enum RevisionEventKind {
         /// Fingerprint algorithm format version.
         version: u16,
     },
+    /// A resource's size or modification time received a new observation.
+    ResourceFileFactsObserved {
+        /// Re-observed storage resource.
+        resource_id: ResourceId,
+    },
     /// A representation fingerprint domain received a new current observation.
     RepresentationFingerprintObserved {
         /// Re-observed representation.
@@ -311,6 +316,8 @@ pub enum RevisionEventType {
     ActivityOutputAdded,
     /// A resource fingerprint domain received a new current observation.
     ResourceFingerprintObserved,
+    /// A resource's size or modification time received a new observation.
+    ResourceFileFactsObserved,
     /// A representation fingerprint domain received a new current observation.
     RepresentationFingerprintObserved,
     /// A representation's complete dependency observation was replaced.
@@ -351,6 +358,7 @@ impl RevisionEventType {
         Self::ActivityInputAdded,
         Self::ActivityOutputAdded,
         Self::ResourceFingerprintObserved,
+        Self::ResourceFileFactsObserved,
         Self::RepresentationFingerprintObserved,
         Self::DependencySetRecorded,
         Self::JobRequested,
@@ -383,6 +391,7 @@ impl RevisionEventType {
             Self::ActivityInputAdded => "activity_input_added",
             Self::ActivityOutputAdded => "activity_output_added",
             Self::ResourceFingerprintObserved => "resource_fingerprint_observed",
+            Self::ResourceFileFactsObserved => "resource_file_facts_observed",
             Self::RepresentationFingerprintObserved => "representation_fingerprint_observed",
             Self::DependencySetRecorded => "dependency_set_recorded",
             Self::JobRequested => "job_requested",
@@ -418,6 +427,7 @@ impl RevisionEventType {
             | Self::ExternalIdentifierRemoved
             | Self::MetadataRemoved
             | Self::ResourceFingerprintObserved
+            | Self::ResourceFileFactsObserved
             | Self::RepresentationFingerprintObserved
             | Self::DependencySetRecorded => Conflict,
             Self::MediaRootAdded
@@ -481,6 +491,7 @@ impl RevisionEventKind {
             Self::ResourceFingerprintObserved { .. } => {
                 RevisionEventType::ResourceFingerprintObserved
             }
+            Self::ResourceFileFactsObserved { .. } => RevisionEventType::ResourceFileFactsObserved,
             Self::RepresentationFingerprintObserved { .. } => {
                 RevisionEventType::RepresentationFingerprintObserved
             }
@@ -862,7 +873,7 @@ mod tests {
                 *event_type
             );
         }
-        assert_eq!(RevisionEventType::ALL.len(), 26);
+        assert_eq!(RevisionEventType::ALL.len(), 27);
         assert!("row_updated".parse::<RevisionEventType>().is_err());
         assert_eq!(
             RevisionEventKind::JobSucceeded {
@@ -883,9 +894,13 @@ mod tests {
             .iter()
             .map(|event| event.concurrency_classification())
             .collect();
-        assert_eq!(classifications.len(), 26);
+        assert_eq!(classifications.len(), 27);
         assert!(classifications.contains(&Merge));
         assert!(classifications.contains(&Conflict));
+        assert_eq!(
+            RevisionEventType::ResourceFileFactsObserved.concurrency_classification(),
+            Conflict
+        );
         assert!(classifications.contains(&ExistingGuard));
         assert!(classifications.contains(&OperationDependent));
     }

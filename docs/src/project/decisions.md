@@ -71,6 +71,7 @@ Read the relevant ADR before changing an invariant, a boundary, or a public cont
 - {doc}`ADR 0053 — Fresh bounded media-root reads </adr/0053-fresh-bounded-media-root-reads>`
 - {doc}`ADR 0054 — C++ dynamic reference values </adr/0054-cpp-dynamic-reference-values>`
 - {doc}`ADR 0055 — CLI dependency submission outcomes </adr/0055-cli-dependency-submission-outcomes>`
+- {doc}`ADR 0056 — Decision-bound content observations </adr/0056-decision-bound-content-observations>`
 
 ```{toctree}
 :hidden:
@@ -130,4 +131,5 @@ Read the relevant ADR before changing an invariant, a boundary, or a public cont
 /adr/0053-fresh-bounded-media-root-reads
 /adr/0054-cpp-dynamic-reference-values
 /adr/0055-cli-dependency-submission-outcomes
+/adr/0056-decision-bound-content-observations
 ```
