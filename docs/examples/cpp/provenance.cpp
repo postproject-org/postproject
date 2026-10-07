@@ -120,8 +120,12 @@ postproject::ArtifactEvaluation evaluate_after_change(
   // Reproducibility says whether the recorded activity suffices to redo it.
   const auto reproducibility = production.artifactReproducibility(proxy_id).value();
   for (const auto &issue : reproducibility.issues) {
-    std::cout << "cannot reproduce: " << static_cast<std::uint32_t>(issue.kind)
+    std::cout << "cannot reproduce: " << static_cast<std::uint32_t>(
+        postproject::artifactReproducibilityIssueKind(issue).value())
               << '\n';
+    if (const auto *ambiguous = std::get_if<postproject::ReproducibilityProducerAmbiguous>(&issue)) {
+      std::cout << ambiguous->activityCount() << " recorded producers\n";
+    }
   }
   return evaluation;
 }
@@ -257,7 +261,7 @@ int main(int argc, char **argv) {
                     reproducibility.issues.begin(),
                     reproducibility.issues.end(),
                     [](const postproject::ArtifactReproducibilityIssue &issue) {
-                      return issue.kind ==
+                      return postproject::artifactReproducibilityIssueKind(issue) ==
                              postproject::ArtifactReproducibilityIssueKind::
                                  parameters_missing;
                     }),

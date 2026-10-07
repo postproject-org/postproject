@@ -146,6 +146,13 @@ int main() {
       content_resource, {std::numeric_limits<std::int64_t>::min(),
                          std::numeric_limits<std::int64_t>::max(), 1, 24, 1, {0}}});
   if (!full_domain) return 34;
+  const auto invalid_producer_count = ReproducibilityProducerAmbiguous::create(1);
+  if (invalid_producer_count || invalid_producer_count.error().code() != ErrorCode::invalid_argument) return 35;
+  const ArtifactReproducibilityIssue ambiguous_producers = ReproducibilityProducerAmbiguous::create(2).value();
+  if (artifactReproducibilityIssueKind(ambiguous_producers) !=
+          ArtifactReproducibilityIssueKind::producing_activity_ambiguous ||
+      std::get<ReproducibilityProducerAmbiguous>(ambiguous_producers).activityCount() != 2 ||
+      std::get_if<ReproducibilityInputMissing>(&ambiguous_producers) != nullptr) return 36;
   const auto resource = postproject::ResourceId::fromString("00000000-0000-0000-0000-000000000001").value();
   const std::set<postproject::ResourceId> resources{resource, resource};
   const std::unordered_set<postproject::ResourceId> resource_hashes{resource, resource};

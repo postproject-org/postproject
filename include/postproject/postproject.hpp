@@ -1021,12 +1021,44 @@ enum class ArtifactReproducibilityIssueKind : std::uint32_t {
       PP_ARTIFACT_REPRODUCIBILITY_INPUT_REPRESENTATION_MISSING,
 };
 
-struct ArtifactReproducibilityIssue final {
-  ArtifactReproducibilityIssueKind kind;
-  std::optional<ActivityId> activity_id;
-  std::optional<RepresentationId> representation_id;
-  std::optional<std::uint32_t> activity_count;
+struct ReproducibilityProducerMissing final {};
+class ReproducibilityProducerAmbiguous final {
+public:
+  static Result<ReproducibilityProducerAmbiguous> create(std::uint32_t count) {
+    if (count < 2)
+      return Error(ErrorCode::invalid_argument, "ambiguous producer count must be at least two");
+    return ReproducibilityProducerAmbiguous(count);
+  }
+  std::uint32_t activityCount() const noexcept { return activity_count_; }
+private:
+  explicit ReproducibilityProducerAmbiguous(std::uint32_t count) : activity_count_(count) {}
+  std::uint32_t activity_count_;
 };
+struct ReproducibilityToolMissing final { ActivityId activity_id; };
+struct ReproducibilityParametersMissing final { ActivityId activity_id; };
+struct ReproducibilityInputMissing final {
+  ActivityId activity_id;
+  RepresentationId representation_id;
+};
+using ArtifactReproducibilityIssue = std::variant<
+    ReproducibilityProducerMissing, ReproducibilityProducerAmbiguous,
+    ReproducibilityToolMissing, ReproducibilityParametersMissing,
+    ReproducibilityInputMissing>;
+
+/// Display category, or no category after a throwing variant assignment.
+inline std::optional<ArtifactReproducibilityIssueKind>
+artifactReproducibilityIssueKind(const ArtifactReproducibilityIssue &issue) noexcept {
+  if (issue.valueless_by_exception()) return std::nullopt;
+  if (std::holds_alternative<ReproducibilityProducerMissing>(issue))
+    return ArtifactReproducibilityIssueKind::producing_activity_missing;
+  if (std::holds_alternative<ReproducibilityProducerAmbiguous>(issue))
+    return ArtifactReproducibilityIssueKind::producing_activity_ambiguous;
+  if (std::holds_alternative<ReproducibilityToolMissing>(issue))
+    return ArtifactReproducibilityIssueKind::tool_identity_missing;
+  if (std::holds_alternative<ReproducibilityParametersMissing>(issue))
+    return ArtifactReproducibilityIssueKind::parameters_missing;
+  return ArtifactReproducibilityIssueKind::input_representation_missing;
+}
 
 struct ArtifactReproducibility final {
   RepresentationId representation_id;
@@ -3363,25 +3395,28 @@ inline Result<ArtifactReproducibility> artifact_reproducibility(ArtifactReproduc
         pp_artifact_reproducibility_get_issue(report.get(), index, &native,
                                               &issue_error);
     POSTPROJECT_TRY(check(issue_status, issue_error));
-    const auto kind =
-        static_cast<ArtifactReproducibilityIssueKind>(native.kind);
-    const bool issue_has_activity =
-        kind == ArtifactReproducibilityIssueKind::tool_identity_missing ||
-        kind == ArtifactReproducibilityIssueKind::parameters_missing ||
-        kind ==
-            ArtifactReproducibilityIssueKind::input_representation_missing;
-    issues.push_back(
-        {kind,
-         issue_has_activity
-             ? std::optional<ActivityId>(detail::activity_id(native.activity_id))
-             : std::nullopt,
-         kind ==
-                 ArtifactReproducibilityIssueKind::input_representation_missing
-             ? std::optional<RepresentationId>(detail::representation_id(native.representation_id))
-             : std::nullopt,
-         kind == ArtifactReproducibilityIssueKind::producing_activity_ambiguous
-             ? std::optional<std::uint32_t>(native.activity_count)
-             : std::nullopt});
+    switch (native.kind) {
+    case PP_ARTIFACT_REPRODUCIBILITY_PRODUCING_ACTIVITY_MISSING:
+      issues.emplace_back(ReproducibilityProducerMissing{});
+      break;
+    case PP_ARTIFACT_REPRODUCIBILITY_PRODUCING_ACTIVITY_AMBIGUOUS: {
+      POSTPROJECT_TRY_ASSIGN(auto ambiguous, ReproducibilityProducerAmbiguous::create(native.activity_count));
+      issues.emplace_back(std::move(ambiguous));
+      break;
+    }
+    case PP_ARTIFACT_REPRODUCIBILITY_TOOL_IDENTITY_MISSING:
+      issues.emplace_back(ReproducibilityToolMissing{detail::activity_id(native.activity_id)});
+      break;
+    case PP_ARTIFACT_REPRODUCIBILITY_PARAMETERS_MISSING:
+      issues.emplace_back(ReproducibilityParametersMissing{detail::activity_id(native.activity_id)});
+      break;
+    case PP_ARTIFACT_REPRODUCIBILITY_INPUT_REPRESENTATION_MISSING:
+      issues.emplace_back(ReproducibilityInputMissing{
+          detail::activity_id(native.activity_id), detail::representation_id(native.representation_id)});
+      break;
+    default:
+      return Error(ErrorCode::unsupported, "unknown artifact reproducibility issue");
+    }
   }
   return ArtifactReproducibility{
       detail::representation_id(reported_id), reproducible != 0,

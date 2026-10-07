@@ -4,7 +4,7 @@ All notable changes to PostProject will be documented here. The project uses
 [Semantic Versioning](https://semver.org/) once a stable API is released.
 
 ## Unreleased
-- Python reproducibility issues use case-specific records; migrate flat construction (ADR 0062).
+- C++/Python reproducibility issues use case-specific values; migrate flat construction and C++ inspection (ADR 0062).
 - C++/Python representation facts carry one validated content alternative; migrate construction and C++ field access (ADR 0061).
 - Bound collection payloads and CLI JSON inputs; page larger collections (ADR 0060).
 - Version CLI JSON output and categorize operation errors/exit codes (ADR 0059).

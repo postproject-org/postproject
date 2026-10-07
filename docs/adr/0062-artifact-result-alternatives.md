@@ -23,6 +23,10 @@ their derived `kind` for display and use `isinstance` to narrow a payload.
 Replace flat issue construction with `ReproducibilityProducerMissing`,
 `ReproducibilityProducerAmbiguous`, `ReproducibilityToolMissing`,
 `ReproducibilityParametersMissing` or `ReproducibilityInputMissing`.
+C++ uses a `std::variant` of those case types; inspect it with `std::get_if`.
+`artifactReproducibilityIssueKind` returns its display category. Ambiguous
+producer counts use `ReproducibilityProducerAmbiguous::create` and
+`activityCount()`; the other cases are ordinary aggregates of applicable IDs.
 
 No schema, persisted identity or external standards mapping changes. These
 projections preserve the existing recorded provenance and dependency semantics.
