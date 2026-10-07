@@ -14,10 +14,7 @@ static int bytes_are_zero(const uint8_t *bytes) {
   return memcmp(bytes, zero, sizeof zero) == 0;
 }
 
-static int uuid_is_zero(const pp_uuid_t *id) {
-  static const uint8_t zero[16] = {0};
-  return memcmp(id->bytes, zero, sizeof(zero)) == 0;
-}
+
 
 static int representation_id_is_zero(const pp_representation_id_t *id) {
   static const uint8_t zero[16] = {0};
