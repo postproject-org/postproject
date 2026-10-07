@@ -532,3 +532,135 @@ fn claiming_from_an_older_view_checks_input_knowledge_before_acquisition() {
         JobState::Requested
     ));
 }
+
+#[test]
+fn required_dependency_changes_cannot_be_attributed_to_earlier_work() {
+    use postproject_core::{
+        Dependency, DependencyKind, DependencyTarget, RepresentationFingerprint,
+    };
+
+    for floating in [false, true] {
+        for change_set in [false, true] {
+            let mut fixture = Fixture::with_inputs(true);
+            let (dependency, _) = fixture.output();
+            let target = dependency.representation().id();
+            let edge = |id| {
+                Dependency::new(
+                    None,
+                    DependencyKind::new("example:input").unwrap(),
+                    if floating {
+                        DependencyTarget::Asset(fixture.asset)
+                    } else {
+                        DependencyTarget::Representation(id)
+                    },
+                    floating.then_some(id),
+                    true,
+                    "reference",
+                )
+                .unwrap()
+            };
+            let base = fixture.store.read_session().unwrap().decision_base();
+            let mut edit = fixture.store.begin_edit(base).unwrap();
+            edit.add_representation(&dependency).unwrap();
+            edit.record_dependency_set(fixture.input, &[edge(target)])
+                .unwrap();
+            // Required cycles must deduplicate, not hang or bypass the guard.
+            edit.record_dependency_set(target, &[edge(fixture.input)])
+                .unwrap();
+            edit.commit().unwrap();
+            drop(edit);
+            let lease = fixture.claim();
+            let base = fixture.store.read_session().unwrap().decision_base();
+            let mut edit = fixture.store.begin_edit(base).unwrap();
+            if change_set {
+                edit.record_dependency_set(target, &[]).unwrap();
+            } else {
+                edit.record_representation_fingerprint(
+                    target,
+                    &RepresentationFingerprint::new("example-content", 1, vec![2]).unwrap(),
+                )
+                .unwrap();
+            }
+            let changed = edit.commit().unwrap();
+            drop(edit);
+            let (output, _) = fixture.output();
+            let activity = Activity::new(
+                ActivityId::new(),
+                ActivityKind::new("example:publish").unwrap(),
+                vec![postproject_core::ActivityInput::new(fixture.input, None)],
+                vec![ActivityOutput::new(output.representation().id(), None)],
+            )
+            .unwrap();
+            let mut edit = fixture.store.begin_transaction().unwrap();
+            let error = edit
+                .complete_job_lease(&lease, &output, &activity)
+                .unwrap_err();
+            let conflict = error.transaction_conflict_detail().unwrap();
+            assert_eq!(
+                conflict.superseding_revision(),
+                changed.revision().unwrap().id()
+            );
+            assert_eq!(
+                conflict.key().kind().as_str(),
+                if change_set {
+                    "dependency_set"
+                } else {
+                    "representation_fingerprint"
+                }
+            );
+            edit.rollback().unwrap();
+            drop(edit);
+            assert_eq!(
+                fixture.store.representations(fixture.asset).unwrap().len(),
+                2
+            );
+            assert!(fixture.store.activities().unwrap().is_empty());
+        }
+    }
+}
+
+#[test]
+fn corrupt_input_conflict_key_rejects_publication_as_storage_error() {
+    let mut fixture = Fixture::with_inputs(true);
+    let lease = fixture.claim();
+    let base = fixture.store.read_session().unwrap().decision_base();
+    let mut edit = fixture.store.begin_edit(base).unwrap();
+    edit.record_resource_fingerprint(
+        fixture.resource,
+        &postproject_core::ResourceFingerprint::new("example-content", 1, vec![2]).unwrap(),
+    )
+    .unwrap();
+    edit.commit().unwrap();
+    drop(edit);
+    let mut corrupt = vec![6];
+    corrupt.extend_from_slice(fixture.resource.as_bytes());
+    corrupt.extend_from_slice(&1_u32.to_be_bytes());
+    corrupt.push(b'?');
+    corrupt.extend_from_slice(&1_u16.to_be_bytes());
+    fixture.store.connection.execute(
+        "UPDATE conflict_versions SET conflict_key = ?1 WHERE substr(conflict_key, 1, 1) = x'06'",
+        [corrupt],
+    ).unwrap();
+    let (output, _) = fixture.output();
+    let activity = Activity::new(
+        ActivityId::new(),
+        ActivityKind::new("example:publish").unwrap(),
+        vec![postproject_core::ActivityInput::new(fixture.input, None)],
+        vec![ActivityOutput::new(output.representation().id(), None)],
+    )
+    .unwrap();
+    let mut edit = fixture.store.begin_transaction().unwrap();
+    assert_eq!(
+        edit.complete_job_lease(&lease, &output, &activity)
+            .unwrap_err()
+            .kind(),
+        ErrorKind::Storage
+    );
+    edit.rollback().unwrap();
+    drop(edit);
+    assert!(fixture.store.activities().unwrap().is_empty());
+    assert_eq!(
+        fixture.store.representations(fixture.asset).unwrap().len(),
+        1
+    );
+}

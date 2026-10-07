@@ -8,6 +8,15 @@ use super::{
     Error, ErrorKind, JobId, OptionalExtension, Result, SqliteTransaction, params, sqlite_error,
 };
 
+// UNION deduplicates cycles. The extra row detects an exceeded read budget.
+const INPUT_GRAPH: &str = "WITH RECURSIVE input_graph(representation_id) AS (
+    SELECT representation_id FROM job_inputs WHERE job_id = ?1
+    UNION
+    SELECT CASE d.target_kind WHEN 2 THEN d.target_id ELSE d.resolved_representation_id END
+    FROM input_graph i JOIN dependencies d ON d.source_representation_id = i.representation_id
+    WHERE d.required = 1 AND (d.target_kind = 2 OR d.resolved_representation_id IS NOT NULL)
+    LIMIT 100001)";
+
 impl SqliteTransaction<'_> {
     pub(super) fn guard_claim_inputs(&mut self, job: JobId) -> Result<()> {
         if let Some(base) = self.base_revision {
@@ -51,20 +60,34 @@ impl SqliteTransaction<'_> {
     }
 
     fn guard_job_inputs(&mut self, job: JobId, base: (Option<RevisionId>, u64)) -> Result<()> {
+        let count: i64 = self
+            .open_transaction()?
+            .query_row(
+                &format!("{INPUT_GRAPH} SELECT COUNT(*) FROM input_graph"),
+                [job.as_bytes().as_slice()],
+                |row| row.get(0),
+            )
+            .map_err(sqlite_error("bound worker input dependency graph"))?;
+        if count > 100_000 {
+            return Err(Error::new(
+                ErrorKind::Unsupported,
+                "worker input graph exceeds 100000 representations",
+            ));
+        }
         // Fetch at most one changed fact, rather than materializing all input
         // resources/fingerprint domains. Key tags match the private encoder.
         let changed: Option<(Vec<u8>, Vec<u8>, i64)> = self.open_transaction()?.query_row(
-            "SELECT c.conflict_key, c.last_changed_revision_id, c.last_changed_revision_sequence
+            &format!("{INPUT_GRAPH} SELECT c.conflict_key, c.last_changed_revision_id, c.last_changed_revision_sequence
              FROM conflict_versions c
              WHERE c.last_changed_revision_sequence > ?2 AND (
                  (substr(c.conflict_key, 1, 1) IN (x'03', x'07') AND EXISTS (
-                     SELECT 1 FROM job_inputs i WHERE i.job_id = ?1
-                     AND i.representation_id = substr(c.conflict_key, 2, 16))) OR
+                     SELECT 1 FROM input_graph i WHERE
+                     i.representation_id = substr(c.conflict_key, 2, 16))) OR
                  (substr(c.conflict_key, 1, 1) = x'06' AND EXISTS (
-                     SELECT 1 FROM job_inputs i JOIN representation_resources rr
+                     SELECT 1 FROM input_graph i JOIN representation_resources rr
                          ON rr.representation_id = i.representation_id
-                     WHERE i.job_id = ?1 AND rr.resource_id = substr(c.conflict_key, 2, 16))))
-             ORDER BY c.last_changed_revision_sequence, c.conflict_key LIMIT 1",
+                     WHERE rr.resource_id = substr(c.conflict_key, 2, 16))))
+             ORDER BY c.last_changed_revision_sequence, c.conflict_key LIMIT 1"),
             params![job.as_bytes().as_slice(), i64::try_from(base.1).map_err(|_| invalid_key())?],
             |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
         ).optional().map_err(sqlite_error("check worker input decision"))?;
@@ -94,6 +117,9 @@ fn decode_key(encoded: &[u8]) -> Result<SemanticConflictKey> {
         return Err(invalid_key());
     }
     let id: [u8; 16] = encoded[1..17].try_into().map_err(|_| invalid_key())?;
+    if id == [0; 16] {
+        return Err(invalid_key());
+    }
     if encoded[0] == 3 && encoded.len() == 17 {
         return Ok(SemanticConflictKey::DependencySet(
             RepresentationId::from_bytes(id),
@@ -115,6 +141,8 @@ fn decode_key(encoded: &[u8]) -> Result<SemanticConflictKey> {
             .try_into()
             .map_err(|_| invalid_key())?,
     );
+    postproject_core::ResourceFingerprint::new(algorithm.clone(), version, vec![1])
+        .map_err(|_| invalid_key())?;
     Ok(if encoded[0] == 6 {
         SemanticConflictKey::ResourceFingerprint {
             resource_id: ResourceId::from_bytes(id),

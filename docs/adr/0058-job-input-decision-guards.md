@@ -12,6 +12,10 @@ A claim and completion in one edit use that edit's facts atomically.
 
 Changes to an input resource fingerprint, representation fingerprint or complete
 dependency set reject publication with the existing structured semantic conflict.
+Required recorded dependencies are included transitively, including resolved
+floating asset targets. This protects the dependency evidence captured on the
+activity, rather than attributing later dependency facts to earlier work. Cycles
+deduplicate; an input graph above 100000 representations returns `Unsupported`.
 Output, activity, snapshots and terminal state remain unpublished. Renewing a
 lease does not refresh the worker's input decision. Reopening or token import
 retains the boundary through the recorded claim event; no new token field or
