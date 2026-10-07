@@ -6,15 +6,14 @@ use crate::{
     Activity, ActivityOutputQuery, AgentIdentity, ArtifactEvaluation, ArtifactEvaluationLimits,
     ArtifactReproducibilityReport, Asset, AssetId, CommitReceipt, DecisionBase, Dependency,
     DependencyQueryLimits, DependencyQueryMatch, DependencySet, DependencyTarget,
-    ExternalIdentifier, FileFacts, FilteredRevisionPage, IdentifierScheme, Job, JobClaim,
-    JobClaimId, JobFailure, JobId, JobQuery, KnownMediaMatch, Locator, LocatorIdentity, MediaRoot,
-    MetadataAssertion, MetadataMatch, MetadataProperty, MetadataQuery, MetadataValue, ObjectRef,
-    OriginalMediaImport, Production, ProductionReadSession, ProvenanceQueryLimits,
-    ProvenanceQueryMatch, QueryPage, QueryPageRequest, RegenerationJobPlan, Representation,
-    RepresentationFingerprint, RepresentationId, RepresentationImport, Resource,
-    ResourceFingerprint, ResourceId, Result, Revision, RevisionContext, RevisionEvent,
-    RevisionEventFilter, RevisionId, StaleArtifactQuery, Timestamp, ToolIdentity, TransactionId,
-    TransactionState,
+    ExternalIdentifier, FileFacts, FilteredRevisionPage, IdentifierScheme, Job, JobFailure, JobId,
+    JobQuery, KnownMediaMatch, Locator, LocatorIdentity, MediaRoot, MetadataAssertion,
+    MetadataMatch, MetadataProperty, MetadataQuery, MetadataValue, ObjectRef, OriginalMediaImport,
+    Production, ProductionReadSession, ProvenanceQueryLimits, ProvenanceQueryMatch, QueryPage,
+    QueryPageRequest, RegenerationJobPlan, Representation, RepresentationFingerprint,
+    RepresentationId, RepresentationImport, Resource, ResourceFingerprint, ResourceId, Result,
+    Revision, RevisionContext, RevisionEvent, RevisionEventFilter, RevisionId, StaleArtifactQuery,
+    ToolIdentity, TransactionId, TransactionState,
 };
 
 /// Read operations required from a production persistence backend.
@@ -816,82 +815,6 @@ pub trait ProductionStoreTransaction {
     fn complete_job_lease(
         &mut self,
         lease: &Self::Lease,
-        output: &RepresentationImport,
-        activity: &Activity,
-    ) -> Result<()>;
-
-    /// Atomically claims a requested or expired job with a new random token.
-    ///
-    /// `now` and `expires_at` are caller supplied so storage never reads the
-    /// wall clock for lease decisions.
-    ///
-    /// # Errors
-    ///
-    /// Returns a domain error when the job is absent, not claimable, the lease
-    /// does not expire after `now`, the transaction is closed, or persistence
-    /// fails.
-    fn claim_job(
-        &mut self,
-        job_id: JobId,
-        tool: &ToolIdentity,
-        agent: Option<&AgentIdentity>,
-        now: Timestamp,
-        expires_at: Timestamp,
-    ) -> Result<JobClaim>;
-
-    /// Extends the current unexpired claim to a later caller-supplied expiry.
-    ///
-    /// # Errors
-    ///
-    /// Returns a domain error when the job is absent, the token is not current,
-    /// the claim has expired, the new expiry is not after `now`, the transaction
-    /// is closed, or persistence fails.
-    fn renew_job_claim(
-        &mut self,
-        job_id: JobId,
-        claim_id: JobClaimId,
-        now: Timestamp,
-        expires_at: Timestamp,
-    ) -> Result<()>;
-
-    /// Releases the current claim and returns the job to requested state.
-    ///
-    /// # Errors
-    ///
-    /// Returns a domain error when the job is absent, the token is not current,
-    /// the transaction is closed, or persistence fails.
-    fn release_job_claim(&mut self, job_id: JobId, claim_id: JobClaimId) -> Result<()>;
-
-    /// Fails an actively claimed job without creating output or activity facts.
-    ///
-    /// # Errors
-    ///
-    /// Returns a domain error when the job is absent, the token is not current,
-    /// the claim has expired at `now`, the transaction is closed, or persistence
-    /// fails.
-    fn fail_job(
-        &mut self,
-        job_id: JobId,
-        claim_id: JobClaimId,
-        now: Timestamp,
-        failure: &JobFailure,
-    ) -> Result<()>;
-
-    /// Atomically completes a claimed job with its output and activity fact.
-    ///
-    /// Storage validates the active token and lease, requested asset and
-    /// representation kind, and the activity's exact job inputs and output.
-    ///
-    /// # Errors
-    ///
-    /// Returns a domain error when the job or referenced objects are absent,
-    /// the claim is stale or expired, completion does not match the request,
-    /// the transaction is closed, or any output/activity persistence fails.
-    fn complete_job(
-        &mut self,
-        job_id: JobId,
-        claim_id: JobClaimId,
-        now: Timestamp,
         output: &RepresentationImport,
         activity: &Activity,
     ) -> Result<()>;

@@ -330,28 +330,8 @@ impl<'production> SqliteTransaction<'production> {
         Ok(())
     }
 
-    /// Atomically claims a requested or expired job with a new random token.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`ErrorKind::InvalidArgument`] for a non-future expiry,
-    /// [`ErrorKind::NotFound`] for an absent job, [`ErrorKind::Conflict`] when
-    /// the job is not claimable, or a transaction/storage error.
-    pub fn claim_job(
-        &mut self,
-        job_id: JobId,
-        tool: &ToolIdentity,
-        agent: Option<&AgentIdentity>,
-        now: Timestamp,
-        expires_at: Timestamp,
-    ) -> Result<JobClaim> {
-        self.claim_job_with_id(job_id, JobClaimId::new(), tool, agent, now, expires_at)
-    }
-
-    /// Claims a job using a library-generated capability supplied by an
-    /// adapter that must return the token before transaction commit.
-    #[doc(hidden)]
-    pub fn claim_job_with_id(
+    // Applies the private authority-selected claim identity and times.
+    fn claim_job_with_id(
         &mut self,
         job_id: JobId,
         claim_id: JobClaimId,
@@ -413,7 +393,7 @@ impl<'production> SqliteTransaction<'production> {
     /// Returns [`ErrorKind::InvalidArgument`] for a non-future expiry,
     /// [`ErrorKind::NotFound`] for an absent job, [`ErrorKind::Conflict`] for a
     /// stale token, expired lease, or non-extending expiry, or a storage error.
-    pub fn renew_job_claim(
+    fn renew_job_claim(
         &mut self,
         job_id: JobId,
         claim_id: JobClaimId,
@@ -455,7 +435,7 @@ impl<'production> SqliteTransaction<'production> {
     /// Returns [`ErrorKind::NotFound`] for an absent job,
     /// [`ErrorKind::Conflict`] for a stale token or non-claimed job, or a
     /// transaction/storage error.
-    pub fn release_job_claim(&mut self, job_id: JobId, claim_id: JobClaimId) -> Result<()> {
+    fn release_job_claim(&mut self, job_id: JobId, claim_id: JobClaimId) -> Result<()> {
         let transaction = self.open_transaction()?;
         let changed = transaction
             .execute(
@@ -488,7 +468,7 @@ impl<'production> SqliteTransaction<'production> {
     /// Returns [`ErrorKind::NotFound`] for an absent job,
     /// [`ErrorKind::Conflict`] for a stale token, expired lease, or non-claimed
     /// job, or a transaction/storage error.
-    pub fn fail_job(
+    fn fail_job(
         &mut self,
         job_id: JobId,
         claim_id: JobClaimId,
@@ -535,7 +515,7 @@ impl<'production> SqliteTransaction<'production> {
     /// [`ErrorKind::InvalidArgument`] when output or activity facts do not
     /// match the request, or a transaction/storage error. Any failure rolls
     /// back all completion-specific changes.
-    pub fn complete_job(
+    fn complete_job(
         &mut self,
         job_id: JobId,
         claim_id: JobClaimId,
@@ -2492,52 +2472,6 @@ impl ProductionStoreTransaction for SqliteTransaction<'_> {
 
     fn request_job(&mut self, job: &Job) -> Result<()> {
         SqliteTransaction::request_job(self, job)
-    }
-
-    fn claim_job(
-        &mut self,
-        job_id: JobId,
-        tool: &ToolIdentity,
-        agent: Option<&AgentIdentity>,
-        now: Timestamp,
-        expires_at: Timestamp,
-    ) -> Result<JobClaim> {
-        SqliteTransaction::claim_job(self, job_id, tool, agent, now, expires_at)
-    }
-
-    fn renew_job_claim(
-        &mut self,
-        job_id: JobId,
-        claim_id: JobClaimId,
-        now: Timestamp,
-        expires_at: Timestamp,
-    ) -> Result<()> {
-        SqliteTransaction::renew_job_claim(self, job_id, claim_id, now, expires_at)
-    }
-
-    fn release_job_claim(&mut self, job_id: JobId, claim_id: JobClaimId) -> Result<()> {
-        SqliteTransaction::release_job_claim(self, job_id, claim_id)
-    }
-
-    fn fail_job(
-        &mut self,
-        job_id: JobId,
-        claim_id: JobClaimId,
-        now: Timestamp,
-        failure: &JobFailure,
-    ) -> Result<()> {
-        SqliteTransaction::fail_job(self, job_id, claim_id, now, failure)
-    }
-
-    fn complete_job(
-        &mut self,
-        job_id: JobId,
-        claim_id: JobClaimId,
-        now: Timestamp,
-        output: &RepresentationImport,
-        activity: &Activity,
-    ) -> Result<()> {
-        SqliteTransaction::complete_job(self, job_id, claim_id, now, output, activity)
     }
 
     fn cancel_job(&mut self, job_id: JobId) -> Result<()> {

@@ -383,8 +383,9 @@ fn wrong_scopes_and_coordinator_cancellation_cannot_publish() {
 fn schema_eighteen_claims_expire_without_losing_attribution_or_requests() {
     let mut fixture = Fixture::new();
     let mut edit = fixture.store.begin_transaction().unwrap();
-    edit.claim_job(
+    edit.claim_job_with_id(
         fixture.job,
+        JobClaimId::new(),
         &tool(),
         None,
         Timestamp::from_unix_micros(10),

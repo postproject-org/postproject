@@ -29,8 +29,9 @@ impl SqliteTransaction<'_> {
         let micros = validate_job_lease_duration(duration)?;
         let now = self.lease_now()?;
         let expiry = lease_expiry(now, micros)?;
-        let claim = self.claim_job(job, tool, agent, now, expiry)?;
-        let lease = SqliteJobLease::pending(self.production.id(), job, claim.id(), self.id());
+        let secret = JobClaimId::new();
+        self.claim_job_with_id(job, secret, tool, agent, now, expiry)?;
+        let lease = SqliteJobLease::pending(self.production.id(), job, secret, self.id());
         self.lease_guards.push(expiry.as_unix_micros());
         self.lease_updates.push(LeaseUpdate {
             state: Arc::clone(&lease.state),
