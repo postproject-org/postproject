@@ -1753,6 +1753,7 @@ PP_API pp_error_code_t pp_transaction_fail_job_lease(
     pp_transaction_t *transaction, const pp_job_lease_t *lease,
     const char *diagnostic, pp_error_t **out_error);
 /* Output and activity must already be staged in this edit, in that order.
+ * A pending lease must be claimed before staging its output.
  * Guards are checked by storage at commit; failed commit publishes no facts. */
 PP_API pp_error_code_t pp_transaction_complete_job_lease(
     pp_transaction_t *transaction, const pp_job_lease_t *lease,

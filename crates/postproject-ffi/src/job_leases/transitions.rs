@@ -142,6 +142,12 @@ pub unsafe extern "C" fn pp_transaction_complete_job_lease(
                     "job output representation must be staged before its activity",
                 ));
             }
+            if transaction.mutations.iter().enumerate().any(|(index, mutation)| {
+                matches!(mutation, StagedMutation::Lease(LeaseMutation::Claim { lease: claiming, .. })
+                    if Arc::ptr_eq(claiming, &lease.shared) && index >= output_index)
+            }) {
+                return Err(invalid_argument("job lease must be claimed before staging its output"));
+            }
             let StagedMutation::Activity(activity) = transaction.mutations.remove(activity_index)
             else {
                 unreachable!("selected activity variant");

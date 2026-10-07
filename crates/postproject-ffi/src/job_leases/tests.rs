@@ -143,7 +143,6 @@ fn native_pending_claims_close_on_discard_and_activate_only_after_commit() {
         pp_transaction_release(edit);
         pp_job_lease_free(imported);
         pp_job_lease_free(lease);
-        pp_job_lease_free(ptr::null_mut());
     }
 }
 
@@ -153,6 +152,7 @@ fn native_rejects_invalid_durations_and_token_size_before_reading_input() {
     // SAFETY: Oversized/null token input is rejected before borrowing bytes;
     // handles are live and outputs are writable, including every failure case.
     unsafe {
+        pp_job_lease_free(ptr::null_mut());
         let edit = begin_transaction_handle(&production.state, None, None).unwrap();
         let mut lease = ptr::null_mut();
         for duration in [0, 86_400_000_001, u64::MAX] {

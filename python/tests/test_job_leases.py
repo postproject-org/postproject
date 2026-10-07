@@ -125,6 +125,24 @@ class JobLeaseTests(unittest.TestCase):
         self.assertIsInstance(lease.state, ClosedJobLease)
         self.assertEqual(self.production.job(self.job).state, JobState.REQUESTED)
 
+    def test_pending_completion_rejects_misordered_output_without_mutating_edit(
+        self,
+    ) -> None:
+        with self.production.transaction() as edit:
+            output = edit.add_representation(
+                self.asset, RepresentationKind.DERIVED, self.media
+            )
+            lease = edit.claim_job_lease(self.job, self.tool, timedelta(minutes=1))
+            self.addCleanup(lease.close)
+            activity = edit.create_activity(
+                ActivitySpec("example:publish", (ActivityEdge(output),))
+            )
+            with self.assertRaises(InvalidArgumentError):
+                edit.complete_job_lease(lease, output, activity)
+        self.assertIsInstance(lease.state, ClosedJobLease)
+        self.assertEqual(len(self.production.representations[self.asset]), 1)
+        self.assertEqual(self.production.job(self.job).state, JobState.REQUESTED)
+
     def test_wrong_production_and_malformed_tokens_reject_before_mutation(self) -> None:
         lease = self.claim()
         with Production.create(self.root / "other.pproj") as other:
