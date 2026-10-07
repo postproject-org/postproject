@@ -1,6 +1,8 @@
 //! Shared native lease ownership across lazy transaction staging.
 
 mod api;
+#[cfg(test)]
+mod tests;
 mod transitions;
 
 use std::{
