@@ -1215,6 +1215,8 @@ impl<'production> SqliteTransaction<'production> {
             self.record_conflict_key(SemanticConflictKey::ResourceFileFacts(resource_id))?;
             self.pending_events
                 .push(RevisionEventKind::ResourceFileFactsObserved { resource_id });
+        } else {
+            self.record_observation_guard(SemanticConflictKey::ResourceFileFacts(resource_id))?;
         }
         Ok(changed != 0)
     }
@@ -1256,6 +1258,11 @@ impl<'production> SqliteTransaction<'production> {
             .as_ref()
             .is_some_and(|(value, _)| value == fingerprint.value())
         {
+            self.record_observation_guard(SemanticConflictKey::ResourceFingerprint {
+                resource_id,
+                algorithm: fingerprint.algorithm().to_owned(),
+                version: fingerprint.version(),
+            })?;
             return Ok(false);
         }
         if current.is_none() && !resource_exists(transaction, resource_id)? {
@@ -1387,6 +1394,11 @@ impl<'production> SqliteTransaction<'production> {
             .is_some_and(|(value, _)| value == fingerprint.value())
             && !dirty
         {
+            self.record_observation_guard(SemanticConflictKey::RepresentationFingerprint {
+                representation_id,
+                algorithm: fingerprint.algorithm().to_owned(),
+                version: fingerprint.version(),
+            })?;
             return Ok(false);
         }
         if current.is_none() && !representation_exists(transaction, representation_id)? {
@@ -1795,6 +1807,12 @@ impl<'production> SqliteTransaction<'production> {
     fn record_changed_key(&mut self, key: SemanticConflictKey) -> Result<()> {
         let encoded = encode_conflict_key(&key)?;
         self.pending_changed_keys.insert(encoded, key);
+        Ok(())
+    }
+
+    fn record_observation_guard(&mut self, key: SemanticConflictKey) -> Result<()> {
+        self.pending_conflict_keys
+            .insert(encode_conflict_key(&key)?, key);
         Ok(())
     }
 

@@ -12,6 +12,7 @@ domain; adding a previously unseen domain is still an explicit observation.
 
 Changed size/modification-time facts emit `resource_file_facts_observed` and
 advance a resource file-facts conflict key. An unchanged value emits nothing.
+Unchanged observations still check their conflict key at commit.
 Facts remain cheap discovery filters, not identity evidence, and retain no
 history. A successful facts-only edit has its own revision/receipt. Content
 observation commits resource facts, fingerprints and recomputed aggregate

@@ -303,3 +303,61 @@ fn stale_file_facts_roll_back_all_staged_observations_and_additive_work() {
         superseding.id()
     );
 }
+
+#[test]
+fn unchanged_observations_still_check_intervening_changes() {
+    for kind in 0..3 {
+        let directory = tempdir().unwrap();
+        let mut production =
+            SqliteProduction::create(directory.path().join("noop.pproj"), None).unwrap();
+        let import = media(1, RepresentationKind::Original);
+        let resource_id = import.resources()[0].id();
+        let representation_id = import.representation().id();
+        {
+            let mut edit = production.begin_transaction().unwrap();
+            edit.import_original(&import).unwrap();
+            edit.commit().unwrap();
+        }
+        let base = production.read_session().unwrap().decision_base();
+        let facts = FileFacts::new(9, None);
+        let resource = ResourceFingerprint::new("content", 1, vec![9]).unwrap();
+        let aggregate = RepresentationFingerprint::new("aggregate", 1, vec![9]).unwrap();
+        {
+            let mut winner = production.begin_edit(base).unwrap();
+            winner
+                .record_resource_file_facts(resource_id, facts)
+                .unwrap();
+            winner
+                .record_resource_fingerprint(resource_id, &resource)
+                .unwrap();
+            winner
+                .record_representation_fingerprint(representation_id, &aggregate)
+                .unwrap();
+            winner.commit().unwrap();
+        }
+        let head = production.latest_revision().unwrap().unwrap();
+        let mut stale = production.begin_edit(base).unwrap();
+        let changed = match kind {
+            0 => stale.record_resource_file_facts(resource_id, facts),
+            1 => stale.record_resource_fingerprint(resource_id, &resource),
+            _ => stale.record_representation_fingerprint(representation_id, &aggregate),
+        }
+        .unwrap();
+        assert!(!changed);
+        let error = stale.commit_with_receipt().unwrap_err();
+        assert_eq!(error.kind(), ErrorKind::Conflict);
+        assert_eq!(
+            error
+                .transaction_conflict_detail()
+                .unwrap()
+                .superseding_revision(),
+            head.id()
+        );
+        assert_eq!(stale.state(), TransactionState::RolledBack);
+        drop(stale);
+        assert_eq!(
+            production.latest_revision().unwrap().unwrap().id(),
+            head.id()
+        );
+    }
+}
