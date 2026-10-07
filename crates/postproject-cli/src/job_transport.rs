@@ -145,3 +145,80 @@ impl std::error::Error for CommittedOperationError {
         Some(self.source.as_ref())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn duration_units_are_exact_and_bounded() {
+        for (text, micros) in [
+            ("1us", 1),
+            ("2ms", 2_000),
+            ("3s", 3_000_000),
+            ("4m", 240_000_000),
+            ("24h", 86_400_000_000),
+        ] {
+            assert_eq!(parse_duration(text).unwrap(), Duration::from_micros(micros));
+        }
+        for text in [
+            "0s",
+            "25h",
+            "-1s",
+            "1.5s",
+            "1",
+            "1ns",
+            "18446744073709551615h",
+        ] {
+            assert!(parse_duration(text).is_err(), "{text}");
+        }
+    }
+
+    #[test]
+    fn reservation_is_exclusive_private_and_cleans_up_failed_delivery() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("lease");
+        let mut output = TokenOutput::reserve(&path).unwrap();
+        assert!(TokenOutput::reserve(&path).is_err());
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(
+                fs::metadata(&path).unwrap().permissions().mode() & 0o777,
+                0o600
+            );
+        }
+        output.file.take();
+        assert!(output.deliver("credential").is_err());
+        assert!(!path.exists());
+        TokenOutput::reserve(&path)
+            .unwrap()
+            .deliver("credential")
+            .unwrap();
+        assert_eq!(fs::read_to_string(&path).unwrap(), "credential");
+    }
+
+    #[test]
+    fn token_reader_bounds_and_checks_scope_without_echoing_secrets() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("input");
+        let job = JobId::new();
+        let production = ProductionId::new();
+        let secret = postproject_core::JobClaimId::new();
+        let token = format!("ppl1:{production}:{job}:{secret}");
+        fs::write(&path, format!("{token}\r\n")).unwrap();
+        let input = read_token(&path, job).unwrap();
+        assert_eq!(input.production, production);
+        assert_eq!(input.token, token);
+        let error = read_token(&path, JobId::new()).err().unwrap();
+        assert!(!error.to_string().contains(&secret.to_string()));
+        for malformed in [
+            format!("{token} "),
+            format!("{token}\n\n"),
+            "x".repeat(1_000),
+        ] {
+            fs::write(&path, malformed).unwrap();
+            assert!(read_token(&path, job).is_err());
+        }
+    }
+}

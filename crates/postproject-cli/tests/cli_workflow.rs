@@ -64,15 +64,19 @@ fn assert_ordered_receipts(results: &[&Value]) {
     }
 }
 
+fn assert_requested_job(production: &str, job_id: &str) {
+    let shown = run_json(&["job", "show", production, job_id]);
+    assert_eq!(shown["id"], job_id);
+    assert_eq!(shown["state"], "requested");
+}
+
 fn exercise_job_claim_lifecycle(
     production: &str,
     job_id: &str,
     asset_id: &str,
     representation_id: &str,
 ) {
-    let shown = run_json(&["job", "show", production, job_id]);
-    assert_eq!(shown["id"], job_id);
-    assert_eq!(shown["state"], "requested");
+    assert_requested_job(production, job_id);
 
     let token_path = format!("{production}.{job_id}.lease");
     let second_token_path = format!("{production}.{job_id}.second-lease");
