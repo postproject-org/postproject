@@ -1311,6 +1311,14 @@ impl SqliteProduction {
     /// Returns [`ErrorKind::Storage`] for query failures or malformed encoded
     /// values, or [`ErrorKind::Unsupported`] for an unknown target kind.
     pub fn metadata(&self, target: ObjectRef) -> Result<Vec<MetadataAssertion>> {
+        self.metadata_with(target, &mut ReadBudget::default())
+    }
+
+    fn metadata_with(
+        &self,
+        target: ObjectRef,
+        budget: &mut ReadBudget,
+    ) -> Result<Vec<MetadataAssertion>> {
         let (target_kind, target_id) = encode_metadata_target(&target)?;
         let mut statement = self
             .connection
@@ -1324,7 +1332,7 @@ impl SqliteProduction {
         let rows = statement
             .query_map(
                 params![target_kind, target_id.as_slice()],
-                crate::read_budget::bounded(|row| {
+                crate::read_budget::bounded_with(budget, |row| {
                     Ok((
                         row.get::<_, String>(0)?,
                         row.get::<_, String>(1)?,
@@ -1334,10 +1342,8 @@ impl SqliteProduction {
             )
             .map_err(sqlite_error("query metadata"))?;
 
-        let mut budget = ReadBudget::default();
         rows.map(|row| {
             let (vocabulary, property, encoded) = row.map_err(sqlite_error("read metadata row"))?;
-            budget.record(vocabulary.len() + property.len() + encoded.len())?;
             decode_metadata_assertion(vocabulary, property, &encoded)
         })
         .collect()
@@ -2386,6 +2392,7 @@ impl SqliteProduction {
         let mut representation_ids = representation_ids.to_vec();
         representation_ids.sort_unstable();
         representation_ids.dedup();
+        let mut budget = ReadBudget::default();
         representation_ids
             .into_iter()
             .map(|representation_id| {
@@ -2399,11 +2406,15 @@ impl SqliteProduction {
                         ),
                     ));
                 };
+                budget.record(std::mem::size_of::<RegenerationJobPlan>())?;
                 let mut inputs = activity
                     .inputs()
                     .iter()
-                    .map(ActivityInput::representation_id)
-                    .collect::<Vec<_>>();
+                    .map(|input| {
+                        budget.record(std::mem::size_of::<RepresentationId>())?;
+                        Ok(input.representation_id())
+                    })
+                    .collect::<Result<Vec<_>>>()?;
                 inputs.sort_unstable();
                 inputs.dedup();
                 let completed = self.job_completed_by(activity.id())?;
@@ -2411,13 +2422,18 @@ impl SqliteProduction {
                     Some((kind, target_root)) => (kind, target_root),
                     None => (activity.kind().as_str().to_owned(), None),
                 };
+                budget.record(
+                    kind.len()
+                        .saturating_add(target_root.as_ref().map_or(0, String::len)),
+                )?;
                 let output = RequestedJobOutput::new(
                     representation.asset_id(),
                     representation.kind(),
                     target_root,
                 )?;
                 let job = Job::new(JobId::new(), JobKind::new(kind)?, inputs, output)?;
-                let parameters = self.metadata(ObjectRef::Activity(activity.id()))?;
+                let parameters =
+                    self.metadata_with(ObjectRef::Activity(activity.id()), &mut budget)?;
                 Ok(RegenerationJobPlan::new(representation_id, job, parameters))
             })
             .collect()

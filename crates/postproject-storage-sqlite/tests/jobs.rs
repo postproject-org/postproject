@@ -919,3 +919,81 @@ fn regeneration_planning_copies_producer_inputs_kind_and_parameters_without_enqu
         .expect_err("original has no producing activity");
     assert_eq!(error.kind(), ErrorKind::Conflict);
 }
+
+#[test]
+fn regeneration_plans_share_their_copied_parameter_budget() {
+    let directory = tempdir().expect("create temporary directory");
+    let mut production = SqliteProduction::create(directory.path().join("plans.pproj"), None)
+        .expect("create production");
+    let source = source_import();
+    let first_id = RepresentationId::new();
+    let second_id = RepresentationId::new();
+    let first = proxy_import(&source, first_id, ResourceId::new());
+    let second_resource = ResourceId::new();
+    let second = RepresentationImport::new(
+        Representation::new(
+            second_id,
+            source.asset().id(),
+            RepresentationKind::Proxy,
+            ContentStructure::single_resource(second_resource),
+            Vec::new(),
+        ),
+        vec![Resource::new(second_resource, Vec::new(), None)],
+        vec![
+            Locator::new(
+                LocatorId::new(),
+                second_resource,
+                "file:///media/second.mov",
+                None,
+                LocatorAvailability::Online,
+            )
+            .unwrap(),
+        ],
+    )
+    .unwrap();
+    let activity_id = ActivityId::new();
+    let activity = Activity::new(
+        activity_id,
+        ActivityKind::new("example:encode").unwrap(),
+        vec![ActivityInput::new(source.representation().id(), None)],
+        vec![
+            ActivityOutput::new(first_id, None),
+            ActivityOutput::new(second_id, None),
+        ],
+    )
+    .unwrap();
+    let property = MetadataProperty::new(
+        VocabularyId::new("example:parameters").unwrap(),
+        PropertyId::new("payload").unwrap(),
+    );
+    let value = MetadataValue::bytes(vec![7; 9 * 1024 * 1024]).unwrap();
+    let mut transaction = production.begin_transaction().unwrap();
+    transaction.import_original(&source).unwrap();
+    transaction.add_representation(&first).unwrap();
+    transaction.add_representation(&second).unwrap();
+    transaction.create_activity(&activity).unwrap();
+    for _ in 0..4 {
+        transaction
+            .add_metadata_value(ObjectRef::Activity(activity_id), &property, &value)
+            .unwrap();
+    }
+    let receipt = transaction.commit().unwrap();
+    drop(transaction);
+    let one = production
+        .plan_regeneration(&[first_id])
+        .expect("one plan is bounded");
+    assert_eq!(one[0].parameters().len(), 4);
+    assert_eq!(one[0].parameters()[0].value(), &value);
+    assert_eq!(
+        production
+            .plan_regeneration(&[first_id, second_id])
+            .unwrap_err()
+            .kind(),
+        ErrorKind::Unsupported
+    );
+    assert!(all_jobs(&production).is_empty());
+    assert_eq!(
+        production.latest_revision().unwrap().unwrap().id(),
+        receipt.revision().unwrap().id()
+    );
+}

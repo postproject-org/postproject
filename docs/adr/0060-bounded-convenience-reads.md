@@ -42,6 +42,9 @@ Native representation handles share one additional budget across every
 representation, member, sparse frame, resource, locator and fingerprint they
 retain. Enrichment cannot multiply the per-query storage budget; choose a
 smaller representation page after `Unsupported`.
+Regeneration plans likewise share their budget across all copied job inputs
+and producer parameters; a bounded parameter set cannot be copied once per
+artifact without an aggregate limit.
 
 CLI representation, dependency and metadata JSON files are limited to 64 MiB
 before parsing. Array decoders enforce the existing domain item limits while
