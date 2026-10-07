@@ -1,7 +1,7 @@
 # Migrating to the 0.7 development SDK
 
-The unpublished `0.7.0-alpha.1` SDK currently uses C ABI 47, Python `0.7.0a1`
-and SQLite schema 18. Rebuild native consumers with matching headers and
+The unpublished `0.7.0-alpha.1` SDK currently uses C ABI 49, Python `0.7.0a1`
+and SQLite schema 19. Rebuild native consumers with matching headers and
 library, and install a matching Python wheel. Existing production files,
 UUID text, external identifiers and host binding strings retain their meaning.
 Rust 1.85, C11, C++17 and Python 3.11 remain the supported floors.
@@ -65,8 +65,7 @@ Job operations take `pp_job_id_t` by value; remove `&` from job arguments.
 Job reads, regeneration plans and job revision events carry that type.
 C++ requests return `JobId`; use `ObjectRef::job` for metadata targets and
 `jobId()` for checked projection. C provides `pp_object_ref_from_job` and
-`pp_object_ref_get_job`. An observation ID grants no claim authority; the
-lease migration remains separate.
+`pp_object_ref_get_job`. An observation ID grants no worker authority.
 
 Activity creation and provenance reads return `pp_activity_id_t` / `ActivityId`.
 Completion takes the C activity ID by value; remove its `&`. Activity revision
@@ -128,6 +127,35 @@ existing state. Use a read session's edit; early rejection stages nothing and
 leaves the transaction open. CLI `root enable`, `disable` and `remove` require
 `--decision-base` from `inspect`. Root creation remains additive.
 Python root flags require `bool`; priorities must fit a signed 32-bit integer.
+
+## Worker leases
+
+Replace job-ID/claim-ID/time pairs with an owning `JobLease`. Claim and renewal
+accept Rust `Duration`, integral C++ `std::chrono::duration`, Python `timedelta`,
+or C's explicitly named microsecond count. Values must be positive exact whole
+microseconds, at most 24 hours. The library owns authority time and rechecks
+current state and expiry before commit. Caller-selected times are removed.
+
+Claim returns pending ownership; commit activates it. Renew, release, complete
+and fail take the lease. Failed claiming commits close pending ownership.
+Release, failure and completion close it after commit. Freeing or closing the
+handle never writes; coordinator cancellation remains job-ID based.
+
+Job observations now contain attribution and expiry only. Remove old `.id`
+access on claim facts and C `claim_id` fields. Export/import tokens explicitly
+for private process transport. CLI claim creates a new `--lease-token-file`;
+later transitions read it, or stdin with `--lease-token-file -`. Use `--lease 5m`
+instead of absolute current/expiry timestamps. JSON and listings omit tokens.
+Post-commit delivery errors retain the actual committed receipt; expiry or
+coordinator cancellation recovers an undelivered claim. Schema 19 expires old
+claims while preserving their attribution, requests and terminal outcomes.
+
+Reference-executor requests no longer accept a claim UUID. Each consumed request
+owns a noncredential attempt nonce, separating both temporary and final output
+paths. CLI worker results include the receipts for claim, renewal and terminal
+transitions; a later failure does not hide earlier durable changes.
+
+See {doc}`jobs-and-workers` for executable recipes and clock-jump behavior.
 
 ## Native options
 
