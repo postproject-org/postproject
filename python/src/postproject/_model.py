@@ -1060,6 +1060,11 @@ class ActivityOutputAddedEvent:
 
 
 @dataclass(frozen=True, slots=True)
+class ResourceFileFactsObservedEvent:
+    resource_id: ResourceId
+
+
+@dataclass(frozen=True, slots=True)
 class ResourceFingerprintObservedEvent:
     resource_id: ResourceId
     algorithm: str
@@ -1130,6 +1135,7 @@ RevisionEventPayload: TypeAlias = (
     | ActivityCreatedEvent
     | ActivityInputAddedEvent
     | ActivityOutputAddedEvent
+    | ResourceFileFactsObservedEvent
     | ResourceFingerprintObservedEvent
     | RepresentationFingerprintObservedEvent
     | DependencySetRecordedEvent

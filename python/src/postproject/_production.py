@@ -192,6 +192,7 @@ from ._model import (
     ResolutionEvidence,
     Resource,
     ResourceAddedEvent,
+    ResourceFileFactsObservedEvent,
     ResourceFingerprintObservedEvent,
     ResourceId,
     ResourceRef,
@@ -3387,7 +3388,7 @@ class Transaction:
     def record_resource_fingerprint(
         self, resource_id: ResourceId, fingerprint: Fingerprint
     ) -> None:
-        """Stage an explicit content-fingerprint observation for one resource."""
+        """Stage a resource fingerprint from a decision-bound edit."""
 
         self._require_open()
         native_id = _native_resource_id(resource_id)
@@ -3417,7 +3418,10 @@ class Transaction:
 
         Every representation using the resource is recomputed and staged too,
         so commit leaves no representation pending recomputation. The outcome
-        says whether the content changed; ``UNCHANGED`` records no fingerprint.
+        says whether the content changed; changed file facts can still create
+        a revision when it is ``UNCHANGED``. Requires a decision-bound edit;
+        session edits retain their original view. Detached edits must match
+        the head when this operation pins its view.
         ``sequence_naming`` is as for :meth:`Production.verify_resource`.
         """
 
@@ -3439,7 +3443,7 @@ class Transaction:
     def record_representation_fingerprint(
         self, representation_id: RepresentationId, fingerprint: Fingerprint
     ) -> None:
-        """Stage a structure-aware fingerprint observation for a representation."""
+        """Stage a representation fingerprint from a decision-bound edit."""
 
         self._require_open()
         native_id = _native_representation_id(representation_id)
@@ -5834,6 +5838,7 @@ _REVISION_EVENT_KINDS: dict[type, int] = {
     ActivityCreatedEvent: _abi.PP_REVISION_ACTIVITY_CREATED,
     ActivityInputAddedEvent: _abi.PP_REVISION_ACTIVITY_INPUT_ADDED,
     ActivityOutputAddedEvent: _abi.PP_REVISION_ACTIVITY_OUTPUT_ADDED,
+    ResourceFileFactsObservedEvent: _abi.PP_REVISION_RESOURCE_FILE_FACTS_OBSERVED,
     ResourceFingerprintObservedEvent: _abi.PP_REVISION_RESOURCE_FINGERPRINT_OBSERVED,
     RepresentationFingerprintObservedEvent: (
         _abi.PP_REVISION_REPRESENTATION_FINGERPRINT_OBSERVED
@@ -5943,6 +5948,8 @@ def _revision_event_at(
             RepresentationId(_uuid(event.representation_id)),
             _decode_optional(event.role),
         )
+    elif kind == _abi.PP_REVISION_RESOURCE_FILE_FACTS_OBSERVED:
+        payload = ResourceFileFactsObservedEvent(ResourceId(_uuid(event.resource_id)))
     elif kind == _abi.PP_REVISION_RESOURCE_FINGERPRINT_OBSERVED:
         payload = ResourceFingerprintObservedEvent(
             ResourceId(_uuid(event.resource_id)),

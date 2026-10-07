@@ -18,6 +18,7 @@ class ConflictKeyKind(IntEnum):
     EXTERNAL_IDENTIFIER = 5
     RESOURCE_FINGERPRINT = 6
     REPRESENTATION_FINGERPRINT = 7
+    RESOURCE_FILE_FACTS = 8
 
 
 @dataclass(frozen=True, slots=True)

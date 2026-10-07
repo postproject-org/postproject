@@ -38,6 +38,7 @@ from postproject import (
     RepresentationId,
     RepresentationKind,
     ResolutionEvidence,
+    ResourceFileFactsObservedEvent,
     ResourceFingerprintObservedEvent,
     ResourceId,
     ResourceResolutionState,
@@ -261,7 +262,7 @@ def observe_fingerprints(
     (resource,) = representation.resources
     # Verification only reads: it compares the file with the stored value.
     assert production.verify_resource(resource.id, path) is ContentVerification.DIFFERS
-    with production.transaction() as transaction:
+    with production.read_session() as view, view.edit() as transaction:
         # Stages the new resource fingerprint and every representation
         # fingerprint recomputed from it; commit records both in one revision.
         outcome = transaction.observe_resource_content(resource.id, path)
@@ -271,7 +272,7 @@ def observe_fingerprints(
     assert latest is not None
 
     # Observing the same content again changes nothing and records nothing.
-    with production.transaction() as transaction:
+    with production.read_session() as view, view.edit() as transaction:
         outcome = transaction.observe_resource_content(resource.id, path)
         assert outcome is ContentObservationOutcome.UNCHANGED
         transaction.commit()
@@ -524,6 +525,7 @@ def main() -> None:
         events = observe_fingerprints(production, original, media)
         assert [type(event.payload) for event in events] == [
             ResourceFingerprintObservedEvent,
+            ResourceFileFactsObservedEvent,
             RepresentationFingerprintObservedEvent,
         ]
         observed = next(

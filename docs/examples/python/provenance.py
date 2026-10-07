@@ -113,9 +113,9 @@ def record_fingerprints(
     production: Production, representation: Representation, path: Path
 ) -> None:
     # Observations in the caller's own fingerprint domain.
-    digest = hashlib.sha256(path.read_bytes()).digest()
-    (resource,) = representation.resources
-    with production.transaction() as transaction:
+    with production.read_session() as view, view.edit() as transaction:
+        (resource,) = view.representation(representation.id).resources
+        digest = hashlib.sha256(path.read_bytes()).digest()
         transaction.record_resource_fingerprint(
             resource.id, Fingerprint("example-sha256", 1, digest)
         )

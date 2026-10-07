@@ -482,7 +482,7 @@ class ProductionTests(unittest.TestCase):
             representation_fingerprint = Fingerprint(
                 "python-test-tree", 1, b"representation"
             )
-            with production.transaction() as transaction:
+            with production.read_session() as view, view.edit() as transaction:
                 transaction.record_resource_fingerprint(
                     resource_id, resource_fingerprint
                 )
@@ -505,7 +505,7 @@ class ProductionTests(unittest.TestCase):
                 RepresentationFingerprintObservedEvent,
             )
 
-            with production.transaction() as transaction:
+            with production.read_session() as view, view.edit() as transaction:
                 transaction.record_resource_fingerprint(
                     resource_id, resource_fingerprint
                 )
@@ -543,7 +543,7 @@ class ProductionTests(unittest.TestCase):
                 production.verify_resource(resource.id, self.media_path),
                 ContentVerification.DIFFERS,
             )
-            with production.transaction() as transaction:
+            with production.read_session() as view, view.edit() as transaction:
                 self.assertIs(
                     transaction.observe_resource_content(resource.id, self.media_path),
                     ContentObservationOutcome.CHANGED,
@@ -562,7 +562,7 @@ class ProductionTests(unittest.TestCase):
                 ContentVerification.MATCHES,
             )
             # Observing unchanged content records nothing.
-            with production.transaction() as transaction:
+            with production.read_session() as view, view.edit() as transaction:
                 self.assertIs(
                     transaction.observe_resource_content(resource.id, self.media_path),
                     ContentObservationOutcome.UNCHANGED,
@@ -1506,7 +1506,7 @@ class ProductionTests(unittest.TestCase):
             self.assertEqual(reproducibility.issues, ())
 
             source_fingerprint = source.fingerprints[0]
-            with production.transaction() as transaction:
+            with production.read_session() as view, view.edit() as transaction:
                 transaction.record_representation_fingerprint(
                     source.id,
                     Fingerprint(
@@ -1773,7 +1773,7 @@ class ProductionTests(unittest.TestCase):
                 (),
             )
             source_fingerprint = source.fingerprints[0]
-            with production.transaction() as transaction:
+            with production.read_session() as view, view.edit() as transaction:
                 transaction.record_representation_fingerprint(
                     source.id,
                     Fingerprint(
