@@ -53,6 +53,9 @@ pub trait ProductionRead {
 
     /// Loads all assets in deterministic order.
     ///
+    /// Complete-list convenience is capped at 1000; use pages for larger results.
+    /// It returns `Unsupported` rather than truncating the collection.
+    ///
     /// # Errors
     ///
     /// Returns a storage-domain error when persisted data cannot be read or
@@ -85,6 +88,9 @@ pub trait ProductionRead {
 
     /// Loads every representation belonging to an asset in deterministic order.
     ///
+    /// Complete-list convenience is capped at 1000; use pages for larger results.
+    /// It returns `Unsupported` rather than truncating the collection.
+    ///
     /// # Errors
     ///
     /// Returns a storage-domain error when persisted data cannot be read or
@@ -105,6 +111,9 @@ pub trait ProductionRead {
 
     /// Loads resources used by a representation in structural order.
     ///
+    /// Complete-list convenience is capped at 1000; use pages for larger results.
+    /// It returns `Unsupported` rather than truncating the collection.
+    ///
     /// # Errors
     ///
     /// Returns a storage-domain error when persisted data cannot be read or
@@ -124,6 +133,9 @@ pub trait ProductionRead {
     ) -> Result<QueryPage<Resource>>;
 
     /// Loads every known locator belonging to a resource.
+    ///
+    /// Complete-list convenience is capped at 1000; use pages for larger results.
+    /// It returns `Unsupported` rather than truncating the collection.
     ///
     /// # Errors
     ///

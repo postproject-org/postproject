@@ -356,39 +356,20 @@ impl SqliteProduction {
 
     /// Loads all assets in deterministic creation/identity order.
     ///
+    /// Complete-list convenience is capped at 1000; use pages for larger results.
+    /// It returns `Unsupported` rather than truncating the collection.
+    ///
     /// # Errors
     ///
     /// Returns [`ErrorKind::Storage`] for query failures or invalid stored data.
     pub fn assets(&self) -> Result<Vec<Asset>> {
-        let mut statement = self
-            .connection
-            .prepare(
-                "SELECT id, created_at_micros, display_name, import_source
-                 FROM assets ORDER BY created_at_micros, id",
-            )
-            .map_err(sqlite_error("prepare asset query"))?;
-        let rows = statement
-            .query_map([], |row| {
-                Ok((
-                    row.get::<_, Vec<u8>>(0)?,
-                    row.get::<_, i64>(1)?,
-                    row.get::<_, Option<String>>(2)?,
-                    row.get::<_, Option<String>>(3)?,
-                ))
-            })
-            .map_err(sqlite_error("query assets"))?;
-
-        rows.map(|row| {
-            let (id, created_at, display_name, import_source) =
-                row.map_err(sqlite_error("read asset row"))?;
-            Ok(Asset::new(
-                AssetId::from_bytes(id_bytes(id, "asset")?),
-                Timestamp::from_unix_micros(created_at),
-                display_name,
-                import_source,
-            ))
-        })
-        .collect()
+        complete_collection(
+            self.assets_page(&QueryPageRequest::new(
+                postproject_core::MAX_QUERY_PAGE_SIZE,
+                None,
+            )?)?,
+            "assets",
+        )
     }
 
     /// Loads one asset by identity.
@@ -453,25 +434,20 @@ impl SqliteProduction {
 
     /// Loads representations belonging to `asset_id` in stable identity order.
     ///
+    /// Complete-list convenience is capped at 1000; use pages for larger results.
+    /// It returns `Unsupported` rather than truncating the collection.
+    ///
     /// # Errors
     ///
     /// Returns [`ErrorKind::Storage`] for query failures or invalid stored data.
     pub fn representations(&self, asset_id: AssetId) -> Result<Vec<Representation>> {
-        let mut statement = self
-            .connection
-            .prepare("SELECT id FROM representations WHERE asset_id = ?1 ORDER BY id")
-            .map_err(sqlite_error("prepare representation query"))?;
-        let ids = statement
-            .query_map(params![asset_id.as_bytes().as_slice()], |row| {
-                row.get::<_, Vec<u8>>(0)
-            })
-            .map_err(sqlite_error("query representations"))?
-            .map(|row| {
-                row.map_err(sqlite_error("read representation row"))
-                    .and_then(|id| id_bytes(id, "representation"))
-            })
-            .collect::<Result<Vec<_>>>()?;
-        self.load_representations_by_ids(&ids)
+        complete_collection(
+            self.representations_page(
+                asset_id,
+                &QueryPageRequest::new(postproject_core::MAX_QUERY_PAGE_SIZE, None)?,
+            )?,
+            "representations",
+        )
     }
 
     fn load_representation_by_id(
@@ -506,39 +482,20 @@ impl SqliteProduction {
 
     /// Loads resources for `representation_id` in structural order.
     ///
+    /// Complete-list convenience is capped at 1000; use pages for larger results.
+    /// It returns `Unsupported` rather than truncating the collection.
+    ///
     /// # Errors
     ///
     /// Returns [`ErrorKind::Storage`] for query failures or invalid stored data.
     pub fn resources(&self, representation_id: RepresentationId) -> Result<Vec<Resource>> {
-        let mut statement = self
-            .connection
-            .prepare(
-                "SELECT r.id, r.file_size_bytes, r.modified_at_micros
-                 FROM representation_resources rr
-                 JOIN resources r ON r.id = rr.resource_id
-                 WHERE rr.representation_id = ?1 ORDER BY rr.position",
-            )
-            .map_err(sqlite_error("prepare resource query"))?;
-        let rows = statement
-            .query_map(params![representation_id.as_bytes().as_slice()], |row| {
-                Ok((
-                    row.get::<_, Vec<u8>>(0)?,
-                    row.get::<_, Option<i64>>(1)?,
-                    row.get::<_, Option<i64>>(2)?,
-                ))
-            })
-            .map_err(sqlite_error("query resources"))?;
-
-        rows.map(|row| {
-            let (id, size, modified_at) = row.map_err(sqlite_error("read resource row"))?;
-            let id = ResourceId::from_bytes(id_bytes(id, "resource")?);
-            Ok(Resource::new(
-                id,
-                self.load_resource_fingerprints(id)?,
-                decode_file_facts(size, modified_at)?,
-            ))
-        })
-        .collect()
+        complete_collection(
+            self.resources_page(
+                representation_id,
+                &QueryPageRequest::new(postproject_core::MAX_QUERY_PAGE_SIZE, None)?,
+            )?,
+            "resources",
+        )
     }
 
     fn load_resource_by_id(&self, resource_id: ResourceId) -> Result<Resource> {
@@ -561,28 +518,20 @@ impl SqliteProduction {
 
     /// Loads known locators for `resource_id` in stable identity order.
     ///
+    /// Complete-list convenience is capped at 1000; use pages for larger results.
+    /// It returns `Unsupported` rather than truncating the collection.
+    ///
     /// # Errors
     ///
     /// Returns [`ErrorKind::Storage`] for query failures or invalid stored data.
     pub fn locators(&self, resource_id: ResourceId) -> Result<Vec<Locator>> {
-        let mut statement = self
-            .connection
-            .prepare(&format!(
-                "SELECT {LOCATOR_COLUMNS} WHERE l.resource_id = ?1 ORDER BY l.id"
-            ))
-            .map_err(sqlite_error("prepare locator query"))?;
-        let rows = statement
-            .query_map(
-                params![resource_id.as_bytes().as_slice()],
-                StoredLocator::read,
-            )
-            .map_err(sqlite_error("query locators"))?;
-
-        rows.map(|row| {
-            row.map_err(sqlite_error("read locator row"))?
-                .into_locator(resource_id)
-        })
-        .collect()
+        complete_collection(
+            self.locators_page(
+                resource_id,
+                &QueryPageRequest::new(postproject_core::MAX_QUERY_PAGE_SIZE, None)?,
+            )?,
+            "locators",
+        )
     }
 
     /// Loads current roots up to [`postproject_core::MAX_QUERY_PAGE_SIZE`].
@@ -4097,6 +4046,16 @@ fn persist_new_production(connection: &mut Connection, production: &Production) 
     transaction
         .commit()
         .map_err(sqlite_error("commit production creation"))
+}
+
+fn complete_collection<T>(page: QueryPage<T>, family: &str) -> Result<Vec<T>> {
+    if page.next_cursor().is_some() || page.traversal_truncated() {
+        return Err(Error::new(
+            ErrorKind::Unsupported,
+            format!("{family} collection exceeds its convenience bound; use bounded pages"),
+        ));
+    }
+    Ok(page.into_items())
 }
 
 fn load_production(connection: &Connection) -> Result<Production> {
