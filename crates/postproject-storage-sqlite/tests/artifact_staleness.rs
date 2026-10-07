@@ -5,7 +5,7 @@ use std::fs;
 use postproject_core::{
     Activity, ActivityId, ActivityInput, ActivityKind, ActivityOutput, ArtifactDependencyIssue,
     ArtifactEvaluationLimits, ArtifactKnowledgeReason, ArtifactKnowledgeState, Dependency,
-    DependencyKind, DependencyTarget, RepresentationFingerprint, ResourceFingerprint,
+    DependencyKind, DependencyTarget, ErrorKind, RepresentationFingerprint, ResourceFingerprint,
 };
 use postproject_media::{fingerprint_representation, prepare_original_media};
 use postproject_storage_sqlite::SqliteProduction;
@@ -434,6 +434,71 @@ fn fifty_deep_chain_is_current_and_smaller_bounds_truncate_explicitly() {
             .iter()
             .any(|reason| matches!(reason, ArtifactKnowledgeReason::TraversalTruncated { .. }))
     );
+}
+
+#[test]
+fn fingerprint_differences_cannot_expand_an_unbounded_explanation() {
+    let directory = tempfile::tempdir().unwrap();
+    let paths = ["source.mov", "output.mov"].map(|name| directory.path().join(name));
+    for path in &paths {
+        fs::write(path, b"fixture").unwrap();
+    }
+    let imports = paths.map(|path| prepare_original_media(path, None, None).unwrap());
+    let source = imports[0].representation().id();
+    let output = imports[1].representation().id();
+    let mut production =
+        SqliteProduction::create(directory.path().join("large-evidence.pproj"), None).unwrap();
+    {
+        let base = production.read_session().unwrap().decision_base();
+        let mut edit = production.begin_edit(base).unwrap();
+        for import in &imports {
+            edit.import_original(import).unwrap();
+        }
+        for version in 1..=4 {
+            let fingerprint =
+                RepresentationFingerprint::new("opaque", version, vec![1; 9 * 1024 * 1024])
+                    .unwrap();
+            edit.record_representation_fingerprint(source, &fingerprint)
+                .unwrap();
+        }
+        edit.commit().unwrap();
+    }
+    create_activity(&mut production, source, output, "example:render");
+    assert_eq!(
+        evaluate(&production, output).state(),
+        ArtifactKnowledgeState::Current
+    );
+    for (stage, versions) in [1..=1, 2..=4].into_iter().enumerate() {
+        let base = production.read_session().unwrap().decision_base();
+        let mut edit = production.begin_edit(base).unwrap();
+        for version in versions {
+            let fingerprint =
+                RepresentationFingerprint::new("opaque", version, vec![2; 9 * 1024 * 1024])
+                    .unwrap();
+            edit.record_representation_fingerprint(source, &fingerprint)
+                .unwrap();
+        }
+        edit.commit().unwrap();
+        drop(edit);
+        if stage == 0 {
+            let result = evaluate(&production, output);
+            assert_eq!(result.state(), ArtifactKnowledgeState::Stale);
+            assert!(result.reasons().iter().any(|reason| matches!(reason,
+                ArtifactKnowledgeReason::FingerprintChanged { algorithm, snapshot_value, current_value, .. }
+                if algorithm == "opaque" && snapshot_value == &vec![1; 9*1024*1024] && current_value == &vec![2; 9*1024*1024])));
+        }
+    }
+    let before = production.latest_revision().unwrap();
+    let error = evaluate_once(&production, output).unwrap_err();
+    assert_eq!(error.kind(), ErrorKind::Unsupported, "{error}");
+    assert_eq!(production.latest_revision().unwrap(), before);
+}
+
+fn evaluate_once(
+    production: &SqliteProduction,
+    representation: postproject_core::RepresentationId,
+) -> postproject_core::Result<postproject_core::ArtifactEvaluation> {
+    production.evaluate_artifact(representation, ArtifactEvaluationLimits::default())
 }
 
 fn create_activity(
