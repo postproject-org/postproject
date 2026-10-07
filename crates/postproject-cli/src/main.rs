@@ -2,6 +2,8 @@
 
 #![forbid(unsafe_code)]
 
+mod job_transport;
+
 use std::{
     fs,
     path::{Path, PathBuf},
@@ -12,6 +14,7 @@ use std::{
 
 use anyhow::{Context, Result, bail};
 use clap::{Args, Parser, Subcommand, ValueEnum};
+use job_transport::CommittedOperationError;
 use postproject_core::{
     Activity, ActivityId, ActivityInput, ActivityKind, ActivityOutput, ActivityOutputQuery,
     ActivityRole, AgentIdentity, ArtifactDependencyIssue, ArtifactDependencyPathSegment,
@@ -19,11 +22,11 @@ use postproject_core::{
     ArtifactReproducibilityIssue, ArtifactTraversalLimitKind, Asset, AssetId, AvailabilityIssue,
     AvailabilityIssueKind, CommitReceipt, DecimalValue, DecisionBase, Dependency, DependencyKind,
     DependencyQueryLimits, DependencySet, DependencySetStatus, DependencyTarget, EvidenceKind,
-    ExternalIdentifier, FrameRange, IdentifierScheme, Job, JobClaimId, JobFailure, JobId, JobKind,
-    JobQuery, JobState, JobStateKind, Locator, LocatorAvailability, LocatorId, LocatorIdentity,
-    MAX_JOB_DIAGNOSTIC_BYTES, MediaRoot, MediaRootId, MetadataAssertion, MetadataField,
-    MetadataProperty, MetadataQuery, MetadataValue, MetadataValueKind, ObjectRef, OriginIdentity,
-    OriginalMediaImport, ProductionId, ProductionStoreTransaction, PropertyId,
+    ExternalIdentifier, FrameRange, IdentifierScheme, Job, JobFailure, JobId, JobKind,
+    JobLeaseState, JobQuery, JobState, JobStateKind, Locator, LocatorAvailability, LocatorId,
+    LocatorIdentity, MAX_JOB_DIAGNOSTIC_BYTES, MediaRoot, MediaRootId, MetadataAssertion,
+    MetadataField, MetadataProperty, MetadataQuery, MetadataValue, MetadataValueKind, ObjectRef,
+    OriginIdentity, OriginalMediaImport, ProductionId, ProductionStoreTransaction, PropertyId,
     ProvenanceQueryLimits, QueryCursor, QueryPage, QueryPageRequest, RationalRate, RationalValue,
     Representation, RepresentationAvailability, RepresentationId, RepresentationKind,
     RepresentationResolution, RequestedJobOutput, ResolutionEvidence, Resource,
@@ -934,7 +937,7 @@ struct JobArgs {
 enum JobCommand {
     /// Request durable production work.
     Request(JobRequestArgs),
-    /// Atomically claim requested work with a caller-supplied lease.
+    /// Atomically claim work using a library-timed lease.
     Claim(JobClaimArgs),
     /// Renew an active job claim.
     Renew(JobLeaseArgs),
@@ -1033,49 +1036,54 @@ struct JobClaimArgs {
     agent_identifier_value: Option<String>,
     #[arg(long)]
     agent_identifier_qualifier: Option<String>,
-    #[arg(long)]
-    now_unix_micros: i64,
-    #[arg(long)]
-    expires_at_unix_micros: i64,
+    /// Lease duration: integer followed by us, ms, s, m or h (maximum 24h).
+    #[arg(long, default_value = "60s", value_parser = job_transport::parse_duration)]
+    lease: Duration,
+    /// Create a new private credential file; existing files are never overwritten.
+    #[arg(long, value_name = "FILE")]
+    lease_token_file: PathBuf,
 }
 
 #[derive(Debug, Args)]
 struct JobLeaseArgs {
     production: PathBuf,
     job_id: String,
-    claim_id: String,
-    #[arg(long)]
-    now_unix_micros: i64,
-    #[arg(long)]
-    expires_at_unix_micros: i64,
+    /// Read the scoped credential from FILE, or from stdin with -.
+    #[arg(long, value_name = "FILE")]
+    lease_token_file: PathBuf,
+    /// Lease duration: integer followed by us, ms, s, m or h (maximum 24h).
+    #[arg(long, default_value = "60s", value_parser = job_transport::parse_duration)]
+    lease: Duration,
 }
 
 #[derive(Debug, Args)]
 struct JobClaimTokenArgs {
     production: PathBuf,
     job_id: String,
-    claim_id: String,
+    /// Read the scoped credential from FILE, or from stdin with -.
+    #[arg(long, value_name = "FILE")]
+    lease_token_file: PathBuf,
 }
 
 #[derive(Debug, Args)]
 struct JobCompleteArgs {
     production: PathBuf,
     job_id: String,
-    claim_id: String,
     /// Existing output file to fingerprint and record.
     output: PathBuf,
-    #[arg(long)]
-    now_unix_micros: i64,
+    /// Read the scoped credential from FILE, or from stdin with -.
+    #[arg(long, value_name = "FILE")]
+    lease_token_file: PathBuf,
 }
 
 #[derive(Debug, Args)]
 struct JobFailArgs {
     production: PathBuf,
     job_id: String,
-    claim_id: String,
     diagnostic: String,
-    #[arg(long)]
-    now_unix_micros: i64,
+    /// Read the scoped credential from FILE, or from stdin with -.
+    #[arg(long, value_name = "FILE")]
+    lease_token_file: PathBuf,
 }
 
 #[derive(Debug, Args)]
@@ -1555,7 +1563,6 @@ struct JobView {
     output_kind: &'static str,
     target_root: Option<String>,
     state: &'static str,
-    claim_id: Option<String>,
     claim_expires_at_unix_micros: Option<i64>,
     claim_tool: Option<ToolView>,
     claim_agent: Option<AgentView>,
@@ -3751,6 +3758,63 @@ fn job_request(
     }
 }
 
+fn open_job_lease(
+    path: &Path,
+    token_path: &Path,
+    job: JobId,
+) -> Result<(SqliteProduction, SqliteJobLease)> {
+    let input = job_transport::read_token(token_path, job)?;
+    let mut production = SqliteProduction::open(path).context("open production")?;
+    if production.production().id() != input.production {
+        return Err(postproject_core::Error::new(
+            postproject_core::ErrorKind::InvalidArgument,
+            "lease token belongs to another production",
+        )
+        .into());
+    }
+    let lease = production
+        .import_job_lease(&input.token)
+        .context("import job lease")?;
+    Ok((production, lease))
+}
+
+fn set_claim_expiry(view: &mut JobView, lease: &SqliteJobLease) -> Result<()> {
+    let JobLeaseState::Active { expires_at } = lease.state()? else {
+        bail!("committed lease is not active");
+    };
+    view.claim_expires_at_unix_micros = Some(expires_at.as_unix_micros());
+    Ok(())
+}
+
+fn clear_job_state(view: &mut JobView, state: &'static str) {
+    view.state = state;
+    view.claim_expires_at_unix_micros = None;
+    view.claim_tool = None;
+    view.claim_agent = None;
+    view.completion_activity_id = None;
+    view.completion_representation_id = None;
+    view.failure_diagnostic = None;
+}
+
+fn tool_view(tool: &ToolIdentity) -> ToolView {
+    ToolView {
+        name: tool.name().to_owned(),
+        version: tool.version().map(str::to_owned),
+        uri: tool.uri().map(str::to_owned),
+    }
+}
+
+fn agent_view(agent: &AgentIdentity) -> AgentView {
+    AgentView {
+        name: agent.name().map(str::to_owned),
+        identifier: agent.identifier().map(|identifier| AgentIdentifierView {
+            scheme: identifier.scheme().as_str().to_owned(),
+            value: identifier.value().to_owned(),
+            qualifier: identifier.qualifier().map(str::to_owned),
+        }),
+    }
+}
+
 fn job_claim(args: JobClaimArgs, json: bool, base_revision: Option<CliDecisionBase>) -> Result<()> {
     let job_id = parse_job_id(&args.job_id)?;
     let tool = ToolIdentity::new(args.tool_name, args.tool_version, args.tool_uri)
@@ -3777,23 +3841,29 @@ fn job_claim(args: JobClaimArgs, json: bool, base_revision: Option<CliDecisionBa
     } else {
         None
     };
+    let token_output = job_transport::TokenOutput::reserve(&args.lease_token_file)
+        .context("reserve lease-token output file")?;
     let mut production = SqliteProduction::open(&args.production).context("open production")?;
+    let mut view = job_view(&production.job(job_id).context("load job")?);
     let mut transaction = begin_cli_transaction(&mut production, base_revision, "job claim")?;
     set_cli_revision_context(&mut transaction, "Claim job")?;
-    transaction
-        .claim_job(
-            job_id,
-            &tool,
-            agent.as_ref(),
-            Timestamp::from_unix_micros(args.now_unix_micros),
-            Timestamp::from_unix_micros(args.expires_at_unix_micros),
-        )
+    let lease = transaction
+        .claim_job_lease(job_id, &tool, agent.as_ref(), args.lease)
         .context("claim job")?;
     let receipt = transaction
         .commit_with_receipt()
         .context("commit job claim")?;
-    drop(transaction);
-    print_job_result(&production, job_id, json, "claimed", &receipt)
+    let delivery = (|| -> Result<()> {
+        view.state = "claimed";
+        set_claim_expiry(&mut view, &lease)?;
+        view.claim_tool = Some(tool_view(&tool));
+        view.claim_agent = agent.as_ref().map(agent_view);
+        token_output
+            .deliver(&lease.export_token()?)
+            .context("deliver lease token")?;
+        print_job_result(&view, json, "claimed", &receipt)
+    })();
+    delivery.map_err(|source| CommittedOperationError { source, receipt }.into())
 }
 
 fn job_renew(
@@ -3802,24 +3872,20 @@ fn job_renew(
     base_revision: Option<CliDecisionBase>,
 ) -> Result<()> {
     let job_id = parse_job_id(&args.job_id)?;
-    let claim_id = parse_job_claim_id(&args.claim_id)?;
-    let mut production = SqliteProduction::open(&args.production).context("open production")?;
+    let (mut production, lease) = open_job_lease(&args.production, &args.lease_token_file, job_id)?;
+    let mut view = job_view(&production.job(job_id).context("load job")?);
     let mut transaction =
         begin_cli_transaction(&mut production, base_revision, "job claim renewal")?;
     set_cli_revision_context(&mut transaction, "Renew job claim")?;
     transaction
-        .renew_job_claim(
-            job_id,
-            claim_id,
-            Timestamp::from_unix_micros(args.now_unix_micros),
-            Timestamp::from_unix_micros(args.expires_at_unix_micros),
-        )
-        .context("renew job claim")?;
+        .renew_job_lease(&lease, args.lease)
+        .context("renew job lease")?;
     let receipt = transaction
         .commit_with_receipt()
         .context("commit job claim renewal")?;
     drop(transaction);
-    print_job_result(&production, job_id, json, "renewed", &receipt)
+    set_claim_expiry(&mut view, &lease)?;
+    print_job_result(&view, json, "renewed", &receipt)
 }
 
 fn job_release(
@@ -3828,19 +3894,20 @@ fn job_release(
     base_revision: Option<CliDecisionBase>,
 ) -> Result<()> {
     let job_id = parse_job_id(&args.job_id)?;
-    let claim_id = parse_job_claim_id(&args.claim_id)?;
-    let mut production = SqliteProduction::open(&args.production).context("open production")?;
+    let (mut production, lease) = open_job_lease(&args.production, &args.lease_token_file, job_id)?;
+    let mut view = job_view(&production.job(job_id).context("load job")?);
     let mut transaction =
         begin_cli_transaction(&mut production, base_revision, "job claim release")?;
     set_cli_revision_context(&mut transaction, "Release job claim")?;
     transaction
-        .release_job_claim(job_id, claim_id)
+        .release_job_lease(&lease)
         .context("release job claim")?;
     let receipt = transaction
         .commit_with_receipt()
         .context("commit job claim release")?;
     drop(transaction);
-    print_job_result(&production, job_id, json, "released", &receipt)
+    clear_job_state(&mut view, "requested");
+    print_job_result(&view, json, "released", &receipt)
 }
 
 fn job_complete(
@@ -3849,8 +3916,8 @@ fn job_complete(
     base_revision: Option<CliDecisionBase>,
 ) -> Result<()> {
     let job_id = parse_job_id(&args.job_id)?;
-    let claim_id = parse_job_claim_id(&args.claim_id)?;
-    let mut production = SqliteProduction::open(&args.production).context("open production")?;
+    let (mut production, lease) = open_job_lease(&args.production, &args.lease_token_file, job_id)?;
+    let mut view = job_view(&production.job(job_id).context("load job")?);
     let job = production.job(job_id).context("load claimed job")?;
     let JobState::Claimed(claim) = job.state() else {
         bail!("job must be claimed before completion");
@@ -3861,7 +3928,7 @@ fn job_complete(
         &args.output,
     )
     .context("prepare job output")?;
-    let now = Timestamp::from_unix_micros(args.now_unix_micros);
+    let now = Timestamp::now()?;
     let inputs = job
         .inputs()
         .iter()
@@ -3885,40 +3952,41 @@ fn job_complete(
     let mut transaction = begin_cli_transaction(&mut production, base_revision, "job completion")?;
     set_cli_revision_context(&mut transaction, "Complete job")?;
     transaction
-        .complete_job(job_id, claim_id, now, &output, &activity)
+        .complete_job_lease(&lease, &output, &activity)
         .context("complete job")?;
     let receipt = transaction
         .commit_with_receipt()
         .context("commit job completion")?;
     drop(transaction);
-    print_job_result(&production, job_id, json, "completed", &receipt)
+    clear_job_state(&mut view, "succeeded");
+    view.completion_activity_id = Some(activity.id().to_string());
+    view.completion_representation_id = Some(output.representation().id().to_string());
+    print_job_result(&view, json, "completed", &receipt)
 }
 
 fn job_fail(args: JobFailArgs, json: bool, base_revision: Option<CliDecisionBase>) -> Result<()> {
     let job_id = parse_job_id(&args.job_id)?;
-    let claim_id = parse_job_claim_id(&args.claim_id)?;
     let failure = JobFailure::new(args.diagnostic).context("validate job failure")?;
-    let mut production = SqliteProduction::open(&args.production).context("open production")?;
+    let (mut production, lease) = open_job_lease(&args.production, &args.lease_token_file, job_id)?;
+    let mut view = job_view(&production.job(job_id).context("load job")?);
     let mut transaction = begin_cli_transaction(&mut production, base_revision, "job failure")?;
     set_cli_revision_context(&mut transaction, "Fail job")?;
     transaction
-        .fail_job(
-            job_id,
-            claim_id,
-            Timestamp::from_unix_micros(args.now_unix_micros),
-            &failure,
-        )
+        .fail_job_lease(&lease, &failure)
         .context("fail job")?;
     let receipt = transaction
         .commit_with_receipt()
         .context("commit job failure")?;
     drop(transaction);
-    print_job_result(&production, job_id, json, "failed", &receipt)
+    clear_job_state(&mut view, "failed");
+    view.failure_diagnostic = Some(failure.diagnostic().to_owned());
+    print_job_result(&view, json, "failed", &receipt)
 }
 
 fn job_cancel(args: &JobIdArgs, json: bool, base_revision: Option<CliDecisionBase>) -> Result<()> {
     let job_id = parse_job_id(&args.job_id)?;
     let mut production = SqliteProduction::open(&args.production).context("open production")?;
+    let mut view = job_view(&production.job(job_id).context("load job")?);
     let mut transaction =
         begin_cli_transaction(&mut production, base_revision, "job cancellation")?;
     set_cli_revision_context(&mut transaction, "Cancel job")?;
@@ -3927,20 +3995,18 @@ fn job_cancel(args: &JobIdArgs, json: bool, base_revision: Option<CliDecisionBas
         .commit_with_receipt()
         .context("commit job cancellation")?;
     drop(transaction);
-    print_job_result(&production, job_id, json, "cancelled", &receipt)
+    clear_job_state(&mut view, "cancelled");
+    print_job_result(&view, json, "cancelled", &receipt)
 }
 
 fn print_job_result(
-    production: &SqliteProduction,
-    job_id: JobId,
+    view: &JobView,
     json: bool,
     action: &str,
     receipt: &CommitReceipt,
 ) -> Result<()> {
-    let job = production.job(job_id).context("reload job")?;
-    let view = job_view(&job);
     if json {
-        print_json_with_receipt(&view, receipt)
+        print_json_with_receipt(view, receipt)
     } else {
         println!("{action} job {}", view.id);
         Ok(())
@@ -4524,25 +4590,13 @@ fn bounded_job_diagnostic(diagnostic: &str) -> String {
 }
 
 fn job_view(job: &Job) -> JobView {
-    let (claim_id, claim_expires_at_unix_micros, claim_tool, claim_agent) = match job.state() {
+    let (claim_expires_at_unix_micros, claim_tool, claim_agent) = match job.state() {
         JobState::Claimed(claim) => (
-            Some(claim.id().to_string()),
             Some(claim.expires_at().as_unix_micros()),
-            Some(ToolView {
-                name: claim.tool().name().to_owned(),
-                version: claim.tool().version().map(str::to_owned),
-                uri: claim.tool().uri().map(str::to_owned),
-            }),
-            claim.agent().map(|agent| AgentView {
-                name: agent.name().map(str::to_owned),
-                identifier: agent.identifier().map(|identifier| AgentIdentifierView {
-                    scheme: identifier.scheme().as_str().to_owned(),
-                    value: identifier.value().to_owned(),
-                    qualifier: identifier.qualifier().map(str::to_owned),
-                }),
-            }),
+            Some(tool_view(claim.tool())),
+            claim.agent().map(agent_view),
         ),
-        _ => (None, None, None, None),
+        _ => (None, None, None),
     };
     let (completion_activity_id, completion_representation_id) = match job.state() {
         JobState::Succeeded(completion) => (
@@ -4559,7 +4613,6 @@ fn job_view(job: &Job) -> JobView {
         output_kind: representation_kind(job.requested_output().representation_kind()),
         target_root: job.requested_output().target_root().map(str::to_owned),
         state: job_state(job.state()),
-        claim_id,
         claim_expires_at_unix_micros,
         claim_tool,
         claim_agent,
@@ -5645,10 +5698,6 @@ fn parse_job_id(value: &str) -> Result<JobId> {
     JobId::from_str(value).context("parse job ID")
 }
 
-fn parse_job_claim_id(value: &str) -> Result<JobClaimId> {
-    JobClaimId::from_str(value).context("parse job claim ID")
-}
-
 fn parse_dependency_target(kind: DependencyTargetKind, value: &str) -> Result<DependencyTarget> {
     match kind {
         DependencyTargetKind::Asset => AssetId::from_str(value)
@@ -6133,6 +6182,16 @@ fn cli_revision_context(message: &str) -> Result<RevisionContext> {
 }
 
 fn print_conflict_json(error: &anyhow::Error) -> bool {
+    if let Some(committed) = error.downcast_ref::<CommittedOperationError>() {
+        let receipt = &committed.receipt;
+        return print_json(&serde_json::json!({"error": {
+            "code": "committed_result_delivery_failed", "message": error.to_string(),
+            "commit_receipt": {
+                "production_id": receipt.production_id().to_string(),
+                "revision": receipt.revision().map(|revision| serde_json::json!({"id": revision.id().to_string(), "sequence": revision.sequence()}))
+            }
+        }})).is_ok();
+    }
     let Some(transaction_conflict) = error
         .chain()
         .find_map(|cause| cause.downcast_ref::<postproject_core::Error>())
