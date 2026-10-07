@@ -1726,11 +1726,13 @@ impl SqliteProduction {
         &self,
         representation_id: RepresentationId,
     ) -> Result<Vec<Activity>> {
-        self.ensure_representation_exists(representation_id)?;
-        self.activity_ids_for_relation("activity_outputs", representation_id, None, u32::MAX)?
-            .into_iter()
-            .map(|id| self.load_activity_by_id(ActivityId::from_bytes(id)))
-            .collect()
+        complete_collection(
+            self.activities_producing_page(
+                representation_id,
+                &QueryPageRequest::new(postproject_core::MAX_QUERY_PAGE_SIZE, None)?,
+            )?,
+            "activities_producing",
+        )
     }
 
     /// Loads activities that consume `representation_id` in stable order.
@@ -1743,11 +1745,13 @@ impl SqliteProduction {
         &self,
         representation_id: RepresentationId,
     ) -> Result<Vec<Activity>> {
-        self.ensure_representation_exists(representation_id)?;
-        self.activity_ids_for_relation("activity_inputs", representation_id, None, u32::MAX)?
-            .into_iter()
-            .map(|id| self.load_activity_by_id(ActivityId::from_bytes(id)))
-            .collect()
+        complete_collection(
+            self.activities_consuming_page(
+                representation_id,
+                &QueryPageRequest::new(postproject_core::MAX_QUERY_PAGE_SIZE, None)?,
+            )?,
+            "activities_consuming",
+        )
     }
 
     /// Queries activity outputs selected by exact activity or tool identity.
@@ -1883,23 +1887,17 @@ impl SqliteProduction {
     /// Returns [`ErrorKind::NotFound`] when the representation is absent, or
     /// [`ErrorKind::Storage`] when traversal fails or stored IDs are malformed.
     pub fn ancestors(&self, representation_id: RepresentationId) -> Result<Vec<RepresentationId>> {
-        self.related_representations(
+        let page = self.ancestors_page(
             representation_id,
-            "WITH RECURSIVE related(representation_id) AS (
-                SELECT inputs.representation_id
-                FROM activity_outputs outputs
-                JOIN activity_inputs inputs ON inputs.activity_id = outputs.activity_id
-                WHERE outputs.representation_id = ?1
-                UNION
-                SELECT inputs.representation_id
-                FROM related
-                JOIN activity_outputs outputs
-                  ON outputs.representation_id = related.representation_id
-                JOIN activity_inputs inputs ON inputs.activity_id = outputs.activity_id
-             )
-             SELECT representation_id FROM related ORDER BY representation_id",
-            "ancestor",
-        )
+            ProvenanceQueryLimits::new(64, 1000)?,
+            &QueryPageRequest::new(postproject_core::MAX_QUERY_PAGE_SIZE, None)?,
+        )?;
+        complete_collection(page, "ancestors").map(|items| {
+            items
+                .into_iter()
+                .map(ProvenanceQueryMatch::representation_id)
+                .collect()
+        })
     }
 
     /// Returns transitive output descendants in stable identity order.
@@ -1912,23 +1910,17 @@ impl SqliteProduction {
         &self,
         representation_id: RepresentationId,
     ) -> Result<Vec<RepresentationId>> {
-        self.related_representations(
+        let page = self.descendants_page(
             representation_id,
-            "WITH RECURSIVE related(representation_id) AS (
-                SELECT outputs.representation_id
-                FROM activity_inputs inputs
-                JOIN activity_outputs outputs ON outputs.activity_id = inputs.activity_id
-                WHERE inputs.representation_id = ?1
-                UNION
-                SELECT outputs.representation_id
-                FROM related
-                JOIN activity_inputs inputs
-                  ON inputs.representation_id = related.representation_id
-                JOIN activity_outputs outputs ON outputs.activity_id = inputs.activity_id
-             )
-             SELECT representation_id FROM related ORDER BY representation_id",
-            "descendant",
-        )
+            ProvenanceQueryLimits::new(64, 1000)?,
+            &QueryPageRequest::new(postproject_core::MAX_QUERY_PAGE_SIZE, None)?,
+        )?;
+        complete_collection(page, "descendants").map(|items| {
+            items
+                .into_iter()
+                .map(ProvenanceQueryMatch::representation_id)
+                .collect()
+        })
     }
 
     /// Queries bounded provenance ancestors with shortest depths.
@@ -2939,29 +2931,6 @@ impl SqliteProduction {
             .map(|(kind, id)| decode_metadata_target(kind, id))
             .collect::<Result<Vec<_>>>()?;
         Ok(QueryPage::new(targets, next_cursor, false))
-    }
-
-    fn related_representations(
-        &self,
-        representation_id: RepresentationId,
-        query: &'static str,
-        label: &'static str,
-    ) -> Result<Vec<RepresentationId>> {
-        self.ensure_representation_exists(representation_id)?;
-        let mut statement = self
-            .connection
-            .prepare(query)
-            .map_err(sqlite_error("prepare provenance traversal"))?;
-        let rows = statement
-            .query_map([representation_id.as_bytes().as_slice()], |row| {
-                row.get::<_, Vec<u8>>(0)
-            })
-            .map_err(sqlite_error("query provenance traversal"))?;
-        rows.map(|row| {
-            let id = row.map_err(sqlite_error("read provenance traversal row"))?;
-            Ok(RepresentationId::from_bytes(id_bytes(id, label)?))
-        })
-        .collect()
     }
 
     fn ensure_representation_exists(&self, representation_id: RepresentationId) -> Result<()> {

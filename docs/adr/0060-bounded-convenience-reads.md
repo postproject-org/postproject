@@ -15,6 +15,11 @@ resolver helpers. It does not reduce the domain's compound-member limit or
 prevent paging larger productions. Retained views keep their existing snapshot
 semantics; live convenience reads have the same consistency as one live page.
 
+Producing/consuming activity helpers use the same 1000-item rule. Ancestor and
+descendant helpers use the existing bounded traversal, at most 64 levels and
+1000 visited representations. A continuation or traversal truncation returns
+`Unsupported`; a partial graph is never presented as complete ancestry.
+
 ## Migration and standards impact
 
 Replace complete-list calls with page iteration when collections can exceed

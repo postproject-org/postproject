@@ -43,9 +43,10 @@ page.
 
 Complete-list asset, representation, resource and locator helpers cap at 1000.
 Larger results return `Unsupported`; page them instead. Compound structures
-retain their separate domain member limit. The CLI query commands return one
-page. Metadata and provenance convenience reads retain their own documented
-limits; prefer bounded queries when scanning a production.
+retain their separate domain member limit. Producing/consuming activity helpers
+also cap at 1000; ancestry helpers cap traversal at 64 levels and 1000 visited
+representations and reject incomplete results. The CLI query commands return
+one page.
 
 ## Read one object by identity
 

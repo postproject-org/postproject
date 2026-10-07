@@ -53,6 +53,48 @@ fn activity(id: ActivityId, input: RepresentationId, output: RepresentationId) -
     .expect("valid activity")
 }
 
+#[test]
+fn complete_ancestry_rejects_depth_truncation() {
+    let directory = tempdir().unwrap();
+    let mut production =
+        SqliteProduction::create(directory.path().join("deep.pproj"), None).unwrap();
+    let mut transaction = production.begin_transaction().unwrap();
+    for label in 1..=66 {
+        transaction.import_original(&import(label).0).unwrap();
+        if label > 1 {
+            transaction
+                .create_activity(&activity(
+                    ActivityId::new(),
+                    RepresentationId::from_bytes([label - 1; 16]),
+                    RepresentationId::from_bytes([label; 16]),
+                ))
+                .unwrap();
+        }
+    }
+    transaction.commit().unwrap();
+    drop(transaction);
+    assert_eq!(
+        production
+            .ancestors(RepresentationId::from_bytes([66; 16]))
+            .unwrap_err()
+            .kind(),
+        ErrorKind::Unsupported
+    );
+    assert_eq!(
+        production
+            .descendants(RepresentationId::from_bytes([1; 16]))
+            .unwrap_err()
+            .kind(),
+        ErrorKind::Unsupported
+    );
+    assert_eq!(
+        production
+            .ancestors(RepresentationId::from_bytes([2; 16]))
+            .unwrap(),
+        [RepresentationId::from_bytes([1; 16])]
+    );
+}
+
 fn assert_activity_identifier(
     production: &SqliteProduction,
     activity_id: ActivityId,
