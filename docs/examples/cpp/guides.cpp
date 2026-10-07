@@ -203,7 +203,7 @@ void inspect_artifact(const postproject::Production &production,
   std::cout << "artifact state: " << static_cast<std::uint32_t>(evaluation.state)
             << '\n';
   for (const auto &reason : evaluation.reasons) {
-    std::cout << "reason: " << static_cast<std::uint32_t>(reason.kind) << '\n';
+    std::cout << "reason: " << static_cast<std::uint32_t>(reason.kind()) << '\n';
   }
 
   const auto reproducibility = production.artifactReproducibility(artifact_id).value();

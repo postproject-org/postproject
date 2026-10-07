@@ -112,8 +112,12 @@ postproject::ArtifactEvaluation evaluate_after_change(
   const auto evaluation = production.evaluateArtifact(proxy_id).value();
   if (evaluation.state == postproject::ArtifactKnowledgeState::stale) {
     for (const auto &reason : evaluation.reasons) {
-      std::cout << "stale because " << static_cast<std::uint32_t>(reason.kind)
+      std::cout << "stale because " << static_cast<std::uint32_t>(reason.kind())
                 << '\n';
+      if (const auto *changed = std::get_if<postproject::ArtifactFingerprintChanged>(&reason.value())) {
+        std::cout << changed->fingerprint_algorithm << " on "
+                  << changed->representation_id.toString().value() << '\n';
+      }
     }
   }
 
@@ -251,7 +255,7 @@ int main(int argc, char **argv) {
     require(std::any_of(
                 evaluation.reasons.begin(), evaluation.reasons.end(),
                 [](const postproject::ArtifactReason &reason) {
-                  return reason.kind ==
+                  return reason.kind() ==
                          postproject::ArtifactReasonKind::fingerprint_changed;
                 }),
             "fingerprint changed reason");

@@ -34,6 +34,7 @@ captured path, without a fabricated zero subject ID. Unrelated constructor
 arguments are rejected. The display `kind` derives from the case type.
 C++ `ArtifactReasonValue::create` checks a payload variant and exposes it
 through a const `value()` view; copied values own their paths and evidence.
+`ArtifactReason` is that checked value; `kind()` is its derived display tag.
 Moved sources support destruction or reassignment. Input case records remain
 unvalidated until the factory accepts them.
 
