@@ -46,7 +46,8 @@ fn removal_requires_a_base_and_rejects_an_intervening_append() {
         ])
         .assert()
         .failure();
-    assert!(missing.get_output().stdout.is_empty());
+    let value: Value = serde_json::from_slice(&missing.get_output().stdout).unwrap();
+    assert_eq!(value["error"]["code"], "invalid_argument");
     assert!(
         std::str::from_utf8(&missing.get_output().stderr)
             .unwrap()

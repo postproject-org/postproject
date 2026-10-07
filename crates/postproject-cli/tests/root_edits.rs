@@ -27,7 +27,8 @@ fn root_decisions_require_bases_and_preserve_stale_failures() {
             .args(["--json", "root", action, path, root])
             .assert()
             .failure();
-        assert!(error.get_output().stdout.is_empty());
+        let value: Value = serde_json::from_slice(&error.get_output().stdout).unwrap();
+        assert_eq!(value["error"]["code"], "invalid_argument");
         assert!(String::from_utf8_lossy(&error.get_output().stderr).contains("--decision-base"));
     }
     let disabled = json(&["--decision-base", base, "root", "disable", path, root]);

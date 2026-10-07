@@ -36,13 +36,9 @@ fn stale_replacement_preserves_the_set_and_unchanged_work_has_no_revision() {
     command(&["init", path]);
     let imported = command(&["media", "add", path, media.to_str().unwrap()]);
     let source = imported["representation_id"].as_str().unwrap();
-    assert!(
-        record(path, source, spec_path, None)
-            .failure()
-            .get_output()
-            .stdout
-            .is_empty()
-    );
+    let missing = record(path, source, spec_path, None).code(2);
+    let error: Value = serde_json::from_slice(&missing.get_output().stdout).unwrap();
+    assert_eq!(error["error"]["code"], "invalid_argument");
     assert!(command(&["dependency", "show", path, source]).is_null());
     let inspected = command(&["inspect", path]);
     let base = inspected["decision_base"].as_str().unwrap();

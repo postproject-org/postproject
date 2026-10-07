@@ -2,6 +2,7 @@
 
 #![forbid(unsafe_code)]
 
+mod errors;
 mod job_transport;
 
 use std::{
@@ -57,9 +58,13 @@ enum CliDecisionBase {
 #[derive(Debug, Parser)]
 #[command(name = "postproject", version, about)]
 struct Cli {
-    /// Emit results and structured conflicts as JSON on stdout.
+    /// Emit results and structured operation errors as JSON on stdout.
     #[arg(long, global = true)]
     json: bool,
+
+    /// Select the supported JSON format (currently 1).
+    #[arg(long, global = true, requires = "json", value_parser = clap::value_parser!(u8).range(1..=1))]
+    output_version: Option<u8>,
 
     /// Revision on which this command's writes are based.
     #[arg(long, global = true, value_name = "REVISION_ID")]
@@ -1410,13 +1415,15 @@ struct EvidenceView {
 
 #[derive(Debug, Serialize)]
 struct ErrorView {
+    format_version: u8,
     error: ErrorDetailView,
 }
 
 #[derive(Debug, Serialize)]
 struct ErrorDetailView {
+    code: &'static str,
     message: String,
-    transaction_conflict: TransactionConflictView,
+    transaction_conflict: Option<TransactionConflictView>,
 }
 
 #[derive(Debug, Serialize)]
@@ -1991,10 +1998,12 @@ fn main() -> ExitCode {
     match execute(cli) {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
-            if !json || !print_conflict_json(&error) {
-                eprintln!("error: {error:#}");
+            let exit = errors::category(&error).1;
+            if json {
+                let _ = print_error_json(&error);
             }
-            ExitCode::FAILURE
+            eprintln!("error: {error:#}");
+            ExitCode::from(exit)
         }
     }
 }
@@ -2376,8 +2385,9 @@ fn media_fingerprint(
 ) -> Result<()> {
     let resource_id = ResourceId::from_str(&args.resource_id).context("parse resource ID")?;
     let mut production = SqliteProduction::open(&args.production).context("open production")?;
-    let base =
-        base_revision.context("content observation requires --decision-base from inspect")?;
+    let base = base_revision.ok_or_else(|| {
+        errors::invalid("content observation requires --decision-base from inspect")
+    })?;
     let view = production.read_session().context("read observation view")?;
     let current = view.decision_base();
     let matches = match base {
@@ -2915,7 +2925,9 @@ fn root_set_enabled(
     json: bool,
     base_revision: Option<CliDecisionBase>,
 ) -> Result<()> {
-    let base = base_revision.context("root state changes require --decision-base from inspect")?;
+    let base = base_revision.ok_or_else(|| {
+        errors::invalid("root state changes require --decision-base from inspect")
+    })?;
     let root_id = MediaRootId::from_str(&args.root_id).context("parse media-root ID")?;
     let mut production = SqliteProduction::open(&args.production).context("open production")?;
     let view = RootView {
@@ -2955,7 +2967,8 @@ fn root_remove(
     json: bool,
     base_revision: Option<CliDecisionBase>,
 ) -> Result<()> {
-    let base = base_revision.context("root removal requires --decision-base from inspect")?;
+    let base = base_revision
+        .ok_or_else(|| errors::invalid("root removal requires --decision-base from inspect"))?;
     let root_id = MediaRootId::from_str(&args.root_id).context("parse media-root ID")?;
     let mut production = SqliteProduction::open(&args.production).context("open production")?;
     let view = root_view_by_id(&production, root_id)?;
@@ -2992,7 +3005,9 @@ fn locator_retire(
     json: bool,
     base_revision: Option<CliDecisionBase>,
 ) -> Result<()> {
-    let base = base_revision.context("locator retirement requires --decision-base from inspect")?;
+    let base = base_revision.ok_or_else(|| {
+        errors::invalid("locator retirement requires --decision-base from inspect")
+    })?;
     let locator_id = LocatorId::from_str(&args.locator_id).context("parse locator ID")?;
     let mut production = SqliteProduction::open(&args.production).context("open production")?;
     let mut transaction = begin_cli_transaction(&mut production, Some(base), "locator")?;
@@ -3022,7 +3037,9 @@ fn identifier_mutate(
     base_revision: Option<CliDecisionBase>,
 ) -> Result<()> {
     if remove && base_revision.is_none() {
-        bail!("identifier removal requires --decision-base from inspect");
+        return Err(
+            errors::invalid("identifier removal requires --decision-base from inspect").into(),
+        );
     }
     let target = parse_identifier_target(args.target.target_kind, &args.target.target_id)?;
     let scheme = IdentifierScheme::new(args.scheme).context("validate identifier scheme")?;
@@ -3199,7 +3216,8 @@ fn metadata_remove(
     json: bool,
     base_revision: Option<CliDecisionBase>,
 ) -> Result<()> {
-    let base = base_revision.context("metadata removal requires --decision-base from inspect")?;
+    let base = base_revision
+        .ok_or_else(|| errors::invalid("metadata removal requires --decision-base from inspect"))?;
     let target = parse_metadata_target(args.target.target_kind, &args.target.target_id)?;
     let property = parse_metadata_property(args.vocabulary, args.property)?;
     let target_view = object_ref_view(target)?;
@@ -3386,8 +3404,9 @@ fn dependency_record(
     json: bool,
     base_revision: Option<CliDecisionBase>,
 ) -> Result<()> {
-    let base =
-        base_revision.context("dependency replacement requires --decision-base from inspect")?;
+    let base = base_revision.ok_or_else(|| {
+        errors::invalid("dependency replacement requires --decision-base from inspect")
+    })?;
     let representation_id = parse_representation_id(&args.representation_id)?;
     let encoded = fs::read(&args.spec_file)
         .with_context(|| format!("read dependency spec {}", args.spec_file.display()))?;
@@ -6274,27 +6293,27 @@ fn cli_revision_context(message: &str) -> Result<RevisionContext> {
         .context("build CLI revision context")
 }
 
-fn print_conflict_json(error: &anyhow::Error) -> bool {
+fn print_error_json(error: &anyhow::Error) -> bool {
     if let Some(committed) = error.downcast_ref::<CommittedOperationError>() {
         let receipt = &committed.receipt;
         return print_json(&serde_json::json!({"error": {
             "code": "post_commit_failure", "message": error.to_string(),
+            "cause_code": errors::category(error).0,
             "transaction_conflict": error.chain().find_map(|cause| cause.downcast_ref::<postproject_core::Error>())
                 .and_then(postproject_core::Error::transaction_conflict_detail).map(transaction_conflict_view),
             "commit_receipt": receipt_view(receipt),
             "commit_receipts": committed.prior_receipts.iter().chain(std::iter::once(receipt)).map(receipt_view).collect::<Vec<_>>()
         }})).is_ok();
     }
-    let Some(transaction_conflict) = error
+    let transaction_conflict = error
         .chain()
         .find_map(|cause| cause.downcast_ref::<postproject_core::Error>())
         .and_then(postproject_core::Error::transaction_conflict_detail)
-        .map(transaction_conflict_view)
-    else {
-        return false;
-    };
+        .map(transaction_conflict_view);
     let view = ErrorView {
+        format_version: 1,
         error: ErrorDetailView {
+            code: errors::category(error).0,
             message: format!("{error:#}"),
             transaction_conflict,
         },
@@ -6453,7 +6472,11 @@ fn print_json_with_receipt(value: &impl Serialize, receipt: &CommitReceipt) -> R
 }
 
 fn print_json(value: &impl Serialize) -> Result<()> {
-    serde_json::to_writer_pretty(std::io::stdout().lock(), value).context("write JSON output")?;
+    let mut value = serde_json::to_value(value).context("encode JSON output")?;
+    if let Some(object) = value.as_object_mut() {
+        object.insert("format_version".to_owned(), 1.into());
+    }
+    serde_json::to_writer_pretty(std::io::stdout().lock(), &value).context("write JSON output")?;
     println!();
     Ok(())
 }

@@ -114,7 +114,8 @@ fn pages_media_structure() {
     let resource_id = items(&resources)[0]["id"].as_str().expect("resource ID");
     assert!(items(&resources)[0].get("locators").is_none());
 
-    let shown = run_json(&["representation", "show", production, representation_id]);
+    let mut shown = run_json(&["representation", "show", production, representation_id]);
+    shown.as_object_mut().unwrap().remove("format_version");
     assert_eq!(&shown, representation);
     let users = run_json(&["representation", "using-resource", production, resource_id]);
     assert_eq!(items(&users), &vec![representation.clone()]);

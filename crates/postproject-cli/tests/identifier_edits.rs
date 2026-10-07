@@ -67,7 +67,8 @@ fn removal_rejects_old_observations_and_returns_its_own_receipt() {
         ])
         .assert()
         .failure();
-    assert!(missing.get_output().stdout.is_empty());
+    let value: Value = serde_json::from_slice(&missing.get_output().stdout).unwrap();
+    assert_eq!(value["error"]["code"], "invalid_argument");
     let inspected = json(&["inspect", path]);
     let old = inspected["decision_base"].as_str().unwrap();
     reattach(&production, asset);

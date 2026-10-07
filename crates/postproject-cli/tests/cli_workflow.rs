@@ -237,6 +237,10 @@ fn exercise_job_completion(
         .as_object_mut()
         .unwrap()
         .remove("commit_receipt");
+    stored_completed
+        .as_object_mut()
+        .unwrap()
+        .remove("format_version");
     assert_eq!(observed, &stored_completed);
     assert_job_events_journaled(production);
     let producing = run_json(&["activity", "producing", production, output_id])["items"].clone();
@@ -1238,6 +1242,7 @@ fn requests_and_lists_jobs() {
     let jobs = run_json(&["job", "list", production_path]);
     assert_ordered_receipts(&[&requested]);
     requested.as_object_mut().unwrap().remove("commit_receipt");
+    requested.as_object_mut().unwrap().remove("format_version");
     assert_eq!(jobs["items"], serde_json::json!([requested]));
     assert!(jobs["next_cursor"].is_null());
     let revision = run_json(&["revisions", "latest", production_path]);

@@ -32,7 +32,8 @@ fn retirement_requires_a_current_locator_decision_and_returns_its_receipt() {
         .args(["--json", "locator", "retire", path, locator])
         .assert()
         .failure();
-    assert!(missing.get_output().stdout.is_empty());
+    let value: Value = serde_json::from_slice(&missing.get_output().stdout).unwrap();
+    assert_eq!(value["error"]["code"], "invalid_argument");
     assert_eq!(json(&["revisions", "latest", path]), before);
     let inspection = json(&["inspect", path]);
     let base = inspection["decision_base"].as_str().unwrap();

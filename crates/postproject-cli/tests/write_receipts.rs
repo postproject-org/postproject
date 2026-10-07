@@ -59,7 +59,9 @@ fn media_and_identifier_receipts_keep_their_own_revision() {
         ])
         .assert()
         .failure();
-    assert!(duplicate.get_output().stdout.is_empty());
+    let error: Value = serde_json::from_slice(&duplicate.get_output().stdout).unwrap();
+    assert_eq!(error["error"]["code"], "already_exists");
+    assert!(error["error"].get("commit_receipt").is_none());
     assert_eq!(json(&["revisions", "latest", path]), inspection);
 }
 
