@@ -10,6 +10,7 @@ Each public surface has a generated reference built from the same sources that a
 - {doc}`../../reference/cpp-api` — the header-only C++17 wrapper;
 - {doc}`../../reference/python-api` — the typed Python binding over the C ABI;
 - {doc}`../../rust-api` — version-matched rustdoc for contributors and adapter authors.
+- {doc}`cli-output` — JSON format, errors and process exit categories for scripts.
 
 The reference gives signatures and ownership rules. To see an operation *used*, look it up in the task guides: every public C function, C++ member function, and Python method appears in at least one tested example, and CI fails when one does not.
 
@@ -41,6 +42,7 @@ The programs live in `docs/examples/{c,cpp,python,cli}` and `docs/examples/rust/
 /reference/cpp-api
 /reference/python-api
 /rust-api
+cli-output
 /reference/examples
 terminology
 metadata-vocabularies

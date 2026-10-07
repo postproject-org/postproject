@@ -74,6 +74,7 @@ Read the relevant ADR before changing an invariant, a boundary, or a public cont
 - {doc}`ADR 0056 — Decision-bound content observations </adr/0056-decision-bound-content-observations>`
 - {doc}`ADR 0057 — Authority-controlled job leases </adr/0057-authority-controlled-job-leases>`
 - {doc}`ADR 0058 — Job input decisions </adr/0058-job-input-decision-guards>`
+- {doc}`ADR 0059 — CLI output and errors </adr/0059-cli-output-and-error-categories>`
 
 ```{toctree}
 :hidden:
@@ -136,4 +137,5 @@ Read the relevant ADR before changing an invariant, a boundary, or a public cont
 /adr/0056-decision-bound-content-observations
 /adr/0057-authority-controlled-job-leases
 /adr/0058-job-input-decision-guards
+/adr/0059-cli-output-and-error-categories
 ```
