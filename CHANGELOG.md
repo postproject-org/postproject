@@ -5,6 +5,8 @@ All notable changes to PostProject will be documented here. The project uses
 
 ## Unreleased
 
+- Migrate job claims to production-bound leases with checked durations and library-controlled time (ADR 0057; migration in progress).
+
 - Require decision bases for content observations and journal changed file facts (schema 18, ADR 0056).
 - CLI dependency recording reports accepted inputs and an atomic receipt without reloading later writes.
 
