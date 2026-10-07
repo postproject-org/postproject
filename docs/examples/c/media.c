@@ -48,7 +48,8 @@ static pp_error_code_t import_image_strip(pp_production_t *production,
                                          out_asset_id, error);
   }
   if (status == PP_OK) {
-    status = pp_transaction_commit(transaction, error);
+    pp_commit_receipt_t commit_receipt;
+    status = pp_transaction_commit_with_receipt(transaction, &commit_receipt, error);
   }
   pp_transaction_release(transaction);
   pp_media_source_release(strip);
@@ -92,7 +93,8 @@ static pp_error_code_t add_proxy(pp_production_t *production,
         error);
   }
   if (status == PP_OK) {
-    status = pp_transaction_commit(transaction, error);
+    pp_commit_receipt_t commit_receipt;
+    status = pp_transaction_commit_with_receipt(transaction, &commit_receipt, error);
   }
   pp_transaction_release(transaction);
   pp_media_source_release(proxy);
@@ -123,7 +125,8 @@ add_spanned_clip(pp_production_t *production, const pp_asset_id_t *asset_id,
         out_representation_id, error);
   }
   if (status == PP_OK) {
-    status = pp_transaction_commit(transaction, error);
+    pp_commit_receipt_t commit_receipt;
+    status = pp_transaction_commit_with_receipt(transaction, &commit_receipt, error);
   }
   pp_transaction_release(transaction);
   pp_media_source_release(clip);
@@ -156,7 +159,8 @@ static pp_error_code_t add_package(pp_production_t *production,
         out_representation_id, error);
   }
   if (status == PP_OK) {
-    status = pp_transaction_commit(transaction, error);
+    pp_commit_receipt_t commit_receipt;
+    status = pp_transaction_commit_with_receipt(transaction, &commit_receipt, error);
   }
   pp_transaction_release(transaction);
   pp_media_source_release(package);
@@ -386,7 +390,8 @@ static pp_error_code_t apply_root_change(pp_read_session_t *view,
     status = pp_transaction_remove_media_root(transaction, *root_id, error);
   }
   if (status == PP_OK) {
-    status = pp_transaction_commit(transaction, error);
+    pp_commit_receipt_t commit_receipt;
+    status = pp_transaction_commit_with_receipt(transaction, &commit_receipt, error);
   }
   pp_transaction_release(transaction);
   return status;
@@ -494,7 +499,8 @@ static pp_error_code_t observe_changed_file(pp_production_t *production,
     status = PP_ERROR_INTERNAL;
   }
   if (status == PP_OK) {
-    status = pp_transaction_commit(transaction, error);
+    pp_commit_receipt_t commit_receipt;
+    status = pp_transaction_commit_with_receipt(transaction, &commit_receipt, error);
   }
   pp_transaction_release(transaction);
   transaction = NULL;
@@ -515,7 +521,8 @@ static pp_error_code_t observe_changed_file(pp_production_t *production,
     status = PP_ERROR_INTERNAL;
   }
   if (status == PP_OK) {
-    status = pp_transaction_commit(transaction, error);
+    pp_commit_receipt_t commit_receipt;
+    status = pp_transaction_commit_with_receipt(transaction, &commit_receipt, error);
   }
   if (status == PP_OK) {
     status = pp_production_latest_revision(production, &latest, error);
@@ -577,7 +584,8 @@ static pp_error_code_t retire_superseded(pp_production_t *production,
     status = pp_transaction_retire_locator(transaction, old_locator_id, error);
   }
   if (status == PP_OK) {
-    status = pp_transaction_commit(transaction, error);
+    pp_commit_receipt_t commit_receipt;
+    status = pp_transaction_commit_with_receipt(transaction, &commit_receipt, error);
   }
   pp_transaction_release(transaction);
 
@@ -749,7 +757,8 @@ static pp_error_code_t create_production(const char *path, const char *media,
                                            "Proxy storage", 5, &root_id, error);
   }
   if (status == PP_OK) {
-    status = pp_transaction_commit(transaction, error);
+    pp_commit_receipt_t commit_receipt;
+    status = pp_transaction_commit_with_receipt(transaction, &commit_receipt, error);
   }
   if (status == PP_OK) {
     *out_production = production;
@@ -983,7 +992,8 @@ static pp_error_code_t confirm_moved(pp_production_t *production,
                                             NULL, NULL, error);
   }
   if (status == PP_OK) {
-    status = pp_transaction_commit(transaction, error);
+    pp_commit_receipt_t commit_receipt;
+    status = pp_transaction_commit_with_receipt(transaction, &commit_receipt, error);
   }
   pp_transaction_release(transaction);
   return status;
@@ -1000,7 +1010,8 @@ static pp_error_code_t add_unmapped_root(pp_production_t *production,
         transaction, "rushes", "Camera originals", 0, &root_id, error);
   }
   if (status == PP_OK) {
-    status = pp_transaction_commit(transaction, error);
+    pp_commit_receipt_t commit_receipt;
+    status = pp_transaction_commit_with_receipt(transaction, &commit_receipt, error);
   }
   pp_transaction_release(transaction);
   return status;
@@ -1105,7 +1116,8 @@ static pp_error_code_t relink_renamed_sequence(pp_production_t *production,
     }
   }
   if (status == PP_OK) {
-    status = pp_transaction_commit(transaction, error);
+    pp_commit_receipt_t commit_receipt;
+    status = pp_transaction_commit_with_receipt(transaction, &commit_receipt, error);
   }
   pp_transaction_release(transaction);
   pp_resolution_set_release(resolutions);

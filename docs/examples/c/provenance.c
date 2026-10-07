@@ -77,7 +77,8 @@ static pp_error_code_t observe_file(pp_production_t *production,
         sizeof value, error);
   }
   if (status == PP_OK) {
-    status = pp_transaction_commit(transaction, error);
+    pp_commit_receipt_t commit_receipt;
+    status = pp_transaction_commit_with_receipt(transaction, &commit_receipt, error);
   }
   pp_transaction_release(transaction);
   return status;
@@ -224,7 +225,8 @@ static pp_error_code_t record_transcode(pp_production_t *production,
       status = PP_ERROR_INTERNAL;
   }
   if (status == PP_OK) {
-    status = pp_transaction_commit(transaction, error);
+    pp_commit_receipt_t commit_receipt;
+    status = pp_transaction_commit_with_receipt(transaction, &commit_receipt, error);
   }
   if (status == PP_OK) {
     status = pp_production_activities(production, &activities, error);
@@ -346,7 +348,8 @@ static pp_error_code_t explain_stale_proxy(
         sizeof value, error);
   }
   if (status == PP_OK) {
-    status = pp_transaction_commit(transaction, error);
+    pp_commit_receipt_t commit_receipt;
+    status = pp_transaction_commit_with_receipt(transaction, &commit_receipt, error);
   }
   if (status == PP_OK) {
     status = pp_production_evaluate_artifact(
@@ -475,7 +478,8 @@ static pp_error_code_t record_dependencies(pp_production_t *production,
                                                   dependencies, 2, error);
   }
   if (status == PP_OK) {
-    status = pp_transaction_commit(transaction, error);
+    pp_commit_receipt_t commit_receipt;
+    status = pp_transaction_commit_with_receipt(transaction, &commit_receipt, error);
   }
   pp_transaction_release(transaction);
   return status;
@@ -501,7 +505,8 @@ static pp_error_code_t observe_source(pp_production_t *production,
         error);
   }
   if (status == PP_OK) {
-    status = pp_transaction_commit(transaction, error);
+    pp_commit_receipt_t commit_receipt;
+    status = pp_transaction_commit_with_receipt(transaction, &commit_receipt, error);
   }
   pp_transaction_release(transaction);
   return status;
@@ -579,7 +584,8 @@ create_production(const char *path, const char *media, const char *proxy,
   }
   pp_media_source_release(camera);
   if (status == PP_OK) {
-    status = pp_transaction_commit(transaction, error);
+    pp_commit_receipt_t commit_receipt;
+    status = pp_transaction_commit_with_receipt(transaction, &commit_receipt, error);
   }
   pp_transaction_release(transaction);
   transaction = NULL;
@@ -616,7 +622,8 @@ create_production(const char *path, const char *media, const char *proxy,
   }
   pp_media_source_release(proxy_file);
   if (status == PP_OK) {
-    status = pp_transaction_commit(transaction, error);
+    pp_commit_receipt_t commit_receipt;
+    status = pp_transaction_commit_with_receipt(transaction, &commit_receipt, error);
   }
   if (status == PP_OK) {
     *out_production = production;

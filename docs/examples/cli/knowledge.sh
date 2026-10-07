@@ -145,8 +145,8 @@ LISTED=$(postproject --json metadata list knowledge.pproj asset "$ASSET_ID")
 test "$(jq length <<<"$LISTED")" = 13
 test "$(jq -r '[.[].value.type] | sort | join(" ")' <<<"$LISTED")" = \
   "bool bytes decimal i64 lang_string list rational reference string struct timestamp u64 uri"
-test "$(jq -c '.[] | select(.property == "gain") | .value' <<<"$LISTED")" = \
-  '{"type":"decimal","coefficient":"-35","scale":1}'
+jq -e '.[] | select(.property == "gain") | .value |
+  .type == "decimal" and .coefficient == "-35" and .scale == 1' <<<"$LISTED" >/dev/null
 test "$(jq -r '.[] | select(.property == "source") | .value.target.id' <<<"$LISTED")" = \
   "$ORIGINAL_ID"
 
