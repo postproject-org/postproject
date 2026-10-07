@@ -10,7 +10,7 @@ use postproject_core::{
 };
 use rusqlite::params;
 
-use crate::{SqliteProduction, id_bytes, sqlite_error};
+use crate::{SqliteProduction, id_bytes, read_budget::ReadBudget, sqlite_error};
 
 struct CapturedPath {
     status: i64,
@@ -255,6 +255,7 @@ fn add_missing_fingerprint(
 }
 
 fn load_paths(production: &SqliteProduction, input_id: i64) -> Result<Vec<CapturedPath>> {
+    let mut budget = ReadBudget::default();
     let mut statement = production
         .connection
         .prepare(
@@ -266,7 +267,7 @@ fn load_paths(production: &SqliteProduction, input_id: i64) -> Result<Vec<Captur
     let rows = statement
         .query_map(
             [input_id],
-            crate::read_budget::bounded(|row| {
+            crate::read_budget::bounded_with(&mut budget, |row| {
                 Ok((
                     row.get::<_, i64>(0)?,
                     row.get::<_, i64>(1)?,
@@ -293,15 +294,19 @@ fn load_paths(production: &SqliteProduction, input_id: i64) -> Result<Vec<Captur
                         subject,
                         "dependency snapshot subject representation",
                     )?),
-                    segments: load_segments(production, path_id)?,
-                    fingerprints: load_fingerprints(production, path_id)?,
+                    segments: load_segments(production, path_id, &mut budget)?,
+                    fingerprints: load_fingerprints(production, path_id, &mut budget)?,
                 })
             },
         )
         .collect()
 }
 
-fn load_fingerprints(production: &SqliteProduction, path_id: i64) -> Result<Fingerprints> {
+fn load_fingerprints(
+    production: &SqliteProduction,
+    path_id: i64,
+    budget: &mut ReadBudget,
+) -> Result<Fingerprints> {
     let mut statement = production
         .connection
         .prepare(
@@ -315,7 +320,7 @@ fn load_fingerprints(production: &SqliteProduction, path_id: i64) -> Result<Fing
     let rows = statement
         .query_map(
             [path_id],
-            crate::read_budget::bounded(|row| {
+            crate::read_budget::bounded_with(budget, |row| {
                 Ok((
                     row.get::<_, String>(0)?,
                     row.get::<_, i64>(1)?,
@@ -337,6 +342,7 @@ fn load_fingerprints(production: &SqliteProduction, path_id: i64) -> Result<Fing
 fn load_segments(
     production: &SqliteProduction,
     path_id: i64,
+    budget: &mut ReadBudget,
 ) -> Result<Vec<ArtifactDependencyPathSegment>> {
     let mut statement = production
         .connection
@@ -351,7 +357,7 @@ fn load_segments(
     let rows = statement
         .query_map(
             [path_id],
-            crate::read_budget::bounded(|row| {
+            crate::read_budget::bounded_with(budget, |row| {
                 Ok((
                     row.get::<_, i64>(0)?,
                     row.get::<_, Vec<u8>>(1)?,

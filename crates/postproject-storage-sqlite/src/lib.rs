@@ -2446,6 +2446,7 @@ impl SqliteProduction {
     pub fn jobs(&self, query: &JobQuery, page: &QueryPageRequest) -> Result<QueryPage<Job>> {
         let position = query_cursor::job_position(&self.cursor_scope(), page, query)?;
         let mut clauses = Vec::new();
+        let mut budget = ReadBudget::default();
         let mut parameters = Vec::<Value>::new();
         if let Some(state) = query.state() {
             clauses.push("state = ?");
@@ -2483,7 +2484,7 @@ impl SqliteProduction {
         let mut stored = statement
             .query_map(
                 params_from_iter(parameters),
-                crate::read_budget::bounded(stored_job_row),
+                crate::read_budget::bounded_with(&mut budget, stored_job_row),
             )
             .map_err(sqlite_error("query paginated jobs"))?
             .collect::<std::result::Result<Vec<_>, _>>()
@@ -2503,7 +2504,7 @@ impl SqliteProduction {
         };
         let jobs = stored
             .into_iter()
-            .map(|job| decode_job(&self.connection, job))
+            .map(|job| decode_job_with(&self.connection, job, &mut budget))
             .collect::<Result<Vec<_>>>()?;
         Ok(QueryPage::new(jobs, next_cursor, false))
     }
@@ -4441,11 +4442,19 @@ fn stored_job_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<StoredJob> {
     })
 }
 
+fn decode_job(connection: &Connection, stored: StoredJob) -> Result<Job> {
+    decode_job_with(connection, stored, &mut ReadBudget::default())
+}
+
 #[allow(
     clippy::too_many_lines,
     reason = "keeping persisted job-state validation together makes corruption handling auditable"
 )]
-fn decode_job(connection: &Connection, stored: StoredJob) -> Result<Job> {
+fn decode_job_with(
+    connection: &Connection,
+    stored: StoredJob,
+    budget: &mut ReadBudget,
+) -> Result<Job> {
     let id = JobId::from_bytes(id_bytes(stored.id.clone(), "job")?);
     let mut statement = connection
         .prepare(
@@ -4456,7 +4465,7 @@ fn decode_job(connection: &Connection, stored: StoredJob) -> Result<Job> {
     let inputs = statement
         .query_map(
             [id.as_bytes().as_slice()],
-            crate::read_budget::bounded(|row| {
+            crate::read_budget::bounded_with(budget, |row| {
                 Ok((row.get::<_, i64>(0)?, row.get::<_, Vec<u8>>(1)?))
             }),
         )
