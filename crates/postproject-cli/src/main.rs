@@ -42,7 +42,7 @@ use postproject_media::{
     prepare_confirmed_locator, prepare_original_media, prepare_recognized_original_media,
     prepare_representation, recorded_sequence_naming, resource_usage, verify_resource_content,
 };
-use postproject_storage_sqlite::{SqliteProduction, SqliteTransaction};
+use postproject_storage_sqlite::{SqliteJobLease, SqliteProduction, SqliteTransaction};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug)]
@@ -4107,6 +4107,7 @@ fn job_run(args: &JobRunArgs, json: bool, base_revision: Option<CliDecisionBase>
     }
     let root_mappings = prepare_root_mappings(&args.root_mappings)?;
     let lease = Duration::from_secs(args.lease_seconds);
+    postproject_core::validate_job_lease_duration(lease).context("validate executor lease")?;
     let heartbeat_interval = lease / 3;
     let executor = FfmpegExecutor::with_executable(&args.ffmpeg)
         .with_timeout(Duration::from_secs(args.timeout_seconds))
@@ -4316,6 +4317,15 @@ fn run_executor_job(
 ) -> Result<JobRunView> {
     let job_id = prepared.job.id();
     let started = Timestamp::now().context("read executor start time")?;
+    // Validate filesystem inputs before a durable claim is created.
+    let request = ExecutionRequest::new(
+        job_id,
+        prepared.job.kind().clone(),
+        &prepared.profile,
+        &prepared.input,
+        &prepared.target_root,
+    )
+    .context("prepare local execution")?;
     let claim_tool = ToolIdentity::new(
         "PostProject reference executor",
         Some(env!("CARGO_PKG_VERSION").to_owned()),
@@ -4327,28 +4337,13 @@ fn run_executor_job(
             begin_cli_transaction(production, base_revision, "executor job claim")?;
         set_cli_revision_context(&mut transaction, "Claim reference-executor job")?;
         let claim = transaction
-            .claim_job(
-                job_id,
-                &claim_tool,
-                None,
-                started,
-                timestamp_after(started, lease)?,
-            )
+            .claim_job_lease(job_id, &claim_tool, None, lease)
             .context("claim executor job")?;
         transaction.commit().context("commit executor job claim")?;
         claim
     };
-    let request = ExecutionRequest::new(
-        job_id,
-        prepared.job.kind().clone(),
-        &prepared.profile,
-        &prepared.input,
-        &prepared.target_root,
-    )
-    .context("prepare local execution")?;
     let outcome = {
         let mut heartbeat = || {
-            let now = Timestamp::now()?;
             let mut transaction = match base_revision {
                 Some(CliDecisionBase::Revision(base_revision)) => {
                     production.begin_transaction_at(base_revision)?
@@ -4364,7 +4359,7 @@ fn run_executor_job(
             let context =
                 RevisionContext::new(Some(origin), Some("Renew executor job claim".to_owned()))?;
             transaction.set_revision_context(context)?;
-            transaction.renew_job_claim(job_id, claim.id(), now, timestamp_after(now, lease)?)?;
+            transaction.renew_job_lease(&claim, lease)?;
             transaction.commit()
         };
         executor.execute(request, &mut heartbeat)
@@ -4373,7 +4368,7 @@ fn run_executor_job(
         Ok(outcome) => outcome,
         Err(error) => {
             let diagnostic = format!("reference executor error: {error}");
-            let _ = fail_executor_job(production, job_id, claim.id(), &diagnostic, base_revision);
+            let _ = fail_executor_job(production, &claim, &diagnostic, base_revision);
             return Err(error).context("execute claimed job");
         }
     };
@@ -4383,7 +4378,7 @@ fn run_executor_job(
                 begin_cli_transaction(production, base_revision, "unavailable executor release")?;
             set_cli_revision_context(&mut transaction, "Release unavailable executor job")?;
             transaction
-                .release_job_claim(job_id, claim.id())
+                .release_job_lease(&claim)
                 .context("release unavailable executor job")?;
             transaction
                 .commit()
@@ -4391,7 +4386,7 @@ fn run_executor_job(
             bail!("reference executor unavailable: {reason}");
         }
         ExecutionOutcome::Failed { diagnostic } => {
-            fail_executor_job(production, job_id, claim.id(), &diagnostic, base_revision)?;
+            fail_executor_job(production, &claim, &diagnostic, base_revision)?;
             let job = production.job(job_id).context("reload failed job")?;
             Ok(JobRunView {
                 job: job_view(&job),
@@ -4404,7 +4399,7 @@ fn run_executor_job(
         } => complete_executor_job(
             production,
             prepared,
-            claim.id(),
+            &claim,
             started,
             &output,
             ffmpeg_version,
@@ -4417,7 +4412,7 @@ fn run_executor_job(
 fn complete_executor_job(
     production: &mut SqliteProduction,
     prepared: &PreparedExecutorJob,
-    claim_id: JobClaimId,
+    lease: &SqliteJobLease,
     started: Timestamp,
     output_path: &Path,
     ffmpeg_version: String,
@@ -4433,7 +4428,7 @@ fn complete_executor_job(
         Err(error) => {
             let _ = fs::remove_file(output_path);
             let diagnostic = format!("cannot prepare executor output: {error}");
-            fail_executor_job(production, job_id, claim_id, &diagnostic, base_revision)?;
+            fail_executor_job(production, lease, &diagnostic, base_revision)?;
             return Err(error).context("prepare executor output");
         }
     };
@@ -4469,7 +4464,7 @@ fn complete_executor_job(
             begin_cli_transaction(production, base_revision, "executor job completion")?;
         set_cli_revision_context(&mut transaction, "Complete reference-executor job")?;
         transaction
-            .complete_job(job_id, claim_id, finished, &output, &activity)
+            .complete_job_lease(lease, &output, &activity)
             .context("complete executor job")?;
         for parameter in &prepared.parameters {
             transaction
@@ -4495,18 +4490,16 @@ fn complete_executor_job(
 
 fn fail_executor_job(
     production: &mut SqliteProduction,
-    job_id: JobId,
-    claim_id: JobClaimId,
+    lease: &SqliteJobLease,
     diagnostic: &str,
     base_revision: Option<CliDecisionBase>,
 ) -> Result<()> {
     let failure =
         JobFailure::new(bounded_job_diagnostic(diagnostic)).context("validate executor failure")?;
-    let now = Timestamp::now().context("read executor failure time")?;
     let mut transaction = begin_cli_transaction(production, base_revision, "executor job failure")?;
     set_cli_revision_context(&mut transaction, "Fail reference-executor job")?;
     transaction
-        .fail_job(job_id, claim_id, now, &failure)
+        .fail_job_lease(lease, &failure)
         .context("fail executor job")?;
     transaction.commit().context("commit executor job failure")
 }
@@ -4517,22 +4510,6 @@ fn executor_profile_property() -> Result<MetadataProperty> {
             .context("validate executor parameter vocabulary")?,
         PropertyId::new(EXECUTOR_PROFILE_PROPERTY).context("validate executor profile property")?,
     ))
-}
-
-fn timestamp_after(now: Timestamp, duration: Duration) -> postproject_core::Result<Timestamp> {
-    let micros = i64::try_from(duration.as_micros()).map_err(|error| {
-        postproject_core::Error::new(
-            postproject_core::ErrorKind::InvalidArgument,
-            format!("job lease is too large: {error}"),
-        )
-    })?;
-    let expires = now.as_unix_micros().checked_add(micros).ok_or_else(|| {
-        postproject_core::Error::new(
-            postproject_core::ErrorKind::InvalidArgument,
-            "job lease expiry is outside the supported timestamp range",
-        )
-    })?;
-    Ok(Timestamp::from_unix_micros(expires))
 }
 
 fn bounded_job_diagnostic(diagnostic: &str) -> String {
