@@ -639,3 +639,42 @@ This validates the affected native host slice, including collection-bound
 refusal, relinking, shared-production and proxy tests. Full fresh builds,
 build-disabled execution, platform qualification and cross-host handoffs remain
 open. All task commits remain local `main`; no push, tag or publication occurred.
+
+## ABI 47 / schema 18 content observations
+
+SDK `c2ef54a` adds decision-bound observations and file-fact events (ADR 0056).
+The installed development prefix `target/api-safety-observations-install` has
+matching debug native libraries and CLI; it is not a release package. ABI 47:
+315 exports, 27 agreeing Rust/C/ctypes layouts. Schema 17 migration, filtered
+events, unchanged guards, rollback and own-receipt regressions pass.
+
+Six required Rust gates, eight installed native contracts, 72 extracted example
+checks (the corrected Python media recipe was rerun), strict docs, Ruff/ty,
+version/symbol/layout/example checks and 26 tooling tests pass. Source and
+installed neutral-wheel Python: 100 run, one skip. Logs:
+`target/observation-decisions-*.log`; source/wheel/runtime artifacts remain local.
+
+| Consumer | Result against this candidate |
+|---|---|
+| Manager `da2caaa` | Six matching-wheel tests passed with declared dependencies |
+| Blender `71f49b6` | Rebuilt bundle: 23 passed, one 5.3-only skip on 5.2.2 LTS `d13f752e3b9c` |
+| Kdenlive `9eb16b4` | Fourteen patches replayed on `55e16e8`; affected host/test objects compiled; offscreen suite: 1247 assertions in five cases |
+| Ardour `d1a7c27` | Nine patches replayed on `7968ec504`; installed resolver scenario passed, including facts-only repeated save |
+
+Final host replays match the compiled source. Kdenlive links the changed objects
+with the preserved otherwise unchanged archive; runtime configuration is isolated
+under `target/observation-decisions-runtime`. No full fresh or disabled host-build
+claim. Other consumers retain the preceding candidate's qualification scope.
+
+Artifacts in `target/api-safety-{wheel,blender}/observations`, SHA-256:
+
+- Neutral wheel: `38f92868cc9bc47bc111e968d72a020e5f6189005143e7485a3a3fd034bb3f97`.
+- Linux wheel: `fb77da5b3d9e72637796c26f4979347e1355d7369cd31a57c4fae80fdc96951e`.
+- Blender bundle: `0fe78879461b7ac178cfa0407d9b79b83f2137288cc83f6610b21ed1b3ba1431`.
+
+Prefix SHA-256: native library
+`b53115870d7a1dc8468dec46226dad3836a1bf43d3506f7be61cd314b7ceeb3f`,
+C++ header `69ca266e3a779c316a1cd4697696e64e35ad49a623f5b18a71abd41e4a69a776`,
+CLI `c589237118434a5ed188b160b4299d8fed1a1406dc89ab720f4a92957eaaf689`.
+Final coordinated qualification remains open. All task commits remain local
+`main`; no push, tag or publication occurred.

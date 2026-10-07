@@ -416,3 +416,29 @@ passes 1247 assertions in five cases, including the collection-bound regression.
 This is a targeted host test run, not a full fresh host build or interactive
 acceptance. Observation guards, other materializers/value alternatives, leases
 and final coordinated qualification remain open.
+
+## Content observation checks
+
+SDK `c2ef54a` implements ADR 0056 across all surfaces. Explicit resource and
+representation fingerprints and file facts require decision bases, including
+first and unchanged values. Imports retain additive initial facts. Changed file
+facts now create a journal event and resource conflict key; identical facts
+create no revision but still check intervening writes. Schema 18 preserves the
+journal and its indexes. ABI 47 retains 315 exports and 27 layouts, with additive
+file-fact event/conflict tags.
+
+Native session edits retain their original knowledge after session release.
+Detached edits and CLI automatic observations require a current base before
+reading inputs. Regression tests cover missing bases before file access, open
+state after rejection, facts-only receipts, filtered events, stale no-op guards,
+terminal failed commits and atomic rollback of observations/additive work.
+
+Six Rust gates, eight installed native contracts, extracted examples, strict
+docs, Ruff/ty, symbols/layouts and 26 tooling tests pass. Source and installed
+Python run 100 tests with one skip. Maintained Manager: six passed; Blender:
+23 passed, one skip. Kdenlive `9eb16b4` migrates proxy observation views and its
+offscreen suite passes 1247 assertions in five cases. Ardour `d1a7c27` migrates
+saved-audio decisions, refuses truncated reads and preserves known locators;
+its resolver regression also checks a facts-only repeated save. Exact artifacts
+and qualification scope are in the repository manifest. Lease authority,
+remaining value/query families and final qualification remain open.
