@@ -98,8 +98,13 @@ def _reason_at(
 ) -> ArtifactReason:
     value = NativeArtifactReason()
     error = ctypes.POINTER(Error)()
+    kind = _abi.ArtifactReasonKind()
+    status = native.lib.pp_artifact_evaluation_get_reason_kind(
+        evaluation, index, ctypes.byref(kind), ctypes.byref(error)
+    )
+    native.check(status, error)
     status = native.lib.pp_artifact_evaluation_get_reason(
-        evaluation, index, ctypes.byref(value), ctypes.byref(error)
+        evaluation, index, kind, ctypes.byref(value), ctypes.byref(error)
     )
     native.check(status, error)
     try:
@@ -357,8 +362,13 @@ def _reproducibility_issue_at(
 ) -> ArtifactReproducibilityIssue:
     value = NativeArtifactReproducibilityIssue()
     error = ctypes.POINTER(Error)()
+    native_kind = _abi.ArtifactReproducibilityIssueKind()
+    status = native.lib.pp_artifact_reproducibility_get_issue_kind(
+        report, index, ctypes.byref(native_kind), ctypes.byref(error)
+    )
+    native.check(status, error)
     status = native.lib.pp_artifact_reproducibility_get_issue(
-        report, index, ctypes.byref(value), ctypes.byref(error)
+        report, index, native_kind, ctypes.byref(value), ctypes.byref(error)
     )
     native.check(status, error)
     kind = _reproducibility_issue_kind(value.kind)

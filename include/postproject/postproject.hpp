@@ -3667,10 +3667,15 @@ inline Result<ArtifactEvaluation> artifact_evaluation(ArtifactEvaluationHandle e
   std::vector<ArtifactReason> reasons;
   reasons.reserve(static_cast<std::size_t>(reason_count));
   for (std::uint64_t index = 0; index < reason_count; ++index) {
+    pp_artifact_reason_kind_t kind = 0;
+    pp_error_t *kind_error = nullptr;
+    const auto kind_status = pp_artifact_evaluation_get_reason_kind(
+        evaluation.get(), index, &kind, &kind_error);
+    POSTPROJECT_TRY(check(kind_status, kind_error));
     pp_artifact_reason_t native{};
     pp_error_t *reason_error = nullptr;
     const pp_error_code_t reason_status = pp_artifact_evaluation_get_reason(
-        evaluation.get(), index, &native, &reason_error);
+        evaluation.get(), index, kind, &native, &reason_error);
     POSTPROJECT_TRY(check(reason_status, reason_error));
     POSTPROJECT_TRY_ASSIGN(ArtifactReason reason, artifact_reason(native));
     reasons.push_back(std::move(reason));
@@ -3696,10 +3701,15 @@ inline Result<ArtifactReproducibility> artifact_reproducibility(ArtifactReproduc
   std::vector<ArtifactReproducibilityIssue> issues;
   issues.reserve(static_cast<std::size_t>(issue_count));
   for (std::uint64_t index = 0; index < issue_count; ++index) {
+    pp_artifact_reproducibility_issue_kind_t kind = 0;
+    pp_error_t *kind_error = nullptr;
+    const auto kind_status = pp_artifact_reproducibility_get_issue_kind(
+        report.get(), index, &kind, &kind_error);
+    POSTPROJECT_TRY(check(kind_status, kind_error));
     pp_artifact_reproducibility_issue_t native{};
     pp_error_t *issue_error = nullptr;
     const pp_error_code_t issue_status =
-        pp_artifact_reproducibility_get_issue(report.get(), index, &native,
+        pp_artifact_reproducibility_get_issue(report.get(), index, kind, &native,
                                               &issue_error);
     POSTPROJECT_TRY(check(issue_status, issue_error));
     switch (native.kind) {

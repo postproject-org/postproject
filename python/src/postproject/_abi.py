@@ -694,9 +694,11 @@ EXPORTED_SYMBOLS = (
     "pp_activity_set_release",
     "pp_artifact_evaluation_get",
     "pp_artifact_evaluation_get_reason",
+    "pp_artifact_evaluation_get_reason_kind",
     "pp_artifact_evaluation_release",
     "pp_artifact_reproducibility_get",
     "pp_artifact_reproducibility_get_issue",
+    "pp_artifact_reproducibility_get_issue_kind",
     "pp_artifact_reproducibility_release",
     "pp_asset_id_format",
     "pp_asset_id_parse",
@@ -1384,7 +1386,9 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_production_evaluate_artifact.restype = ErrorCode
     lib.pp_artifact_evaluation_get.argtypes = [ctypes.POINTER(ArtifactEvaluation), ctypes.POINTER(RepresentationId), ctypes.POINTER(ArtifactKnowledgeState), ctypes.POINTER(ctypes.c_uint32), ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ctypes.c_uint64), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_artifact_evaluation_get.restype = ErrorCode
-    lib.pp_artifact_evaluation_get_reason.argtypes = [ctypes.POINTER(ArtifactEvaluation), ctypes.c_uint64, ctypes.POINTER(ArtifactReason), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_artifact_evaluation_get_reason_kind.argtypes = [ctypes.POINTER(ArtifactEvaluation), ctypes.c_uint64, ctypes.POINTER(ArtifactReasonKind), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_artifact_evaluation_get_reason_kind.restype = ErrorCode
+    lib.pp_artifact_evaluation_get_reason.argtypes = [ctypes.POINTER(ArtifactEvaluation), ctypes.c_uint64, ArtifactReasonKind, ctypes.POINTER(ArtifactReason), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_artifact_evaluation_get_reason.restype = ErrorCode
     lib.pp_artifact_evaluation_release.argtypes = [ctypes.POINTER(ArtifactEvaluation)]
     lib.pp_artifact_evaluation_release.restype = None
@@ -1392,7 +1396,9 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_production_artifact_reproducibility.restype = ErrorCode
     lib.pp_artifact_reproducibility_get.argtypes = [ctypes.POINTER(ArtifactReproducibility), ctypes.POINTER(RepresentationId), ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ActivityId), ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.c_uint64), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_artifact_reproducibility_get.restype = ErrorCode
-    lib.pp_artifact_reproducibility_get_issue.argtypes = [ctypes.POINTER(ArtifactReproducibility), ctypes.c_uint64, ctypes.POINTER(ArtifactReproducibilityIssue), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_artifact_reproducibility_get_issue_kind.argtypes = [ctypes.POINTER(ArtifactReproducibility), ctypes.c_uint64, ctypes.POINTER(ArtifactReproducibilityIssueKind), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_artifact_reproducibility_get_issue_kind.restype = ErrorCode
+    lib.pp_artifact_reproducibility_get_issue.argtypes = [ctypes.POINTER(ArtifactReproducibility), ctypes.c_uint64, ArtifactReproducibilityIssueKind, ctypes.POINTER(ArtifactReproducibilityIssue), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_artifact_reproducibility_get_issue.restype = ErrorCode
     lib.pp_artifact_reproducibility_release.argtypes = [ctypes.POINTER(ArtifactReproducibility)]
     lib.pp_artifact_reproducibility_release.restype = None

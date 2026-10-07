@@ -361,18 +361,25 @@ static pp_error_code_t explain_stale_proxy(
                                    &truncated, &reason_count, error);
   }
   for (uint64_t i = 0; status == PP_OK && i < reason_count; ++i) {
+    pp_artifact_reason_kind_t kind = 0;
+    status = pp_artifact_evaluation_get_reason_kind(evaluation, i, &kind, error);
     pp_artifact_reason_t reason;
-    status = pp_artifact_evaluation_get_reason(evaluation, i, &reason, error);
+    if (status == PP_OK) {
+      status = pp_artifact_evaluation_get_reason(evaluation, i, kind, &reason, error);
+    }
     if (status == PP_OK) {
       *out_reason_kinds |= reason.kind < 32 ? UINT32_C(1) << reason.kind : 0;
-      printf("reason %u on %s edge: %s v%u, snapshot %llu bytes, now %llu\n",
-             reason.kind,
+      printf("reason %u\n", kind);
+      if (kind == PP_ARTIFACT_REASON_FINGERPRINT_CHANGED ||
+          kind == PP_ARTIFACT_REASON_FINGERPRINT_EVIDENCE_MISSING) {
+        printf("%s edge: %s v%u, snapshot %llu bytes, now %llu\n",
              reason.edge_kind == PP_ARTIFACT_EDGE_INPUT ? "input" : "output",
              reason.fingerprint_algorithm != NULL ? reason.fingerprint_algorithm
                                                   : "-",
              reason.fingerprint_version,
              (unsigned long long)reason.snapshot_value_length,
              (unsigned long long)reason.current_value_length);
+      }
     }
   }
   if (status == PP_OK) {
@@ -390,8 +397,12 @@ static pp_error_code_t explain_stale_proxy(
         &activity_kind, &issue_count, error);
     /* Issues name what a regeneration would still be missing. */
     for (uint64_t i = 0; status == PP_OK && i < issue_count; ++i) {
+      pp_artifact_reproducibility_issue_kind_t kind = 0;
+      status = pp_artifact_reproducibility_get_issue_kind(report, i, &kind, error);
       pp_artifact_reproducibility_issue_t issue;
-      status = pp_artifact_reproducibility_get_issue(report, i, &issue, error);
+      if (status == PP_OK) {
+        status = pp_artifact_reproducibility_get_issue(report, i, kind, &issue, error);
+      }
       if (status == PP_OK) {
         *out_issue_kinds |= issue.kind < 32 ? UINT32_C(1) << issue.kind : 0;
         printf("reproducibility issue %u\n", issue.kind);

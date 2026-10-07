@@ -1244,8 +1244,14 @@ PP_API pp_error_code_t pp_artifact_evaluation_get(
     pp_artifact_knowledge_state_t *out_state,
     uint32_t *out_visited_representations, uint8_t *out_truncated,
     uint64_t *out_reason_count, pp_error_t **out_error);
+PP_API pp_error_code_t pp_artifact_evaluation_get_reason_kind(
+    const pp_artifact_evaluation_t *evaluation, uint64_t index,
+    pp_artifact_reason_kind_t *out_kind, pp_error_t **out_error);
+/* Payload access requires the selected kind. A mismatch returns
+ * PP_ERROR_INVALID_ARGUMENT and initializes the record to zero. */
 PP_API pp_error_code_t pp_artifact_evaluation_get_reason(
     const pp_artifact_evaluation_t *evaluation, uint64_t index,
+    pp_artifact_reason_kind_t expected_kind,
     pp_artifact_reason_t *out_reason, pp_error_t **out_error);
 PP_API void
 pp_artifact_evaluation_release(pp_artifact_evaluation_t *evaluation);
@@ -1258,8 +1264,13 @@ PP_API pp_error_code_t pp_artifact_reproducibility_get(
     uint8_t *out_has_producing_activity,
     pp_activity_id_t *out_producing_activity_id, const char **out_activity_kind,
     uint64_t *out_issue_count, pp_error_t **out_error);
+PP_API pp_error_code_t pp_artifact_reproducibility_get_issue_kind(
+    const pp_artifact_reproducibility_t *report, uint64_t index,
+    pp_artifact_reproducibility_issue_kind_t *out_kind, pp_error_t **out_error);
+/* Payload access has the same checked-kind and zero-on-failure rules. */
 PP_API pp_error_code_t pp_artifact_reproducibility_get_issue(
     const pp_artifact_reproducibility_t *report, uint64_t index,
+    pp_artifact_reproducibility_issue_kind_t expected_kind,
     pp_artifact_reproducibility_issue_t *out_issue,
     pp_error_t **out_error);
 PP_API void pp_artifact_reproducibility_release(

@@ -192,7 +192,7 @@ const PP_REVISION_JOB_FAILED: u32 = 25;
 const PP_REVISION_JOB_CANCELLED: u32 = 26;
 
 /// Current pre-1.0 ABI version.
-pub const ABI_VERSION: u32 = 49;
+pub const ABI_VERSION: u32 = 50;
 
 /// Fixed-layout UUID-compatible public identifier.
 #[repr(C)]
@@ -2770,7 +2770,33 @@ pub unsafe extern "C" fn pp_artifact_evaluation_get(
     }
 }
 
-/// Reads one borrowed artifact-evaluation reason.
+/// Reads the category of one artifact-evaluation reason before selecting its payload.
+///
+/// # Safety
+///
+/// `evaluation` must be live, `out_kind` writable, and `out_error` null or writable.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_artifact_evaluation_get_reason_kind(
+    evaluation: *const PpArtifactEvaluation,
+    index: u64,
+    out_kind: *mut u32,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: Outputs are initialized and checked before writes.
+    unsafe {
+        initialize_value(out_kind, 0);
+        ffi_call(out_error, || {
+            require_output(out_kind, "out_kind")?;
+            let evaluation = evaluation
+                .as_ref()
+                .ok_or_else(|| invalid_argument("evaluation must not be null"))?;
+            out_kind.write(item_at(&evaluation.reasons, index, "artifact reason")?.kind());
+            Ok(())
+        })
+    }
+}
+
+/// Reads a borrowed artifact reason only when its category equals `expected_kind`.
 ///
 /// # Safety
 ///
@@ -2780,6 +2806,7 @@ pub unsafe extern "C" fn pp_artifact_evaluation_get(
 pub unsafe extern "C" fn pp_artifact_evaluation_get_reason(
     evaluation: *const PpArtifactEvaluation,
     index: u64,
+    expected_kind: u32,
     out_reason: *mut PpArtifactReason,
     out_error: *mut *mut PpError,
 ) -> u32 {
@@ -2792,6 +2819,11 @@ pub unsafe extern "C" fn pp_artifact_evaluation_get_reason(
                 .as_ref()
                 .ok_or_else(|| invalid_argument("evaluation must not be null"))?;
             let reason = item_at(&evaluation.reasons, index, "artifact reason")?;
+            if reason.kind() != expected_kind {
+                return Err(invalid_argument(
+                    "artifact reason has a different payload kind",
+                ));
+            }
             out_reason.write(reason.as_abi());
             Ok(())
         })
@@ -2899,7 +2931,33 @@ pub unsafe extern "C" fn pp_artifact_reproducibility_get(
     }
 }
 
-/// Reads one reproducibility issue.
+/// Reads the category of one reproducibility issue before selecting its payload.
+///
+/// # Safety
+///
+/// `report` must be live, `out_kind` writable, and `out_error` null or writable.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_artifact_reproducibility_get_issue_kind(
+    report: *const PpArtifactReproducibility,
+    index: u64,
+    out_kind: *mut u32,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: Outputs are initialized and checked before writes.
+    unsafe {
+        initialize_value(out_kind, 0);
+        ffi_call(out_error, || {
+            require_output(out_kind, "out_kind")?;
+            let report = report
+                .as_ref()
+                .ok_or_else(|| invalid_argument("report must not be null"))?;
+            out_kind.write(item_at(&report.issues, index, "artifact reproducibility issue")?.kind);
+            Ok(())
+        })
+    }
+}
+
+/// Reads a reproducibility issue only when its category equals `expected_kind`.
 ///
 /// # Safety
 ///
@@ -2909,6 +2967,7 @@ pub unsafe extern "C" fn pp_artifact_reproducibility_get(
 pub unsafe extern "C" fn pp_artifact_reproducibility_get_issue(
     report: *const PpArtifactReproducibility,
     index: u64,
+    expected_kind: u32,
     out_issue: *mut PpArtifactReproducibilityIssue,
     out_error: *mut *mut PpError,
 ) -> u32 {
@@ -2920,11 +2979,13 @@ pub unsafe extern "C" fn pp_artifact_reproducibility_get_issue(
             let report = report
                 .as_ref()
                 .ok_or_else(|| invalid_argument("report must not be null"))?;
-            out_issue.write(*item_at(
-                &report.issues,
-                index,
-                "artifact reproducibility issue",
-            )?);
+            let issue = item_at(&report.issues, index, "artifact reproducibility issue")?;
+            if issue.kind != expected_kind {
+                return Err(invalid_argument(
+                    "reproducibility issue has a different payload kind",
+                ));
+            }
+            out_issue.write(*issue);
             Ok(())
         })
     }

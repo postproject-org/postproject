@@ -37,6 +37,9 @@ through a const `value()` view; copied values own their paths and evidence.
 `ArtifactReason` is that checked value; `kind()` is its derived display tag.
 Moved sources support destruction or reassignment. Input case records remain
 unvalidated until the factory accepts them.
+In C ABI 50, a category read precedes payload access with that expected kind.
+Wrong-kind access returns `InvalidArgument` and a zero record. Borrowed strings,
+paths and byte spans last until their evaluation/report handle is released.
 
 No schema, persisted identity or external standards mapping changes. These
 projections preserve the existing recorded provenance and dependency semantics.

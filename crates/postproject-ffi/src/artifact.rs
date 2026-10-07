@@ -158,6 +158,10 @@ impl PpArtifactEvaluation {
 }
 
 impl AbiArtifactReason {
+    pub(crate) const fn kind(&self) -> u32 {
+        self.kind
+    }
+
     pub(crate) fn as_abi(&self) -> PpArtifactReason {
         PpArtifactReason {
             kind: self.kind,
