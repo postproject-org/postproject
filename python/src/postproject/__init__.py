@@ -18,7 +18,7 @@ from ._errors import (
     TransactionConflict,
     UnsupportedError,
 )
-from ._ids import parse_id
+from ._ids import JobClaimId, parse_id
 from ._model import (
     ActiveJobLease,
     Activity,
@@ -77,7 +77,6 @@ from ._model import (
     JobCancelledEvent,
     JobClaim,
     JobClaimedEvent,
-    JobClaimId,
     JobClaimReleasedEvent,
     JobClaimRenewedEvent,
     JobCompletion,
