@@ -11,6 +11,9 @@ use super::{
 };
 use crate::{SqliteJobLease, job_clock, job_lease::LeaseUpdate};
 
+#[cfg(test)]
+mod tests;
+
 impl SqliteTransaction<'_> {
     /// Claims work for a checked duration; ownership activates only on commit.
     ///
