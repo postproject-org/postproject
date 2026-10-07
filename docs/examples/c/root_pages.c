@@ -15,7 +15,8 @@ static int root_pages(const char *path) {
   CHECK_ROOT(pp_production_begin_transaction(production, &transaction, &error));
   CHECK_ROOT(pp_transaction_add_media_root(transaction, "first", NULL, -1, &root, &error));
   CHECK_ROOT(pp_transaction_add_media_root(transaction, "second", NULL, 0, &root, &error));
-  CHECK_ROOT(pp_transaction_commit(transaction, &error));
+  pp_commit_receipt_t commit_receipt;
+  CHECK_ROOT(pp_transaction_commit_with_receipt(transaction, &commit_receipt, &error));
   CHECK_ROOT(pp_production_media_roots_page(production, 1, NULL, &live, &error));
   if (pp_media_root_set_count(live) != 1 || !pp_media_root_set_next_cursor(live)) goto cleanup;
   CHECK_ROOT(pp_production_read_session(production, &view, &error));

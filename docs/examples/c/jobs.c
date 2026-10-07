@@ -131,7 +131,8 @@ static pp_error_code_t request_proxy(pp_production_t *production,
     if (status == PP_OK) status = stage_proxy_parameters(transaction, &job, error);
   }
   if (status == PP_OK) {
-    status = pp_transaction_commit(transaction, error);
+    pp_commit_receipt_t commit_receipt;
+    status = pp_transaction_commit_with_receipt(transaction, &commit_receipt, error);
   }
   if (status == PP_OK) {
     status = pp_production_jobs(production, PP_JOB_REQUESTED, PROXY_JOB,
@@ -171,7 +172,10 @@ static pp_error_code_t claim_renew_release(pp_production_t *production,
         "https://example.com/transcoder", "render-node-04", "com.example.host",
         "node-04", NULL, 5 * MINUTE, &lease, error);
   }
-  if (status == PP_OK) status = pp_transaction_commit(transaction, error);
+  if (status == PP_OK) {
+    pp_commit_receipt_t commit_receipt;
+    status = pp_transaction_commit_with_receipt(transaction, &commit_receipt, error);
+  }
   pp_transaction_release(transaction);
   transaction = NULL;
 
@@ -201,14 +205,20 @@ static pp_error_code_t claim_renew_release(pp_production_t *production,
   pp_string_release(token);
   if (status == PP_OK) status = pp_production_begin_transaction(production, &transaction, error);
   if (status == PP_OK) status = pp_transaction_renew_job_lease(transaction, imported, 10 * MINUTE, error);
-  if (status == PP_OK) status = pp_transaction_commit(transaction, error);
+  if (status == PP_OK) {
+    pp_commit_receipt_t commit_receipt;
+    status = pp_transaction_commit_with_receipt(transaction, &commit_receipt, error);
+  }
   pp_transaction_release(transaction);
   transaction = NULL;
 
   /* Releasing abandons the work without recording a failure. */
   if (status == PP_OK) status = pp_production_begin_transaction(production, &transaction, error);
   if (status == PP_OK) status = pp_transaction_release_job_lease(transaction, imported, error);
-  if (status == PP_OK) status = pp_transaction_commit(transaction, error);
+  if (status == PP_OK) {
+    pp_commit_receipt_t commit_receipt;
+    status = pp_transaction_commit_with_receipt(transaction, &commit_receipt, error);
+  }
   pp_job_lease_free(imported);
   pp_job_lease_free(lease);
   pp_transaction_release(transaction);
@@ -235,7 +245,8 @@ complete_proxy(pp_production_t *production, pp_job_id_t job_id,
                                       NULL, NULL, NULL, NULL, 5 * MINUTE, &lease, error);
   }
   if (status == PP_OK) {
-    status = pp_transaction_commit(transaction, error);
+    pp_commit_receipt_t commit_receipt;
+    status = pp_transaction_commit_with_receipt(transaction, &commit_receipt, error);
   }
   pp_transaction_release(transaction);
   transaction = NULL;
@@ -278,7 +289,8 @@ complete_proxy(pp_production_t *production, pp_job_id_t job_id,
     if (status == PP_OK) status = stage_proxy_parameters(transaction, &activity, error);
   }
   if (status == PP_OK) {
-    status = pp_transaction_commit(transaction, error);
+    pp_commit_receipt_t commit_receipt;
+    status = pp_transaction_commit_with_receipt(transaction, &commit_receipt, error);
   }
   pp_job_lease_free(lease);
   pp_transaction_release(transaction);
@@ -299,7 +311,8 @@ static pp_error_code_t fail_proxy(pp_production_t *production,
                                       5 * MINUTE, &lease, error);
   }
   if (status == PP_OK) {
-    status = pp_transaction_commit(transaction, error);
+    pp_commit_receipt_t commit_receipt;
+    status = pp_transaction_commit_with_receipt(transaction, &commit_receipt, error);
   }
   pp_transaction_release(transaction);
   transaction = NULL;
@@ -314,7 +327,8 @@ static pp_error_code_t fail_proxy(pp_production_t *production,
                                 "encoder exited with status 1", error);
   }
   if (status == PP_OK) {
-    status = pp_transaction_commit(transaction, error);
+    pp_commit_receipt_t commit_receipt;
+    status = pp_transaction_commit_with_receipt(transaction, &commit_receipt, error);
   }
   pp_job_lease_free(lease);
   pp_transaction_release(transaction);
@@ -333,7 +347,8 @@ static pp_error_code_t cancel(pp_production_t *production,
     status = pp_transaction_cancel_job(transaction, job_id, error);
   }
   if (status == PP_OK) {
-    status = pp_transaction_commit(transaction, error);
+    pp_commit_receipt_t commit_receipt;
+    status = pp_transaction_commit_with_receipt(transaction, &commit_receipt, error);
   }
   pp_transaction_release(transaction);
   return status;
@@ -404,7 +419,8 @@ static pp_error_code_t enqueue_regeneration(pp_production_t *production,
     pp_metadata_input_release(input);
   }
   if (status == PP_OK) {
-    status = pp_transaction_commit(transaction, error);
+    pp_commit_receipt_t commit_receipt;
+    status = pp_transaction_commit_with_receipt(transaction, &commit_receipt, error);
   }
 
   pp_transaction_release(transaction);
@@ -449,7 +465,8 @@ static pp_error_code_t create_production(const char *path, const char *media,
                                            "Proxy storage", 0, &root_id, error);
   }
   if (status == PP_OK) {
-    status = pp_transaction_commit(transaction, error);
+    pp_commit_receipt_t commit_receipt;
+    status = pp_transaction_commit_with_receipt(transaction, &commit_receipt, error);
   }
   if (status == PP_OK) {
     status =

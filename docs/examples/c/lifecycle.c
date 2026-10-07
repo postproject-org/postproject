@@ -138,7 +138,8 @@ static pp_error_code_t commit_then_roll_back(pp_production_t *production,
         transaction, "archive", "Archive volume", 10, &root_id, error);
   }
   if (status == PP_OK) {
-    status = pp_transaction_commit(transaction, error);
+    pp_commit_receipt_t commit_receipt;
+    status = pp_transaction_commit_with_receipt(transaction, &commit_receipt, error);
   }
   pp_transaction_release(transaction);
   transaction = NULL;
@@ -210,7 +211,8 @@ static pp_error_code_t create_production(const char *path, const char *media,
   }
   pp_media_source_release(camera);
   if (status == PP_OK) {
-    status = pp_transaction_commit(transaction, error);
+    pp_commit_receipt_t commit_receipt;
+    status = pp_transaction_commit_with_receipt(transaction, &commit_receipt, error);
   }
   pp_transaction_release(transaction);
   pp_production_release(production);

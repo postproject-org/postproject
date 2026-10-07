@@ -46,7 +46,8 @@ int main(int argc, char **argv) {
   /* Staged work becomes durable only on commit. Releasing a transaction that
    * was not committed discards everything staged in it. */
   if (status == PP_OK) {
-    status = pp_transaction_commit(transaction, &error);
+    pp_commit_receipt_t commit_receipt;
+    status = pp_transaction_commit_with_receipt(transaction, &commit_receipt, &error);
   }
   /* The result set is caller-owned; strings read from it borrow the set. */
   if (status == PP_OK) {

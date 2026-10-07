@@ -40,7 +40,8 @@ static pp_error_code_t create_production(const char *path, const char *media,
   }
   pp_media_source_release(camera);
   if (status == PP_OK) {
-    status = pp_transaction_commit(transaction, error);
+    pp_commit_receipt_t commit_receipt;
+    status = pp_transaction_commit_with_receipt(transaction, &commit_receipt, error);
   }
   if (status == PP_OK) {
     status = pp_production_representations(production, *out_asset_id,
@@ -79,7 +80,8 @@ static pp_error_code_t tag_camera_serial(pp_production_t *production,
         error);
   }
   if (status == PP_OK) {
-    status = pp_transaction_commit(transaction, error);
+    pp_commit_receipt_t commit_receipt;
+    status = pp_transaction_commit_with_receipt(transaction, &commit_receipt, error);
   }
   if (status == PP_OK) {
     status = pp_production_external_identifiers(production, &target,
@@ -129,7 +131,8 @@ static pp_error_code_t add_title(pp_production_t *production,
         transaction, &target, IPTC_VIDEO_METADATA_HUB, "title", title, error);
   }
   if (status == PP_OK) {
-    status = pp_transaction_commit(transaction, error);
+    pp_commit_receipt_t commit_receipt;
+    status = pp_transaction_commit_with_receipt(transaction, &commit_receipt, error);
   }
   if (status == PP_OK) {
     status = pp_production_metadata(production, &target, &on_asset, error);
@@ -179,7 +182,8 @@ static pp_error_code_t add_rushes_root(pp_production_t *production,
                                            error);
   }
   if (status == PP_OK) {
-    status = pp_transaction_commit(transaction, error);
+    pp_commit_receipt_t commit_receipt;
+    status = pp_transaction_commit_with_receipt(transaction, &commit_receipt, error);
   }
 
   pp_transaction_release(transaction);
@@ -303,7 +307,8 @@ confirm_unique_candidates(pp_production_t *production,
     }
   }
   if (status == PP_OK) {
-    status = pp_transaction_commit(transaction, error);
+    pp_commit_receipt_t commit_receipt;
+    status = pp_transaction_commit_with_receipt(transaction, &commit_receipt, error);
   }
 
   pp_transaction_release(transaction);
@@ -338,7 +343,8 @@ static pp_error_code_t add_render_sequence(pp_production_t *production,
   }
   pp_media_source_release(sequence);
   if (status == PP_OK) {
-    status = pp_transaction_commit(transaction, error);
+    pp_commit_receipt_t commit_receipt;
+    status = pp_transaction_commit_with_receipt(transaction, &commit_receipt, error);
   }
   if (status == PP_OK) {
     status = pp_production_representations(production, *asset_id,
@@ -402,7 +408,8 @@ static pp_error_code_t record_render(pp_production_t *production,
         NULL, NULL, NULL, &activity_id, error);
   }
   if (status == PP_OK) {
-    status = pp_transaction_commit(transaction, error);
+    pp_commit_receipt_t commit_receipt;
+    status = pp_transaction_commit_with_receipt(transaction, &commit_receipt, error);
   }
   if (status == PP_OK) {
     status = pp_production_activities_producing(production, *render_id,
@@ -502,7 +509,8 @@ record_and_query_dependencies(pp_production_t *production,
         transaction, *source_id, &dependency, UINT64_C(1), error);
   }
   if (status == PP_OK) {
-    status = pp_transaction_commit(transaction, error);
+    pp_commit_receipt_t commit_receipt;
+    status = pp_transaction_commit_with_receipt(transaction, &commit_receipt, error);
   }
   if (status == PP_OK) {
     status = pp_production_dependencies(production, *source_id, UINT32_C(4),
@@ -555,7 +563,8 @@ static pp_error_code_t request_and_page_jobs(pp_production_t *production,
         PP_REPRESENTATION_PROXY, NULL, &job_ids[i], error);
   }
   if (status == PP_OK) {
-    status = pp_transaction_commit(transaction, error);
+    pp_commit_receipt_t commit_receipt;
+    status = pp_transaction_commit_with_receipt(transaction, &commit_receipt, error);
   }
   pp_job_set_t *first_job = NULL;
   pp_job_t job = {0};
