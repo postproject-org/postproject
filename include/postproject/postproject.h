@@ -883,7 +883,10 @@ PP_API pp_error_code_t pp_production_asset_exists(const pp_production_t *product
                                                pp_asset_id_t asset_id,
                                                uint8_t *out_exists,
                                                pp_error_t **out_error);
-/* Asset strings borrow the owning result set. Complete-list convenience reads
+/* Materialized metadata and identifier reads cap at 100000 rows and 64 MiB of
+ * stored payload. Metadata pages include lookahead in the budget; request a
+ * smaller page after PP_ERROR_UNSUPPORTED. Individual-value limits also apply.
+ * Asset strings borrow the owning result set. Complete-list convenience reads
  * fail with PP_ERROR_UNSUPPORTED above 1000; use the corresponding page call. */
 PP_API pp_error_code_t pp_production_assets(
     const pp_production_t *production, pp_asset_set_t **out_assets,

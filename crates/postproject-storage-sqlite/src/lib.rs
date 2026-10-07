@@ -13,6 +13,7 @@ mod job_lease;
 mod metadata_codec;
 mod migrations;
 mod query_cursor;
+mod read_budget;
 mod read_session;
 mod revision_wait;
 mod transaction;
@@ -44,6 +45,7 @@ use postproject_core::{
     RevisionEventKind, RevisionEventType, RevisionId, SequenceNaming, StaleArtifactQuery,
     Timestamp, ToolIdentity, TransactionId, VocabularyId,
 };
+use read_budget::ReadBudget;
 use rusqlite::{
     Connection, OpenFlags, OptionalExtension, limits::Limit, params, params_from_iter, types::Value,
 };
@@ -1388,9 +1390,12 @@ impl SqliteProduction {
             })
             .map_err(sqlite_error("query external identifiers"))?;
 
+        let mut budget = ReadBudget::default();
         rows.map(|row| {
             let (scheme, value, qualifier) =
                 row.map_err(sqlite_error("read external-identifier row"))?;
+            budget
+                .record(scheme.len() + value.len() + qualifier.as_ref().map_or(0, String::len))?;
             decode_external_identifier(scheme, value, qualifier)
         })
         .collect()
@@ -1428,8 +1433,10 @@ impl SqliteProduction {
             })
             .map_err(sqlite_error("look up external identifier"))?;
 
+        let mut budget = ReadBudget::default();
         rows.map(|row| {
             let (kind, id) = row.map_err(sqlite_error("read external-identifier target"))?;
+            budget.record(id.len() + 8)?;
             decode_identifier_target(kind, id)
         })
         .collect()
@@ -1463,8 +1470,10 @@ impl SqliteProduction {
             })
             .map_err(sqlite_error("query metadata"))?;
 
+        let mut budget = ReadBudget::default();
         rows.map(|row| {
             let (vocabulary, property, encoded) = row.map_err(sqlite_error("read metadata row"))?;
+            budget.record(vocabulary.len() + property.len() + encoded.len())?;
             decode_metadata_assertion(vocabulary, property, &encoded)
         })
         .collect()
@@ -1504,8 +1513,10 @@ impl SqliteProduction {
             )
             .map_err(sqlite_error("query metadata values"))?;
 
+        let mut budget = ReadBudget::default();
         rows.map(|row| {
             let encoded = row.map_err(sqlite_error("read metadata-value row"))?;
+            budget.record(encoded.len())?;
             metadata_codec::decode(&encoded)
         })
         .collect()
@@ -1521,38 +1532,13 @@ impl SqliteProduction {
         &self,
         property: &MetadataProperty,
     ) -> Result<Vec<MetadataMatch>> {
-        let mut statement = self
-            .connection
-            .prepare(
-                "SELECT target_kind, target_id, encoded_value
-                 FROM metadata_assertions
-                 WHERE vocabulary = ?1 AND property = ?2
-                 ORDER BY target_kind, target_id, position, id",
-            )
-            .map_err(sqlite_error("prepare metadata-property lookup"))?;
-        let rows = statement
-            .query_map(
-                params![property.vocabulary().as_str(), property.property().as_str(),],
-                |row| {
-                    Ok((
-                        row.get::<_, i64>(0)?,
-                        row.get::<_, Vec<u8>>(1)?,
-                        row.get::<_, Vec<u8>>(2)?,
-                    ))
-                },
-            )
-            .map_err(sqlite_error("query metadata property"))?;
-
-        rows.map(|row| {
-            let (kind, id, encoded) = row.map_err(sqlite_error("read metadata match"))?;
-            let target = decode_metadata_target(kind, id)?;
-            let value = metadata_codec::decode(&encoded)?;
-            Ok(MetadataMatch::new(
-                target,
-                MetadataAssertion::new(property.clone(), value),
-            ))
-        })
-        .collect()
+        complete_collection(
+            self.metadata_query(
+                &MetadataQuery::new(property.clone(), None)?,
+                &QueryPageRequest::new(postproject_core::MAX_QUERY_PAGE_SIZE, None)?,
+            )?,
+            "metadata property matches",
+        )
     }
 
     /// Queries one bounded page of metadata-property matches.
@@ -1606,6 +1592,7 @@ impl SqliteProduction {
             .connection
             .prepare(&sql)
             .map_err(sqlite_error("prepare paginated metadata query"))?;
+        let mut budget = ReadBudget::default();
         let mut rows = statement
             .query_map(params_from_iter(parameters), |row| {
                 Ok((
@@ -1617,8 +1604,12 @@ impl SqliteProduction {
                 ))
             })
             .map_err(sqlite_error("query paginated metadata"))?
-            .collect::<std::result::Result<Vec<_>, _>>()
-            .map_err(sqlite_error("read paginated metadata row"))?;
+            .map(|row| {
+                let row = row.map_err(sqlite_error("read paginated metadata row"))?;
+                budget.record(row.1.len() + row.4.len() + 24)?;
+                Ok(row)
+            })
+            .collect::<Result<Vec<_>>>()?;
         let has_more = rows.len() > page.limit() as usize;
         rows.truncate(page.limit() as usize);
         let next_cursor = if has_more {

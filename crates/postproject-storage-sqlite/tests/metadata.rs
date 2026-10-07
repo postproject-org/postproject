@@ -3,8 +3,8 @@
 use std::fs;
 
 use postproject_core::{
-    ActivityId, AssetId, ErrorKind, MetadataField, MetadataProperty, MetadataValue, ObjectRef,
-    PropertyId, VocabularyId,
+    ActivityId, AssetId, ErrorKind, MetadataField, MetadataProperty, MetadataQuery, MetadataValue,
+    ObjectRef, PropertyId, QueryPageRequest, VocabularyId,
 };
 use postproject_media::prepare_original_media;
 use postproject_storage_sqlite::SqliteProduction;
@@ -30,6 +30,60 @@ fn structured_contact() -> MetadataValue {
         ),
     ])
     .unwrap()
+}
+
+#[test]
+fn payload_budget_rejects_large_materialization_but_smaller_pages_preserve_values() {
+    let directory = tempdir().unwrap();
+    let mut production =
+        SqliteProduction::create(directory.path().join("large.pproj"), None).unwrap();
+    let target = ObjectRef::Production(production.production().id());
+    let property = property("com.example.opaque", "payload");
+    let value = MetadataValue::bytes(vec![0x8a; 9 * 1024 * 1024]).unwrap();
+    let mut edit = production.begin_transaction().unwrap();
+    for _ in 0..8 {
+        edit.add_metadata_value(target, &property, &value).unwrap();
+    }
+    let receipt = edit.commit().unwrap();
+    drop(edit);
+    assert_eq!(
+        production.metadata(target).unwrap_err().kind(),
+        ErrorKind::Unsupported
+    );
+    assert_eq!(
+        production
+            .metadata_values(target, &property)
+            .unwrap_err()
+            .kind(),
+        ErrorKind::Unsupported
+    );
+    let query = MetadataQuery::new(property, None).unwrap();
+    assert_eq!(
+        production
+            .metadata_query(&query, &QueryPageRequest::new(8, None).unwrap())
+            .unwrap_err()
+            .kind(),
+        ErrorKind::Unsupported
+    );
+    let mut cursor = None;
+    let mut count = 0;
+    loop {
+        let page = production
+            .metadata_query(&query, &QueryPageRequest::new(1, cursor).unwrap())
+            .unwrap();
+        assert_eq!(page.items().len(), 1);
+        assert_eq!(page.items()[0].assertion().value(), &value);
+        count += page.items().len();
+        cursor = page.next_cursor().cloned();
+        if cursor.is_none() {
+            break;
+        }
+    }
+    assert_eq!(count, 8);
+    assert_eq!(
+        production.latest_revision().unwrap().unwrap().id(),
+        receipt.revision().unwrap().id()
+    );
 }
 
 #[test]

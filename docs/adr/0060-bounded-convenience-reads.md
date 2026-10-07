@@ -22,6 +22,14 @@ descendant helpers use the existing bounded traversal, at most 64 levels and
 Complete revision-event lists likewise cap at 1000. Large atomic commits remain
 valid; their immutable events are available through the existing event pages.
 
+Materialized metadata and identifier collections also have a private read budget
+of 100000 rows and 64 MiB of stored payload, checked while streaming before
+decoding. Metadata pages include their lookahead row in that byte budget; choose
+a smaller page after `Unsupported`. Domain and individual-value limits remain
+separate. This bounds payload allocation without treating 64 MiB as an exact
+total process-memory promise: decoded values and row bookkeeping have overhead.
+Metadata property convenience queries use the ordinary 1000-item page rule.
+
 ## Migration and standards impact
 
 Replace complete-list calls with paging when collections can exceed
