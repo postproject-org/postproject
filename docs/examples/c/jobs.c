@@ -161,62 +161,49 @@ static pp_error_code_t claim_renew_release(pp_production_t *production,
                                            pp_job_id_t job_id,
                                            pp_error_t **error) {
   pp_transaction_t *transaction = NULL;
-  pp_uuid_t claim_id;
+  pp_job_lease_t *lease = NULL, *imported = NULL;
+  char *token = NULL;
   pp_error_code_t status =
       pp_production_begin_transaction(production, &transaction, error);
   if (status == PP_OK) {
-    /* A five-minute lease; the token is usable only after commit. */
-    status = pp_transaction_claim_job(
+    status = pp_transaction_claim_job_lease(
         transaction, job_id, "Example Transcoder", "3.2",
         "https://example.com/transcoder", "render-node-04", "com.example.host",
-        "node-04", NULL, NOW, NOW + 5 * MINUTE, &claim_id, error);
+        "node-04", NULL, 5 * MINUTE, &lease, error);
   }
-  if (status == PP_OK) {
-    status = pp_transaction_commit(transaction, error);
-  }
+  if (status == PP_OK) status = pp_transaction_commit(transaction, error);
   pp_transaction_release(transaction);
   transaction = NULL;
 
-  /* Claim attribution is a checked projection of the claimed state. */
-  pp_job_set_t *claimed = NULL;
-  pp_job_claim_t detail;
+  pp_production_id_t scope;
+  pp_job_id_t scoped_job;
+  uint32_t state = 0;
+  int64_t expiry = 0;
   if (status == PP_OK) {
-    status = pp_production_job(production, job_id, &claimed, error);
+    status = pp_job_lease_get(lease, &scope, &scoped_job, &state, &expiry, error);
   }
-  if (status == PP_OK) {
-    status = pp_job_set_get_claim(claimed, 0, &detail, error);
-  }
-  if (status == PP_OK && memcmp(&detail.id, &claim_id, sizeof claim_id) != 0) {
-    status = PP_ERROR_INTERNAL;
-  }
-  pp_job_set_release(claimed);
+  if (status == PP_OK && (state != PP_JOB_LEASE_ACTIVE || expiry <= 0 ||
+      memcmp(&scoped_job, &job_id, sizeof job_id) != 0)) status = PP_ERROR_INTERNAL;
 
-  /* Renewal and release both require the claim token. */
+  /* Explicit private transport for another process; never print the token. */
+  if (status == PP_OK) status = pp_job_lease_export_token(lease, &token, error);
   if (status == PP_OK) {
-    status = pp_production_begin_transaction(production, &transaction, error);
+    status = pp_production_import_job_lease(production, (const uint8_t *)token,
+                                          strlen(token), &imported, error);
   }
-  if (status == PP_OK) {
-    status = pp_transaction_renew_job_claim(transaction, job_id, &claim_id,
-                                            NOW + 4 * MINUTE, NOW + 9 * MINUTE,
-                                            error);
-  }
-  if (status == PP_OK) {
-    status = pp_transaction_commit(transaction, error);
-  }
+  pp_string_release(token);
+  if (status == PP_OK) status = pp_production_begin_transaction(production, &transaction, error);
+  if (status == PP_OK) status = pp_transaction_renew_job_lease(transaction, imported, 10 * MINUTE, error);
+  if (status == PP_OK) status = pp_transaction_commit(transaction, error);
   pp_transaction_release(transaction);
   transaction = NULL;
 
   /* Releasing abandons the work without recording a failure. */
-  if (status == PP_OK) {
-    status = pp_production_begin_transaction(production, &transaction, error);
-  }
-  if (status == PP_OK) {
-    status =
-        pp_transaction_release_job_claim(transaction, job_id, &claim_id, error);
-  }
-  if (status == PP_OK) {
-    status = pp_transaction_commit(transaction, error);
-  }
+  if (status == PP_OK) status = pp_production_begin_transaction(production, &transaction, error);
+  if (status == PP_OK) status = pp_transaction_release_job_lease(transaction, imported, error);
+  if (status == PP_OK) status = pp_transaction_commit(transaction, error);
+  pp_job_lease_free(imported);
+  pp_job_lease_free(lease);
   pp_transaction_release(transaction);
   return status;
 }
@@ -231,15 +218,14 @@ complete_proxy(pp_production_t *production, pp_job_id_t job_id,
   const int64_t started = NOW + 10 * MINUTE;
   const int64_t finished = NOW + 12 * MINUTE;
   pp_transaction_t *transaction = NULL;
-  pp_uuid_t claim_id;
+  pp_job_lease_t *lease = NULL;
   pp_activity_id_t activity_id = {{0}};
   pp_error_code_t status =
       pp_production_begin_transaction(production, &transaction, error);
   if (status == PP_OK) {
-    status = pp_transaction_claim_job(transaction, job_id, "Example Transcoder",
+    status = pp_transaction_claim_job_lease(transaction, job_id, "Example Transcoder",
                                       "3.2", "https://example.com/transcoder",
-                                      NULL, NULL, NULL, NULL, started,
-                                      started + 5 * MINUTE, &claim_id, error);
+                                      NULL, NULL, NULL, NULL, 5 * MINUTE, &lease, error);
   }
   if (status == PP_OK) {
     status = pp_transaction_commit(transaction, error);
@@ -275,7 +261,7 @@ complete_proxy(pp_production_t *production, pp_job_id_t job_id,
   }
   if (status == PP_OK) {
     status =
-        pp_transaction_complete_job(transaction, job_id, &claim_id, finished,
+        pp_transaction_complete_job_lease(transaction, lease,
                                     *out_proxy_id, activity_id, error);
   }
   if (status == PP_OK) {
@@ -287,6 +273,7 @@ complete_proxy(pp_production_t *production, pp_job_id_t job_id,
   if (status == PP_OK) {
     status = pp_transaction_commit(transaction, error);
   }
+  pp_job_lease_free(lease);
   pp_transaction_release(transaction);
   return status;
 }
@@ -296,14 +283,13 @@ complete_proxy(pp_production_t *production, pp_job_id_t job_id,
 static pp_error_code_t fail_proxy(pp_production_t *production,
                                   pp_job_id_t job_id, pp_error_t **error) {
   pp_transaction_t *transaction = NULL;
-  pp_uuid_t claim_id;
-  const int64_t now = NOW + 20 * MINUTE;
+  pp_job_lease_t *lease = NULL;
   pp_error_code_t status =
       pp_production_begin_transaction(production, &transaction, error);
   if (status == PP_OK) {
-    status = pp_transaction_claim_job(transaction, job_id, "Example Transcoder",
-                                      "3.2", NULL, NULL, NULL, NULL, NULL, now,
-                                      now + 5 * MINUTE, &claim_id, error);
+    status = pp_transaction_claim_job_lease(transaction, job_id, "Example Transcoder",
+                                      "3.2", NULL, NULL, NULL, NULL, NULL,
+                                      5 * MINUTE, &lease, error);
   }
   if (status == PP_OK) {
     status = pp_transaction_commit(transaction, error);
@@ -317,12 +303,13 @@ static pp_error_code_t fail_proxy(pp_production_t *production,
   }
   if (status == PP_OK) {
     status =
-        pp_transaction_fail_job(transaction, job_id, &claim_id, now + MINUTE,
+        pp_transaction_fail_job_lease(transaction, lease,
                                 "encoder exited with status 1", error);
   }
   if (status == PP_OK) {
     status = pp_transaction_commit(transaction, error);
   }
+  pp_job_lease_free(lease);
   pp_transaction_release(transaction);
   return status;
 }
