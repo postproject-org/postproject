@@ -102,6 +102,17 @@ impl SqliteJobLease {
             self.production, self.job, self.secret
         ))
     }
+
+    /// Checks token encoding and returns only its nonsensitive scope.
+    ///
+    /// This performs no I/O and grants no ownership. Import still validates
+    /// the current claim, state and authority time.
+    ///
+    /// # Errors
+    /// Rejects oversized, noncanonical, malformed or unsupported encodings.
+    pub fn token_scope(token: &str) -> Result<(ProductionId, JobId)> {
+        parse_token(token).map(|(production, job, _)| (production, job))
+    }
 }
 
 pub(crate) fn parse_token(token: &str) -> Result<(ProductionId, JobId, JobClaimId)> {
