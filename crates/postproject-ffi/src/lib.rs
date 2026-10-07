@@ -46,11 +46,11 @@ use postproject_core::{
     ActivityRole, AgentIdentity, ArtifactEvaluationLimits, Asset, AssetId, AvailabilityIssue,
     AvailabilityIssueKind, CommitReceipt, DecisionBase, Dependency, DependencyKind,
     DependencyQueryLimits, DependencyTarget, Error, ErrorKind, EvidenceKind, ExternalIdentifier,
-    HostObjectBinding, IdentifierScheme, Job, JobClaimId, JobFailure, JobId, JobKind, JobQuery,
-    JobStateKind, Locator, LocatorAvailability, LocatorId, MAX_ACTIVITY_EDGES,
-    MAX_DEPENDENCIES_PER_SET, MAX_JOB_INPUTS, MediaRoot, MediaRootId, MetadataProperty,
-    MetadataQuery, MetadataValue, ObjectRef, OriginIdentity, OriginalMediaImport, ProductionId,
-    PropertyId, ProvenanceQueryLimits, ProvenanceQueryMatch, QueryCursor, QueryPageRequest,
+    HostObjectBinding, IdentifierScheme, Job, JobFailure, JobId, JobKind, JobQuery, JobStateKind,
+    Locator, LocatorAvailability, LocatorId, MAX_ACTIVITY_EDGES, MAX_DEPENDENCIES_PER_SET,
+    MAX_JOB_INPUTS, MediaRoot, MediaRootId, MetadataProperty, MetadataQuery, MetadataValue,
+    ObjectRef, OriginIdentity, OriginalMediaImport, ProductionId, PropertyId,
+    ProvenanceQueryLimits, ProvenanceQueryMatch, QueryCursor, QueryPageRequest,
     RepresentationAvailability, RepresentationFingerprint, RepresentationId, RepresentationImport,
     RepresentationKind, RepresentationResolution, RequestedJobOutput, ResolutionEvidence,
     ResourceFingerprint, ResourceId, ResourceResolutionState, RevisionContext, RevisionId,
@@ -191,7 +191,7 @@ const PP_REVISION_JOB_FAILED: u32 = 25;
 const PP_REVISION_JOB_CANCELLED: u32 = 26;
 
 /// Current pre-1.0 ABI version.
-pub const ABI_VERSION: u32 = 47;
+pub const ABI_VERSION: u32 = 48;
 
 /// Fixed-layout UUID-compatible public identifier.
 #[repr(C)]
@@ -458,24 +458,6 @@ enum StagedMutation {
     Activity(Activity),
     RequestJob(Job),
     Lease(job_leases::LeaseMutation),
-    ClaimJob {
-        job_id: JobId,
-        claim_id: JobClaimId,
-        tool: ToolIdentity,
-        agent: Option<AgentIdentity>,
-        now: Timestamp,
-        expires_at: Timestamp,
-    },
-    RenewJobClaim(JobId, JobClaimId, Timestamp, Timestamp),
-    ReleaseJobClaim(JobId, JobClaimId),
-    CompleteJob {
-        job_id: JobId,
-        claim_id: JobClaimId,
-        now: Timestamp,
-        output: RepresentationImport,
-        activity: Box<Activity>,
-    },
-    FailJob(JobId, JobClaimId, Timestamp, JobFailure),
     CancelJob(JobId),
 }
 
@@ -5563,249 +5545,6 @@ pub unsafe extern "C" fn pp_transaction_request_job(
     }
 }
 
-/// Stages an atomic claim and returns its capability token.
-///
-/// The token becomes usable only after this transaction commits successfully.
-/// All strings are borrowed only for this call.
-///
-/// # Safety
-///
-/// `transaction` must be live, `tool_name` valid UTF-8,
-/// `out_claim_id` writable, and `out_error` null or writable. Other strings
-/// may be null or must follow the same UTF-8 contract.
-#[postproject_ffi_macros::ffi_export]
-#[allow(
-    clippy::too_many_arguments,
-    reason = "the C ABI keeps worker attribution fields explicit"
-)]
-pub unsafe extern "C" fn pp_transaction_claim_job(
-    transaction: *mut PpTransaction,
-    job_id: PpJobId,
-    tool_name: *const c_char,
-    tool_version: *const c_char,
-    tool_uri: *const c_char,
-    agent_name: *const c_char,
-    agent_identifier_scheme: *const c_char,
-    agent_identifier_value: *const c_char,
-    agent_identifier_qualifier: *const c_char,
-    now_unix_micros: i64,
-    expires_at_unix_micros: i64,
-    out_claim_id: *mut PpUuid,
-    out_error: *mut *mut PpError,
-) -> u32 {
-    // SAFETY: Inputs are checked and copied before this call returns.
-    unsafe {
-        initialize_uuid(out_claim_id);
-        ffi_call(out_error, || {
-            let transaction = transaction
-                .as_mut()
-                .ok_or_else(|| invalid_argument("transaction must not be null"))?;
-            transaction.lifecycle.ensure_open()?;
-            require_output(out_claim_id, "out_claim_id")?;
-            let (tool, agent) = worker_identity_from_abi(
-                tool_name,
-                tool_version,
-                tool_uri,
-                agent_name,
-                agent_identifier_scheme,
-                agent_identifier_value,
-                agent_identifier_qualifier,
-            )?;
-            let claim_id = JobClaimId::new();
-            out_claim_id.write(PpUuid {
-                bytes: claim_id.into_bytes(),
-            });
-            transaction.mutations.push(StagedMutation::ClaimJob {
-                job_id: JobId::from_bytes(job_id.bytes),
-                claim_id,
-                tool,
-                agent,
-                now: Timestamp::from_unix_micros(now_unix_micros),
-                expires_at: Timestamp::from_unix_micros(expires_at_unix_micros),
-            });
-            Ok(())
-        })
-    }
-}
-
-/// Stages renewal of an active job claim.
-///
-/// # Safety
-///
-/// The transaction must be live; both IDs must be readable; `out_error` may be
-/// null or writable.
-#[postproject_ffi_macros::ffi_export]
-pub unsafe extern "C" fn pp_transaction_renew_job_claim(
-    transaction: *mut PpTransaction,
-    job_id: PpJobId,
-    claim_id: *const PpUuid,
-    now_unix_micros: i64,
-    expires_at_unix_micros: i64,
-    out_error: *mut *mut PpError,
-) -> u32 {
-    // SAFETY: IDs are checked before dereference and copied immediately.
-    unsafe {
-        ffi_call(out_error, || {
-            let transaction = transaction
-                .as_mut()
-                .ok_or_else(|| invalid_argument("transaction must not be null"))?;
-            transaction.lifecycle.ensure_open()?;
-            let (job_id, claim_id) = required_job_claim_ids(job_id, claim_id)?;
-            transaction.mutations.push(StagedMutation::RenewJobClaim(
-                job_id,
-                claim_id,
-                Timestamp::from_unix_micros(now_unix_micros),
-                Timestamp::from_unix_micros(expires_at_unix_micros),
-            ));
-            Ok(())
-        })
-    }
-}
-
-/// Stages release of an active job claim.
-///
-/// # Safety
-///
-/// The transaction must be live; both IDs must be readable; `out_error` may be
-/// null or writable.
-#[postproject_ffi_macros::ffi_export]
-pub unsafe extern "C" fn pp_transaction_release_job_claim(
-    transaction: *mut PpTransaction,
-    job_id: PpJobId,
-    claim_id: *const PpUuid,
-    out_error: *mut *mut PpError,
-) -> u32 {
-    // SAFETY: IDs are checked before dereference and copied immediately.
-    unsafe {
-        ffi_call(out_error, || {
-            let transaction = transaction
-                .as_mut()
-                .ok_or_else(|| invalid_argument("transaction must not be null"))?;
-            transaction.lifecycle.ensure_open()?;
-            let (job_id, claim_id) = required_job_claim_ids(job_id, claim_id)?;
-            transaction
-                .mutations
-                .push(StagedMutation::ReleaseJobClaim(job_id, claim_id));
-            Ok(())
-        })
-    }
-}
-
-/// Binds a staged representation and activity into one atomic job completion.
-///
-/// The representation must have been staged before the activity in this same
-/// transaction. Neither fact is persisted separately if completion fails.
-///
-/// # Safety
-///
-/// The transaction must be live; claim/output IDs must be readable; `out_error`
-/// may be null or writable.
-#[postproject_ffi_macros::ffi_export]
-pub unsafe extern "C" fn pp_transaction_complete_job(
-    transaction: *mut PpTransaction,
-    job_id: PpJobId,
-    claim_id: *const PpUuid,
-    now_unix_micros: i64,
-    output_representation_id: PpRepresentationId,
-    activity_id: PpActivityId,
-    out_error: *mut *mut PpError,
-) -> u32 {
-    // SAFETY: IDs are checked before dereference and copied immediately.
-    unsafe {
-        ffi_call(out_error, || {
-            let transaction = transaction
-                .as_mut()
-                .ok_or_else(|| invalid_argument("transaction must not be null"))?;
-            transaction.lifecycle.ensure_open()?;
-            let (job_id, claim_id) = required_job_claim_ids(job_id, claim_id)?;
-            let output_id = output_representation_id;
-            let output_id = RepresentationId::from_bytes(output_id.bytes);
-            let activity_id = ActivityId::from_bytes(activity_id.bytes);
-            let output_index = transaction
-                .mutations
-                .iter()
-                .position(|mutation| {
-                    matches!(
-                        mutation,
-                        StagedMutation::Representation(output)
-                            if output.representation().id() == output_id
-                    )
-                })
-                .ok_or_else(|| {
-                    invalid_argument("output representation is not staged in this transaction")
-                })?;
-            let activity_index = transaction
-                .mutations
-                .iter()
-                .position(|mutation| {
-                    matches!(
-                        mutation,
-                        StagedMutation::Activity(activity) if activity.id() == activity_id
-                    )
-                })
-                .ok_or_else(|| invalid_argument("activity is not staged in this transaction"))?;
-            if output_index >= activity_index {
-                return Err(invalid_argument(
-                    "job output representation must be staged before its activity",
-                ));
-            }
-            let StagedMutation::Activity(activity) = transaction.mutations.remove(activity_index)
-            else {
-                unreachable!("activity index was selected by its mutation variant");
-            };
-            let StagedMutation::Representation(output) = transaction.mutations.remove(output_index)
-            else {
-                unreachable!("output index was selected by its mutation variant");
-            };
-            transaction.mutations.insert(
-                output_index,
-                StagedMutation::CompleteJob {
-                    job_id,
-                    claim_id,
-                    now: Timestamp::from_unix_micros(now_unix_micros),
-                    output,
-                    activity: Box::new(activity),
-                },
-            );
-            Ok(())
-        })
-    }
-}
-
-/// Stages failure of an active unexpired job claim.
-///
-/// # Safety
-///
-/// The transaction must be live; both IDs and `diagnostic` must be readable;
-/// `out_error` may be null or writable.
-#[postproject_ffi_macros::ffi_export]
-pub unsafe extern "C" fn pp_transaction_fail_job(
-    transaction: *mut PpTransaction,
-    job_id: PpJobId,
-    claim_id: *const PpUuid,
-    now_unix_micros: i64,
-    diagnostic: *const c_char,
-    out_error: *mut *mut PpError,
-) -> u32 {
-    // SAFETY: Inputs are checked and copied before this call returns.
-    unsafe {
-        ffi_call(out_error, || {
-            let transaction = transaction
-                .as_mut()
-                .ok_or_else(|| invalid_argument("transaction must not be null"))?;
-            transaction.lifecycle.ensure_open()?;
-            let (job_id, claim_id) = required_job_claim_ids(job_id, claim_id)?;
-            transaction.mutations.push(StagedMutation::FailJob(
-                job_id,
-                claim_id,
-                Timestamp::from_unix_micros(now_unix_micros),
-                JobFailure::new(required_utf8(diagnostic, "diagnostic")?)?,
-            ));
-            Ok(())
-        })
-    }
-}
-
 /// Stages administrative cancellation of a requested or claimed job.
 ///
 /// # Safety
@@ -6338,14 +6077,6 @@ unsafe fn initialize_output<T>(output: *mut *mut T) {
     }
 }
 
-unsafe fn initialize_uuid(output: *mut PpUuid) {
-    if !output.is_null() {
-        // SAFETY: Non-null UUID output pointers are required to be writable by
-        // every exported caller contract using this helper.
-        unsafe { output.write(PpUuid { bytes: [0; 16] }) };
-    }
-}
-
 unsafe fn initialize_object_ref(output: *mut PpObjectRef) {
     if !output.is_null() {
         // SAFETY: Non-null outputs are writable by the exported caller contract.
@@ -6811,20 +6542,6 @@ fn optional_uuid_flagged(
         1 => Ok(Some(value)),
         _ => Err(invalid_argument(format!("{label} must be zero or one"))),
     }
-}
-
-unsafe fn required_job_claim_ids(
-    job_id: PpJobId,
-    claim_id: *const PpUuid,
-) -> Result<(JobId, JobClaimId), Error> {
-    // SAFETY: Callers of this helper carry the exported readable-pointer contract.
-    // SAFETY: The caller guarantees a readable claim identity.
-    let claim_id = unsafe { claim_id.as_ref() }
-        .ok_or_else(|| invalid_argument("claim_id must not be null"))?;
-    Ok((
-        JobId::from_bytes(job_id.bytes),
-        JobClaimId::from_bytes(claim_id.bytes),
-    ))
 }
 
 #[allow(
@@ -7305,41 +7022,6 @@ fn apply_staged_mutation(
         }
         StagedMutation::RequestJob(job) => transaction.request_job(job)?,
         StagedMutation::Lease(mutation) => mutation.apply(transaction)?,
-        StagedMutation::ClaimJob {
-            job_id,
-            claim_id,
-            tool,
-            agent,
-            now,
-            expires_at,
-        } => {
-            transaction.claim_job_with_id(
-                *job_id,
-                *claim_id,
-                tool,
-                agent.as_ref(),
-                *now,
-                *expires_at,
-            )?;
-        }
-        StagedMutation::RenewJobClaim(job_id, claim_id, now, expires_at) => {
-            transaction.renew_job_claim(*job_id, *claim_id, *now, *expires_at)?;
-        }
-        StagedMutation::ReleaseJobClaim(job_id, claim_id) => {
-            transaction.release_job_claim(*job_id, *claim_id)?;
-        }
-        StagedMutation::CompleteJob {
-            job_id,
-            claim_id,
-            now,
-            output,
-            activity,
-        } => {
-            transaction.complete_job(*job_id, *claim_id, *now, output, activity)?;
-        }
-        StagedMutation::FailJob(job_id, claim_id, now, failure) => {
-            transaction.fail_job(*job_id, *claim_id, *now, failure)?;
-        }
         StagedMutation::CancelJob(job_id) => transaction.cancel_job(*job_id)?,
     }
     Ok(())

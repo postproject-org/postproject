@@ -973,15 +973,12 @@ EXPORTED_SYMBOLS = (
     "pp_transaction_add_metadata_value",
     "pp_transaction_add_representation",
     "pp_transaction_cancel_job",
-    "pp_transaction_claim_job",
     "pp_transaction_claim_job_lease",
     "pp_transaction_commit",
     "pp_transaction_commit_with_receipt",
-    "pp_transaction_complete_job",
     "pp_transaction_complete_job_lease",
     "pp_transaction_confirm_locator",
     "pp_transaction_create_activity",
-    "pp_transaction_fail_job",
     "pp_transaction_fail_job_lease",
     "pp_transaction_id_format",
     "pp_transaction_id_parse",
@@ -991,12 +988,10 @@ EXPORTED_SYMBOLS = (
     "pp_transaction_record_representation_fingerprint",
     "pp_transaction_record_resource_fingerprint",
     "pp_transaction_release",
-    "pp_transaction_release_job_claim",
     "pp_transaction_release_job_lease",
     "pp_transaction_remove_external_identifier",
     "pp_transaction_remove_media_root",
     "pp_transaction_remove_metadata_property",
-    "pp_transaction_renew_job_claim",
     "pp_transaction_renew_job_lease",
     "pp_transaction_request_job",
     "pp_transaction_retire_locator",
@@ -1627,16 +1622,6 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_job_lease_get.restype = ErrorCode
     lib.pp_job_lease_free.argtypes = [ctypes.POINTER(JobLease)]
     lib.pp_job_lease_free.restype = None
-    lib.pp_transaction_claim_job.argtypes = [ctypes.POINTER(Transaction), JobId, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_int64, ctypes.c_int64, ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.POINTER(Error))]
-    lib.pp_transaction_claim_job.restype = ErrorCode
-    lib.pp_transaction_renew_job_claim.argtypes = [ctypes.POINTER(Transaction), JobId, ctypes.POINTER(Uuid), ctypes.c_int64, ctypes.c_int64, ctypes.POINTER(ctypes.POINTER(Error))]
-    lib.pp_transaction_renew_job_claim.restype = ErrorCode
-    lib.pp_transaction_release_job_claim.argtypes = [ctypes.POINTER(Transaction), JobId, ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.POINTER(Error))]
-    lib.pp_transaction_release_job_claim.restype = ErrorCode
-    lib.pp_transaction_complete_job.argtypes = [ctypes.POINTER(Transaction), JobId, ctypes.POINTER(Uuid), ctypes.c_int64, RepresentationId, ActivityId, ctypes.POINTER(ctypes.POINTER(Error))]
-    lib.pp_transaction_complete_job.restype = ErrorCode
-    lib.pp_transaction_fail_job.argtypes = [ctypes.POINTER(Transaction), JobId, ctypes.POINTER(Uuid), ctypes.c_int64, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(Error))]
-    lib.pp_transaction_fail_job.restype = ErrorCode
     lib.pp_transaction_cancel_job.argtypes = [ctypes.POINTER(Transaction), JobId, ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_transaction_cancel_job.restype = ErrorCode
     lib.pp_transaction_create_activity.argtypes = [ctypes.POINTER(Transaction), ctypes.c_char_p, ctypes.POINTER(ActivityEdge), ctypes.c_uint64, ctypes.POINTER(ActivityEdge), ctypes.c_uint64, ctypes.POINTER(ctypes.c_int64), ctypes.POINTER(ctypes.c_int64), ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.POINTER(ActivityId), ctypes.POINTER(ctypes.POINTER(Error))]

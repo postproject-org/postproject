@@ -1777,35 +1777,6 @@ PP_API pp_error_code_t pp_job_lease_get(
  * A non-null live handle must be freed once and not used concurrently/afterward. */
 PP_API void pp_job_lease_free(pp_job_lease_t *lease);
 
-/* Legacy claim migration is in progress; removed before candidate qualification.
- * Claim returns a random token that becomes usable only after commit. Worker
- * identity strings are borrowed for the call. Lease times are caller-supplied. */
-PP_API pp_error_code_t pp_transaction_claim_job(
-    pp_transaction_t *transaction, pp_job_id_t job_id,
-    const char *tool_name, const char *tool_version, const char *tool_uri,
-    const char *agent_name, const char *agent_identifier_scheme,
-    const char *agent_identifier_value,
-    const char *agent_identifier_qualifier, int64_t now_unix_micros,
-    int64_t expires_at_unix_micros, pp_uuid_t *out_claim_id,
-    pp_error_t **out_error);
-PP_API pp_error_code_t pp_transaction_renew_job_claim(
-    pp_transaction_t *transaction, pp_job_id_t job_id,
-    const pp_uuid_t *claim_id, int64_t now_unix_micros,
-    int64_t expires_at_unix_micros, pp_error_t **out_error);
-PP_API pp_error_code_t pp_transaction_release_job_claim(
-    pp_transaction_t *transaction, pp_job_id_t job_id,
-    const pp_uuid_t *claim_id, pp_error_t **out_error);
-/* Atomically completes a job with a representation and activity already
- * staged, in that order, in this transaction. */
-PP_API pp_error_code_t pp_transaction_complete_job(
-    pp_transaction_t *transaction, pp_job_id_t job_id,
-    const pp_uuid_t *claim_id, int64_t now_unix_micros,
-    pp_representation_id_t output_representation_id,
-    pp_activity_id_t activity_id, pp_error_t **out_error);
-PP_API pp_error_code_t pp_transaction_fail_job(
-    pp_transaction_t *transaction, pp_job_id_t job_id,
-    const pp_uuid_t *claim_id, int64_t now_unix_micros,
-    const char *diagnostic, pp_error_t **out_error);
 /* Cancellation is administrative and therefore does not require a claim token. */
 PP_API pp_error_code_t pp_transaction_cancel_job(
     pp_transaction_t *transaction, pp_job_id_t job_id,

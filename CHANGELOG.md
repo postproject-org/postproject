@@ -4,18 +4,12 @@ All notable changes to PostProject will be documented here. The project uses
 [Semantic Versioning](https://semver.org/) once a stable API is released.
 
 ## Unreleased
-
-- Migrate job claims to production-bound leases with checked durations and library-controlled time (ADR 0057; migration in progress).
-
+- Migrate job claims to production-bound leases with checked durations and library-controlled time (C ABI 48, schema 19, ADR 0057; observation migration in progress).
 - Require decision bases for content observations and journal changed file facts (schema 18, ADR 0056).
 - CLI dependency recording reports accepted inputs and an atomic receipt without reloading later writes.
-
 - Make C++ object references private typed variants with checked interchange and projections.
-
 - Validate Python query, media, metadata and timestamp integers before native conversion, rejecting wraparound.
-
 - Remove cached Rust production roots; open/edit stay bounded and CLI inspection pages roots.
-
 - Started the `0.7.0-alpha.1` development series; consumer builds require matching SDK artifacts.
 - Added coherent reads, scoped decisions, explicit edits and atomic receipts; Python transaction contexts require `commit()` (ADR 0045, C ABI 38).
 - Replaced Python ID wrappers with UUID NewType hints and explicit object-reference variants; use IDs directly and wrap dynamic targets (ADR 0046).

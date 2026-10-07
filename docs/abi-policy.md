@@ -1,6 +1,6 @@
 # ABI policy
 
-ABI version 47 is pre-release and may change during the 0.x series, with every
+ABI version 48 is pre-release and may change during the 0.x series, with every
 change recorded in the changelog and ABI tests. `pp_abi_version()` reports the
 implemented version. Exported symbol names are unversioned until the first stable
 release, but removals or signature changes require an explicit ABI-version bump.
@@ -25,13 +25,14 @@ the required complete evidence from two independent hosts (ADR 0040).
 
 ## Types and ownership
 
-ABI 47 adds owning job lease handles and explicit scoped token transport
-(ADR 0057). Lease durations are whole microseconds from 1 us through 24 h.
-Pending handles become active only on their edit's commit; freeing a handle
-never releases the durable claim. Storage checks time/state at operation and
-commit boundaries. The legacy claim-ID/time entry points remain temporarily
-while consumer migration proceeds; this development checkpoint does not
-qualify that family. Schema 19 expires legacy claims during upgrade.
+ABI 48 removes caller-timed claim-ID transitions in favor of owning job lease
+handles and explicit scoped token transport (ADR 0057). Lease durations are
+whole microseconds from 1 us through 24 h. Pending handles become active only
+on their edit's commit; freeing a handle never releases the durable claim.
+Storage checks time/state at operation and commit boundaries. Recompile native
+consumers and use matching Python wheels. Schema 19 expires legacy claims
+during upgrade. Observation projections are still being migrated in this
+development checkpoint; it does not qualify the complete job family.
 
 ABI 47 adds `PP_REVISION_RESOURCE_FILE_FACTS_OBSERVED` and
 `PP_CONFLICT_RESOURCE_FILE_FACTS` without changing signatures or layouts.
