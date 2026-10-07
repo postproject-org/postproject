@@ -30,6 +30,9 @@ a smaller page after `Unsupported`. Domain and individual-value limits remain
 separate. This bounds payload allocation without treating 64 MiB as an exact
 total process-memory promise: decoded values and row bookkeeping have overhead.
 Metadata property convenience queries use the ordinary 1000-item page rule.
+Resource pages share their budget with all owned fingerprints. Activity pages
+and complete activity reads likewise share it across edges and snapshots;
+component queries cannot each allocate a fresh budget for the same result.
 
 ## Migration and standards impact
 

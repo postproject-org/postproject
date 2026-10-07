@@ -761,6 +761,7 @@ impl SqliteProduction {
             query_cursor::position_fields(&self.cursor_scope(), page, "resources", &signature, 1)?
                 .map(|fields| fields[0].parse::<i64>().map_err(|_| invalid_query_cursor()))
                 .transpose()?;
+        let mut budget = ReadBudget::default();
         let mut statement = self
             .connection
             .prepare(
@@ -778,7 +779,7 @@ impl SqliteProduction {
                     position.unwrap_or(-1),
                     i64::from(page.limit()) + 1,
                 ],
-                crate::read_budget::bounded(|row| {
+                crate::read_budget::bounded_with(&mut budget, |row| {
                     Ok((
                         row.get::<_, i64>(0)?,
                         row.get::<_, Vec<u8>>(1)?,
@@ -799,7 +800,7 @@ impl SqliteProduction {
                 let id = ResourceId::from_bytes(id_bytes(id, "resource")?);
                 Ok(Resource::new(
                     id,
-                    self.load_resource_fingerprints(id)?,
+                    self.load_resource_fingerprints_with(id, &mut budget)?,
                     decode_file_facts(size, modified_at)?,
                 ))
             })
@@ -1321,6 +1322,14 @@ impl SqliteProduction {
         &self,
         resource_id: ResourceId,
     ) -> Result<Vec<ResourceFingerprint>> {
+        self.load_resource_fingerprints_with(resource_id, &mut ReadBudget::default())
+    }
+
+    fn load_resource_fingerprints_with(
+        &self,
+        resource_id: ResourceId,
+        budget: &mut ReadBudget,
+    ) -> Result<Vec<ResourceFingerprint>> {
         let mut statement = self
             .connection
             .prepare(
@@ -1332,7 +1341,7 @@ impl SqliteProduction {
         let rows = statement
             .query_map(
                 params![resource_id.as_bytes().as_slice()],
-                crate::read_budget::bounded(|row| {
+                crate::read_budget::bounded_with(budget, |row| {
                     Ok((
                         row.get::<_, String>(0)?,
                         row.get::<_, u16>(1)?,
@@ -1688,6 +1697,7 @@ impl SqliteProduction {
     /// Returns [`ErrorKind::Storage`] for query failures, malformed activity
     /// values, invalid edges, or orphaned edge rows.
     pub fn activities(&self) -> Result<Vec<Activity>> {
+        let mut budget = ReadBudget::default();
         let mut statement = self
             .connection
             .prepare(
@@ -1701,7 +1711,7 @@ impl SqliteProduction {
         let rows = statement
             .query_map(
                 [],
-                crate::read_budget::bounded(|row| {
+                crate::read_budget::bounded_with(&mut budget, |row| {
                     Ok(StoredActivity {
                         id: row.get(0)?,
                         kind: row.get(1)?,
@@ -1720,8 +1730,8 @@ impl SqliteProduction {
             .map_err(sqlite_error("query activities"))?
             .collect::<std::result::Result<Vec<_>, _>>()
             .map_err(sqlite_error("read activity row"))?;
-        let mut inputs = self.load_activity_inputs()?;
-        let mut outputs = self.load_activity_outputs()?;
+        let mut inputs = self.load_activity_inputs(&mut budget)?;
+        let mut outputs = self.load_activity_outputs(&mut budget)?;
         let activities = rows
             .into_iter()
             .map(|stored| {
@@ -3410,14 +3420,19 @@ impl SqliteProduction {
         } else {
             None
         };
+        let mut budget = ReadBudget::default();
         let activities = ids
             .into_iter()
-            .map(|id| self.load_activity_by_id(ActivityId::from_bytes(id)))
+            .map(|id| self.load_activity_by_id_with(ActivityId::from_bytes(id), &mut budget))
             .collect::<Result<Vec<_>>>()?;
         Ok(QueryPage::new(activities, next_cursor, false))
     }
 
-    fn load_activity_by_id(&self, activity_id: ActivityId) -> Result<Activity> {
+    fn load_activity_by_id_with(
+        &self,
+        activity_id: ActivityId,
+        budget: &mut ReadBudget,
+    ) -> Result<Activity> {
         let stored = self
             .connection
             .query_row(
@@ -3427,7 +3442,7 @@ impl SqliteProduction {
                         agent_identifier_qualifier
                  FROM activities WHERE id = ?1",
                 [activity_id.as_bytes().as_slice()],
-                |row| {
+                crate::read_budget::bounded_with(budget, |row| {
                     Ok(StoredActivity {
                         id: row.get(0)?,
                         kind: row.get(1)?,
@@ -3441,7 +3456,7 @@ impl SqliteProduction {
                         agent_value: row.get(9)?,
                         agent_qualifier: row.get(10)?,
                     })
-                },
+                }),
             )
             .optional()
             .map_err(sqlite_error("load query activity"))?
@@ -3449,13 +3464,17 @@ impl SqliteProduction {
         decode_activity(
             activity_id,
             stored,
-            self.load_activity_inputs_for(activity_id)?,
-            self.load_activity_outputs_for(activity_id)?,
+            self.load_activity_inputs_for(activity_id, budget)?,
+            self.load_activity_outputs_for(activity_id, budget)?,
         )
     }
 
-    fn load_activity_inputs_for(&self, activity_id: ActivityId) -> Result<Vec<ActivityInput>> {
-        self.load_stored_activity_edges_for("activity_inputs", activity_id)?
+    fn load_activity_inputs_for(
+        &self,
+        activity_id: ActivityId,
+        budget: &mut ReadBudget,
+    ) -> Result<Vec<ActivityInput>> {
+        self.load_stored_activity_edges_for("activity_inputs", activity_id, budget)?
             .into_iter()
             .map(|edge| {
                 let mut input = ActivityInput::new(edge.representation_id, edge.role);
@@ -3466,6 +3485,7 @@ impl SqliteProduction {
                             "activity_input_fingerprint_snapshots",
                             "activity_input_id",
                             edge.id,
+                            budget,
                         )?,
                     )?);
                 }
@@ -3474,8 +3494,12 @@ impl SqliteProduction {
             .collect()
     }
 
-    fn load_activity_outputs_for(&self, activity_id: ActivityId) -> Result<Vec<ActivityOutput>> {
-        self.load_stored_activity_edges_for("activity_outputs", activity_id)?
+    fn load_activity_outputs_for(
+        &self,
+        activity_id: ActivityId,
+        budget: &mut ReadBudget,
+    ) -> Result<Vec<ActivityOutput>> {
+        self.load_stored_activity_edges_for("activity_outputs", activity_id, budget)?
             .into_iter()
             .map(|edge| {
                 let mut output = ActivityOutput::new(edge.representation_id, edge.role);
@@ -3486,6 +3510,7 @@ impl SqliteProduction {
                             "activity_output_fingerprint_snapshots",
                             "activity_output_id",
                             edge.id,
+                            budget,
                         )?,
                     )?);
                 }
@@ -3498,6 +3523,7 @@ impl SqliteProduction {
         &self,
         table: &'static str,
         activity_id: ActivityId,
+        budget: &mut ReadBudget,
     ) -> Result<Vec<StoredActivityEdge>> {
         let sql = format!(
             "SELECT id, representation_id, role, snapshot_revision_sequence
@@ -3511,7 +3537,7 @@ impl SqliteProduction {
         statement
             .query_map(
                 [activity_id.as_bytes().as_slice()],
-                crate::read_budget::bounded(|row| {
+                crate::read_budget::bounded_with(budget, |row| {
                     Ok((
                         row.get::<_, i64>(0)?,
                         row.get::<_, Vec<u8>>(1)?,
@@ -3545,6 +3571,7 @@ impl SqliteProduction {
         table: &'static str,
         edge_column: &'static str,
         edge_id: i64,
+        budget: &mut ReadBudget,
     ) -> Result<Vec<FingerprintSnapshot>> {
         let sql = format!(
             "SELECT algorithm, algorithm_version, value, observed_revision_sequence
@@ -3558,7 +3585,7 @@ impl SqliteProduction {
         statement
             .query_map(
                 [edge_id],
-                crate::read_budget::bounded(|row| {
+                crate::read_budget::bounded_with(budget, |row| {
                     Ok((
                         row.get::<_, String>(0)?,
                         row.get::<_, i64>(1)?,
@@ -3586,9 +3613,13 @@ impl SqliteProduction {
             .collect()
     }
 
-    fn load_activity_inputs(&self) -> Result<ActivityEdgesById<ActivityInput>> {
+    fn load_activity_inputs(
+        &self,
+        budget: &mut ReadBudget,
+    ) -> Result<ActivityEdgesById<ActivityInput>> {
         let snapshots = load_activity_edge_snapshots(
             &self.connection,
+            budget,
             "SELECT activity_input_id, algorithm, algorithm_version, value,
                     observed_revision_sequence
              FROM activity_input_fingerprint_snapshots
@@ -3596,6 +3627,7 @@ impl SqliteProduction {
         )?;
         load_activity_edges(
             &self.connection,
+            budget,
             "SELECT id, activity_id, representation_id, role, snapshot_revision_sequence
              FROM activity_inputs
              ORDER BY activity_id, representation_id, role, id",
@@ -3617,9 +3649,13 @@ impl SqliteProduction {
         )
     }
 
-    fn load_activity_outputs(&self) -> Result<ActivityEdgesById<ActivityOutput>> {
+    fn load_activity_outputs(
+        &self,
+        budget: &mut ReadBudget,
+    ) -> Result<ActivityEdgesById<ActivityOutput>> {
         let snapshots = load_activity_edge_snapshots(
             &self.connection,
+            budget,
             "SELECT activity_output_id, algorithm, algorithm_version, value,
                     observed_revision_sequence
              FROM activity_output_fingerprint_snapshots
@@ -3627,6 +3663,7 @@ impl SqliteProduction {
         )?;
         load_activity_edges(
             &self.connection,
+            budget,
             "SELECT id, activity_id, representation_id, role, snapshot_revision_sequence
              FROM activity_outputs
              ORDER BY activity_id, representation_id, role, id",
@@ -4237,6 +4274,7 @@ fn decode_metadata_assertion(
 
 fn load_activity_edges(
     connection: &Connection,
+    budget: &mut ReadBudget,
     query: &'static str,
 ) -> Result<Vec<(ActivityId, StoredActivityEdge)>> {
     let mut statement = connection
@@ -4245,7 +4283,7 @@ fn load_activity_edges(
     let rows = statement
         .query_map(
             [],
-            crate::read_budget::bounded(|row| {
+            crate::read_budget::bounded_with(budget, |row| {
                 Ok((
                     row.get::<_, i64>(0)?,
                     row.get::<_, Vec<u8>>(1)?,
@@ -4281,6 +4319,7 @@ fn load_activity_edges(
 
 fn load_activity_edge_snapshots(
     connection: &Connection,
+    budget: &mut ReadBudget,
     query: &'static str,
 ) -> Result<BTreeMap<i64, Vec<FingerprintSnapshot>>> {
     let mut statement = connection
@@ -4289,7 +4328,7 @@ fn load_activity_edge_snapshots(
     let rows = statement
         .query_map(
             [],
-            crate::read_budget::bounded(|row| {
+            crate::read_budget::bounded_with(budget, |row| {
                 Ok((
                     row.get::<_, i64>(0)?,
                     row.get::<_, String>(1)?,
