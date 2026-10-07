@@ -310,7 +310,7 @@ int main(int argc, char **argv) {
         !production.dependents(asset_ref, 1, 1000, 1000).value().items.empty()) {
       return 30;
     }
-    auto observations = production.beginTransaction().value();
+    auto observations = production.readSession().value().edit().value();
     observations.recordResourceFingerprint(
         representations[0].resources[0].id,
         {"cpp-smoke", 1, {UINT8_C(0x10), UINT8_C(0x20)}}).value();
@@ -353,7 +353,7 @@ int main(int argc, char **argv) {
             locator_uri) {
       return 62;
     }
-    auto content_observation = production.beginTransaction().value();
+    auto content_observation = production.readSession().value().edit().value();
     if (content_observation.observeResourceContent(
             representations[0].resources[0].id, media_path).value() !=
         postproject::ContentObservationOutcome::unchanged) {
@@ -1086,7 +1086,7 @@ int main(int argc, char **argv) {
         stale_before.traversal_truncated) {
       return 50;
     }
-    auto invalidation = reopened.beginTransaction().value();
+    auto invalidation = reopened.readSession().value().edit().value();
     invalidation.recordRepresentationFingerprint(
         resolutions[0].representation_id,
         {"cpp-smoke-tree", 1, {UINT8_C(0x31), UINT8_C(0x41)}}).value();

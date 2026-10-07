@@ -343,7 +343,7 @@ observe_new_content(postproject::Production &production,
 
   // Stages the new resource fingerprint and every representation fingerprint
   // recomputed from it; commit records both in one revision.
-  auto transaction = production.beginTransaction().value();
+  auto transaction = production.readSession().value().edit().value();
   if (transaction.observeResourceContent(resource_id, path).value() !=
       postproject::ContentObservationOutcome::changed) {
     throw std::runtime_error("content is unchanged");
@@ -352,7 +352,7 @@ observe_new_content(postproject::Production &production,
   const auto observed = production.latestRevision().value()->id;
 
   // Observing the same content again changes nothing and records nothing.
-  auto again = production.beginTransaction().value();
+  auto again = production.readSession().value().edit().value();
   if (again.observeResourceContent(resource_id, path).value() !=
       postproject::ContentObservationOutcome::unchanged) {
     throw std::runtime_error("content changed again");
@@ -547,14 +547,16 @@ int main(int argc, char **argv) {
         observe_new_content(production, original.resources.front().id, media);
     require(production.latestRevision().value()->sequence == events_before + 1,
             "one observation revision");
-    require(events.size() == 2 &&
+    require(events.size() == 3 &&
                 std::holds_alternative<
                     postproject::ResourceFingerprintObservedEvent>(
                     events[0].payload) &&
                 std::holds_alternative<
                     postproject::RepresentationFingerprintObservedEvent>(
+                    events[2].payload) &&
+                std::holds_alternative<postproject::ResourceFileFactsObservedEvent>(
                     events[1].payload),
-            "fingerprint events");
+            "observation events");
     const auto observed = production.representations(asset_id).value();
     require(find(observed, original_id).fingerprints.front().value !=
                 original.fingerprints.front().value,

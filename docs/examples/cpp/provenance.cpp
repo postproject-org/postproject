@@ -102,7 +102,7 @@ postproject::ArtifactEvaluation evaluate_after_change(
     const postproject::Fingerprint &new_representation_fingerprint,
     const postproject::RepresentationId &proxy_id) {
   // Record what the host observed after the original was re-exported.
-  auto transaction = production.beginTransaction().value();
+  auto transaction = production.readSession().value().edit().value();
   transaction.recordResourceFingerprint(original.resources.front().id,
                                         new_resource_fingerprint).value();
   transaction.recordRepresentationFingerprint(original.id,
@@ -288,7 +288,7 @@ int main(int argc, char **argv) {
                     "characters/lead.usd",
             "current dependency set");
 
-    auto observation = production.beginTransaction().value();
+    auto observation = production.readSession().value().edit().value();
     const auto scene = find(production, scene_asset_id, scene_id);
     observation.recordRepresentationFingerprint(
         scene_id, changed(scene.fingerprints.front(), 0x77)).value();

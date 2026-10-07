@@ -792,6 +792,7 @@ enum class ConflictKeyKind : std::uint32_t {
   external_identifier = PP_CONFLICT_EXTERNAL_IDENTIFIER,
   resource_fingerprint = PP_CONFLICT_RESOURCE_FINGERPRINT,
   representation_fingerprint = PP_CONFLICT_REPRESENTATION_FINGERPRINT,
+  resource_file_facts = PP_CONFLICT_RESOURCE_FILE_FACTS,
 };
 
 struct ConflictKey final {
@@ -1150,6 +1151,10 @@ struct ActivityOutputAddedEvent final {
   std::optional<std::string> role;
 };
 
+struct ResourceFileFactsObservedEvent final {
+  ResourceId resource_id;
+};
+
 struct ResourceFingerprintObservedEvent final {
   ResourceId resource_id;
   std::string algorithm;
@@ -1183,7 +1188,8 @@ using RevisionEventPayload =
                  ExternalIdentifierRemovedEvent,
                  MetadataAddedOrReplacedEvent, MetadataRemovedEvent,
                  ActivityCreatedEvent, ActivityInputAddedEvent,
-                 ActivityOutputAddedEvent, ResourceFingerprintObservedEvent,
+                 ActivityOutputAddedEvent, ResourceFileFactsObservedEvent,
+                 ResourceFingerprintObservedEvent,
                  RepresentationFingerprintObservedEvent,
                  DependencySetRecordedEvent, JobRequestedEvent, JobClaimedEvent,
                  JobClaimRenewedEvent, JobClaimReleasedEvent, JobSucceededEvent,
@@ -1212,6 +1218,7 @@ enum class RevisionEventKind : std::uint32_t {
   activity_created = PP_REVISION_ACTIVITY_CREATED,
   activity_input_added = PP_REVISION_ACTIVITY_INPUT_ADDED,
   activity_output_added = PP_REVISION_ACTIVITY_OUTPUT_ADDED,
+  resource_file_facts_observed = PP_REVISION_RESOURCE_FILE_FACTS_OBSERVED,
   resource_fingerprint_observed = PP_REVISION_RESOURCE_FINGERPRINT_OBSERVED,
   representation_fingerprint_observed = PP_REVISION_REPRESENTATION_FINGERPRINT_OBSERVED,
   dependency_set_recorded = PP_REVISION_DEPENDENCY_SET_RECORDED,
@@ -2857,6 +2864,9 @@ revision_event(const pp_revision_event_set_t *events, std::uint64_t index) {
                          ActivityOutputAddedEvent{detail::activity_id(event.activity_id),
                                                   detail::representation_id(event.representation_id),
                                                   optional_string(event.role)}};
+  case PP_REVISION_RESOURCE_FILE_FACTS_OBSERVED:
+    return RevisionEvent{event.position, ResourceFileFactsObservedEvent{
+        detail::resource_id(event.resource_id)}};
   case PP_REVISION_RESOURCE_FINGERPRINT_OBSERVED: {
     POSTPROJECT_TRY_ASSIGN(std::string algorithm,
                            required_event_string(event.fingerprint_algorithm,
