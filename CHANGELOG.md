@@ -4,7 +4,7 @@ All notable changes to PostProject will be documented here. The project uses
 [Semantic Versioning](https://semver.org/) once a stable API is released.
 
 ## Unreleased
-- Bound complete-list reads and reject truncation; page larger collections (ADR 0060).
+- Bound collection payloads and CLI JSON inputs; page larger collections (ADR 0060).
 - Version CLI JSON output and categorize operation errors/exit codes (ADR 0059).
 - Migrate job claims to production-bound leases with checked durations and library-controlled time (C ABI 49, schema 19, ADRs 0057–0058); guard publication against changed input knowledge.
 - Require decision bases for content observations and journal changed file facts (schema 18, ADR 0056).

@@ -4,6 +4,7 @@
 
 mod errors;
 mod job_transport;
+mod json_input;
 
 use std::{
     fs,
@@ -426,13 +427,15 @@ enum RepresentationSourceSpec {
         step: u32,
         rate_numerator: u32,
         rate_denominator: u32,
-        #[serde(default)]
+        #[serde(default, deserialize_with = "json_input::large_collection")]
         missing_frames: Vec<i64>,
     },
     OrderedParts {
+        #[serde(deserialize_with = "json_input::large_collection")]
         members: Vec<FileResourceSpec>,
     },
     Package {
+        #[serde(deserialize_with = "json_input::large_collection")]
         members: Vec<FileResourceSpec>,
     },
 }
@@ -864,6 +867,11 @@ struct DependencySpec {
     required: bool,
     authored_reference: String,
 }
+
+#[derive(Deserialize)]
+struct DependencySpecs(
+    #[serde(deserialize_with = "json_input::large_collection")] Vec<DependencySpec>,
+);
 
 #[derive(Debug, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
@@ -1499,19 +1507,50 @@ enum MetadataValueView {
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 enum MetadataValueInput {
-    String { value: String },
-    LangString { value: String, language: String },
-    I64 { value: i64 },
-    U64 { value: u64 },
-    Decimal { coefficient: String, scale: u32 },
-    Bool { value: bool },
-    Timestamp { unix_micros: i64 },
-    Uri { value: String },
-    Bytes { hex: String },
-    Rational { numerator: i64, denominator: u64 },
-    List { values: Vec<MetadataValueInput> },
-    Struct { fields: Vec<MetadataFieldInput> },
-    Reference { target: MetadataReferenceInput },
+    String {
+        value: String,
+    },
+    LangString {
+        value: String,
+        language: String,
+    },
+    I64 {
+        value: i64,
+    },
+    U64 {
+        value: u64,
+    },
+    Decimal {
+        coefficient: String,
+        scale: u32,
+    },
+    Bool {
+        value: bool,
+    },
+    Timestamp {
+        unix_micros: i64,
+    },
+    Uri {
+        value: String,
+    },
+    Bytes {
+        hex: String,
+    },
+    Rational {
+        numerator: i64,
+        denominator: u64,
+    },
+    List {
+        #[serde(deserialize_with = "json_input::collection")]
+        values: Vec<MetadataValueInput>,
+    },
+    Struct {
+        #[serde(deserialize_with = "json_input::collection")]
+        fields: Vec<MetadataFieldInput>,
+    },
+    Reference {
+        target: MetadataReferenceInput,
+    },
 }
 
 #[derive(Debug, Deserialize)]
@@ -2324,10 +2363,7 @@ fn representation_add(
         RepresentationKindArg::Optimized => RepresentationKind::Optimized,
         RepresentationKindArg::Derived => RepresentationKind::Derived,
     };
-    let encoded = fs::read(&args.spec_file)
-        .with_context(|| format!("read representation spec {}", args.spec_file.display()))?;
-    let spec: RepresentationSourceSpec =
-        serde_json::from_slice(&encoded).context("parse representation spec")?;
+    let spec: RepresentationSourceSpec = json_input::read(&args.spec_file)?;
     let source = match spec {
         RepresentationSourceSpec::SingleFile { path } => MediaSource::File(path),
         RepresentationSourceSpec::ImageSequence {
@@ -3275,10 +3311,7 @@ fn metadata_find(args: MetadataFindArgs, json: bool) -> Result<()> {
 }
 
 fn read_metadata_value_file(path: &Path) -> Result<MetadataValue> {
-    let encoded = fs::read_to_string(path)
-        .with_context(|| format!("read metadata value {}", path.display()))?;
-    let input: MetadataValueInput =
-        serde_json::from_str(&encoded).context("parse typed metadata JSON")?;
+    let input: MetadataValueInput = json_input::read(path)?;
     input.into_value()
 }
 
@@ -3408,10 +3441,7 @@ fn dependency_record(
         errors::invalid("dependency replacement requires --decision-base from inspect")
     })?;
     let representation_id = parse_representation_id(&args.representation_id)?;
-    let encoded = fs::read(&args.spec_file)
-        .with_context(|| format!("read dependency spec {}", args.spec_file.display()))?;
-    let specs: Vec<DependencySpec> =
-        serde_json::from_slice(&encoded).context("parse dependency spec JSON")?;
+    let DependencySpecs(specs) = json_input::read(&args.spec_file)?;
     let dependencies = specs
         .into_iter()
         .map(DependencySpec::into_dependency)

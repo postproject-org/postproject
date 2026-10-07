@@ -10,6 +10,9 @@ Operation failures emit `{"format_version": 1, "error": {...}}` on stdout;
 diagnostics go to stderr. `error.code` identifies the category and
 `error.transaction_conflict` carries semantic conflict details when available.
 Argument-parser errors emit diagnostics/help on stderr without a JSON object.
+Representation, dependency and metadata JSON input files are limited to 64 MiB;
+arrays also enforce their domain item limits. Invalid or oversized JSON uses
+`invalid_argument` and leaves the production unchanged.
 
 | Exit | Meaning / error codes |
 |---|---|

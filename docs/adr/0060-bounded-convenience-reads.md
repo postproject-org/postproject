@@ -34,6 +34,11 @@ Resource pages share their budget with all owned fingerprints. Activity pages
 and complete activity reads likewise share it across edges and snapshots;
 component queries cannot each allocate a fresh budget for the same result.
 
+CLI representation, dependency and metadata JSON files are limited to 64 MiB
+before parsing. Array decoders enforce the existing domain item limits while
+collecting. Oversized or invalid JSON returns `InvalidArgument` before opening
+the production; no values are silently truncated.
+
 ## Migration and standards impact
 
 Replace complete-list calls with paging when collections can exceed

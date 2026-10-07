@@ -41,3 +41,32 @@ fn json_errors_preserve_categories_and_human_diagnostics() {
         .code(3);
     assert!(human.get_output().stdout.is_empty());
 }
+
+#[test]
+fn untrusted_json_is_rejected_before_opening_the_production() {
+    let directory = tempfile::tempdir().unwrap();
+    let production = directory.path().join("never-created.pproj");
+    let input = directory.path().join("input.json");
+    std::fs::File::create(&input)
+        .unwrap()
+        .set_len(64 * 1024 * 1024 + 1)
+        .unwrap();
+    for oversized in [true, false] {
+        if !oversized {
+            std::fs::write(&input, b"{invalid JSON}").unwrap();
+        }
+        let output = cargo_bin_cmd!("postproject")
+            .args(["--json", "representation", "add"])
+            .arg(&production)
+            .args(["11111111-1111-4111-8111-111111111111", "proxy"])
+            .arg(&input)
+            .assert()
+            .code(2);
+        let value: Value = serde_json::from_slice(&output.get_output().stdout).unwrap();
+        assert_eq!(value["error"]["code"], "invalid_argument");
+        let message = value["error"]["message"].as_str().unwrap();
+        assert!(message.contains(if oversized { "64 MiB" } else { "invalid JSON" }));
+        assert!(value["error"]["receipt"].is_null());
+        assert!(!production.exists());
+    }
+}
