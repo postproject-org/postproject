@@ -21,12 +21,7 @@ Inspection properties derive the kind, members and sequence descriptor from the
 content. They cannot disagree with a separately stored discriminator. Unknown
 required native kinds fail decoding rather than constructing a partial value.
 
-## Migration and standards impact
-
-Python callers constructing `Representation` pass `content` instead of separate
-`structure_kind`, `members` and `image_sequence` arguments. Existing read
-properties remain available. C++ callers inspect the content variant or derived
-accessors instead of those fields.
+## Compatibility and standards impact
 
 This changes binding source contracts, not persisted identities, schema, C
 layouts or external standard mappings. Unknown namespaced roles retain their

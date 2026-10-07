@@ -16,18 +16,18 @@ and production scope. Optional fingerprint evidence remains optional within the
 cases that support it. Bounded paths and opaque fingerprint bytes retain their
 meaning and ownership.
 
-## Migration and standards impact
+## Public values and standards impact
 
 Use the case type to inspect its payload. Python reproducibility issues expose
 their derived `kind` for display and use `isinstance` to narrow a payload.
-Replace flat issue construction with `ReproducibilityProducerMissing`,
+The issue alternatives are `ReproducibilityProducerMissing`,
 `ReproducibilityProducerAmbiguous`, `ReproducibilityToolMissing`,
 `ReproducibilityParametersMissing` or `ReproducibilityInputMissing`.
 C++ uses a `std::variant` of those case types; inspect it with `std::get_if`.
 `artifactReproducibilityIssueKind` returns its display category. Ambiguous
 producer counts use `ReproducibilityProducerAmbiguous::create` and
 `activityCount()`; the other cases are ordinary aggregates of applicable IDs.
-Python artifact reasons likewise return the matching `Artifact…` record;
+Python artifact reasons return the matching `Artifact…` record;
 `isinstance(reason, ArtifactFingerprintChanged)` exposes required old/current
 bytes and their domain. Dependency-path changes carry the direct input and
 captured path, without a fabricated zero subject ID. Unrelated constructor
