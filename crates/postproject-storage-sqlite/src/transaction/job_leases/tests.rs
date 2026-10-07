@@ -228,3 +228,198 @@ fn expiry_and_reacquisition_fence_every_old_worker_transition() {
     edit.commit().unwrap();
     assert_eq!(current.state().unwrap(), JobLeaseState::Closed);
 }
+
+#[test]
+fn claim_and_publication_share_one_commit_and_terminal_ownership() {
+    let mut fixture = Fixture::new();
+    let (output, activity) = fixture.output();
+    let mut edit = fixture.store.begin_transaction().unwrap();
+    let lease = edit
+        .claim_job_lease(fixture.job, &tool(), None, Duration::from_micros(100))
+        .unwrap();
+    edit.complete_job_lease(&lease, &output, &activity).unwrap();
+    let receipt = edit.commit_with_receipt().unwrap();
+    assert!(receipt.revision().is_some());
+    assert_eq!(lease.state().unwrap(), JobLeaseState::Closed);
+    drop(edit);
+    assert!(matches!(
+        fixture.store.job(fixture.job).unwrap().state(),
+        JobState::Succeeded(_)
+    ));
+    assert_eq!(
+        fixture
+            .store
+            .representation(output.representation().id())
+            .unwrap(),
+        *output.representation()
+    );
+    assert!(
+        fixture
+            .store
+            .begin_transaction()
+            .unwrap()
+            .release_job_lease(&lease)
+            .is_err()
+    );
+}
+
+#[test]
+fn delayed_completion_rolls_back_publication_and_preserves_time_on_reopen() {
+    let mut fixture = Fixture::new();
+    let lease = fixture.claim();
+    let (output, activity) = fixture.output();
+    let previous = fixture.store.latest_revision().unwrap();
+    let mut edit = fixture.store.begin_transaction().unwrap();
+    edit.complete_job_lease(&lease, &output, &activity).unwrap();
+    fixture.clock.set(200);
+    assert_eq!(edit.commit().unwrap_err().kind(), ErrorKind::Conflict);
+    assert_eq!(edit.state(), TransactionState::RolledBack);
+    drop(edit);
+    assert!(matches!(
+        lease.state().unwrap(),
+        JobLeaseState::Active { .. }
+    ));
+    assert!(
+        fixture
+            .store
+            .representation(output.representation().id())
+            .is_err()
+    );
+    assert_eq!(fixture.store.latest_revision().unwrap(), previous);
+    let mut reopened = SqliteProduction::open(fixture.store.path()).unwrap();
+    reopened.job_clock = fixture.clock.clone();
+    fixture.clock.set(199);
+    assert!(
+        reopened
+            .begin_transaction()
+            .unwrap()
+            .claim_job_lease(fixture.job, &tool(), None, Duration::from_micros(100))
+            .is_err()
+    );
+    fixture.clock.set(200);
+    let mut edit = reopened.begin_transaction().unwrap();
+    edit.claim_job_lease(fixture.job, &tool(), None, Duration::from_micros(100))
+        .unwrap();
+    edit.commit().unwrap();
+}
+
+#[test]
+fn renewal_must_commit_before_previous_expiry_and_validation_is_recoverable() {
+    let mut fixture = Fixture::new();
+    let lease = fixture.claim();
+    fixture.clock.set(150);
+    let mut edit = fixture.store.begin_transaction().unwrap();
+    assert!(edit.renew_job_lease(&lease, Duration::ZERO).is_err());
+    assert!(
+        edit.renew_job_lease(&lease, Duration::from_nanos(1))
+            .is_err()
+    );
+    assert!(
+        edit.renew_job_lease(&lease, Duration::from_micros(10))
+            .is_err()
+    );
+    edit.renew_job_lease(&lease, Duration::from_micros(200))
+        .unwrap();
+    fixture.clock.set(200);
+    assert!(edit.commit().is_err());
+    drop(edit);
+    assert_eq!(
+        lease.state().unwrap(),
+        JobLeaseState::Active {
+            expires_at: Timestamp::from_unix_micros(200)
+        }
+    );
+    assert!(
+        fixture
+            .store
+            .begin_transaction()
+            .unwrap()
+            .release_job_lease(&lease)
+            .is_err()
+    );
+}
+
+#[test]
+fn wrong_scopes_and_coordinator_cancellation_cannot_publish() {
+    let mut fixture = Fixture::new();
+    let lease = fixture.claim();
+    let token = lease.export_token().unwrap();
+    let mut other = Fixture::new();
+    assert_eq!(
+        other.store.import_job_lease(&token).unwrap_err().kind(),
+        ErrorKind::InvalidArgument
+    );
+    assert_eq!(
+        other
+            .store
+            .begin_transaction()
+            .unwrap()
+            .release_job_lease(&lease)
+            .unwrap_err()
+            .kind(),
+        ErrorKind::InvalidArgument
+    );
+    let wrong_job = token.replace(&lease.job_id().to_string(), &JobId::new().to_string());
+    assert!(fixture.store.import_job_lease(&wrong_job).is_err());
+    let (output, activity) = fixture.output();
+    let mut edit = fixture.store.begin_transaction().unwrap();
+    edit.cancel_job(fixture.job).unwrap();
+    edit.commit().unwrap();
+    drop(edit);
+    let mut edit = fixture.store.begin_transaction().unwrap();
+    assert!(edit.complete_job_lease(&lease, &output, &activity).is_err());
+    assert!(edit.commit_with_receipt().unwrap().revision().is_none());
+    drop(edit);
+    assert!(
+        fixture
+            .store
+            .representation(output.representation().id())
+            .is_err()
+    );
+    assert!(fixture.store.import_job_lease(&token).is_err());
+}
+
+#[test]
+fn schema_eighteen_claims_expire_without_losing_attribution_or_requests() {
+    let mut fixture = Fixture::new();
+    let mut edit = fixture.store.begin_transaction().unwrap();
+    edit.claim_job(
+        fixture.job,
+        &tool(),
+        None,
+        Timestamp::from_unix_micros(10),
+        Timestamp::from_unix_micros(1_000),
+    )
+    .unwrap();
+    edit.commit().unwrap();
+    drop(edit);
+    let path = fixture.store.path().to_path_buf();
+    fixture
+        .store
+        .connection
+        .execute_batch(
+            "DROP TABLE job_clock;
+         DELETE FROM schema_migrations WHERE version = 19;
+         UPDATE productions SET schema_version = 18;
+         PRAGMA user_version = 18;",
+        )
+        .unwrap();
+    drop(fixture.store);
+    let reopened = SqliteProduction::open(path).unwrap();
+    let job = reopened.job(fixture.job).unwrap();
+    let JobState::Claimed(claim) = job.state() else {
+        panic!("claim attribution must remain");
+    };
+    assert_eq!(claim.expires_at(), Timestamp::from_unix_micros(0));
+    assert_eq!(claim.tool().name(), "worker");
+    let high_water: Option<i64> = reopened
+        .connection
+        .query_row(
+            "SELECT high_water_micros FROM job_clock WHERE singleton = 1",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(high_water, None);
+    assert_eq!(reopened.production().schema_version(), 19);
+}
