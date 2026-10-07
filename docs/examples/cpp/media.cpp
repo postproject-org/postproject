@@ -47,7 +47,7 @@ postproject::AssetId import_image_strip(postproject::Production &production,
 
   const auto representations = production.representations(asset_id).value();
   std::cout << representations.size() << " representation, sequence "
-            << representations.front().image_sequence.has_value() << '\n';
+            << (representations.front().imageSequence() != nullptr) << '\n';
   return asset_id;
 }
 // [/import-sequence]
@@ -117,10 +117,10 @@ print_structure(const postproject::Production &production,
       std::cout << "representation kind "
                 << static_cast<std::uint32_t>(representation.kind)
                 << ", structure "
-                << static_cast<std::uint32_t>(representation.structure_kind)
+                << static_cast<std::uint32_t>(representation.structureKind())
                 << ", " << representation.fingerprints.size()
                 << " fingerprint(s)\n";
-      for (const auto &member : representation.members) {
+      for (const auto &member : representation.members()) {
         std::cout << "  member " << member.role.value_or("-")
                   << (member.required ? " (required)" : " (optional)") << '\n';
       }
@@ -139,10 +139,12 @@ print_structure(const postproject::Production &production,
           std::cout << '\n';
         }
       }
-      if (const auto &sequence = representation.image_sequence) {
-        std::cout << "  frames " << sequence->start << '-' << sequence->end
-                  << " step " << sequence->step << ", missing:";
-        for (const auto frame : sequence->missing_frames) {
+      if (const auto *content = std::get_if<postproject::ImageSequenceContent>(
+              &representation.content.value())) {
+        const auto &sequence = content->descriptor;
+        std::cout << "  frames " << sequence.start << '-' << sequence.end
+                  << " step " << sequence.step << ", missing:";
+        for (const auto frame : sequence.missing_frames) {
           std::cout << ' ' << frame;
         }
         std::cout << '\n';
@@ -486,19 +488,19 @@ int main(int argc, char **argv) {
                 postproject::RepresentationKind::proxy,
             "proxy kind");
     const auto &clip = find(representations, clip_id);
-    require(clip.structure_kind ==
+    require(clip.structureKind() ==
                     postproject::ContentStructureKind::ordered_parts &&
-                clip.members.size() == 2 && clip.resources.size() == 2,
+                clip.members().size() == 2 && clip.resources.size() == 2,
             "ordered parts");
     const auto &package = find(representations, package_id);
-    require(package.structure_kind ==
+    require(package.structureKind() ==
                     postproject::ContentStructureKind::package &&
-                package.members.size() == 2 && package.members[0].required &&
-                !package.members[1].required,
+                package.members().size() == 2 && package.members()[0].required &&
+                !package.members()[1].required,
             "package members");
     const auto &sequence = find(representations, sequence_id);
-    require(sequence.image_sequence.has_value() &&
-                sequence.image_sequence->missing_frames ==
+    require(sequence.imageSequence() != nullptr &&
+                sequence.imageSequence()->missing_frames ==
                     std::vector<std::int64_t>{1003},
             "sequence descriptor");
 
@@ -583,7 +585,7 @@ int main(int argc, char **argv) {
     const auto strip = production.representations(strip_id).value();
     require(strip.size() == 1 &&
                 strip.front().kind == postproject::RepresentationKind::original &&
-                strip.front().structure_kind ==
+                strip.front().structureKind() ==
                     postproject::ContentStructureKind::image_sequence,
             "image strip is one original sequence");
 

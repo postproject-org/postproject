@@ -1,10 +1,14 @@
 #include <postproject/postproject.hpp>
 
 #include <set>
+#include <limits>
 #include <type_traits>
 #include <unordered_set>
 
 static_assert(!std::is_aggregate_v<postproject::ObjectRef>);
+static_assert(!std::is_aggregate_v<postproject::RepresentationContent>);
+static_assert(std::is_same_v<decltype(std::declval<const postproject::RepresentationContent &>().value()),
+                             const postproject::RepresentationContentValue &>);
 static_assert(!std::is_constructible_v<postproject::ObjectRef, postproject::ObjectKind, postproject::Uuid>);
 static_assert(!std::is_invocable_v<decltype(&postproject::ObjectRef::asset), postproject::ResourceId>);
 static_assert(std::is_same_v<decltype(std::declval<const postproject::ObjectRef &>().value()), const postproject::ObjectRef::Value &>);
@@ -107,6 +111,41 @@ static_assert(!std::is_invocable_v<decltype(&pp_object_ref_from_resource),
     pp_representation_id_t, pp_object_ref_t *, pp_error_t **>);
 
 int main() {
+  using namespace postproject;
+  const auto content_resource = ResourceId::fromString("00000000-0000-0000-0000-000000000001").value();
+  const RepresentationMember required{content_resource, "example:essence", true};
+  auto members = std::vector<RepresentationMember>{required};
+  auto checked = RepresentationContent::create(PackageContent{members}).value();
+  members.clear();
+  if (checked.members().size() != 1 || checked.imageSequence() != nullptr ||
+      checked.structureKind() != ContentStructureKind::package) return 30;
+  auto copy = checked;
+  checked = RepresentationContent::create(SingleResourceContent{content_resource}).value();
+  if (copy.structureKind() != ContentStructureKind::package ||
+      checked.structureKind() != ContentStructureKind::single_resource) return 31;
+  const RepresentationContentValue invalid_content[] = {
+      PackageContent{{}}, OrderedPartsContent{{}}, PackageContent{{required, required}},
+      PackageContent{{{content_resource, "example:sidecar", false}}},
+      OrderedPartsContent{{{content_resource, "example:sidecar", false}}},
+      PackageContent{{{content_resource, std::nullopt, true}}},
+      PackageContent{{{content_resource, "unqualified", true}}},
+      ImageSequenceContent{content_resource, {1, 4, 2, 24, 1, {}}},
+      ImageSequenceContent{content_resource, {1, 5, 0, 24, 1, {}}},
+      ImageSequenceContent{content_resource, {1, 5, 2, 24, 0, {}}},
+      ImageSequenceContent{content_resource, {1, 5, 2, 24, 1, {2}}},
+  };
+  for (const auto &value : invalid_content) {
+    const auto rejected = RepresentationContent::create(value);
+    if (rejected || rejected.error().code() != ErrorCode::invalid_argument) return 32;
+  }
+  const auto sequence = RepresentationContent::create(ImageSequenceContent{
+      content_resource, {1, 5, 2, 24000, 1001, {5, 1, 5}}}).value();
+  if (sequence.imageSequence()->missing_frames != std::vector<std::int64_t>{1, 5} ||
+      !std::get_if<ImageSequenceContent>(&sequence.value())) return 33;
+  const auto full_domain = RepresentationContent::create(ImageSequenceContent{
+      content_resource, {std::numeric_limits<std::int64_t>::min(),
+                         std::numeric_limits<std::int64_t>::max(), 1, 24, 1, {0}}});
+  if (!full_domain) return 34;
   const auto resource = postproject::ResourceId::fromString("00000000-0000-0000-0000-000000000001").value();
   const std::set<postproject::ResourceId> resources{resource, resource};
   const std::unordered_set<postproject::ResourceId> resource_hashes{resource, resource};

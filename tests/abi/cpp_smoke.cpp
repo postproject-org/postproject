@@ -227,18 +227,18 @@ int main(int argc, char **argv) {
     if (representations.size() != 1 ||
         representations[0].asset_id != asset_id ||
         representations[0].kind != postproject::RepresentationKind::original ||
-        representations[0].structure_kind !=
+        representations[0].structureKind() !=
             postproject::ContentStructureKind::single_resource ||
-        representations[0].members.size() != 1 ||
-        !representations[0].members[0].required ||
-        representations[0].members[0].role.has_value() ||
-        representations[0].image_sequence.has_value() ||
+        representations[0].members().size() != 1 ||
+        !representations[0].members()[0].required ||
+        representations[0].members()[0].role.has_value() ||
+        representations[0].imageSequence() != nullptr ||
         representations[0].fingerprints.size() != 1 ||
         representations[0].fingerprints[0].version != 2 ||
         representations[0].fingerprints[0].value.empty() ||
         representations[0].resources.size() != 1 ||
         representations[0].resources[0].id !=
-            representations[0].members[0].resource_id ||
+            representations[0].members()[0].resource_id ||
         representations[0].resources[0].file_size != UINT64_C(21) ||
         !representations[0].resources[0].modified_at_unix_micros.has_value() ||
         representations[0].resources[0].fingerprints.size() != 1 ||
@@ -737,15 +737,15 @@ int main(int argc, char **argv) {
     const auto strip = reopened.representations(strip_id).value();
     if (strip.size() != 1 ||
         strip[0].kind != postproject::RepresentationKind::original ||
-        strip[0].structure_kind !=
+        strip[0].structureKind() !=
             postproject::ContentStructureKind::image_sequence ||
-        !strip[0].image_sequence.has_value() ||
+        strip[0].imageSequence() == nullptr ||
         strip[0].resources.size() != 1 ||
         strip[0].resources[0].locators.size() != 1 ||
         strip[0].resources[0].locators[0].sequence_naming !=
             postproject::SequenceNaming{"frame", ".exr", 4} ||
-        strip[0].image_sequence->start != 1 ||
-        strip[0].image_sequence->end != 1) {
+        strip[0].imageSequence()->start != 1 ||
+        strip[0].imageSequence()->end != 1) {
       return 67;
     }
 
@@ -756,7 +756,7 @@ int main(int argc, char **argv) {
           added_representations.begin(), added_representations.end(),
           [&](const postproject::Representation &representation) {
             return representation.id == id &&
-                   representation.structure_kind == kind;
+                   representation.structureKind() == kind;
           });
     };
     if (added_representations.size() != 5 ||

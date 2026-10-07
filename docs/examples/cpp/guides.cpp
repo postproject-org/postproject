@@ -159,8 +159,8 @@ postproject::RepresentationId add_render_sequence(postproject::Production &produ
   transaction.commit().value();
 
   for (const auto &representation : production.representations(asset_id).value()) {
-    if (representation.id == sequence_id && representation.image_sequence) {
-      const auto &stored = *representation.image_sequence;
+    if (representation.id == sequence_id && representation.imageSequence()) {
+      const auto &stored = *representation.imageSequence();
       std::cout << "frames " << stored.start << '-' << stored.end << " at "
                 << stored.rate_numerator << '/' << stored.rate_denominator
                 << ", "

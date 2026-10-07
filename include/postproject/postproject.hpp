@@ -3,6 +3,7 @@
 
 #include <postproject/postproject.h>
 
+#include <algorithm>
 #include <array>
 #include <atomic>
 #include <chrono>
@@ -15,6 +16,7 @@
 #include <mutex>
 #include <numeric>
 #include <optional>
+#include <set>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -1395,15 +1397,129 @@ struct Resource final {
   std::vector<Locator> locators;
 };
 
+struct SingleResourceContent final { ResourceId resource_id; };
+struct ImageSequenceContent final {
+  ResourceId resource_id;
+  ImageSequenceDescriptor descriptor;
+};
+struct OrderedPartsContent final { std::vector<RepresentationMember> members; };
+struct PackageContent final { std::vector<RepresentationMember> members; };
+using RepresentationContentValue =
+    std::variant<SingleResourceContent, ImageSequenceContent,
+                 OrderedPartsContent, PackageContent>;
+
+/// Owned content whose kind and payload cannot disagree. Input alternatives
+/// are request records; create() validates them before retaining a value.
+class RepresentationContent final {
+public:
+  static Result<RepresentationContent> create(RepresentationContentValue value) {
+    if (value.valueless_by_exception())
+      return Error(ErrorCode::invalid_argument, "content has no alternative");
+    if (auto *sequence = std::get_if<ImageSequenceContent>(&value)) {
+      auto &descriptor = sequence->descriptor;
+      // Unsigned subtraction represents the full ascending int64 domain
+      // without signed overflow, including INT64_MIN through INT64_MAX.
+      const auto distance = static_cast<std::uint64_t>(descriptor.end) -
+                            static_cast<std::uint64_t>(descriptor.start);
+      if (descriptor.end < descriptor.start || descriptor.step == 0 ||
+          distance % descriptor.step != 0 || descriptor.rate_numerator == 0 ||
+          descriptor.rate_denominator == 0 ||
+          descriptor.missing_frames.size() > 100000)
+        return Error(ErrorCode::invalid_argument, "invalid sequence descriptor");
+      for (const auto frame : descriptor.missing_frames) {
+        if (frame < descriptor.start || frame > descriptor.end ||
+            (static_cast<std::uint64_t>(frame) -
+             static_cast<std::uint64_t>(descriptor.start)) % descriptor.step != 0)
+          return Error(ErrorCode::invalid_argument, "missing frame outside sequence domain");
+      }
+      auto &missing = descriptor.missing_frames;
+      std::sort(missing.begin(), missing.end());
+      missing.erase(std::unique(missing.begin(), missing.end()), missing.end());
+    }
+    const auto *ordered = std::get_if<OrderedPartsContent>(&value);
+    const auto *package = std::get_if<PackageContent>(&value);
+    if (ordered != nullptr || package != nullptr) {
+      const auto &members = ordered != nullptr ? ordered->members : package->members;
+      if (members.empty() || members.size() > 100000)
+        return Error(ErrorCode::invalid_argument, "compound member count outside 1..100000");
+      std::set<ResourceId> resources;
+      bool has_required = false;
+      for (const auto &member : members) {
+        if (!resources.insert(member.resource_id).second ||
+            (ordered != nullptr && !member.required) || !member.role)
+          return Error(ErrorCode::invalid_argument, "invalid compound membership");
+        const auto &role = *member.role;
+        const auto separator = role.find(':');
+        if (role.size() > 128 || separator == std::string::npos ||
+            separator == 0 || separator + 1 == role.size() ||
+            !std::all_of(role.begin(), role.end(), [](unsigned char character) {
+              return (character >= 'a' && character <= 'z') ||
+                     (character >= 'A' && character <= 'Z') ||
+                     (character >= '0' && character <= '9') ||
+                     character == '.' || character == '_' ||
+                     character == '-' || character == ':';
+            }))
+          return Error(ErrorCode::invalid_argument, "invalid namespaced resource role");
+        has_required = has_required || member.required;
+      }
+      if (!has_required)
+        return Error(ErrorCode::invalid_argument, "compound content needs a required member");
+    }
+    return RepresentationContent(std::move(value));
+  }
+
+  RepresentationContent(const RepresentationContent &) = default;
+  RepresentationContent(RepresentationContent &&) noexcept = default;
+  RepresentationContent &operator=(RepresentationContent &&) noexcept = default;
+  RepresentationContent &operator=(const RepresentationContent &other) {
+    // Copy first, then replace with a nonthrowing move. A failed allocation
+    // cannot leave the stored variant without an alternative.
+    RepresentationContent copied(other);
+    value_ = std::move(copied.value_);
+    return *this;
+  }
+
+  const RepresentationContentValue &value() const noexcept { return value_; }
+  ContentStructureKind structureKind() const noexcept {
+    if (std::holds_alternative<SingleResourceContent>(value_))
+      return ContentStructureKind::single_resource;
+    if (std::holds_alternative<ImageSequenceContent>(value_))
+      return ContentStructureKind::image_sequence;
+    if (std::holds_alternative<OrderedPartsContent>(value_))
+      return ContentStructureKind::ordered_parts;
+    return ContentStructureKind::package;
+  }
+  std::vector<RepresentationMember> members() const {
+    if (const auto *single = std::get_if<SingleResourceContent>(&value_))
+      return {{single->resource_id, std::nullopt, true}};
+    if (const auto *sequence = std::get_if<ImageSequenceContent>(&value_))
+      return {{sequence->resource_id, std::nullopt, true}};
+    if (const auto *ordered = std::get_if<OrderedPartsContent>(&value_))
+      return ordered->members;
+    return std::get<PackageContent>(value_).members;
+  }
+  const ImageSequenceDescriptor *imageSequence() const noexcept {
+    const auto *sequence = std::get_if<ImageSequenceContent>(&value_);
+    return sequence != nullptr ? &sequence->descriptor : nullptr;
+  }
+
+private:
+  explicit RepresentationContent(RepresentationContentValue value)
+      : value_(std::move(value)) {}
+  RepresentationContentValue value_;
+};
+
 struct Representation final {
   RepresentationId id;
   AssetId asset_id;
   RepresentationKind kind;
-  ContentStructureKind structure_kind;
-  std::vector<RepresentationMember> members;
-  std::optional<ImageSequenceDescriptor> image_sequence;
+  RepresentationContent content;
   std::vector<Fingerprint> fingerprints;
   std::vector<Resource> resources;
+
+  ContentStructureKind structureKind() const noexcept { return content.structureKind(); }
+  std::vector<RepresentationMember> members() const { return content.members(); }
+  const ImageSequenceDescriptor *imageSequence() const noexcept { return content.imageSequence(); }
 };
 
 enum class JobState : std::uint32_t {
@@ -2238,12 +2354,30 @@ representation(const pp_representation_set_t *representations,
          std::move(resource_fingerprints), std::move(locators)});
   }
 
+  POSTPROJECT_TRY_ASSIGN(auto content, ([&]() -> Result<RepresentationContent> {
+    switch (structure_kind) {
+    case PP_CONTENT_SINGLE_RESOURCE:
+    case PP_CONTENT_IMAGE_SEQUENCE:
+      if (members.size() != 1 || members[0].role || !members[0].required)
+        return Error(ErrorCode::internal, "invalid single-resource content projection");
+      if (structure_kind == PP_CONTENT_SINGLE_RESOURCE)
+        return RepresentationContent::create(SingleResourceContent{members[0].resource_id});
+      if (!image_sequence)
+        return Error(ErrorCode::internal, "missing sequence descriptor");
+      return RepresentationContent::create(ImageSequenceContent{
+          members[0].resource_id, std::move(*image_sequence)});
+    case PP_CONTENT_ORDERED_PARTS:
+      return RepresentationContent::create(OrderedPartsContent{std::move(members)});
+    case PP_CONTENT_PACKAGE:
+      return RepresentationContent::create(PackageContent{std::move(members)});
+    default:
+      return Error(ErrorCode::unsupported, "unknown representation content kind");
+    }
+  })());
   return Representation{detail::representation_id(id),
                         asset_id_value(asset_id),
                         static_cast<RepresentationKind>(kind),
-                        static_cast<ContentStructureKind>(structure_kind),
-                        std::move(members),
-                        std::move(image_sequence),
+                        std::move(content),
                         std::move(fingerprints),
                         std::move(resources)};
 }

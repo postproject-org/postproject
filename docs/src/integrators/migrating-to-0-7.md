@@ -44,8 +44,7 @@ C++ uses explicit `ProductionId`, `AssetId`, `MediaRootId`, `LocatorId`,
 values. Imports return `AssetId`; use `ObjectRef::asset` for dynamic targets.
 Keep IDs returned by reads in their semantic type. Explicit `asUuid()` and
 byte construction are for interchange. Equality, ordering and hashing work
-with standard containers. Other native identity families are still being
-migrated; this development checkpoint is not the final candidate.
+with standard containers.
 
 Python IDs are nominal `NewType` hints over ordinary `uuid.UUID` objects.
 Use IDs directly; replace old `.value` access with the UUID itself. Use
@@ -98,6 +97,19 @@ Remove `&` from required C resource inputs, including locator paging. Use
 return `ResourceId`; Python IDs remain ordinary UUID values.
 
 ## Reads and writes
+
+Representation facts now carry one checked content alternative. Python
+construction supplies `content=SingleResourceContent(resource_id)`,
+`ImageSequenceContent(resource_id, descriptor)`, `OrderedPartsContent(members)`
+or `PackageContent(members)`; the existing inspection properties derive from it.
+Sequence descriptors expose an exact `Fraction` through `rate`.
+
+C++ uses `RepresentationContent::create` with the corresponding variant input.
+Inspect `representation.content.value()` with `std::get_if`, or replace
+`.structure_kind`, `.members` and `.image_sequence` with `.structureKind()`,
+`.members()` and `.imageSequence()`. The sequence accessor returns a borrowed
+pointer, null for other kinds. Compound members and sparse frame exceptions
+are copied and validated. These binding changes require no data migration.
 
 Use a {doc}`read session <coherent-reads>` when several reads inform one
 decision. Copy the results and retain its detached decision base before
