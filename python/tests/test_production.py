@@ -4,6 +4,7 @@ import gc
 import os
 import tempfile
 import unittest
+from datetime import timedelta
 import weakref
 from pathlib import Path
 from uuid import UUID
@@ -236,37 +237,45 @@ class ProductionTests(unittest.TestCase):
                 "operator", ExternalIdentifier("com.example.worker", "worker-1")
             )
             with production.transaction() as transaction:
-                claim_id = transaction.claim_job(job_id, worker, agent, 10, 20)
+                lease = transaction.claim_job_lease(
+                    job_id, worker, timedelta(minutes=1), agent=agent
+                )
+                self.addCleanup(lease.close)
                 transaction.commit()
             claimed = production.jobs(limit=1000).items[0]
             self.assertEqual(claimed.state, JobState.CLAIMED)
             self.assertIsNotNone(claimed.claim)
             assert claimed.claim is not None
-            self.assertEqual(claimed.claim.id, claim_id)
             self.assertEqual(claimed.claim.tool, worker)
             self.assertEqual(claimed.claim.agent, agent)
-            self.assertEqual(claimed.claim.expires_at_unix_micros, 20)
+            self.assertGreater(claimed.claim.expires_at_unix_micros, 0)
 
             with production.transaction() as transaction:
-                transaction.renew_job_claim(job_id, claim_id, 11, 30)
+                transaction.renew_job_lease(lease, timedelta(minutes=2))
                 transaction.commit()
             renewed = production.jobs(limit=1000).items[0]
             self.assertIsNotNone(renewed.claim)
             assert renewed.claim is not None
-            self.assertEqual(renewed.claim.expires_at_unix_micros, 30)
+            self.assertGreater(
+                renewed.claim.expires_at_unix_micros,
+                claimed.claim.expires_at_unix_micros,
+            )
 
             with production.transaction() as transaction:
-                transaction.release_job_claim(job_id, claim_id)
+                transaction.release_job_lease(lease)
                 transaction.commit()
             self.assertEqual(
                 production.jobs(limit=1000).items[0].state, JobState.REQUESTED
             )
 
             with production.transaction() as transaction:
-                second_claim_id = transaction.claim_job(job_id, worker, None, 31, 40)
+                second_lease = transaction.claim_job_lease(
+                    job_id, worker, timedelta(minutes=1)
+                )
+                self.addCleanup(second_lease.close)
                 transaction.commit()
             with production.transaction() as transaction:
-                transaction.fail_job(job_id, second_claim_id, 32, "encoder exited")
+                transaction.fail_job_lease(second_lease, "encoder exited")
                 transaction.commit()
 
             with production.transaction() as transaction:
@@ -300,9 +309,10 @@ class ProductionTests(unittest.TestCase):
                 )
                 transaction.commit()
             with production.transaction() as transaction:
-                completion_claim_id = transaction.claim_job(
-                    completed_job_id, worker, None, 41, 50
+                completion_lease = transaction.claim_job_lease(
+                    completed_job_id, worker, timedelta(minutes=1)
                 )
+                self.addCleanup(completion_lease.close)
                 transaction.commit()
             with production.transaction() as transaction:
                 completed_representation_id = transaction.add_representation(
@@ -325,10 +335,8 @@ class ProductionTests(unittest.TestCase):
                         tool=worker,
                     )
                 )
-                transaction.complete_job(
-                    completed_job_id,
-                    completion_claim_id,
-                    42,
+                transaction.complete_job_lease(
+                    completion_lease,
                     completed_representation_id,
                     completion_activity_id,
                 )
