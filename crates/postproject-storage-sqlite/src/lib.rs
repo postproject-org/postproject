@@ -456,30 +456,7 @@ impl SqliteProduction {
         &self,
         representation_id: RepresentationId,
     ) -> Result<Representation> {
-        let stored = self
-            .connection
-            .query_row(
-                "SELECT asset_id, kind, structure_kind FROM representations WHERE id = ?1",
-                params![representation_id.as_bytes().as_slice()],
-                |row| {
-                    Ok((
-                        row.get::<_, Vec<u8>>(0)?,
-                        row.get::<_, i64>(1)?,
-                        row.get::<_, i64>(2)?,
-                    ))
-                },
-            )
-            .optional()
-            .map_err(sqlite_error("load representation"))?
-            .ok_or_else(|| Error::new(ErrorKind::NotFound, "representation does not exist"))?;
-        let asset_id = AssetId::from_bytes(id_bytes(stored.0, "asset")?);
-        Ok(Representation::new(
-            representation_id,
-            asset_id,
-            decode_representation_kind(stored.1)?,
-            self.load_content_structure(representation_id, stored.2)?,
-            self.load_representation_fingerprints(representation_id)?,
-        ))
+        self.representation(representation_id)
     }
 
     /// Loads resources for `representation_id` in structural order.
@@ -1189,135 +1166,6 @@ impl SqliteProduction {
         Ok(QueryPage::new(ids, next_cursor, false))
     }
 
-    fn load_content_structure(
-        &self,
-        representation_id: RepresentationId,
-        structure_kind: i64,
-    ) -> Result<ContentStructure> {
-        let mut statement = self
-            .connection
-            .prepare(
-                "SELECT resource_id, role, required
-                 FROM representation_resources
-                 WHERE representation_id = ?1 ORDER BY position",
-            )
-            .map_err(sqlite_error("prepare content-membership query"))?;
-        let rows = statement
-            .query_map(
-                params![representation_id.as_bytes().as_slice()],
-                crate::read_budget::bounded(|row| {
-                    Ok((
-                        row.get::<_, Vec<u8>>(0)?,
-                        row.get::<_, Option<String>>(1)?,
-                        row.get::<_, bool>(2)?,
-                    ))
-                }),
-            )
-            .map_err(sqlite_error("query content memberships"))?;
-        let rows: Vec<_> = rows
-            .map(|row| {
-                let (id, role, required) =
-                    row.map_err(sqlite_error("read content-membership row"))?;
-                Ok((
-                    ResourceId::from_bytes(id_bytes(id, "resource")?),
-                    role,
-                    required,
-                ))
-            })
-            .collect::<Result<_>>()?;
-
-        match structure_kind {
-            0 => match rows.as_slice() {
-                [(resource_id, None, true)] => Ok(ContentStructure::single_resource(*resource_id)),
-                _ => Err(stored_invariant("invalid single-resource membership")),
-            },
-            1 => {
-                let resource_id = match rows.as_slice() {
-                    [(resource_id, None, true)] => *resource_id,
-                    _ => return Err(stored_invariant("invalid image-sequence membership")),
-                };
-                self.load_image_sequence(representation_id, resource_id)
-                    .map(ContentStructure::image_sequence)
-            }
-            2 | 3 => {
-                let members = rows
-                    .into_iter()
-                    .map(|(resource_id, role, required)| {
-                        let role = role.ok_or_else(|| {
-                            stored_invariant("compound resource membership has no role")
-                        })?;
-                        let role = ResourceRole::new(role)
-                            .map_err(stored_domain_error("resource role"))?;
-                        Ok(ResourceMember::new(resource_id, role, required))
-                    })
-                    .collect::<Result<_>>()?;
-                if structure_kind == 2 {
-                    ContentStructure::ordered_parts(members)
-                } else {
-                    ContentStructure::package(members)
-                }
-                .map_err(stored_domain_error("content structure"))
-            }
-            _ => Err(stored_invariant("invalid content-structure kind")),
-        }
-    }
-
-    fn load_image_sequence(
-        &self,
-        representation_id: RepresentationId,
-        resource_id: ResourceId,
-    ) -> Result<ImageSequenceDescriptor> {
-        let row = self
-            .connection
-            .query_row(
-                "SELECT resource_id, start_frame, end_frame,
-                        frame_step, rate_numerator, rate_denominator
-                 FROM image_sequences WHERE representation_id = ?1",
-                params![representation_id.as_bytes().as_slice()],
-                |row| {
-                    Ok((
-                        row.get::<_, Vec<u8>>(0)?,
-                        row.get::<_, i64>(1)?,
-                        row.get::<_, i64>(2)?,
-                        row.get::<_, i64>(3)?,
-                        row.get::<_, i64>(4)?,
-                        row.get::<_, i64>(5)?,
-                    ))
-                },
-            )
-            .map_err(sqlite_error("load image-sequence descriptor"))?;
-        let stored_resource = ResourceId::from_bytes(id_bytes(row.0, "sequence resource")?);
-        if stored_resource != resource_id {
-            return Err(stored_invariant(
-                "image-sequence resource does not match membership",
-            ));
-        }
-        let frames = FrameRange::new(row.1, row.2, stored_u32(row.3, "frame step")?)
-            .map_err(stored_domain_error("image-sequence frame range"))?;
-        let rate = RationalRate::new(
-            stored_u32(row.4, "rate numerator")?,
-            stored_u32(row.5, "rate denominator")?,
-        )
-        .map_err(stored_domain_error("image-sequence rate"))?;
-        let mut statement = self
-            .connection
-            .prepare(
-                "SELECT frame FROM image_sequence_missing_frames
-                 WHERE representation_id = ?1 ORDER BY frame",
-            )
-            .map_err(sqlite_error("prepare missing-frame query"))?;
-        let missing = statement
-            .query_map(
-                params![representation_id.as_bytes().as_slice()],
-                crate::read_budget::bounded(|row| row.get::<_, i64>(0)),
-            )
-            .map_err(sqlite_error("query missing frames"))?
-            .collect::<std::result::Result<Vec<_>, _>>()
-            .map_err(sqlite_error("read missing-frame row"))?;
-        ImageSequenceDescriptor::new(resource_id, frames, rate, missing)
-            .map_err(stored_domain_error("image-sequence descriptor"))
-    }
-
     fn load_resource_fingerprints(
         &self,
         resource_id: ResourceId,
@@ -1355,39 +1203,6 @@ impl SqliteProduction {
                 row.map_err(sqlite_error("read resource-fingerprint row"))?;
             ResourceFingerprint::new(algorithm, version, value)
                 .map_err(stored_domain_error("resource fingerprint"))
-        })
-        .collect()
-    }
-
-    fn load_representation_fingerprints(
-        &self,
-        representation_id: RepresentationId,
-    ) -> Result<Vec<RepresentationFingerprint>> {
-        let mut statement = self
-            .connection
-            .prepare(
-                "SELECT algorithm, algorithm_version, value
-                 FROM representation_fingerprints
-                 WHERE representation_id = ?1 ORDER BY algorithm, algorithm_version",
-            )
-            .map_err(sqlite_error("prepare representation-fingerprint query"))?;
-        let rows = statement
-            .query_map(
-                params![representation_id.as_bytes().as_slice()],
-                crate::read_budget::bounded(|row| {
-                    Ok((
-                        row.get::<_, String>(0)?,
-                        row.get::<_, u16>(1)?,
-                        row.get::<_, Vec<u8>>(2)?,
-                    ))
-                }),
-            )
-            .map_err(sqlite_error("query representation fingerprints"))?;
-        rows.map(|row| {
-            let (algorithm, version, value) =
-                row.map_err(sqlite_error("read representation-fingerprint row"))?;
-            RepresentationFingerprint::new(algorithm, version, value)
-                .map_err(stored_domain_error("representation fingerprint"))
         })
         .collect()
     }
