@@ -6,8 +6,7 @@
 #   PATH=/opt/postproject/bin:$PATH jobs.sh WORK_DIRECTORY
 # The work directory is prepared by prepare-workdir.cmake. Requires jq.
 #
-# Job timestamps are always supplied by the caller; the fixed values below
-# stand in for a worker's clock.
+# Lease durations use library authority time; tokens travel only in private files.
 set -euo pipefail
 
 if [[ $# -ne 1 ]]; then
