@@ -11,6 +11,8 @@ use super::{
 };
 use crate::{SqliteJobLease, job_clock, job_lease::LeaseUpdate};
 
+mod input_guards;
+
 #[cfg(test)]
 mod tests;
 
@@ -29,6 +31,7 @@ impl SqliteTransaction<'_> {
         let micros = validate_job_lease_duration(duration)?;
         let now = self.lease_now()?;
         let expiry = lease_expiry(now, micros)?;
+        self.guard_claim_inputs(job)?;
         let secret = JobClaimId::new();
         self.claim_job_with_id(job, secret, tool, agent, now, expiry)?;
         let lease = SqliteJobLease::pending(self.production.id(), job, secret, self.id());
@@ -96,6 +99,7 @@ impl SqliteTransaction<'_> {
         activity: &Activity,
     ) -> Result<()> {
         let (now, expiry) = self.checked_lease(lease)?;
+        self.guard_completion_inputs(lease.job)?;
         self.complete_job(lease.job, lease.secret, now, output, activity)?;
         self.update_lease(lease, expiry, JobLeaseState::Closed);
         Ok(())

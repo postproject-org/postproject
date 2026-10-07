@@ -4,7 +4,7 @@ All notable changes to PostProject will be documented here. The project uses
 [Semantic Versioning](https://semver.org/) once a stable API is released.
 
 ## Unreleased
-- Migrate job claims to production-bound leases with checked durations and library-controlled time (C ABI 49, schema 19, ADR 0057).
+- Migrate job claims to production-bound leases with checked durations and library-controlled time (C ABI 49, schema 19, ADRs 0057–0058); guard publication against changed input knowledge.
 - Require decision bases for content observations and journal changed file facts (schema 18, ADR 0056).
 - CLI dependency recording reports accepted inputs and an atomic receipt without reloading later writes.
 - Make C++ object references private typed variants with checked interchange and projections.
