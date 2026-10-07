@@ -74,6 +74,8 @@ fn exercise_job_claim_lifecycle(
     assert_eq!(shown["id"], job_id);
     assert_eq!(shown["state"], "requested");
 
+    let token_path = format!("{production}.{job_id}.lease");
+    let second_token_path = format!("{production}.{job_id}.second-lease");
     let claimed = run_json(&[
         "job",
         "claim",
@@ -85,33 +87,44 @@ fn exercise_job_claim_lifecycle(
         "1.0",
         "--agent-name",
         "operator",
-        "--now-unix-micros",
-        "10",
-        "--expires-at-unix-micros",
-        "20",
+        "--lease",
+        "60s",
+        "--lease-token-file",
+        &token_path,
     ]);
-    let claim_id = claimed["claim_id"].as_str().expect("claim ID");
+    let first_token = fs::read_to_string(&token_path).unwrap();
+    assert_eq!(first_token.len(), 115);
+    assert!(claimed.get("claim_id").is_none());
+    assert!(!claimed.to_string().contains(&first_token));
     assert_eq!(claimed["state"], "claimed");
     assert_eq!(claimed["claim_tool"]["name"], "CLI worker");
     assert_eq!(claimed["claim_tool"]["version"], "1.0");
     assert_eq!(claimed["claim_agent"]["name"], "operator");
-    assert_eq!(claimed["claim_expires_at_unix_micros"], 20);
 
     let renewed = run_json(&[
         "job",
         "renew",
         production,
         job_id,
-        claim_id,
-        "--now-unix-micros",
-        "11",
-        "--expires-at-unix-micros",
-        "30",
+        "--lease-token-file",
+        &token_path,
+        "--lease",
+        "120s",
     ]);
-    assert_eq!(renewed["claim_expires_at_unix_micros"], 30);
-    let released = run_json(&["job", "release", production, job_id, claim_id]);
+    assert!(
+        renewed["claim_expires_at_unix_micros"].as_i64().unwrap()
+            > claimed["claim_expires_at_unix_micros"].as_i64().unwrap()
+    );
+    let released = run_json(&[
+        "job",
+        "release",
+        production,
+        job_id,
+        "--lease-token-file",
+        &token_path,
+    ]);
     assert_eq!(released["state"], "requested");
-    assert!(released["claim_id"].is_null());
+    assert!(released["claim_expires_at_unix_micros"].is_null());
 
     let claimed_again = run_json(&[
         "job",
@@ -120,26 +133,22 @@ fn exercise_job_claim_lifecycle(
         job_id,
         "--tool-name",
         "CLI worker",
-        "--now-unix-micros",
-        "31",
-        "--expires-at-unix-micros",
-        "40",
+        "--lease-token-file",
+        &second_token_path,
     ]);
-    let second_claim_id = claimed_again["claim_id"].as_str().expect("second claim ID");
-    assert_ne!(claim_id, second_claim_id);
+    assert_ne!(first_token, fs::read_to_string(&second_token_path).unwrap());
     let failed = run_json(&[
         "job",
         "fail",
         production,
         job_id,
-        second_claim_id,
         "encoder exited",
-        "--now-unix-micros",
-        "32",
+        "--lease-token-file",
+        &second_token_path,
     ]);
     assert_eq!(failed["state"], "failed");
     assert_eq!(failed["failure_diagnostic"], "encoder exited");
-    assert!(failed["claim_id"].is_null());
+    assert!(failed["claim_expires_at_unix_micros"].is_null());
 
     let second_request = run_json(&[
         "job",
@@ -186,6 +195,7 @@ fn exercise_job_completion(
         representation_id,
     ]);
     let completed_job_id = completion_request["id"].as_str().expect("completed job ID");
+    let token_path = format!("{production}.{completed_job_id}.lease");
     let completion_claim = run_json(&[
         "job",
         "claim",
@@ -193,22 +203,17 @@ fn exercise_job_completion(
         completed_job_id,
         "--tool-name",
         "CLI worker",
-        "--now-unix-micros",
-        "41",
-        "--expires-at-unix-micros",
-        "50",
+        "--lease-token-file",
+        &token_path,
     ]);
     let completed = run_json(&[
         "job",
         "complete",
         production,
         completed_job_id,
-        completion_claim["claim_id"]
-            .as_str()
-            .expect("completion claim ID"),
         output_path,
-        "--now-unix-micros",
-        "42",
+        "--lease-token-file",
+        &token_path,
     ]);
     assert_eq!(completed["state"], "succeeded");
     let output_id = completed["completion_representation_id"]
