@@ -34,6 +34,12 @@ lease leave local ownership unchanged and subsequent use checks the store again.
 Successful release, failure or completion closes ownership. Freeing/dropping a
 lease only frees local memory; it never writes or renews.
 
+Reference-executor requests own a noncredential execution nonce and are consumed
+once. Both temporary and final filenames include it, isolating different workers'
+outputs for the same job. Rejected completion cleans up only its own attempt.
+Filesystem execution and database completion remain separate; a crash can leave
+unregistered files, without publishing partial production facts.
+
 Explicit token export/import supports workers spanning processes. Its bounded,
 versioned encoding includes production, job and secret; import validates all
 three against current authoritative state. CLI accepts token files/stdin,

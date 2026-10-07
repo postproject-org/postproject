@@ -41,7 +41,8 @@ a daemon and never creates work implicitly.
 
 The runner probes `ffmpeg` before claiming. During execution it renews its lease
 through the normal public transaction contract. A successful subprocess writes
-to a claim-specific temporary path and is renamed into place before the runner
+to an execution-specific temporary path and is renamed into its own final path
+before the runner
 atomically records the fingerprinted representation, activity, input/output
 snapshots, copied parameters, and succeeded job state. A tool failure removes
 the temporary output, records a bounded diagnostic, and creates no

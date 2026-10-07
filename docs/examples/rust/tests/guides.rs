@@ -12,9 +12,9 @@ use postproject_core::{
     Activity, ActivityId, ActivityInput, ActivityKind, ActivityOutput, ActivityOutputQuery,
     ActivityRole, ArtifactEvaluationLimits, AssetId, Dependency, DependencyKind,
     DependencyQueryLimits, DependencyTarget, Error, ErrorKind, ExternalIdentifier, FrameRange,
-    HostObjectBinding, IdentifierScheme, Job, JobClaimId, JobId, JobKind, JobQuery, JobStateKind,
-    MediaRoot, MediaRootId, MetadataMatch, MetadataProperty, MetadataQuery, MetadataValue,
-    ObjectRef, OriginIdentity, ProductionId, PropertyId, ProvenanceQueryLimits, QueryPageRequest,
+    HostObjectBinding, IdentifierScheme, Job, JobId, JobKind, JobQuery, JobStateKind, MediaRoot,
+    MediaRootId, MetadataMatch, MetadataProperty, MetadataQuery, MetadataValue, ObjectRef,
+    OriginIdentity, ProductionId, PropertyId, ProvenanceQueryLimits, QueryPageRequest,
     RationalRate, Representation, RepresentationId, RepresentationKind, RepresentationResolution,
     RequestedJobOutput, Result, Revision, RevisionContext, RevisionEvent, RevisionEventFilter,
     RevisionEventType, RevisionId, RevisionWaitOutcome, SequenceNaming, StaleArtifactQuery,
@@ -538,14 +538,13 @@ fn objects_changed_after(production: &SqliteProduction, sequence: u64) -> Result
 fn execute_proxy(ffmpeg: &Path, input: &Path, target_root: &Path) -> Result<PathBuf> {
     let request = ExecutionRequest::new(
         JobId::new(),
-        JobClaimId::new(),
         JobKind::new(GENERATE_PROXY_JOB_KIND)?,
         PROXY_720P_PROFILE,
         input,
         target_root,
     )?;
     let mut renew_claim = || Ok(());
-    match FfmpegExecutor::with_executable(ffmpeg).execute(&request, &mut renew_claim)? {
+    match FfmpegExecutor::with_executable(ffmpeg).execute(request, &mut renew_claim)? {
         ExecutionOutcome::Completed { output, .. } => Ok(output),
         outcome => Err(Error::new(
             ErrorKind::Io,

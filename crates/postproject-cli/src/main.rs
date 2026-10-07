@@ -4340,7 +4340,6 @@ fn run_executor_job(
     };
     let request = ExecutionRequest::new(
         job_id,
-        claim.id(),
         prepared.job.kind().clone(),
         &prepared.profile,
         &prepared.input,
@@ -4368,7 +4367,7 @@ fn run_executor_job(
             transaction.renew_job_claim(job_id, claim.id(), now, timestamp_after(now, lease)?)?;
             transaction.commit()
         };
-        executor.execute(&request, &mut heartbeat)
+        executor.execute(request, &mut heartbeat)
     };
     let outcome = match outcome {
         Ok(outcome) => outcome,

@@ -7,7 +7,7 @@ use std::{
     time::Duration,
 };
 
-use postproject_core::{JobClaimId, JobId, JobKind};
+use postproject_core::{JobId, JobKind};
 use postproject_media::{
     ExecutionOutcome, ExecutionRequest, Executor, ExecutorCapability, FfmpegExecutor,
     GENERATE_PROXY_JOB_KIND, GENERATE_THUMBNAIL_JOB_KIND, PROXY_720P_PROFILE,
@@ -73,7 +73,6 @@ fn fake_ffmpeg(directory: &Path, fail: bool) -> PathBuf {
 fn request(directory: &Path, kind: &str, profile: &str) -> ExecutionRequest {
     ExecutionRequest::new(
         JobId::from_bytes([1; 16]),
-        JobClaimId::from_bytes([2; 16]),
         JobKind::new(kind).expect("valid job kind"),
         profile,
         input_fixture(directory),
@@ -101,7 +100,7 @@ fn reports_version_and_publishes_successful_output() {
         PROXY_720P_PROFILE,
     );
     let outcome = executor
-        .execute(&request, &mut || Ok(()))
+        .execute(request, &mut || Ok(()))
         .expect("execute fake ffmpeg");
     let ExecutionOutcome::Completed {
         output,
@@ -131,6 +130,35 @@ fn reports_version_and_publishes_successful_output() {
 }
 
 #[test]
+fn distinct_attempts_for_one_job_never_share_published_output() {
+    let _process = process_lock();
+    let temporary = tempfile::tempdir().unwrap();
+    let executor = FfmpegExecutor::with_executable(fake_ffmpeg(temporary.path(), false));
+    let execute = || {
+        let request = request(
+            temporary.path(),
+            GENERATE_PROXY_JOB_KIND,
+            PROXY_720P_PROFILE,
+        );
+        let ExecutionOutcome::Completed { output, .. } =
+            executor.execute(request, &mut || Ok(())).unwrap()
+        else {
+            panic!("independent attempt must complete");
+        };
+        output
+    };
+    let old = execute();
+    fs::write(&old, b"old worker output").unwrap();
+    let current = execute();
+    assert_ne!(old, current);
+    assert_eq!(fs::read(&old).unwrap(), b"old worker output");
+    assert_eq!(fs::read(&current).unwrap(), b"encoded media");
+    // A rejected old worker can clean up only its private path.
+    fs::remove_file(old).unwrap();
+    assert_eq!(fs::read(current).unwrap(), b"encoded media");
+}
+
+#[test]
 fn crashing_tool_removes_temporary_output() {
     let _process = process_lock();
     let temporary = tempfile::tempdir().expect("create temporary directory");
@@ -143,7 +171,7 @@ fn crashing_tool_removes_temporary_output() {
     );
 
     let outcome = executor
-        .execute(&request, &mut || Ok(()))
+        .execute(request, &mut || Ok(()))
         .expect("run failing fake");
     assert!(matches!(
         outcome,
@@ -201,7 +229,6 @@ fn real_ffmpeg_encodes_the_shipped_fixture() {
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/fixtures/sample-frame.ppm");
     let request = ExecutionRequest::new(
         JobId::from_bytes([8; 16]),
-        JobClaimId::from_bytes([9; 16]),
         JobKind::new(GENERATE_THUMBNAIL_JOB_KIND).expect("valid kind"),
         THUMBNAIL_640_PROFILE,
         fixture,
@@ -209,7 +236,7 @@ fn real_ffmpeg_encodes_the_shipped_fixture() {
     )
     .expect("valid real execution request");
     let outcome = FfmpegExecutor::default()
-        .execute(&request, &mut || Ok(()))
+        .execute(request, &mut || Ok(()))
         .expect("run real ffmpeg");
     let ExecutionOutcome::Completed { output, .. } = outcome else {
         panic!("real ffmpeg did not complete: {outcome:?}");
@@ -246,7 +273,7 @@ fn running_process_invokes_heartbeats() {
     );
     let mut heartbeats = 0;
     let outcome = executor
-        .execute(&request, &mut || {
+        .execute(request, &mut || {
             heartbeats += 1;
             Ok(())
         })

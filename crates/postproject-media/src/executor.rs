@@ -9,7 +9,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use postproject_core::{Error, ErrorKind, JobClaimId, JobId, JobKind, Result};
+use postproject_core::{Error, ErrorKind, JobId, JobKind, Result};
 
 /// Job kind handled by the reference proxy executor.
 pub const GENERATE_PROXY_JOB_KIND: &str = "org.postproject:generate-proxy";
@@ -56,10 +56,17 @@ pub enum ExecutorCapability {
 }
 
 /// Validated filesystem request for one claimed local job.
-#[derive(Clone, Debug, Eq, PartialEq)]
+///
+/// An execution attempt cannot be copied or replayed by cloning:
+/// ```compile_fail
+/// fn duplicate(request: postproject_media::ExecutionRequest) {
+///     let _another_attempt = request.clone();
+/// }
+/// ```
+#[derive(Debug, Eq, PartialEq)]
 pub struct ExecutionRequest {
     job_id: JobId,
-    claim_id: JobClaimId,
+    attempt: uuid::Uuid,
     kind: JobKind,
     profile: String,
     input: PathBuf,
@@ -69,9 +76,9 @@ pub struct ExecutionRequest {
 impl ExecutionRequest {
     /// Creates a request after validating the supported kind/profile pair and paths.
     ///
-    /// The target root must already exist. The final filename is derived from
-    /// the durable job ID, while the temporary filename also includes the
-    /// claim token so concurrent or stale workers cannot share it.
+    /// The target root must already exist. Temporary and final filenames use
+    /// a private execution nonce, never a claim credential. Different workers
+    /// cannot overwrite or clean up each other's output for the same job.
     ///
     /// # Errors
     ///
@@ -79,7 +86,6 @@ impl ExecutionRequest {
     /// or non-directory target root.
     pub fn new(
         job_id: JobId,
-        claim_id: JobClaimId,
         kind: JobKind,
         profile: impl Into<String>,
         input: impl AsRef<Path>,
@@ -91,7 +97,7 @@ impl ExecutionRequest {
         let target_root = canonical_directory(target_root.as_ref(), "executor target root")?;
         Ok(Self {
             job_id,
-            claim_id,
+            attempt: uuid::Uuid::new_v4(),
             kind,
             profile,
             input,
@@ -103,12 +109,6 @@ impl ExecutionRequest {
     #[must_use]
     pub const fn job_id(&self) -> JobId {
         self.job_id
-    }
-
-    /// Returns the claim token used to isolate the temporary output.
-    #[must_use]
-    pub const fn claim_id(&self) -> JobClaimId {
-        self.claim_id
     }
 
     /// Returns the exact supported job kind.
@@ -137,12 +137,13 @@ impl ExecutionRequest {
 
     fn output_paths(&self) -> Result<(PathBuf, PathBuf)> {
         let spec = profile_spec(self.kind.as_str(), &self.profile)?;
-        let final_path = self
-            .target_root
-            .join(format!("{}.{}", self.job_id, spec.extension));
+        let final_path = self.target_root.join(format!(
+            "{}.{}.{}",
+            self.job_id, self.attempt, spec.extension
+        ));
         let temporary_path = self.target_root.join(format!(
             ".{}.{}.tmp.{}",
-            self.job_id, self.claim_id, spec.extension
+            self.job_id, self.attempt, spec.extension
         ));
         Ok((temporary_path, final_path))
     }
@@ -180,7 +181,7 @@ pub trait Executor {
     /// Returns an error only when the adapter cannot safely manage the probe.
     fn capability(&self) -> Result<ExecutorCapability>;
 
-    /// Executes one validated request and invokes `heartbeat` while it runs.
+    /// Consumes one execution attempt and invokes `heartbeat` while it runs.
     ///
     /// The callback is responsible for renewing the durable job claim through
     /// the ordinary storage contract. No storage-specific access exists here.
@@ -191,7 +192,7 @@ pub trait Executor {
     /// safely. Tool failures are returned as [`ExecutionOutcome::Failed`].
     fn execute(
         &self,
-        request: &ExecutionRequest,
+        request: ExecutionRequest,
         heartbeat: &mut dyn FnMut() -> Result<()>,
     ) -> Result<ExecutionOutcome>;
 }
@@ -318,7 +319,7 @@ impl Executor for FfmpegExecutor {
     )]
     fn execute(
         &self,
-        request: &ExecutionRequest,
+        request: ExecutionRequest,
         heartbeat: &mut dyn FnMut() -> Result<()>,
     ) -> Result<ExecutionOutcome> {
         let version =
