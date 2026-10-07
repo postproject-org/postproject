@@ -70,6 +70,7 @@ Read the relevant ADR before changing an invariant, a boundary, or a public cont
 - {doc}`ADR 0052 — Mergeable metadata and destructive decisions </adr/0052-metadata-append-conflicts>`
 - {doc}`ADR 0053 — Fresh bounded media-root reads </adr/0053-fresh-bounded-media-root-reads>`
 - {doc}`ADR 0054 — C++ dynamic reference values </adr/0054-cpp-dynamic-reference-values>`
+- {doc}`ADR 0055 — CLI dependency submission outcomes </adr/0055-cli-dependency-submission-outcomes>`
 
 ```{toctree}
 :hidden:
@@ -128,4 +129,5 @@ Read the relevant ADR before changing an invariant, a boundary, or a public cont
 /adr/0052-metadata-append-conflicts
 /adr/0053-fresh-bounded-media-root-reads
 /adr/0054-cpp-dynamic-reference-values
+/adr/0055-cli-dependency-submission-outcomes
 ```

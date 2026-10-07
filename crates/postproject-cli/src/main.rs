@@ -1593,6 +1593,13 @@ struct DependencySetView {
 }
 
 #[derive(Debug, Serialize)]
+struct DependencyRecordView {
+    source_representation_id: String,
+    changed: bool,
+    dependencies: Vec<DependencyView>,
+}
+
+#[derive(Debug, Serialize)]
 struct DependencyView {
     source_resource_id: Option<String>,
     kind: String,
@@ -3367,22 +3374,32 @@ fn dependency_record(
     let mut production = SqliteProduction::open(&args.production).context("open production")?;
     let mut transaction = begin_cli_transaction(&mut production, Some(base), "dependency")?;
     set_cli_revision_context(&mut transaction, "Record dependency set")?;
-    transaction
+    let changed = transaction
         .record_dependency_set(representation_id, &dependencies)
         .context("stage dependency set")?;
+    // Prepare the accepted submission while the edit is open. A live reload
+    // after commit could attribute another writer's observation to our receipt.
+    let view = DependencyRecordView {
+        source_representation_id: representation_id.to_string(),
+        changed,
+        dependencies: dependencies
+            .iter()
+            .map(dependency_view)
+            .collect::<Result<Vec<_>>>()?,
+    };
     let receipt = transaction
         .commit_with_receipt()
         .context("commit dependency set")?;
-    drop(transaction);
-    let stored = production
-        .dependency_set(representation_id)
-        .context("reload dependency set")?
-        .context("committed dependency set is missing")?;
-    let view = dependency_set_view(&stored)?;
     if json {
         print_json_with_receipt(&view, &receipt)
     } else {
-        print_dependency_set(Some(&view), false)
+        println!(
+            "{}\t{}\t{} dependency(ies)",
+            view.source_representation_id,
+            if changed { "recorded" } else { "unchanged" },
+            view.dependencies.len()
+        );
+        Ok(())
     }
 }
 

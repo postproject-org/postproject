@@ -117,6 +117,9 @@ absent and empty observations with `dependency show`, and exposes
 `--max-representations`, `--limit`, and `--cursor`. JSON queries return
 `items`, `next_cursor`, and `traversal_truncated`. All recording remains
 explicit and transactional.
+`dependency record` reports accepted edges, `changed` and its own commit
+receipt. `dependency show` reads current stored facts, which another writer
+may have changed after recording.
 
 ## Across public surfaces
 

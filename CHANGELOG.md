@@ -5,6 +5,8 @@ All notable changes to PostProject will be documented here. The project uses
 
 ## Unreleased
 
+- CLI dependency recording reports accepted inputs and an atomic receipt without reloading later writes.
+
 - Make C++ object references private typed variants with checked interchange and projections.
 
 - Validate Python query, media, metadata and timestamp integers before native conversion, rejecting wraparound.

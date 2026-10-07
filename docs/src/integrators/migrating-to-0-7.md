@@ -155,6 +155,9 @@ Attaching an independent identifier remains additive.
 Complete dependency observations require a read-derived base, including a
 first, empty or identical set. CLI `dependency record` requires
 `--decision-base`; a set replaces the entire previous observation.
+Its JSON response describes the accepted submission with `changed`, ordered
+`dependencies` and `commit_receipt`. It no longer includes stored `status` or
+`recorded_at_revision`; use `dependency show` to read current facts.
 
 Root getters now read current facts and cap full collections at 1000 roots.
 Rust's `Production` value carries identity and header metadata only: replace
