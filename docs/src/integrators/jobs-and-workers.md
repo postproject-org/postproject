@@ -125,6 +125,14 @@ together or not at all:
 ```{code-variants} complete-job
 ```
 
+Claiming from a read-derived edit rejects changed input fingerprints or
+complete dependency sets. Completion rechecks that knowledge against the
+claim's revision or the edit's older base. Renewal does not refresh the input
+decision. Changed knowledge returns a structured conflict and publishes no
+output or activity, including after reopening or importing the token. Re-read
+and perform fresh work under a new claim; changing the publication base alone
+cannot validate earlier work.
+
 Completion validates that the activity consumes the job inputs and produces
 the staged output requested by the job. It does not copy the job's parameters:
 record on the activity the parameters the worker actually used, so the output

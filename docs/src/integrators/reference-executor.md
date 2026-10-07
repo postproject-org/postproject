@@ -51,3 +51,9 @@ representation or activity.
 The executable, process timeout, lease duration, and machine root mapping are
 all explicit CLI options. Profiles are stable data recorded verbatim on the
 activity, so a regeneration plan can recover the same request.
+
+The CLI inspects at most 1000 requested jobs in one coherent batch. Set
+`--max-jobs` to a smaller positive cap; `--once` stops after one eligible job
+within that batch. Copied inputs survive after the read view closes, and input
+knowledge changes reject later publication. Worker JSON includes ordered
+`commit_receipts` for its own claim, renewals and terminal transition.
