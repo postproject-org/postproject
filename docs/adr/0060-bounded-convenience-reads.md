@@ -19,6 +19,8 @@ Producing/consuming activity helpers use the same 1000-item rule. Ancestor and
 descendant helpers use the existing bounded traversal, at most 64 levels and
 1000 visited representations. A continuation or traversal truncation returns
 `Unsupported`; a partial graph is never presented as complete ancestry.
+Complete revision-event lists likewise cap at 1000. Large atomic commits remain
+valid; their immutable events are available through the existing event pages.
 
 ## Migration and standards impact
 

@@ -4,9 +4,9 @@ use postproject_core::{
     Activity, ActivityId, ActivityInput, ActivityKind, ActivityOutput, ActivityRole, Asset,
     AssetId, ContentStructure, ErrorKind, ExternalIdentifier, IdentifierScheme, Locator,
     LocatorAvailability, LocatorId, MediaRoot, MediaRootId, MetadataProperty, MetadataValue,
-    ObjectRef, OriginIdentity, OriginalMediaImport, PropertyId, Representation, RepresentationId,
-    RepresentationKind, Resource, ResourceId, RevisionContext, RevisionEventFilter,
-    RevisionEventKind, RevisionEventType, Timestamp, VocabularyId,
+    ObjectRef, OriginIdentity, OriginalMediaImport, PropertyId, QueryPageRequest, Representation,
+    RepresentationId, RepresentationKind, Resource, ResourceId, RevisionContext,
+    RevisionEventFilter, RevisionEventKind, RevisionEventType, Timestamp, VocabularyId,
 };
 use postproject_storage_sqlite::SqliteProduction;
 use tempfile::tempdir;
@@ -43,6 +43,49 @@ fn import(label: u8) -> OriginalMediaImport {
         ],
     )
     .expect("valid import")
+}
+
+#[test]
+fn large_atomic_revision_requires_event_pages() {
+    let directory = tempdir().unwrap();
+    let mut production =
+        SqliteProduction::create(directory.path().join("large.pproj"), None).unwrap();
+    let mut transaction = production.begin_transaction().unwrap();
+    for index in 0..1001 {
+        transaction
+            .add_media_root(
+                MediaRoot::new(
+                    MediaRootId::new(),
+                    format!("root-{index}"),
+                    None,
+                    None,
+                    0,
+                    true,
+                )
+                .unwrap(),
+            )
+            .unwrap();
+    }
+    let receipt = transaction.commit_with_receipt().unwrap();
+    drop(transaction);
+    let revision = receipt.revision().unwrap().id();
+    assert_eq!(
+        production.events_for_revision(revision).unwrap_err().kind(),
+        ErrorKind::Unsupported
+    );
+    let first = production
+        .events_for_revision_page(revision, &QueryPageRequest::new(1000, None).unwrap())
+        .unwrap();
+    assert_eq!(first.items().len(), 1000);
+    let last = production
+        .events_for_revision_page(
+            revision,
+            &QueryPageRequest::new(1000, first.next_cursor().cloned()).unwrap(),
+        )
+        .unwrap();
+    assert_eq!(last.items().len(), 1);
+    assert_eq!(last.items()[0].position(), 1000);
+    assert!(last.next_cursor().is_none());
 }
 
 #[test]

@@ -2726,39 +2726,13 @@ impl SqliteProduction {
     /// Returns [`ErrorKind::NotFound`] when `revision_id` is absent, or
     /// [`ErrorKind::Storage`] when persisted event data is malformed.
     pub fn events_for_revision(&self, revision_id: RevisionId) -> Result<Vec<RevisionEvent>> {
-        let exists = self
-            .connection
-            .query_row(
-                "SELECT EXISTS(SELECT 1 FROM revisions WHERE id = ?1)",
-                [revision_id.as_bytes().as_slice()],
-                |row| row.get::<_, bool>(0),
-            )
-            .map_err(sqlite_error("check revision existence"))?;
-        if !exists {
-            return Err(Error::new(ErrorKind::NotFound, "revision does not exist"));
-        }
-
-        let mut statement = self
-            .connection
-            .prepare(
-                "SELECT position, kind, target_kind, primary_id, secondary_id,
-                        structural_position, vocabulary, property,
-                        identifier_scheme, identifier_value, identifier_qualifier,
-                        activity_kind, role, fingerprint_algorithm, fingerprint_version
-                 FROM revision_events WHERE revision_id = ?1 ORDER BY position",
-            )
-            .map_err(sqlite_error("prepare revision event query"))?;
-        statement
-            .query_map(
-                [revision_id.as_bytes().as_slice()],
-                stored_revision_event_row,
-            )
-            .map_err(sqlite_error("query revision events"))?
-            .map(|row| {
-                row.map_err(sqlite_error("read revision event row"))
-                    .and_then(|event| decode_revision_event(revision_id, event))
-            })
-            .collect()
+        complete_collection(
+            self.events_for_revision_page(
+                revision_id,
+                &QueryPageRequest::new(postproject_core::MAX_QUERY_PAGE_SIZE, None)?,
+            )?,
+            "revision events",
+        )
     }
 
     /// Returns one bounded page of immutable events for a revision.
