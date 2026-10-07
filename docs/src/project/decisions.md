@@ -76,6 +76,7 @@ Read the relevant ADR before changing an invariant, a boundary, or a public cont
 - {doc}`ADR 0058 — Job input decisions </adr/0058-job-input-decision-guards>`
 - {doc}`ADR 0059 — CLI output and errors </adr/0059-cli-output-and-error-categories>`
 - {doc}`ADR 0060 — Bounded convenience reads </adr/0060-bounded-convenience-reads>`
+- {doc}`ADR 0061 — Representation content values </adr/0061-representation-content-values>`
 
 ```{toctree}
 :hidden:
@@ -140,4 +141,5 @@ Read the relevant ADR before changing an invariant, a boundary, or a public cont
 /adr/0058-job-input-decision-guards
 /adr/0059-cli-output-and-error-categories
 /adr/0060-bounded-convenience-reads
+/adr/0061-representation-content-values
 ```

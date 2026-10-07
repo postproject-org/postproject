@@ -77,7 +77,7 @@ from ._abi import (
     Transaction as NativeTransaction,
 )
 from ._artifact import read_evaluation, read_reproducibility
-from ._errors import InvalidArgumentError
+from ._errors import InternalError, InvalidArgumentError
 from ._model import (
     ActiveJobLease,
     Activity,
@@ -119,6 +119,7 @@ from ._model import (
     Fingerprint,
     FingerprintSnapshot,
     HostObjectBinding,
+    ImageSequenceContent,
     ImageSequenceDescriptor,
     ImageSequenceSource,
     Job,
@@ -174,8 +175,10 @@ from ._model import (
     MetadataUri,
     MetadataValue,
     ObjectReference,
+    OrderedPartsContent,
     OrderedPartsSource,
     OriginIdentity,
+    PackageContent,
     PendingJobLease,
     ProductionId,
     ProductionRef,
@@ -185,6 +188,7 @@ from ._model import (
     Representation,
     RepresentationAddedEvent,
     RepresentationAvailability,
+    RepresentationContent,
     RepresentationFingerprintObservedEvent,
     RepresentationId,
     RepresentationKind,
@@ -210,6 +214,7 @@ from ._model import (
     RevisionWait,
     RevisionWaitResult,
     SequenceNaming,
+    SingleResourceContent,
     ToolIdentity,
     TransactionId,
     VerificationMode,
@@ -5187,18 +5192,34 @@ def _representation_at(
     )
     native.check(status, error)
     structure = _content_structure_kind(int(structure_kind.value))
+    members = tuple(
+        _representation_member_at(native, representations, index, member_index)
+        for member_index in range(int(member_count.value))
+    )
+    content: RepresentationContent
+    if structure is ContentStructureKind.SINGLE_RESOURCE:
+        if len(members) != 1 or members[0].role is not None or not members[0].required:
+            raise InternalError(
+                _abi.PP_ERROR_INTERNAL, "invalid single-resource projection"
+            )
+        content = SingleResourceContent(members[0].resource_id)
+    elif structure is ContentStructureKind.IMAGE_SEQUENCE:
+        if len(members) != 1 or members[0].role is not None or not members[0].required:
+            raise InternalError(
+                _abi.PP_ERROR_INTERNAL, "invalid image-sequence membership projection"
+            )
+        content = ImageSequenceContent(
+            members[0].resource_id, _image_sequence_at(native, representations, index)
+        )
+    elif structure is ContentStructureKind.ORDERED_PARTS:
+        content = OrderedPartsContent(members)
+    else:
+        content = PackageContent(members)
     return Representation(
         RepresentationId(_uuid(representation_id)),
         AssetId(_uuid(asset_id)),
         _representation_kind(int(kind.value)),
-        structure,
-        tuple(
-            _representation_member_at(native, representations, index, member_index)
-            for member_index in range(int(member_count.value))
-        ),
-        _image_sequence_at(native, representations, index)
-        if structure is ContentStructureKind.IMAGE_SEQUENCE
-        else None,
+        content,
         tuple(
             _representation_fingerprint_at(
                 native, representations, index, fingerprint_index

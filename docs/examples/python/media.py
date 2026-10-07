@@ -26,6 +26,7 @@ from postproject import (
     FileResourceInput,
     FileSource,
     Fingerprint,
+    ImageSequenceContent,
     ImageSequenceSource,
     LocatorMatch,
     MediaRootId,
@@ -170,11 +171,12 @@ def describe_representations(
             # Representation fingerprints are separate from resource ones.
             for fingerprint in representation.fingerprints:
                 print(f"  representation {fingerprint.algorithm}")
-            sequence = representation.image_sequence
-            if sequence is not None:
+            content = representation.content
+            if isinstance(content, ImageSequenceContent):
+                sequence = content.descriptor
                 print(
                     f"  frames {sequence.start}-{sequence.end}, "
-                    f"missing {list(sequence.missing_frames)}"
+                    f"rate {sequence.rate}, missing {list(sequence.missing_frames)}"
                 )
             described.append(representation)
         cursor = page.next_cursor

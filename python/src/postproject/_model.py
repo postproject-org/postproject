@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import Enum
+from fractions import Fraction
+from itertools import islice
 from typing import Generic, TypeAlias, TypeVar
 from uuid import UUID
 
@@ -598,6 +601,27 @@ class RepresentationMember:
     role: str | None
     required: bool
 
+    def __post_init__(self) -> None:
+        if not isinstance(self.resource_id, UUID) or not isinstance(
+            self.required, bool
+        ):
+            raise TypeError(
+                "membership requires a UUID resource and a bool required flag"
+            )
+        if self.role is not None:
+            if not isinstance(self.role, str):
+                raise TypeError("member role must be str or None")
+            namespace, separator, local = self.role.partition(":")
+            if (
+                not separator
+                or not namespace
+                or not local
+                or len(self.role) > 128
+                or not self.role.isascii()
+                or any(not (char.isalnum() or char in "._-:") for char in self.role)
+            ):
+                raise ValueError("member role must be a namespaced ASCII identifier")
+
 
 @dataclass(frozen=True, slots=True)
 class SequenceNaming:
@@ -645,6 +669,35 @@ class ImageSequenceDescriptor:
     rate_numerator: int
     rate_denominator: int
     missing_frames: tuple[int, ...]
+
+    def __post_init__(self) -> None:
+        for value, minimum, maximum in (
+            (self.start, -(2**63), 2**63 - 1),
+            (self.end, -(2**63), 2**63 - 1),
+            (self.step, 1, 2**32 - 1),
+            (self.rate_numerator, 1, 2**32 - 1),
+            (self.rate_denominator, 1, 2**32 - 1),
+        ):
+            if isinstance(value, bool) or not isinstance(value, int):
+                raise TypeError("sequence descriptor numbers must be int")
+            if not minimum <= value <= maximum:
+                raise ValueError("sequence descriptor number is outside its domain")
+        if self.end < self.start or (self.end - self.start) % self.step:
+            raise ValueError("sequence end must be ascending and aligned to the step")
+        missing = tuple(islice(self.missing_frames, 100001))
+        if len(missing) > 100000:
+            raise ValueError("sequence has more than 100000 sparse exceptions")
+        for frame in missing:
+            if isinstance(frame, bool) or not isinstance(frame, int):
+                raise TypeError("missing frames must be int")
+            if not self.start <= frame <= self.end or (frame - self.start) % self.step:
+                raise ValueError("missing frame is outside the stepped domain")
+        object.__setattr__(self, "missing_frames", tuple(sorted(set(missing))))
+
+    @property
+    def rate(self) -> Fraction:
+        """Exact sequence rate as a standard Fraction."""
+        return Fraction(self.rate_numerator, self.rate_denominator)
 
 
 @dataclass(frozen=True, slots=True)
@@ -739,15 +792,123 @@ class Resource:
 
 
 @dataclass(frozen=True, slots=True)
+class SingleResourceContent:
+    """One required storage resource."""
+
+    resource_id: ResourceId
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.resource_id, UUID):
+            raise TypeError("content resource must be a uuid.UUID")
+
+
+@dataclass(frozen=True, slots=True)
+class ImageSequenceContent:
+    """One patterned resource with a compact sequence descriptor."""
+
+    resource_id: ResourceId
+    descriptor: ImageSequenceDescriptor
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.resource_id, UUID) or not isinstance(
+            self.descriptor, ImageSequenceDescriptor
+        ):
+            raise TypeError("sequence content requires a UUID resource and descriptor")
+
+
+def _content_members(
+    members: Iterable[RepresentationMember], *, ordered: bool
+) -> tuple[RepresentationMember, ...]:
+    copied = tuple(islice(members, 100001))
+    if not 1 <= len(copied) <= 100000:
+        raise ValueError("compound content must contain 1-100000 members")
+    if any(not isinstance(member, RepresentationMember) for member in copied):
+        raise TypeError("content members must be RepresentationMember values")
+    if len({member.resource_id for member in copied}) != len(copied):
+        raise ValueError("content cannot contain duplicate resource identities")
+    if any(member.role is None for member in copied):
+        raise ValueError("compound content members require roles")
+    if ordered and any(not member.required for member in copied):
+        raise ValueError("ordered content members must all be required")
+    if not any(member.required for member in copied):
+        raise ValueError("content must have at least one required member")
+    return copied
+
+
+@dataclass(frozen=True, slots=True, init=False)
+class OrderedPartsContent:
+    """Ordered required resources, with unique identities and explicit roles."""
+
+    members: tuple[RepresentationMember, ...]
+
+    def __init__(self, members: Iterable[RepresentationMember]) -> None:
+        object.__setattr__(self, "members", _content_members(members, ordered=True))
+
+
+@dataclass(frozen=True, slots=True, init=False)
+class PackageContent:
+    """Required and optional resources, with at least one required member."""
+
+    members: tuple[RepresentationMember, ...]
+
+    def __init__(self, members: Iterable[RepresentationMember]) -> None:
+        object.__setattr__(self, "members", _content_members(members, ordered=False))
+
+
+RepresentationContent: TypeAlias = (
+    SingleResourceContent | ImageSequenceContent | OrderedPartsContent | PackageContent
+)
+
+
+@dataclass(frozen=True, slots=True)
 class Representation:
     id: RepresentationId
     asset_id: AssetId
     kind: RepresentationKind
-    structure_kind: ContentStructureKind
-    members: tuple[RepresentationMember, ...]
-    image_sequence: ImageSequenceDescriptor | None
+    content: RepresentationContent
     fingerprints: tuple[Fingerprint, ...]
     resources: tuple[Resource, ...]
+
+    def __post_init__(self) -> None:
+        if not isinstance(
+            self.content,
+            (
+                SingleResourceContent,
+                ImageSequenceContent,
+                OrderedPartsContent,
+                PackageContent,
+            ),
+        ):
+            raise TypeError("representation content must be a supported alternative")
+        object.__setattr__(self, "fingerprints", tuple(self.fingerprints))
+        object.__setattr__(self, "resources", tuple(self.resources))
+
+    @property
+    def structure_kind(self) -> ContentStructureKind:
+        """Category derived from the stored content alternative."""
+        if isinstance(self.content, SingleResourceContent):
+            return ContentStructureKind.SINGLE_RESOURCE
+        if isinstance(self.content, ImageSequenceContent):
+            return ContentStructureKind.IMAGE_SEQUENCE
+        if isinstance(self.content, OrderedPartsContent):
+            return ContentStructureKind.ORDERED_PARTS
+        return ContentStructureKind.PACKAGE
+
+    @property
+    def members(self) -> tuple[RepresentationMember, ...]:
+        """Membership derived from the content alternative."""
+        if isinstance(self.content, (SingleResourceContent, ImageSequenceContent)):
+            return (RepresentationMember(self.content.resource_id, None, True),)
+        return self.content.members
+
+    @property
+    def image_sequence(self) -> ImageSequenceDescriptor | None:
+        """Sequence descriptor exactly for sequence content."""
+        return (
+            self.content.descriptor
+            if isinstance(self.content, ImageSequenceContent)
+            else None
+        )
 
 
 class RepresentationAvailability(Enum):
