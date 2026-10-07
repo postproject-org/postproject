@@ -6,6 +6,7 @@
 #![forbid(unsafe_code)]
 
 mod artifact;
+mod artifact_reasons;
 mod dependency_evaluation;
 mod dependency_snapshot;
 mod job_clock;

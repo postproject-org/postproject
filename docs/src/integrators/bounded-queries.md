@@ -48,8 +48,10 @@ also cap at 1000; ancestry helpers cap traversal at 64 levels and 1000 visited
 representations and reject incomplete results. The CLI query commands return
 one page.
 
-Materialized metadata and identifier reads cap at 100000 rows and 64 MiB of
-stored payload. Metadata property convenience queries cap at 1000 matches.
+Materialized collections cap at 100000 rows and 64 MiB of stored payload;
+nested pages share the limit with their child rows. Artifact explanations
+and traversal-cache copies also have finite budgets. Metadata property
+convenience queries cap at 1000 matches.
 Pages also check the payload budget, including their lookahead row: after
 `Unsupported`, request a smaller page. Individual-value/domain limits are
 separate, and queries preserve the stored values rather than trimming them.

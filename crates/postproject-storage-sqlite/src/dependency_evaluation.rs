@@ -10,7 +10,9 @@ use postproject_core::{
 };
 use rusqlite::params;
 
-use crate::{SqliteProduction, id_bytes, read_budget::ReadBudget, sqlite_error};
+use crate::{
+    SqliteProduction, artifact_reasons::Reasons, id_bytes, read_budget::ReadBudget, sqlite_error,
+};
 
 struct CapturedPath {
     status: i64,
@@ -24,7 +26,7 @@ type FingerprintDifference = (String, u16, Option<Vec<u8>>, Option<Vec<u8>>);
 
 pub(crate) struct DependencyEvaluation {
     pub(crate) state: ArtifactKnowledgeState,
-    pub(crate) reasons: Vec<ArtifactKnowledgeReason>,
+    pub(crate) reasons: Reasons,
 }
 
 pub(crate) fn evaluate_input_dependencies(
@@ -61,15 +63,15 @@ pub(crate) fn evaluate_input_dependencies(
     if !snapshot_exists {
         return Ok(DependencyEvaluation {
             state: ArtifactKnowledgeState::Indeterminate,
-            reasons: vec![ArtifactKnowledgeReason::DependencySnapshotAbsent {
+            reasons: Reasons::one(ArtifactKnowledgeReason::DependencySnapshotAbsent {
                 activity_id: activity.id(),
                 representation_id: input.representation_id(),
-            }],
+            })?,
         });
     }
     let mut evaluation = DependencyEvaluation {
         state: ArtifactKnowledgeState::Current,
-        reasons: Vec::new(),
+        reasons: Reasons::default(),
     };
     for path in load_paths(production, input_id)? {
         evaluate_path(production, activity, input, path, &mut evaluation)?;
@@ -94,14 +96,14 @@ fn evaluate_path(
                 subject_representation_id: path.subject_representation_id,
                 path: path.segments,
                 issue,
-            });
+            })?;
         return Ok(());
     }
     for (index, segment) in path.segments.iter().enumerate() {
         let Some(set) =
             crate::load_dependency_set(&production.connection, segment.source_representation_id())?
         else {
-            add_path_changed(activity, input, &path, evaluation);
+            add_path_changed(activity, input, &path, evaluation)?;
             return Ok(());
         };
         if set.status() == DependencySetStatus::NeedsExtraction {
@@ -114,7 +116,7 @@ fn evaluate_path(
                     subject_representation_id: segment.source_representation_id(),
                     path: path.segments[..index].to_vec(),
                     issue: ArtifactDependencyIssue::NeedsExtraction,
-                });
+                })?;
             return Ok(());
         }
         let dependency_position =
@@ -129,7 +131,7 @@ fn evaluate_path(
             .get(dependency_position)
             .is_some_and(|dependency| segment_matches(segment, dependency))
         {
-            add_path_changed(activity, input, &path, evaluation);
+            add_path_changed(activity, input, &path, evaluation)?;
             return Ok(());
         }
     }
@@ -142,7 +144,7 @@ fn evaluate_path(
                 representation_id: path.subject_representation_id,
                 path: path.segments,
             },
-        );
+        )?;
         return Ok(());
     }
     compare_fingerprints(production, activity, input, &path, evaluation)
@@ -162,7 +164,7 @@ fn add_path_changed(
     input: &ActivityInput,
     path: &CapturedPath,
     evaluation: &mut DependencyEvaluation,
-) {
+) -> Result<()> {
     promote_state(&mut evaluation.state, ArtifactKnowledgeState::Stale);
     evaluation
         .reasons
@@ -170,7 +172,8 @@ fn add_path_changed(
             activity_id: activity.id(),
             input_representation_id: input.representation_id(),
             path: path.segments.clone(),
-        });
+        })?;
+    Ok(())
 }
 
 fn compare_fingerprints(
@@ -190,7 +193,7 @@ fn compare_fingerprints(
         .cloned()
         .collect::<BTreeSet<_>>();
     if domains.is_empty() {
-        add_missing_fingerprint(activity, input, path, None, evaluation);
+        add_missing_fingerprint(activity, input, path, None, evaluation)?;
         return Ok(());
     }
     for (algorithm, version) in domains {
@@ -211,7 +214,7 @@ fn compare_fingerprints(
                         version,
                         snapshot_value: snapshot.clone(),
                         current_value: current.clone(),
-                    });
+                    })?;
             }
             (Some(_), Some(_)) => {}
             (snapshot, current) => add_missing_fingerprint(
@@ -220,7 +223,7 @@ fn compare_fingerprints(
                 path,
                 Some((algorithm, version, snapshot.cloned(), current.cloned())),
                 evaluation,
-            ),
+            )?,
         }
     }
     Ok(())
@@ -232,7 +235,7 @@ fn add_missing_fingerprint(
     path: &CapturedPath,
     difference: Option<FingerprintDifference>,
     evaluation: &mut DependencyEvaluation,
-) {
+) -> Result<()> {
     promote_state(&mut evaluation.state, ArtifactKnowledgeState::Indeterminate);
     let (algorithm, version, snapshot_value, current_value) = difference.map_or(
         (None, None, None, None),
@@ -251,7 +254,8 @@ fn add_missing_fingerprint(
             snapshot_value,
             current_value,
         },
-    );
+    )?;
+    Ok(())
 }
 
 fn load_paths(production: &SqliteProduction, input_id: i64) -> Result<Vec<CapturedPath>> {

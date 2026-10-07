@@ -10,18 +10,21 @@ use postproject_core::{
 };
 use rusqlite::params;
 
-use crate::{SqliteProduction, dependency_evaluation::evaluate_input_dependencies, sqlite_error};
+use crate::{
+    SqliteProduction, artifact_reasons::Reasons,
+    dependency_evaluation::evaluate_input_dependencies, read_budget::ReadBudget, sqlite_error,
+};
 
-#[derive(Clone)]
 struct NodeEvaluation {
     state: ArtifactKnowledgeState,
-    reasons: Vec<ArtifactKnowledgeReason>,
+    reasons: Reasons,
 }
 
 struct EvaluationContext {
     limits: ArtifactEvaluationLimits,
     visited: BTreeSet<RepresentationId>,
     cache: BTreeMap<RepresentationId, NodeEvaluation>,
+    cache_budget: ReadBudget,
     truncated: bool,
 }
 
@@ -116,6 +119,7 @@ impl SqliteProduction {
             limits,
             visited: BTreeSet::new(),
             cache: BTreeMap::new(),
+            cache_budget: ReadBudget::default(),
             truncated: false,
         };
         let evaluation = self.evaluate_artifact_node(representation_id, 0, &mut context)?;
@@ -128,7 +132,7 @@ impl SqliteProduction {
         Ok(ArtifactEvaluation::new(
             representation_id,
             evaluation.state,
-            evaluation.reasons,
+            evaluation.reasons.into_vec(),
             visited_representations,
             context.truncated,
         ))
@@ -141,23 +145,28 @@ impl SqliteProduction {
         context: &mut EvaluationContext,
     ) -> Result<NodeEvaluation> {
         if let Some(evaluation) = context.cache.get(&representation_id) {
-            return Ok(evaluation.clone());
+            return Ok(NodeEvaluation {
+                state: evaluation.state,
+                reasons: evaluation
+                    .reasons
+                    .checked_clone(&mut context.cache_budget)?,
+            });
         }
         if depth > context.limits.max_depth() {
-            return Ok(truncated_evaluation(
+            return truncated_evaluation(
                 context,
                 ArtifactTraversalLimitKind::Depth,
                 representation_id,
-            ));
+            );
         }
         if context.visited.len()
             >= usize::try_from(context.limits.max_representations()).unwrap_or(usize::MAX)
         {
-            return Ok(truncated_evaluation(
+            return truncated_evaluation(
                 context,
                 ArtifactTraversalLimitKind::Representations,
                 representation_id,
-            ));
+            );
         }
         context.visited.insert(representation_id);
 
@@ -165,22 +174,30 @@ impl SqliteProduction {
         let evaluation = match producers.as_slice() {
             [] => NodeEvaluation {
                 state: ArtifactKnowledgeState::Indeterminate,
-                reasons: vec![ArtifactKnowledgeReason::ProducingActivityMissing {
+                reasons: Reasons::one(ArtifactKnowledgeReason::ProducingActivityMissing {
                     representation_id,
-                }],
+                })?,
             },
             [activity] => {
                 self.evaluate_activity_output(activity, representation_id, depth, context)?
             }
             activities => NodeEvaluation {
                 state: ArtifactKnowledgeState::Indeterminate,
-                reasons: vec![ArtifactKnowledgeReason::ProducingActivityAmbiguous {
+                reasons: Reasons::one(ArtifactKnowledgeReason::ProducingActivityAmbiguous {
                     representation_id,
                     activity_count: u32::try_from(activities.len()).unwrap_or(u32::MAX),
-                }],
+                })?,
             },
         };
-        context.cache.insert(representation_id, evaluation.clone());
+        context.cache.insert(
+            representation_id,
+            NodeEvaluation {
+                state: evaluation.state,
+                reasons: evaluation
+                    .reasons
+                    .checked_clone(&mut context.cache_budget)?,
+            },
+        );
         Ok(evaluation)
     }
 
@@ -193,7 +210,7 @@ impl SqliteProduction {
     ) -> Result<NodeEvaluation> {
         let mut evaluation = NodeEvaluation {
             state: ArtifactKnowledgeState::Current,
-            reasons: Vec::new(),
+            reasons: Reasons::default(),
         };
         let output = activity
             .outputs()
@@ -224,7 +241,7 @@ impl SqliteProduction {
             )?;
             let dependency_evaluation = evaluate_input_dependencies(self, activity, input)?;
             promote_state(&mut evaluation.state, dependency_evaluation.state);
-            evaluation.reasons.extend(dependency_evaluation.reasons);
+            evaluation.reasons.extend(dependency_evaluation.reasons)?;
             if !self.activities_producing(input_id)?.is_empty() {
                 let upstream = self.evaluate_artifact_node(input_id, depth + 1, context)?;
                 if upstream.state != ArtifactKnowledgeState::Current {
@@ -240,9 +257,9 @@ impl SqliteProduction {
                         .push(ArtifactKnowledgeReason::UpstreamNotCurrent {
                             representation_id: input_id,
                             state: upstream.state,
-                        });
+                        })?;
                 }
-                evaluation.reasons.extend(upstream.reasons);
+                evaluation.reasons.extend(upstream.reasons)?;
             }
         }
         Ok(evaluation)
@@ -265,7 +282,7 @@ impl SqliteProduction {
                     activity_id: activity.id(),
                     representation_id,
                     edge,
-                });
+                })?;
             return Ok(());
         };
         if self.representation_fingerprint_dirty(representation_id)? {
@@ -283,7 +300,7 @@ impl SqliteProduction {
                     activity_id: activity.id(),
                     representation_id,
                     edge,
-                });
+                })?;
             return Ok(());
         }
 
@@ -295,7 +312,7 @@ impl SqliteProduction {
             .cloned()
             .collect::<BTreeSet<_>>();
         if domains.is_empty() {
-            add_missing_evidence(activity, representation_id, edge, None, evaluation);
+            add_missing_evidence(activity, representation_id, edge, None, evaluation)?;
             return Ok(());
         }
         for (algorithm, version) in domains {
@@ -322,7 +339,7 @@ impl SqliteProduction {
                             version,
                             snapshot_value: snapshot_value.clone(),
                             current_value: current_value.clone(),
-                        });
+                        })?;
                 }
                 (Some(_), Some(_)) => {}
                 (snapshot_value, current_value) => add_missing_evidence(
@@ -336,7 +353,7 @@ impl SqliteProduction {
                         current_value.cloned(),
                     )),
                     evaluation,
-                ),
+                )?,
             }
         }
         Ok(())
@@ -365,7 +382,7 @@ fn add_missing_evidence(
     edge: ArtifactEdgeKind,
     domain: Option<FingerprintDomainDifference>,
     evaluation: &mut NodeEvaluation,
-) {
+) -> Result<()> {
     promote_state(&mut evaluation.state, ArtifactKnowledgeState::Indeterminate);
     let (algorithm, version, snapshot_value, current_value) = domain.map_or(
         (None, None, None, None),
@@ -383,7 +400,8 @@ fn add_missing_evidence(
             version,
             snapshot_value,
             current_value,
-        });
+        })?;
+    Ok(())
 }
 
 fn captured_fingerprints(snapshot: &ActivityEdgeSnapshot) -> BTreeMap<(String, u16), Vec<u8>> {
@@ -416,15 +434,15 @@ fn truncated_evaluation(
     context: &mut EvaluationContext,
     limit: ArtifactTraversalLimitKind,
     representation_id: RepresentationId,
-) -> NodeEvaluation {
+) -> Result<NodeEvaluation> {
     context.truncated = true;
-    NodeEvaluation {
+    Ok(NodeEvaluation {
         state: ArtifactKnowledgeState::Indeterminate,
-        reasons: vec![ArtifactKnowledgeReason::TraversalTruncated {
+        reasons: Reasons::one(ArtifactKnowledgeReason::TraversalTruncated {
             limit,
             representation_id,
-        }],
-    }
+        })?,
+    })
 }
 
 fn promote_state(current: &mut ArtifactKnowledgeState, candidate: ArtifactKnowledgeState) {

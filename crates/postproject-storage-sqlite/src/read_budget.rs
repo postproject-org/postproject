@@ -6,7 +6,7 @@ use rusqlite::{Row, types::ValueRef};
 pub(crate) const MAX_ROWS: usize = 100_000;
 const MAX_BYTES: usize = 64 * 1024 * 1024;
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub(crate) struct ReadBudget {
     rows: usize,
     bytes: usize,

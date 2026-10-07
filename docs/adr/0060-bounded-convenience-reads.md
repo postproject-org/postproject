@@ -35,6 +35,9 @@ and complete activity reads likewise share it across edges and snapshots;
 component queries cannot each allocate a fresh budget for the same result.
 Known-media pages share it across matched assets, representations and resources;
 job pages and captured dependency paths share it with their owned child rows.
+Artifact explanations and their traversal-cache copies also have finite row and
+payload budgets, including duplicated fingerprints and authored path strings.
+An oversized explanation returns `Unsupported` without modifying knowledge.
 
 CLI representation, dependency and metadata JSON files are limited to 64 MiB
 before parsing. Array decoders enforce the existing domain item limits while
