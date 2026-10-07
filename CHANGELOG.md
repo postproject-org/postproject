@@ -4,7 +4,7 @@ All notable changes to PostProject will be documented here. The project uses
 [Semantic Versioning](https://semver.org/) once a stable API is released.
 
 ## Unreleased
-- C++/Python reproducibility issues and Python artifact reasons use case-specific values (ADR 0062).
+- C++/Python artifact results provide checked case-specific values (ADR 0062).
 - C++/Python representation facts carry one validated content alternative (ADR 0061).
 - Bound collection payloads and CLI JSON inputs; page larger collections (ADR 0060).
 - Version CLI JSON output and categorize operation errors/exit codes (ADR 0059).

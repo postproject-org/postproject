@@ -985,6 +985,227 @@ enum class ArtifactTraversalLimit : std::uint32_t {
   representations = PP_ARTIFACT_TRAVERSAL_REPRESENTATIONS,
 };
 
+struct ArtifactProducerMissing final {
+  RepresentationId representation_id;
+};
+struct ArtifactProducerAmbiguous final {
+  RepresentationId representation_id;
+  std::uint32_t activity_count;
+};
+struct ArtifactSnapshotAbsent final {
+  ActivityId activity_id;
+  RepresentationId representation_id;
+  ArtifactEdgeKind edge_kind;
+};
+struct ArtifactFingerprintEvidenceMissing final {
+  ActivityId activity_id;
+  RepresentationId representation_id;
+  ArtifactEdgeKind edge_kind;
+  std::optional<std::string> fingerprint_algorithm;
+  std::optional<std::uint16_t> fingerprint_version;
+  std::optional<std::vector<std::uint8_t>> snapshot_value;
+  std::optional<std::vector<std::uint8_t>> current_value;
+};
+struct ArtifactFingerprintChanged final {
+  ActivityId activity_id;
+  RepresentationId representation_id;
+  ArtifactEdgeKind edge_kind;
+  std::string fingerprint_algorithm;
+  std::uint16_t fingerprint_version;
+  std::vector<std::uint8_t> snapshot_value;
+  std::vector<std::uint8_t> current_value;
+};
+struct ArtifactFingerprintRecomputationPending final {
+  ActivityId activity_id;
+  RepresentationId representation_id;
+  ArtifactEdgeKind edge_kind;
+};
+struct ArtifactUpstreamNotCurrent final {
+  RepresentationId representation_id;
+  ArtifactKnowledgeState upstream_state;
+};
+struct ArtifactTraversalTruncated final {
+  RepresentationId representation_id;
+  ArtifactTraversalLimit traversal_limit;
+};
+struct ArtifactDependencySnapshotAbsent final {
+  ActivityId activity_id;
+  RepresentationId representation_id;
+};
+struct ArtifactDependencyKnowledgeIncomplete final {
+  ActivityId activity_id;
+  RepresentationId input_representation_id;
+  RepresentationId representation_id;
+  std::vector<ArtifactDependencyPathSegment> dependency_path;
+  ArtifactDependencyIssue dependency_issue;
+};
+struct ArtifactDependencyPathChanged final {
+  ActivityId activity_id;
+  RepresentationId input_representation_id;
+  std::vector<ArtifactDependencyPathSegment> dependency_path;
+};
+struct ArtifactDependencyFingerprintChanged final {
+  ActivityId activity_id;
+  RepresentationId input_representation_id;
+  RepresentationId representation_id;
+  std::vector<ArtifactDependencyPathSegment> dependency_path;
+  std::string fingerprint_algorithm;
+  std::uint16_t fingerprint_version;
+  std::vector<std::uint8_t> snapshot_value;
+  std::vector<std::uint8_t> current_value;
+};
+struct ArtifactDependencyFingerprintRecomputationPending final {
+  ActivityId activity_id;
+  RepresentationId input_representation_id;
+  RepresentationId representation_id;
+  std::vector<ArtifactDependencyPathSegment> dependency_path;
+};
+struct ArtifactDependencyFingerprintEvidenceMissing final {
+  ActivityId activity_id;
+  RepresentationId input_representation_id;
+  RepresentationId representation_id;
+  std::vector<ArtifactDependencyPathSegment> dependency_path;
+  std::optional<std::string> fingerprint_algorithm;
+  std::optional<std::uint16_t> fingerprint_version;
+  std::optional<std::vector<std::uint8_t>> snapshot_value;
+  std::optional<std::vector<std::uint8_t>> current_value;
+};
+using ArtifactReasonPayload = std::variant<
+    ArtifactProducerMissing,
+    ArtifactProducerAmbiguous,
+    ArtifactSnapshotAbsent,
+    ArtifactFingerprintEvidenceMissing,
+    ArtifactFingerprintChanged,
+    ArtifactFingerprintRecomputationPending,
+    ArtifactUpstreamNotCurrent,
+    ArtifactTraversalTruncated,
+    ArtifactDependencySnapshotAbsent,
+    ArtifactDependencyKnowledgeIncomplete,
+    ArtifactDependencyPathChanged,
+    ArtifactDependencyFingerprintChanged,
+    ArtifactDependencyFingerprintRecomputationPending,
+    ArtifactDependencyFingerprintEvidenceMissing>;
+
+/// Checked, owned artifact observation. The alternatives above are unvalidated
+/// input records; only create() produces this usable value. After a move,
+/// destroy or reassign the source and inspect the destination.
+class ArtifactReasonValue final {
+public:
+  static Result<ArtifactReasonValue> create(ArtifactReasonPayload value) {
+    if (value.valueless_by_exception())
+      return Error(ErrorCode::invalid_argument, "artifact reason has no alternative");
+    POSTPROJECT_TRY(std::visit([](const auto &reason) -> Result<void> {
+      using T = std::decay_t<decltype(reason)>;
+      if constexpr (std::is_same_v<T, ArtifactProducerAmbiguous>) {
+        if (reason.activity_count < 2)
+          return Error(ErrorCode::invalid_argument, "ambiguous producer count must be at least two");
+      }
+      if constexpr (std::is_same_v<T, ArtifactSnapshotAbsent> ||
+                    std::is_same_v<T, ArtifactFingerprintEvidenceMissing> ||
+                    std::is_same_v<T, ArtifactFingerprintChanged> ||
+                    std::is_same_v<T, ArtifactFingerprintRecomputationPending>) {
+        if (reason.edge_kind != ArtifactEdgeKind::input && reason.edge_kind != ArtifactEdgeKind::output)
+          return Error(ErrorCode::invalid_argument, "invalid artifact edge kind");
+      }
+      if constexpr (std::is_same_v<T, ArtifactUpstreamNotCurrent>) {
+        if (reason.upstream_state != ArtifactKnowledgeState::stale &&
+            reason.upstream_state != ArtifactKnowledgeState::indeterminate &&
+            reason.upstream_state != ArtifactKnowledgeState::diverged)
+          return Error(ErrorCode::invalid_argument, "invalid non-current upstream state");
+      }
+      if constexpr (std::is_same_v<T, ArtifactTraversalTruncated>) {
+        if (reason.traversal_limit != ArtifactTraversalLimit::depth &&
+            reason.traversal_limit != ArtifactTraversalLimit::representations)
+          return Error(ErrorCode::invalid_argument, "invalid artifact traversal limit");
+      }
+      if constexpr (std::is_same_v<T, ArtifactDependencyKnowledgeIncomplete>) {
+        if (reason.dependency_issue != ArtifactDependencyIssue::needs_extraction &&
+            reason.dependency_issue != ArtifactDependencyIssue::unresolved &&
+            reason.dependency_issue != ArtifactDependencyIssue::depth_truncated &&
+            reason.dependency_issue != ArtifactDependencyIssue::representations_truncated)
+          return Error(ErrorCode::invalid_argument, "invalid artifact dependency issue");
+      }
+      if constexpr (std::is_same_v<T, ArtifactDependencyKnowledgeIncomplete> ||
+                    std::is_same_v<T, ArtifactDependencyPathChanged> ||
+                    std::is_same_v<T, ArtifactDependencyFingerprintChanged> ||
+                    std::is_same_v<T, ArtifactDependencyFingerprintRecomputationPending> ||
+                    std::is_same_v<T, ArtifactDependencyFingerprintEvidenceMissing>) {
+        if (reason.dependency_path.size() > 100000)
+          return Error(ErrorCode::invalid_argument, "artifact dependency path is oversized");
+        std::size_t bytes = 0;
+        for (const auto &segment : reason.dependency_path) {
+          if (segment.target.kind() != ObjectKind::asset && segment.target.kind() != ObjectKind::representation)
+            return Error(ErrorCode::invalid_argument, "artifact dependency target must be an asset or representation");
+          if (segment.kind.size() > 64 * 1024 * 1024 - bytes)
+            return Error(ErrorCode::invalid_argument, "artifact dependency path is oversized");
+          bytes += segment.kind.size();
+          if (segment.authored_reference.size() > 64 * 1024 * 1024 - bytes)
+            return Error(ErrorCode::invalid_argument, "artifact dependency path is oversized");
+          bytes += segment.authored_reference.size();
+        }
+      }
+      if constexpr (std::is_same_v<T, ArtifactFingerprintEvidenceMissing> ||
+                    std::is_same_v<T, ArtifactFingerprintChanged> ||
+                    std::is_same_v<T, ArtifactDependencyFingerprintChanged> ||
+                    std::is_same_v<T, ArtifactDependencyFingerprintEvidenceMissing>) {
+        const auto valid_algorithm = [](const std::string &algorithm) {
+          return !algorithm.empty() && algorithm.size() <= 64 &&
+              std::all_of(algorithm.begin(), algorithm.end(), [](unsigned char character) {
+                return (character >= 'a' && character <= 'z') ||
+                       (character >= 'A' && character <= 'Z') ||
+                       (character >= '0' && character <= '9') || character == '-' || character == '_';
+              });
+        };
+        const auto valid_bytes = [](const std::vector<std::uint8_t> &bytes) {
+          return !bytes.empty() && bytes.size() <= 16 * 1024 * 1024;
+        };
+        if constexpr (std::is_same_v<T, ArtifactFingerprintEvidenceMissing> ||
+                      std::is_same_v<T, ArtifactDependencyFingerprintEvidenceMissing>) {
+          if (reason.fingerprint_algorithm.has_value() != reason.fingerprint_version.has_value() ||
+              (reason.fingerprint_algorithm && !valid_algorithm(*reason.fingerprint_algorithm)) ||
+              (reason.snapshot_value && !valid_bytes(*reason.snapshot_value)) ||
+              (reason.current_value && !valid_bytes(*reason.current_value)))
+            return Error(ErrorCode::invalid_argument, "invalid optional artifact fingerprint evidence");
+        } else {
+          if (!valid_algorithm(reason.fingerprint_algorithm) || !valid_bytes(reason.snapshot_value) ||
+              !valid_bytes(reason.current_value))
+            return Error(ErrorCode::invalid_argument, "invalid required artifact fingerprint evidence");
+        }
+      }
+      return {};
+    }, value));
+    return ArtifactReasonValue(std::move(value));
+  }
+  ArtifactReasonValue(const ArtifactReasonValue &) = default;
+  ArtifactReasonValue(ArtifactReasonValue &&) noexcept = default;
+  ArtifactReasonValue &operator=(ArtifactReasonValue &&) noexcept = default;
+  ArtifactReasonValue &operator=(const ArtifactReasonValue &other) {
+    ArtifactReasonValue copied(other);
+    value_ = std::move(copied.value_);
+    return *this;
+  }
+  const ArtifactReasonPayload &value() const noexcept { return value_; }
+  ArtifactReasonKind kind() const noexcept {
+    if (std::holds_alternative<ArtifactProducerMissing>(value_)) return ArtifactReasonKind::producing_activity_missing;
+    if (std::holds_alternative<ArtifactProducerAmbiguous>(value_)) return ArtifactReasonKind::producing_activity_ambiguous;
+    if (std::holds_alternative<ArtifactSnapshotAbsent>(value_)) return ArtifactReasonKind::snapshot_absent;
+    if (std::holds_alternative<ArtifactFingerprintEvidenceMissing>(value_)) return ArtifactReasonKind::fingerprint_evidence_missing;
+    if (std::holds_alternative<ArtifactFingerprintChanged>(value_)) return ArtifactReasonKind::fingerprint_changed;
+    if (std::holds_alternative<ArtifactFingerprintRecomputationPending>(value_)) return ArtifactReasonKind::fingerprint_recomputation_pending;
+    if (std::holds_alternative<ArtifactUpstreamNotCurrent>(value_)) return ArtifactReasonKind::upstream_not_current;
+    if (std::holds_alternative<ArtifactTraversalTruncated>(value_)) return ArtifactReasonKind::traversal_truncated;
+    if (std::holds_alternative<ArtifactDependencySnapshotAbsent>(value_)) return ArtifactReasonKind::dependency_snapshot_absent;
+    if (std::holds_alternative<ArtifactDependencyKnowledgeIncomplete>(value_)) return ArtifactReasonKind::dependency_knowledge_incomplete;
+    if (std::holds_alternative<ArtifactDependencyPathChanged>(value_)) return ArtifactReasonKind::dependency_path_changed;
+    if (std::holds_alternative<ArtifactDependencyFingerprintChanged>(value_)) return ArtifactReasonKind::dependency_fingerprint_changed;
+    if (std::holds_alternative<ArtifactDependencyFingerprintRecomputationPending>(value_)) return ArtifactReasonKind::dependency_fingerprint_recomputation_pending;
+    return ArtifactReasonKind::dependency_fingerprint_evidence_missing;
+  }
+private:
+  explicit ArtifactReasonValue(ArtifactReasonPayload value) : value_(std::move(value)) {}
+  ArtifactReasonPayload value_;
+};
+
 struct ArtifactReason final {
   ArtifactReasonKind kind;
   std::optional<ActivityId> activity_id;

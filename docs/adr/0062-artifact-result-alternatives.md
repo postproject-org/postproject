@@ -32,6 +32,10 @@ Python artifact reasons return the matching `Artifact…` record;
 bytes and their domain. Dependency-path changes carry the direct input and
 captured path, without a fabricated zero subject ID. Unrelated constructor
 arguments are rejected. The display `kind` derives from the case type.
+C++ `ArtifactReasonValue::create` checks a payload variant and exposes it
+through a const `value()` view; copied values own their paths and evidence.
+Moved sources support destruction or reassignment. Input case records remain
+unvalidated until the factory accepts them.
 
 No schema, persisted identity or external standards mapping changes. These
 projections preserve the existing recorded provenance and dependency semantics.

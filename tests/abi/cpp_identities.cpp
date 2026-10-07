@@ -146,6 +146,21 @@ int main() {
       content_resource, {std::numeric_limits<std::int64_t>::min(),
                          std::numeric_limits<std::int64_t>::max(), 1, 24, 1, {0}}});
   if (!full_domain) return 34;
+  const ArtifactFingerprintChanged changed_artifact{
+      ActivityId(content_resource.asUuid()), RepresentationId(content_resource.asUuid()),
+      ArtifactEdgeKind::input, "foreign_digest", 7, {1}, {2}};
+  auto artifact_value = ArtifactReasonValue::create(changed_artifact).value();
+  if (artifact_value.kind() != ArtifactReasonKind::fingerprint_changed ||
+      std::get<ArtifactFingerprintChanged>(artifact_value.value()).current_value !=
+          std::vector<std::uint8_t>{2}) return 37;
+  auto invalid_artifact = changed_artifact;
+  invalid_artifact.current_value.clear();
+  if (ArtifactReasonValue::create(invalid_artifact)) return 38;
+  invalid_artifact = changed_artifact;
+  invalid_artifact.edge_kind = static_cast<ArtifactEdgeKind>(999);
+  if (ArtifactReasonValue::create(invalid_artifact)) return 39;
+  if (ArtifactReasonValue::create(ArtifactProducerAmbiguous{
+          RepresentationId(content_resource.asUuid()), 1})) return 40;
   const auto invalid_producer_count = ReproducibilityProducerAmbiguous::create(1);
   if (invalid_producer_count || invalid_producer_count.error().code() != ErrorCode::invalid_argument) return 35;
   const ArtifactReproducibilityIssue ambiguous_producers = ReproducibilityProducerAmbiguous::create(2).value();
