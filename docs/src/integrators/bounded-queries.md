@@ -41,12 +41,11 @@ page.
 | Jobs by state and kind | `pp_production_jobs` | `jobs` | `jobs` | `jobs` | `job list` |
 | Objects changed since a revision | `pp_production_objects_changed_since` | `objectsChangedSince` | `objects_changed_since` | `objects_changed_since` | `revisions changed` |
 
-The complete-list reads for assets, representations, metadata properties,
-producing and consuming activities, and provenance ancestors and descendants
-remain available on C, C++, Python, and Rust for small productions. Their cost
-grows with the production, so prefer the paginated query in new code. The CLI
-`media list` returns the complete asset list unless `--limit` or `--cursor` is
-given; its other query commands always return one page.
+Complete-list asset, representation, resource and locator helpers cap at 1000.
+Larger results return `Unsupported`; page them instead. Compound structures
+retain their separate domain member limit. The CLI query commands return one
+page. Metadata and provenance convenience reads retain their own documented
+limits; prefer bounded queries when scanning a production.
 
 ## Read one object by identity
 
