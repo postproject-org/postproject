@@ -584,16 +584,19 @@ impl SqliteProduction {
             .prepare(&sql)
             .map_err(sqlite_error("prepare paginated media-root query"))?;
         let mut roots = statement
-            .query_map(params_from_iter(parameters), |row| {
-                Ok((
-                    row.get::<_, Vec<u8>>(0)?,
-                    row.get::<_, String>(1)?,
-                    row.get::<_, Option<String>>(2)?,
-                    row.get::<_, Option<String>>(3)?,
-                    row.get::<_, i32>(4)?,
-                    row.get::<_, bool>(5)?,
-                ))
-            })
+            .query_map(
+                params_from_iter(parameters),
+                crate::read_budget::bounded(|row| {
+                    Ok((
+                        row.get::<_, Vec<u8>>(0)?,
+                        row.get::<_, String>(1)?,
+                        row.get::<_, Option<String>>(2)?,
+                        row.get::<_, Option<String>>(3)?,
+                        row.get::<_, i32>(4)?,
+                        row.get::<_, bool>(5)?,
+                    ))
+                }),
+            )
             .map_err(sqlite_error("query paginated media roots"))?
             .map(|row| {
                 let (id, name, label, uri, priority, enabled) =
@@ -665,14 +668,17 @@ impl SqliteProduction {
             .prepare(&sql)
             .map_err(sqlite_error("prepare paginated asset query"))?;
         let mut assets = statement
-            .query_map(params_from_iter(parameters), |row| {
-                Ok((
-                    row.get::<_, Vec<u8>>(0)?,
-                    row.get::<_, i64>(1)?,
-                    row.get::<_, Option<String>>(2)?,
-                    row.get::<_, Option<String>>(3)?,
-                ))
-            })
+            .query_map(
+                params_from_iter(parameters),
+                crate::read_budget::bounded(|row| {
+                    Ok((
+                        row.get::<_, Vec<u8>>(0)?,
+                        row.get::<_, i64>(1)?,
+                        row.get::<_, Option<String>>(2)?,
+                        row.get::<_, Option<String>>(3)?,
+                    ))
+                }),
+            )
             .map_err(sqlite_error("query paginated assets"))?
             .map(|row| {
                 let (id, created_at, display_name, import_source) =
@@ -772,14 +778,14 @@ impl SqliteProduction {
                     position.unwrap_or(-1),
                     i64::from(page.limit()) + 1,
                 ],
-                |row| {
+                crate::read_budget::bounded(|row| {
                     Ok((
                         row.get::<_, i64>(0)?,
                         row.get::<_, Vec<u8>>(1)?,
                         row.get::<_, Option<i64>>(2)?,
                         row.get::<_, Option<i64>>(3)?,
                     ))
-                },
+                }),
             )
             .map_err(sqlite_error("query paginated resources"))?
             .collect::<std::result::Result<Vec<_>, _>>()
@@ -848,7 +854,7 @@ impl SqliteProduction {
                     position.unwrap_or([0; 16]).as_slice(),
                     i64::from(page.limit()) + 1,
                 ],
-                StoredLocator::read,
+                crate::read_budget::bounded(StoredLocator::read),
             )
             .map_err(sqlite_error("query paginated locators"))?
             .map(|row| {
@@ -934,7 +940,9 @@ impl SqliteProduction {
                     resource_position.as_slice(),
                     i64::from(page.limit()) + 1,
                 ],
-                |row| Ok((row.get::<_, Vec<u8>>(0)?, row.get::<_, Vec<u8>>(1)?)),
+                crate::read_budget::bounded(|row| {
+                    Ok((row.get::<_, Vec<u8>>(0)?, row.get::<_, Vec<u8>>(1)?))
+                }),
             )
             .map_err(sqlite_error("query known media by locator"))?
             .map(|row| {
@@ -995,7 +1003,9 @@ impl SqliteProduction {
                     resource_position.as_slice(),
                     i64::from(page.limit()) + 1,
                 ],
-                |row| Ok((row.get::<_, Vec<u8>>(0)?, row.get::<_, Vec<u8>>(1)?)),
+                crate::read_budget::bounded(|row| {
+                    Ok((row.get::<_, Vec<u8>>(0)?, row.get::<_, Vec<u8>>(1)?))
+                }),
             )
             .map_err(sqlite_error("query known media by fingerprint"))?
             .map(|row| {
@@ -1112,7 +1122,7 @@ impl SqliteProduction {
                     position.unwrap_or([0; 16]).as_slice(),
                     i64::from(page.limit()) + 1,
                 ],
-                |row| row.get::<_, Vec<u8>>(0),
+                crate::read_budget::bounded(|row| row.get::<_, Vec<u8>>(0)),
             )
             .map_err(sqlite_error("query media-root representations"))?
             .map(|row| {
@@ -1150,7 +1160,7 @@ impl SqliteProduction {
                     position.unwrap_or([0; 16]).as_slice(),
                     i64::from(page.limit()) + 1,
                 ],
-                |row| row.get::<_, Vec<u8>>(0),
+                crate::read_budget::bounded(|row| row.get::<_, Vec<u8>>(0)),
             )
             .map_err(sqlite_error("query unresolved media"))?
             .map(|row| {
@@ -1192,13 +1202,16 @@ impl SqliteProduction {
             )
             .map_err(sqlite_error("prepare content-membership query"))?;
         let rows = statement
-            .query_map(params![representation_id.as_bytes().as_slice()], |row| {
-                Ok((
-                    row.get::<_, Vec<u8>>(0)?,
-                    row.get::<_, Option<String>>(1)?,
-                    row.get::<_, bool>(2)?,
-                ))
-            })
+            .query_map(
+                params![representation_id.as_bytes().as_slice()],
+                crate::read_budget::bounded(|row| {
+                    Ok((
+                        row.get::<_, Vec<u8>>(0)?,
+                        row.get::<_, Option<String>>(1)?,
+                        row.get::<_, bool>(2)?,
+                    ))
+                }),
+            )
             .map_err(sqlite_error("query content memberships"))?;
         let rows: Vec<_> = rows
             .map(|row| {
@@ -1293,9 +1306,10 @@ impl SqliteProduction {
             )
             .map_err(sqlite_error("prepare missing-frame query"))?;
         let missing = statement
-            .query_map(params![representation_id.as_bytes().as_slice()], |row| {
-                row.get::<_, i64>(0)
-            })
+            .query_map(
+                params![representation_id.as_bytes().as_slice()],
+                crate::read_budget::bounded(|row| row.get::<_, i64>(0)),
+            )
             .map_err(sqlite_error("query missing frames"))?
             .collect::<std::result::Result<Vec<_>, _>>()
             .map_err(sqlite_error("read missing-frame row"))?;
@@ -1316,13 +1330,16 @@ impl SqliteProduction {
             )
             .map_err(sqlite_error("prepare resource-fingerprint query"))?;
         let rows = statement
-            .query_map(params![resource_id.as_bytes().as_slice()], |row| {
-                Ok((
-                    row.get::<_, String>(0)?,
-                    row.get::<_, u16>(1)?,
-                    row.get::<_, Vec<u8>>(2)?,
-                ))
-            })
+            .query_map(
+                params![resource_id.as_bytes().as_slice()],
+                crate::read_budget::bounded(|row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, u16>(1)?,
+                        row.get::<_, Vec<u8>>(2)?,
+                    ))
+                }),
+            )
             .map_err(sqlite_error("query resource fingerprints"))?;
         rows.map(|row| {
             let (algorithm, version, value) =
@@ -1346,13 +1363,16 @@ impl SqliteProduction {
             )
             .map_err(sqlite_error("prepare representation-fingerprint query"))?;
         let rows = statement
-            .query_map(params![representation_id.as_bytes().as_slice()], |row| {
-                Ok((
-                    row.get::<_, String>(0)?,
-                    row.get::<_, u16>(1)?,
-                    row.get::<_, Vec<u8>>(2)?,
-                ))
-            })
+            .query_map(
+                params![representation_id.as_bytes().as_slice()],
+                crate::read_budget::bounded(|row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, u16>(1)?,
+                        row.get::<_, Vec<u8>>(2)?,
+                    ))
+                }),
+            )
             .map_err(sqlite_error("query representation fingerprints"))?;
         rows.map(|row| {
             let (algorithm, version, value) =
@@ -1381,13 +1401,16 @@ impl SqliteProduction {
             )
             .map_err(sqlite_error("prepare external-identifier query"))?;
         let rows = statement
-            .query_map(params![target_kind, target_id.as_slice()], |row| {
-                Ok((
-                    row.get::<_, String>(0)?,
-                    row.get::<_, String>(1)?,
-                    row.get::<_, Option<String>>(2)?,
-                ))
-            })
+            .query_map(
+                params![target_kind, target_id.as_slice()],
+                crate::read_budget::bounded(|row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, String>(1)?,
+                        row.get::<_, Option<String>>(2)?,
+                    ))
+                }),
+            )
             .map_err(sqlite_error("query external identifiers"))?;
 
         let mut budget = ReadBudget::default();
@@ -1428,9 +1451,12 @@ impl SqliteProduction {
             )
             .map_err(sqlite_error("prepare external-identifier lookup"))?;
         let rows = statement
-            .query_map(params![scheme.as_str(), value, qualifier], |row| {
-                Ok((row.get::<_, i64>(0)?, row.get::<_, Vec<u8>>(1)?))
-            })
+            .query_map(
+                params![scheme.as_str(), value, qualifier],
+                crate::read_budget::bounded(|row| {
+                    Ok((row.get::<_, i64>(0)?, row.get::<_, Vec<u8>>(1)?))
+                }),
+            )
             .map_err(sqlite_error("look up external identifier"))?;
 
         let mut budget = ReadBudget::default();
@@ -1461,13 +1487,16 @@ impl SqliteProduction {
             )
             .map_err(sqlite_error("prepare metadata query"))?;
         let rows = statement
-            .query_map(params![target_kind, target_id.as_slice()], |row| {
-                Ok((
-                    row.get::<_, String>(0)?,
-                    row.get::<_, String>(1)?,
-                    row.get::<_, Vec<u8>>(2)?,
-                ))
-            })
+            .query_map(
+                params![target_kind, target_id.as_slice()],
+                crate::read_budget::bounded(|row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, String>(1)?,
+                        row.get::<_, Vec<u8>>(2)?,
+                    ))
+                }),
+            )
             .map_err(sqlite_error("query metadata"))?;
 
         let mut budget = ReadBudget::default();
@@ -1509,7 +1538,7 @@ impl SqliteProduction {
                     property.vocabulary().as_str(),
                     property.property().as_str(),
                 ],
-                |row| row.get::<_, Vec<u8>>(0),
+                crate::read_budget::bounded(|row| row.get::<_, Vec<u8>>(0)),
             )
             .map_err(sqlite_error("query metadata values"))?;
 
@@ -1594,15 +1623,18 @@ impl SqliteProduction {
             .map_err(sqlite_error("prepare paginated metadata query"))?;
         let mut budget = ReadBudget::default();
         let mut rows = statement
-            .query_map(params_from_iter(parameters), |row| {
-                Ok((
-                    row.get::<_, i64>(0)?,
-                    row.get::<_, Vec<u8>>(1)?,
-                    row.get::<_, i64>(2)?,
-                    row.get::<_, i64>(3)?,
-                    row.get::<_, Vec<u8>>(4)?,
-                ))
-            })
+            .query_map(
+                params_from_iter(parameters),
+                crate::read_budget::bounded(|row| {
+                    Ok((
+                        row.get::<_, i64>(0)?,
+                        row.get::<_, Vec<u8>>(1)?,
+                        row.get::<_, i64>(2)?,
+                        row.get::<_, i64>(3)?,
+                        row.get::<_, Vec<u8>>(4)?,
+                    ))
+                }),
+            )
             .map_err(sqlite_error("query paginated metadata"))?
             .map(|row| {
                 let row = row.map_err(sqlite_error("read paginated metadata row"))?;
@@ -5122,7 +5154,10 @@ fn stored_invariant(message: &'static str) -> Error {
 }
 
 pub(crate) fn sqlite_error(context: &'static str) -> impl FnOnce(rusqlite::Error) -> Error {
-    move |error| Error::new(ErrorKind::Storage, format!("{context}: {error}"))
+    move |error| {
+        read_budget::limit_error(&error)
+            .unwrap_or_else(|| Error::new(ErrorKind::Storage, format!("{context}: {error}")))
+    }
 }
 
 fn stored_domain_error(label: &'static str) -> impl FnOnce(Error) -> Error {

@@ -22,9 +22,9 @@ descendant helpers use the existing bounded traversal, at most 64 levels and
 Complete revision-event lists likewise cap at 1000. Large atomic commits remain
 valid; their immutable events are available through the existing event pages.
 
-Materialized metadata and identifier collections also have a private read budget
+Materialized media, fingerprint, metadata and identifier rows have a private read budget
 of 100000 rows and 64 MiB of stored payload, checked while streaming before
-decoding. Metadata pages include their lookahead row in that byte budget; choose
+copying borrowed SQLite values or decoding. Pages include their lookahead row in that byte budget; choose
 a smaller page after `Unsupported`. Domain and individual-value limits remain
 separate. This bounds payload allocation without treating 64 MiB as an exact
 total process-memory promise: decoded values and row bookkeeping have overhead.
