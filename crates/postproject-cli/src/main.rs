@@ -1575,7 +1575,8 @@ struct JobView {
 struct JobRunView {
     job: JobView,
     output: Option<String>,
-    commit_receipts: Vec<serde_json::Value>,
+    #[serde(serialize_with = "serialize_receipts")]
+    commit_receipts: Vec<CommitReceipt>,
 }
 
 #[derive(Debug, Serialize)]
@@ -4007,7 +4008,9 @@ fn print_job_result(
     receipt: &CommitReceipt,
 ) -> Result<()> {
     if json {
-        print_json_with_receipt(view, receipt)
+        print_json_with_receipt(view, receipt).map_err(|source| {
+            CommittedOperationError::attach(source, std::slice::from_ref(receipt))
+        })
     } else {
         println!("{action} job {}", view.id);
         Ok(())
@@ -4201,18 +4204,31 @@ fn job_run(args: &JobRunArgs, json: bool, base_revision: Option<CliDecisionBase>
         }
     }
 
-    let mut views = Vec::with_capacity(prepared.len());
+    let mut views: Vec<JobRunView> = Vec::with_capacity(prepared.len());
     for candidate in prepared {
-        views.push(run_executor_job(
-            &mut production,
-            &executor,
-            &candidate,
-            lease,
-            base_revision,
-        )?);
+        match run_executor_job(&mut production, &executor, &candidate, lease, base_revision) {
+            Ok(view) => views.push(view),
+            Err(error) => {
+                let mut receipts = views
+                    .iter()
+                    .flat_map(|view| view.commit_receipts.iter().cloned())
+                    .collect::<Vec<_>>();
+                if let Some(committed) = error.downcast_ref::<CommittedOperationError>() {
+                    receipts.extend_from_slice(&committed.prior_receipts);
+                    receipts.push(committed.receipt.clone());
+                }
+                return Err(CommittedOperationError::attach(error, &receipts));
+            }
+        }
     }
     if json {
-        print_json(&views)
+        print_json(&views).map_err(|source| {
+            let receipts = views
+                .iter()
+                .flat_map(|view| view.commit_receipts.iter().cloned())
+                .collect::<Vec<_>>();
+            CommittedOperationError::attach(source, &receipts)
+        })
     } else {
         if views.is_empty() {
             println!("no eligible requested jobs");
@@ -4425,7 +4441,7 @@ fn run_executor_job(
     );
     result
         .map(|mut view| {
-            view.commit_receipts = receipts.iter().map(receipt_view).collect();
+            view.commit_receipts.clone_from(&receipts);
             view
         })
         .map_err(|source| CommittedOperationError::attach(source, &receipts))
@@ -6402,6 +6418,17 @@ fn fingerprint_conflict_key(
         qualifier: None,
         version: Some(version),
     }
+}
+
+fn serialize_receipts<S: serde::Serializer>(
+    receipts: &[CommitReceipt],
+    serializer: S,
+) -> std::result::Result<S::Ok, S::Error> {
+    receipts
+        .iter()
+        .map(receipt_view)
+        .collect::<Vec<_>>()
+        .serialize(serializer)
 }
 
 fn receipt_view(receipt: &CommitReceipt) -> serde_json::Value {

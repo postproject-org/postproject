@@ -141,6 +141,7 @@ fn run_once_completes_proxy_with_snapshots_and_profile() {
     let result: Value =
         serde_json::from_slice(&assertion.get_output().stdout).expect("executor JSON");
     assert_eq!(result[0]["job"]["state"], "succeeded");
+    assert_worker_receipts(&result[0]);
     let output_path = result[0]["output"].as_str().expect("output path");
     assert!(Path::new(output_path).is_file());
 
@@ -203,6 +204,7 @@ fn crashing_ffmpeg_fails_job_and_removes_output() {
     let result: Value =
         serde_json::from_slice(&assertion.get_output().stdout).expect("executor JSON");
     assert_eq!(result[0]["job"]["state"], "failed");
+    assert_worker_receipts(&result[0]);
     assert!(
         result[0]["job"]["failure_diagnostic"]
             .as_str()
@@ -222,4 +224,18 @@ fn crashing_ffmpeg_fails_job_and_removes_output() {
         production.job(job_id).expect("load failed job").state(),
         JobState::Failed(_)
     ));
+}
+
+fn assert_worker_receipts(result: &Value) {
+    let receipts = result["commit_receipts"].as_array().unwrap();
+    assert!(receipts.len() >= 2);
+    let production = receipts[0]["production_id"].as_str().unwrap();
+    let mut previous = 0;
+    for receipt in receipts {
+        assert_eq!(receipt["production_id"], production);
+        assert!(receipt["revision"]["id"].is_string());
+        let sequence = receipt["revision"]["sequence"].as_u64().unwrap();
+        assert!(sequence > previous);
+        previous = sequence;
+    }
 }
