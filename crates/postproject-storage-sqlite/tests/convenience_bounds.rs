@@ -191,13 +191,13 @@ fn activity_pages_share_their_edge_snapshot_budget() {
             .unwrap();
         transaction.execute("INSERT INTO activity_inputs(id, activity_id, representation_id, snapshot_revision_sequence) VALUES(?1, ?2, ?3, 1)",
             params![edge, activity.as_bytes().as_slice(), representation.as_bytes().as_slice()]).unwrap();
+        let output = RepresentationId::new();
+        transaction.execute("INSERT INTO representations(id, asset_id, kind, structure_kind) VALUES(?1, ?2, 0, 0)",
+            params![output.as_bytes().as_slice(), asset.as_bytes().as_slice()]).unwrap();
         transaction
             .execute(
                 "INSERT INTO activity_outputs(activity_id, representation_id) VALUES(?1, ?2)",
-                params![
-                    activity.as_bytes().as_slice(),
-                    representation.as_bytes().as_slice()
-                ],
+                params![activity.as_bytes().as_slice(), output.as_bytes().as_slice()],
             )
             .unwrap();
         for version in 1..=4 {
