@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from enum import Enum
 from fractions import Fraction
 from itertools import islice
@@ -355,6 +355,265 @@ class ArtifactTraversalLimit(Enum):
 
     DEPTH = "depth"
     REPRESENTATIONS = "representations"
+
+
+@dataclass(frozen=True, slots=True)
+class _ArtifactReasonValue:
+    """Validate and own a case payload before exposing an observation."""
+
+    def __post_init__(self) -> None:
+        enum_fields = {
+            "edge_kind": ArtifactEdgeKind,
+            "upstream_state": ArtifactKnowledgeState,
+            "traversal_limit": ArtifactTraversalLimit,
+            "dependency_issue": ArtifactDependencyIssue,
+        }
+        for field in fields(self):
+            value = getattr(self, field.name)
+            if field.name.endswith("_id") and not isinstance(value, UUID):
+                raise TypeError(f"{field.name} must be a UUID")
+            if field.name in enum_fields and not isinstance(
+                value, enum_fields[field.name]
+            ):
+                raise TypeError(f"{field.name} has the wrong enum type")
+            if field.name == "dependency_path":
+                copied = tuple(islice(value, 100001))
+                if len(copied) > 100000:
+                    raise ValueError("dependency path exceeds its item limit")
+                if any(
+                    not isinstance(segment, ArtifactDependencyPathSegment)
+                    for segment in copied
+                ):
+                    raise TypeError("dependency path requires typed segments")
+                object.__setattr__(self, field.name, copied)
+            if field.name in ("snapshot_value", "current_value"):
+                optional = isinstance(
+                    self,
+                    (
+                        ArtifactFingerprintEvidenceMissing,
+                        ArtifactDependencyFingerprintEvidenceMissing,
+                    ),
+                )
+                if value is None and optional:
+                    continue
+                if not isinstance(value, (bytes, bytearray, memoryview)):
+                    raise TypeError(f"{field.name} must be bytes")
+                size = value.nbytes if isinstance(value, memoryview) else len(value)
+                if not 1 <= size <= 16 * 1024 * 1024:
+                    raise ValueError(
+                        "fingerprint value must contain 1 byte through 16 MiB"
+                    )
+                object.__setattr__(self, field.name, bytes(value))
+        if hasattr(self, "activity_count"):
+            count = self.activity_count
+            if not isinstance(count, int) or isinstance(count, bool):
+                raise TypeError("activity_count must be an integer")
+            if not 2 <= count <= 2**32 - 1:
+                raise ValueError("ambiguous producer count must be 2..2**32-1")
+        if hasattr(self, "fingerprint_algorithm"):
+            algorithm = self.fingerprint_algorithm
+            version = getattr(self, "fingerprint_version", None)
+            optional = isinstance(
+                self,
+                (
+                    ArtifactFingerprintEvidenceMissing,
+                    ArtifactDependencyFingerprintEvidenceMissing,
+                ),
+            )
+            if algorithm is None and version is None and optional:
+                return
+            if (
+                not isinstance(algorithm, str)
+                or not isinstance(version, int)
+                or isinstance(version, bool)
+            ):
+                raise TypeError(
+                    "fingerprint domain requires an algorithm and integer version"
+                )
+            if (
+                not 0 <= version <= 65535
+                or not 1 <= len(algorithm) <= 64
+                or any(
+                    not (
+                        character.isascii()
+                        and (character.isalnum() or character in "-_")
+                    )
+                    for character in algorithm
+                )
+            ):
+                raise ValueError("invalid fingerprint domain")
+        if (
+            isinstance(self, ArtifactUpstreamNotCurrent)
+            and self.upstream_state is ArtifactKnowledgeState.CURRENT
+        ):
+            raise ValueError(
+                "upstream-not-current evidence cannot report current knowledge"
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class ArtifactProducerMissing(_ArtifactReasonValue):
+    """producing activity missing."""
+
+    representation_id: RepresentationId
+    kind: ClassVar[ArtifactReasonKind] = ArtifactReasonKind.PRODUCING_ACTIVITY_MISSING
+
+
+@dataclass(frozen=True, slots=True)
+class ArtifactProducerAmbiguous(_ArtifactReasonValue):
+    """producing activity ambiguous."""
+
+    representation_id: RepresentationId
+    activity_count: int
+    kind: ClassVar[ArtifactReasonKind] = ArtifactReasonKind.PRODUCING_ACTIVITY_AMBIGUOUS
+
+
+@dataclass(frozen=True, slots=True)
+class ArtifactSnapshotAbsent(_ArtifactReasonValue):
+    """snapshot absent."""
+
+    activity_id: ActivityId
+    representation_id: RepresentationId
+    edge_kind: ArtifactEdgeKind
+    kind: ClassVar[ArtifactReasonKind] = ArtifactReasonKind.SNAPSHOT_ABSENT
+
+
+@dataclass(frozen=True, slots=True)
+class ArtifactFingerprintEvidenceMissing(_ArtifactReasonValue):
+    """fingerprint evidence missing."""
+
+    activity_id: ActivityId
+    representation_id: RepresentationId
+    edge_kind: ArtifactEdgeKind
+    fingerprint_algorithm: str | None
+    fingerprint_version: int | None
+    snapshot_value: bytes | None
+    current_value: bytes | None
+    kind: ClassVar[ArtifactReasonKind] = ArtifactReasonKind.FINGERPRINT_EVIDENCE_MISSING
+
+
+@dataclass(frozen=True, slots=True)
+class ArtifactFingerprintChanged(_ArtifactReasonValue):
+    """fingerprint changed."""
+
+    activity_id: ActivityId
+    representation_id: RepresentationId
+    edge_kind: ArtifactEdgeKind
+    fingerprint_algorithm: str
+    fingerprint_version: int
+    snapshot_value: bytes
+    current_value: bytes
+    kind: ClassVar[ArtifactReasonKind] = ArtifactReasonKind.FINGERPRINT_CHANGED
+
+
+@dataclass(frozen=True, slots=True)
+class ArtifactFingerprintRecomputationPending(_ArtifactReasonValue):
+    """fingerprint recomputation pending."""
+
+    activity_id: ActivityId
+    representation_id: RepresentationId
+    edge_kind: ArtifactEdgeKind
+    kind: ClassVar[ArtifactReasonKind] = (
+        ArtifactReasonKind.FINGERPRINT_RECOMPUTATION_PENDING
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class ArtifactUpstreamNotCurrent(_ArtifactReasonValue):
+    """upstream not current."""
+
+    representation_id: RepresentationId
+    upstream_state: ArtifactKnowledgeState
+    kind: ClassVar[ArtifactReasonKind] = ArtifactReasonKind.UPSTREAM_NOT_CURRENT
+
+
+@dataclass(frozen=True, slots=True)
+class ArtifactTraversalTruncated(_ArtifactReasonValue):
+    """traversal truncated."""
+
+    representation_id: RepresentationId
+    traversal_limit: ArtifactTraversalLimit
+    kind: ClassVar[ArtifactReasonKind] = ArtifactReasonKind.TRAVERSAL_TRUNCATED
+
+
+@dataclass(frozen=True, slots=True)
+class ArtifactDependencySnapshotAbsent(_ArtifactReasonValue):
+    """dependency snapshot absent."""
+
+    activity_id: ActivityId
+    representation_id: RepresentationId
+    kind: ClassVar[ArtifactReasonKind] = ArtifactReasonKind.DEPENDENCY_SNAPSHOT_ABSENT
+
+
+@dataclass(frozen=True, slots=True)
+class ArtifactDependencyKnowledgeIncomplete(_ArtifactReasonValue):
+    """dependency knowledge incomplete."""
+
+    activity_id: ActivityId
+    input_representation_id: RepresentationId
+    representation_id: RepresentationId
+    dependency_path: tuple[ArtifactDependencyPathSegment, ...]
+    dependency_issue: ArtifactDependencyIssue
+    kind: ClassVar[ArtifactReasonKind] = (
+        ArtifactReasonKind.DEPENDENCY_KNOWLEDGE_INCOMPLETE
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class ArtifactDependencyPathChanged(_ArtifactReasonValue):
+    """dependency path changed."""
+
+    activity_id: ActivityId
+    input_representation_id: RepresentationId
+    dependency_path: tuple[ArtifactDependencyPathSegment, ...]
+    kind: ClassVar[ArtifactReasonKind] = ArtifactReasonKind.DEPENDENCY_PATH_CHANGED
+
+
+@dataclass(frozen=True, slots=True)
+class ArtifactDependencyFingerprintChanged(_ArtifactReasonValue):
+    """dependency fingerprint changed."""
+
+    activity_id: ActivityId
+    input_representation_id: RepresentationId
+    representation_id: RepresentationId
+    dependency_path: tuple[ArtifactDependencyPathSegment, ...]
+    fingerprint_algorithm: str
+    fingerprint_version: int
+    snapshot_value: bytes
+    current_value: bytes
+    kind: ClassVar[ArtifactReasonKind] = (
+        ArtifactReasonKind.DEPENDENCY_FINGERPRINT_CHANGED
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class ArtifactDependencyFingerprintRecomputationPending(_ArtifactReasonValue):
+    """dependency fingerprint recomputation pending."""
+
+    activity_id: ActivityId
+    input_representation_id: RepresentationId
+    representation_id: RepresentationId
+    dependency_path: tuple[ArtifactDependencyPathSegment, ...]
+    kind: ClassVar[ArtifactReasonKind] = (
+        ArtifactReasonKind.DEPENDENCY_FINGERPRINT_RECOMPUTATION_PENDING
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class ArtifactDependencyFingerprintEvidenceMissing(_ArtifactReasonValue):
+    """dependency fingerprint evidence missing."""
+
+    activity_id: ActivityId
+    input_representation_id: RepresentationId
+    representation_id: RepresentationId
+    dependency_path: tuple[ArtifactDependencyPathSegment, ...]
+    fingerprint_algorithm: str | None
+    fingerprint_version: int | None
+    snapshot_value: bytes | None
+    current_value: bytes | None
+    kind: ClassVar[ArtifactReasonKind] = (
+        ArtifactReasonKind.DEPENDENCY_FINGERPRINT_EVIDENCE_MISSING
+    )
 
 
 @dataclass(frozen=True, slots=True)
