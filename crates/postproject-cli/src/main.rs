@@ -1001,9 +1001,12 @@ struct JobRequestArgs {
 #[derive(Debug, Args)]
 struct JobRunArgs {
     production: PathBuf,
-    /// Stop after one eligible job reaches a terminal state.
+    /// Stop after one eligible job in the inspected batch reaches a terminal state.
     #[arg(long)]
     once: bool,
+    /// Maximum requested jobs to inspect in this batch (1–1000).
+    #[arg(long, default_value_t = 1_000, value_parser = clap::value_parser!(u32).range(1..=1_000))]
+    max_jobs: u32,
     /// Map a production root name to this machine's directory (NAME=PATH).
     #[arg(long = "root-map", value_name = "NAME=PATH")]
     root_mappings: Vec<RootMappingArg>,
@@ -4166,6 +4169,7 @@ struct PreparedExecutorJob {
     parameters: Vec<MetadataAssertion>,
     input: PathBuf,
     target_root: PathBuf,
+    base: DecisionBase,
 }
 
 fn job_run(args: &JobRunArgs, json: bool, base_revision: Option<CliDecisionBase>) -> Result<()> {
@@ -4193,16 +4197,21 @@ fn job_run(args: &JobRunArgs, json: bool, base_revision: Option<CliDecisionBase>
     }
 
     let mut production = SqliteProduction::open(&args.production).context("open production")?;
-    let jobs = requested_jobs(&production)?;
+    let view = production.read_session().context("read executor batch")?;
+    let base = view.decision_base();
+    let reader = view.into_read_only();
+    let jobs = requested_jobs(&reader, args.max_jobs)?;
     let mut prepared = Vec::new();
     for job in jobs {
-        if let Some(candidate) = prepare_executor_job(&production, job, &root_mappings)? {
+        if let Some(candidate) = prepare_executor_job(&reader, job, &root_mappings, base)? {
             prepared.push(candidate);
             if args.once {
                 break;
             }
         }
     }
+    // Keep owned inputs and the detached base; no read view spans tool execution.
+    drop(reader);
 
     let mut views: Vec<JobRunView> = Vec::with_capacity(prepared.len());
     for candidate in prepared {
@@ -4245,23 +4254,12 @@ fn job_run(args: &JobRunArgs, json: bool, base_revision: Option<CliDecisionBase>
     }
 }
 
-fn requested_jobs(production: &SqliteProduction) -> Result<Vec<Job>> {
+fn requested_jobs(production: &SqliteProduction, limit: u32) -> Result<Vec<Job>> {
     let query = JobQuery::new(Some(JobStateKind::Requested), None);
-    let mut cursor = None;
-    let mut jobs = Vec::new();
-    loop {
-        let page = production
-            .jobs(
-                &query,
-                &QueryPageRequest::new(1_000, cursor).context("prepare requested-job page")?,
-            )
-            .context("load requested jobs")?;
-        jobs.extend_from_slice(page.items());
-        let Some(next) = page.next_cursor().cloned() else {
-            return Ok(jobs);
-        };
-        cursor = Some(next);
-    }
+    let page = production
+        .jobs(&query, &QueryPageRequest::new(limit, None)?)
+        .context("load requested-job batch")?;
+    Ok(page.items().to_vec())
 }
 
 #[allow(
@@ -4272,6 +4270,7 @@ fn prepare_executor_job(
     production: &SqliteProduction,
     job: Job,
     root_mappings: &[MediaRootMapping],
+    base: DecisionBase,
 ) -> Result<Option<PreparedExecutorJob>> {
     if !matches!(
         job.kind().as_str(),
@@ -4388,6 +4387,7 @@ fn prepare_executor_job(
         parameters,
         input,
         target_root: target_root.directory().to_path_buf(),
+        base,
     }))
 }
 
@@ -4398,6 +4398,7 @@ fn run_executor_job(
     lease: Duration,
     base_revision: Option<CliDecisionBase>,
 ) -> Result<JobRunView> {
+    let base_revision = base_revision.or(Some(CliDecisionBase::Scoped(prepared.base)));
     let job_id = prepared.job.id();
     let started = Timestamp::now().context("read executor start time")?;
     // Validate filesystem inputs before a durable claim is created.
