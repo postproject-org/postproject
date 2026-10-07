@@ -8,6 +8,8 @@
 mod artifact;
 mod dependency_evaluation;
 mod dependency_snapshot;
+mod job_clock;
+mod job_lease;
 mod metadata_codec;
 mod migrations;
 mod query_cursor;
@@ -46,6 +48,7 @@ use rusqlite::{
     Connection, OpenFlags, OptionalExtension, limits::Limit, params, params_from_iter, types::Value,
 };
 
+pub use job_lease::SqliteJobLease;
 pub use migrations::CURRENT_SCHEMA_VERSION;
 pub use read_session::SqliteReadSession;
 pub use revision_wait::{RevisionWaitCanceller, SqliteRevisionWaiter};
@@ -63,6 +66,7 @@ pub struct SqliteProduction {
     production: Production,
     revision_signal: Arc<RevisionSignal>,
     read_scope: Option<[u8; 16]>,
+    job_clock: Arc<dyn job_clock::JobClock>,
 }
 
 struct StoredActivity {
@@ -193,6 +197,7 @@ impl SqliteProduction {
             production,
             revision_signal: Arc::default(),
             read_scope: None,
+            job_clock: job_clock::system_clock(),
         }
     }
 
@@ -224,8 +229,9 @@ impl SqliteProduction {
     /// Returns [`ErrorKind::Storage`] if SQLite cannot start the transaction.
     pub fn begin_transaction(&mut self) -> Result<SqliteTransaction<'_>> {
         self.require_live_store()?;
+        let authority = self.lease_authority();
         let (connection, production) = (&mut self.connection, &mut self.production);
-        SqliteTransaction::begin(connection, production, &self.revision_signal)
+        SqliteTransaction::begin(connection, production, &self.revision_signal, authority)
     }
 
     /// Opens a coherent view with its revision captured from that same view.
@@ -246,11 +252,13 @@ impl SqliteProduction {
     /// returns not found for an absent revision or storage errors on begin.
     pub fn begin_edit(&mut self, base: DecisionBase) -> Result<SqliteTransaction<'_>> {
         self.require_live_store()?;
+        let authority = self.lease_authority();
         SqliteTransaction::begin_decision(
             &mut self.connection,
             &mut self.production,
             &self.revision_signal,
             base,
+            authority,
         )
     }
 
@@ -265,8 +273,41 @@ impl SqliteProduction {
         base_revision: RevisionId,
     ) -> Result<SqliteTransaction<'_>> {
         self.require_live_store()?;
+        let authority = self.lease_authority();
         let (connection, production) = (&mut self.connection, &mut self.production);
-        SqliteTransaction::begin_at(connection, production, &self.revision_signal, base_revision)
+        SqliteTransaction::begin_at(
+            connection,
+            production,
+            &self.revision_signal,
+            base_revision,
+            authority,
+        )
+    }
+
+    fn lease_authority(&self) -> job_clock::LeaseAuthority {
+        job_clock::LeaseAuthority {
+            clock: Arc::clone(&self.job_clock),
+            path: self.path.clone(),
+        }
+    }
+
+    /// Imports a scoped worker credential and validates its current claim.
+    ///
+    /// # Errors
+    /// Rejects malformed/wrong-production tokens, expired or superseded claims,
+    /// backward authority time, read-only sessions and storage failures.
+    pub fn import_job_lease(&mut self, token: &str) -> Result<SqliteJobLease> {
+        let (production, job, secret) = job_lease::parse_token(token)?;
+        if production != self.production.id() {
+            return Err(Error::new(
+                ErrorKind::InvalidArgument,
+                "job lease belongs to another production",
+            ));
+        }
+        let mut edit = self.begin_transaction()?;
+        let lease = edit.import_lease(job, secret)?;
+        edit.commit()?;
+        Ok(lease)
     }
 
     /// Creates a waiter for revisions committed to this production file.

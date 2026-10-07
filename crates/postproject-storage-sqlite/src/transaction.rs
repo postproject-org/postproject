@@ -2,6 +2,8 @@
 
 use std::collections::BTreeMap;
 
+mod job_leases;
+
 use postproject_core::{
     Activity, AgentIdentity, CommitReceipt, ContentStructure, ContentStructureKind, DecisionBase,
     Dependency, DependencySetStatus, DependencyTarget, Error, ErrorKind, ExternalIdentifier,
@@ -39,6 +41,10 @@ pub struct SqliteTransaction<'production> {
     pending_conflict_keys: BTreeMap<Vec<u8>, SemanticConflictKey>,
     pending_changed_keys: BTreeMap<Vec<u8>, SemanticConflictKey>,
     revision_signal: &'production RevisionSignal,
+    lease_authority: crate::job_clock::LeaseAuthority,
+    lease_high_water: Option<i64>,
+    lease_guards: Vec<i64>,
+    lease_updates: Vec<crate::job_lease::LeaseUpdate>,
 }
 
 impl<'production> SqliteTransaction<'production> {
@@ -46,8 +52,15 @@ impl<'production> SqliteTransaction<'production> {
         connection: &'production mut Connection,
         production: &'production mut Production,
         revision_signal: &'production RevisionSignal,
+        lease_authority: crate::job_clock::LeaseAuthority,
     ) -> Result<Self> {
-        Self::begin_with_base(connection, production, revision_signal, None)
+        Self::begin_with_base(
+            connection,
+            production,
+            revision_signal,
+            None,
+            lease_authority,
+        )
     }
 
     pub(crate) fn begin_at(
@@ -55,8 +68,15 @@ impl<'production> SqliteTransaction<'production> {
         production: &'production mut Production,
         revision_signal: &'production RevisionSignal,
         base_revision: RevisionId,
+        lease_authority: crate::job_clock::LeaseAuthority,
     ) -> Result<Self> {
-        Self::begin_with_base(connection, production, revision_signal, Some(base_revision))
+        Self::begin_with_base(
+            connection,
+            production,
+            revision_signal,
+            Some(base_revision),
+            lease_authority,
+        )
     }
 
     pub(crate) fn begin_decision(
@@ -64,6 +84,7 @@ impl<'production> SqliteTransaction<'production> {
         production: &'production mut Production,
         revision_signal: &'production RevisionSignal,
         base: DecisionBase,
+        lease_authority: crate::job_clock::LeaseAuthority,
     ) -> Result<Self> {
         if base.production_id() != production.id() {
             return Err(Error::new(
@@ -71,8 +92,13 @@ impl<'production> SqliteTransaction<'production> {
                 "decision base belongs to another production",
             ));
         }
-        let mut edit =
-            Self::begin_with_base(connection, production, revision_signal, base.revision_id())?;
+        let mut edit = Self::begin_with_base(
+            connection,
+            production,
+            revision_signal,
+            base.revision_id(),
+            lease_authority,
+        )?;
         let sequence = edit.base_revision.map_or(0, |(_, sequence)| sequence);
         if sequence != base.sequence() {
             return Err(Error::new(
@@ -90,6 +116,7 @@ impl<'production> SqliteTransaction<'production> {
         production: &'production mut Production,
         revision_signal: &'production RevisionSignal,
         base_revision: Option<RevisionId>,
+        lease_authority: crate::job_clock::LeaseAuthority,
     ) -> Result<Self> {
         let transaction = connection
             .transaction_with_behavior(TransactionBehavior::Immediate)
@@ -133,6 +160,10 @@ impl<'production> SqliteTransaction<'production> {
             pending_conflict_keys: BTreeMap::new(),
             pending_changed_keys: BTreeMap::new(),
             revision_signal,
+            lease_authority,
+            lease_high_water: None,
+            lease_guards: Vec::new(),
+            lease_updates: Vec::new(),
         })
     }
 
@@ -1709,11 +1740,14 @@ impl<'production> SqliteTransaction<'production> {
             self.pending_events.clear();
             self.pending_conflict_keys.clear();
             self.pending_changed_keys.clear();
+            self.finish_leases(false);
+            self.persist_failed_lease_time()?;
         }
         result
     }
 
     fn commit_open(&mut self) -> Result<CommitReceipt> {
+        self.check_lease_commit()?;
         let conflict_keys = self.pending_conflict_keys.clone();
         let changed_keys = self.pending_changed_keys.clone();
         if let Some(base_revision) = self.base_revision {
@@ -1768,6 +1802,7 @@ impl<'production> SqliteTransaction<'production> {
             return Err(sqlite_error("commit domain transaction")(error));
         }
         self.lifecycle.mark_committed()?;
+        self.finish_leases(true);
         if !self.pending_events.is_empty() {
             self.revision_signal.notify_commit();
         }
@@ -1793,6 +1828,8 @@ impl<'production> SqliteTransaction<'production> {
         self.pending_events.clear();
         self.pending_conflict_keys.clear();
         self.pending_changed_keys.clear();
+        self.finish_leases(false);
+        self.persist_failed_lease_time()?;
         Ok(())
     }
 
