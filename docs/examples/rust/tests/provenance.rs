@@ -114,25 +114,28 @@ fn record_changed_file(
     path: &Path,
 ) -> Result<()> {
     // Record the new resource observation first.
-    let resource_id = production.resources(representation_id)?[0].id();
+    let view = production.read_session()?;
+    let resource_id = view.read().resources(representation_id)?[0].id();
     let observed = fingerprint_file(path)?;
     {
-        let mut transaction = production.begin_transaction()?;
+        let mut transaction = production.begin_edit(view.decision_base())?;
         transaction.record_resource_fingerprint(resource_id, observed.fingerprint())?;
         transaction.commit()?;
     }
 
     // Then recompute the representation fingerprint from current resources.
-    let representation = production
+    let view = production.read_session()?;
+    let representation = view
+        .read()
         .representations(asset_id)?
         .into_iter()
         .find(|representation| representation.id() == representation_id)
         .expect("representation belongs to the asset");
     let aggregate = fingerprint_representation(
         representation.content_structure(),
-        &production.resources(representation_id)?,
+        &view.read().resources(representation_id)?,
     )?;
-    let mut transaction = production.begin_transaction()?;
+    let mut transaction = production.begin_edit(view.decision_base())?;
     transaction.record_representation_fingerprint(representation_id, &aggregate)?;
     transaction.commit()
 }

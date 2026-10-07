@@ -54,12 +54,18 @@ static pp_error_code_t observe_file(pp_production_t *production,
                                     const pp_representation_id_t *representation_id,
                                     const char *path, pp_error_t **error) {
   pp_transaction_t *transaction = NULL;
+  pp_read_session_t *view = NULL;
   uint8_t value[8];
-  if (!host_fingerprint(path, value)) {
-    return PP_ERROR_IO;
-  }
   pp_error_code_t status =
-      pp_production_begin_transaction(production, &transaction, error);
+      pp_production_read_session(production, &view, error);
+  if (status == PP_OK) {
+    status = pp_read_session_begin_edit(view, &transaction, error);
+  }
+  pp_read_session_release(view);
+  view = NULL;
+  if (status == PP_OK && !host_fingerprint(path, value)) {
+    status = PP_ERROR_IO;
+  }
   if (status == PP_OK) {
     status = pp_transaction_record_resource_fingerprint(
         transaction, *resource_id, HOST_RESOURCE_ALGORITHM, 1, value,
@@ -309,6 +315,7 @@ static pp_error_code_t explain_stale_proxy(
     const pp_representation_id_t *proxy_id, pp_artifact_knowledge_state_t *state,
     uint32_t *out_reason_kinds, uint32_t *out_issue_kinds, pp_error_t **error) {
   pp_transaction_t *transaction = NULL;
+  pp_read_session_t *view = NULL;
   pp_artifact_evaluation_t *evaluation = NULL;
   pp_artifact_reproducibility_t *report = NULL;
   pp_representation_id_t evaluated_id;
@@ -316,13 +323,18 @@ static pp_error_code_t explain_stale_proxy(
   uint8_t truncated = 0;
   uint64_t reason_count = 0;
   uint8_t value[8];
-  if (!host_fingerprint(original_path, value)) {
-    return PP_ERROR_IO;
-  }
 
   /* Record what the host observes now: the original's bytes changed. */
   pp_error_code_t status =
-      pp_production_begin_transaction(production, &transaction, error);
+      pp_production_read_session(production, &view, error);
+  if (status == PP_OK) {
+    status = pp_read_session_begin_edit(view, &transaction, error);
+  }
+  pp_read_session_release(view);
+  view = NULL;
+  if (status == PP_OK && !host_fingerprint(original_path, value)) {
+    status = PP_ERROR_IO;
+  }
   if (status == PP_OK) {
     status = pp_transaction_record_resource_fingerprint(
         transaction, *original_resource, HOST_RESOURCE_ALGORITHM, 1, value,
@@ -474,8 +486,14 @@ static pp_error_code_t observe_source(pp_production_t *production,
                                       const uint8_t value[8],
                                       pp_error_t **error) {
   pp_transaction_t *transaction = NULL;
+  pp_read_session_t *view = NULL;
   pp_error_code_t status =
-      pp_production_begin_transaction(production, &transaction, error);
+      pp_production_read_session(production, &view, error);
+  if (status == PP_OK) {
+    status = pp_read_session_begin_edit(view, &transaction, error);
+  }
+  pp_read_session_release(view);
+  view = NULL;
   if (status == PP_OK) {
     /* A new source fingerprint marks its dependency set for re-extraction. */
     status = pp_transaction_record_representation_fingerprint(

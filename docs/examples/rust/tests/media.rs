@@ -293,8 +293,9 @@ fn observe_changed_original(
     let since = production
         .latest_revision()?
         .map_or(0, |revision| revision.sequence());
-    let resource_id = production.resources(original_id)?[0].id();
-    let usage = resource_usage(production, resource_id)?;
+    let view = production.read_session()?;
+    let resource_id = view.read().resources(original_id)?[0].id();
+    let usage = resource_usage(view.read(), resource_id)?;
 
     // Verification only reads: it compares the file with the stored value.
     let (representation, resources) = &usage[0];
@@ -315,7 +316,7 @@ fn observe_changed_original(
     let observation = observe_resource_content(resource_id, &usage, path, None)?;
     assert_eq!(observation.outcome(), ContentObservationOutcome::Changed);
     {
-        let mut transaction = production.begin_transaction()?;
+        let mut transaction = production.begin_edit(view.decision_base())?;
         transaction.record_resource_fingerprint(resource_id, observation.resource())?;
         if let Some(facts) = observation.file_facts() {
             transaction.record_resource_file_facts(resource_id, facts)?;
@@ -784,6 +785,10 @@ fn media_examples_run_in_order() -> Result<()> {
     ));
     assert!(matches!(
         events[1],
+        RevisionEventKind::ResourceFileFactsObserved { .. }
+    ));
+    assert!(matches!(
+        events[2],
         RevisionEventKind::RepresentationFingerprintObserved { representation_id, .. }
             if representation_id == original_id
     ));

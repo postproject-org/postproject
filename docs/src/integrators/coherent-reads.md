@@ -25,7 +25,7 @@ require explicit commit and roll back on normal exit as well as on exceptions.
 CLI JSON includes `commit_receipt` for explicit media, representation, locator,
 root, identifier, metadata, dependency, activity and job writes. Use its
 `production_id` and optional `revision` (`id`, `sequence`) to attribute the
-command. An unchanged observation returns `revision: null`; read commands
+command. An observation that changes no recorded facts returns `revision: null`; read commands
 have no commit receipt.
 
 The development C/C++/Python read-session surface currently provides asset and

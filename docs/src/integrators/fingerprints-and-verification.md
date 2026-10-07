@@ -30,14 +30,16 @@ locked. The host never computes a representation fingerprint itself.
 
 The observation reports its outcome (ADR 0035):
 
-- *unchanged* means the content matches the stored fingerprint, and nothing
-  new is recorded;
+- *unchanged* means the content matches the stored fingerprint;
 - *changed* means it differs, and the new content is recorded;
 - *first* means no fingerprint in a domain PostProject computes was stored,
   for example when only a host's own hash was recorded.
 
-An unchanged observation creates no revision, unless it completes a pending
-representation recomputation. A host therefore observes without verifying
+Explicit observations require a read-bound edit, including first and unchanged
+values (ADR 0056). Unchanged content creates no revision unless file facts change
+or it completes a pending representation recomputation. A stale observation
+still checks its conflict key even if the submitted value matches current facts.
+A host therefore observes without verifying
 first, whenever it may matter: after every render or copy, or when it opens a
 project. A job worker that produces or replaces media observes the new content
 before completing, so [artifact evaluation](artifacts-and-staleness.md) sees
