@@ -812,7 +812,6 @@ impl<'production> SqliteTransaction<'production> {
     /// Returns [`ErrorKind::NotFound`] when `locator_id` is absent, or a
     /// transaction/storage error.
     pub fn retire_locator(&mut self, locator_id: LocatorId) -> Result<()> {
-        self.lifecycle.ensure_open()?;
         self.require_decision_base()?;
         let transaction = self.open_transaction()?;
         let resource_id = transaction
@@ -1003,7 +1002,6 @@ impl<'production> SqliteTransaction<'production> {
         target: ObjectRef,
         identifier: &ExternalIdentifier,
     ) -> Result<()> {
-        self.lifecycle.ensure_open()?;
         self.require_decision_base()?;
         let (target_kind, target_id) = encode_identifier_target(&target)?;
         let changed = self
@@ -1185,9 +1183,8 @@ impl<'production> SqliteTransaction<'production> {
     /// Records a resource's current size and modification time as part of a
     /// content observation.
     ///
-    /// Facts are cheap discovery filters, not identity evidence, so they have
-    /// no history and emit no event of their own; the accompanying
-    /// fingerprint observation carries the revision.
+    /// Requires a decision base. Facts are cheap discovery filters, not identity
+    /// evidence. Changed facts emit an event but retain no observation history.
     ///
     /// # Errors
     ///
@@ -1198,7 +1195,7 @@ impl<'production> SqliteTransaction<'production> {
         resource_id: ResourceId,
         facts: FileFacts,
     ) -> Result<bool> {
-        self.lifecycle.ensure_open()?;
+        self.require_decision_base()?;
         let transaction = self.open_transaction()?;
         let size = i64::try_from(facts.size_bytes())
             .map_err(|_| Error::new(ErrorKind::InvalidArgument, "file size is too large"))?;
@@ -1214,20 +1211,32 @@ impl<'production> SqliteTransaction<'production> {
         if changed == 0 && !resource_exists(transaction, resource_id)? {
             return Err(Error::new(ErrorKind::NotFound, "resource does not exist"));
         }
+        if changed != 0 {
+            self.record_conflict_key(SemanticConflictKey::ResourceFileFacts(resource_id))?;
+            self.pending_events
+                .push(RevisionEventKind::ResourceFileFactsObserved { resource_id });
+        }
         Ok(changed != 0)
     }
 
     /// Records a resource fingerprint observation and marks aggregate owners dirty.
     ///
+    /// Requires a decision base, including first and unchanged observations.
+    ///
     /// # Errors
     ///
     /// Returns [`ErrorKind::NotFound`] for an absent resource or a transaction/
     /// storage error. An identical current value is a successful no-op.
+    #[allow(
+        clippy::too_many_lines,
+        reason = "archive, current observation, aggregate invalidation and journal form one mutation"
+    )]
     pub fn record_resource_fingerprint(
         &mut self,
         resource_id: ResourceId,
         fingerprint: &ResourceFingerprint,
     ) -> Result<bool> {
+        self.require_decision_base()?;
         let transaction = self.open_transaction()?;
         let current = transaction
             .query_row(
@@ -1332,6 +1341,8 @@ impl<'production> SqliteTransaction<'production> {
 
     /// Records a representation fingerprint and clears its dirty marker.
     ///
+    /// Requires a decision base, including first and unchanged observations.
+    ///
     /// # Errors
     ///
     /// Returns [`ErrorKind::NotFound`] for an absent representation or a
@@ -1345,6 +1356,7 @@ impl<'production> SqliteTransaction<'production> {
         representation_id: RepresentationId,
         fingerprint: &RepresentationFingerprint,
     ) -> Result<bool> {
+        self.require_decision_base()?;
         let transaction = self.open_transaction()?;
         let current = transaction
             .query_row(
@@ -1612,7 +1624,6 @@ impl<'production> SqliteTransaction<'production> {
         representation_id: RepresentationId,
         dependencies: &[Dependency],
     ) -> Result<bool> {
-        self.lifecycle.ensure_open()?;
         self.require_decision_base()?;
         if dependencies.len() > MAX_DEPENDENCIES_PER_SET {
             return Err(Error::new(
@@ -1903,6 +1914,10 @@ fn persist_conflict_versions(
 fn encode_conflict_key(key: &SemanticConflictKey) -> Result<Vec<u8>> {
     let mut encoded = Vec::new();
     match key {
+        SemanticConflictKey::ResourceFileFacts(resource_id) => {
+            encoded.push(8);
+            encoded.extend_from_slice(resource_id.as_bytes());
+        }
         SemanticConflictKey::LocatorSet(resource_id) => {
             encoded.push(1);
             encoded.extend_from_slice(resource_id.as_bytes());
@@ -2109,6 +2124,10 @@ fn stored_event(event: &RevisionEventKind) -> Result<StoredEvent<'_>> {
         fingerprint_version: None,
     };
     match event {
+        RevisionEventKind::ResourceFileFactsObserved { resource_id } => {
+            stored.kind = 27;
+            stored.primary_id = Some(resource_id.into_bytes().to_vec());
+        }
         RevisionEventKind::AssetImported { asset_id } => {
             stored.kind = 1;
             stored.primary_id = Some(asset_id.into_bytes().to_vec());

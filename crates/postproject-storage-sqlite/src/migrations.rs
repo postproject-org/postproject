@@ -4,7 +4,7 @@ use postproject_core::{Error, ErrorKind, Result, Timestamp};
 use rusqlite::{Connection, Transaction, TransactionBehavior, params};
 
 /// The newest schema understood by this build.
-pub const CURRENT_SCHEMA_VERSION: u32 = 17;
+pub const CURRENT_SCHEMA_VERSION: u32 = 18;
 
 struct Migration {
     version: u32,
@@ -79,6 +79,10 @@ const MIGRATIONS: &[Migration] = &[
     Migration {
         version: 17,
         sql: include_str!("migrations/017_conflict_versions.sql"),
+    },
+    Migration {
+        version: 18,
+        sql: include_str!("migrations/018_file_fact_events.sql"),
     },
 ];
 
@@ -185,7 +189,9 @@ mod tests {
             .expect("read migration history");
         assert_eq!(
             applied,
-            [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
+            [
+                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18
+            ]
         );
         for table in [
             "productions",
@@ -290,6 +296,58 @@ mod tests {
                 .len(),
             1
         );
+    }
+
+    #[test]
+    fn schema_seventeen_preserves_journal_and_indexes_for_file_fact_events() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        for migration in &MIGRATIONS[..17] {
+            apply_migration(&mut connection, migration).unwrap();
+        }
+        connection
+            .execute_batch(
+                "INSERT INTO revisions (id, sequence, transaction_id, committed_at_micros)
+             VALUES (zeroblob(16), 1, zeroblob(16), 0);
+             INSERT INTO revision_events (revision_id, position, kind, primary_id)
+             VALUES (zeroblob(16), 0, 17, zeroblob(16));",
+            )
+            .unwrap();
+        migrate(&mut connection).unwrap();
+        let event: (u32, Vec<u8>) = connection
+            .query_row("SELECT kind, primary_id FROM revision_events", [], |row| {
+                Ok((row.get(0)?, row.get(1)?))
+            })
+            .unwrap();
+        assert_eq!(event, (17, vec![0; 16]));
+        connection
+            .execute_batch(
+                "INSERT INTO revision_events (revision_id, position, kind, primary_id)
+             VALUES (zeroblob(16), 1, 27, zeroblob(16));",
+            )
+            .unwrap();
+        let kinds = connection
+            .prepare("SELECT kind FROM revision_event_kinds WHERE sequence = 1 ORDER BY kind")
+            .unwrap()
+            .query_map([], |row| row.get::<_, u32>(0))
+            .unwrap()
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .unwrap();
+        assert_eq!(kinds, [17, 27]);
+        for index in [
+            "revision_events_by_primary_target",
+            "revision_events_by_secondary_target",
+        ] {
+            assert_eq!(
+                connection
+                    .query_row(
+                        "SELECT count(*) FROM sqlite_schema WHERE type = 'index' AND name = ?1",
+                        [index],
+                        |row| row.get::<_, u32>(0)
+                    )
+                    .unwrap(),
+                1
+            );
+        }
     }
 
     #[test]

@@ -463,7 +463,8 @@ fn representation_observation_marks_dependencies_for_extraction() {
 
     let changed = RepresentationFingerprint::new("aggregate", 1, vec![9]).expect("fingerprint");
     {
-        let mut transaction = production.begin_transaction().expect("begin observation");
+        let base = production.read_session().unwrap().decision_base();
+        let mut transaction = production.begin_edit(base).expect("begin observation");
         transaction
             .record_representation_fingerprint(source.representation().id(), &changed)
             .expect("record changed fingerprint");

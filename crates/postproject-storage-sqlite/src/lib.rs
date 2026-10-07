@@ -4623,6 +4623,7 @@ fn stored_revision_event_kind(event_type: RevisionEventType) -> Result<i64> {
         RevisionEventType::JobSucceeded => 24,
         RevisionEventType::JobFailed => 25,
         RevisionEventType::JobCancelled => 26,
+        RevisionEventType::ResourceFileFactsObserved => 27,
         _ => {
             return Err(Error::new(
                 ErrorKind::Unsupported,
@@ -4824,6 +4825,9 @@ fn decode_revision_event(
         },
         26 => RevisionEventKind::JobCancelled {
             job_id: JobId::from_bytes(primary_id("job")?),
+        },
+        27 => RevisionEventKind::ResourceFileFactsObserved {
+            resource_id: ResourceId::from_bytes(primary_id("resource")?),
         },
         kind => {
             return Err(Error::new(

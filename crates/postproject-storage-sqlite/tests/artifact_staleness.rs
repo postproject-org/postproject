@@ -63,7 +63,8 @@ fn changed_dependency_fingerprint_makes_render_stale_not_source() {
         vec![0x42; original.value().len()],
     )
     .expect("changed fingerprint");
-    let mut transaction = production.begin_transaction().expect("begin observation");
+    let base = production.read_session().unwrap().decision_base();
+    let mut transaction = production.begin_edit(base).expect("begin observation");
     transaction
         .record_representation_fingerprint(character_id, &changed)
         .expect("record character fingerprint");
@@ -305,7 +306,8 @@ fn changed_source_propagates_staleness_and_changed_output_diverges() {
         vec![0x55; original.value().len()],
     )
     .expect("changed resource fingerprint");
-    let mut transaction = production.begin_transaction().expect("begin observation");
+    let base = production.read_session().unwrap().decision_base();
+    let mut transaction = production.begin_edit(base).expect("begin observation");
     transaction
         .record_resource_fingerprint(source_resource, &changed)
         .expect("record resource fingerprint");
@@ -339,7 +341,8 @@ fn changed_source_propagates_staleness_and_changed_output_diverges() {
         .expect("load source resources");
     let aggregate = fingerprint_representation(source.content_structure(), &resources)
         .expect("recompute representation fingerprint");
-    let mut transaction = production.begin_transaction().expect("begin recompute");
+    let base = production.read_session().unwrap().decision_base();
+    let mut transaction = production.begin_edit(base).expect("begin recompute");
     transaction
         .record_representation_fingerprint(source_id, &aggregate)
         .expect("record representation fingerprint");
@@ -359,7 +362,8 @@ fn changed_source_propagates_staleness_and_changed_output_diverges() {
         vec![0x77; proxy_fingerprint.value().len()],
     )
     .expect("diverged fingerprint");
-    let mut transaction = production.begin_transaction().expect("begin divergence");
+    let base = production.read_session().unwrap().decision_base();
+    let mut transaction = production.begin_edit(base).expect("begin divergence");
     transaction
         .record_representation_fingerprint(proxy_id, &diverged)
         .expect("record divergence");

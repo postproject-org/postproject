@@ -2,9 +2,10 @@
 
 use postproject_core::{
     Activity, ActivityId, ActivityInput, ActivityKind, ActivityOutput, Asset, AssetId,
-    ContentStructure, FileFacts, Locator, LocatorAvailability, LocatorId, OriginalMediaImport,
-    Representation, RepresentationFingerprint, RepresentationId, RepresentationKind, Resource,
-    ResourceFingerprint, ResourceId, RevisionEventKind, Timestamp,
+    ContentStructure, ErrorKind, FileFacts, Locator, LocatorAvailability, LocatorId,
+    OriginalMediaImport, Representation, RepresentationFingerprint, RepresentationId,
+    RepresentationKind, Resource, ResourceFingerprint, ResourceId, RevisionEventKind,
+    SemanticConflictKey, Timestamp, TransactionState,
 };
 use postproject_storage_sqlite::SqliteProduction;
 use rusqlite::Connection;
@@ -98,7 +99,8 @@ fn observations_are_journaled_and_activity_edges_snapshot_storage_state() {
 
     let unchanged = ResourceFingerprint::new("content", 1, vec![1]).expect("valid fingerprint");
     {
-        let mut transaction = production.begin_transaction().expect("begin no-op");
+        let base = production.read_session().unwrap().decision_base();
+        let mut transaction = production.begin_edit(base).expect("begin no-op");
         assert!(
             !transaction
                 .record_resource_fingerprint(ResourceId::from_bytes([1; 16]), &unchanged)
@@ -117,7 +119,8 @@ fn observations_are_journaled_and_activity_edges_snapshot_storage_state() {
 
     let changed = ResourceFingerprint::new("content", 1, vec![9]).expect("valid fingerprint");
     {
-        let mut transaction = production.begin_transaction().expect("begin observation");
+        let base = production.read_session().unwrap().decision_base();
+        let mut transaction = production.begin_edit(base).expect("begin observation");
         assert!(
             transaction
                 .record_resource_fingerprint(ResourceId::from_bytes([1; 16]), &changed)
@@ -172,7 +175,8 @@ fn file_facts_are_recorded_with_an_observation() {
     }
     let facts = FileFacts::new(1_234, Some(Timestamp::from_unix_micros(5)));
     {
-        let mut transaction = production.begin_transaction().expect("begin observation");
+        let base = production.read_session().unwrap().decision_base();
+        let mut transaction = production.begin_edit(base).expect("begin observation");
         assert!(
             transaction
                 .record_resource_file_facts(resource_id, facts)
@@ -188,10 +192,114 @@ fn file_facts_are_recorded_with_an_observation() {
                 .record_resource_file_facts(ResourceId::from_bytes([9; 16]), facts)
                 .is_err()
         );
-        transaction.commit().expect("commit observation");
+        let receipt = transaction
+            .commit_with_receipt()
+            .expect("commit observation");
+        let revision = receipt.revision().expect("facts-only revision");
+        drop(transaction);
+        assert_eq!(revision.sequence(), 2);
+        let events = production.events_for_revision(revision.id()).unwrap();
+        assert_eq!(events.len(), 1);
+        assert!(matches!(events[0].kind(),
+            RevisionEventKind::ResourceFileFactsObserved { resource_id: id }
+                if *id == resource_id));
     }
     let stored = production
         .resources(RepresentationId::from_bytes([7; 16]))
         .expect("load resources");
     assert_eq!(stored[0].file_facts(), Some(facts));
+    let base = production.read_session().unwrap().decision_base();
+    let mut edit = production.begin_edit(base).unwrap();
+    assert!(!edit.record_resource_file_facts(resource_id, facts).unwrap());
+    assert!(edit.commit_with_receipt().unwrap().revision().is_none());
+}
+
+#[test]
+fn explicit_observations_reject_missing_bases_without_staging_or_closing() {
+    let directory = tempdir().unwrap();
+    let mut production =
+        SqliteProduction::create(directory.path().join("guard.pproj"), None).unwrap();
+    let import = media(1, RepresentationKind::Original);
+    let mut transaction = production.begin_transaction().unwrap();
+    transaction.import_original(&import).unwrap();
+    let resource_id = import.resources()[0].id();
+    for error in [
+        transaction
+            .record_resource_file_facts(resource_id, FileFacts::new(123, None))
+            .unwrap_err(),
+        transaction
+            .record_resource_fingerprint(resource_id, &import.resources()[0].fingerprints()[0])
+            .unwrap_err(),
+        transaction
+            .record_representation_fingerprint(
+                import.representation().id(),
+                &import.representation().fingerprints()[0],
+            )
+            .unwrap_err(),
+    ] {
+        assert_eq!(error.kind(), ErrorKind::InvalidArgument);
+    }
+    assert_eq!(transaction.state(), TransactionState::Open);
+    transaction.commit().unwrap();
+    drop(transaction);
+    assert_eq!(
+        production.resources(import.representation().id()).unwrap(),
+        import.resources()
+    );
+    assert_eq!(production.latest_revision().unwrap().unwrap().sequence(), 1);
+}
+
+#[test]
+fn stale_file_facts_roll_back_all_staged_observations_and_additive_work() {
+    let directory = tempdir().unwrap();
+    let path = directory.path().join("stale.pproj");
+    let mut production = SqliteProduction::create(&path, None).unwrap();
+    let import = media(1, RepresentationKind::Original);
+    let resource_id = import.resources()[0].id();
+    {
+        let mut transaction = production.begin_transaction().unwrap();
+        transaction.import_original(&import).unwrap();
+        transaction.commit().unwrap();
+    }
+    let base = production.read_session().unwrap().decision_base();
+    let mut writer = SqliteProduction::open(&path).unwrap();
+    let newer = FileFacts::new(42, Some(Timestamp::from_unix_micros(8)));
+    let mut edit = writer.begin_edit(base).unwrap();
+    edit.record_resource_file_facts(resource_id, newer).unwrap();
+    let receipt = edit.commit_with_receipt().unwrap();
+    let superseding = receipt.revision().unwrap();
+    let unrelated = media(2, RepresentationKind::Original);
+    let mut stale = production.begin_edit(base).unwrap();
+    stale.import_original(&unrelated).unwrap();
+    stale
+        .record_resource_file_facts(resource_id, FileFacts::new(17, None))
+        .unwrap();
+    stale
+        .record_resource_fingerprint(
+            resource_id,
+            &ResourceFingerprint::new("content", 1, vec![9]).unwrap(),
+        )
+        .unwrap();
+    let error = stale.commit_with_receipt().unwrap_err();
+    assert_eq!(error.kind(), ErrorKind::Conflict);
+    let detail = error.transaction_conflict_detail().unwrap();
+    assert_eq!(
+        detail.key(),
+        &SemanticConflictKey::ResourceFileFacts(resource_id)
+    );
+    assert_eq!(detail.superseding_revision(), superseding.id());
+    assert_eq!(stale.state(), TransactionState::RolledBack);
+    assert!(stale.commit().is_err());
+    drop(stale);
+    let resources = production.resources(import.representation().id()).unwrap();
+    assert_eq!(resources[0].file_facts(), Some(newer));
+    assert_eq!(
+        resources[0].fingerprints(),
+        import.resources()[0].fingerprints()
+    );
+    assert!(production.asset(unrelated.asset().id()).is_err());
+    assert_eq!(
+        production.latest_revision().unwrap().unwrap().id(),
+        superseding.id()
+    );
 }
