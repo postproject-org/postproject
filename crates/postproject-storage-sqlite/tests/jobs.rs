@@ -4,16 +4,17 @@ use std::{
     env, fs,
     io::{Read, Write},
     process::{Command, Stdio},
+    time::Duration,
 };
 
 use postproject_core::{
     Activity, ActivityId, ActivityInput, ActivityKind, ActivityOutput, AgentIdentity, Asset,
     AssetId, ContentStructure, ErrorKind, ExternalIdentifier, IdentifierScheme, Job, JobFailure,
-    JobId, JobKind, JobQuery, JobState, JobStateKind, Locator, LocatorAvailability, LocatorId,
-    MediaRoot, MediaRootId, MetadataProperty, MetadataValue, ObjectRef, OriginalMediaImport,
-    PropertyId, QueryPageRequest, Representation, RepresentationId, RepresentationImport,
-    RepresentationKind, RequestedJobOutput, Resource, ResourceId, RevisionEventKind, Timestamp,
-    ToolIdentity, VocabularyId,
+    JobId, JobKind, JobLeaseState, JobQuery, JobState, JobStateKind, Locator, LocatorAvailability,
+    LocatorId, MediaRoot, MediaRootId, MetadataProperty, MetadataValue, ObjectRef,
+    OriginalMediaImport, PropertyId, QueryPageRequest, Representation, RepresentationId,
+    RepresentationImport, RepresentationKind, RequestedJobOutput, Resource, ResourceId,
+    RevisionEventKind, Timestamp, ToolIdentity, VocabularyId,
 };
 use postproject_storage_sqlite::SqliteProduction;
 use tempfile::tempdir;
@@ -201,12 +202,11 @@ fn claim_worker_process() {
         .begin_transaction()
         .expect("begin claim transaction");
     let tool = ToolIdentity::new("claim-worker", None, None).expect("valid tool");
-    let outcome = match transaction.claim_job(
+    let outcome = match transaction.claim_job_lease(
         JobId::from_bytes([5; 16]),
         &tool,
         None,
-        Timestamp::from_unix_micros(10),
-        Timestamp::from_unix_micros(20),
+        Duration::from_secs(60),
     ) {
         Ok(_) => {
             transaction.commit().expect("commit winning claim");
@@ -424,7 +424,7 @@ fn invalid_job_references_leave_no_partial_request() {
     clippy::too_many_lines,
     reason = "one ordered scenario exercises token replacement, renewal, release, and failure"
 )]
-fn claims_use_tokens_and_caller_supplied_lease_time() {
+fn owning_leases_preserve_attribution_and_fence_released_workers() {
     let directory = tempdir().expect("create temporary directory");
     let mut production = SqliteProduction::create(directory.path().join("production.pproj"), None)
         .expect("create production");
@@ -471,63 +471,52 @@ fn claims_use_tokens_and_caller_supplied_lease_time() {
     let first_claim = {
         let mut transaction = production.begin_transaction().expect("begin claim");
         let error = transaction
-            .claim_job(
-                job.id(),
-                &tool,
-                Some(&agent),
-                Timestamp::from_unix_micros(100),
-                Timestamp::from_unix_micros(100),
-            )
-            .expect_err("non-future expiry must fail");
+            .claim_job_lease(job.id(), &tool, Some(&agent), Duration::ZERO)
+            .expect_err("zero duration must fail");
         assert_eq!(error.kind(), ErrorKind::InvalidArgument);
         let claim = transaction
-            .claim_job(
-                job.id(),
-                &tool,
-                Some(&agent),
-                Timestamp::from_unix_micros(100),
-                Timestamp::from_unix_micros(200),
-            )
+            .claim_job_lease(job.id(), &tool, Some(&agent), Duration::from_secs(60))
             .expect("claim job");
         transaction.commit().expect("commit claim");
         claim
     };
     assert!(matches!(
         production.job(job.id()).expect("load claimed job").state(),
-        JobState::Claimed(claim) if claim == &first_claim
+        JobState::Claimed(claim) if claim.tool() == &tool && claim.agent() == Some(&agent)
     ));
 
+    let obsolete = production
+        .import_job_lease(&first_claim.export_token().unwrap())
+        .unwrap();
+    {
+        let mut edit = production.begin_transaction().unwrap();
+        edit.release_job_lease(&first_claim).unwrap();
+        edit.commit().unwrap();
+    }
     let second_claim = {
         let mut transaction = production.begin_transaction().expect("begin replacement");
         let claim = transaction
-            .claim_job(
-                job.id(),
-                &tool,
-                Some(&agent),
-                Timestamp::from_unix_micros(200),
-                Timestamp::from_unix_micros(300),
-            )
-            .expect("replace expired claim");
+            .claim_job_lease(job.id(), &tool, Some(&agent), Duration::from_secs(60))
+            .expect("claim released job");
         transaction.commit().expect("commit replacement");
         claim
     };
-    assert_ne!(second_claim.id(), first_claim.id());
+    assert_eq!(first_claim.state().unwrap(), JobLeaseState::Closed);
+    assert_ne!(
+        second_claim.export_token().unwrap(),
+        obsolete.export_token().unwrap()
+    );
     {
         let mut transaction = production.begin_transaction().expect("begin renewal");
         let error = transaction
-            .release_job_claim(job.id(), first_claim.id())
+            .release_job_lease(&obsolete)
             .expect_err("stale token must fail");
         assert_eq!(error.kind(), ErrorKind::Conflict);
         transaction
-            .renew_job_claim(
-                job.id(),
-                second_claim.id(),
-                Timestamp::from_unix_micros(250),
-                Timestamp::from_unix_micros(400),
-            )
+            .renew_job_lease(&second_claim, Duration::from_secs(120))
             .expect("renew current claim");
         transaction
-            .release_job_claim(job.id(), second_claim.id())
+            .release_job_lease(&second_claim)
             .expect("release current claim");
         transaction.commit().expect("commit release");
     }
@@ -539,13 +528,7 @@ fn claims_use_tokens_and_caller_supplied_lease_time() {
     let final_claim = {
         let mut transaction = production.begin_transaction().expect("begin final claim");
         let claim = transaction
-            .claim_job(
-                job.id(),
-                &tool,
-                None,
-                Timestamp::from_unix_micros(400),
-                Timestamp::from_unix_micros(500),
-            )
+            .claim_job_lease(job.id(), &tool, None, Duration::from_secs(60))
             .expect("claim released job");
         transaction.commit().expect("commit final claim");
         claim
@@ -554,12 +537,7 @@ fn claims_use_tokens_and_caller_supplied_lease_time() {
     {
         let mut transaction = production.begin_transaction().expect("begin failure");
         transaction
-            .fail_job(
-                job.id(),
-                final_claim.id(),
-                Timestamp::from_unix_micros(450),
-                &failure,
-            )
+            .fail_job_lease(&final_claim, &failure)
             .expect("fail active claim");
         transaction.commit().expect("commit failure");
     }
@@ -621,13 +599,7 @@ fn cancellation_accepts_requested_and_claimed_jobs_only() {
     {
         let mut transaction = production.begin_transaction().expect("begin cancellation");
         transaction
-            .claim_job(
-                claimed.id(),
-                &tool,
-                None,
-                Timestamp::from_unix_micros(10),
-                Timestamp::from_unix_micros(20),
-            )
+            .claim_job_lease(claimed.id(), &tool, None, Duration::from_secs(60))
             .expect("claim job");
         transaction
             .cancel_job(requested.id())
@@ -690,12 +662,11 @@ fn completion_is_atomic_and_records_output_activity_and_snapshots() {
     let claim = {
         let mut transaction = production.begin_transaction().expect("begin claim");
         let claim = transaction
-            .claim_job(
+            .claim_job_lease(
                 job.id(),
                 &ToolIdentity::new("worker", None, None).expect("valid tool"),
                 None,
-                Timestamp::from_unix_micros(100),
-                Timestamp::from_unix_micros(200),
+                Duration::from_secs(60),
             )
             .expect("claim job");
         transaction.commit().expect("commit claim");
@@ -721,13 +692,7 @@ fn completion_is_atomic_and_records_output_activity_and_snapshots() {
             .begin_transaction()
             .expect("begin failed completion");
         let error = transaction
-            .complete_job(
-                job.id(),
-                claim.id(),
-                Timestamp::from_unix_micros(150),
-                &colliding_output,
-                &activity,
-            )
+            .complete_job_lease(&claim, &colliding_output, &activity)
             .expect_err("colliding resource must fail");
         assert_eq!(error.kind(), ErrorKind::AlreadyExists);
         transaction
@@ -744,7 +709,7 @@ fn completion_is_atomic_and_records_output_activity_and_snapshots() {
     );
     assert!(matches!(
         production.job(job.id()).expect("load claimed job").state(),
-        JobState::Claimed(stored) if stored == &claim
+        JobState::Claimed(stored) if stored.tool().name() == "worker"
     ));
     assert_eq!(
         production
@@ -759,13 +724,7 @@ fn completion_is_atomic_and_records_output_activity_and_snapshots() {
     {
         let mut transaction = production.begin_transaction().expect("begin completion");
         transaction
-            .complete_job(
-                job.id(),
-                claim.id(),
-                Timestamp::from_unix_micros(150),
-                &output,
-                &activity,
-            )
+            .complete_job_lease(&claim, &output, &activity)
             .expect("complete job");
         transaction.commit().expect("commit completion");
     }
@@ -828,12 +787,11 @@ fn regeneration_planning_repeats_the_completed_jobs_kind_and_target_root() {
     let claim = {
         let mut transaction = production.begin_transaction().expect("begin claim");
         let claim = transaction
-            .claim_job(
+            .claim_job_lease(
                 job.id(),
                 &ToolIdentity::new("worker", None, None).expect("valid tool"),
                 None,
-                Timestamp::from_unix_micros(100),
-                Timestamp::from_unix_micros(200),
+                Duration::from_secs(60),
             )
             .expect("claim job");
         transaction.commit().expect("commit claim");
@@ -852,13 +810,7 @@ fn regeneration_planning_repeats_the_completed_jobs_kind_and_target_root() {
         let output = proxy_import(&source, output_id, ResourceId::from_bytes([42; 16]));
         let mut transaction = production.begin_transaction().expect("begin completion");
         transaction
-            .complete_job(
-                job.id(),
-                claim.id(),
-                Timestamp::from_unix_micros(150),
-                &output,
-                &activity,
-            )
+            .complete_job_lease(&claim, &output, &activity)
             .expect("complete job");
         transaction.commit().expect("commit completion");
     }
