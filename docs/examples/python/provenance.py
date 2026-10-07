@@ -38,6 +38,7 @@ from postproject import (
     RepresentationId,
     RepresentationKind,
     RepresentationRef,
+    ReproducibilityToolMissing,
     ToolIdentity,
 )
 
@@ -149,6 +150,8 @@ def explain_proxy(
     reproducibility = production.artifact_reproducibility(proxy_id)
     for issue in reproducibility.issues:
         print(f"  not reproducible: {issue.kind.name}")
+        if isinstance(issue, ReproducibilityToolMissing):
+            print(f"  record the tool used by activity {issue.activity_id}")
     return evaluation, reproducibility
 
 

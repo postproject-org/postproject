@@ -14,6 +14,8 @@ duplicate resources, missing roles, optional ordered parts, and packages with no
 required member. Sequence construction checks the stepped frame domain, positive
 rate and integer ranges. Python exposes the exact rate as `fractions.Fraction`.
 Entity existence and production membership remain operation checks.
+C++ content values after a move support destruction or reassignment; inspect
+the destination. The input alternatives remain unvalidated request records.
 
 Inspection properties derive the kind, members and sequence descriptor from the
 content. They cannot disagree with a separately stored discriminator. Unknown

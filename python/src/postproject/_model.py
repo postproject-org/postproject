@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from enum import Enum
 from fractions import Fraction
 from itertools import islice
-from typing import Generic, TypeAlias, TypeVar
+from typing import ClassVar, Generic, TypeAlias, TypeVar
 from uuid import UUID
 
 from ._ids import (
@@ -399,13 +399,84 @@ class ArtifactReproducibilityIssueKind(Enum):
 
 
 @dataclass(frozen=True, slots=True)
-class ArtifactReproducibilityIssue:
-    """One structured missing reproducibility condition."""
+class ReproducibilityProducerMissing:
+    """No activity records how the artifact was produced."""
 
-    kind: ArtifactReproducibilityIssueKind
-    activity_id: ActivityId | None = None
-    representation_id: RepresentationId | None = None
-    activity_count: int | None = None
+    kind: ClassVar[ArtifactReproducibilityIssueKind] = (
+        ArtifactReproducibilityIssueKind.PRODUCING_ACTIVITY_MISSING
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class ReproducibilityProducerAmbiguous:
+    """Several activities claim to have produced the artifact."""
+
+    activity_count: int
+    kind: ClassVar[ArtifactReproducibilityIssueKind] = (
+        ArtifactReproducibilityIssueKind.PRODUCING_ACTIVITY_AMBIGUOUS
+    )
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.activity_count, int) or isinstance(
+            self.activity_count, bool
+        ):
+            raise TypeError("activity_count must be an integer")
+        if not 2 <= self.activity_count <= 2**32 - 1:
+            raise ValueError("ambiguous producer count must be 2..2**32-1")
+
+
+@dataclass(frozen=True, slots=True)
+class ReproducibilityToolMissing:
+    """The producing activity has no tool identity."""
+
+    activity_id: ActivityId
+    kind: ClassVar[ArtifactReproducibilityIssueKind] = (
+        ArtifactReproducibilityIssueKind.TOOL_IDENTITY_MISSING
+    )
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.activity_id, UUID):
+            raise TypeError("activity_id must be a UUID")
+
+
+@dataclass(frozen=True, slots=True)
+class ReproducibilityParametersMissing:
+    """The producing activity has no recorded parameters."""
+
+    activity_id: ActivityId
+    kind: ClassVar[ArtifactReproducibilityIssueKind] = (
+        ArtifactReproducibilityIssueKind.PARAMETERS_MISSING
+    )
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.activity_id, UUID):
+            raise TypeError("activity_id must be a UUID")
+
+
+@dataclass(frozen=True, slots=True)
+class ReproducibilityInputMissing:
+    """A producing activity references an absent input representation."""
+
+    activity_id: ActivityId
+    representation_id: RepresentationId
+    kind: ClassVar[ArtifactReproducibilityIssueKind] = (
+        ArtifactReproducibilityIssueKind.INPUT_REPRESENTATION_MISSING
+    )
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.activity_id, UUID) or not isinstance(
+            self.representation_id, UUID
+        ):
+            raise TypeError("activity_id and representation_id must be UUIDs")
+
+
+ArtifactReproducibilityIssue: TypeAlias = (
+    ReproducibilityProducerMissing
+    | ReproducibilityProducerAmbiguous
+    | ReproducibilityToolMissing
+    | ReproducibilityParametersMissing
+    | ReproducibilityInputMissing
+)
 
 
 @dataclass(frozen=True, slots=True)

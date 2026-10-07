@@ -34,6 +34,11 @@ from ._model import (
     ObjectReference,
     RepresentationId,
     RepresentationRef,
+    ReproducibilityInputMissing,
+    ReproducibilityParametersMissing,
+    ReproducibilityProducerAmbiguous,
+    ReproducibilityProducerMissing,
+    ReproducibilityToolMissing,
     ResourceId,
 )
 from ._native import NativeLibrary
@@ -255,24 +260,17 @@ def _reproducibility_issue_at(
     )
     native.check(status, error)
     kind = _reproducibility_issue_kind(value.kind)
-    has_activity = kind in {
-        ArtifactReproducibilityIssueKind.TOOL_IDENTITY_MISSING,
-        ArtifactReproducibilityIssueKind.PARAMETERS_MISSING,
-        ArtifactReproducibilityIssueKind.INPUT_REPRESENTATION_MISSING,
-    }
-    return ArtifactReproducibilityIssue(
-        kind,
-        ActivityId(_uuid(value.activity_id)) if has_activity else None,
-        (
-            RepresentationId(_uuid(value.representation_id))
-            if kind is ArtifactReproducibilityIssueKind.INPUT_REPRESENTATION_MISSING
-            else None
-        ),
-        (
-            int(value.activity_count)
-            if kind is ArtifactReproducibilityIssueKind.PRODUCING_ACTIVITY_AMBIGUOUS
-            else None
-        ),
+    if kind is ArtifactReproducibilityIssueKind.PRODUCING_ACTIVITY_MISSING:
+        return ReproducibilityProducerMissing()
+    if kind is ArtifactReproducibilityIssueKind.PRODUCING_ACTIVITY_AMBIGUOUS:
+        return ReproducibilityProducerAmbiguous(int(value.activity_count))
+    if kind is ArtifactReproducibilityIssueKind.TOOL_IDENTITY_MISSING:
+        return ReproducibilityToolMissing(ActivityId(_uuid(value.activity_id)))
+    if kind is ArtifactReproducibilityIssueKind.PARAMETERS_MISSING:
+        return ReproducibilityParametersMissing(ActivityId(_uuid(value.activity_id)))
+    return ReproducibilityInputMissing(
+        ActivityId(_uuid(value.activity_id)),
+        RepresentationId(_uuid(value.representation_id)),
     )
 
 
