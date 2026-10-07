@@ -20,6 +20,7 @@ from ._errors import (
 )
 from ._ids import parse_id
 from ._model import (
+    ActiveJobLease,
     Activity,
     ActivityCreatedEvent,
     ActivityEdge,
@@ -47,6 +48,7 @@ from ._model import (
     AssetRef,
     AvailabilityIssue,
     AvailabilityIssueKind,
+    ClosedJobLease,
     CommitReceipt,
     CommittedRevision,
     ContentObservationOutcome,
@@ -82,6 +84,7 @@ from ._model import (
     JobFailedEvent,
     JobFailure,
     JobId,
+    JobLeaseStatus,
     JobRef,
     JobRequest,
     JobRequested,
@@ -126,6 +129,7 @@ from ._model import (
     OrderedPartsSource,
     OriginIdentity,
     PackageSource,
+    PendingJobLease,
     ProductionId,
     ProductionRef,
     ProvenanceMatch,
@@ -167,6 +171,7 @@ from ._native import ABI_VERSION, NativeLibrary
 from ._production import (
     CancelToken,
     Edit,
+    JobLease,
     Production,
     ReadSession,
     RevisionObserver,
@@ -179,6 +184,7 @@ from ._production import (
 
 __all__ = [
     "ABI_VERSION",
+    "ActiveJobLease",
     "Activity",
     "ActivityCreatedEvent",
     "ActivityEdge",
@@ -210,6 +216,7 @@ __all__ = [
     "AvailabilityIssueKind",
     "CancelToken",
     "CancelledError",
+    "ClosedJobLease",
     "CommitReceipt",
     "CommittedRevision",
     "ConflictError",
@@ -253,6 +260,8 @@ __all__ = [
     "JobFailedEvent",
     "JobFailure",
     "JobId",
+    "JobLease",
+    "JobLeaseStatus",
     "JobRef",
     "JobRequest",
     "JobRequested",
@@ -300,6 +309,7 @@ __all__ = [
     "OrderedPartsSource",
     "OriginIdentity",
     "PackageSource",
+    "PendingJobLease",
     "PostProjectError",
     "Production",
     "ProductionId",

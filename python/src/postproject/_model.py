@@ -437,6 +437,26 @@ class JobState(Enum):
 
 
 @dataclass(frozen=True, slots=True)
+class PendingJobLease:
+    """Ownership belongs to an edit that has not committed."""
+
+
+@dataclass(frozen=True, slots=True)
+class ActiveJobLease:
+    """Cached accepted expiry; mutations still recheck authoritative state."""
+
+    expires_at_unix_micros: int
+
+
+@dataclass(frozen=True, slots=True)
+class ClosedJobLease:
+    """Ownership ended; freeing the handle remains necessary."""
+
+
+JobLeaseStatus: TypeAlias = PendingJobLease | ActiveJobLease | ClosedJobLease
+
+
+@dataclass(frozen=True, slots=True)
 class JobClaim:
     """Attribution and lease detail for one active claim."""
 

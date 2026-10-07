@@ -8,6 +8,7 @@ import threading
 import weakref
 from _ctypes import _Pointer
 from collections.abc import Callable, Iterable, Iterator, Mapping
+from datetime import timedelta
 from itertools import islice
 from pathlib import Path
 from types import TracebackType
@@ -78,6 +79,7 @@ from ._abi import (
 from ._artifact import read_evaluation, read_reproducibility
 from ._errors import InvalidArgumentError
 from ._model import (
+    ActiveJobLease,
     Activity,
     ActivityCreatedEvent,
     ActivityEdge,
@@ -96,6 +98,7 @@ from ._model import (
     AssetRef,
     AvailabilityIssue,
     AvailabilityIssueKind,
+    ClosedJobLease,
     CommitReceipt,
     CommittedRevision,
     ContentObservationOutcome,
@@ -130,6 +133,7 @@ from ._model import (
     JobFailedEvent,
     JobFailure,
     JobId,
+    JobLeaseStatus,
     JobRef,
     JobRequest,
     JobRequested,
@@ -173,6 +177,7 @@ from ._model import (
     ObjectReference,
     OrderedPartsSource,
     OriginIdentity,
+    PendingJobLease,
     ProductionId,
     ProductionRef,
     ProvenanceMatch,
@@ -1541,6 +1546,26 @@ class Production:
             )
         finally:
             self._native.lib.pp_revision_event_set_release(handle)
+
+    def import_job_lease(self, token: str) -> JobLease:
+        """Import an explicit worker credential and check current authority."""
+        self._require_open()
+        if not isinstance(token, str):
+            raise TypeError("job lease token must be str")
+        if len(token) != 115 or not token.isascii():
+            raise ValueError("invalid scoped job lease token")
+        handle = ctypes.POINTER(_abi.JobLease)()
+        encoded = (ctypes.c_uint8 * 115).from_buffer_copy(token.encode("ascii"))
+        error = ctypes.POINTER(Error)()
+        status = self._native.lib.pp_production_import_job_lease(
+            self._handle,
+            encoded,
+            115,
+            ctypes.byref(handle),
+            ctypes.byref(error),
+        )
+        self._native.check(status, error)
+        return JobLease(self._native, handle)
 
     def read_session(self) -> ReadSession:
         """Open a pinned view with its production and revision captured together."""
@@ -3574,6 +3599,90 @@ class Transaction:
         self._native.check(status, error)
         return JobId(_uuid(job_id))
 
+    def claim_job_lease(
+        self,
+        job_id: JobId,
+        tool: ToolIdentity,
+        duration: timedelta,
+        *,
+        agent: AgentIdentity | None = None,
+    ) -> JobLease:
+        """Claim work with library-controlled time; ownership activates on commit."""
+        self._require_open()
+        micros = _lease_duration_micros(duration)
+        identifier = agent.identifier if agent else None
+        handle = ctypes.POINTER(_abi.JobLease)()
+        error = ctypes.POINTER(Error)()
+        status = self._native.lib.pp_transaction_claim_job_lease(
+            self._handle,
+            _native_job_id(job_id),
+            _utf8(tool.name, "tool name"),
+            _optional_text(tool.version),
+            _optional_text(tool.uri),
+            _optional_text(agent.name if agent else None),
+            _optional_text(identifier.scheme if identifier else None),
+            _optional_text(identifier.value if identifier else None),
+            _optional_text(identifier.qualifier if identifier else None),
+            micros,
+            ctypes.byref(handle),
+            ctypes.byref(error),
+        )
+        self._native.check(status, error)
+        return JobLease(self._native, handle)
+
+    def renew_job_lease(self, lease: JobLease, duration: timedelta) -> None:
+        """Stage renewal from current authority time for a checked duration."""
+        self._require_open()
+        error = ctypes.POINTER(Error)()
+        status = self._native.lib.pp_transaction_renew_job_lease(
+            self._handle,
+            _job_lease_handle(lease, self._native),
+            _lease_duration_micros(duration),
+            ctypes.byref(error),
+        )
+        self._native.check(status, error)
+
+    def release_job_lease(self, lease: JobLease) -> None:
+        """Stage explicit release of a current unexpired claim."""
+        self._require_open()
+        error = ctypes.POINTER(Error)()
+        status = self._native.lib.pp_transaction_release_job_lease(
+            self._handle,
+            _job_lease_handle(lease, self._native),
+            ctypes.byref(error),
+        )
+        self._native.check(status, error)
+
+    def complete_job_lease(
+        self,
+        lease: JobLease,
+        output_representation_id: RepresentationId,
+        activity_id: ActivityId,
+    ) -> None:
+        """Bind staged output and provenance into one guarded atomic completion."""
+        self._require_open()
+        error = ctypes.POINTER(Error)()
+        status = self._native.lib.pp_transaction_complete_job_lease(
+            self._handle,
+            _job_lease_handle(lease, self._native),
+            _native_representation_id(output_representation_id),
+            _native_activity_id(activity_id),
+            ctypes.byref(error),
+        )
+        self._native.check(status, error)
+
+    def fail_job_lease(self, lease: JobLease, diagnostic: str) -> None:
+        """Stage claimant failure through current unexpired ownership."""
+        self._require_open()
+        error = ctypes.POINTER(Error)()
+        status = self._native.lib.pp_transaction_fail_job_lease(
+            self._handle,
+            _job_lease_handle(lease, self._native),
+            _utf8(diagnostic, "job failure diagnostic"),
+            ctypes.byref(error),
+        )
+        self._native.check(status, error)
+
     def claim_job(
         self,
         job_id: JobId,
@@ -3851,6 +3960,129 @@ class Transaction:
             raise RuntimeError("transaction is closed")
         if self._finished:
             raise RuntimeError("transaction is already finished")
+
+
+class JobLease:
+    """Owns a worker capability; closing/freeing it never writes to storage.
+
+    Pending ownership belongs to its claiming edit. Successful commit activates
+    it; rollback closes it. Every worker mutation still validates the store.
+    """
+
+    def __init__(self, native: NativeLibrary, handle: _Pointer[_abi.JobLease]) -> None:
+        if not handle:
+            raise RuntimeError("native claim returned no lease handle")
+        self._native = native
+        self._handle = handle
+        self._finalizer = weakref.finalize(self, native.lib.pp_job_lease_free, handle)
+
+    def _info(self) -> tuple[ProductionId, JobId, JobLeaseStatus]:
+        self._require_open()
+        production = _abi.ProductionId()
+        job = _abi.JobId()
+        state = ctypes.c_uint32()
+        expiry = ctypes.c_int64()
+        error = ctypes.POINTER(Error)()
+        status = self._native.lib.pp_job_lease_get(
+            self._handle,
+            ctypes.byref(production),
+            ctypes.byref(job),
+            ctypes.byref(state),
+            ctypes.byref(expiry),
+            ctypes.byref(error),
+        )
+        self._native.check(status, error)
+        ownership: JobLeaseStatus
+        if state.value == _abi.PP_JOB_LEASE_ACTIVE:
+            ownership = ActiveJobLease(expiry.value)
+        elif state.value == _abi.PP_JOB_LEASE_PENDING and expiry.value == 0:
+            ownership = PendingJobLease()
+        elif state.value == _abi.PP_JOB_LEASE_CLOSED and expiry.value == 0:
+            ownership = ClosedJobLease()
+        else:
+            raise RuntimeError("native lease has an unknown or inconsistent state")
+        return ProductionId(_uuid(production)), JobId(_uuid(job)), ownership
+
+    @property
+    def production_id(self) -> ProductionId:
+        """Return production scope without credentials."""
+        return self._info()[0]
+
+    @property
+    def job_id(self) -> JobId:
+        """Return the claimed job without credentials."""
+        return self._info()[1]
+
+    @property
+    def state(self) -> JobLeaseStatus:
+        """Return local pending, active-with-expiry or closed ownership."""
+        return self._info()[2]
+
+    def export_token(self) -> str:
+        """Explicitly export a secret for a protected file/pipe, never logs."""
+        self._require_open()
+        token = ctypes.c_char_p()
+        error = ctypes.POINTER(Error)()
+        status = self._native.lib.pp_job_lease_export_token(
+            self._handle,
+            ctypes.byref(token),
+            ctypes.byref(error),
+        )
+        self._native.check(status, error)
+        try:
+            value = token.value
+            if value is None:
+                raise RuntimeError("native lease export returned no token")
+            return value.decode("ascii")
+        finally:
+            self._native.lib.pp_string_release(token)
+
+    def close(self) -> None:
+        """Free local ownership only; repeated calls are harmless."""
+        self._finalizer()
+        self._handle = ctypes.POINTER(_abi.JobLease)()
+
+    def _require_open(self) -> None:
+        if not self._finalizer.alive:
+            raise RuntimeError("job lease handle is closed")
+
+    def _for_native(self, native: NativeLibrary) -> _Pointer[_abi.JobLease]:
+        self._require_open()
+        if self._native.lib._handle != native.lib._handle:
+            raise ValueError("job lease belongs to another native library")
+        return self._handle
+
+    def __enter__(self) -> Self:
+        self._require_open()
+        return self
+
+    def __exit__(
+        self,
+        exception_type: type[BaseException] | None,
+        exception: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        self.close()
+
+
+def _lease_duration_micros(duration: timedelta) -> int:
+    if not isinstance(duration, timedelta):
+        raise TypeError("job lease duration must be datetime.timedelta")
+    # Avoid float total_seconds(), which can lose microsecond precision.
+    micros = (
+        duration.days * 86_400 + duration.seconds
+    ) * 1_000_000 + duration.microseconds
+    if not 1 <= micros <= 86_400_000_000:
+        raise ValueError("job lease duration must be between 1 us and 24 h")
+    return micros
+
+
+def _job_lease_handle(
+    lease: JobLease, native: NativeLibrary
+) -> _Pointer[_abi.JobLease]:
+    if not isinstance(lease, JobLease):
+        raise TypeError("worker transition requires a JobLease")
+    return lease._for_native(native)
 
 
 class Edit(Transaction):
