@@ -33,10 +33,16 @@ struct Fixture {
     clock: Arc<Clock>,
     job: JobId,
     asset: AssetId,
+    input: RepresentationId,
+    resource: ResourceId,
 }
 
 impl Fixture {
     fn new() -> Self {
+        Self::with_inputs(false)
+    }
+
+    fn with_inputs(has_inputs: bool) -> Self {
         let directory = tempdir().unwrap();
         let mut store =
             SqliteProduction::create(directory.path().join("lease.pproj"), None).unwrap();
@@ -44,10 +50,11 @@ impl Fixture {
         store.job_clock = clock.clone();
         let asset = AssetId::new();
         let resource = ResourceId::new();
+        let input = RepresentationId::new();
         let source = OriginalMediaImport::new(
             Asset::new(asset, Timestamp::from_unix_micros(1), None, None),
             Representation::new(
-                RepresentationId::new(),
+                input,
                 asset,
                 RepresentationKind::Original,
                 ContentStructure::single_resource(resource),
@@ -60,7 +67,7 @@ impl Fixture {
         let job = Job::new(
             JobId::new(),
             JobKind::new("org.example:publish").unwrap(),
-            vec![],
+            if has_inputs { vec![input] } else { vec![] },
             RequestedJobOutput::new(asset, RepresentationKind::Derived, None).unwrap(),
         )
         .unwrap();
@@ -75,6 +82,8 @@ impl Fixture {
             clock,
             job: job.id(),
             asset,
+            input,
+            resource,
         }
     }
 
@@ -423,4 +432,103 @@ fn schema_eighteen_claims_expire_without_losing_attribution_or_requests() {
         .unwrap();
     assert_eq!(high_water, None);
     assert_eq!(reopened.production().schema_version(), 19);
+}
+
+#[test]
+fn changed_input_fingerprints_and_dependencies_reject_publication_after_reopen() {
+    for kind in ["resource", "representation", "dependencies"] {
+        let mut fixture = Fixture::with_inputs(true);
+        let lease = fixture.claim();
+        let token = lease.export_token().unwrap();
+        let base = fixture.store.read_session().unwrap().decision_base();
+        let mut edit = fixture.store.begin_edit(base).unwrap();
+        match kind {
+            "resource" => {
+                edit.record_resource_fingerprint(
+                    fixture.resource,
+                    &postproject_core::ResourceFingerprint::new("example-content", 1, vec![2])
+                        .unwrap(),
+                )
+                .unwrap();
+            }
+            "representation" => {
+                edit.record_representation_fingerprint(
+                    fixture.input,
+                    &postproject_core::RepresentationFingerprint::new(
+                        "example-content",
+                        1,
+                        vec![2],
+                    )
+                    .unwrap(),
+                )
+                .unwrap();
+            }
+            _ => {
+                edit.record_dependency_set(fixture.input, &[]).unwrap();
+            }
+        }
+        let changed = edit.commit_with_receipt().unwrap();
+        drop(edit);
+        let (output, _) = fixture.output();
+        let activity = Activity::new(
+            ActivityId::new(),
+            ActivityKind::new("example:publish").unwrap(),
+            vec![postproject_core::ActivityInput::new(fixture.input, None)],
+            vec![ActivityOutput::new(output.representation().id(), None)],
+        )
+        .unwrap();
+        let mut reopened = SqliteProduction::open(fixture.store.path()).unwrap();
+        reopened.job_clock = fixture.clock.clone();
+        let imported = reopened.import_job_lease(&token).unwrap();
+        let mut edit = reopened.begin_transaction().unwrap();
+        let error = edit
+            .complete_job_lease(&imported, &output, &activity)
+            .unwrap_err();
+        let conflict = error.transaction_conflict_detail().unwrap();
+        assert_eq!(
+            conflict.superseding_revision(),
+            changed.revision().unwrap().id()
+        );
+        assert_eq!(
+            conflict.key().kind().as_str(),
+            match kind {
+                "resource" => "resource_fingerprint",
+                "representation" => "representation_fingerprint",
+                _ => "dependency_set",
+            }
+        );
+        edit.rollback().unwrap();
+        drop(edit);
+        assert!(reopened.activities().unwrap().is_empty());
+        assert_eq!(reopened.representations(fixture.asset).unwrap().len(), 1);
+        assert!(matches!(
+            reopened.job(fixture.job).unwrap().state(),
+            JobState::Claimed(_)
+        ));
+    }
+}
+
+#[test]
+fn claiming_from_an_older_view_checks_input_knowledge_before_acquisition() {
+    let mut fixture = Fixture::with_inputs(true);
+    let old = fixture.store.read_session().unwrap().decision_base();
+    let mut edit = fixture.store.begin_edit(old).unwrap();
+    edit.record_resource_fingerprint(
+        fixture.resource,
+        &postproject_core::ResourceFingerprint::new("example-content", 1, vec![2]).unwrap(),
+    )
+    .unwrap();
+    edit.commit().unwrap();
+    drop(edit);
+    let mut edit = fixture.store.begin_edit(old).unwrap();
+    let error = edit
+        .claim_job_lease(fixture.job, &tool(), None, Duration::from_micros(100))
+        .unwrap_err();
+    assert!(error.transaction_conflict_detail().is_some());
+    edit.commit().unwrap();
+    drop(edit);
+    assert!(matches!(
+        fixture.store.job(fixture.job).unwrap().state(),
+        JobState::Requested
+    ));
 }
