@@ -23,6 +23,7 @@ mod read_queries;
 mod read_session;
 mod representations;
 mod resolution;
+mod result_budget;
 mod revision_events;
 mod revision_waits;
 mod revisions;

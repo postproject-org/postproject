@@ -10,6 +10,7 @@ use crate::{
     PpAssetId, PpError, PpLocatorId, PpProduction, PpRepresentationId, PpResourceId,
     PpSequenceNaming, exact_cstring, ffi_call, initialize_const_output, initialize_output,
     initialize_value, item_at, lock_production, query_page_request, require_output, required_utf8,
+    result_budget::ResultBudget,
     sequence_naming::{AbiSequenceNaming, initialize_naming_output, write_naming_output},
 };
 
@@ -105,19 +106,10 @@ pub unsafe extern "C" fn pp_production_representations(
             let asset_id = AssetId::from_bytes(asset_id.bytes);
             let inner = lock_production(&production.state);
             inner.asset(asset_id)?;
-            let mut representations = Vec::new();
-            for representation in inner.representations(asset_id)? {
-                let mut resources = Vec::new();
-                for resource in inner.resources(representation.id())? {
-                    let locators = inner.locators(resource.id())?;
-                    resources.push(AbiResource::new(&resource, locators)?);
-                }
-                representations.push(AbiRepresentation::new(&representation, resources)?);
-            }
-            out_representations.write(Box::into_raw(Box::new(PpRepresentationSet {
-                representations,
-                next_cursor: None,
-            })));
+            let values = inner.representations(asset_id)?;
+            out_representations.write(Box::into_raw(Box::new(PpRepresentationSet::new_page(
+                &*inner, &values, None,
+            )?)));
             Ok(())
         })
     }
@@ -725,14 +717,20 @@ impl PpRepresentationSet {
         values: &[Representation],
         next_cursor: Option<&QueryCursor>,
     ) -> Result<Self, Error> {
+        let mut budget = ResultBudget::default();
+        budget.record(values.len(), std::mem::size_of_val(values))?;
         let mut representations = Vec::with_capacity(values.len());
         for representation in values {
             let mut resources = Vec::new();
             for resource in production.resources(representation.id())? {
                 let locators = production.locators(resource.id())?;
-                resources.push(AbiResource::new(&resource, locators)?);
+                resources.push(AbiResource::new(&resource, locators, &mut budget)?);
             }
-            representations.push(AbiRepresentation::new(representation, resources)?);
+            representations.push(AbiRepresentation::new(
+                representation,
+                resources,
+                &mut budget,
+            )?);
         }
         Ok(Self {
             representations,
@@ -750,15 +748,19 @@ impl PpRepresentationSet {
 }
 
 impl AbiRepresentation {
-    fn new(representation: &Representation, resources: Vec<AbiResource>) -> Result<Self, Error> {
+    fn new(
+        representation: &Representation,
+        resources: Vec<AbiResource>,
+        budget: &mut ResultBudget,
+    ) -> Result<Self, Error> {
         let structure = representation.content_structure();
         Ok(Self {
             id: representation.id(),
             asset_id: representation.asset_id(),
             kind: representation_kind(representation.kind()),
             structure_kind: content_structure_kind(structure.kind()),
-            members: members(structure)?,
-            sequence: sequence(structure),
+            members: members(structure, budget)?,
+            sequence: sequence(structure, budget)?,
             resources,
             fingerprints: representation
                 .fingerprints()
@@ -768,6 +770,7 @@ impl AbiRepresentation {
                         fingerprint.algorithm(),
                         fingerprint.version(),
                         fingerprint.value(),
+                        budget,
                     )
                 })
                 .collect::<Result<Vec<_>, _>>()?,
@@ -776,7 +779,12 @@ impl AbiRepresentation {
 }
 
 impl AbiResource {
-    fn new(resource: &Resource, locators: Vec<Locator>) -> Result<Self, Error> {
+    fn new(
+        resource: &Resource,
+        locators: Vec<Locator>,
+        budget: &mut ResultBudget,
+    ) -> Result<Self, Error> {
+        budget.record(1, std::mem::size_of::<AbiResource>())?;
         let file_facts = resource.file_facts();
         Ok(Self {
             id: resource.id(),
@@ -786,7 +794,18 @@ impl AbiResource {
                 .map(postproject_core::Timestamp::as_unix_micros),
             locators: locators
                 .into_iter()
-                .map(AbiLocator::try_from)
+                .map(|locator| {
+                    let naming_bytes = locator.sequence_naming().map_or(0, |naming| {
+                        naming.prefix().len().saturating_add(naming.suffix().len())
+                    });
+                    budget.record(
+                        1,
+                        std::mem::size_of::<AbiLocator>()
+                            .saturating_add(locator.uri().len())
+                            .saturating_add(naming_bytes),
+                    )?;
+                    AbiLocator::try_from(locator)
+                })
                 .collect::<Result<Vec<_>, _>>()?,
             fingerprints: resource
                 .fingerprints()
@@ -796,6 +815,7 @@ impl AbiResource {
                         fingerprint.algorithm(),
                         fingerprint.version(),
                         fingerprint.value(),
+                        budget,
                     )
                 })
                 .collect::<Result<Vec<_>, _>>()?,
@@ -804,7 +824,18 @@ impl AbiResource {
 }
 
 impl AbiFingerprint {
-    fn new(algorithm: &str, version: u16, value: &[u8]) -> Result<Self, Error> {
+    fn new(
+        algorithm: &str,
+        version: u16,
+        value: &[u8],
+        budget: &mut ResultBudget,
+    ) -> Result<Self, Error> {
+        budget.record(
+            1,
+            std::mem::size_of::<Self>()
+                .saturating_add(algorithm.len())
+                .saturating_add(value.len()),
+        )?;
         Ok(Self {
             algorithm: exact_cstring(algorithm, "fingerprint algorithm")?,
             version,
@@ -857,11 +888,18 @@ unsafe fn write_fingerprint(
     }
 }
 
-fn members(structure: &ContentStructure) -> Result<Vec<AbiMember>, Error> {
+fn members(
+    structure: &ContentStructure,
+    budget: &mut ResultBudget,
+) -> Result<Vec<AbiMember>, Error> {
     if let Some(members) = structure.members() {
         return members
             .iter()
             .map(|member| {
+                budget.record(
+                    1,
+                    std::mem::size_of::<AbiMember>().saturating_add(member.role().as_str().len()),
+                )?;
                 Ok(AbiMember {
                     resource_id: member.resource_id(),
                     role: Some(exact_cstring(member.role().as_str(), "resource role")?),
@@ -870,8 +908,12 @@ fn members(structure: &ContentStructure) -> Result<Vec<AbiMember>, Error> {
             })
             .collect();
     }
-    Ok(structure
-        .resource_ids()
+    let resources = structure.resource_ids();
+    budget.record(
+        resources.len(),
+        std::mem::size_of::<AbiMember>().saturating_mul(resources.len()),
+    )?;
+    Ok(resources
         .into_iter()
         .map(|resource_id| AbiMember {
             resource_id,
@@ -881,18 +923,27 @@ fn members(structure: &ContentStructure) -> Result<Vec<AbiMember>, Error> {
         .collect())
 }
 
-fn sequence(structure: &ContentStructure) -> Option<AbiSequence> {
-    let descriptor = structure.image_sequence_descriptor()?;
+fn sequence(
+    structure: &ContentStructure,
+    budget: &mut ResultBudget,
+) -> Result<Option<AbiSequence>, Error> {
+    let Some(descriptor) = structure.image_sequence_descriptor() else {
+        return Ok(None);
+    };
+    budget.record(
+        descriptor.known_missing_frames().len(),
+        std::mem::size_of_val(descriptor.known_missing_frames()),
+    )?;
     let frames = descriptor.frames();
     let rate = descriptor.rate();
-    Some(AbiSequence {
+    Ok(Some(AbiSequence {
         start: frames.start(),
         end: frames.end(),
         step: frames.step(),
         rate_numerator: rate.numerator(),
         rate_denominator: rate.denominator(),
         missing_frames: descriptor.known_missing_frames().to_vec(),
-    })
+    }))
 }
 
 const fn representation_kind(kind: RepresentationKind) -> u32 {
@@ -934,10 +985,38 @@ mod tests {
 
     use postproject_core::{
         AssetId, ContentStructure, FrameRange, ImageSequenceDescriptor, RationalRate,
-        Representation, RepresentationId, RepresentationKind, ResourceId,
+        Representation, RepresentationId, RepresentationKind, ResourceFingerprint, ResourceId,
     };
 
     use super::*;
+
+    #[test]
+    fn enriched_resources_share_one_handle_budget_before_copying() {
+        let resource = Resource::new(
+            ResourceId::new(),
+            vec![
+                ResourceFingerprint::new("example-opaque", 1, vec![7; 9 * 1024 * 1024])
+                    .expect("valid foreign fingerprint"),
+            ],
+            None,
+        );
+        AbiResource::new(&resource, Vec::new(), &mut ResultBudget::default())
+            .expect("individual resource is bounded");
+        let mut budget = ResultBudget::default();
+        let mut retained = Vec::new();
+        for _ in 0..7 {
+            retained.push(
+                AbiResource::new(&resource, Vec::new(), &mut budget)
+                    .expect("combined result remains bounded"),
+            );
+        }
+        let error = AbiResource::new(&resource, Vec::new(), &mut budget)
+            .err()
+            .expect("aggregate payload must be refused");
+        assert_eq!(error.kind(), ErrorKind::Unsupported);
+        assert_eq!(retained.len(), 7);
+        assert_eq!(retained[0].fingerprints[0].value.len(), 9 * 1024 * 1024);
+    }
 
     #[test]
     fn sequence_accessors_copy_compact_structure() {
@@ -958,7 +1037,8 @@ mod tests {
         );
         let set = PpRepresentationSet {
             representations: vec![
-                AbiRepresentation::new(&representation, Vec::new()).expect("ABI representation"),
+                AbiRepresentation::new(&representation, Vec::new(), &mut ResultBudget::default())
+                    .expect("ABI representation"),
             ],
             next_cursor: None,
         };
