@@ -9,6 +9,7 @@ mod artifact;
 mod content;
 mod dependency;
 mod identities;
+mod job_leases;
 mod job_state;
 #[cfg(test)]
 mod job_state_tests;
@@ -72,6 +73,7 @@ pub use identities::{
     PpActivityId, PpAssetId, PpJobId, PpLocatorId, PpMediaRootId, PpProductionId,
     PpRepresentationId, PpResourceId, PpRevisionId, PpTransactionId,
 };
+pub use job_leases::PpJobLease;
 pub use jobs::{PpJob, PpJobClaim, PpJobCompletion, PpJobSet, PpRegenerationPlanSet};
 pub use known_media::PpKnownMediaSet;
 pub use media_source::PpMediaSource;
@@ -455,6 +457,7 @@ enum StagedMutation {
     RemoveMetadataProperty(ObjectRef, MetadataProperty),
     Activity(Activity),
     RequestJob(Job),
+    Lease(job_leases::LeaseMutation),
     ClaimJob {
         job_id: JobId,
         claim_id: JobClaimId,
@@ -7301,6 +7304,7 @@ fn apply_staged_mutation(
             transaction.create_activity(activity)?;
         }
         StagedMutation::RequestJob(job) => transaction.request_job(job)?,
+        StagedMutation::Lease(mutation) => mutation.apply(transaction)?,
         StagedMutation::ClaimJob {
             job_id,
             claim_id,
@@ -7409,6 +7413,7 @@ impl PpTransaction {
             self.lifecycle.mark_committed()?;
             self.mutations.clear();
         } else {
+            job_leases::close_pending(&self.mutations);
             let state_result = self.lifecycle.mark_rolled_back();
             debug_assert!(state_result.is_ok());
         }
@@ -7417,6 +7422,7 @@ impl PpTransaction {
 
     fn rollback(&mut self) -> Result<(), Error> {
         self.lifecycle.mark_rolled_back()?;
+        job_leases::close_pending(&self.mutations);
         self.mutations.clear();
         self.state.transaction_open.store(false, Ordering::Release);
         Ok(())
@@ -7428,6 +7434,7 @@ impl Drop for PpTransaction {
         // Commit and rollback already relinquished this transaction's guard.
         // A closed handle can outlive a newer transaction on the production.
         if self.lifecycle.ensure_open().is_ok() {
+            job_leases::close_pending(&self.mutations);
             self.state.transaction_open.store(false, Ordering::Release);
         }
     }

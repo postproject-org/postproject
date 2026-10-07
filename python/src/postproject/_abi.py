@@ -17,6 +17,10 @@ class Transaction(ctypes.Structure):
     pass
 
 
+class JobLease(ctypes.Structure):
+    pass
+
+
 class AssetSet(ctypes.Structure):
     pass
 
@@ -273,6 +277,9 @@ PP_REPRESENTATION_PROXY = 2
 PP_REPRESENTATION_OPTIMIZED = 3
 PP_REPRESENTATION_DERIVED = 4
 PP_JOB_REQUESTED = 1
+PP_JOB_LEASE_PENDING = 1
+PP_JOB_LEASE_ACTIVE = 2
+PP_JOB_LEASE_CLOSED = 3
 PP_JOB_CLAIMED = 2
 PP_JOB_SUCCEEDED = 3
 PP_JOB_FAILED = 4
@@ -727,6 +734,9 @@ EXPORTED_SYMBOLS = (
     "pp_host_binding_parse",
     "pp_job_id_format",
     "pp_job_id_parse",
+    "pp_job_lease_export_token",
+    "pp_job_lease_free",
+    "pp_job_lease_get",
     "pp_job_set_count",
     "pp_job_set_get",
     "pp_job_set_get_claim",
@@ -835,6 +845,7 @@ EXPORTED_SYMBOLS = (
     "pp_production_id",
     "pp_production_id_format",
     "pp_production_id_parse",
+    "pp_production_import_job_lease",
     "pp_production_job",
     "pp_production_jobs",
     "pp_production_latest_revision",
@@ -963,12 +974,15 @@ EXPORTED_SYMBOLS = (
     "pp_transaction_add_representation",
     "pp_transaction_cancel_job",
     "pp_transaction_claim_job",
+    "pp_transaction_claim_job_lease",
     "pp_transaction_commit",
     "pp_transaction_commit_with_receipt",
     "pp_transaction_complete_job",
+    "pp_transaction_complete_job_lease",
     "pp_transaction_confirm_locator",
     "pp_transaction_create_activity",
     "pp_transaction_fail_job",
+    "pp_transaction_fail_job_lease",
     "pp_transaction_id_format",
     "pp_transaction_id_parse",
     "pp_transaction_import_media",
@@ -978,10 +992,12 @@ EXPORTED_SYMBOLS = (
     "pp_transaction_record_resource_fingerprint",
     "pp_transaction_release",
     "pp_transaction_release_job_claim",
+    "pp_transaction_release_job_lease",
     "pp_transaction_remove_external_identifier",
     "pp_transaction_remove_media_root",
     "pp_transaction_remove_metadata_property",
     "pp_transaction_renew_job_claim",
+    "pp_transaction_renew_job_lease",
     "pp_transaction_request_job",
     "pp_transaction_retire_locator",
     "pp_transaction_rollback",
@@ -1593,6 +1609,24 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_transaction_remove_metadata_property.restype = ErrorCode
     lib.pp_transaction_request_job.argtypes = [ctypes.POINTER(Transaction), ctypes.c_char_p, ctypes.POINTER(RepresentationId), ctypes.c_uint64, AssetId, RepresentationKind, ctypes.c_char_p, ctypes.POINTER(JobId), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_transaction_request_job.restype = ErrorCode
+    lib.pp_transaction_claim_job_lease.argtypes = [ctypes.POINTER(Transaction), JobId, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_uint64, ctypes.POINTER(ctypes.POINTER(JobLease)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_transaction_claim_job_lease.restype = ErrorCode
+    lib.pp_transaction_renew_job_lease.argtypes = [ctypes.POINTER(Transaction), ctypes.POINTER(JobLease), ctypes.c_uint64, ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_transaction_renew_job_lease.restype = ErrorCode
+    lib.pp_transaction_release_job_lease.argtypes = [ctypes.POINTER(Transaction), ctypes.POINTER(JobLease), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_transaction_release_job_lease.restype = ErrorCode
+    lib.pp_transaction_fail_job_lease.argtypes = [ctypes.POINTER(Transaction), ctypes.POINTER(JobLease), ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_transaction_fail_job_lease.restype = ErrorCode
+    lib.pp_transaction_complete_job_lease.argtypes = [ctypes.POINTER(Transaction), ctypes.POINTER(JobLease), RepresentationId, ActivityId, ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_transaction_complete_job_lease.restype = ErrorCode
+    lib.pp_production_import_job_lease.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(ctypes.c_uint8), ctypes.c_uint64, ctypes.POINTER(ctypes.POINTER(JobLease)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_production_import_job_lease.restype = ErrorCode
+    lib.pp_job_lease_export_token.argtypes = [ctypes.POINTER(JobLease), ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_job_lease_export_token.restype = ErrorCode
+    lib.pp_job_lease_get.argtypes = [ctypes.POINTER(JobLease), ctypes.POINTER(ProductionId), ctypes.POINTER(JobId), ctypes.POINTER(ctypes.c_uint32), ctypes.POINTER(ctypes.c_int64), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_job_lease_get.restype = ErrorCode
+    lib.pp_job_lease_free.argtypes = [ctypes.POINTER(JobLease)]
+    lib.pp_job_lease_free.restype = None
     lib.pp_transaction_claim_job.argtypes = [ctypes.POINTER(Transaction), JobId, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_int64, ctypes.c_int64, ctypes.POINTER(Uuid), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_transaction_claim_job.restype = ErrorCode
     lib.pp_transaction_renew_job_claim.argtypes = [ctypes.POINTER(Transaction), JobId, ctypes.POINTER(Uuid), ctypes.c_int64, ctypes.c_int64, ctypes.POINTER(ctypes.POINTER(Error))]

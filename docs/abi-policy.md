@@ -25,6 +25,14 @@ the required complete evidence from two independent hosts (ADR 0040).
 
 ## Types and ownership
 
+ABI 47 adds owning job lease handles and explicit scoped token transport
+(ADR 0057). Lease durations are whole microseconds from 1 us through 24 h.
+Pending handles become active only on their edit's commit; freeing a handle
+never releases the durable claim. Storage checks time/state at operation and
+commit boundaries. The legacy claim-ID/time entry points remain temporarily
+while consumer migration proceeds; this development checkpoint does not
+qualify that family. Schema 19 expires legacy claims during upgrade.
+
 ABI 47 adds `PP_REVISION_RESOURCE_FILE_FACTS_OBSERVED` and
 `PP_CONFLICT_RESOURCE_FILE_FACTS` without changing signatures or layouts.
 Explicit observations require decision bases; session edits retain their view

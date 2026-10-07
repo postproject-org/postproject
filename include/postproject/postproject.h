@@ -22,6 +22,7 @@ extern "C" {
 typedef struct pp_production pp_production_t;
 typedef struct pp_read_session pp_read_session_t;
 typedef struct pp_transaction pp_transaction_t;
+typedef struct pp_job_lease pp_job_lease_t;
 typedef struct pp_asset_set pp_asset_set_t;
 typedef struct pp_media_root_set pp_media_root_set_t;
 typedef struct pp_representation_set pp_representation_set_t;
@@ -153,6 +154,9 @@ typedef uint32_t pp_representation_kind_t;
 typedef uint32_t pp_job_state_t;
 
 #define PP_JOB_REQUESTED UINT32_C(1)
+#define PP_JOB_LEASE_PENDING UINT32_C(1)
+#define PP_JOB_LEASE_ACTIVE UINT32_C(2)
+#define PP_JOB_LEASE_CLOSED UINT32_C(3)
 #define PP_JOB_CLAIMED UINT32_C(2)
 #define PP_JOB_SUCCEEDED UINT32_C(3)
 #define PP_JOB_FAILED UINT32_C(4)
@@ -1729,7 +1733,51 @@ PP_API pp_error_code_t pp_transaction_request_job(
     pp_representation_kind_t output_representation_kind,
     const char *target_root, pp_job_id_t *out_job_id,
     pp_error_t **out_error);
-/* Claim returns a random token that becomes usable only after commit. Worker
+/* Library-timed leases: duration is exact whole microseconds, 1 us through 24 h.
+ * Pending ownership belongs to this edit; commit activates it, rollback closes
+ * it. Claim and completion may share one atomic edit. Worker strings are copied. */
+PP_API pp_error_code_t pp_transaction_claim_job_lease(
+    pp_transaction_t *transaction, pp_job_id_t job_id,
+    const char *tool_name, const char *tool_version, const char *tool_uri,
+    const char *agent_name, const char *agent_identifier_scheme,
+    const char *agent_identifier_value, const char *agent_identifier_qualifier,
+    uint64_t duration_micros, pp_job_lease_t **out_lease,
+    pp_error_t **out_error);
+PP_API pp_error_code_t pp_transaction_renew_job_lease(
+    pp_transaction_t *transaction, const pp_job_lease_t *lease,
+    uint64_t duration_micros, pp_error_t **out_error);
+PP_API pp_error_code_t pp_transaction_release_job_lease(
+    pp_transaction_t *transaction, const pp_job_lease_t *lease,
+    pp_error_t **out_error);
+PP_API pp_error_code_t pp_transaction_fail_job_lease(
+    pp_transaction_t *transaction, const pp_job_lease_t *lease,
+    const char *diagnostic, pp_error_t **out_error);
+/* Output and activity must already be staged in this edit, in that order.
+ * Guards are checked by storage at commit; failed commit publishes no facts. */
+PP_API pp_error_code_t pp_transaction_complete_job_lease(
+    pp_transaction_t *transaction, const pp_job_lease_t *lease,
+    pp_representation_id_t output_representation_id,
+    pp_activity_id_t activity_id, pp_error_t **out_error);
+/* Explicit credential transport. Import accepts exactly 115 readable bytes;
+ * oversized/malformed tokens reject before storage. Exported strings are owned
+ * and freed with pp_string_release. Keep credentials out of logs/arguments. */
+PP_API pp_error_code_t pp_production_import_job_lease(
+    pp_production_t *production, const uint8_t *token, uint64_t token_size,
+    pp_job_lease_t **out_lease, pp_error_t **out_error);
+PP_API pp_error_code_t pp_job_lease_export_token(
+    const pp_job_lease_t *lease, char **out_token, pp_error_t **out_error);
+/* Required outputs are initialized on failure. Active expiry is cached local
+ * data; other states use zero. Every mutation rechecks current authority. */
+PP_API pp_error_code_t pp_job_lease_get(
+    const pp_job_lease_t *lease, pp_production_id_t *out_production,
+    pp_job_id_t *out_job, uint32_t *out_state,
+    int64_t *out_expiry_unix_micros, pp_error_t **out_error);
+/* Free only local ownership; no write/automatic release. Null is a no-op.
+ * A non-null live handle must be freed once and not used concurrently/afterward. */
+PP_API void pp_job_lease_free(pp_job_lease_t *lease);
+
+/* Legacy claim migration is in progress; removed before candidate qualification.
+ * Claim returns a random token that becomes usable only after commit. Worker
  * identity strings are borrowed for the call. Lease times are caller-supplied. */
 PP_API pp_error_code_t pp_transaction_claim_job(
     pp_transaction_t *transaction, pp_job_id_t job_id,
