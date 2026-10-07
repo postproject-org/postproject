@@ -1575,6 +1575,7 @@ struct JobView {
 struct JobRunView {
     job: JobView,
     output: Option<String>,
+    commit_receipts: Vec<serde_json::Value>,
 }
 
 #[derive(Debug, Serialize)]
@@ -3863,7 +3864,7 @@ fn job_claim(args: JobClaimArgs, json: bool, base_revision: Option<CliDecisionBa
             .context("deliver lease token")?;
         print_job_result(&view, json, "claimed", &receipt)
     })();
-    delivery.map_err(|source| CommittedOperationError { source, receipt }.into())
+    delivery.map_err(|source| CommittedOperationError::attach(source, &[receipt]))
 }
 
 fn job_renew(
@@ -4398,16 +4399,53 @@ fn run_executor_job(
         Some("https://postproject.org/".to_owned()),
     )
     .context("construct executor identity")?;
-    let claim = {
+    let (claim, receipt) = {
         let mut transaction =
             begin_cli_transaction(production, base_revision, "executor job claim")?;
         set_cli_revision_context(&mut transaction, "Claim reference-executor job")?;
         let claim = transaction
             .claim_job_lease(job_id, &claim_tool, None, lease)
             .context("claim executor job")?;
-        transaction.commit().context("commit executor job claim")?;
-        claim
+        let receipt = transaction
+            .commit_with_receipt()
+            .context("commit executor job claim")?;
+        (claim, receipt)
     };
+    let mut receipts = vec![receipt];
+    let result = run_claimed_executor_job(
+        production,
+        executor,
+        prepared,
+        &claim,
+        request,
+        started,
+        lease,
+        base_revision,
+        &mut receipts,
+    );
+    result
+        .map(|mut view| {
+            view.commit_receipts = receipts.iter().map(receipt_view).collect();
+            view
+        })
+        .map_err(|source| CommittedOperationError::attach(source, &receipts))
+}
+
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the claimed worker carries its copied request, timing and receipts"
+)]
+fn run_claimed_executor_job(
+    production: &mut SqliteProduction,
+    executor: &FfmpegExecutor,
+    prepared: &PreparedExecutorJob,
+    claim: &SqliteJobLease,
+    request: ExecutionRequest,
+    started: Timestamp,
+    lease: Duration,
+    base_revision: Option<CliDecisionBase>,
+    receipts: &mut Vec<CommitReceipt>,
+) -> Result<JobRunView> {
     let outcome = {
         let mut heartbeat = || {
             let mut transaction = match base_revision {
@@ -4425,8 +4463,9 @@ fn run_executor_job(
             let context =
                 RevisionContext::new(Some(origin), Some("Renew executor job claim".to_owned()))?;
             transaction.set_revision_context(context)?;
-            transaction.renew_job_lease(&claim, lease)?;
-            transaction.commit()
+            transaction.renew_job_lease(claim, lease)?;
+            receipts.push(transaction.commit_with_receipt()?);
+            Ok(())
         };
         executor.execute(request, &mut heartbeat)
     };
@@ -4434,7 +4473,9 @@ fn run_executor_job(
         Ok(outcome) => outcome,
         Err(error) => {
             let diagnostic = format!("reference executor error: {error}");
-            let _ = fail_executor_job(production, &claim, &diagnostic, base_revision);
+            if let Ok(receipt) = fail_executor_job(production, claim, &diagnostic, base_revision) {
+                receipts.push(receipt);
+            }
             return Err(error).context("execute claimed job");
         }
     };
@@ -4444,19 +4485,29 @@ fn run_executor_job(
                 begin_cli_transaction(production, base_revision, "unavailable executor release")?;
             set_cli_revision_context(&mut transaction, "Release unavailable executor job")?;
             transaction
-                .release_job_lease(&claim)
+                .release_job_lease(claim)
                 .context("release unavailable executor job")?;
-            transaction
-                .commit()
-                .context("commit unavailable executor release")?;
+            receipts.push(
+                transaction
+                    .commit_with_receipt()
+                    .context("commit unavailable executor release")?,
+            );
             bail!("reference executor unavailable: {reason}");
         }
         ExecutionOutcome::Failed { diagnostic } => {
-            fail_executor_job(production, &claim, &diagnostic, base_revision)?;
-            let job = production.job(job_id).context("reload failed job")?;
+            receipts.push(fail_executor_job(
+                production,
+                claim,
+                &diagnostic,
+                base_revision,
+            )?);
+            let mut job = job_view(&prepared.job);
+            clear_job_state(&mut job, "failed");
+            job.failure_diagnostic = Some(bounded_job_diagnostic(&diagnostic));
             Ok(JobRunView {
-                job: job_view(&job),
+                job,
                 output: None,
+                commit_receipts: Vec::new(),
             })
         }
         ExecutionOutcome::Completed {
@@ -4465,16 +4516,21 @@ fn run_executor_job(
         } => complete_executor_job(
             production,
             prepared,
-            &claim,
+            claim,
             started,
             &output,
             ffmpeg_version,
             base_revision,
+            receipts,
         ),
         _ => bail!("reference executor returned an unknown outcome"),
     }
 }
 
+#[allow(
+    clippy::too_many_arguments,
+    reason = "publication requires the copied request, tool outcome, lease and receipts"
+)]
 fn complete_executor_job(
     production: &mut SqliteProduction,
     prepared: &PreparedExecutorJob,
@@ -4483,8 +4539,8 @@ fn complete_executor_job(
     output_path: &Path,
     ffmpeg_version: String,
     base_revision: Option<CliDecisionBase>,
+    receipts: &mut Vec<CommitReceipt>,
 ) -> Result<JobRunView> {
-    let job_id = prepared.job.id();
     let output = match prepare_representation(
         prepared.job.requested_output().asset_id(),
         prepared.job.requested_output().representation_kind(),
@@ -4494,7 +4550,12 @@ fn complete_executor_job(
         Err(error) => {
             let _ = fs::remove_file(output_path);
             let diagnostic = format!("cannot prepare executor output: {error}");
-            fail_executor_job(production, lease, &diagnostic, base_revision)?;
+            receipts.push(fail_executor_job(
+                production,
+                lease,
+                &diagnostic,
+                base_revision,
+            )?);
             return Err(error).context("prepare executor output");
         }
     };
@@ -4525,7 +4586,7 @@ fn complete_executor_job(
         .context("validate ffmpeg tool identity")?,
     );
     let activity_id = activity.id();
-    let completion = (|| -> Result<()> {
+    let completion = (|| -> Result<CommitReceipt> {
         let mut transaction =
             begin_cli_transaction(production, base_revision, "executor job completion")?;
         set_cli_revision_context(&mut transaction, "Complete reference-executor job")?;
@@ -4541,16 +4602,25 @@ fn complete_executor_job(
                 )
                 .context("copy executor activity parameter")?;
         }
-        transaction.commit().context("commit executor completion")
+        transaction
+            .commit_with_receipt()
+            .context("commit executor completion")
     })();
-    if let Err(error) = completion {
-        let _ = fs::remove_file(output_path);
-        return Err(error);
+    match completion {
+        Ok(receipt) => receipts.push(receipt),
+        Err(error) => {
+            let _ = fs::remove_file(output_path);
+            return Err(error);
+        }
     }
-    let job = production.job(job_id).context("reload completed job")?;
+    let mut job = job_view(&prepared.job);
+    clear_job_state(&mut job, "succeeded");
+    job.completion_activity_id = Some(activity_id.to_string());
+    job.completion_representation_id = Some(output.representation().id().to_string());
     Ok(JobRunView {
-        job: job_view(&job),
+        job,
         output: Some(output_path.display().to_string()),
+        commit_receipts: Vec::new(),
     })
 }
 
@@ -4559,7 +4629,7 @@ fn fail_executor_job(
     lease: &SqliteJobLease,
     diagnostic: &str,
     base_revision: Option<CliDecisionBase>,
-) -> Result<()> {
+) -> Result<CommitReceipt> {
     let failure =
         JobFailure::new(bounded_job_diagnostic(diagnostic)).context("validate executor failure")?;
     let mut transaction = begin_cli_transaction(production, base_revision, "executor job failure")?;
@@ -4567,7 +4637,9 @@ fn fail_executor_job(
     transaction
         .fail_job_lease(lease, &failure)
         .context("fail executor job")?;
-    transaction.commit().context("commit executor job failure")
+    transaction
+        .commit_with_receipt()
+        .context("commit executor job failure")
 }
 
 fn executor_profile_property() -> Result<MetadataProperty> {
@@ -6186,10 +6258,8 @@ fn print_conflict_json(error: &anyhow::Error) -> bool {
         let receipt = &committed.receipt;
         return print_json(&serde_json::json!({"error": {
             "code": "committed_result_delivery_failed", "message": error.to_string(),
-            "commit_receipt": {
-                "production_id": receipt.production_id().to_string(),
-                "revision": receipt.revision().map(|revision| serde_json::json!({"id": revision.id().to_string(), "sequence": revision.sequence()}))
-            }
+            "commit_receipt": receipt_view(receipt),
+            "commit_receipts": committed.prior_receipts.iter().chain(std::iter::once(receipt)).map(receipt_view).collect::<Vec<_>>()
         }})).is_ok();
     }
     let Some(transaction_conflict) = error
@@ -6334,20 +6404,17 @@ fn fingerprint_conflict_key(
     }
 }
 
+fn receipt_view(receipt: &CommitReceipt) -> serde_json::Value {
+    serde_json::json!({"production_id": receipt.production_id().to_string(),
+        "revision": receipt.revision().map(|revision| serde_json::json!({"id": revision.id().to_string(), "sequence": revision.sequence()}))})
+}
+
 fn print_json_with_receipt(value: &impl Serialize, receipt: &CommitReceipt) -> Result<()> {
     let mut output = serde_json::to_value(value).context("encode committed result")?;
     let object = output
         .as_object_mut()
         .context("committed result must be an object")?;
-    object.insert(
-        "commit_receipt".to_owned(),
-        serde_json::json!({
-            "production_id": receipt.production_id().to_string(),
-            "revision": receipt.revision().map(|revision| serde_json::json!({
-                "id": revision.id().to_string(), "sequence": revision.sequence()
-            }))
-        }),
-    );
+    object.insert("commit_receipt".to_owned(), receipt_view(receipt));
     print_json(&output)
 }
 

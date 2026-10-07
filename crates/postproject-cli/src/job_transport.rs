@@ -124,6 +124,24 @@ pub(super) fn parse_duration(value: &str) -> Result<Duration, String> {
 pub(super) struct CommittedOperationError {
     pub source: anyhow::Error,
     pub receipt: postproject_core::CommitReceipt,
+    pub prior_receipts: Vec<postproject_core::CommitReceipt>,
+}
+
+impl CommittedOperationError {
+    pub fn attach(
+        source: anyhow::Error,
+        receipts: &[postproject_core::CommitReceipt],
+    ) -> anyhow::Error {
+        let Some((receipt, prior)) = receipts.split_last() else {
+            return source;
+        };
+        Self {
+            source,
+            receipt: receipt.clone(),
+            prior_receipts: prior.to_vec(),
+        }
+        .into()
+    }
 }
 
 impl std::fmt::Display for CommittedOperationError {
