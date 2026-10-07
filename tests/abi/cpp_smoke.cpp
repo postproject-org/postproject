@@ -851,38 +851,35 @@ int main(int argc, char **argv) {
     }
 
     auto claim = reopened.beginTransaction().value();
-    const auto claim_id = claim.claimJob(
-        job_id, {"C++ worker", std::string("1.0"), std::nullopt},
-        postproject::AgentIdentity{std::string("operator"), std::nullopt}, 10,
-        20).value();
+    auto lease = claim.claimJobLease(
+        job_id, {"C++ worker", std::string("1.0"), std::nullopt}, std::chrono::minutes(1),
+        postproject::AgentIdentity{std::string("operator"), std::nullopt}).value();
     claim.commit().value();
     const auto claimed_jobs = reopened.jobs(1000).value();
     if (claimed_jobs.items.size() != 1 ||
         !std::holds_alternative<postproject::JobClaim>(claimed_jobs.items[0].status) ||
         claimed_jobs.items[0].stateKind() != postproject::JobState::claimed ||
-        std::get<postproject::JobClaim>(claimed_jobs.items[0].status).id != claim_id ||
         std::get<postproject::JobClaim>(claimed_jobs.items[0].status).tool.name != "C++ worker" ||
         std::get<postproject::JobClaim>(claimed_jobs.items[0].status).tool.version != std::string("1.0") ||
         !std::get<postproject::JobClaim>(claimed_jobs.items[0].status).agent.has_value() ||
         std::get<postproject::JobClaim>(claimed_jobs.items[0].status).agent->name != std::string("operator") ||
-        std::get<postproject::JobClaim>(claimed_jobs.items[0].status).expires_at_unix_micros != 20) {
+        std::get<postproject::JobClaim>(claimed_jobs.items[0].status).expires_at_unix_micros <= 0) {
       return 34;
     }
 
     auto renew = reopened.beginTransaction().value();
-    renew.renewJobClaim(job_id, claim_id, 11, 30).value();
+    renew.renewJobLease(lease, std::chrono::minutes(2)).value();
     renew.commit().value();
     auto release = reopened.beginTransaction().value();
-    release.releaseJobClaim(job_id, claim_id).value();
+    release.releaseJobLease(lease).value();
     release.commit().value();
 
     auto second_claim = reopened.beginTransaction().value();
-    const auto second_claim_id = second_claim.claimJob(
-        job_id, {"C++ worker", std::nullopt, std::nullopt}, std::nullopt, 31,
-        40).value();
+    auto second_lease = second_claim.claimJobLease(
+        job_id, {"C++ worker", std::nullopt, std::nullopt}, std::chrono::minutes(1)).value();
     second_claim.commit().value();
     auto fail = reopened.beginTransaction().value();
-    fail.failJob(job_id, second_claim_id, 32, "encoder exited").value();
+    fail.failJobLease(second_lease, "encoder exited").value();
     fail.commit().value();
 
     auto second_request = reopened.beginTransaction().value();
@@ -921,9 +918,8 @@ int main(int argc, char **argv) {
          postproject::RepresentationKind::proxy, std::nullopt}).value();
     completion_request.commit().value();
     auto completion_claim = reopened.beginTransaction().value();
-    const auto completion_claim_id = completion_claim.claimJob(
-        completed_job_id, {"C++ worker", std::nullopt, std::nullopt},
-        std::nullopt, 41, 50).value();
+    auto completion_lease = completion_claim.claimJobLease(
+        completed_job_id, {"C++ worker", std::nullopt, std::nullopt}, std::chrono::minutes(1)).value();
     completion_claim.commit().value();
     auto completion = reopened.beginTransaction().value();
     const auto completed_representation_id =
@@ -940,7 +936,7 @@ int main(int argc, char **argv) {
            std::string("org.postproject:input.primary-video")}},
          {{completed_representation_id,
            std::string("org.postproject:output.proxy")}}}).value();
-    completion.completeJob(completed_job_id, completion_claim_id, 42,
+    completion.completeJobLease(completion_lease,
                            completed_representation_id,
                            completion_activity_id).value();
     completion.commit().value();
