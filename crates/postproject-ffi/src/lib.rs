@@ -6,6 +6,8 @@
 
 mod abi_trace;
 mod artifact;
+#[cfg(test)]
+mod artifact_payload_tests;
 mod content;
 mod dependency;
 mod identities;
