@@ -368,7 +368,6 @@ typedef struct pp_job {
   const char *target_root;
   pp_job_state_t state;
   uint64_t input_count;
-  pp_uuid_t claim_id;
   int64_t claim_expires_at_unix_micros;
   const char *claim_tool_name;
   const char *claim_tool_version;
@@ -384,7 +383,6 @@ typedef struct pp_job {
 
 /* Checked claimed-state detail. Strings borrow the owning pp_job_set_t. */
 typedef struct pp_job_claim {
-  pp_uuid_t id;
   int64_t expires_at_unix_micros;
   const char *tool_name;
   const char *tool_version;

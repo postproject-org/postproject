@@ -10,7 +10,6 @@ from postproject import (
     Job,
     JobCancelled,
     JobClaim,
-    JobClaimId,
     JobCompletion,
     JobFailure,
     JobId,
@@ -36,7 +35,7 @@ class JobStatusTests(unittest.TestCase):
         )
 
     def test_each_status_has_only_its_applicable_detail(self) -> None:
-        claim = JobClaim(JobClaimId(UUID(int=3)), ToolIdentity("worker"), None, 20)
+        claim = JobClaim(ToolIdentity("worker"), None, 20)
         completion = JobCompletion(
             ActivityId(UUID(int=4)), RepresentationId(UUID(int=5))
         )

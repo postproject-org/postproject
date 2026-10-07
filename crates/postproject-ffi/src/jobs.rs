@@ -6,7 +6,7 @@ use postproject_core::{
     Error, ErrorKind, Job, JobState, QueryCursor, RegenerationJobPlan, RepresentationKind,
 };
 
-use crate::{PpActivityId, PpAssetId, PpJobId, PpRepresentationId, PpUuid, exact_cstring};
+use crate::{PpActivityId, PpAssetId, PpJobId, PpRepresentationId, exact_cstring};
 
 const PP_JOB_REQUESTED: u32 = 1;
 pub(super) const PP_JOB_CLAIMED: u32 = 2;
@@ -43,8 +43,6 @@ pub struct PpJob {
     pub state: u32,
     /// Number of canonical input representations.
     pub input_count: u64,
-    /// Active claim capability, or zero outside the claimed state.
-    pub claim_id: PpUuid,
     /// Active lease expiry, or zero outside the claimed state.
     pub claim_expires_at_unix_micros: i64,
     /// Borrowed claiming tool fields, or null outside the claimed state.
@@ -71,7 +69,6 @@ pub struct PpJob {
 
 impl PpJob {
     pub(crate) const fn empty() -> Self {
-        let zero = PpUuid { bytes: [0; 16] };
         Self {
             id: PpJobId { bytes: [0; 16] },
             kind: std::ptr::null(),
@@ -80,7 +77,6 @@ impl PpJob {
             target_root: std::ptr::null(),
             state: 0,
             input_count: 0,
-            claim_id: zero,
             claim_expires_at_unix_micros: 0,
             claim_tool_name: std::ptr::null(),
             claim_tool_version: std::ptr::null(),
@@ -100,8 +96,6 @@ impl PpJob {
 #[repr(C)]
 #[derive(Clone, Copy, Debug)]
 pub struct PpJobClaim {
-    /// Claim identity; capability migration remains separate.
-    pub id: PpUuid,
     /// Current stored lease expiry.
     pub expires_at_unix_micros: i64,
     /// Required claiming tool name.
@@ -123,7 +117,6 @@ pub struct PpJobClaim {
 impl PpJobClaim {
     pub(crate) const fn from_job(job: &PpJob) -> Self {
         Self {
-            id: job.claim_id,
             expires_at_unix_micros: job.claim_expires_at_unix_micros,
             tool_name: job.claim_tool_name,
             tool_version: job.claim_tool_version,
@@ -279,9 +272,6 @@ impl TryFrom<&Job> for AbiJob {
             JobState::Requested => value.state = PP_JOB_REQUESTED,
             JobState::Claimed(claim) => {
                 value.state = PP_JOB_CLAIMED;
-                value.claim_id = PpUuid {
-                    bytes: claim.id().into_bytes(),
-                };
                 value.claim_expires_at_unix_micros = claim.expires_at().as_unix_micros();
                 claim_tool_name = Some(exact_cstring(claim.tool().name(), "claim tool name")?);
                 claim_tool_version = claim

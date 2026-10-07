@@ -126,7 +126,6 @@ from ._model import (
     JobCancelledEvent,
     JobClaim,
     JobClaimedEvent,
-    JobClaimId,
     JobClaimReleasedEvent,
     JobClaimRenewedEvent,
     JobCompletion,
@@ -4763,7 +4762,6 @@ def _job_at(native: NativeLibrary, jobs: _Pointer[JobSet], index: int) -> Job:
             else None
         )
         job_status = JobClaim(
-            JobClaimId(_uuid(value.claim_id)),
             ToolIdentity(
                 _decode_required(value.claim_tool_name, "job claim tool name"),
                 _decode_optional(value.claim_tool_version),

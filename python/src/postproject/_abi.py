@@ -551,7 +551,6 @@ Job._fields_ = [
     ("target_root", ctypes.c_char_p),
     ("state", JobState),
     ("input_count", ctypes.c_uint64),
-    ("claim_id", Uuid),
     ("claim_expires_at_unix_micros", ctypes.c_int64),
     ("claim_tool_name", ctypes.c_char_p),
     ("claim_tool_version", ctypes.c_char_p),
@@ -566,7 +565,6 @@ Job._fields_ = [
 ]
 
 JobClaim._fields_ = [
-    ("id", Uuid),
     ("expires_at_unix_micros", ctypes.c_int64),
     ("tool_name", ctypes.c_char_p),
     ("tool_version", ctypes.c_char_p),
@@ -666,8 +664,8 @@ PUBLIC_STRUCTS = {
     "pp_dependency_match_t": (DependencyMatch, ("target", "depth")),
     "pp_revision_event_t": (RevisionEvent, ("kind", "position", "asset_id", "representation_id", "resource_id", "locator_id", "media_root_id", "activity_id", "job_id", "target", "structural_position", "enabled", "identifier_scheme", "identifier_value", "identifier_qualifier", "vocabulary", "property", "activity_kind", "role", "fingerprint_algorithm", "fingerprint_version")),
     "pp_activity_edge_t": (ActivityEdge, ("representation_id", "role")),
-    "pp_job_t": (Job, ("id", "kind", "output_asset_id", "output_representation_kind", "target_root", "state", "input_count", "claim_id", "claim_expires_at_unix_micros", "claim_tool_name", "claim_tool_version", "claim_tool_uri", "claim_agent_name", "claim_agent_identifier_scheme", "claim_agent_identifier_value", "claim_agent_identifier_qualifier", "completion_activity_id", "completion_representation_id", "failure_diagnostic")),
-    "pp_job_claim_t": (JobClaim, ("id", "expires_at_unix_micros", "tool_name", "tool_version", "tool_uri", "agent_name", "agent_identifier_scheme", "agent_identifier_value", "agent_identifier_qualifier")),
+    "pp_job_t": (Job, ("id", "kind", "output_asset_id", "output_representation_kind", "target_root", "state", "input_count", "claim_expires_at_unix_micros", "claim_tool_name", "claim_tool_version", "claim_tool_uri", "claim_agent_name", "claim_agent_identifier_scheme", "claim_agent_identifier_value", "claim_agent_identifier_qualifier", "completion_activity_id", "completion_representation_id", "failure_diagnostic")),
+    "pp_job_claim_t": (JobClaim, ("expires_at_unix_micros", "tool_name", "tool_version", "tool_uri", "agent_name", "agent_identifier_scheme", "agent_identifier_value", "agent_identifier_qualifier")),
     "pp_job_completion_t": (JobCompletion, ("activity_id", "representation_id")),
     "pp_dependency_t": (Dependency, ("has_source_resource", "source_resource_id", "kind", "target", "has_resolved_representation", "resolved_representation_id", "required", "authored_reference")),
     "pp_artifact_dependency_path_segment_t": (ArtifactDependencyPathSegment, ("source_representation_id", "dependency_position", "has_source_resource", "source_resource_id", "kind", "target", "has_resolved_representation", "resolved_representation_id", "authored_reference")),

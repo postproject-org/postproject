@@ -7,14 +7,13 @@ mod job_leases;
 use postproject_core::{
     Activity, AgentIdentity, CommitReceipt, ContentStructure, ContentStructureKind, DecisionBase,
     Dependency, DependencySetStatus, DependencyTarget, Error, ErrorKind, ExternalIdentifier,
-    FileFacts, Job, JobClaim, JobClaimId, JobFailure, JobId, JobState, Locator,
-    LocatorAvailability, LocatorId, MAX_DEPENDENCIES_PER_SET, MediaRoot, MediaRootId,
-    MetadataProperty, MetadataValue, ObjectRef, OriginalMediaImport, Production,
-    ProductionStoreTransaction, Representation, RepresentationFingerprint, RepresentationId,
-    RepresentationImport, RepresentationKind, Resource, ResourceFingerprint, ResourceId, Result,
-    Revision, RevisionContext, RevisionEventKind, RevisionId, SemanticConflictKey, SequenceNaming,
-    Timestamp, ToolIdentity, TransactionConflict, TransactionId, TransactionLifecycle,
-    TransactionState,
+    FileFacts, Job, JobClaimId, JobFailure, JobId, JobState, Locator, LocatorAvailability,
+    LocatorId, MAX_DEPENDENCIES_PER_SET, MediaRoot, MediaRootId, MetadataProperty, MetadataValue,
+    ObjectRef, OriginalMediaImport, Production, ProductionStoreTransaction, Representation,
+    RepresentationFingerprint, RepresentationId, RepresentationImport, RepresentationKind,
+    Resource, ResourceFingerprint, ResourceId, Result, Revision, RevisionContext,
+    RevisionEventKind, RevisionId, SemanticConflictKey, SequenceNaming, Timestamp, ToolIdentity,
+    TransactionConflict, TransactionId, TransactionLifecycle, TransactionState,
 };
 use rusqlite::{
     Connection, ErrorCode, OptionalExtension, Transaction, TransactionBehavior, params,
@@ -339,7 +338,7 @@ impl<'production> SqliteTransaction<'production> {
         agent: Option<&AgentIdentity>,
         now: Timestamp,
         expires_at: Timestamp,
-    ) -> Result<JobClaim> {
+    ) -> Result<()> {
         validate_future_job_expiry(now, expires_at)?;
         let agent_name = agent.and_then(AgentIdentity::name);
         let agent_identifier = agent.and_then(AgentIdentity::identifier);
@@ -378,12 +377,7 @@ impl<'production> SqliteTransaction<'production> {
         }
         self.pending_events
             .push(RevisionEventKind::JobClaimed { job_id });
-        Ok(JobClaim::new(
-            claim_id,
-            tool.clone(),
-            agent.cloned(),
-            expires_at,
-        ))
+        Ok(())
     }
 
     /// Extends the current unexpired claim to a later expiry.

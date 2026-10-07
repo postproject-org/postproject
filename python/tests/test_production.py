@@ -4,8 +4,8 @@ import gc
 import os
 import tempfile
 import unittest
-from datetime import timedelta
 import weakref
+from datetime import timedelta
 from pathlib import Path
 from uuid import UUID
 

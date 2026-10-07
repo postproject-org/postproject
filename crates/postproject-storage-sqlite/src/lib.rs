@@ -4476,6 +4476,9 @@ fn decode_job(connection: &Connection, stored: StoredJob) -> Result<Job> {
                 required_stored(stored.claim_id, "job claim ID")?,
                 "job claim",
             )?);
+            if claim_id.as_bytes() == &[0; 16] {
+                return Err(stored_invariant("claimed job has a nil credential"));
+            }
             let tool = ToolIdentity::new(
                 required_stored(stored.claim_tool_name, "job claim tool name")?,
                 stored.claim_tool_version,
@@ -4499,7 +4502,6 @@ fn decode_job(connection: &Connection, stored: StoredJob) -> Result<Job> {
                 ),
             };
             JobState::Claimed(JobClaim::new(
-                claim_id,
                 tool,
                 agent,
                 Timestamp::from_unix_micros(required_stored(

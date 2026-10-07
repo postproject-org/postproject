@@ -1,8 +1,8 @@
 //! Persisted work requests without scheduling or execution policy.
 
 use crate::{
-    ActivityId, AgentIdentity, AssetId, Error, ErrorKind, JobClaimId, JobId, MediaRoot,
-    MetadataAssertion, RepresentationId, RepresentationKind, Result, Timestamp, ToolIdentity,
+    ActivityId, AgentIdentity, AssetId, Error, ErrorKind, JobId, MediaRoot, MetadataAssertion,
+    RepresentationId, RepresentationKind, Result, Timestamp, ToolIdentity,
 };
 
 /// Maximum encoded length of a namespaced job-kind identifier.
@@ -103,34 +103,25 @@ impl RequestedJobOutput {
 /// Attribution and lease data for one active claim.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct JobClaim {
-    id: JobClaimId,
     tool: ToolIdentity,
     agent: Option<AgentIdentity>,
     expires_at: Timestamp,
 }
 
 impl JobClaim {
-    /// Creates claim data. Storage validates the expiry against caller-supplied
-    /// current time when applying a transition.
+    /// Creates observed attribution and authority-selected expiry data.
+    /// This value grants no worker ownership.
     #[must_use]
     pub const fn new(
-        id: JobClaimId,
         tool: ToolIdentity,
         agent: Option<AgentIdentity>,
         expires_at: Timestamp,
     ) -> Self {
         Self {
-            id,
             tool,
             agent,
             expires_at,
         }
-    }
-
-    /// Returns the capability identifying this claim.
-    #[must_use]
-    pub const fn id(&self) -> JobClaimId {
-        self.id
     }
 
     /// Returns the claiming tool identity.
@@ -145,7 +136,7 @@ impl JobClaim {
         self.agent.as_ref()
     }
 
-    /// Returns the caller-supplied lease expiry.
+    /// Returns the authority-selected lease expiry.
     #[must_use]
     pub const fn expires_at(&self) -> Timestamp {
         self.expires_at

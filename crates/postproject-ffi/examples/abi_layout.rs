@@ -107,7 +107,6 @@ fn main() {
         target_root,
         state,
         input_count,
-        claim_id,
         claim_expires_at_unix_micros,
         claim_tool_name,
         claim_tool_version,
@@ -123,7 +122,6 @@ fn main() {
     layout!(
         PpJobClaim,
         "pp_job_claim_t",
-        id,
         expires_at_unix_micros,
         tool_name,
         tool_version,

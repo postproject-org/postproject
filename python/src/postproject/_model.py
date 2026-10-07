@@ -11,7 +11,6 @@ from uuid import UUID
 from ._ids import (
     ActivityId,
     AssetId,
-    JobClaimId,
     JobId,
     LocatorId,
     MediaRootId,
@@ -460,7 +459,6 @@ JobLeaseStatus: TypeAlias = PendingJobLease | ActiveJobLease | ClosedJobLease
 class JobClaim:
     """Attribution and lease detail for one active claim."""
 
-    id: JobClaimId
     tool: ToolIdentity
     agent: AgentIdentity | None
     expires_at_unix_micros: int

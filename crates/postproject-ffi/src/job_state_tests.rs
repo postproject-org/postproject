@@ -21,7 +21,6 @@ fn checked_state_accessors_reject_and_clear_wrong_state_missing_index_and_null()
     ];
     for (handle, index, expected) in cases {
         let mut claim = PpJobClaim::empty();
-        claim.id.bytes = [7; 16];
         claim.expires_at_unix_micros = 99;
         claim.tool_name = c"marker".as_ptr();
         let mut completion = PpJobCompletion {
@@ -44,7 +43,6 @@ fn checked_state_accessors_reject_and_clear_wrong_state_missing_index_and_null()
                 expected
             );
         }
-        assert_eq!(claim.id.bytes, [0; 16]);
         assert_eq!(claim.expires_at_unix_micros, 0);
         assert!(claim.tool_name.is_null());
         assert!(claim.tool_version.is_null());

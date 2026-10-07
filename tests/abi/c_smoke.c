@@ -408,7 +408,7 @@ int main(int argc, char **argv) {
     return 64;
   }
   (void)remove(argv[1]);
-  if (pp_abi_version() != UINT32_C(48)) {
+  if (pp_abi_version() != UINT32_C(49)) {
     return 1;
   }
   pp_error_code_t status =
@@ -2286,7 +2286,6 @@ int main(int argc, char **argv) {
   if (failed_job->state != PP_JOB_FAILED ||
       failed_job->failure_diagnostic == NULL ||
       strcmp(failed_job->failure_diagnostic, "encoder exited") != 0 ||
-      !uuid_is_zero(&failed_job->claim_id) ||
       memcmp(cancelled_job->id.bytes, cancelled_job_id.bytes,
              sizeof(cancelled_job_id.bytes)) != 0 ||
       cancelled_job->state != PP_JOB_CANCELLED) {

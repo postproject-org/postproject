@@ -1415,7 +1415,6 @@ enum class JobState : std::uint32_t {
 };
 
 struct JobClaim final {
-  Uuid id;
   ToolIdentity tool;
   std::optional<AgentIdentity> agent;
   std::int64_t expires_at_unix_micros;
@@ -2419,7 +2418,6 @@ inline Result<JobStatus> job_status_value(const pp_job_t &native) {
       return Error(ErrorCode::internal, "native job claim has an incomplete agent identifier");
     }
     job_status = JobClaim{
-        uuid(native.claim_id),
         ToolIdentity{std::string(native.claim_tool_name),
                      optional_string(native.claim_tool_version),
                      optional_string(native.claim_tool_uri)},
