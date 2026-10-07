@@ -239,3 +239,96 @@ fn assert_worker_receipts(result: &Value) {
         previous = sequence;
     }
 }
+
+#[test]
+fn executor_batch_size_is_explicit_and_bounded_before_claiming() {
+    let fixture = fixture();
+    request_proxy(&fixture);
+    request_proxy(&fixture);
+    let executable = fake_ffmpeg(fixture.directory.path(), false);
+    for invalid in ["0", "1001"] {
+        cargo_bin_cmd!("postproject")
+            .args([
+                "job",
+                "run",
+                fixture.production.to_str().unwrap(),
+                "--max-jobs",
+                invalid,
+            ])
+            .assert()
+            .failure();
+    }
+    let mapping = format!("proxies={}", fixture.output_root.display());
+    let result = run_json(&[
+        "job",
+        "run",
+        fixture.production.to_str().unwrap(),
+        "--max-jobs",
+        "1",
+        "--root-map",
+        &mapping,
+        "--ffmpeg",
+        executable.to_str().unwrap(),
+    ]);
+    assert_eq!(result.as_array().unwrap().len(), 1);
+    assert_worker_receipts(&result[0]);
+    let requested = run_json(&[
+        "job",
+        "list",
+        fixture.production.to_str().unwrap(),
+        "--state",
+        "requested",
+    ]);
+    assert_eq!(requested["items"].as_array().unwrap().len(), 1);
+}
+
+#[cfg(unix)]
+#[test]
+fn input_change_during_execution_rejects_publication_and_retains_only_own_receipts() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let fixture = fixture();
+    let requested = request_proxy(&fixture);
+    let resource = run_json(&[
+        "representation",
+        "resources",
+        fixture.production.to_str().unwrap(),
+        &fixture.representation_id,
+    ])["items"][0]["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let executable = fixture.directory.path().join("ffmpeg-change-input");
+    let quoted = |path: &Path| serde_json::to_string(path.to_str().unwrap()).unwrap();
+    fs::write(&executable, format!(r"#!/usr/bin/env python3
+import json, pathlib, subprocess, sys
+if sys.argv[1] == '-version':
+    print('ffmpeg version input-race'); sys.exit(0)
+cli = {cli}
+production = {production}
+source = {source}
+pathlib.Path(source).write_bytes(b'changed during work')
+view = json.loads(subprocess.check_output([cli, '--json', 'inspect', production]))
+subprocess.check_call([cli, 'media', 'fingerprint', production, '--decision-base', view['decision_base'], {resource}, source])
+pathlib.Path(sys.argv[-1]).write_bytes(b'output from earlier inputs')
+", cli=quoted(Path::new(env!("CARGO_BIN_EXE_postproject"))), production=quoted(&fixture.production),
+        source=quoted(&fixture.directory.path().join("source.mov")), resource=serde_json::to_string(&resource).unwrap())).unwrap();
+    fs::set_permissions(&executable, fs::Permissions::from_mode(0o700)).unwrap();
+    let result = run_once(&fixture, &executable).failure();
+    let error: Value = serde_json::from_slice(&result.get_output().stdout).unwrap();
+    assert_eq!(error["error"]["code"], "post_commit_failure");
+    assert!(error["error"]["transaction_conflict"].is_object());
+    let receipts = error["error"]["commit_receipts"].as_array().unwrap();
+    assert_eq!(receipts.len(), 2);
+    let claim_sequence = receipts[0]["revision"]["sequence"].as_u64().unwrap();
+    assert_eq!(receipts[1]["revision"]["sequence"], claim_sequence + 2);
+    assert!(fs::read_dir(&fixture.output_root).unwrap().next().is_none());
+    let job = run_json(&[
+        "job",
+        "show",
+        fixture.production.to_str().unwrap(),
+        requested["id"].as_str().unwrap(),
+    ]);
+    assert_eq!(job["state"], "failed");
+    assert!(job["completion_activity_id"].is_null());
+}

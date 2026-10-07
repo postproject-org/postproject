@@ -148,7 +148,7 @@ impl std::fmt::Display for CommittedOperationError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             formatter,
-            "operation committed for production {} at revision {:?}; result delivery failed: {}",
+            "earlier operation committed for production {} at revision {:?}; subsequent operation failed: {}",
             self.receipt.production_id(),
             self.receipt
                 .revision()

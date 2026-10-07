@@ -4627,6 +4627,10 @@ fn complete_executor_job(
         Ok(receipt) => receipts.push(receipt),
         Err(error) => {
             let _ = fs::remove_file(output_path);
+            let diagnostic = format!("cannot publish executor output: {error:#}");
+            if let Ok(receipt) = fail_executor_job(production, lease, &diagnostic, base_revision) {
+                receipts.push(receipt);
+            }
             return Err(error);
         }
     }
@@ -6274,7 +6278,9 @@ fn print_conflict_json(error: &anyhow::Error) -> bool {
     if let Some(committed) = error.downcast_ref::<CommittedOperationError>() {
         let receipt = &committed.receipt;
         return print_json(&serde_json::json!({"error": {
-            "code": "committed_result_delivery_failed", "message": error.to_string(),
+            "code": "post_commit_failure", "message": error.to_string(),
+            "transaction_conflict": error.chain().find_map(|cause| cause.downcast_ref::<postproject_core::Error>())
+                .and_then(postproject_core::Error::transaction_conflict_detail).map(transaction_conflict_view),
             "commit_receipt": receipt_view(receipt),
             "commit_receipts": committed.prior_receipts.iter().chain(std::iter::once(receipt)).map(receipt_view).collect::<Vec<_>>()
         }})).is_ok();
