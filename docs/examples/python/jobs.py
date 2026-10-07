@@ -11,17 +11,19 @@ The work directory is prepared by ``prepare-workdir.cmake``.
 from __future__ import annotations
 
 import sys
+from datetime import timedelta
 from pathlib import Path
 
 from postproject import (
+    ActiveJobLease,
     ActivityEdge,
     ActivityRef,
     ActivitySpec,
     AgentIdentity,
     AssetId,
+    ClosedJobLease,
     ExternalIdentifier,
     Job,
-    JobClaimId,
     JobId,
     JobRef,
     JobRequest,
@@ -29,6 +31,7 @@ from postproject import (
     MetadataAssertion,
     MetadataProperty,
     MetadataString,
+    PendingJobLease,
     Production,
     RegenerationJobPlan,
     RepresentationId,
@@ -36,9 +39,6 @@ from postproject import (
     ToolIdentity,
 )
 
-# Every job transition takes a caller-supplied time in Unix microseconds.
-T0 = 1_750_000_000_000_000
-MINUTE = 60_000_000
 WORKER = ToolIdentity("Example Proxy Worker", "1.4", "https://example.com/worker")
 AGENT = AgentIdentity("render-node-4", ExternalIdentifier("com.example.host", "node-4"))
 
@@ -88,20 +88,24 @@ def request_proxy(
 # [claim-job]
 def claim_renew_release(production: Production, job_id: JobId) -> None:
     with production.transaction() as transaction:
-        # Keep the claim token private: every later transition requires it.
-        claim_id = transaction.claim_job(
-            job_id, WORKER, AGENT, T0, expires_at_unix_micros=T0 + 5 * MINUTE
+        lease = transaction.claim_job_lease(
+            job_id, WORKER, timedelta(minutes=5), agent=AGENT
         )
+        assert isinstance(lease.state, PendingJobLease)
         transaction.commit()
 
-    with production.transaction() as transaction:
-        transaction.renew_job_claim(job_id, claim_id, T0 + 4 * MINUTE, T0 + 9 * MINUTE)
-        transaction.commit()
-
-    # Abandon the work without recording a failure: the job is requested again.
-    with production.transaction() as transaction:
-        transaction.release_job_claim(job_id, claim_id)
-        transaction.commit()
+    with lease:
+        assert lease.production_id == production.id and lease.job_id == job_id
+        assert isinstance(lease.state, ActiveJobLease)
+        # Explicit private transport when work moves to another process.
+        with production.import_job_lease(lease.export_token()) as imported:
+            with production.transaction() as transaction:
+                transaction.renew_job_lease(imported, timedelta(minutes=10))
+                transaction.commit()
+            with production.transaction() as transaction:
+                transaction.release_job_lease(imported)
+                transaction.commit()
+            assert isinstance(imported.state, ClosedJobLease)
 
 
 # [/claim-job]
@@ -109,53 +113,54 @@ def claim_renew_release(production: Production, job_id: JobId) -> None:
 
 # [complete-job]
 def run_proxy_job(production: Production, job_id: JobId, output: Path) -> None:
-    now = T0 + 10 * MINUTE
     with production.transaction() as transaction:
-        claim_id = transaction.claim_job(job_id, WORKER, AGENT, now, now + 5 * MINUTE)
-        transaction.commit()
-    job = job_by_id(production, job_id)
-
-    output.write_bytes(b"720p proxy essence\n")  # the actual work
-
-    # Stage the output, the activity, and the completion in one transaction;
-    # never commit the representation or activity separately.
-    with production.transaction() as transaction:
-        proxy_id = transaction.add_representation(
-            job.output_asset_id, job.output_representation_kind, output
+        lease = transaction.claim_job_lease(
+            job_id, WORKER, timedelta(minutes=5), agent=AGENT
         )
-        activity_id = transaction.create_activity(
-            ActivitySpec(
-                job.kind,
-                inputs=tuple(ActivityEdge(item) for item in job.inputs),
-                outputs=(ActivityEdge(proxy_id),),
-                tool=WORKER,
-                agent=AGENT,
-            )
-        )
-        # Copy the job parameters so the activity can be reproduced.
-        for parameter in production.metadata[JobRef(job_id)]:
-            transaction.add_metadata(
-                ActivityRef(activity_id), parameter.property, parameter.value
-            )
-        transaction.complete_job(job_id, claim_id, now + MINUTE, proxy_id, activity_id)
         transaction.commit()
+    with lease:
+        job = job_by_id(production, job_id)
+
+        output.write_bytes(b"720p proxy essence\n")  # the actual work
+
+        # Stage the output, the activity, and the completion in one transaction;
+        # never commit the representation or activity separately.
+        with production.transaction() as transaction:
+            proxy_id = transaction.add_representation(
+                job.output_asset_id, job.output_representation_kind, output
+            )
+            activity_id = transaction.create_activity(
+                ActivitySpec(
+                    job.kind,
+                    inputs=tuple(ActivityEdge(item) for item in job.inputs),
+                    outputs=(ActivityEdge(proxy_id),),
+                    tool=WORKER,
+                    agent=AGENT,
+                )
+            )
+            # Copy the job parameters so the activity can be reproduced.
+            for parameter in production.metadata[JobRef(job_id)]:
+                transaction.add_metadata(
+                    ActivityRef(activity_id), parameter.property, parameter.value
+                )
+            transaction.complete_job_lease(lease, proxy_id, activity_id)
+            transaction.commit()
 
 
 # [/complete-job]
 
 
 # [fail-job]
-def fail_after_tool_error(production: Production, job_id: JobId) -> JobClaimId:
-    now = T0 + 20 * MINUTE
+def fail_after_tool_error(production: Production, job_id: JobId) -> None:
     with production.transaction() as transaction:
-        claim_id = transaction.claim_job(job_id, WORKER, AGENT, now, now + 5 * MINUTE)
+        lease = transaction.claim_job_lease(
+            job_id, WORKER, timedelta(minutes=5), agent=AGENT
+        )
         transaction.commit()
-
     # A failure records a bounded diagnostic and no representation.
-    with production.transaction() as transaction:
-        transaction.fail_job(job_id, claim_id, now + MINUTE, "encoder exited with 1")
+    with lease, production.transaction() as transaction:
+        transaction.fail_job_lease(lease, "encoder exited with 1")
         transaction.commit()
-    return claim_id
 
 
 # [/fail-job]
