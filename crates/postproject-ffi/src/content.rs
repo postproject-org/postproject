@@ -208,6 +208,8 @@ pub unsafe extern "C" fn pp_production_verify_resource(
 
 /// Stages present content as a new observation of a resource and of every
 /// representation using it, and reports whether the content changed.
+/// Requires a decision base. Session edits retain their original read view;
+/// detached edits must still match the head when this operation pins its view.
 ///
 /// # Safety
 ///
@@ -230,13 +232,30 @@ pub unsafe extern "C" fn pp_transaction_observe_resource_content(
             let transaction = transaction
                 .as_mut()
                 .ok_or_else(|| invalid_argument("transaction must not be null"))?;
-            transaction.lifecycle.ensure_open()?;
+            transaction.require_decision_base()?;
             require_output(out_outcome, "out_outcome")?;
             let path = required_utf8(path, "path")?;
             let naming = optional_naming(sequence_naming, "sequence_naming")?;
             let resource_id = ResourceId::from_bytes(resource_id.bytes);
+            let reader = if let Some(reader) = &transaction.decision_reader {
+                crate::Arc::clone(reader)
+            } else {
+                let view = lock_production(&transaction.state).read_session()?;
+                let current = view.decision_base();
+                let matches = transaction.decision_base.map_or_else(
+                    || current.revision_id() == transaction.base_revision,
+                    |base| base == current,
+                );
+                if !matches {
+                    return Err(Error::new(
+                        ErrorKind::Conflict,
+                        "content observation needs a retained read session or a current detached base",
+                    ));
+                }
+                crate::Arc::clone(&crate::production_handle(view.into_read_only()).state)
+            };
             let (mut usage, mut locators) = {
-                let production = lock_production(&transaction.state);
+                let production = lock_production(&reader);
                 (
                     resource_usage(&*production, resource_id)?,
                     production.locators(resource_id)?,

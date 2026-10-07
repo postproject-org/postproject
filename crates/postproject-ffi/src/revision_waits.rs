@@ -26,8 +26,9 @@ use crate::{
     PP_REVISION_METADATA_ADDED_OR_REPLACED, PP_REVISION_METADATA_REMOVED,
     PP_REVISION_REPRESENTATION_ADDED, PP_REVISION_REPRESENTATION_FINGERPRINT_OBSERVED,
     PP_REVISION_REPRESENTATION_RESOURCE_ADDED, PP_REVISION_RESOURCE_ADDED,
-    PP_REVISION_RESOURCE_FINGERPRINT_OBSERVED, PpError, PpProduction, PpRevisionSet, ffi_call,
-    initialize_output, invalid_argument, lock_production, require_output,
+    PP_REVISION_RESOURCE_FILE_FACTS_OBSERVED, PP_REVISION_RESOURCE_FINGERPRINT_OBSERVED, PpError,
+    PpProduction, PpRevisionSet, ffi_call, initialize_output, invalid_argument, lock_production,
+    require_output,
 };
 
 const PP_REVISION_WAIT_REVISIONS: u32 = 1;
@@ -254,6 +255,7 @@ fn revision_event_type(kind: u32) -> Result<RevisionEventType, Error> {
         PP_REVISION_LOCATOR_RETIRED => RevisionEventType::LocatorRetired,
         PP_REVISION_MEDIA_ROOT_ENABLED_CHANGED => RevisionEventType::MediaRootEnabledChanged,
         PP_REVISION_MEDIA_ROOT_REMOVED => RevisionEventType::MediaRootRemoved,
+        PP_REVISION_RESOURCE_FILE_FACTS_OBSERVED => RevisionEventType::ResourceFileFactsObserved,
         PP_REVISION_RESOURCE_FINGERPRINT_OBSERVED => RevisionEventType::ResourceFingerprintObserved,
         PP_REVISION_REPRESENTATION_FINGERPRINT_OBSERVED => {
             RevisionEventType::RepresentationFingerprintObserved

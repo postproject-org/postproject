@@ -153,6 +153,7 @@ const PP_CONFLICT_MEDIA_ROOT: u32 = 4;
 const PP_CONFLICT_EXTERNAL_IDENTIFIER: u32 = 5;
 const PP_CONFLICT_RESOURCE_FINGERPRINT: u32 = 6;
 const PP_CONFLICT_REPRESENTATION_FINGERPRINT: u32 = 7;
+const PP_CONFLICT_RESOURCE_FILE_FACTS: u32 = 8;
 
 const PP_REPRESENTATION_ORIGINAL: u32 = 1;
 const PP_REPRESENTATION_PROXY: u32 = 2;
@@ -177,6 +178,7 @@ const PP_REVISION_MEDIA_ROOT_ENABLED_CHANGED: u32 = 15;
 const PP_REVISION_MEDIA_ROOT_REMOVED: u32 = 16;
 const PP_REVISION_RESOURCE_FINGERPRINT_OBSERVED: u32 = 17;
 const PP_REVISION_REPRESENTATION_FINGERPRINT_OBSERVED: u32 = 18;
+const PP_REVISION_RESOURCE_FILE_FACTS_OBSERVED: u32 = 27;
 const PP_REVISION_DEPENDENCY_SET_RECORDED: u32 = 19;
 const PP_REVISION_JOB_REQUESTED: u32 = 20;
 const PP_REVISION_JOB_CLAIMED: u32 = 21;
@@ -363,6 +365,7 @@ pub struct PpTransaction {
     revision_context: RevisionContext,
     base_revision: Option<RevisionId>,
     decision_base: Option<DecisionBase>,
+    decision_reader: Option<Arc<ProductionState>>,
     mutations: Vec<StagedMutation>,
 }
 
@@ -588,6 +591,10 @@ impl AbiTransactionConflict {
             superseding_revision_sequence: conflict.superseding_sequence(),
         };
         match conflict.key() {
+            SemanticConflictKey::ResourceFileFacts(resource_id) => {
+                value.kind = PP_CONFLICT_RESOURCE_FILE_FACTS;
+                value.target = resource_target(*resource_id);
+            }
             SemanticConflictKey::LocatorSet(resource_id) => {
                 value.kind = PP_CONFLICT_LOCATOR_SET;
                 value.target = resource_target(*resource_id);
@@ -5201,6 +5208,7 @@ pub unsafe extern "C" fn pp_transaction_retire_locator(
 ///
 /// The value is copied during this call. An identical current observation is a
 /// successful no-op when the transaction commits.
+/// Requires a decision base, including first and unchanged observations.
 ///
 /// # Safety
 ///
@@ -5223,7 +5231,7 @@ pub unsafe extern "C" fn pp_transaction_record_resource_fingerprint(
             let transaction = transaction
                 .as_mut()
                 .ok_or_else(|| invalid_argument("transaction must not be null"))?;
-            transaction.lifecycle.ensure_open()?;
+            transaction.require_decision_base()?;
             let fingerprint = ResourceFingerprint::new(
                 required_utf8(algorithm, "algorithm")?,
                 version,
@@ -5265,7 +5273,7 @@ pub unsafe extern "C" fn pp_transaction_record_representation_fingerprint(
             let transaction = transaction
                 .as_mut()
                 .ok_or_else(|| invalid_argument("transaction must not be null"))?;
-            transaction.lifecycle.ensure_open()?;
+            transaction.require_decision_base()?;
             let fingerprint = RepresentationFingerprint::new(
                 required_utf8(algorithm, "algorithm")?,
                 version,
@@ -7364,6 +7372,7 @@ fn begin_transaction_handle(
         revision_context: RevisionContext::default(),
         base_revision,
         decision_base,
+        decision_reader: None,
         mutations: Vec::new(),
     })))
 }

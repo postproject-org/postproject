@@ -350,6 +350,43 @@ static pp_error_code_t begin_decision_edit(pp_production_t *production,
   return status;
 }
 
+static int observation_base_contract(pp_production_t *production,
+                                     pp_resource_id_t resource_id,
+                                     pp_representation_id_t representation_id) {
+  pp_transaction_t *edit = NULL;
+  pp_error_t *error = NULL;
+  pp_commit_receipt_t receipt;
+  const uint8_t value[] = {1};
+  int valid = 0;
+  if (pp_production_begin_transaction(production, &edit, &error) != PP_OK)
+    goto cleanup;
+  for (int operation = 0; operation < 3; ++operation) {
+    pp_content_observation_t outcome = UINT32_MAX;
+    pp_error_code_t status;
+    if (operation == 0) {
+      status = pp_transaction_record_resource_fingerprint(
+          edit, resource_id, "test", 1, value, sizeof value, &error);
+    } else if (operation == 1) {
+      status = pp_transaction_record_representation_fingerprint(
+          edit, representation_id, "test", 1, value, sizeof value, &error);
+    } else {
+      status = pp_transaction_observe_resource_content(
+          edit, resource_id, "absent-observation-file", NULL, &outcome, &error);
+      if (outcome != 0) goto cleanup;
+    }
+    if (status != PP_ERROR_INVALID_ARGUMENT || error == NULL) goto cleanup;
+    pp_error_release(error); error = NULL;
+  }
+  /* All three rejections leave an open edit with no staged observations. */
+  if (pp_transaction_commit_with_receipt(edit, &receipt, &error) != PP_OK ||
+      receipt.outcome != PP_COMMIT_NO_CHANGE) goto cleanup;
+  valid = 1;
+cleanup:
+  pp_error_release(error);
+  pp_transaction_release(edit);
+  return valid;
+}
+
 int main(int argc, char **argv) {
   pp_production_t *production = NULL;
   pp_transaction_t *transaction = NULL;
@@ -1039,7 +1076,11 @@ int main(int argc, char **argv) {
 
   pp_transaction_t *observation = NULL;
   pp_content_observation_t outcome = 0;
-  status = pp_production_begin_transaction(production, &observation, &error);
+  if (!observation_base_contract(production, resource_id, representation_id)) {
+    pp_production_release(production);
+    return 118;
+  }
+  status = begin_decision_edit(production, &observation, &error);
   if (status == PP_OK) {
     status = pp_transaction_observe_resource_content(observation, resource_id,
                                                      media_path, NULL, &outcome,

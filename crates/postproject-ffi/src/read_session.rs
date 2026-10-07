@@ -199,11 +199,10 @@ pub unsafe extern "C" fn pp_read_session_begin_edit(
             let session = session
                 .as_ref()
                 .ok_or_else(|| invalid_argument("session must not be null"))?;
-            out_transaction.write(begin_transaction_handle(
-                &session.state,
-                None,
-                Some(session.base),
-            )?);
+            let transaction = begin_transaction_handle(&session.state, None, Some(session.base))?;
+            // Retain the exact knowledge used by automatic content observations.
+            (*transaction).decision_reader = Some(Arc::clone(&session.reader.state));
+            out_transaction.write(transaction);
             Ok(())
         })
     }

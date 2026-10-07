@@ -25,6 +25,12 @@ the required complete evidence from two independent hosts (ADR 0040).
 
 ## Types and ownership
 
+ABI 47 adds `PP_REVISION_RESOURCE_FILE_FACTS_OBSERVED` and
+`PP_CONFLICT_RESOURCE_FILE_FACTS` without changing signatures or layouts.
+Explicit observations require decision bases; session edits retain their view
+for content observation. Schema 18 preserves the journal while allowing changed
+file facts to create revisions. Use matching development projections (ADR 0056).
+
 The ABI 47 development tree adds bounded live/retained media-root pages and a
 borrowed set continuation (ADR 0053). Existing root getters read current facts
 and return `PP_ERROR_UNSUPPORTED` above 1000 roots. Page reads accept 1–1000;

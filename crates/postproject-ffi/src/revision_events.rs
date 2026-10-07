@@ -16,9 +16,9 @@ use crate::{
     PP_REVISION_METADATA_ADDED_OR_REPLACED, PP_REVISION_METADATA_REMOVED,
     PP_REVISION_REPRESENTATION_ADDED, PP_REVISION_REPRESENTATION_FINGERPRINT_OBSERVED,
     PP_REVISION_REPRESENTATION_RESOURCE_ADDED, PP_REVISION_RESOURCE_ADDED,
-    PP_REVISION_RESOURCE_FINGERPRINT_OBSERVED, PpActivityId, PpAssetId, PpJobId, PpLocatorId,
-    PpMediaRootId, PpObjectRef, PpRepresentationId, PpResourceId, PpRevisionEvent, PpUuid,
-    exact_cstring, object_ref_to_abi,
+    PP_REVISION_RESOURCE_FILE_FACTS_OBSERVED, PP_REVISION_RESOURCE_FINGERPRINT_OBSERVED,
+    PpActivityId, PpAssetId, PpJobId, PpLocatorId, PpMediaRootId, PpObjectRef, PpRepresentationId,
+    PpResourceId, PpRevisionEvent, PpUuid, exact_cstring, object_ref_to_abi,
 };
 
 /// Opaque immutable revision-event result set owned by the C caller.
@@ -348,6 +348,12 @@ impl TryFrom<&RevisionEvent> for AbiRevisionEvent {
                     .as_ref()
                     .map(|value| exact_cstring(value.as_str(), "revision activity role"))
                     .transpose()?;
+            }
+            RevisionEventKind::ResourceFileFactsObserved { resource_id } => {
+                projected.kind = PP_REVISION_RESOURCE_FILE_FACTS_OBSERVED;
+                projected.resource_id = Some(PpResourceId {
+                    bytes: resource_id.into_bytes(),
+                });
             }
             RevisionEventKind::ResourceFingerprintObserved {
                 resource_id,

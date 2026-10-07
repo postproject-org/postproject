@@ -199,6 +199,7 @@ typedef uint32_t pp_revision_event_kind_t;
 #define PP_REVISION_JOB_SUCCEEDED UINT32_C(24)
 #define PP_REVISION_JOB_FAILED UINT32_C(25)
 #define PP_REVISION_JOB_CANCELLED UINT32_C(26)
+#define PP_REVISION_RESOURCE_FILE_FACTS_OBSERVED UINT32_C(27)
 
 typedef uint32_t pp_revision_wait_result_t;
 
@@ -294,6 +295,7 @@ typedef uint32_t pp_conflict_key_kind_t;
 #define PP_CONFLICT_EXTERNAL_IDENTIFIER UINT32_C(5)
 #define PP_CONFLICT_RESOURCE_FINGERPRINT UINT32_C(6)
 #define PP_CONFLICT_REPRESENTATION_FINGERPRINT UINT32_C(7)
+#define PP_CONFLICT_RESOURCE_FILE_FACTS UINT32_C(8)
 
 /* Structured optimistic-conflict detail borrowed from one pp_error_t. The
  * target ID names the affected resource, representation, metadata/identifier
@@ -1661,7 +1663,8 @@ PP_API pp_error_code_t pp_transaction_confirm_locator(
 PP_API pp_error_code_t pp_transaction_retire_locator(
     pp_transaction_t *transaction, pp_locator_id_t locator_id,
     pp_error_t **out_error);
-/* Fingerprint values are borrowed only for the call and copied into the
+/* Requires a decision base, including first and unchanged observations.
+ * Fingerprint values are borrowed only for the call and copied into the
  * transaction. Re-recording the identical current value is a successful no-op. */
 PP_API pp_error_code_t pp_transaction_record_resource_fingerprint(
     pp_transaction_t *transaction, pp_resource_id_t resource_id,
@@ -1671,12 +1674,15 @@ PP_API pp_error_code_t pp_transaction_record_representation_fingerprint(
     pp_transaction_t *transaction, pp_representation_id_t representation_id,
     const char *algorithm, uint16_t version, const uint8_t *value,
     uint64_t value_length, pp_error_t **out_error);
-/* Fingerprints the file or image-sequence directory at path as the present
+/* Requires a decision base. Session edits retain the exact read view; detached
+ * edits must match the head when this operation pins its view.
+ * Fingerprints the file or image-sequence directory at path as the present
  * content of the resource, and recomputes every representation using it. Both
  * are staged now, outside the production lock, and recorded on commit.
  * Observations staged earlier in the same transaction are taken into account.
  * out_outcome compares the content with the stored fingerprints in the domains
  * PostProject computes: PP_OBSERVATION_UNCHANGED records no fingerprint,
+ * changed size/modification-time facts can still create a revision.
  * PP_OBSERVATION_CHANGED records the new content, and PP_OBSERVATION_FIRST means
  * no such fingerprint was stored before. sequence_naming is as for
  * pp_production_verify_resource(); a locator confirmed earlier in the same
