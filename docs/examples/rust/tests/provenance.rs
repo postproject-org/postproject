@@ -112,7 +112,7 @@ fn record_changed_file(
     asset_id: AssetId,
     representation_id: RepresentationId,
     path: &Path,
-) -> Result<()> {
+) -> Result<postproject_core::CommitReceipt> {
     // Record the new resource observation first.
     let view = production.read_session()?;
     let resource_id = view.read().resources(representation_id)?[0].id();

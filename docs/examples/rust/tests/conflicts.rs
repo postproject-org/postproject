@@ -4,7 +4,9 @@ use postproject_core::{ConflictKeyKind, MediaRoot, MediaRootId, Result, Semantic
 use postproject_storage_sqlite::SqliteProduction;
 
 // [semantic-conflicts]
-fn update_from_a_base_revision(production: &mut SqliteProduction) -> Result<()> {
+fn update_from_a_base_revision(
+    production: &mut SqliteProduction,
+) -> Result<postproject_core::CommitReceipt> {
     let root_id = MediaRootId::new();
     let root = MediaRoot::new(root_id, "rushes", None, None, 0, true)?;
     {
@@ -48,5 +50,8 @@ fn update_from_a_base_revision(production: &mut SqliteProduction) -> Result<()> 
 fn semantic_conflict_example_runs() -> Result<()> {
     let directory = tempfile::tempdir().expect("temporary directory");
     let mut production = SqliteProduction::create(directory.path().join("conflicts.pproj"), None)?;
-    update_from_a_base_revision(&mut production)
+    let receipt = update_from_a_base_revision(&mut production)?;
+    assert_eq!(receipt.production_id(), production.production().id());
+    assert!(receipt.revision().is_some());
+    Ok(())
 }

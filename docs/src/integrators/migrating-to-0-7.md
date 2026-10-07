@@ -24,6 +24,10 @@ wraparound before native conversion. Their existing domain bounds still apply.
 
 ## Identity values
 
+Rust and C++ `commit()` now return `CommitReceipt` rather than unit/void.
+Capture that receipt for later decisions; do not infer your revision from a
+subsequent head read. C callers use `pp_transaction_commit_with_receipt`.
+
 C uses distinct `pp_production_id_t`, `pp_asset_id_t`, `pp_media_root_id_t`,
 `pp_locator_id_t`, `pp_job_id_t`, `pp_activity_id_t`,
 `pp_representation_id_t`, `pp_resource_id_t`, `pp_revision_id_t` and

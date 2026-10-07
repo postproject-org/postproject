@@ -4949,11 +4949,8 @@ public:
     return detail::activity_id(activity_id);
   }
 
-  Result<void> commit() {
-    pp_error_t *error = nullptr;
-    const pp_error_code_t status = pp_transaction_commit(transaction_, &error);
-    POSTPROJECT_TRY(detail::check(status, error));
-    return {};
+  [[nodiscard]] Result<CommitReceipt> commit() {
+    return commitWithReceipt();
   }
 
   [[nodiscard]] Result<CommitReceipt> commitWithReceipt() {

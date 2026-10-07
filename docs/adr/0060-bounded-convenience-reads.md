@@ -24,6 +24,6 @@ valid; their immutable events are available through the existing event pages.
 
 ## Migration and standards impact
 
-Replace complete-list calls with page iteration when collections can exceed
+Replace complete-list calls with paging when collections can exceed
 1000. No signature, persisted identity, schema or external standard mapping
 changes. Limits reject explicitly and preserve unknown external values.

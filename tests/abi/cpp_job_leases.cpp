@@ -33,7 +33,10 @@ int main(int argc, char **argv) {
   auto asset = setup->importMedia(MediaSource(media));
   if (!asset) return 8;
   auto job = setup->requestJob(JobRequest{"example:publish", {}, *asset, RepresentationKind::derived, std::nullopt});
-  if (!job || !setup->commit()) return 9;
+  if (!job) return 9;
+  const auto setup_receipt = setup->commit();
+  if (!setup_receipt || !setup_receipt->revision ||
+      setup_receipt->production_id != production->id().value()) return 9;
   const ToolIdentity tool{"worker", std::nullopt, std::nullopt};
   auto edit = production->beginTransaction();
   if (!edit) return 10;

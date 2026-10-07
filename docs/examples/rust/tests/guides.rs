@@ -107,7 +107,7 @@ fn add_title(production: &mut SqliteProduction, asset_id: AssetId) -> Result<()>
 // [/metadata]
 
 // [media-root]
-fn add_rushes_root(production: &mut SqliteProduction) -> Result<()> {
+fn add_rushes_root(production: &mut SqliteProduction) -> Result<postproject_core::CommitReceipt> {
     let root = MediaRoot::new(
         MediaRootId::new(),
         "rushes",
@@ -166,7 +166,7 @@ fn resolve_asset(
 fn confirm_unique_candidates(
     production: &mut SqliteProduction,
     resolutions: &[RepresentationResolution],
-) -> Result<()> {
+) -> Result<postproject_core::CommitReceipt> {
     let mut transaction = production.begin_transaction()?;
     for resolution in resolutions {
         for resource in resolution.resources() {

@@ -49,6 +49,11 @@ caller. Return the receipt only after successful durable commit. Every commit
 attempt is terminal, including errors preparing the journal or committing.
 Rollback/drop never commits. Retry requires a new edit and an explicit decision.
 
+Rust and C++ `commit()` return this receipt by default; the explicitly named
+receipt aliases remain available. C's status-only `pp_transaction_commit`
+deliberately discards it and is retained for low-level consumers that need only
+success/failure. Ordinary C write recipes use `pp_transaction_commit_with_receipt`.
+
 Python's `Transaction` and read-bound `Edit` contexts both require explicit
 `commit()`. Every uncommitted exit rolls back, including normal exit. Explicit
 close or terminal failure inside the context never triggers another mutation.

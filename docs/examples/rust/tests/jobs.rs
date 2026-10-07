@@ -163,7 +163,10 @@ fn fail_claimed_job(production: &mut SqliteProduction, job_id: JobId) -> Result<
 // [/fail-job]
 
 // [cancel-job]
-fn cancel_requested_job(production: &mut SqliteProduction, job_id: JobId) -> Result<()> {
+fn cancel_requested_job(
+    production: &mut SqliteProduction,
+    job_id: JobId,
+) -> Result<postproject_core::CommitReceipt> {
     let mut transaction = production.begin_transaction()?;
     transaction.cancel_job(job_id)?;
     transaction.commit()

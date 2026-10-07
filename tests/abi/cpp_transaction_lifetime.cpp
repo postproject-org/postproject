@@ -40,7 +40,7 @@ int main(int argc, char **argv) {
       const auto failed = a->commit();
       if (failed)
         return 6;
-    } else if (!(terminal == 0 ? a->commit() : a->rollback())) {
+    } else if (!(terminal == 0 ? bool(a->commit()) : bool(a->rollback()))) {
       return 7;
     }
     auto b = production->beginTransaction();

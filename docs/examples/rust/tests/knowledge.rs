@@ -36,7 +36,10 @@ fn find_known_media(
 // [/known-media-adoption]
 
 // [remove-identifier]
-fn replace_reel_identifier(production: &mut SqliteProduction, asset_id: AssetId) -> Result<()> {
+fn replace_reel_identifier(
+    production: &mut SqliteProduction,
+    asset_id: AssetId,
+) -> Result<postproject_core::CommitReceipt> {
     let target = ObjectRef::Asset(asset_id);
     let reel = ExternalIdentifier::new(IdentifierScheme::new("com.example.reel")?, "R-12", None)?;
     let serial = ExternalIdentifier::new(

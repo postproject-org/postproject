@@ -839,12 +839,12 @@ pub trait ProductionStoreTransaction {
     /// transaction is closed, or persistence fails.
     fn cancel_job(&mut self, job_id: JobId) -> Result<()>;
 
-    /// Atomically makes every staged mutation durable.
+    /// Atomically makes every staged mutation durable and returns its receipt.
     ///
     /// # Errors
     ///
     /// Returns a domain error when the transaction is closed or commit fails.
-    fn commit(&mut self) -> Result<()>;
+    fn commit(&mut self) -> Result<CommitReceipt>;
 
     /// Commits atomically and returns only the revision this transaction made.
     ///

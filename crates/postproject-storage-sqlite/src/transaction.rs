@@ -1683,14 +1683,14 @@ impl<'production> SqliteTransaction<'production> {
         Ok(true)
     }
 
-    /// Atomically commits all staged mutations.
+    /// Atomically commits all staged mutations and returns their own receipt.
     ///
     /// # Errors
     ///
     /// Returns [`ErrorKind::Conflict`] if already closed, or
     /// [`ErrorKind::Storage`] if SQLite cannot commit.
-    pub fn commit(&mut self) -> Result<()> {
-        self.commit_with_receipt().map(|_| ())
+    pub fn commit(&mut self) -> Result<CommitReceipt> {
+        self.commit_with_receipt()
     }
 
     /// Commits atomically and returns the revision produced by this transaction.
@@ -2472,7 +2472,7 @@ impl ProductionStoreTransaction for SqliteTransaction<'_> {
         SqliteTransaction::cancel_job(self, job_id)
     }
 
-    fn commit(&mut self) -> Result<()> {
+    fn commit(&mut self) -> Result<CommitReceipt> {
         SqliteTransaction::commit(self)
     }
 

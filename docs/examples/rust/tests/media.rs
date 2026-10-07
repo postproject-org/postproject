@@ -193,7 +193,10 @@ fn print_structure(production: &SqliteProduction, asset_id: AssetId) -> Result<u
 // [/representation-structure]
 
 // [media-root-lifecycle]
-fn cycle_media_root(production: &mut SqliteProduction, name: &str) -> Result<()> {
+fn cycle_media_root(
+    production: &mut SqliteProduction,
+    name: &str,
+) -> Result<postproject_core::CommitReceipt> {
     let view = production.read_session()?;
     for root in view.read().media_roots()? {
         println!("root {} enabled: {}", root.name(), root.is_enabled());
