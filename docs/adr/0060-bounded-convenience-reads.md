@@ -33,6 +33,8 @@ Metadata property convenience queries use the ordinary 1000-item page rule.
 Resource pages share their budget with all owned fingerprints. Activity pages
 and complete activity reads likewise share it across edges and snapshots;
 component queries cannot each allocate a fresh budget for the same result.
+Known-media pages share it across matched assets, representations and resources;
+job pages and captured dependency paths share it with their owned child rows.
 
 CLI representation, dependency and metadata JSON files are limited to 64 MiB
 before parsing. Array decoders enforce the existing domain item limits while

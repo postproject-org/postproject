@@ -381,20 +381,24 @@ impl SqliteProduction {
     /// Returns [`ErrorKind::NotFound`] when `asset_id` is absent, or
     /// [`ErrorKind::Storage`] for query failures or invalid stored data.
     pub fn asset(&self, asset_id: AssetId) -> Result<Asset> {
+        self.load_asset_with(asset_id, &mut ReadBudget::default())
+    }
+
+    fn load_asset_with(&self, asset_id: AssetId, budget: &mut ReadBudget) -> Result<Asset> {
         let (id, created_at, display_name, import_source) = self
             .connection
             .query_row(
                 "SELECT id, created_at_micros, display_name, import_source
                  FROM assets WHERE id = ?1",
                 params![asset_id.as_bytes().as_slice()],
-                |row| {
+                crate::read_budget::bounded_with(budget, |row| {
                     Ok((
                         row.get::<_, Vec<u8>>(0)?,
                         row.get::<_, i64>(1)?,
                         row.get::<_, Option<String>>(2)?,
                         row.get::<_, Option<String>>(3)?,
                     ))
-                },
+                }),
             )
             .optional()
             .map_err(sqlite_error("load asset"))?
@@ -477,7 +481,11 @@ impl SqliteProduction {
         )
     }
 
-    fn load_resource_by_id(&self, resource_id: ResourceId) -> Result<Resource> {
+    fn load_resource_by_id(
+        &self,
+        resource_id: ResourceId,
+        budget: &mut ReadBudget,
+    ) -> Result<Resource> {
         let stored = self
             .connection
             .query_row(
@@ -490,7 +498,7 @@ impl SqliteProduction {
             .ok_or_else(|| Error::new(ErrorKind::NotFound, "resource does not exist"))?;
         Ok(Resource::new(
             resource_id,
-            self.load_resource_fingerprints(resource_id)?,
+            self.load_resource_fingerprints_with(resource_id, budget)?,
             decode_file_facts(stored.0, stored.1)?,
         ))
     }
@@ -1021,12 +1029,21 @@ impl SqliteProduction {
         } else {
             None
         };
+        let mut budget = ReadBudget::default();
         let matches = ids
             .into_iter()
             .map(|(representation_id, resource_id)| {
-                let representation = self.load_representation_by_id(representation_id)?;
-                let asset = self.asset(representation.asset_id())?;
-                let resource = self.load_resource_by_id(resource_id)?;
+                let representation = self
+                    .load_representations_by_ids_with(
+                        &[representation_id.into_bytes()],
+                        &mut budget,
+                    )?
+                    .pop()
+                    .ok_or_else(|| {
+                        Error::new(ErrorKind::NotFound, "representation does not exist")
+                    })?;
+                let asset = self.load_asset_with(representation.asset_id(), &mut budget)?;
+                let resource = self.load_resource_by_id(resource_id, &mut budget)?;
                 Ok(KnownMediaMatch::new(asset, representation, resource))
             })
             .collect::<Result<Vec<_>>>()?;
@@ -1164,13 +1181,6 @@ impl SqliteProduction {
             None
         };
         Ok(QueryPage::new(ids, next_cursor, false))
-    }
-
-    fn load_resource_fingerprints(
-        &self,
-        resource_id: ResourceId,
-    ) -> Result<Vec<ResourceFingerprint>> {
-        self.load_resource_fingerprints_with(resource_id, &mut ReadBudget::default())
     }
 
     fn load_resource_fingerprints_with(
@@ -2900,15 +2910,22 @@ impl SqliteProduction {
         Ok(QueryPage::new(representations, next_cursor, false))
     }
 
+    fn load_representations_by_ids(&self, ids: &[[u8; 16]]) -> Result<Vec<Representation>> {
+        self.load_representations_by_ids_with(ids, &mut ReadBudget::default())
+    }
+
     #[allow(
         clippy::too_many_lines,
         reason = "set-oriented representation decoding keeps its coordinated row maps auditable"
     )]
-    fn load_representations_by_ids(&self, ids: &[[u8; 16]]) -> Result<Vec<Representation>> {
+    fn load_representations_by_ids_with(
+        &self,
+        ids: &[[u8; 16]],
+        budget: &mut ReadBudget,
+    ) -> Result<Vec<Representation>> {
         if ids.is_empty() {
             return Ok(Vec::new());
         }
-        let mut budget = ReadBudget::default();
         let placeholders = std::iter::repeat_n("?", ids.len())
             .collect::<Vec<_>>()
             .join(", ");
@@ -2928,7 +2945,7 @@ impl SqliteProduction {
         let base_rows = base_statement
             .query_map(
                 params_from_iter(parameters()),
-                crate::read_budget::bounded_with(&mut budget, |row| {
+                crate::read_budget::bounded_with(budget, |row| {
                     Ok((
                         row.get::<_, Vec<u8>>(0)?,
                         row.get::<_, Vec<u8>>(1)?,
@@ -2955,7 +2972,7 @@ impl SqliteProduction {
         for row in member_statement
             .query_map(
                 params_from_iter(parameters()),
-                crate::read_budget::bounded_with(&mut budget, |row| {
+                crate::read_budget::bounded_with(budget, |row| {
                     Ok((
                         row.get::<_, Vec<u8>>(0)?,
                         row.get::<_, Vec<u8>>(1)?,
@@ -2993,7 +3010,7 @@ impl SqliteProduction {
         for row in sequence_statement
             .query_map(
                 params_from_iter(parameters()),
-                crate::read_budget::bounded_with(&mut budget, |row| {
+                crate::read_budget::bounded_with(budget, |row| {
                     Ok((
                         row.get::<_, Vec<u8>>(0)?,
                         row.get::<_, Vec<u8>>(1)?,
@@ -3033,7 +3050,7 @@ impl SqliteProduction {
         for row in missing_statement
             .query_map(
                 params_from_iter(parameters()),
-                crate::read_budget::bounded_with(&mut budget, |row| {
+                crate::read_budget::bounded_with(budget, |row| {
                     Ok((row.get::<_, Vec<u8>>(0)?, row.get::<_, i64>(1)?))
                 }),
             )
@@ -3063,7 +3080,7 @@ impl SqliteProduction {
         for row in fingerprint_statement
             .query_map(
                 params_from_iter(parameters()),
-                crate::read_budget::bounded_with(&mut budget, |row| {
+                crate::read_budget::bounded_with(budget, |row| {
                     Ok((
                         row.get::<_, Vec<u8>>(0)?,
                         row.get::<_, String>(1)?,
