@@ -391,3 +391,28 @@ calls pass. All 18 extracted Python tests and strict docs pass. Native inputs
 remain the root-cache checkpoint; ABI 47/schema 17 is unchanged. Matching
 wheel/bundle and consumer checks are in the repository manifest. Other numeric
 input families, closed value alternatives and leases remain open.
+
+## References, numeric inputs and CLI outcomes
+
+SDK `f44015d` includes private typed C++ references (ADR 0054), Python
+media/metadata/timestamp integer checks, and accepted CLI dependency submissions
+(ADR 0055). Dependency recording prepares its response before commit and emits
+it with the atomic receipt; `dependency show` remains the current-facts read.
+Changed, unchanged and failed submissions are covered without a post-commit
+reload. ABI 47/schema 17 retain 315 exports and 27 agreeing layouts.
+
+All six required Rust gates, eight fresh installed native contracts, 72
+extracted examples, 18 installed CLI checks and strict docs pass. The existing
+Python source/installed suites run 97 tests with one skip; installed hints
+reject nine wrong-kind calls. Manager's matching-wheel recheck passes six tests.
+Blender's rebuilt bundle passes 23 with one 5.3-only skip. Artifact identities
+and earlier C++ consumer checks are in the repository manifest.
+
+Kdenlive `56f0705` reads save decisions through the view supplying the edit
+base and refuses representation collections above 1000. Its thirteen patches
+replay on pinned `55e16e8`; the updated sidecar and test objects compile with
+host flags. Linked with the preserved host archive, the offscreen pilot suite
+passes 1247 assertions in five cases, including the collection-bound regression.
+This is a targeted host test run, not a full fresh host build or interactive
+acceptance. Observation guards, other materializers/value alternatives, leases
+and final coordinated qualification remain open.

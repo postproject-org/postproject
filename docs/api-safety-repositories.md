@@ -588,3 +588,54 @@ calls pass. All 18 extracted Python tests and strict docs pass. Manager
 Logs: `target/query-limits-*.log`, `target/query-integers-*.log`.
 Final qualification remains open. All task commits remain local `main`;
 no push, tag or publication occurred.
+
+## C++ references and Python value checks
+
+SDK `e54c60b` adds private C++ reference alternatives (`e19aa66`) and
+Python numeric checks (`5f45b99`); binding sources are unchanged by the CLI
+checkpoint below. Native inputs use
+`target/api-safety-object-variants-install`; wheels and the Blender bundle use
+`target/api-safety-{wheel,blender}/value-integers/`. SHA-256:
+
+- Neutral wheel: `40dedb93e0bf9cfca863c09efdf4bd453371faac908881af363a4a17e7ae3f31`.
+- Linux wheel: `f1ff8012557308855bc963cad06adfedeaae8583f41cff59c2698b81285317e4`.
+- Blender bundle: `45b72f61a62bbb023ee9e5a261d812b0549c4ad604267be883bbe0305cdd4b01`.
+
+Python source/installed suites run 97 tests with one skip; Ruff/ty and nine
+installed wrong-kind calls pass. Manager `da2caaa`: six matching-wheel tests
+pass after rechecking with declared dependencies. Blender `71f49b6`: 23 pass,
+one 5.3-only skip on 5.2.2 LTS. Natron `98c8a2e`: native contract, stable-ABI
+module and actual Python bridge-conflict regression pass. Ardour `01c28de`:
+stereo-WAV resolver passes from the preserved patched tree. C++ NLE `8d2933a`:
+installed test passes. Logs: `target/object-variants-*.log`,
+`target/value-integers-*.log`; the Manager recheck is in
+`target/value-integers-manager-recheck.log`. These are scoped development inputs.
+
+## CLI dependency outcomes and Kdenlive save views
+
+SDK `f44015d` (`fd0fc53` implementation) uses ABI 47/schema 17, 315 exports
+and 27 layouts. Prefix: `target/api-safety-dependency-outcomes-install`, with
+a debug CLI and release native library; no release-artifact claim. SHA-256:
+
+- Native library: `15c994a1f7f38d25886c7e1b7da80ca01a58271e090eb45c456ad1fd1b4f1c65`.
+- C++ header: `71d11d78b084788807fcd57391bd5a77550fd50c77875986851f9309fd2a9d4a`.
+- CLI: `711c61c4f49301cdcdc91e9dd058a3eb9a241e60499e58092758deac2f88ab20`.
+
+All six required Rust gates, eight native contracts, 72 extracted examples,
+18 installed CLI tests, strict docs, version/symbol/layout checks pass.
+Logs: `target/dependency-outcomes-*.log`. Python/native runtime sources retain
+the preceding checkpoint; existing wheel results keep that input scope.
+
+Kdenlive `56f0705` adds the thirteenth patch. All thirteen replay on upstream
+`55e16e85cd9a9c6e032cd27a621137b4da881a7c`; final replay matches the compiled
+source. Sidecar and tests compile with host flags and the installed ABI 47
+headers. Updated objects link with the preserved, otherwise unchanged host
+archive. Offscreen Qt execution passes 1247 assertions in five pilot cases.
+Configuration/cache/data are isolated under `target/save-views-runtime`.
+Commands, objects, host checksums and logs are retained in `target/save-views-*`;
+the final run is `target/save-views-tests-final.log`.
+
+This validates the affected native host slice, including collection-bound
+refusal, relinking, shared-production and proxy tests. Full fresh builds,
+build-disabled execution, platform qualification and cross-host handoffs remain
+open. All task commits remain local `main`; no push, tag or publication occurred.
