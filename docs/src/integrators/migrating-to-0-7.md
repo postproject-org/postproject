@@ -98,6 +98,12 @@ return `ResourceId`; Python IDs remain ordinary UUID values.
 
 ## Reads and writes
 
+Artifact reasons and reproducibility issues expose case-specific payloads.
+Python uses frozen records; narrow with `isinstance` before accessing a case's
+fields. C++ reproducibility issues use `std::variant`; inspect with
+`std::get_if`, and use `artifactReproducibilityIssueKind` for display. See
+{doc}`/adr/0062-artifact-result-alternatives` for constructor changes.
+
 Representation facts now carry one checked content alternative. Python
 construction supplies `content=SingleResourceContent(resource_id)`,
 `ImageSequenceContent(resource_id, descriptor)`, `OrderedPartsContent(members)`

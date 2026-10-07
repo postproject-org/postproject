@@ -18,6 +18,7 @@ from postproject import (
     ActivitySpec,
     AgentIdentity,
     ArtifactEdgeKind,
+    ArtifactFingerprintChanged,
     ArtifactKnowledgeState,
     ArtifactReasonKind,
     AssetId,
@@ -1529,6 +1530,7 @@ class ProductionTests(unittest.TestCase):
             self.assertEqual(stale.state, ArtifactKnowledgeState.STALE)
             self.assertEqual(len(stale.reasons), 1)
             reason = stale.reasons[0]
+            assert isinstance(reason, ArtifactFingerprintChanged)
             self.assertEqual(reason.kind, ArtifactReasonKind.FINGERPRINT_CHANGED)
             self.assertEqual(reason.activity_id, activity_id)
             self.assertEqual(reason.representation_id, source.id)

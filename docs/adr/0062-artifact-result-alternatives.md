@@ -27,6 +27,11 @@ C++ uses a `std::variant` of those case types; inspect it with `std::get_if`.
 `artifactReproducibilityIssueKind` returns its display category. Ambiguous
 producer counts use `ReproducibilityProducerAmbiguous::create` and
 `activityCount()`; the other cases are ordinary aggregates of applicable IDs.
+Python artifact reasons likewise return the matching `Artifact…` record;
+`isinstance(reason, ArtifactFingerprintChanged)` exposes required old/current
+bytes and their domain. Dependency-path changes carry the direct input and
+captured path, without a fabricated zero subject ID. Unrelated constructor
+arguments are rejected. The display `kind` derives from the case type.
 
 No schema, persisted identity or external standards mapping changes. These
 projections preserve the existing recorded provenance and dependency semantics.

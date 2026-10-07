@@ -16,19 +16,34 @@ from ._abi import (
 )
 from ._abi import Error, Uuid
 from ._abi import ObjectRef as NativeObjectRef
+from ._errors import InternalError, UnsupportedError
 from ._model import (
     ActivityId,
+    ArtifactDependencyFingerprintChanged,
+    ArtifactDependencyFingerprintEvidenceMissing,
+    ArtifactDependencyFingerprintRecomputationPending,
     ArtifactDependencyIssue,
+    ArtifactDependencyKnowledgeIncomplete,
+    ArtifactDependencyPathChanged,
     ArtifactDependencyPathSegment,
+    ArtifactDependencySnapshotAbsent,
     ArtifactEdgeKind,
     ArtifactEvaluation,
+    ArtifactFingerprintChanged,
+    ArtifactFingerprintEvidenceMissing,
+    ArtifactFingerprintRecomputationPending,
     ArtifactKnowledgeState,
+    ArtifactProducerAmbiguous,
+    ArtifactProducerMissing,
     ArtifactReason,
     ArtifactReasonKind,
     ArtifactReproducibility,
     ArtifactReproducibilityIssue,
     ArtifactReproducibilityIssueKind,
+    ArtifactSnapshotAbsent,
     ArtifactTraversalLimit,
+    ArtifactTraversalTruncated,
+    ArtifactUpstreamNotCurrent,
     AssetId,
     AssetRef,
     ObjectReference,
@@ -87,77 +102,159 @@ def _reason_at(
         evaluation, index, ctypes.byref(value), ctypes.byref(error)
     )
     native.check(status, error)
+    try:
+        return _reason_payload(value)
+    except (TypeError, ValueError) as error:
+        raise InternalError(
+            _abi.PP_ERROR_INTERNAL, "invalid native artifact reason payload"
+        ) from error
+
+
+def _reason_payload(value: NativeArtifactReason) -> ArtifactReason:
     kind = _reason_kind(value.kind)
-    dependency_kinds = {
-        ArtifactReasonKind.DEPENDENCY_SNAPSHOT_ABSENT,
-        ArtifactReasonKind.DEPENDENCY_KNOWLEDGE_INCOMPLETE,
-        ArtifactReasonKind.DEPENDENCY_PATH_CHANGED,
-        ArtifactReasonKind.DEPENDENCY_FINGERPRINT_CHANGED,
-        ArtifactReasonKind.DEPENDENCY_FINGERPRINT_RECOMPUTATION_PENDING,
-        ArtifactReasonKind.DEPENDENCY_FINGERPRINT_EVIDENCE_MISSING,
-    }
-    has_activity = (
-        kind
-        in {
-            ArtifactReasonKind.SNAPSHOT_ABSENT,
-            ArtifactReasonKind.FINGERPRINT_EVIDENCE_MISSING,
-            ArtifactReasonKind.FINGERPRINT_CHANGED,
-            ArtifactReasonKind.FINGERPRINT_RECOMPUTATION_PENDING,
-        }
-        | dependency_kinds
-    )
-    has_edge = has_activity and kind not in dependency_kinds
-    return ArtifactReason(
-        kind=kind,
-        representation_id=RepresentationId(_uuid(value.representation_id)),
-        activity_id=ActivityId(_uuid(value.activity_id)) if has_activity else None,
-        edge_kind=_edge_kind(value.edge_kind) if has_edge else None,
-        upstream_state=(
-            _knowledge_state(value.upstream_state)
-            if kind is ArtifactReasonKind.UPSTREAM_NOT_CURRENT
-            else None
-        ),
-        traversal_limit=(
-            _traversal_limit(value.traversal_limit)
-            if kind is ArtifactReasonKind.TRAVERSAL_TRUNCATED
-            else None
-        ),
-        activity_count=(
-            int(value.activity_count)
-            if kind is ArtifactReasonKind.PRODUCING_ACTIVITY_AMBIGUOUS
-            else None
-        ),
-        fingerprint_algorithm=_decode_optional(value.fingerprint_algorithm),
-        fingerprint_version=(
+    if kind is ArtifactReasonKind.PRODUCING_ACTIVITY_MISSING:
+        return ArtifactProducerMissing(
+            RepresentationId(_uuid(value.representation_id)),
+        )
+    if kind is ArtifactReasonKind.PRODUCING_ACTIVITY_AMBIGUOUS:
+        return ArtifactProducerAmbiguous(
+            RepresentationId(_uuid(value.representation_id)),
+            int(value.activity_count),
+        )
+    if kind is ArtifactReasonKind.SNAPSHOT_ABSENT:
+        return ArtifactSnapshotAbsent(
+            ActivityId(_uuid(value.activity_id)),
+            RepresentationId(_uuid(value.representation_id)),
+            _edge_kind(value.edge_kind),
+        )
+    if kind is ArtifactReasonKind.FINGERPRINT_EVIDENCE_MISSING:
+        return ArtifactFingerprintEvidenceMissing(
+            ActivityId(_uuid(value.activity_id)),
+            RepresentationId(_uuid(value.representation_id)),
+            _edge_kind(value.edge_kind),
+            _decode_optional(value.fingerprint_algorithm),
             int(value.fingerprint_version)
             if value.fingerprint_algorithm is not None
-            else None
-        ),
-        snapshot_value=_optional_bytes(
-            value.has_snapshot_value,
-            value.snapshot_value,
-            value.snapshot_value_length,
-        ),
-        current_value=_optional_bytes(
-            value.has_current_value,
-            value.current_value,
-            value.current_value_length,
-        ),
-        input_representation_id=(
-            RepresentationId(_uuid(value.input_representation_id))
-            if kind in dependency_kinds
-            else None
-        ),
-        dependency_issue=(
-            _dependency_issue(value.dependency_issue)
-            if kind is ArtifactReasonKind.DEPENDENCY_KNOWLEDGE_INCOMPLETE
-            else None
-        ),
-        dependency_path=tuple(
-            _dependency_path_segment(value.dependency_path[index])
-            for index in range(int(value.dependency_path_length))
-        ),
-    )
+            else None,
+            _optional_bytes(
+                value.has_snapshot_value,
+                value.snapshot_value,
+                value.snapshot_value_length,
+            ),
+            _optional_bytes(
+                value.has_current_value, value.current_value, value.current_value_length
+            ),
+        )
+    if kind is ArtifactReasonKind.FINGERPRINT_CHANGED:
+        return ArtifactFingerprintChanged(
+            ActivityId(_uuid(value.activity_id)),
+            RepresentationId(_uuid(value.representation_id)),
+            _edge_kind(value.edge_kind),
+            _decode_required(value.fingerprint_algorithm),
+            int(value.fingerprint_version),
+            _required_bytes(
+                value.has_snapshot_value,
+                value.snapshot_value,
+                value.snapshot_value_length,
+            ),
+            _required_bytes(
+                value.has_current_value, value.current_value, value.current_value_length
+            ),
+        )
+    if kind is ArtifactReasonKind.FINGERPRINT_RECOMPUTATION_PENDING:
+        return ArtifactFingerprintRecomputationPending(
+            ActivityId(_uuid(value.activity_id)),
+            RepresentationId(_uuid(value.representation_id)),
+            _edge_kind(value.edge_kind),
+        )
+    if kind is ArtifactReasonKind.UPSTREAM_NOT_CURRENT:
+        return ArtifactUpstreamNotCurrent(
+            RepresentationId(_uuid(value.representation_id)),
+            _knowledge_state(value.upstream_state),
+        )
+    if kind is ArtifactReasonKind.TRAVERSAL_TRUNCATED:
+        return ArtifactTraversalTruncated(
+            RepresentationId(_uuid(value.representation_id)),
+            _traversal_limit(value.traversal_limit),
+        )
+    if kind is ArtifactReasonKind.DEPENDENCY_SNAPSHOT_ABSENT:
+        return ArtifactDependencySnapshotAbsent(
+            ActivityId(_uuid(value.activity_id)),
+            RepresentationId(_uuid(value.representation_id)),
+        )
+    if kind is ArtifactReasonKind.DEPENDENCY_KNOWLEDGE_INCOMPLETE:
+        return ArtifactDependencyKnowledgeIncomplete(
+            ActivityId(_uuid(value.activity_id)),
+            RepresentationId(_uuid(value.input_representation_id)),
+            RepresentationId(_uuid(value.representation_id)),
+            tuple(
+                _dependency_path_segment(value.dependency_path[index])
+                for index in range(int(value.dependency_path_length))
+            ),
+            _dependency_issue(value.dependency_issue),
+        )
+    if kind is ArtifactReasonKind.DEPENDENCY_PATH_CHANGED:
+        return ArtifactDependencyPathChanged(
+            ActivityId(_uuid(value.activity_id)),
+            RepresentationId(_uuid(value.input_representation_id)),
+            tuple(
+                _dependency_path_segment(value.dependency_path[index])
+                for index in range(int(value.dependency_path_length))
+            ),
+        )
+    if kind is ArtifactReasonKind.DEPENDENCY_FINGERPRINT_CHANGED:
+        return ArtifactDependencyFingerprintChanged(
+            ActivityId(_uuid(value.activity_id)),
+            RepresentationId(_uuid(value.input_representation_id)),
+            RepresentationId(_uuid(value.representation_id)),
+            tuple(
+                _dependency_path_segment(value.dependency_path[index])
+                for index in range(int(value.dependency_path_length))
+            ),
+            _decode_required(value.fingerprint_algorithm),
+            int(value.fingerprint_version),
+            _required_bytes(
+                value.has_snapshot_value,
+                value.snapshot_value,
+                value.snapshot_value_length,
+            ),
+            _required_bytes(
+                value.has_current_value, value.current_value, value.current_value_length
+            ),
+        )
+    if kind is ArtifactReasonKind.DEPENDENCY_FINGERPRINT_RECOMPUTATION_PENDING:
+        return ArtifactDependencyFingerprintRecomputationPending(
+            ActivityId(_uuid(value.activity_id)),
+            RepresentationId(_uuid(value.input_representation_id)),
+            RepresentationId(_uuid(value.representation_id)),
+            tuple(
+                _dependency_path_segment(value.dependency_path[index])
+                for index in range(int(value.dependency_path_length))
+            ),
+        )
+    if kind is ArtifactReasonKind.DEPENDENCY_FINGERPRINT_EVIDENCE_MISSING:
+        return ArtifactDependencyFingerprintEvidenceMissing(
+            ActivityId(_uuid(value.activity_id)),
+            RepresentationId(_uuid(value.input_representation_id)),
+            RepresentationId(_uuid(value.representation_id)),
+            tuple(
+                _dependency_path_segment(value.dependency_path[index])
+                for index in range(int(value.dependency_path_length))
+            ),
+            _decode_optional(value.fingerprint_algorithm),
+            int(value.fingerprint_version)
+            if value.fingerprint_algorithm is not None
+            else None,
+            _optional_bytes(
+                value.has_snapshot_value,
+                value.snapshot_value,
+                value.snapshot_value_length,
+            ),
+            _optional_bytes(
+                value.has_current_value, value.current_value, value.current_value_length
+            ),
+        )
+    raise UnsupportedError(_abi.PP_ERROR_UNSUPPORTED, "unknown artifact reason kind")
 
 
 def _dependency_path_segment(
@@ -189,7 +286,9 @@ def _dependency_target(value: NativeObjectRef) -> ObjectReference:
         return AssetRef(AssetId(_uuid(value.id)))
     if value.kind == _abi.PP_OBJECT_REPRESENTATION:
         return RepresentationRef(RepresentationId(_uuid(value.id)))
-    raise RuntimeError("artifact dependency path has an unknown target kind")
+    raise UnsupportedError(
+        _abi.PP_ERROR_UNSUPPORTED, "artifact dependency path has an unknown target kind"
+    )
 
 
 def _dependency_issue(value: int) -> ArtifactDependencyIssue:
@@ -206,7 +305,10 @@ def _dependency_issue(value: int) -> ArtifactDependencyIssue:
         ),
     }.get(value)
     if result is None:
-        raise RuntimeError("artifact evaluation has an unknown dependency issue")
+        raise UnsupportedError(
+            _abi.PP_ERROR_UNSUPPORTED,
+            "artifact evaluation has an unknown dependency issue",
+        )
     return result
 
 
@@ -282,7 +384,9 @@ def _knowledge_state(value: int) -> ArtifactKnowledgeState:
         _abi.PP_ARTIFACT_DIVERGED: ArtifactKnowledgeState.DIVERGED,
     }.get(value)
     if result is None:
-        raise RuntimeError("artifact evaluation has an unknown state")
+        raise UnsupportedError(
+            _abi.PP_ERROR_UNSUPPORTED, "artifact evaluation has an unknown state"
+        )
     return result
 
 
@@ -292,7 +396,9 @@ def _edge_kind(value: int) -> ArtifactEdgeKind:
         _abi.PP_ARTIFACT_EDGE_OUTPUT: ArtifactEdgeKind.OUTPUT,
     }.get(value)
     if result is None:
-        raise RuntimeError("artifact evaluation has an unknown edge kind")
+        raise UnsupportedError(
+            _abi.PP_ERROR_UNSUPPORTED, "artifact evaluation has an unknown edge kind"
+        )
     return result
 
 
@@ -340,7 +446,9 @@ def _reason_kind(value: int) -> ArtifactReasonKind:
         ),
     }.get(value)
     if result is None:
-        raise RuntimeError("artifact evaluation has an unknown reason kind")
+        raise UnsupportedError(
+            _abi.PP_ERROR_UNSUPPORTED, "artifact evaluation has an unknown reason kind"
+        )
     return result
 
 
@@ -352,7 +460,10 @@ def _traversal_limit(value: int) -> ArtifactTraversalLimit:
         ),
     }.get(value)
     if result is None:
-        raise RuntimeError("artifact evaluation has an unknown traversal limit")
+        raise UnsupportedError(
+            _abi.PP_ERROR_UNSUPPORTED,
+            "artifact evaluation has an unknown traversal limit",
+        )
     return result
 
 
@@ -375,7 +486,9 @@ def _reproducibility_issue_kind(value: int) -> ArtifactReproducibilityIssueKind:
         ),
     }.get(value)
     if result is None:
-        raise RuntimeError("artifact report has an unknown issue kind")
+        raise UnsupportedError(
+            _abi.PP_ERROR_UNSUPPORTED, "artifact report has an unknown issue kind"
+        )
     return result
 
 
@@ -385,7 +498,9 @@ def _optional_bytes(
     if not present:
         return None
     if length and not value:
-        raise RuntimeError("artifact evaluation returned a null byte span")
+        raise InternalError(
+            _abi.PP_ERROR_INTERNAL, "artifact evaluation returned a null byte span"
+        )
     return bytes(value[:length])
 
 
@@ -399,7 +514,20 @@ def _decode_optional(value: bytes | None) -> str | None:
     return None if value is None else value.decode("utf-8")
 
 
+def _required_bytes(
+    present: int, pointer: _Pointer[ctypes.c_uint8], length: int
+) -> bytes:
+    value = _optional_bytes(present, pointer, length)
+    if value is None:
+        raise InternalError(
+            _abi.PP_ERROR_INTERNAL, "artifact reason lacks required fingerprint bytes"
+        )
+    return value
+
+
 def _decode_required(value: bytes | None) -> str:
     if value is None:
-        raise RuntimeError("artifact evaluation returned a null string")
+        raise InternalError(
+            _abi.PP_ERROR_INTERNAL, "artifact evaluation returned a null string"
+        )
     return value.decode("utf-8")

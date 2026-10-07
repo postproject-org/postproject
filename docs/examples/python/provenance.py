@@ -21,6 +21,7 @@ from postproject import (
     ActivitySpec,
     AgentIdentity,
     ArtifactEvaluation,
+    ArtifactFingerprintChanged,
     ArtifactKnowledgeState,
     ArtifactReasonKind,
     ArtifactReproducibility,
@@ -137,10 +138,8 @@ def explain_proxy(
     )
     print(f"proxy is {evaluation.state.name}")
     for reason in evaluation.reasons:
-        print(f"  {reason.kind.name} on {reason.representation_id}")
-        if reason.kind is ArtifactReasonKind.FINGERPRINT_CHANGED:
-            assert reason.snapshot_value is not None
-            assert reason.current_value is not None
+        print(f"  {reason.kind.name}")
+        if isinstance(reason, ArtifactFingerprintChanged):
             print(
                 f"  {reason.fingerprint_algorithm}: "
                 f"{reason.snapshot_value.hex()[:16]} -> {reason.current_value.hex()[:16]}"
@@ -266,6 +265,7 @@ def main() -> None:
         assert [reason.kind for reason in evaluation.reasons] == [
             ArtifactReasonKind.FINGERPRINT_CHANGED
         ]
+        assert isinstance(evaluation.reasons[0], ArtifactFingerprintChanged)
         assert evaluation.reasons[0].fingerprint_algorithm == (
             "example-sha256-representation"
         )

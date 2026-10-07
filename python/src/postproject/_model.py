@@ -616,24 +616,22 @@ class ArtifactDependencyFingerprintEvidenceMissing(_ArtifactReasonValue):
     )
 
 
-@dataclass(frozen=True, slots=True)
-class ArtifactReason:
-    """One structured explanation of an artifact knowledge state."""
-
-    kind: ArtifactReasonKind
-    representation_id: RepresentationId
-    activity_id: ActivityId | None = None
-    edge_kind: ArtifactEdgeKind | None = None
-    upstream_state: ArtifactKnowledgeState | None = None
-    traversal_limit: ArtifactTraversalLimit | None = None
-    activity_count: int | None = None
-    fingerprint_algorithm: str | None = None
-    fingerprint_version: int | None = None
-    snapshot_value: bytes | None = None
-    current_value: bytes | None = None
-    input_representation_id: RepresentationId | None = None
-    dependency_issue: ArtifactDependencyIssue | None = None
-    dependency_path: tuple[ArtifactDependencyPathSegment, ...] = ()
+ArtifactReason: TypeAlias = (
+    ArtifactProducerMissing
+    | ArtifactProducerAmbiguous
+    | ArtifactSnapshotAbsent
+    | ArtifactFingerprintEvidenceMissing
+    | ArtifactFingerprintChanged
+    | ArtifactFingerprintRecomputationPending
+    | ArtifactUpstreamNotCurrent
+    | ArtifactTraversalTruncated
+    | ArtifactDependencySnapshotAbsent
+    | ArtifactDependencyKnowledgeIncomplete
+    | ArtifactDependencyPathChanged
+    | ArtifactDependencyFingerprintChanged
+    | ArtifactDependencyFingerprintRecomputationPending
+    | ArtifactDependencyFingerprintEvidenceMissing
+)
 
 
 @dataclass(frozen=True, slots=True)
