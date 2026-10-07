@@ -46,14 +46,26 @@ fn stale_replacement_preserves_the_set_and_unchanged_work_has_no_revision() {
     assert!(command(&["dependency", "show", path, source]).is_null());
     let inspected = command(&["inspect", path]);
     let base = inspected["decision_base"].as_str().unwrap();
-    record(path, source, spec_path, Some(base)).success();
+    let initial = record(path, source, spec_path, Some(base)).success();
+    let initial: Value = serde_json::from_slice(&initial.get_output().stdout).unwrap();
+    assert_eq!(initial["changed"], true);
+    assert_eq!(initial["dependencies"], json!([]));
+    assert_eq!(initial["source_representation_id"], source);
+    assert!(initial.get("status").is_none());
+    assert!(initial.get("recorded_at_revision").is_none());
     let retained = command(&["inspect", path]);
     let old = retained["decision_base"].as_str().unwrap();
     std::fs::write(&spec, serde_json::to_vec(&json!([{
         "kind": "com.example:reference", "target": {"kind": "asset", "id": imported["asset_id"]},
         "resolved_representation_id": source, "required": true, "authored_reference": "self-reference"
     }])).unwrap()).unwrap();
-    record(path, source, spec_path, Some(old)).success();
+    let replaced = record(path, source, spec_path, Some(old)).success();
+    let replaced: Value = serde_json::from_slice(&replaced.get_output().stdout).unwrap();
+    assert_eq!(replaced["changed"], true);
+    assert_eq!(
+        replaced["dependencies"][0]["authored_reference"],
+        "self-reference"
+    );
     let head = command(&["revisions", "latest", path]);
     std::fs::write(&spec, b"[]").unwrap();
     let stale = record(path, source, spec_path, Some(old)).failure();
@@ -75,10 +87,22 @@ fn stale_replacement_preserves_the_set_and_unchanged_work_has_no_revision() {
     let fresh = refreshed["decision_base"].as_str().unwrap();
     let removed = record(path, source, spec_path, Some(fresh)).success();
     let removed: Value = serde_json::from_slice(&removed.get_output().stdout).unwrap();
+    assert_eq!(removed["changed"], true);
+    assert_eq!(removed["dependencies"], json!([]));
     assert_eq!(removed["commit_receipt"]["revision"]["sequence"], 4);
+    // A later replacement has its own receipt; previous submissions retain
+    // their accepted ordered edges and their original attribution.
+    assert_eq!(replaced["commit_receipt"]["revision"]["sequence"], 3);
+    assert_eq!(
+        replaced["dependencies"][0]["authored_reference"],
+        "self-reference"
+    );
     let refreshed = command(&["inspect", path]);
     let fresh = refreshed["decision_base"].as_str().unwrap();
     let unchanged = record(path, source, spec_path, Some(fresh)).success();
     let unchanged: Value = serde_json::from_slice(&unchanged.get_output().stdout).unwrap();
+    assert_eq!(unchanged["changed"], false);
+    assert_eq!(unchanged["dependencies"], json!([]));
     assert!(unchanged["commit_receipt"]["revision"].is_null());
+    assert_eq!(command(&["revisions", "latest", path])["sequence"], 4);
 }

@@ -112,7 +112,11 @@ cat > dependencies.json <<EOF
 ]
 EOF
 BASE=$(postproject --json inspect provenance.pproj | jq -r .decision_base)
-postproject --decision-base "$BASE" dependency record provenance.pproj "$COMP_ID" dependencies.json
+RECORDED=$(postproject --json --decision-base "$BASE" dependency record provenance.pproj "$COMP_ID" dependencies.json)
+# This is the accepted submission; dependency show reads current stored facts.
+test "$(jq -r .changed <<<"$RECORDED")" = true
+test "$(jq '.dependencies | length' <<<"$RECORDED")" = 2
+test "$(jq '.commit_receipt.revision.sequence > 0' <<<"$RECORDED")" = true
 postproject dependency show provenance.pproj "$COMP_ID"
 CURSOR=
 while :; do

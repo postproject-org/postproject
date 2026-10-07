@@ -273,7 +273,7 @@ fn exercise_dependencies(
     .expect("write dependency spec");
     let spec_path = dependency_spec.to_str().expect("UTF-8 dependency spec");
     let inspection = run_json(&["inspect", production]);
-    let mut recorded = run_json(&[
+    let recorded = run_json(&[
         "--decision-base",
         inspection["decision_base"].as_str().unwrap(),
         "dependency",
@@ -283,8 +283,7 @@ fn exercise_dependencies(
         spec_path,
     ]);
     assert!(recorded["commit_receipt"]["revision"]["id"].is_string());
-    recorded.as_object_mut().unwrap().remove("commit_receipt");
-    assert_eq!(recorded["status"], "current");
+    assert_eq!(recorded["changed"], true);
     assert_eq!(
         recorded["dependencies"][0]["source_resource_id"],
         proxy_resource_id
@@ -299,9 +298,12 @@ fn exercise_dependencies(
     let events = run_json(&["revisions", "events", production, revision_id]);
     assert_eq!(events[0]["kind"], "dependency_set_recorded");
     assert_eq!(events[0]["representation_id"], proxy_id);
+    let stored = run_json(&["dependency", "show", production, proxy_id]);
+    assert_eq!(stored["status"], "current");
+    assert_eq!(stored["dependencies"], recorded["dependencies"]);
     assert_eq!(
-        run_json(&["dependency", "show", production, proxy_id]),
-        recorded
+        stored["recorded_at_revision"],
+        recorded["commit_receipt"]["revision"]["sequence"]
     );
     assert_eq!(
         run_json(&["dependency", "dependents", production, "asset", asset_id])["items"][0]["target"]
