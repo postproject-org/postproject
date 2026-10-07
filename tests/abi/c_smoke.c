@@ -2150,13 +2150,13 @@ int main(int argc, char **argv) {
   }
   pp_job_set_release(jobs);
 
-  pp_uuid_t claim_id = {{0}};
+  pp_job_lease_t *lease = NULL;
   status = pp_production_begin_transaction(production, &transaction, &error);
   if (status != PP_OK ||
-      pp_transaction_claim_job(
+      pp_transaction_claim_job_lease(
           transaction, job_id, "C worker", "1.0", NULL, "operator", NULL,
-          NULL, NULL, INT64_C(10), INT64_C(20), &claim_id, &error) != PP_OK ||
-      uuid_is_zero(&claim_id) ||
+          NULL, NULL, UINT64_C(60000000), &lease, &error) != PP_OK ||
+      lease == NULL ||
       pp_transaction_commit(transaction, &error) != PP_OK) {
     pp_transaction_release(transaction);
     pp_production_release(production);
@@ -2172,8 +2172,7 @@ int main(int argc, char **argv) {
       jobs == NULL ||
       pp_job_set_get(jobs, UINT64_C(0), &job, &error) != PP_OK ||
       job.state != PP_JOB_CLAIMED ||
-      memcmp(job.claim_id.bytes, claim_id.bytes, sizeof(claim_id.bytes)) != 0 ||
-      job.claim_expires_at_unix_micros != INT64_C(20) ||
+      job.claim_expires_at_unix_micros <= 0 ||
       job.claim_tool_name == NULL || strcmp(job.claim_tool_name, "C worker") != 0 ||
       job.claim_tool_version == NULL || strcmp(job.claim_tool_version, "1.0") != 0 ||
       job.claim_agent_name == NULL || strcmp(job.claim_agent_name, "operator") != 0) {
@@ -2187,8 +2186,7 @@ int main(int argc, char **argv) {
 
   status = pp_production_begin_transaction(production, &transaction, &error);
   if (status != PP_OK ||
-      pp_transaction_renew_job_claim(transaction, job_id, &claim_id,
-                                     INT64_C(11), INT64_C(30), &error) != PP_OK ||
+      pp_transaction_renew_job_lease(transaction, lease, UINT64_C(120000000), &error) != PP_OK ||
       pp_transaction_commit(transaction, &error) != PP_OK) {
     pp_transaction_release(transaction);
     pp_production_release(production);
@@ -2200,8 +2198,7 @@ int main(int argc, char **argv) {
 
   status = pp_production_begin_transaction(production, &transaction, &error);
   if (status != PP_OK ||
-      pp_transaction_release_job_claim(transaction, job_id, &claim_id,
-                                       &error) != PP_OK ||
+      pp_transaction_release_job_lease(transaction, lease, &error) != PP_OK ||
       pp_transaction_commit(transaction, &error) != PP_OK) {
     pp_transaction_release(transaction);
     pp_production_release(production);
@@ -2211,14 +2208,14 @@ int main(int argc, char **argv) {
   pp_transaction_release(transaction);
   transaction = NULL;
 
-  pp_uuid_t second_claim_id = {{0}};
+  pp_job_lease_free(lease);
+  pp_job_lease_t *second_lease = NULL;
   status = pp_production_begin_transaction(production, &transaction, &error);
   if (status != PP_OK ||
-      pp_transaction_claim_job(
+      pp_transaction_claim_job_lease(
           transaction, job_id, "C worker", NULL, NULL, NULL, NULL, NULL,
-          NULL, INT64_C(31), INT64_C(40), &second_claim_id, &error) != PP_OK ||
-      uuid_is_zero(&second_claim_id) ||
-      memcmp(second_claim_id.bytes, claim_id.bytes, sizeof(claim_id.bytes)) == 0 ||
+          NULL, UINT64_C(60000000), &second_lease, &error) != PP_OK ||
+      second_lease == NULL ||
       pp_transaction_commit(transaction, &error) != PP_OK) {
     pp_transaction_release(transaction);
     pp_production_release(production);
@@ -2230,8 +2227,7 @@ int main(int argc, char **argv) {
 
   status = pp_production_begin_transaction(production, &transaction, &error);
   if (status != PP_OK ||
-      pp_transaction_fail_job(transaction, job_id, &second_claim_id,
-                              INT64_C(32), "encoder exited", &error) != PP_OK ||
+      pp_transaction_fail_job_lease(transaction, second_lease, "encoder exited", &error) != PP_OK ||
       pp_transaction_commit(transaction, &error) != PP_OK) {
     pp_transaction_release(transaction);
     pp_production_release(production);
@@ -2241,6 +2237,7 @@ int main(int argc, char **argv) {
   pp_transaction_release(transaction);
   transaction = NULL;
 
+  pp_job_lease_free(second_lease);
   pp_job_id_t cancelled_job_id = {{0}};
   status = pp_production_begin_transaction(production, &transaction, &error);
   if (status != PP_OK ||
@@ -2316,12 +2313,12 @@ int main(int argc, char **argv) {
   pp_transaction_release(transaction);
   transaction = NULL;
 
-  pp_uuid_t completion_claim_id = {{0}};
+  pp_job_lease_t *completion_lease = NULL;
   status = pp_production_begin_transaction(production, &transaction, &error);
   if (status != PP_OK ||
-      pp_transaction_claim_job(
+      pp_transaction_claim_job_lease(
           transaction, completed_job_id, "C worker", NULL, NULL, NULL, NULL,
-          NULL, NULL, INT64_C(41), INT64_C(50), &completion_claim_id,
+          NULL, NULL, UINT64_C(60000000), &completion_lease,
           &error) != PP_OK ||
       pp_transaction_commit(transaction, &error) != PP_OK) {
     pp_transaction_release(transaction);
@@ -2350,8 +2347,8 @@ int main(int argc, char **argv) {
         NULL, NULL, NULL, NULL, NULL, NULL, &completion_activity_id, &error);
   }
   if (status == PP_OK) {
-    status = pp_transaction_complete_job(
-        transaction, completed_job_id, &completion_claim_id, INT64_C(42),
+    status = pp_transaction_complete_job_lease(
+        transaction, completion_lease,
         completed_representation_id, completion_activity_id, &error);
   }
   if (status != PP_OK || representation_id_is_zero(&completed_representation_id) ||
@@ -2364,6 +2361,7 @@ int main(int argc, char **argv) {
   }
   pp_transaction_release(transaction);
   transaction = NULL;
+  pp_job_lease_free(completion_lease);
 
   jobs = NULL;
   pp_job_t completed_job = {0};

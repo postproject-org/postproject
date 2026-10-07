@@ -185,6 +185,13 @@ static pp_error_code_t claim_renew_release(pp_production_t *production,
   if (status == PP_OK && (state != PP_JOB_LEASE_ACTIVE || expiry <= 0 ||
       memcmp(&scoped_job, &job_id, sizeof job_id) != 0)) status = PP_ERROR_INTERNAL;
 
+  pp_job_set_t *claimed = NULL;
+  pp_job_claim_t detail;
+  if (status == PP_OK) status = pp_production_job(production, job_id, &claimed, error);
+  if (status == PP_OK) status = pp_job_set_get_claim(claimed, 0, &detail, error);
+  if (status == PP_OK && strcmp(detail.tool_name, "Example Transcoder") != 0) status = PP_ERROR_INTERNAL;
+  pp_job_set_release(claimed);
+
   /* Explicit private transport for another process; never print the token. */
   if (status == PP_OK) status = pp_job_lease_export_token(lease, &token, error);
   if (status == PP_OK) {
