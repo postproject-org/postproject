@@ -3082,6 +3082,7 @@ impl SqliteProduction {
         if ids.is_empty() {
             return Ok(Vec::new());
         }
+        let mut budget = ReadBudget::default();
         let placeholders = std::iter::repeat_n("?", ids.len())
             .collect::<Vec<_>>()
             .join(", ");
@@ -3099,14 +3100,17 @@ impl SqliteProduction {
             ))
             .map_err(sqlite_error("prepare representation-page rows"))?;
         let base_rows = base_statement
-            .query_map(params_from_iter(parameters()), |row| {
-                Ok((
-                    row.get::<_, Vec<u8>>(0)?,
-                    row.get::<_, Vec<u8>>(1)?,
-                    row.get::<_, i64>(2)?,
-                    row.get::<_, i64>(3)?,
-                ))
-            })
+            .query_map(
+                params_from_iter(parameters()),
+                crate::read_budget::bounded_with(&mut budget, |row| {
+                    Ok((
+                        row.get::<_, Vec<u8>>(0)?,
+                        row.get::<_, Vec<u8>>(1)?,
+                        row.get::<_, i64>(2)?,
+                        row.get::<_, i64>(3)?,
+                    ))
+                }),
+            )
             .map_err(sqlite_error("query representation-page rows"))?
             .collect::<std::result::Result<Vec<_>, _>>()
             .map_err(sqlite_error("read representation-page row"))?;
@@ -3123,14 +3127,17 @@ impl SqliteProduction {
         let mut members =
             BTreeMap::<RepresentationId, Vec<(ResourceId, Option<String>, bool)>>::new();
         for row in member_statement
-            .query_map(params_from_iter(parameters()), |row| {
-                Ok((
-                    row.get::<_, Vec<u8>>(0)?,
-                    row.get::<_, Vec<u8>>(1)?,
-                    row.get::<_, Option<String>>(2)?,
-                    row.get::<_, bool>(3)?,
-                ))
-            })
+            .query_map(
+                params_from_iter(parameters()),
+                crate::read_budget::bounded_with(&mut budget, |row| {
+                    Ok((
+                        row.get::<_, Vec<u8>>(0)?,
+                        row.get::<_, Vec<u8>>(1)?,
+                        row.get::<_, Option<String>>(2)?,
+                        row.get::<_, bool>(3)?,
+                    ))
+                }),
+            )
             .map_err(sqlite_error("query representation-page members"))?
         {
             let (representation_id, resource_id, role, required) =
@@ -3158,17 +3165,20 @@ impl SqliteProduction {
             .map_err(sqlite_error("prepare representation-page sequences"))?;
         let mut sequences = BTreeMap::<RepresentationId, StoredSequence>::new();
         for row in sequence_statement
-            .query_map(params_from_iter(parameters()), |row| {
-                Ok((
-                    row.get::<_, Vec<u8>>(0)?,
-                    row.get::<_, Vec<u8>>(1)?,
-                    row.get::<_, i64>(2)?,
-                    row.get::<_, i64>(3)?,
-                    row.get::<_, i64>(4)?,
-                    row.get::<_, i64>(5)?,
-                    row.get::<_, i64>(6)?,
-                ))
-            })
+            .query_map(
+                params_from_iter(parameters()),
+                crate::read_budget::bounded_with(&mut budget, |row| {
+                    Ok((
+                        row.get::<_, Vec<u8>>(0)?,
+                        row.get::<_, Vec<u8>>(1)?,
+                        row.get::<_, i64>(2)?,
+                        row.get::<_, i64>(3)?,
+                        row.get::<_, i64>(4)?,
+                        row.get::<_, i64>(5)?,
+                        row.get::<_, i64>(6)?,
+                    ))
+                }),
+            )
             .map_err(sqlite_error("query representation-page sequences"))?
         {
             let row = row.map_err(sqlite_error("read representation-page sequence"))?;
@@ -3195,9 +3205,12 @@ impl SqliteProduction {
             .map_err(sqlite_error("prepare representation-page missing frames"))?;
         let mut missing = BTreeMap::<RepresentationId, Vec<i64>>::new();
         for row in missing_statement
-            .query_map(params_from_iter(parameters()), |row| {
-                Ok((row.get::<_, Vec<u8>>(0)?, row.get::<_, i64>(1)?))
-            })
+            .query_map(
+                params_from_iter(parameters()),
+                crate::read_budget::bounded_with(&mut budget, |row| {
+                    Ok((row.get::<_, Vec<u8>>(0)?, row.get::<_, i64>(1)?))
+                }),
+            )
             .map_err(sqlite_error("query representation-page missing frames"))?
         {
             let (representation_id, frame) =
@@ -3222,14 +3235,17 @@ impl SqliteProduction {
             .map_err(sqlite_error("prepare representation-page fingerprints"))?;
         let mut fingerprints = BTreeMap::<RepresentationId, Vec<RepresentationFingerprint>>::new();
         for row in fingerprint_statement
-            .query_map(params_from_iter(parameters()), |row| {
-                Ok((
-                    row.get::<_, Vec<u8>>(0)?,
-                    row.get::<_, String>(1)?,
-                    row.get::<_, u16>(2)?,
-                    row.get::<_, Vec<u8>>(3)?,
-                ))
-            })
+            .query_map(
+                params_from_iter(parameters()),
+                crate::read_budget::bounded_with(&mut budget, |row| {
+                    Ok((
+                        row.get::<_, Vec<u8>>(0)?,
+                        row.get::<_, String>(1)?,
+                        row.get::<_, u16>(2)?,
+                        row.get::<_, Vec<u8>>(3)?,
+                    ))
+                }),
+            )
             .map_err(sqlite_error("query representation-page fingerprints"))?
         {
             let (representation_id, algorithm, version, value) =
@@ -3355,7 +3371,7 @@ impl SqliteProduction {
                     position.unwrap_or([0; 16]).as_slice(),
                     i64::from(limit) + 1,
                 ],
-                |row| row.get::<_, Vec<u8>>(0),
+                crate::read_budget::bounded(|row| row.get::<_, Vec<u8>>(0)),
             )
             .map_err(sqlite_error("query related activities"))?
             .map(|row| {
@@ -3493,14 +3509,17 @@ impl SqliteProduction {
             .prepare(&sql)
             .map_err(sqlite_error("prepare activity edge page"))?;
         statement
-            .query_map([activity_id.as_bytes().as_slice()], |row| {
-                Ok((
-                    row.get::<_, i64>(0)?,
-                    row.get::<_, Vec<u8>>(1)?,
-                    row.get::<_, Option<String>>(2)?,
-                    row.get::<_, Option<i64>>(3)?,
-                ))
-            })
+            .query_map(
+                [activity_id.as_bytes().as_slice()],
+                crate::read_budget::bounded(|row| {
+                    Ok((
+                        row.get::<_, i64>(0)?,
+                        row.get::<_, Vec<u8>>(1)?,
+                        row.get::<_, Option<String>>(2)?,
+                        row.get::<_, Option<i64>>(3)?,
+                    ))
+                }),
+            )
             .map_err(sqlite_error("query activity edge page"))?
             .map(|row| {
                 let (id, representation_id, role, snapshot_revision_sequence) =
@@ -3537,14 +3556,17 @@ impl SqliteProduction {
             .prepare(&sql)
             .map_err(sqlite_error("prepare activity snapshot page"))?;
         statement
-            .query_map([edge_id], |row| {
-                Ok((
-                    row.get::<_, String>(0)?,
-                    row.get::<_, i64>(1)?,
-                    row.get::<_, Vec<u8>>(2)?,
-                    row.get::<_, Option<i64>>(3)?,
-                ))
-            })
+            .query_map(
+                [edge_id],
+                crate::read_budget::bounded(|row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, i64>(1)?,
+                        row.get::<_, Vec<u8>>(2)?,
+                        row.get::<_, Option<i64>>(3)?,
+                    ))
+                }),
+            )
             .map_err(sqlite_error("query activity snapshot page"))?
             .map(|row| {
                 let (algorithm, version, value, observed) =
@@ -4221,15 +4243,18 @@ fn load_activity_edges(
         .prepare(query)
         .map_err(sqlite_error("prepare activity-edge query"))?;
     let rows = statement
-        .query_map([], |row| {
-            Ok((
-                row.get::<_, i64>(0)?,
-                row.get::<_, Vec<u8>>(1)?,
-                row.get::<_, Vec<u8>>(2)?,
-                row.get::<_, Option<String>>(3)?,
-                row.get::<_, Option<i64>>(4)?,
-            ))
-        })
+        .query_map(
+            [],
+            crate::read_budget::bounded(|row| {
+                Ok((
+                    row.get::<_, i64>(0)?,
+                    row.get::<_, Vec<u8>>(1)?,
+                    row.get::<_, Vec<u8>>(2)?,
+                    row.get::<_, Option<String>>(3)?,
+                    row.get::<_, Option<i64>>(4)?,
+                ))
+            }),
+        )
         .map_err(sqlite_error("query activity edges"))?;
     rows.map(|row| {
         let (edge_id, activity_id, representation_id, role, snapshot_revision_sequence) =
@@ -4262,15 +4287,18 @@ fn load_activity_edge_snapshots(
         .prepare(query)
         .map_err(sqlite_error("prepare activity snapshot query"))?;
     let rows = statement
-        .query_map([], |row| {
-            Ok((
-                row.get::<_, i64>(0)?,
-                row.get::<_, String>(1)?,
-                row.get::<_, i64>(2)?,
-                row.get::<_, Vec<u8>>(3)?,
-                row.get::<_, Option<i64>>(4)?,
-            ))
-        })
+        .query_map(
+            [],
+            crate::read_budget::bounded(|row| {
+                Ok((
+                    row.get::<_, i64>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, i64>(2)?,
+                    row.get::<_, Vec<u8>>(3)?,
+                    row.get::<_, Option<i64>>(4)?,
+                ))
+            }),
+        )
         .map_err(sqlite_error("query activity snapshots"))?;
     rows.map(|row| {
         let (edge_id, algorithm, version, value, observed_sequence) =
@@ -4387,9 +4415,12 @@ fn decode_job(connection: &Connection, stored: StoredJob) -> Result<Job> {
         )
         .map_err(sqlite_error("prepare job-input query"))?;
     let inputs = statement
-        .query_map([id.as_bytes().as_slice()], |row| {
-            Ok((row.get::<_, i64>(0)?, row.get::<_, Vec<u8>>(1)?))
-        })
+        .query_map(
+            [id.as_bytes().as_slice()],
+            crate::read_budget::bounded(|row| {
+                Ok((row.get::<_, i64>(0)?, row.get::<_, Vec<u8>>(1)?))
+            }),
+        )
         .map_err(sqlite_error("query job inputs"))?
         .enumerate()
         .map(|(expected, row)| {
@@ -4972,17 +5003,20 @@ pub(crate) fn load_dependency_set(
         )
         .map_err(sqlite_error("prepare dependency query"))?;
     let dependencies = statement
-        .query_map([representation_id.as_bytes().as_slice()], |row| {
-            Ok((
-                row.get::<_, Option<Vec<u8>>>(0)?,
-                row.get::<_, String>(1)?,
-                row.get::<_, i64>(2)?,
-                row.get::<_, Vec<u8>>(3)?,
-                row.get::<_, Option<Vec<u8>>>(4)?,
-                row.get::<_, i64>(5)?,
-                row.get::<_, String>(6)?,
-            ))
-        })
+        .query_map(
+            [representation_id.as_bytes().as_slice()],
+            crate::read_budget::bounded(|row| {
+                Ok((
+                    row.get::<_, Option<Vec<u8>>>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, i64>(2)?,
+                    row.get::<_, Vec<u8>>(3)?,
+                    row.get::<_, Option<Vec<u8>>>(4)?,
+                    row.get::<_, i64>(5)?,
+                    row.get::<_, String>(6)?,
+                ))
+            }),
+        )
         .map_err(sqlite_error("query dependencies"))?
         .map(|row| {
             let (source_resource, kind, target_kind, target, resolved, required, authored) =

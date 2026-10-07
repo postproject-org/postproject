@@ -31,6 +31,14 @@ pub(crate) fn bounded<T>(
     mut decode: impl FnMut(&Row<'_>) -> rusqlite::Result<T>,
 ) -> impl FnMut(&Row<'_>) -> rusqlite::Result<T> {
     let mut budget = ReadBudget::default();
+    move |row| bounded_with(&mut budget, &mut decode)(row)
+}
+
+/// Shares one limit across the component queries of a materialized result.
+pub(crate) fn bounded_with<'a, T>(
+    budget: &'a mut ReadBudget,
+    mut decode: impl FnMut(&Row<'_>) -> rusqlite::Result<T> + 'a,
+) -> impl FnMut(&Row<'_>) -> rusqlite::Result<T> + 'a {
     move |row| {
         let mut bytes = 0_usize;
         for column in 0..row.as_ref().column_count() {
