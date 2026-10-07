@@ -14,6 +14,7 @@ constexpr bool exclusive_owners =
       std::is_nothrow_move_assignable_v<Owners>) && ...);
 static_assert(exclusive_owners<postproject::Production, postproject::Transaction,
                                postproject::ReadSession,
+                               postproject::JobLease,
                                postproject::RevisionWaiter,
                                postproject::CancelToken,
                                postproject::ResolutionOptions>);

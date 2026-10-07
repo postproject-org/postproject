@@ -179,6 +179,10 @@ add_executable(postproject-cpp-transaction-lifetime cpp_transaction_lifetime.cpp
 target_compile_features(postproject-cpp-transaction-lifetime PRIVATE cxx_std_17)
 target_link_libraries(postproject-cpp-transaction-lifetime PRIVATE PostProject::postproject)
 
+add_executable(postproject-cpp-job-leases cpp_job_leases.cpp)
+target_compile_features(postproject-cpp-job-leases PRIVATE cxx_std_17)
+target_link_libraries(postproject-cpp-job-leases PRIVATE PostProject::postproject)
+
 if(WIN32)
     foreach(consumer IN ITEMS postproject-c-smoke postproject-cpp-smoke
                              postproject-cpp-no-exceptions
@@ -186,7 +190,8 @@ if(WIN32)
                              postproject-c-read-sessions
                              postproject-c-identities
                              postproject-cpp-identities
-                             postproject-cpp-transaction-lifetime)
+                             postproject-cpp-transaction-lifetime
+                             postproject-cpp-job-leases)
         add_custom_command(
             TARGET "${consumer}"
             POST_BUILD
@@ -213,7 +218,8 @@ foreach(consumer IN ITEMS postproject-c-transaction-lifetime
                           postproject-c-read-sessions
                           postproject-c-identities
                           postproject-cpp-identities
-                          postproject-cpp-transaction-lifetime)
+                          postproject-cpp-transaction-lifetime
+                          postproject-cpp-job-leases)
     if(MSVC)
         target_compile_options(${consumer} PRIVATE /W4 /WX)
         target_compile_definitions(${consumer} PRIVATE _CRT_SECURE_NO_WARNINGS)
@@ -223,6 +229,8 @@ foreach(consumer IN ITEMS postproject-c-transaction-lifetime
 endforeach()
 
 enable_testing()
+add_test(NAME postproject-cpp-job-leases
+    COMMAND postproject-cpp-job-leases "${CMAKE_CURRENT_BINARY_DIR}/cpp-job-leases.pproj")
 add_test(NAME postproject-c-identities COMMAND postproject-c-identities)
 add_test(NAME postproject-cpp-identities COMMAND postproject-cpp-identities)
 add_test(NAME postproject-c-read-sessions
