@@ -46,29 +46,26 @@ test "$(jq -r '.items[0].inputs | join(" ")' <<<"$REQUESTED")" = "$ORIGINAL_ID"
 # [claim-job]
 CLAIM=$(postproject --json job claim jobs.pproj "$JOB_ID" \
   --tool-name "Proxy Worker" --tool-version 1.0 --agent-name worker-1 \
-  --now-unix-micros 1767225600000000 --expires-at-unix-micros 1767225900000000)
-# The claim ID is the token for every later renew, release, complete, or fail.
-CLAIM_ID=$(jq -r .claim_id <<<"$CLAIM")
-postproject job renew jobs.pproj "$JOB_ID" "$CLAIM_ID" \
-  --now-unix-micros 1767225800000000 --expires-at-unix-micros 1767226100000000
-postproject job release jobs.pproj "$JOB_ID" "$CLAIM_ID"
+  --lease 5m --lease-token-file claim.token)
+# Credentials stay in the private file, separate from ordinary job facts.
+postproject job renew jobs.pproj "$JOB_ID" --lease-token-file claim.token --lease 10m
+postproject job release jobs.pproj "$JOB_ID" --lease-token-file claim.token
 # [/claim-job]
 
 test "$(jq -r '.claim_tool.name + " " + .claim_agent.name' <<<"$CLAIM")" = \
   "Proxy Worker worker-1"
 test "$(job_state "$JOB_ID")" = requested
-test "$(postproject --json job list jobs.pproj | jq -r '.items[0].claim_id')" = null
+test "$(postproject --json job list jobs.pproj | jq -r '.items[0].claim_expires_at_unix_micros')" = null
 
 # [complete-job]
-CLAIM_ID=$(postproject --json job claim jobs.pproj "$JOB_ID" \
+postproject --json job claim jobs.pproj "$JOB_ID" \
   --tool-name "Proxy Worker" --tool-version 1.0 \
-  --now-unix-micros 1767226200000000 --expires-at-unix-micros 1767226500000000 |
-  jq -r .claim_id)
+  --lease 5m --lease-token-file completion.token
 printf 'proxy media' > proxies/A001_proxy.mov
 # Adds the output representation and its producing activity, and marks the
 # job succeeded, in one transaction.
-COMPLETED=$(postproject --json job complete jobs.pproj "$JOB_ID" "$CLAIM_ID" \
-  proxies/A001_proxy.mov --now-unix-micros 1767226300000000)
+COMPLETED=$(postproject --json job complete jobs.pproj "$JOB_ID" \
+  proxies/A001_proxy.mov --lease-token-file completion.token)
 jq '{state, completion_representation_id, completion_activity_id, commit_receipt}' <<<"$COMPLETED"
 # [/complete-job]
 
@@ -86,12 +83,10 @@ REPRESENTATIONS_BEFORE=$(postproject --json representation list jobs.pproj "$ASS
   jq '.items | length')
 
 # [fail-job]
-CLAIM_ID=$(postproject --json job claim jobs.pproj "$FAILING_ID" \
-  --tool-name "Proxy Worker" \
-  --now-unix-micros 1767226400000000 --expires-at-unix-micros 1767226700000000 |
-  jq -r .claim_id)
-postproject --json job fail jobs.pproj "$FAILING_ID" "$CLAIM_ID" \
-  "ffmpeg exited with status 1" --now-unix-micros 1767226450000000 |
+postproject --json job claim jobs.pproj "$FAILING_ID" \
+  --tool-name "Proxy Worker" --lease 5m --lease-token-file failure.token
+postproject --json job fail jobs.pproj "$FAILING_ID" \
+  "ffmpeg exited with status 1" --lease-token-file failure.token |
   jq '{state, failure_diagnostic}'
 # [/fail-job]
 

@@ -44,6 +44,11 @@ Explicit token export/import supports workers spanning processes. Its bounded,
 versioned encoding includes production, job and secret; import validates all
 three against current authoritative state. CLI accepts token files/stdin,
 never ordinary argument values. Listings, events and diagnostics omit secrets.
+Claim reserves an exclusive private output file before commit; credential delivery
+happens only after activation. Delivery failure retains the exact committed
+receipt and leaves the claim durable, with expiry or explicit coordinator
+cancellation as recovery. It removes the incomplete owned file and does not
+silently compensate for an already committed operation.
 
 ## Migration and standards impact
 

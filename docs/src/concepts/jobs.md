@@ -34,19 +34,18 @@ stateDiagram-v2
     cancelled --> [*]
 ```
 
-An expired lease does not change the stored state by itself: the job stays
-claimed until the worker renews, releases, or finishes it, or until another
-worker claims it with a later current time and receives a new token.
+An expired lease leaves the stored state claimed, but its worker can no longer
+renew, release, complete or fail it. Another worker can acquire a new lease.
 
-A claim carries descriptive tool and optional agent identity, a lease expiry,
-and a random claim token. Renewing, releasing, completing, or failing the job
-requires that token. The token prevents two processes using the same worker
-name from finishing each other's claims; it is not an authentication
-credential.
+A claim records descriptive tool and optional agent identity and an expiry.
+The worker owns a production-bound lease; its private credential fences earlier
+workers. Ordinary job facts and events do not reveal that credential.
 
-Storage never reads the clock. The caller supplies the current time when it
-claims, renews, completes, or fails work. This makes lease behavior explicit
-and lets hosts use a controlled clock in tests.
+Claim and renewal accept positive whole-microsecond durations up to 24 hours.
+Storage samples its own clock and checks the lease again before commit. Its
+durable clock high-water mark rejects guarded operations after a backward clock
+jump until time catches up. A forward jump can expire a lease immediately.
+This coordinates local workers; it is not authentication or trusted time.
 
 Each transition is a semantic revision event. Claim tokens are deliberately
 absent from events: an event tells a reader to reload the job, but does not
