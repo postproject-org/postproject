@@ -4,7 +4,7 @@ use postproject_core::{Error, ErrorKind, Result, Timestamp};
 use rusqlite::{Connection, Transaction, TransactionBehavior, params};
 
 /// The newest schema understood by this build.
-pub const CURRENT_SCHEMA_VERSION: u32 = 18;
+pub const CURRENT_SCHEMA_VERSION: u32 = 19;
 
 struct Migration {
     version: u32,
@@ -83,6 +83,10 @@ const MIGRATIONS: &[Migration] = &[
     Migration {
         version: 18,
         sql: include_str!("migrations/018_file_fact_events.sql"),
+    },
+    Migration {
+        version: 19,
+        sql: include_str!("migrations/019_job_clock.sql"),
     },
 ];
 
@@ -190,7 +194,7 @@ mod tests {
         assert_eq!(
             applied,
             [
-                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18
+                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19
             ]
         );
         for table in [

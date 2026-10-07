@@ -7,7 +7,7 @@ SQLite's per-connection value-length limit is reduced to 16 MiB before migration
 or queries run. This bounds allocations for strings, blobs, and result rows read
 from an untrusted production file while leaving ample room for production metadata.
 
-## Schema version 17
+## Schema version 19
 
 The current development schema stores a singleton production record plus assets,
 representations, content structures, resources, memberships, locators, typed
@@ -28,6 +28,10 @@ identities are 16-byte UUID values; SQLite row numbers are never exposed.
 
 Schema 18 permits resource file-fact journal events. Its table migration preserves
 existing events and recreates their query indexes and event-kind trigger.
+
+Schema 19 adds the private job-clock high-water mark and expires claims issued
+under the caller-timed protocol. Job requests, attribution and terminal outcomes
+remain intact (ADR 0057).
 
 Constraints enforce ID lengths, enumeration ranges, bounded text and blobs,
 non-empty fingerprint values, and referential integrity. Indexes support
