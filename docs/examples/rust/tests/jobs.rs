@@ -2,16 +2,17 @@
 //!
 //! Each `// [name]` ... `// [/name]` region is included verbatim by the
 //! documentation build, so keep regions self-contained and readable.
-//! Timestamps are always supplied by the caller; storage never reads the clock.
+//! Lease durations use library authority time.
 
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 use postproject_core::{
     Activity, ActivityId, ActivityInput, ActivityKind, ActivityOutput, AgentIdentity, AssetId, Job,
-    JobClaimId, JobFailure, JobId, JobKind, JobState, JobStateKind, MediaRoot, MediaRootId,
+    JobFailure, JobId, JobKind, JobLeaseState, JobState, JobStateKind, MediaRoot, MediaRootId,
     MetadataProperty, MetadataValue, ObjectRef, PropertyId, RepresentationId, RepresentationKind,
-    RequestedJobOutput, Result, Timestamp, ToolIdentity, VocabularyId,
+    RequestedJobOutput, Result, ToolIdentity, VocabularyId,
 };
 use postproject_media::{
     EXECUTOR_PARAMETER_VOCABULARY, EXECUTOR_PROFILE_PROPERTY, GENERATE_PROXY_JOB_KIND,
@@ -75,27 +76,23 @@ fn claim_renew_release(production: &mut SqliteProduction, job_id: JobId) -> Resu
     let agent = AgentIdentity::new(Some("Render node 4".to_owned()), None)?;
 
     let mut transaction = production.begin_transaction()?;
-    let claim = transaction.claim_job(
-        job_id,
-        &tool,
-        Some(&agent),
-        Timestamp::from_unix_micros(1_000_000),
-        Timestamp::from_unix_micros(2_000_000),
-    )?;
+    let lease =
+        transaction.claim_job_lease(job_id, &tool, Some(&agent), Duration::from_secs(60))?;
+    assert_eq!(lease.state()?, JobLeaseState::Pending);
     transaction.commit()?;
     drop(transaction);
-    println!("claimed until {:?}", claim.expires_at());
+    assert_eq!(lease.production_id(), production.production().id());
+    assert_eq!(lease.job_id(), job_id);
+    assert!(matches!(lease.state()?, JobLeaseState::Active { .. }));
 
-    // The claim token proves ownership for every later claim operation.
+    // Explicit private transport when another process takes over this worker.
+    let imported = production.import_job_lease(&lease.export_token()?)?;
     let mut transaction = production.begin_transaction()?;
-    transaction.renew_job_claim(
-        job_id,
-        claim.id(),
-        Timestamp::from_unix_micros(1_500_000),
-        Timestamp::from_unix_micros(3_000_000),
-    )?;
-    transaction.release_job_claim(job_id, claim.id())?;
-    transaction.commit()
+    transaction.renew_job_lease(&imported, Duration::from_secs(120))?;
+    transaction.release_job_lease(&imported)?;
+    transaction.commit()?;
+    assert_eq!(imported.state()?, JobLeaseState::Closed);
+    Ok(())
 }
 // [/claim-job]
 
@@ -109,13 +106,7 @@ fn complete_proxy_job(
     let job = production.job(job_id)?;
     let claim = {
         let mut transaction = production.begin_transaction()?;
-        let claim = transaction.claim_job(
-            job_id,
-            &tool,
-            None,
-            Timestamp::from_unix_micros(4_000_000),
-            Timestamp::from_unix_micros(5_000_000),
-        )?;
+        let claim = transaction.claim_job_lease(job_id, &tool, None, Duration::from_secs(60))?;
         transaction.commit()?;
         claim
     };
@@ -140,13 +131,7 @@ fn complete_proxy_job(
     let parameters = production.metadata(ObjectRef::Job(job_id))?;
     let mut transaction = production.begin_transaction()?;
     // Output, activity, and the succeeded state commit together or not at all.
-    transaction.complete_job(
-        job_id,
-        claim.id(),
-        Timestamp::from_unix_micros(4_500_000),
-        &output,
-        &activity,
-    )?;
+    transaction.complete_job_lease(&claim, &output, &activity)?;
     // Keep the parameters on the activity so the artifact can be regenerated.
     for parameter in &parameters {
         transaction.add_metadata_value(
@@ -164,20 +149,9 @@ fn complete_proxy_job(
 fn fail_claimed_job(production: &mut SqliteProduction, job_id: JobId) -> Result<()> {
     let tool = ToolIdentity::new("Example Worker", Some("1.0".to_owned()), None)?;
     let mut transaction = production.begin_transaction()?;
-    let claim = transaction.claim_job(
-        job_id,
-        &tool,
-        None,
-        Timestamp::from_unix_micros(6_000_000),
-        Timestamp::from_unix_micros(7_000_000),
-    )?;
+    let claim = transaction.claim_job_lease(job_id, &tool, None, Duration::from_secs(60))?;
     // Failing records the diagnostic only: no representation or activity.
-    transaction.fail_job(
-        job_id,
-        claim.id(),
-        Timestamp::from_unix_micros(6_500_000),
-        &JobFailure::new("encoder exited with status 1")?,
-    )?;
+    transaction.fail_job_lease(&claim, &JobFailure::new("encoder exited with status 1")?)?;
     transaction.commit()?;
     drop(transaction);
 
@@ -270,19 +244,6 @@ fn job_examples_run_in_order() -> Result<()> {
 
     claim_renew_release(&mut production, job_id)?;
     assert_eq!(job_state(&production, job_id)?, JobStateKind::Requested);
-    let stale_token = JobClaimId::new();
-    assert!(
-        production
-            .begin_transaction()?
-            .renew_job_claim(
-                job_id,
-                stale_token,
-                Timestamp::from_unix_micros(1),
-                Timestamp::from_unix_micros(2),
-            )
-            .is_err()
-    );
-
     let output_path = proxies.join("A001_proxy.mov");
     fs::write(&output_path, "proxy of A001").expect("proxy output");
     let (proxy_id, activity_id) = complete_proxy_job(&mut production, job_id, &output_path)?;

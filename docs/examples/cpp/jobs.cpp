@@ -6,7 +6,7 @@
 // The work directory is prepared by prepare-workdir.cmake.
 #include <postproject/postproject.hpp>
 
-#include <cstdint>
+#include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -23,11 +23,6 @@ void require(bool condition, const char *message) {
     throw std::runtime_error(message);
   }
 }
-
-// Timestamps are supplied by the caller; these fixed values stand in for a
-// clock reading in microseconds since the Unix epoch.
-constexpr std::int64_t t0 = 1'700'000'000'000'000;
-constexpr std::int64_t one_minute = 60'000'000;
 
 const postproject::ToolIdentity encoder{"Example Encoder", "5.1", std::nullopt};
 const postproject::AgentIdentity worker{
@@ -95,18 +90,24 @@ postproject::JobId request_proxy(postproject::Production &production,
 void claim_renew_release(postproject::Production &production,
                          const postproject::JobId &job_id) {
   auto claim = production.beginTransaction().value();
-  const auto claim_id =
-      claim.claimJob(job_id, encoder, worker, t0, t0 + one_minute).value();
+  auto lease = claim.claimJobLease(job_id, encoder, std::chrono::minutes(1), worker).value();
+  require(std::holds_alternative<postproject::PendingJobLease>(lease.state().value()), "pending lease");
   claim.commit().value();
 
-  // Renewing and releasing need the claim token returned by claimJob.
+  require(lease.productionId().value() == production.id().value() && lease.jobId().value() == job_id,
+          "lease scope");
+  require(std::holds_alternative<postproject::ActiveJobLease>(lease.state().value()), "active lease");
+  // Export only for private worker transport, never ordinary output.
+  auto imported = production.importJobLease(lease.exportToken().value()).value();
   auto renew = production.beginTransaction().value();
-  renew.renewJobClaim(job_id, claim_id, t0 + 30'000'000, t0 + 2 * one_minute).value();
+  renew.renewJobLease(imported, std::chrono::minutes(2)).value();
   renew.commit().value();
 
   auto release = production.beginTransaction().value();
-  release.releaseJobClaim(job_id, claim_id).value(); // back to requested
+  release.releaseJobLease(imported).value(); // back to requested
   release.commit().value();
+  require(std::holds_alternative<postproject::ClosedJobLease>(imported.state().value()), "closed lease");
+  imported.close();
 }
 // [/claim-job]
 
@@ -114,10 +115,8 @@ void claim_renew_release(postproject::Production &production,
 postproject::RepresentationId complete_proxy(postproject::Production &production,
                                  const postproject::Job &job,
                                  const std::string &output_path) {
-  const std::int64_t now = t0 + 3 * one_minute;
   auto claim = production.beginTransaction().value();
-  const auto claim_id =
-      claim.claimJob(job.id, encoder, worker, now, now + 10 * one_minute).value();
+  auto lease = claim.claimJobLease(job.id, encoder, std::chrono::minutes(10), worker).value();
   claim.commit().value();
 
   std::ofstream(output_path, std::ios::binary) << "encoded proxy";
@@ -139,8 +138,7 @@ postproject::RepresentationId complete_proxy(postproject::Production &production
   transaction.addMetadataValue(
       postproject::ObjectRef::activity(activity_id), transcode, "profile",
       postproject::MetadataValue::plainString("editing-proxy")).value();
-  transaction.completeJob(job.id, claim_id, now + one_minute, proxy_id,
-                          activity_id).value();
+  transaction.completeJobLease(lease, proxy_id, activity_id).value();
   transaction.commit().value();
   return proxy_id;
 }
@@ -149,14 +147,12 @@ postproject::RepresentationId complete_proxy(postproject::Production &production
 // [fail-job]
 void fail_proxy(postproject::Production &production,
                 const postproject::JobId &job_id) {
-  const std::int64_t now = t0 + 5 * one_minute;
   auto claim = production.beginTransaction().value();
-  const auto claim_id =
-      claim.claimJob(job_id, encoder, worker, now, now + one_minute).value();
+  auto lease = claim.claimJobLease(job_id, encoder, std::chrono::minutes(1), worker).value();
   claim.commit().value();
 
   auto transaction = production.beginTransaction().value();
-  transaction.failJob(job_id, claim_id, now + 1'000'000,
+  transaction.failJobLease(lease,
                       "encoder exited with status 1").value();
   transaction.commit().value();
 }
