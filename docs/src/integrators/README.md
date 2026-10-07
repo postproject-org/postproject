@@ -40,8 +40,6 @@ Choose a public surface:
 - **CLI** — useful for scripting, diagnostics, fixtures, and integration tests.
 
 Start with {doc}`installing-a-release`, then choose {doc}`c-quickstart`, {doc}`cpp-quickstart`, or {doc}`python`. An application shipped as a Flatpak builds PostProject as a module of its manifest; see {doc}`flatpak`.
-For existing consumers, {doc}`migrating-to-0-7` describes the implemented
-development changes and matching SDK requirements.
 
 ### 2. Create or open media identities
 
@@ -124,7 +122,6 @@ If you are changing PostProject itself rather than integrating it, use {doc}`../
 :caption: Getting set up
 
 installing-a-release
-migrating-to-0-7
 flatpak
 c-quickstart
 cpp-quickstart
