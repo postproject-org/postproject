@@ -547,6 +547,10 @@ fn queries_stale_artifacts_and_changed_objects() {
             "media",
             "fingerprint",
             production,
+            "--decision-base",
+            run_json(&["inspect", production])["decision_base"]
+                .as_str()
+                .expect("decision base"),
             &resource_id,
             path.to_str().expect("UTF-8 path"),
         ]);

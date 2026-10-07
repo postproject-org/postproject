@@ -77,6 +77,10 @@ fn unchanged_fingerprints_do_not_attribute_an_existing_revision() {
         "media",
         "fingerprint",
         path,
+        "--decision-base",
+        json(&["inspect", path])["decision_base"]
+            .as_str()
+            .expect("decision base"),
         resource,
         media.to_str().unwrap(),
     ]);
@@ -88,6 +92,10 @@ fn unchanged_fingerprints_do_not_attribute_an_existing_revision() {
         "media",
         "fingerprint",
         path,
+        "--decision-base",
+        json(&["inspect", path])["decision_base"]
+            .as_str()
+            .expect("decision base"),
         resource,
         media.to_str().unwrap(),
     ]);
@@ -97,4 +105,69 @@ fn unchanged_fingerprints_do_not_attribute_an_existing_revision() {
         json(&["revisions", "latest", path])["id"],
         changed["commit_receipt"]["revision"]["id"]
     );
+}
+
+#[test]
+fn observation_requires_current_context_and_receipts_include_file_facts() {
+    let directory = tempfile::tempdir().unwrap();
+    let production = directory.path().join("production.pproj");
+    let media = directory.path().join("clip.dat");
+    std::fs::write(&media, b"unchanged content").unwrap();
+    let file = std::fs::File::open(&media).unwrap();
+    file.set_modified(std::time::UNIX_EPOCH + std::time::Duration::from_secs(1))
+        .unwrap();
+    let path = production.to_str().unwrap();
+    json(&["init", path]);
+    let imported = json(&["media", "add", path, media.to_str().unwrap()]);
+    let resource = imported["resource_id"].as_str().unwrap();
+    let head = json(&["revisions", "latest", path]);
+    let missing = cargo_bin_cmd!("postproject")
+        .args(["media", "fingerprint", path, resource, "absent-file"])
+        .assert()
+        .failure();
+    assert!(
+        String::from_utf8_lossy(&missing.get_output().stderr).contains("requires --decision-base")
+    );
+    assert_eq!(json(&["revisions", "latest", path]), head);
+    let old = json(&["inspect", path]);
+    json(&["root", "add", path, "archive"]);
+    let newer = json(&["revisions", "latest", path]);
+    let stale = cargo_bin_cmd!("postproject")
+        .args([
+            "--decision-base",
+            old["decision_base"].as_str().unwrap(),
+            "media",
+            "fingerprint",
+            path,
+            resource,
+            "absent-file",
+        ])
+        .assert()
+        .failure();
+    assert!(String::from_utf8_lossy(&stale.get_output().stderr).contains("current decision base"));
+    assert_eq!(json(&["revisions", "latest", path]), newer);
+    file.set_modified(std::time::UNIX_EPOCH + std::time::Duration::from_secs(2))
+        .unwrap();
+    let observed = json(&[
+        "--decision-base",
+        json(&["inspect", path])["decision_base"].as_str().unwrap(),
+        "media",
+        "fingerprint",
+        path,
+        resource,
+        media.to_str().unwrap(),
+    ]);
+    assert_eq!(observed["outcome"], "unchanged");
+    let revision = &observed["commit_receipt"]["revision"];
+    assert_eq!(revision["sequence"], 3);
+    assert_eq!(json(&["revisions", "latest", path])["id"], revision["id"]);
+    let events = json(&[
+        "revisions",
+        "events",
+        path,
+        revision["id"].as_str().unwrap(),
+    ]);
+    assert_eq!(events.as_array().unwrap().len(), 1);
+    assert_eq!(events[0]["kind"], "resource_file_facts_observed");
+    assert_eq!(events[0]["resource_id"], resource);
 }

@@ -59,6 +59,10 @@ fn verification_detects_content_replaced_at_an_online_locator() {
         "media",
         "fingerprint",
         production,
+        "--decision-base",
+        run_json(&["inspect", production])["decision_base"]
+            .as_str()
+            .expect("decision base"),
         resource_id,
         media.to_str().expect("UTF-8 media path"),
     ]);
@@ -70,9 +74,10 @@ fn verification_detects_content_replaced_at_an_online_locator() {
     let latest = run_json(&["revisions", "latest", production]);
     let revision_id = latest["id"].as_str().expect("revision ID");
     let events = run_json(&["revisions", "events", production, revision_id]);
-    assert_eq!(events.as_array().expect("event array").len(), 2);
+    assert_eq!(events.as_array().expect("event array").len(), 3);
     assert_eq!(events[0]["kind"], "resource_fingerprint_observed");
-    assert_eq!(events[1]["kind"], "representation_fingerprint_observed");
+    assert_eq!(events[1]["kind"], "resource_file_facts_observed");
+    assert_eq!(events[2]["kind"], "representation_fingerprint_observed");
 
     let after = run_json(&[
         "media",

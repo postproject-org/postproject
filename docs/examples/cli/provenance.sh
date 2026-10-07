@@ -77,7 +77,8 @@ test "$(postproject --json activity descendants provenance.pproj "$ORIGINAL_ID" 
 
 # [stale-after-change]
 printf 'regraded camera original' > rushes/A001.mov
-postproject media fingerprint provenance.pproj "$RESOURCE_ID" rushes/A001.mov
+DECISION_BASE=$(postproject --json inspect provenance.pproj | jq -r .decision_base)
+postproject --decision-base "$DECISION_BASE" media fingerprint provenance.pproj "$RESOURCE_ID" rushes/A001.mov
 # Evaluation compares the recorded input snapshots with current fingerprints.
 postproject --json artifact evaluate provenance.pproj "$PROXY_ID" |
   jq -r '.state, (.reasons[] | "\(.kind) \(.edge) \(.representation_id)")'
@@ -131,7 +132,8 @@ done
 printf 'comp script v2' > comp/shot010.nk
 COMP_RESOURCE_ID=$(postproject --json representation resources provenance.pproj \
   "$COMP_ID" | jq -r '.items[0].id')
-postproject media fingerprint provenance.pproj "$COMP_RESOURCE_ID" \
+DECISION_BASE=$(postproject --json inspect provenance.pproj | jq -r .decision_base)
+postproject --decision-base "$DECISION_BASE" media fingerprint provenance.pproj "$COMP_RESOURCE_ID" \
   comp/shot010.nk
 postproject --json dependency show provenance.pproj "$COMP_ID" | jq -r .status
 # [/dependency-set]

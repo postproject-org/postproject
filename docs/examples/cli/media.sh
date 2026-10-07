@@ -206,11 +206,13 @@ printf 'regraded camera original' > moved/A001.mov
 postproject media verify-content media.pproj "$RESOURCE_ID" moved/A001.mov
 # Records the new resource fingerprint, and recomputes every representation
 # using the resource, in one revision. The outcome is "changed".
-postproject --json media fingerprint media.pproj "$RESOURCE_ID" moved/A001.mov |
+DECISION_BASE=$(postproject --json inspect media.pproj | jq -r .decision_base)
+postproject --json --decision-base "$DECISION_BASE" media fingerprint media.pproj "$RESOURCE_ID" moved/A001.mov |
   jq '{outcome, resource_fingerprint, representation_fingerprints}'
 REVISION_ID=$(postproject --json revisions latest media.pproj | jq -r .id)
 # Observing the same content again reports "unchanged" and records nothing.
-postproject --json media fingerprint media.pproj "$RESOURCE_ID" moved/A001.mov |
+DECISION_BASE=$(postproject --json inspect media.pproj | jq -r .decision_base)
+postproject --json --decision-base "$DECISION_BASE" media fingerprint media.pproj "$RESOURCE_ID" moved/A001.mov |
   jq -r .outcome
 test "$(postproject --json revisions latest media.pproj | jq -r .id)" = "$REVISION_ID"
 postproject --json revisions events media.pproj "$REVISION_ID" |
@@ -219,7 +221,7 @@ postproject --json revisions events media.pproj "$REVISION_ID" |
 
 test "$(postproject --json revisions events media.pproj "$REVISION_ID" |
   jq -r '[.[].kind] | join(" ")')" = \
-  "resource_fingerprint_observed representation_fingerprint_observed"
+  "resource_fingerprint_observed resource_file_facts_observed representation_fingerprint_observed"
 
 # [resolution-issues]
 postproject --json media resolve media.pproj "$ASSET_ID" \

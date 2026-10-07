@@ -26,6 +26,9 @@ copying the names to every locator of each sequence, and dropped the
 recorded under two namings; writers keep resource, URI, and naming unique. Public
 identities are 16-byte UUID values; SQLite row numbers are never exposed.
 
+Schema 18 permits resource file-fact journal events. Its table migration preserves
+existing events and recreates their query indexes and event-kind trigger.
+
 Constraints enforce ID lengths, enumeration ranges, bounded text and blobs,
 non-empty fingerprint values, and referential integrity. Indexes support
 assets by creation order, representations by asset, resources by

@@ -111,6 +111,10 @@ fn replace_and_observe(production: &str, imported: &Value, path: &Path, content:
         "media",
         "fingerprint",
         production,
+        "--decision-base",
+        run_json(&["inspect", production])["decision_base"]
+            .as_str()
+            .expect("decision base"),
         imported["resource_id"].as_str().expect("resource ID"),
         path.to_str().expect("UTF-8 input path"),
     ]);

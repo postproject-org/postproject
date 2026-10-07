@@ -1,10 +1,20 @@
 # Migrating to the 0.7 development SDK
 
 The unpublished `0.7.0-alpha.1` SDK currently uses C ABI 47, Python `0.7.0a1`
-and SQLite schema 17. Rebuild native consumers with matching headers and
+and SQLite schema 18. Rebuild native consumers with matching headers and
 library, and install a matching Python wheel. Existing production files,
 UUID text, external identifiers and host binding strings retain their meaning.
 Rust 1.85, C11, C++17 and Python 3.11 remain the supported floors.
+
+Explicit fingerprint and file-fact observations require a decision base,
+including first and unchanged observations. Use a read session's edit; initial
+import facts remain additive. Native content observation retains the session's
+view after release. Detached edits and CLI `media fingerprint --decision-base`
+must match the head before automatic observation reads its inputs.
+Changed size/modification-time facts now emit `resource_file_facts_observed`;
+unchanged content can therefore still create a file-facts revision. Schema 18
+preserves the existing journal. Use matching projections for the additional
+ABI 47 event and conflict tags (ADR 0056).
 
 Python page limits require an `int` from 1 through 1000. Out-of-range values
 raise `InvalidArgumentError` before native conversion; booleans and other types

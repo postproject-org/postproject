@@ -398,6 +398,10 @@ fn exercise_artifact_evaluation(
         "media",
         "fingerprint",
         production,
+        "--decision-base",
+        run_json(&["inspect", production])["decision_base"]
+            .as_str()
+            .expect("decision base"),
         resource_id,
         input_path.to_str().expect("UTF-8 source path"),
     ]);

@@ -1910,6 +1910,9 @@ enum RevisionEventKindView {
         representation_id: String,
         role: Option<String>,
     },
+    ResourceFileFactsObserved {
+        resource_id: String,
+    },
     ResourceFingerprintObserved {
         resource_id: String,
         algorithm: String,
@@ -2361,12 +2364,23 @@ fn media_fingerprint(
 ) -> Result<()> {
     let resource_id = ResourceId::from_str(&args.resource_id).context("parse resource ID")?;
     let mut production = SqliteProduction::open(&args.production).context("open production")?;
-    let usage = resource_usage(&production, resource_id).context("load resource usage")?;
-    let naming = sequence_naming_for(&production, resource_id, args)?;
+    let base =
+        base_revision.context("content observation requires --decision-base from inspect")?;
+    let view = production.read_session().context("read observation view")?;
+    let current = view.decision_base();
+    let matches = match base {
+        CliDecisionBase::Scoped(base) => base == current,
+        CliDecisionBase::Revision(id) => current.revision_id() == Some(id),
+    };
+    if !matches {
+        bail!("content observation requires a current decision base; inspect and retry");
+    }
+    let usage = resource_usage(view.read(), resource_id).context("load resource usage")?;
+    let naming = sequence_naming_for(view.read(), resource_id, args)?;
     let observation = observe_resource_content(resource_id, &usage, &args.path, naming.as_ref())
         .context("fingerprint resource content")?;
 
-    let mut transaction = begin_cli_transaction(&mut production, base_revision, "fingerprint")?;
+    let mut transaction = begin_cli_transaction(&mut production, Some(base), "fingerprint")?;
     set_cli_revision_context(&mut transaction, "Record fingerprint observation")?;
     transaction
         .record_resource_fingerprint(resource_id, observation.resource())
@@ -2428,7 +2442,7 @@ fn media_fingerprint(
 /// Returns the explicit naming, or the one recorded for the directory when the
 /// resource has locators with namings.
 fn sequence_naming_for(
-    production: &SqliteProduction,
+    production: &(impl postproject_core::ProductionRead + ?Sized),
     resource_id: ResourceId,
     args: &MediaFingerprintArgs,
 ) -> Result<Option<SequenceNaming>> {
@@ -5309,6 +5323,11 @@ fn revision_event_view(event: &RevisionEvent) -> Result<RevisionEventView> {
             representation_id: representation_id.to_string(),
             role: role.as_ref().map(|role| role.as_str().to_owned()),
         },
+        RevisionEventKind::ResourceFileFactsObserved { resource_id } => {
+            RevisionEventKindView::ResourceFileFactsObserved {
+                resource_id: resource_id.to_string(),
+            }
+        }
         RevisionEventKind::ResourceFingerprintObserved {
             resource_id,
             algorithm,
@@ -6172,6 +6191,9 @@ fn transaction_conflict_view(conflict: &TransactionConflict) -> TransactionConfl
 
 fn conflict_key_view(key: &SemanticConflictKey) -> ConflictKeyView {
     match key {
+        SemanticConflictKey::ResourceFileFacts(id) => {
+            simple_conflict_key("resource_file_facts", "resource", id.to_string())
+        }
         SemanticConflictKey::LocatorSet(id) => {
             simple_conflict_key("locator_set", "resource", id.to_string())
         }

@@ -57,6 +57,7 @@ consumer to re-query current state.
 | `ActivityInputAdded` | A consumed-representation edge was recorded. |
 | `ActivityOutputAdded` | A produced-representation edge was recorded. |
 | `ResourceFingerprintObserved` | A resource fingerprint domain received a new current observation. |
+| `ResourceFileFactsObserved` | A resource's recorded size or modification time changed. |
 | `RepresentationFingerprintObserved` | A representation fingerprint domain received a new current observation. |
 | `DependencySetRecorded` | A representation's complete dependency observation was replaced. |
 | `JobRequested` | A durable work request was created. |
