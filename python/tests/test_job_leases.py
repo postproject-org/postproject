@@ -12,6 +12,8 @@ from postproject import (
     ActivitySpec,
     ClosedJobLease,
     ConflictError,
+    ConflictKeyKind,
+    Fingerprint,
     InvalidArgumentError,
     JobLease,
     JobRequest,
@@ -155,3 +157,54 @@ class JobLeaseTests(unittest.TestCase):
         for token in ["", "x" * 10_000, "x" * 115]:
             with self.assertRaises((ValueError, InvalidArgumentError)):
                 self.production.import_job_lease(token)
+
+    def test_changed_input_rolls_back_publication_without_closing_lease(self) -> None:
+        source = self.production.representations[self.asset][0]
+        with self.production.transaction() as edit:
+            job = edit.request_job(
+                JobRequest(
+                    "example:publish",
+                    (source.id,),
+                    self.asset,
+                    RepresentationKind.DERIVED,
+                )
+            )
+            edit.commit()
+        with self.production.read_session() as view, view.edit() as edit:
+            lease = edit.claim_job_lease(job, self.tool, timedelta(minutes=1))
+            self.addCleanup(lease.close)
+            edit.commit()
+        token = lease.export_token()
+        lease.close()
+        imported = self.production.import_job_lease(token)
+        self.addCleanup(imported.close)
+        with self.production.read_session() as view, view.edit() as edit:
+            edit.record_resource_fingerprint(
+                source.resources[0].id, Fingerprint("example-content", 1, b"changed")
+            )
+            changed = edit.commit()
+        with self.production.transaction() as edit:
+            output = edit.add_representation(
+                self.asset, RepresentationKind.DERIVED, self.media
+            )
+            activity = edit.create_activity(
+                ActivitySpec(
+                    "example:publish",
+                    (ActivityEdge(output),),
+                    inputs=(ActivityEdge(source.id),),
+                )
+            )
+            edit.complete_job_lease(imported, output, activity)
+            with self.assertRaises(ConflictError) as caught:
+                edit.commit()
+        conflict = caught.exception.conflict
+        assert conflict is not None and changed.revision is not None
+        self.assertEqual(conflict.key.kind, ConflictKeyKind.RESOURCE_FINGERPRINT)
+        self.assertEqual(conflict.superseding_revision_id, changed.revision.id)
+        self.assertEqual(len(self.production.representations[self.asset]), 1)
+        self.assertEqual(self.production.job(job).state, JobState.CLAIMED)
+        self.assertIsInstance(imported.state, ActiveJobLease)
+        with self.production.transaction() as edit:
+            edit.release_job_lease(imported)
+            edit.commit()
+        self.assertIsInstance(imported.state, ClosedJobLease)
