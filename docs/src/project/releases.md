@@ -10,7 +10,7 @@ These pages describe what each release delivered, how it was verified, and which
 
 ## Release records
 
-- {doc}`/release-0.7-report` — unpublished candidate acceptance and package scope.
+- {doc}`/release-0.7-report` — release qualification and package scope.
 - {doc}`/release-0.7-compatibility-evidence` — current family usage and qualification limits.
 - {doc}`/release-0.6-report` — candidate acceptance and artifact scope.
 - {doc}`/release-0.6-integration-findings` — pilot selection and reproduced defects.

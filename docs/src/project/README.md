@@ -40,12 +40,12 @@ These are engineering references. Application integrators should prefer the inte
 
 Historical reports should remain available because they are useful evidence, but they should be treated as history rather than mixed into the primary learning path.
 
-The candidate's {doc}`../../release-0.6-integration-findings` records the
-source-checked pilot selection and reproduced interface defects.
-The {doc}`../../release-0.6-report` records acceptance and artifact scope;
-the {doc}`../../release-0.6-compatibility-evidence` and
-{doc}`../../release-0.6-compatibility-decision` distinguish measured use from
-the approved compatibility promise.
+The {doc}`../../release-0.7-report` records delivered contracts, qualification
+and package scope. The {doc}`../../release-0.7-compatibility-evidence` records
+measured family use and its limits.
+
+The {doc}`../../release-0.6-compatibility-decision` retains the approved 0.6.x
+C++ Result propagation promise.
 
 ## Architecture Decision Records
 

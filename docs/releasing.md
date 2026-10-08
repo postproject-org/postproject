@@ -38,6 +38,10 @@ Pushing the tag publishes a GitHub prerelease and its immutable documentation;
 the documentation workflow also advances `latest`. It does not upload packages
 to crates.io or PyPI.
 
+The maintainer approved a documentation-only correction to the published 0.7
+installation and Flatpak examples. Their source is pinned to `bdaa808` in the
+documentation workflow; the release tag and package assets are unchanged.
+
 Linux, macOS, and Windows package artifacts are produced from
 `cargo build --locked` and the same CMake install rules exercised on every
 push. Windows packaging includes the DLL and its matching import library by
