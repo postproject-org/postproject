@@ -9,7 +9,7 @@ download is unavailable.
 
 | Repository | Baseline SHA | Candidate SHA / surface | Local result and remaining scope |
 |---|---|---|---|
-| [postproject](https://github.com/postproject-org/postproject) | `a413227b9dd048f744fa7393d8927891ee93d5e2` | `42b9f9d` / Rust, C, C++, Python, CLI | Six Rust gates, nine native contracts and sanitizer tests, 121 Python tests (one skip), 72 extracted checks, strict docs; Rust 1.85, Linux/macOS/Windows packages, manylinux 2.28 and Flatpak CI pass |
+| [postproject](https://github.com/postproject-org/postproject) | `a413227b9dd048f744fa7393d8927891ee93d5e2` | `9a068ef` / Rust, C, C++, Python, CLI | Six Rust gates, nine native contracts and sanitizer tests, 121 Python tests (one skip), 72 extracted checks, strict docs; Rust 1.85, Linux/macOS/Windows packages, manylinux 2.28 and Flatpak CI pass |
 | [postproject-ardour](https://github.com/postproject-org/postproject-ardour) | `7ec34c2a972b936191494f25d420c4e962f8c047` | `a417d20` / C++ / pkg-config | Five replacement patches replay; stereo-WAV resolver scenario passes; full Linux with/without and macOS resolver CI pass |
 | [postproject-blender](https://github.com/postproject-org/postproject-blender) | `8c62d4ca6243446219ce82383dd3ed823f850c3c` | `bfe5b95` / Python extension | 5.2.2 LTS: 24 tests run, one 5.3-only skip; OBS handoff passes; required 5.2.2 CI and shared-host handoff pass; optional 5.3 download unavailable |
 | [postproject-cpp-nle](https://github.com/postproject-org/postproject-cpp-nle) | `5d801c0b59526a098b9111beeb40b143bbe59ca1` | `8d2933a` / Installed C++ host | One CTest passes against the installed candidate; own and SDK downstream CI pass |
@@ -81,15 +81,16 @@ workspace is `/tmp/tmp.7WhS0bzHCe`; traces are in
 their declared Linux host scope.
 
 Local logs and artifacts are retained under `target/qualification-abi51-*`.
-Both clean patch replay trees reproduce the current series exactly.
+Fresh installed C11/C++17/Python quickstarts pass; the C example rejects
+compiler warnings. Both clean patch replay trees reproduce the current series exactly.
 The final Kdenlive series passes local Qt 6.12 lint and full Qt 6.11 build/tests. Host tests isolate
 configuration/cache; they do not claim an interactive human acceptance pass.
 
 ## GitHub qualification
 
-At SDK `42b9f9d`, every individual job passes in [SDK CI](https://github.com/postproject-org/postproject/actions/runs/37789355697)
-(16 jobs), [downstream CI](https://github.com/postproject-org/postproject/actions/runs/37789356724)
-(10 jobs), and [documentation deployment](https://github.com/postproject-org/postproject/actions/runs/37789355708).
+At SDK `9a068ef`, all 16 individual jobs pass in [SDK CI](https://github.com/postproject-org/postproject/actions/runs/37800227404).
+At `42b9f9d`, [downstream CI](https://github.com/postproject-org/postproject/actions/runs/37789356724)
+(10 jobs) and [documentation deployment](https://github.com/postproject-org/postproject/actions/runs/37789355708).
 [Flatpak](https://github.com/postproject-org/postproject/actions/runs/37780003984)
 passes at `6f14a3b`; subsequent SDK changes affect tests, tools and docs.
 
