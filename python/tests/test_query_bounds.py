@@ -4,6 +4,7 @@ import tempfile
 import unittest
 from collections.abc import Callable
 from dataclasses import replace
+from fractions import Fraction
 from pathlib import Path
 
 from postproject import (
@@ -118,14 +119,16 @@ class QueryBoundsTests(unittest.TestCase):
             root = Path(directory)
             (root / "frame0001.exr").write_bytes(b"frame one")
             source = ImageSequenceSource(
-                root, SequenceNaming("frame", ".exr", 4), 1, 2, 1, 24, 1, (2,)
+                root, SequenceNaming("frame", ".exr", 4), 1, 2, 1, Fraction(24), (2,)
             )
             invalid_sources = (
                 replace(source, start=2**64 + 1),
                 replace(source, end=2**64 + 2),
                 replace(source, step=2**32 + 1),
-                replace(source, rate_numerator=2**32 + 24),
-                replace(source, rate_denominator=2**32 + 1),
+                replace(source, rate=Fraction(2**32 + 24)),
+                replace(source, rate=Fraction(24, 2**32 + 1)),
+                replace(source, rate=Fraction(0)),
+                replace(source, rate=Fraction(-24)),
                 replace(source, missing_frames=(2**64 + 2,)),
                 replace(source, naming=SequenceNaming("frame", ".exr", 260)),
             )
@@ -137,6 +140,9 @@ class QueryBoundsTests(unittest.TestCase):
                                 edit.import_media(invalid)
                     with self.assertRaises(TypeError):
                         edit.import_media(replace(source, step=True))
+                    for rate in (24, 24.0, None):
+                        with self.subTest(rate=rate), self.assertRaises(TypeError):
+                            edit.import_media(replace(source, rate=rate))
                     self.assertIsNone(edit.commit().revision)
                 self.assertEqual(production.assets_page(limit=1).items, ())
                 self.assertIsNone(production.latest_revision)

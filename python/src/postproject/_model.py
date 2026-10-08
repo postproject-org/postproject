@@ -1049,6 +1049,7 @@ class ImageSequenceSource:
     """Media source for one compact image sequence in a directory.
 
     The directory and naming become the sequence's first locator.
+    ``rate`` is a positive exact :class:`fractions.Fraction`.
     """
 
     directory: str | os.PathLike[str]
@@ -1056,8 +1057,7 @@ class ImageSequenceSource:
     start: int
     end: int
     step: int
-    rate_numerator: int
-    rate_denominator: int
+    rate: Fraction
     missing_frames: tuple[int, ...] = ()
 
 

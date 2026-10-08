@@ -9,6 +9,7 @@ import weakref
 from _ctypes import _Pointer
 from collections.abc import Callable, Iterable, Iterator, Mapping
 from datetime import timedelta
+from fractions import Fraction
 from itertools import islice
 from pathlib import Path
 from types import TracebackType
@@ -4063,6 +4064,8 @@ class _NativeMediaSource:
                 _path_bytes(source.path), ctypes.byref(self.handle), ctypes.byref(error)
             )
         elif isinstance(source, ImageSequenceSource):
+            if not isinstance(source.rate, Fraction):
+                raise TypeError("sequence rate must be fractions.Fraction")
             missing_type = ctypes.c_int64 * len(source.missing_frames)
             missing_frames = missing_type(
                 *(
@@ -4076,8 +4079,8 @@ class _NativeMediaSource:
                 _signed(source.start, 64, "start frame"),
                 _signed(source.end, 64, "end frame"),
                 _unsigned(source.step, 32, "frame step"),
-                _unsigned(source.rate_numerator, 32, "rate numerator"),
-                _unsigned(source.rate_denominator, 32, "rate denominator"),
+                _unsigned(source.rate.numerator, 32, "rate numerator"),
+                _unsigned(source.rate.denominator, 32, "rate denominator"),
                 missing_frames,
                 len(missing_frames),
                 ctypes.byref(self.handle),

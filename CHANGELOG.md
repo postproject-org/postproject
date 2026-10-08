@@ -6,7 +6,7 @@ All notable changes to PostProject will be documented here. The project uses
 ## Unreleased
 - Resolution payload access checks the selected state (C ABI 51); C++/Python validate outcome cases (ADR 0063).
 - Artifact payload access checks the selected kind (C ABI 50); C++/Python use checked case values (ADR 0062).
-- C++/Python representation facts carry one validated content alternative (ADR 0061).
+- C++/Python representation facts carry checked content alternatives; Python sequence rates use Fraction (ADR 0061).
 - Bound collection payloads and CLI JSON inputs; page larger collections (ADR 0060).
 - Version CLI JSON output and categorize operation errors/exit codes (ADR 0059).
 - Migrate job claims to production-bound leases with checked durations and library-controlled time (C ABI 49, schema 19, ADRs 0057–0058); guard publication against changed input knowledge.

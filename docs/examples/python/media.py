@@ -11,6 +11,7 @@ The work directory is prepared by ``prepare-workdir.cmake``.
 from __future__ import annotations
 
 import sys
+from fractions import Fraction
 from pathlib import Path
 
 from postproject import (
@@ -64,8 +65,7 @@ def import_image_strip(production: Production, directory: Path) -> AssetId:
         start=1001,
         end=1004,
         step=1,
-        rate_numerator=24,
-        rate_denominator=1,
+        rate=Fraction(24),
         missing_frames=(1003,),
     )
     with production.transaction() as transaction:
@@ -332,8 +332,7 @@ def add_render_sequence(
                 start=1001,
                 end=1004,
                 step=1,
-                rate_numerator=24,
-                rate_denominator=1,
+                rate=Fraction(24),
                 missing_frames=(1003,),
             ),
         )

@@ -13,6 +13,7 @@ from __future__ import annotations
 import sys
 import threading
 from collections.abc import Callable
+from fractions import Fraction
 from pathlib import Path
 
 from postproject import (
@@ -168,8 +169,7 @@ def add_render_sequence(
                 start=1001,
                 end=1004,
                 step=1,
-                rate_numerator=24000,
-                rate_denominator=1001,
+                rate=Fraction(24000, 1001),
                 missing_frames=(1003,),
             ),
         )

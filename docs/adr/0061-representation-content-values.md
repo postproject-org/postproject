@@ -12,7 +12,9 @@ C++ uses a variant and Python a union of owned, frozen content records.
 Compound construction copies its members and rejects empty or oversized lists,
 duplicate resources, missing roles, optional ordered parts, and packages with no
 required member. Sequence construction checks the stepped frame domain, positive
-rate and integer ranges. Python exposes the exact rate as `fractions.Fraction`.
+rate and integer ranges. Python exposes the exact rate as `fractions.Fraction` and takes the same
+standard type in `ImageSequenceSource.rate`. Native conversion checks positive
+unsigned 32-bit components after standard fraction normalization.
 Entity existence and production membership remain operation checks.
 C++ content values after a move support destruction or reassignment; inspect
 the destination. The input alternatives remain unvalidated request records.

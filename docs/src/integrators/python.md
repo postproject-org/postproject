@@ -111,3 +111,7 @@ plug-in this way:
 
 The [Blender pilot](https://github.com/postproject-org/postproject-blender)
 is an extension packaged this way.
+
+Image-sequence sources take an exact `fractions.Fraction` rate, for example
+`rate=Fraction(24000, 1001)`. Read descriptors expose the same standard type
+through `sequence.rate`. Nonpositive or out-of-range rates fail before import.

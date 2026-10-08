@@ -6,6 +6,7 @@ import tempfile
 import unittest
 import weakref
 from datetime import timedelta
+from fractions import Fraction
 from pathlib import Path
 from uuid import UUID
 
@@ -655,8 +656,7 @@ class ProductionTests(unittest.TestCase):
                         1,
                         1,
                         1,
-                        24_000,
-                        1_001,
+                        Fraction(24_000, 1_001),
                     ),
                 )
                 ordered_id = transaction.add_representation(
@@ -738,7 +738,12 @@ class ProductionTests(unittest.TestCase):
             with production.transaction() as transaction:
                 asset_id = transaction.import_media(
                     ImageSequenceSource(
-                        self.root, SequenceNaming("strip_", ".png", 4), 1, 3, 1, 24, 1
+                        self.root,
+                        SequenceNaming("strip_", ".png", 4),
+                        1,
+                        3,
+                        1,
+                        Fraction(24),
                     ),
                     "Image strip",
                 )
@@ -778,7 +783,7 @@ class ProductionTests(unittest.TestCase):
         ) as production:
             with production.transaction() as transaction:
                 asset_id = transaction.import_media(
-                    ImageSequenceSource(plates, original, 1, 3, 1, 24, 1), "Shot"
+                    ImageSequenceSource(plates, original, 1, 3, 1, Fraction(24)), "Shot"
                 )
                 transaction.commit()
             graded.mkdir()
