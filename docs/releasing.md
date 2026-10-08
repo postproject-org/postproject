@@ -8,7 +8,8 @@ version from `Cargo.toml`, the corresponding PEP 440 version from
 
 Before tagging a release:
 
-1. Update `CHANGELOG.md` and confirm every public ABI change is recorded.
+1. Date the release heading in `CHANGELOG.md` and confirm every public ABI
+   change is recorded. The release workflow uses that section as its notes.
 2. Run `python tools/check_versions.py`, verify all workspace and fuzz
    dependency versions are locked, and confirm both `cargo deny` policies pass.
 3. Run formatting, Clippy, tests, rustdoc, the C/C++ installed consumers, and the
@@ -23,12 +24,18 @@ Before tagging a release:
 7. Confirm the install contains shared and static libraries, C/C++ headers,
    CMake and `pkg-config` metadata, the quickstarts and fixture, stewardship
    policy, README, changelog, and both licenses.
-8. Create a signed `v<package-version>` tag. The release workflow verifies the
-   tag against Rust, CMake, and Python package versions before publication.
+8. Push the prepared main branch and inspect every individual CI job. Create a
+   signed `v<package-version>` tag at the qualified commit, verify it with
+   `git tag -v`, and push that tag. The release workflow verifies the tag
+   against Rust, CMake, and Python package versions before publication.
 9. Confirm the workflow publishes the conventional source tarball, Linux,
    macOS, and Windows native archives, a platform wheel for each of them, and
    the platform-neutral Python wheel, together with a SHA-256 checksum for
    each artifact. Never rebuild an artifact after tagging.
+
+Pushing the tag publishes a GitHub prerelease and its immutable documentation;
+the documentation workflow also advances `latest`. It does not upload packages
+to crates.io or PyPI.
 
 Linux, macOS, and Windows package artifacts are produced from
 `cargo build --locked` and the same CMake install rules exercised on every

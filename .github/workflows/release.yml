@@ -235,6 +235,23 @@ jobs:
     needs: [source, native, native-linux, wheel]
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v7
+      - name: Prepare release notes from the tagged changelog
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          version = os.environ["GITHUB_REF_NAME"].removeprefix("v")
+          changelog = Path("CHANGELOG.md").read_text()
+          heading = f"## {version} - "
+          if heading not in changelog:
+              raise SystemExit(f"Missing release changelog for {version}")
+          section = changelog.split(heading, 1)[1].split("\n", 1)[1]
+          notes = section.split("\n## ", 1)[0].strip()
+          if not notes:
+              raise SystemExit("Release notes are empty")
+          Path("release-notes.md").write_text(notes + "\n")
+          PY
       - uses: actions/download-artifact@v5
         with:
           pattern: release-*
@@ -249,4 +266,4 @@ jobs:
           --verify-tag
           --prerelease
           --title "PostProject $GITHUB_REF_NAME"
-          --generate-notes
+          --notes-file release-notes.md

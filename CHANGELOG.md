@@ -5,6 +5,8 @@ All notable changes to PostProject will be documented here. The project uses
 
 ## Unreleased
 
+## 0.7.0-alpha.1 - 2026-10-08
+
 - Start the `0.7.0-alpha.1` series (Python `0.7.0a1`, C ABI 51, schema 19).
 - Distinguish native semantic ID kinds and checked object references; preserve persisted identities.
 - Add coherent read sessions, scoped decision bases and atomic commit receipts (ADR 0045).
