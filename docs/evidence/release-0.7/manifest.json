@@ -10,8 +10,8 @@
     {
       "host": "kdenlive",
       "repository": "postproject-kdenlive",
-      "adapter_commit": "68d895e97f20131de1a2d0287a1feca44f179295",
-      "scope": "26.08.1; automated shared-production workflow; subsequent URL-property patch changes QML only",
+      "adapter_commit": "24153ec76ba7e0420a5950be6163500d320f1719",
+      "scope": "26.08.1; final replacement patches; automated shared-production workflow",
       "files": {
         "kdenlive.txt": "c59c36eb575c4ee0323337cbac44a268ebec29257a3b9e3f99eb88d0f55d89fe",
         "kdenlive-cpp.txt": "612cc5533d019468c1be4dfde4a3b000527bf9436b4da33a768404703aacb362"

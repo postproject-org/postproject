@@ -13,7 +13,7 @@ download is unavailable.
 | [postproject-ardour](https://github.com/postproject-org/postproject-ardour) | `7ec34c2a972b936191494f25d420c4e962f8c047` | `a417d20` / C++ / pkg-config | Five replacement patches replay; stereo-WAV resolver scenario passes; full Linux with/without and macOS resolver CI pass |
 | [postproject-blender](https://github.com/postproject-org/postproject-blender) | `8c62d4ca6243446219ce82383dd3ed823f850c3c` | `bfe5b95` / Python extension | 5.2.2 LTS: 24 tests run, one 5.3-only skip; OBS handoff passes; required 5.2.2 CI and shared-host handoff pass; optional 5.3 download unavailable |
 | [postproject-cpp-nle](https://github.com/postproject-org/postproject-cpp-nle) | `5d801c0b59526a098b9111beeb40b143bbe59ca1` | `8d2933a` / Installed C++ host | One CTest passes against the installed candidate; own and SDK downstream CI pass |
-| [postproject-kdenlive](https://github.com/postproject-org/postproject-kdenlive) | `2eb45f9019cdb48fdc35606768c9ecc164943b8f` | `322aa7a` / Native C++ / Result | Ten replacement patches replay; full local build, document/pilot tests and shared handoff pass; Qt 6.12 CI lint fails |
+| [postproject-kdenlive](https://github.com/postproject-org/postproject-kdenlive) | `2eb45f9019cdb48fdc35606768c9ecc164943b8f` | `24153ec` / Native C++ / Result | Ten replacement patches replay; full local build, document/pilot tests and shared handoff pass; Qt 6.12 CI lint fails |
 | [postproject-natron](https://github.com/postproject-org/postproject-natron) | `4694e97a65ab59954a3ef32c7984ed6ccd53a97f` | `ad2554d` / C++ / CPython stable ABI | Native contract, request-generation tests and Natron 2.5.0 normal/negative/plugin-free renderer paths pass on Linux |
 | [postproject-obs](https://github.com/postproject-org/postproject-obs) | `5c15a4a7fc39d4e22d191c3fc854915f098931c9` | `338e395` / C11 / Qt frontend | OBS 32.2.2: two contracts, eight isolated host scenarios and Blender adoption/move/plugin-free reopen pass on Linux |
 | [postproject-openassetio](https://github.com/postproject-org/postproject-openassetio) | `99ab45e38dc31b2ff5f8e63cd9a848f090cc389d` | `5e38c31` / Python validation host | One installed-wheel pytest passes; declared 0.7 range updated |
@@ -76,13 +76,13 @@ Ardour's five replay on `7968ec504ba8b70e6de5c09d0470264581a5e979`.
 Fresh enabled Kdenlive compilation and both document/pilot tests pass. The
 shared-production script passes with Blender 5.2.2 LTS (`d13f752e3b9c`), the
 rebuilt extension and the installed Manager under Python 3.13. Its retained
-workspace is `/tmp/tmp.2sMCDlF6KV`; traces are in
-`target/qualification-abi51-final-shared-traces`. OBS and Natron acceptance retain
+workspace is `/tmp/tmp.7WhS0bzHCe`; traces are in
+`target/qualification-abi51-qt612-final-shared-traces`. OBS and Natron acceptance retain
 their declared Linux host scope.
 
 Local logs and artifacts are retained under `target/qualification-abi51-*`.
-Ardour’s replay reproduces the current series exactly. Kdenlive’s final
-replay is pending the Qt 6.12 lint fix. Host tests isolate
+Both clean patch replay trees reproduce the current series exactly.
+The final Kdenlive series passes local Qt 6.12 lint and full Qt 6.11 build/tests. Host tests isolate
 configuration/cache; they do not claim an interactive human acceptance pass.
 
 ## GitHub qualification
