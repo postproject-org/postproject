@@ -4,32 +4,20 @@ All notable changes to PostProject will be documented here. The project uses
 [Semantic Versioning](https://semver.org/) once a stable API is released.
 
 ## Unreleased
-- Categorize binding boundary failures and decode Python search-truncation evidence (ADR 0064).
-- Resolution payload access checks the selected state (C ABI 51); C++/Python validate outcome cases (ADR 0063).
-- Artifact payload access checks the selected kind (C ABI 50); C++/Python use checked case values (ADR 0062).
-- C++/Python representation facts carry checked content alternatives; Python sequence rates use Fraction (ADR 0061).
-- Bound collection payloads and CLI JSON inputs; page larger collections (ADR 0060).
-- Version CLI JSON output and categorize operation errors/exit codes (ADR 0059).
-- Migrate job claims to production-bound leases with checked durations and library-controlled time (C ABI 49, schema 19, ADRs 0057–0058); guard publication against changed input knowledge.
-- Require decision bases for content observations and journal changed file facts (schema 18, ADR 0056).
-- CLI dependency recording reports accepted inputs and an atomic receipt without reloading later writes.
-- Make C++ object references private typed variants with checked interchange and projections.
-- Validate Python query, media, metadata and timestamp integers before native conversion, rejecting wraparound.
-- Remove cached Rust production roots; open/edit stay bounded and CLI inspection pages roots.
-- Started the `0.7.0-alpha.1` development series; consumer builds require matching SDK artifacts.
-- Added coherent reads, scoped decisions, explicit edits and atomic receipts; Rust/C++ `commit()` returns a receipt and Python contexts require explicit commit (ADR 0045, C ABI 38).
-- Replaced Python ID wrappers with UUID NewType hints and explicit object-reference variants; use IDs directly and wrap dynamic targets (ADR 0046).
-- Bound query cursors to their production and retained read view; restart old cursors and page revision events (ADRs 0047, 0050).
-- C++ tokens/options require `create()`; options setters return `Result<void>` immediately and preserve valid settings on failure (ADR 0048).
-- Added native production/asset/media-root/locator/job/activity/representation/resource/revision/transaction IDs (C ABI 47); persisted references retain their meaning (ADR 0049).
-- Job reads use checked C payloads and one C++/Python status alternative; migrate C++ field access and Python construction (ADR 0051).
-- Reject oversized native binary metadata and unaddressable resolution arrays before access.
-- Metadata appends merge and invalidate stale destructive decisions; replacement/removal require a decision base (ADR 0052).
-- Root enabling/removal, locator retirement and identifier removal require a decision base (ADR 0045).
-- Complete dependency observations require a decision base, including initial and unchanged sets (ADR 0045).
-- Add fresh bounded media-root pages; convenience reads cap at 1000 roots (ADR 0053).
-- Validate Python root flags and signed priorities before native conversion.
-- CLI JSON emits structured conflicts on stdout and commit receipts for media/confirmation, metadata, roots, identifiers, dependencies, activity and job writes.
+
+- Start the `0.7.0-alpha.1` series (Python `0.7.0a1`, C ABI 51, schema 19).
+- Distinguish native semantic ID kinds and checked object references; preserve persisted identities.
+- Add coherent read sessions, scoped decision bases and atomic commit receipts (ADR 0045).
+- Require guarded decisions for destructive edits and complete dependency/content observations.
+- Make Python transactions require explicit commit; uncommitted contexts roll back.
+- Use Python UUID hints, Fraction sequence rates and timedelta lease durations.
+- Validate constructors, option setters, integer bounds and decoded payloads at public boundaries.
+- Expose checked content, job, artifact and resolution alternatives across native and Python bindings.
+- Replace caller-timed claims with production-bound leases and guarded publication (ADRs 0057–0058).
+- Bound query cursors, collection payloads, resolution work and CLI JSON inputs; page larger collections.
+- Remove cached production roots and journal changed file facts.
+- Version CLI JSON output, return exact write receipts and categorize errors (ADR 0059).
+- Decode search-truncation evidence and distinguish unsupported tags from corrupt payloads (ADR 0064).
 
 ## 0.6.0-alpha.1 - 2026-10-04
 
