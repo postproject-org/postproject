@@ -3,7 +3,10 @@
 use postproject_core::{DecisionBase, RevisionId};
 use serde_json::json;
 
-use crate::{Digest, DigestDomain, Document, ProtocolBase, Result, Scope};
+use crate::{
+    Digest, DigestDomain, Document, ProtocolBase, Result, Scope,
+    fields::{exact, malformed, nullable, object},
+};
 
 /// A complete applied revision boundary in one source history.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -23,6 +26,9 @@ impl Position {
         sequence: u64,
         digest: Digest,
     ) -> Result<Self> {
+        if sequence > i64::MAX as u64 {
+            return Err(malformed());
+        }
         let decision =
             crate::fields::checked(DecisionBase::new(scope.production(), revision, sequence))?;
         Ok(Self {
@@ -38,6 +44,9 @@ impl Position {
     /// # Errors
     /// Rejects invalid scope or an internally unencodable anchor.
     pub fn anchor(base: ProtocolBase) -> Result<Self> {
+        if base.decision().sequence() > i64::MAX as u64 {
+            return Err(malformed());
+        }
         let document = Document {
             value: json!({
                 "kind":"anchor","version":"1","production":base.scope().production().to_string(),
@@ -76,5 +85,36 @@ impl Position {
     #[must_use]
     pub const fn decision_base(self) -> ProtocolBase {
         self.base
+    }
+
+    /// Encodes the exact continuation, including its source history and digest.
+    #[must_use]
+    pub fn document(self) -> Document {
+        Document {
+            value: json!({
+                "production":self.scope().production().to_string(),
+                "history":self.scope().history().to_string(),
+                "revision":self.revision().map(|id| id.to_string()),
+                "sequence":self.sequence().to_string(),"digest":self.digest().to_string()
+            }),
+        }
+    }
+
+    /// Decodes a continuation without claiming that its revision exists.
+    ///
+    /// # Errors
+    /// Rejects unknown fields, noncanonical identities/digests and contradictory
+    /// or out-of-range revision boundaries.
+    pub fn from_document(document: &Document) -> Result<Self> {
+        let fields = object(
+            &document.value,
+            &["production", "history", "revision", "sequence", "digest"],
+        )?;
+        Self::new(
+            Scope::new(exact(&fields["production"])?, exact(&fields["history"])?),
+            nullable(&fields["revision"], exact)?,
+            exact(&fields["sequence"])?,
+            exact(&fields["digest"])?,
+        )
     }
 }
