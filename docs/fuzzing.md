@@ -9,7 +9,9 @@ Boundary-heavy inputs have dedicated `cargo-fuzz` targets:
   error boundary, then releases every returned handle;
 - `external_identifier_validation` splits arbitrary bytes into a scheme, value,
   and qualifier and exercises external-identifier validation;
-- `id_parsing` exercises all strong-ID text parsers.
+- `id_parsing` exercises all strong-ID text parsers;
+- `exchange_document` checks strict JSON and the metadata proposal, effect,
+  receipt/outcome, observation, position, chunk and record-manifest decoders.
 
 Install `cargo-fuzz`, then run one target with a nightly Rust toolchain:
 

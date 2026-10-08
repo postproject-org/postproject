@@ -96,6 +96,15 @@ record digest covers its unsigned manifest in the `record` domain. Its manifest
 digest covers that header plus `record_digest` in the `manifest` domain. Complete
 chunk framing alone does not prove valid domain state.
 
+The reconstructed record body is a sequence of frames: an unsigned 64-bit
+big-endian byte length followed by exactly that many canonical UTF-8 JSON bytes.
+Zero-length frames are invalid. Frames may span chunks. A `metadata.effect`
+header declares the authored operation, target, property, optional assigned
+append position and exact value count. Its ordered `metadata.value` frames follow;
+empty replacements and removals carry none. Original `observation` frames follow
+all effects, retaining their revision IDs and contiguous positions. Replay checks
+the manifest's total effect/event counts and consumes the entire body.
+
 Large logical records use a manifest and ordered bounded effect chunks. Large
 aggregate/binary fields use declared ordered continuations with exact totals and
 digest validation. No truncation or extra visible revisions is permitted. A
