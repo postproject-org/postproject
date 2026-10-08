@@ -1,0 +1,94 @@
+{
+  "scope": "Consumer push jobs; SDK runtime/header/binding source unchanged since b25e082",
+  "repositories": [
+    {
+      "repository": "postproject-cpp-nle",
+      "commit": "8d2933a8db4d945801272282f316808807c61584",
+      "run": "https://github.com/postproject-org/postproject-cpp-nle/actions/runs/37781487919",
+      "jobs": [
+        {
+          "name": "test",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "repository": "postproject-blender",
+      "commit": "bfe5b959a52ffea94798f45039d5381764ffafac",
+      "run": "https://github.com/postproject-org/postproject-blender/actions/runs/37781491215",
+      "jobs": [
+        {
+          "name": "lint",
+          "conclusion": "success"
+        },
+        {
+          "name": "Blender 5.2.2",
+          "conclusion": "success"
+        },
+        {
+          "name": "Blender 5.3-alpha",
+          "conclusion": "failure",
+          "failed_steps": [
+            "Download Blender"
+          ]
+        }
+      ]
+    },
+    {
+      "repository": "postproject-kdenlive",
+      "commit": "24153ec76ba7e0420a5950be6163500d320f1719",
+      "run": "https://github.com/postproject-org/postproject-kdenlive/actions/runs/37799419496",
+      "jobs": [
+        {
+          "name": "Kdenlive with PostProject",
+          "conclusion": "success"
+        },
+        {
+          "name": "Kdenlive without PostProject",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "repository": "postproject-ardour",
+      "commit": "a417d2032ce5ee8893c31fad1791286d89f195ef",
+      "run": "https://github.com/postproject-org/postproject-ardour/actions/runs/37781500283",
+      "jobs": [
+        {
+          "name": "Installed pkg-config resolver on macOS",
+          "conclusion": "success"
+        },
+        {
+          "name": "Ardour with PostProject",
+          "conclusion": "success"
+        },
+        {
+          "name": "Ardour without PostProject",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "repository": "postproject-obs",
+      "commit": "338e395f1f9245490a0914d6006d222384f726dd",
+      "run": "https://github.com/postproject-org/postproject-obs/actions/runs/37781505273",
+      "jobs": [
+        {
+          "name": "contract",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "repository": "postproject-natron",
+      "commit": "ad2554d6d0d2b65cc7bb8489106b166db2ccec23",
+      "run": "https://github.com/postproject-org/postproject-natron/actions/runs/37781507860",
+      "jobs": [
+        {
+          "name": "contract",
+          "conclusion": "success"
+        }
+      ]
+    }
+  ]
+}
