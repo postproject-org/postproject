@@ -2,33 +2,49 @@
 
 Development audit against released `0.6.0-alpha.1`
 (`a413227b9dd048f744fa7393d8927891ee93d5e2`, ABI 37, schema 17).
-This is a working inventory, not a release acceptance report. An open row
-does not claim that its replacement contract has been implemented.
+Candidate: `0.7.0-alpha.1` / Python `0.7.0a1`, C ABI 51, schema 19.
+The implementation decisions below are resolved. Platform and host acceptance
+remain separate checks in the [repository manifest](api-safety-repositories.md).
 
 The authoritative C entry-point inventory is
-[`expected-symbols.txt`](../tests/abi/expected-symbols.txt). All declarations
+[`expected-symbols.txt`](https://github.com/postproject-org/postproject/blob/main/tests/abi/expected-symbols.txt). All declarations
 in the linked source modules, including constructors, setters and decoders,
 belong to the rows below. The compatibility-family manifest covers evidence
 subsets; it is not a complete safety inventory.
 
-| Family and source | Existing risk / required invariant | Callers / evidence | Status |
-|---|---|---|---|
-| Identity: core `id.rs`, C header, C++ `Uuid`, Python `_model.py` | C/C++ generic UUIDs permit wrong kinds; The released Python binding uses runtime ID subclasses. Preserve wire IDs; distinguish kinds statically and validate references in storage. | All consumers; T01, T02, T12 | Open |
-| Production: core `model.rs`, SQLite `lib.rs`, FFI `lib.rs` | Ownership and production selection must remain explicit; read-only contexts cannot write. | All consumers; T04, T07 | Open |
-| Host references: core `id.rs`, FFI binding functions | A reference includes production and object kind; external identifiers remain exact. | Manager, OTIO, Blender, Kdenlive, Natron; T12 | Open |
-| Content: core `content.rs`, FFI `media_source.rs`, `representations.rs` | Legal alternatives need checked shape, members, rates, naming and roles; decoder paths must share validation. | All media pilots; T03 | Open |
-| Resources/locators: core `resource.rs`, `uri.rs`, FFI `sequence_naming.rs` | Reject empty/null paths and contradictory naming without requiring current file existence. | Resolver consumers; T03, T11 | Open |
-| Recognition/resolution: media source modules, FFI `resolution.rs`, `content.rs`, `known_media.rs` | Preserve ambiguity; options must report invalid setters; I/O/cancellation must stay read-only. | All media pilots; T03, T11 | Open |
-| Metadata: core `metadata.rs`, registries; FFI `metadata.rs`, `metadata_input.rs` | Copy mutable inputs, enforce bounds and preserve unknown namespaces. | Manager, Blender, CLI; T03, T11 | Open |
-| Provenance: core `provenance.rs`, FFI `provenance.rs` | Prevent cycles; input/output and snapshot facts must remain atomic. | Blender, Manager, OBS; T08, T11 | Open |
-| Dependencies/artifacts: core and FFI `dependency.rs`, `artifact.rs` | Distinguish incomplete knowledge and closed result alternatives; bound traversal. | Manager, Blender, CLI; T03, T10 | Open |
-| Jobs: core `job.rs`, FFI `jobs.rs`, executor | Job/claim pairs and caller time permit misuse; leases must bind production and validate current authority on every transition. | Manager, reference executor; T08, T09 | Open |
-| Transactions: core `storage.rs`, `transaction.rs`, `conflict.rs`; SQLite `transaction.rs`; FFI `lib.rs` | Read decisions need scoped bases; commit needs its own receipt; every commit attempt is terminal. | Manager, Kdenlive, Blender, OBS; T05–T07 | Open |
-| Reads/revisions: core `revision.rs`, SQLite/FFI revision modules | Separate pinned read views, head observations, wakeups, detached bases and receipts. | Kdenlive, Blender, Natron; T04, T06 | Open |
-| Queries: core `query.rs`, SQLite `query_cursor.rs`, all page methods | Cursor family/filter/production/view scope and materialization bounds must be checked. | All bindings and CLI; T10 | Open |
-| Errors/ownership: core `error.rs`, FFI boundary, C++ Result, Python `_errors.py` | Initialize outputs, contain panics, maintain allocator pairing and structured errors; safe owners cannot dangle. | All consumers; T07, T11, T13 | Open |
-| Projections/serialization: C++ header, Python `_production.py`, `_artifact.py`, `_abi.py`, CLI modules, ABI generator | Convenience methods and decoding cannot bypass authoritative validation; all public projections need migration. | All consumers; T01–T13 | Open |
-| Packaging/docs: CMake, Python manifests, workflows, `docs/examples`, site | Load the exact candidate, retain floors and installed consumption; examples must execute. | Every repository; T14–T18 | Open |
+| Family / source | Decision and public contract | Regression evidence |
+|---|---|---|
+| [Identity and host references](https://github.com/postproject-org/postproject/blob/main/crates/postproject-core/src/id.rs) | Rust/C/C++ distinguish ID kinds; Python uses nominal hints over standard UUIDs. Checked object alternatives and production-qualified bindings preserve persisted text. Parsing establishes syntax, never existence. | Native `c_identities`, `cpp_identities`; Python `test_id_values`; installed typing positives and nine negatives |
+| [Production and storage traits](https://github.com/postproject-org/postproject/blob/main/crates/postproject-core/src/storage.rs) | Explicit ownership and production selection; read facades cannot write. Request records are validated by the authoritative store. | Storage `production_lifecycle`, `read_sessions`; native/Python owner lifetime tests |
+| [Content](https://github.com/postproject-org/postproject/blob/main/crates/postproject-core/src/content.rs) | Validated single-file, sequence, ordered and package cases. C uses selected-kind reads; C++/Python own checked alternatives. Sequence rate is separate from locator naming. | Storage `compound_media`; Python `test_content_values`; native smoke and decoder checks |
+| [Resources and locators](https://github.com/postproject-org/postproject/blob/main/crates/postproject-core/src/resource.rs) | File/URI conversion, naming, roles and membership validate without requiring file presence. Explicit retirement requires a decision base. | Storage `locator_edits`, `compound_media`; media sequence tests; native examples |
+| [Recognition and resolution](https://github.com/postproject-org/postproject/blob/main/crates/postproject-media/src/resolver.rs) | Read-only, bounded discovery/verification; preserve ambiguity. Setters reject invalid input immediately. Closed outcomes expose only applicable payloads; cancellation propagates. | Media resolver/sequence suites; FFI `resolution_payload_tests`; Python `test_resolution_values`; native smoke |
+| [Metadata and registries](https://github.com/postproject-org/postproject/blob/main/crates/postproject-core/src/metadata.rs) | Owned, bounded values; unknown namespaces round-trip. Appends merge; replacement/removal require guarded decisions. | Storage `metadata`, `metadata_conflicts`; Python `test_metadata_edits`; C input/output examples |
+| [Provenance](https://github.com/postproject-org/postproject/blob/main/crates/postproject-core/src/provenance.rs) | Validated edges and snapshots; output/provenance/job completion commit atomically. Cycles reject. Host clock facts confer no worker authority. | Storage `provenance`, `fingerprint_observations`; executor and host handoffs |
+| [Dependencies and artifacts](https://github.com/postproject-org/postproject/blob/main/crates/postproject-core/src/artifact.rs) | Bounded traversal; guarded complete-set observations. Checked reason/issue alternatives preserve incomplete knowledge. | Storage `dependencies`, `dependency_edits`, `artifact_staleness`; FFI payload tests; Python `test_artifact_values` |
+| [Jobs and leases](https://github.com/postproject-org/postproject/blob/main/crates/postproject-core/src/job_lease.rs) | Production-bound capabilities, private transport, authority time and exact 1 us–24 h durations. Every transition and commit checks current ownership. Freeing local ownership never writes. Observations contain no credentials. | Storage jobs with deterministic clocks; FFI lease/state tests; native `cpp_job_leases`; Python `test_job_leases`; real FFmpeg |
+| [Reads, edits and receipts](https://github.com/postproject-org/postproject/blob/main/crates/postproject-core/src/read.rs) | Real pinned views carry bases into edits. Detached bases remain scoped. Commit returns its own receipt and every attempt is terminal; uncommitted Python contexts roll back. No-op commits create no revision. | Storage `read_sessions`, `commit_receipts`, `conflicts`; C/C++ lifetime/view contracts; Python view/receipt tests; CLI conflicts |
+| [Revisions and waiters](https://github.com/postproject-org/postproject/blob/main/crates/postproject-core/src/revision.rs) | Bounded journal/event reads; head observations, durable cursors and wakeups retain distinct meanings. Cancellation/closure are explicit. | Storage `revisions`, `revision_waits`; Python `test_changes`; FFI waiter checks |
+| [Queries and bounds](https://github.com/postproject-org/postproject/blob/main/crates/postproject-core/src/query.rs) | Cursors bind family/filter/production/view. Convenience collections reject overflow; storage, native results and resolution enforce item/byte budgets before copying. Explicit observation edits retain their input view. | Storage `domain_queries`, `convenience_bounds`, `root_pages`; Python `test_query_bounds`; FFI budgets; 10,000-asset paged benchmark |
+| [Errors and FFI ownership](https://github.com/postproject-org/postproject/blob/main/crates/postproject-ffi/src/lib.rs) | Clear required outputs, contain panics, pair allocation/release, copy borrowed results and preserve structured conflicts. Unknown closed tags are unsupported; malformed payloads are corruption. | Direct FFI failure tests; Python `test_errors`; nine native contracts under ASan/UBSan |
+| [Language projections and serialization](https://github.com/postproject-org/postproject/blob/main/include/postproject/postproject.hpp) | C++ retains Result and exception consumption. Python standard paths, UUIDs, Fraction rates and timedelta leases; installed typing metadata. CLI format 1 has stable error codes, scoped tokens and exact receipts. | C++ with/without exceptions; generated layouts/declarations; Python 121 tests (one skip); CLI workflows and extracted examples |
+| [Packages and documentation](https://github.com/postproject-org/postproject/blob/main/CMakeLists.txt) | Installed native consumers invoke no Cargo. Matching headers/library/wheels; retained Rust 1.85, C11/C++17 and Python 3.11 floors. | Local native/wheel/typing and 72 extracted example checks; strict docs. Platform/full-host acceptance remains in the repository manifest |
+
+Each row covers its constructors, setters, getters, decoders, convenience
+overloads, raw/interchange helpers and corresponding CLI commands. The
+[Rust exports](https://github.com/postproject-org/postproject/blob/main/crates/postproject-core/src/lib.rs), storage traits,
+[C header](https://github.com/postproject-org/postproject/blob/main/include/postproject/postproject.h), C++ header,
+[Python exports](https://github.com/postproject-org/postproject/blob/main/python/src/postproject/__init__.py) and
+[CLI adapters](https://github.com/postproject-org/postproject/tree/main/crates/postproject-cli/src) are the surface inventories.
+`check_example_coverage.py` checks every public C/C++/Python operation against
+tested examples; symbol/layout and generated-declaration checks cover the C
+boundary. These mechanical checks supplement the semantic regressions above.
+
+ADRs 0045–0064 record the changed contracts and standards-impact reviews.
+No standards mapping or remote synchronization behavior was added. The
+0.6.x Result propagation promise and published artifacts remain intact; no
+new stable family or cross-series binary replacement is claimed. Two real
+renew/fail/cancel consumers are still absent from compatibility evidence.
 
 ## Baseline checks
 
@@ -44,4 +60,3 @@ Supported floors remain Rust 1.85, C11, C++17 and Python 3.11. CI checks native
 Linux/macOS/Windows, installed CMake consumers, C/Rust/ctypes layouts, platform
 wheels, documentation examples, sanitizers and the existing Flatpak route.
 Local Linux checks do not establish the other platforms or real-host runs.
-
