@@ -2247,6 +2247,14 @@ inline Result<ObjectRef> object_ref(const pp_object_ref_t &value);
 
 // raw_error is read by reference so that check(pp_call(..., &error), error) is
 // correct whichever argument the compiler evaluates first.
+// Closed native tags are checked before enum projection; external strings stay open.
+inline Result<void> native_tag(std::uint32_t value, std::uint32_t first,
+                               std::uint32_t last, const char *label) {
+  if (value < first || value > last)
+    return Error(ErrorCode::unsupported, std::string("unknown native ") + label);
+  return {};
+}
+
 inline Result<void> check(pp_error_code_t status,
                           pp_error_t *const &raw_error) {
   ErrorHandle error(raw_error);
@@ -2259,6 +2267,7 @@ inline Result<void> check(pp_error_code_t status,
   std::shared_ptr<const TransactionConflict> transaction_conflict;
   pp_transaction_conflict_t native{};
   if (error && pp_error_transaction_conflict(error.get(), &native) != 0) {
+    POSTPROJECT_TRY(native_tag(native.kind, PP_CONFLICT_LOCATOR_SET, PP_CONFLICT_RESOURCE_FILE_FACTS, "conflict key"));
     const auto kind = static_cast<ConflictKeyKind>(native.kind);
     const bool fingerprint =
         kind == ConflictKeyKind::resource_fingerprint ||
@@ -2434,6 +2443,7 @@ inline pp_transaction_id_t native_transaction_id(const TransactionId &value) {
 }
 
 inline Result<ObjectRef> object_ref(const pp_object_ref_t &value) {
+  POSTPROJECT_TRY(native_tag(value.kind, PP_OBJECT_PRODUCTION, PP_OBJECT_JOB, "object reference"));
   return ObjectRef::fromUuid(static_cast<ObjectKind>(value.kind), uuid(value.id));
 }
 
@@ -2712,6 +2722,7 @@ representation(const pp_representation_set_t *representations,
           &uri, &availability, &has_last_seen, &last_seen, &has_naming,
           &naming, &error);
       POSTPROJECT_TRY(check(status, error));
+      POSTPROJECT_TRY(native_tag(availability, PP_LOCATOR_UNKNOWN, PP_LOCATOR_OFFLINE, "locator availability"));
       locators.push_back(
           {detail::locator_id(locator_id), uri != nullptr ? std::string(uri) : std::string(),
            static_cast<LocatorAvailability>(availability),
@@ -2749,6 +2760,7 @@ representation(const pp_representation_set_t *representations,
       return Error(ErrorCode::unsupported, "unknown representation content kind");
     }
   })());
+  POSTPROJECT_TRY(native_tag(kind, PP_REPRESENTATION_ORIGINAL, PP_REPRESENTATION_DERIVED, "representation kind"));
   return Representation{detail::representation_id(id),
                         asset_id_value(asset_id),
                         static_cast<RepresentationKind>(kind),
@@ -2903,6 +2915,7 @@ inline Result<Activity> activity(const pp_activity_set_t *activities,
 }
 
 inline Result<JobStatus> job_status_value(const pp_job_t &native) {
+  POSTPROJECT_TRY(native_tag(native.state, PP_JOB_REQUESTED, PP_JOB_CANCELLED, "job state"));
   const JobState state = static_cast<JobState>(native.state);
   JobStatus job_status = JobRequested{};
   if (state == JobState::claimed) {
@@ -2970,6 +2983,7 @@ inline Result<Job> job(const pp_job_set_t *jobs, std::uint64_t index) {
   }
 
   POSTPROJECT_TRY_ASSIGN(auto job_status, job_status_value(native));
+  POSTPROJECT_TRY(native_tag(native.output_representation_kind, PP_REPRESENTATION_ORIGINAL, PP_REPRESENTATION_DERIVED, "job output kind"));
   return Job{job_id(native.id),
              native.kind != nullptr ? std::string(native.kind) : std::string(),
              std::move(inputs),
@@ -3019,6 +3033,7 @@ dependency_set(DependencySetHandle dependencies) {
              : std::nullopt,
          native.required != 0, std::string(native.authored_reference)});
   }
+  POSTPROJECT_TRY(native_tag(set_status, PP_DEPENDENCY_SET_CURRENT, PP_DEPENDENCY_SET_NEEDS_EXTRACTION, "dependency status"));
   return DependencySet{detail::representation_id(source_id), recorded_at_revision,
                        static_cast<DependencySetStatus>(set_status),
                        std::move(result)};
@@ -3146,6 +3161,7 @@ locator_page(LocatorQuerySetHandle locators) {
         &has_last_seen, &last_seen, &media_root, &has_naming, &naming,
         &item_error);
     POSTPROJECT_TRY(check(item_status, item_error));
+    POSTPROJECT_TRY(native_tag(availability, PP_LOCATOR_UNKNOWN, PP_LOCATOR_OFFLINE, "locator availability"));
     if (uri == nullptr) {
       return Error(ErrorCode::internal, "locator has no URI");
     }
@@ -3413,7 +3429,7 @@ revision_event(const pp_revision_event_set_t *events, std::uint64_t index) {
   case PP_REVISION_JOB_CANCELLED:
     return RevisionEvent{event.position, JobCancelledEvent{job_id(event.job_id)}};
   default:
-    return Error(ErrorCode::internal,
+    return Error(ErrorCode::unsupported,
                  "revision event has an unknown semantic kind");
   }
 }
@@ -3442,6 +3458,7 @@ resource_evidence(const pp_resolution_set_t *resolutions,
       resolutions, representation_index, resource_index, evidence_index, &kind,
       &detail, &error);
   POSTPROJECT_TRY(check(status, error));
+  POSTPROJECT_TRY(native_tag(kind, PP_EVIDENCE_KNOWN_LOCATOR_AVAILABLE, PP_EVIDENCE_SEARCH_TRUNCATED, "resolution evidence"));
   return Evidence{static_cast<EvidenceKind>(kind),
                   detail != nullptr
                       ? std::optional<std::string>(std::string(detail))
@@ -3460,6 +3477,7 @@ candidate_evidence(const pp_resolution_set_t *resolutions,
       resolutions, representation_index, resource_index, candidate_index,
       evidence_index, &kind, &detail, &error);
   POSTPROJECT_TRY(check(status, error));
+  POSTPROJECT_TRY(native_tag(kind, PP_EVIDENCE_KNOWN_LOCATOR_AVAILABLE, PP_EVIDENCE_SEARCH_TRUNCATED, "resolution evidence"));
   return Evidence{static_cast<EvidenceKind>(kind),
                   detail != nullptr
                       ? std::optional<std::string>(std::string(detail))
@@ -3636,6 +3654,7 @@ resolution_values(ResolutionSetHandle resolutions) {
       if (!detail) return Error(ErrorCode::internal, "invalid native availability issue detail");
       issues.push_back({detail::resource_id(resource_id), required != 0, std::move(*detail)});
     }
+    POSTPROJECT_TRY(native_tag(availability, PP_AVAILABILITY_ONLINE, PP_AVAILABILITY_ERROR, "representation availability"));
     result.push_back({asset_id_value(asset_id), detail::representation_id(representation_id),
                       static_cast<RepresentationAvailability>(availability),
                       std::move(resources), std::move(issues)});
@@ -3862,6 +3881,7 @@ inline Result<ArtifactEvaluation> artifact_evaluation(ArtifactEvaluationHandle e
     POSTPROJECT_TRY_ASSIGN(ArtifactReason reason, artifact_reason(native));
     reasons.push_back(std::move(reason));
   }
+  POSTPROJECT_TRY(native_tag(state, PP_ARTIFACT_CURRENT, PP_ARTIFACT_DIVERGED, "artifact knowledge"));
   return ArtifactEvaluation{
       detail::representation_id(evaluated_id), static_cast<ArtifactKnowledgeState>(state),
       visited_representations, truncated != 0, std::move(reasons)};
@@ -4791,7 +4811,7 @@ inline Result<MetadataValue> metadata_value(const pp_metadata_value_t *value) {
     return MetadataValue::reference(reference);
   }
   default:
-    return Error(ErrorCode::internal, "unknown metadata value kind");
+    return Error(ErrorCode::unsupported, "unknown metadata value kind");
   }
 }
 
@@ -4918,6 +4938,7 @@ public:
     detail::RevisionSetHandle revisions(raw_revisions);
     POSTPROJECT_TRY_ASSIGN(std::vector<Revision> items,
                            detail::revisions(revisions.get()));
+    POSTPROJECT_TRY(detail::native_tag(result, PP_REVISION_WAIT_REVISIONS, PP_REVISION_WAIT_CANCELLED, "revision wait result"));
     return RevisionWait{static_cast<RevisionWaitResult>(result),
                         std::move(items)};
   }
@@ -5137,6 +5158,7 @@ private:
     pp_error_t *error = nullptr;
     const auto status = pp_job_lease_get(lease_, &production, &job, &state, &expiry, &error);
     POSTPROJECT_TRY(detail::check(status, error));
+    POSTPROJECT_TRY(detail::native_tag(state, PP_JOB_LEASE_PENDING, PP_JOB_LEASE_CLOSED, "lease state"));
     JobLeaseState ownership;
     if (state == PP_JOB_LEASE_ACTIVE) ownership = ActiveJobLease{expiry};
     else if (state == PP_JOB_LEASE_PENDING && expiry == 0) ownership = PendingJobLease{};
@@ -5325,6 +5347,7 @@ public:
         transaction_, id, native_path.c_str(), naming.get(), &outcome,
         &error);
     POSTPROJECT_TRY(detail::check(status, error));
+    POSTPROJECT_TRY(detail::native_tag(outcome, PP_OBSERVATION_UNCHANGED, PP_OBSERVATION_FIRST, "content observation"));
     return static_cast<ContentObservationOutcome>(outcome);
   }
 
@@ -5627,8 +5650,11 @@ public:
     const pp_error_code_t status =
         pp_transaction_commit_with_receipt(transaction_, &receipt, &error);
     POSTPROJECT_TRY(detail::check(status, error));
+    POSTPROJECT_TRY(detail::native_tag(receipt.outcome, PP_COMMIT_NO_CHANGE, PP_COMMIT_REVISION_CREATED, "commit outcome; the edit is terminal"));
     CommitReceipt result{detail::production_id(receipt.production_id), std::nullopt};
     if (receipt.outcome == PP_COMMIT_REVISION_CREATED) {
+      if (receipt.revision_sequence == 0)
+        return Error(ErrorCode::internal, "commit receipt has no revision sequence");
       result.revision = CommittedRevision{detail::revision_id(receipt.revision_id),
                                          receipt.revision_sequence};
     }
@@ -6254,6 +6280,7 @@ public:
         session_, id, native_path.c_str(), naming.get(), &verification,
         &error);
     POSTPROJECT_TRY(detail::check(status, error));
+    POSTPROJECT_TRY(detail::native_tag(verification, PP_CONTENT_MATCHES, PP_CONTENT_NOT_COMPARABLE, "content verification"));
     return static_cast<ContentVerification>(verification);
   }
 
@@ -7164,6 +7191,7 @@ public:
         production_, id, native_path.c_str(), naming.get(), &verification,
         &error);
     POSTPROJECT_TRY(detail::check(status, error));
+    POSTPROJECT_TRY(detail::native_tag(verification, PP_CONTENT_MATCHES, PP_CONTENT_NOT_COMPARABLE, "content verification"));
     return static_cast<ContentVerification>(verification);
   }
 

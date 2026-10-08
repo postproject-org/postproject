@@ -8,6 +8,7 @@ from postproject import (
     AmbiguousResolutionError,
     FingerprintError,
     InternalError,
+    InvalidArgumentError,
     IoError,
     MigrationError,
     UnsupportedError,
@@ -19,6 +20,36 @@ from postproject._errors import ERROR_TYPES
 
 
 class ErrorMappingTests(unittest.TestCase):
+    def test_invalid_commit_projection_leaves_the_attempt_terminal(self) -> None:
+        for outcome, error_type in (
+            (999, UnsupportedError),
+            (_abi.PP_COMMIT_REVISION_CREATED, InternalError),
+        ):
+            native = mock.Mock()
+
+            def commit(
+                handle: object,
+                output: ctypes.c_void_p,
+                error: object,
+                *,
+                outcome: int = outcome,
+            ) -> int:
+                pointer = ctypes.cast(output, ctypes.POINTER(_abi.CommitReceipt))
+                pointer.contents.outcome = outcome
+                return 0
+
+            native.lib.pp_transaction_commit_with_receipt.side_effect = commit
+            edit = object.__new__(_production.Transaction)
+            edit._native = native
+            edit._handle = ctypes.POINTER(_abi.Transaction)()
+            edit._finalizer = mock.Mock(alive=True)
+            edit._finished = False
+            with self.assertRaises(error_type):
+                edit.commit()
+            with self.assertRaises(InvalidArgumentError):
+                edit.commit()
+            native.lib.pp_transaction_commit_with_receipt.assert_called_once()
+
     def test_missing_and_invalid_native_text_are_internal_errors(self) -> None:
         calls = (
             lambda: _production._decode_required(None, "required text"),

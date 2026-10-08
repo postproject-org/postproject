@@ -1,4 +1,4 @@
-# 0064: Python boundary error categories
+# 0064: Binding boundary error categories
 
 Status: accepted for the 0.7 development SDK.
 
@@ -13,6 +13,11 @@ its operation signatures.
 
 Ordinary Python type mistakes still raise `TypeError`; library discovery keeps
 its existing filesystem/configuration exceptions. Cleanup remains idempotent.
+The C++ decoder likewise rejects unknown closed tags with `unsupported`,
+including metadata, conflicts, jobs, resolution, artifact state and receipts.
+Open-world strings remain extensible. An inconsistent commit receipt fails
+after a terminal commit attempt; it must never be retried on that edit.
+
 The native boundary remains authoritative for operation errors. Optional
 unknown vocabulary and authored external facts continue to round-trip.
 

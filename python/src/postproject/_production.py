@@ -1895,7 +1895,12 @@ def _verify_resource(
         ctypes.byref(error),
     )
     native.check(status, error)
-    return _CONTENT_VERIFICATIONS[verification.value]
+    try:
+        return _CONTENT_VERIFICATIONS[verification.value]
+    except KeyError as error:
+        raise UnsupportedError(
+            _abi.PP_ERROR_UNSUPPORTED, "unknown content verification"
+        ) from error
 
 
 def _resolve(
@@ -3606,7 +3611,12 @@ class Transaction:
             ctypes.byref(error),
         )
         self._native.check(status, error)
-        return _CONTENT_OBSERVATION_OUTCOMES[outcome.value]
+        try:
+            return _CONTENT_OBSERVATION_OUTCOMES[outcome.value]
+        except KeyError as error:
+            raise UnsupportedError(
+                _abi.PP_ERROR_UNSUPPORTED, "unknown content observation outcome"
+            ) from error
 
     def record_representation_fingerprint(
         self, representation_id: RepresentationId, fingerprint: Fingerprint
@@ -3912,8 +3922,17 @@ class Transaction:
         self._native.check(status, error)
         revision = None
         if receipt.outcome == _abi.PP_COMMIT_REVISION_CREATED:
+            if receipt.revision_sequence == 0:
+                raise InternalError(
+                    _abi.PP_ERROR_INTERNAL, "commit receipt has no revision sequence"
+                )
             revision = CommittedRevision(
                 RevisionId(_uuid(receipt.revision_id)), int(receipt.revision_sequence)
+            )
+        elif receipt.outcome != _abi.PP_COMMIT_NO_CHANGE:
+            raise UnsupportedError(
+                _abi.PP_ERROR_UNSUPPORTED,
+                "unknown commit outcome; the edit is terminal",
             )
         return CommitReceipt(ProductionId(_uuid(receipt.production_id)), revision)
 
