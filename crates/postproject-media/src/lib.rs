@@ -17,6 +17,7 @@ mod representation_fingerprint;
 mod resolution_budget;
 mod resolver;
 mod sequence_fingerprint;
+mod sequence_presence;
 
 pub use content::{
     ContentObservation, ContentObservationOutcome, ContentVerification,

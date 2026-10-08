@@ -50,6 +50,11 @@ before the entry budget. Returned candidates retain their deterministic order;
 a truncated search can inspect only part of a directory.
 Per-directory truncation evidence remains unchanged; aggregate overflow fails
 explicitly with `Unsupported` instead of silently discarding candidates.
+Known and discovered sequence-directory observations share a separate work
+budget and poll cancellation. Incomplete directory listings fail explicitly;
+they cannot certify missing frames. Presence is derived from observed names,
+so an enormous portable frame range is never probed frame by frame before
+checking the bounded missing-frame count.
 The native stored-knowledge snapshot shares a budget across representations,
 resources, locators, fingerprints and roots before holding the combined work.
 Native resolution sets also share their copied-payload budget across all

@@ -9,9 +9,8 @@ use std::{
 
 use postproject_core::{
     CancellationToken, Confidence, ContentStructure, Error, ErrorKind, EvidenceKind, FileFacts,
-    ImageSequenceDescriptor, Locator, MAX_SEQUENCE_EXCEPTIONS, MediaRoot, ResolutionCandidate,
-    ResolutionEvidence, Resource, ResourceFingerprint, ResourceResolution, ResourceResolutionState,
-    Result, SequenceNaming,
+    ImageSequenceDescriptor, Locator, MediaRoot, ResolutionCandidate, ResolutionEvidence, Resource,
+    ResourceFingerprint, ResourceResolution, ResourceResolutionState, Result, SequenceNaming,
 };
 use walkdir::WalkDir;
 
@@ -20,6 +19,7 @@ use crate::{
     SEQUENCE_FINGERPRINT_VERSION, TechnicalMetadata, canonical_file_uri,
     fingerprint::is_file_fingerprint_domain, fingerprint_file, fingerprint_image_sequence,
     local_file_path, recognition::numbered_name, resolution_budget::ResolutionBudget,
+    sequence_presence::observe_sequence_directory,
 };
 
 /// One machine's directory mapping for a production-portable root name.
@@ -287,6 +287,18 @@ impl MediaResolver {
             )?;
         }
         for item in items {
+            if let Some(sequence) = item.structure.image_sequence_descriptor() {
+                input_budget.record(
+                    sequence.known_missing_frames().len(),
+                    size_of_val(sequence.known_missing_frames()),
+                )?;
+            }
+            if let Some(members) = item.structure.members() {
+                input_budget.record(members.len(), size_of_val(members))?;
+                for member in members {
+                    input_budget.record(0, member.role().as_str().len())?;
+                }
+            }
             input_budget.record(item.known_locators.len(), size_of_val(item.known_locators))?;
             for locator in item.known_locators {
                 input_budget.record(
@@ -314,11 +326,12 @@ impl MediaResolver {
             }
         }
         let mut index = LazyIndex::default();
+        let mut sequence_budget = ResolutionBudget::default();
         let mut output_budget = ResolutionBudget::default();
         let mut results = Vec::new();
         for item in items {
             self.check_cancelled()?;
-            let resolution = self.resolve_item(item, scope, &mut index)?;
+            let resolution = self.resolve_item(item, scope, &mut index, &mut sequence_budget)?;
             output_budget.resolution(&resolution)?;
             results.push(resolution);
         }
@@ -359,9 +372,12 @@ impl MediaResolver {
         item: &ResolutionItem<'_>,
         scope: &SearchScope,
         index: &mut LazyIndex,
+        sequence_budget: &mut ResolutionBudget,
     ) -> Result<ResourceResolution> {
         validate_resolution_inputs(item.resource, item.structure, item.known_locators)?;
-        if let Some(resolution) = self.resolve_known_resource(item, scope, index)? {
+        if let Some(resolution) =
+            self.resolve_known_resource(item, scope, index, sequence_budget)?
+        {
             return Ok(resolution);
         }
         let index = index.get(self, scope)?;
@@ -373,6 +389,7 @@ impl MediaResolver {
         item: &ResolutionItem<'_>,
         scope: &SearchScope,
         index: &mut LazyIndex,
+        sequence_budget: &mut ResolutionBudget,
     ) -> Result<Option<ResourceResolution>> {
         let resource = item.resource;
         if let Some(sequence) = item
@@ -380,17 +397,32 @@ impl MediaResolver {
             .image_sequence_descriptor()
             .filter(|sequence| sequence.resource_id() == resource.id())
         {
-            let (candidate, missing_frames) =
-                match online_sequence_candidate(item.known_locators, sequence) {
-                    Ok(Some(result)) => result,
-                    Ok(None) => {
-                        let index = index.get(self, scope)?;
-                        return self
-                            .resolve_moved_sequence(resource, sequence, item.known_locators, index)
-                            .map(Some);
-                    }
-                    Err(detail) => return error_resolution(resource.id(), detail).map(Some),
-                };
+            let (candidate, missing_frames) = match online_sequence_candidate(
+                item.known_locators,
+                sequence,
+                &self.options,
+                sequence_budget,
+            ) {
+                Ok(Some(result)) => result,
+                Ok(None) => {
+                    let index = index.get(self, scope)?;
+                    return self
+                        .resolve_moved_sequence(
+                            resource,
+                            sequence,
+                            item.known_locators,
+                            index,
+                            sequence_budget,
+                        )
+                        .map(Some);
+                }
+                Err(error)
+                    if matches!(error.kind(), ErrorKind::Unsupported | ErrorKind::Cancelled) =>
+                {
+                    return Err(error);
+                }
+                Err(error) => return error_resolution(resource.id(), error.to_string()).map(Some),
+            };
             let resolution = ResourceResolution::new(
                 resource.id(),
                 ResourceResolutionState::OnlineAtKnownLocator,
@@ -502,6 +534,7 @@ impl MediaResolver {
         descriptor: &ImageSequenceDescriptor,
         known_locators: &[Locator],
         index: &IndexState,
+        sequence_budget: &mut ResolutionBudget,
     ) -> Result<ResourceResolution> {
         let index = match index {
             IndexState::Ready(index) => index,
@@ -515,13 +548,25 @@ impl MediaResolver {
         let mut found = BTreeMap::new();
         for group in index.sequence_groups(descriptor, &recorded) {
             self.check_cancelled()?;
-            match verify_sequence_group(&group, descriptor, resource.fingerprints(), &recorded) {
+            match verify_sequence_group(
+                &group,
+                descriptor,
+                resource.fingerprints(),
+                &recorded,
+                &self.options,
+                sequence_budget,
+            ) {
                 Ok(Some(candidate)) => {
                     found
                         .entry((candidate.candidate.uri().to_owned(), group.naming.clone()))
                         .or_insert(candidate);
                 }
                 Ok(None) => {}
+                Err(error)
+                    if matches!(error.kind(), ErrorKind::Unsupported | ErrorKind::Cancelled) =>
+                {
+                    return Err(error);
+                }
                 Err(detail) => diagnostics.push(ResolutionEvidence::new(
                     EvidenceKind::DiscoveryError,
                     Some(format!("{}: {detail}", group.directory.display())),
@@ -987,7 +1032,9 @@ fn verify_sequence_group(
     descriptor: &ImageSequenceDescriptor,
     fingerprints: &[ResourceFingerprint],
     recorded: &BTreeSet<&SequenceNaming>,
-) -> std::result::Result<Option<SequenceCandidate>, String> {
+    options: &ResolverOptions,
+    budget: &mut ResolutionBudget,
+) -> Result<Option<SequenceCandidate>> {
     let SequenceGroup {
         root: root_name,
         directory,
@@ -1001,7 +1048,11 @@ fn verify_sequence_group(
     if expected.is_none() && !recorded_naming {
         return Ok(None);
     }
-    let missing_frames = sequence_missing_frames(directory, naming, descriptor)?;
+    let Some(missing_frames) =
+        observe_sequence_directory(directory, naming, descriptor, options, budget)?
+    else {
+        return Ok(None);
+    };
     if !missing_frames.is_empty() {
         return Ok(None);
     }
@@ -1016,8 +1067,7 @@ fn verify_sequence_group(
         ));
     }
     let confidence = if let Some(expected) = expected {
-        let report = fingerprint_image_sequence(directory, naming, descriptor)
-            .map_err(|error| error.to_string())?;
+        let report = fingerprint_image_sequence(directory, naming, descriptor)?;
         if report.fingerprint() != expected {
             return Ok(None);
         }
@@ -1029,21 +1079,18 @@ fn verify_sequence_group(
                 expected.version()
             )),
         ));
-        Confidence::from_basis_points(9_500).map_err(|error| error.to_string())?
+        Confidence::from_basis_points(9_500)?
     } else {
         if let Some(evidence_item) = not_verified_evidence(fingerprints) {
             evidence.push(evidence_item);
         }
-        Confidence::from_basis_points(7_000).map_err(|error| error.to_string())?
+        Confidence::from_basis_points(7_000)?
     };
-    let uri = canonical_file_uri(directory).map_err(|error| error.to_string())?;
-    let mut candidate = ResolutionCandidate::new(uri, confidence, evidence)
-        .map_err(|error| error.to_string())?
-        .with_sequence_naming(naming.clone());
+    let uri = canonical_file_uri(directory)?;
+    let mut candidate =
+        ResolutionCandidate::new(uri, confidence, evidence)?.with_sequence_naming(naming.clone());
     if let Some(root) = root_name {
-        candidate = candidate
-            .with_media_root(root)
-            .map_err(|error| error.to_string())?;
+        candidate = candidate.with_media_root(root)?;
     }
     Ok(Some(SequenceCandidate {
         candidate,
@@ -1298,7 +1345,9 @@ fn online_known_candidate(known_locators: &[Locator]) -> Result<Option<Resolutio
 fn online_sequence_candidate(
     known_locators: &[Locator],
     descriptor: &ImageSequenceDescriptor,
-) -> std::result::Result<Option<(ResolutionCandidate, Vec<i64>)>, String> {
+    options: &ResolverOptions,
+    budget: &mut ResolutionBudget,
+) -> Result<Option<(ResolutionCandidate, Vec<i64>)>> {
     let mut online = known_locators
         .iter()
         .filter_map(|locator| {
@@ -1311,14 +1360,18 @@ fn online_sequence_candidate(
     // A directory holding none of the sequence's frames under the locator's
     // naming is where the sequence was, not where it is: the sequence is
     // searched for like any moved media.
-    let Some((uri, naming, path)) = online
-        .into_iter()
-        .find(|(_, naming, path)| directory_holds_a_frame(path, naming, descriptor))
-    else {
+    let mut selected = None;
+    for (uri, naming, path) in online {
+        if let Some(missing) =
+            observe_sequence_directory(&path, naming, descriptor, options, budget)?
+        {
+            selected = Some((uri, naming, missing));
+            break;
+        }
+    }
+    let Some((uri, naming, missing_frames)) = selected else {
         return Ok(None);
     };
-
-    let missing_frames = sequence_missing_frames(&path, naming, descriptor)?;
 
     let candidate = ResolutionCandidate::new(
         uri,
@@ -1327,8 +1380,7 @@ fn online_sequence_candidate(
             EvidenceKind::KnownLocatorAvailable,
             None,
         )],
-    )
-    .map_err(|error| error.to_string())?
+    )?
     .with_sequence_naming(naming.clone());
     Ok(Some((candidate, missing_frames)))
 }
@@ -1341,60 +1393,6 @@ fn naming_pattern(naming: &SequenceNaming) -> String {
         naming.padding(),
         naming.suffix()
     )
-}
-
-fn directory_holds_a_frame(
-    path: &Path,
-    naming: &SequenceNaming,
-    descriptor: &ImageSequenceDescriptor,
-) -> bool {
-    let frames = descriptor.frames();
-    let mut frame = frames.start();
-    loop {
-        if !descriptor.is_known_missing(frame) && path.join(naming.filename(frame)).is_file() {
-            return true;
-        }
-        if frame == frames.end() {
-            return false;
-        }
-        frame += i64::from(frames.step());
-    }
-}
-
-fn sequence_missing_frames(
-    path: &Path,
-    naming: &SequenceNaming,
-    descriptor: &ImageSequenceDescriptor,
-) -> std::result::Result<Vec<i64>, String> {
-    let names = fs::read_dir(path)
-        .map_err(|error| format!("list image-sequence directory {}: {error}", path.display()))?
-        .map(|entry| {
-            entry.map(|entry| entry.file_name()).map_err(|error| {
-                format!("read image-sequence directory {}: {error}", path.display())
-            })
-        })
-        .collect::<std::result::Result<BTreeSet<_>, _>>()?;
-    let mut missing_frames = Vec::new();
-    let frames = descriptor.frames();
-    let mut frame = frames.start();
-    loop {
-        if !descriptor.is_known_missing(frame)
-            && !names.contains(OsStr::new(&naming.filename(frame)))
-        {
-            missing_frames.push(frame);
-            if missing_frames.len() > MAX_SEQUENCE_EXCEPTIONS {
-                return Err(format!(
-                    "image sequence has more than {MAX_SEQUENCE_EXCEPTIONS} missing frames"
-                ));
-            }
-        }
-        if frame == frames.end() {
-            break;
-        }
-        frame += i64::from(frames.step());
-    }
-
-    Ok(missing_frames)
 }
 
 fn verify_candidate(
