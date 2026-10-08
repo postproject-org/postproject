@@ -28,6 +28,25 @@ pub enum FailureKind {
     MirrorReadOnly,
 }
 
+impl FailureKind {
+    /// Returns the stable protocol failure code used by public adapters.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Malformed => "malformed",
+            Self::Unsupported => "unsupported",
+            Self::LimitExceeded => "limit_exceeded",
+            Self::ScopeMismatch => "scope_mismatch",
+            Self::InvalidBase => "invalid_base",
+            Self::RequestIdentityMismatch => "request_identity_mismatch",
+            Self::HistoryGap => "history_gap",
+            Self::Integrity => "integrity",
+            Self::Divergence => "divergence",
+            Self::MirrorReadOnly => "mirror_read_only",
+        }
+    }
+}
+
 /// A bounded diagnostic that never includes the input document or credentials.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ProtocolError {
