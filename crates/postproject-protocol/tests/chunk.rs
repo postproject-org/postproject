@@ -95,4 +95,58 @@ fn maximum_payload_and_extensions_fit_the_encoded_stream_limit() {
         Limits::new(MAX_RECORD_CHUNK_BYTES, 192, 8192).unwrap(),
     )
     .unwrap();
+    assert_eq!(
+        RecordChunk::from_document(&chunk.document().unwrap()).unwrap(),
+        chunk
+    );
+}
+
+#[test]
+fn strict_decoder_rejects_tampering_and_unsupported_framing() {
+    let scope = Scope::new(ProductionId::new(), HistoryId::new());
+    let revision = RevisionId::new();
+    let chunk = RecordChunk::new(scope, revision, 0, None, vec![1], Extensions::default()).unwrap();
+    let document = chunk.document().unwrap();
+    let bytes = document.canonical_bytes().unwrap();
+    assert_eq!(
+        RecordChunk::from_document(&Document::parse(&bytes, Limits::default()).unwrap()).unwrap(),
+        chunk
+    );
+    let text = String::from_utf8(bytes).unwrap();
+    for (before, after, kind) in [
+        ("AQ==", "Ag==", FailureKind::Integrity),
+        ("AQ==", "AR==", FailureKind::Malformed),
+        ("AQ==", "AQ", FailureKind::Malformed),
+        (
+            "\"version\":\"1\"",
+            "\"version\":\"2\"",
+            FailureKind::Unsupported,
+        ),
+        (
+            "record-chunks.v1",
+            "future-chunks.v1",
+            FailureKind::Unsupported,
+        ),
+        (
+            "\"index\":\"0\"",
+            "\"index\":\"01\"",
+            FailureKind::Malformed,
+        ),
+    ] {
+        let altered = text.replace(before, after);
+        let document = Document::parse(altered.as_bytes(), Limits::default()).unwrap();
+        assert_eq!(
+            RecordChunk::from_document(&document).unwrap_err().kind(),
+            kind
+        );
+    }
+    let altered = text.replace(&scope.history().to_string(), &HistoryId::new().to_string());
+    assert_eq!(
+        RecordChunk::from_document(
+            &Document::parse(altered.as_bytes(), Limits::default()).unwrap()
+        )
+        .unwrap_err()
+        .kind(),
+        FailureKind::Integrity
+    );
 }

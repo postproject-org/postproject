@@ -1,5 +1,7 @@
 //! Bounded byte continuations for one authoritative logical record.
 
+mod wire;
+
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use postproject_core::RevisionId;
 use serde_json::json;
@@ -117,5 +119,15 @@ impl RecordChunk {
         let mut document = self.unsigned_document();
         document.value["digest"] = document.digest(DigestDomain::Chunk)?.to_string().into();
         Ok(document)
+    }
+
+    /// Decodes a strict envelope and verifies its digest before returning bytes.
+    ///
+    /// # Errors
+    /// Rejects unsupported required features, malformed framing/base64, exceeded
+    /// limits and altered contents. Replay still validates the complete chain
+    /// and reconstructed domain items before applying anything.
+    pub fn from_document(document: &Document) -> Result<Self> {
+        wire::decode(document)
     }
 }
