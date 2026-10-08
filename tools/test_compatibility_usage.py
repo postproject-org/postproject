@@ -109,6 +109,16 @@ class CompatibilityUsageTests(unittest.TestCase):
     def test_leaf_evidence_does_not_qualify_its_dependency_closure(self) -> None:
         manifest = USAGE.load_manifest(ROOT / "docs" / "compatibility-families.toml")
         leaves = ("external-identifiers", "resolution")
+        # Hypothetical unchanged leaves still need their changed dependencies.
+        manifest = replace(
+            manifest,
+            families=tuple(
+                replace(family, last_changed_release=manifest.baseline_release)
+                if family.identifier in leaves
+                else family
+                for family in manifest.families
+            ),
+        )
         operations = frozenset(
             operation
             for family in manifest.families
@@ -125,10 +135,10 @@ class CompatibilityUsageTests(unittest.TestCase):
         )
         self.assertIn(
             "Ineligible required families: `asset-identity`, `production-lifecycle`, "
-            "`representation-identity`, `resolution`, `resource-identity`, `transaction-lifecycle`",
+            "`representation-identity`, `resource-identity`, `transaction-lifecycle`",
             report,
         )
-        self.assertIn("| ABI | ABI | no | no |", report)
+        self.assertIn("| ABI | ABI | yes | no |", report)
 
     def test_dependency_closure_is_transitive_and_sorted(self) -> None:
         manifest = USAGE.load_manifest(ROOT / "docs" / "compatibility-families.toml")
