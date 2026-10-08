@@ -1,5 +1,7 @@
 //! Selected resolution states cannot expose another case's payload.
 
+use postproject_core::{ContentStructure, ResourceResolution};
+
 use crate::*;
 
 #[test]
@@ -133,9 +135,8 @@ fn resolution_handle_budget_includes_all_copied_evidence() {
         .expect("copied detail");
     assert_eq!(detail.as_bytes().len(), 9 * 1024 * 1024);
     drop(retained);
-    let error = match PpResolutionSet::new(values) {
-        Ok(_) => panic!("72 MiB must not be copied into a native result"),
-        Err(error) => error,
+    let Err(error) = PpResolutionSet::new(values) else {
+        panic!("72 MiB must not be copied into a native result");
     };
     assert_eq!(error.kind(), ErrorKind::Unsupported);
 }
