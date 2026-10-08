@@ -1,0 +1,60 @@
+{
+  "scope": "Consumer push jobs; SDK runtime/header/binding source unchanged since b25e082",
+  "repositories": [
+    {
+      "repository": "postproject-openassetio-manager",
+      "commit": "ed5293c9f7fbc85d61a9658dd0909cfe036124db",
+      "run": "https://github.com/postproject-org/postproject-openassetio-manager/actions/runs/37781472329",
+      "jobs": [
+        {
+          "name": "test",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "repository": "postproject-openassetio",
+      "commit": "5e38c3189dfa6f5224371df5a84e61d852eb4348",
+      "run": "https://github.com/postproject-org/postproject-openassetio/actions/runs/37781477141",
+      "jobs": [
+        {
+          "name": "test",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "repository": "postproject-otio-openassetio",
+      "commit": "81a6ee684ac9704080d86c64fa404ca470766c86",
+      "run": "https://github.com/postproject-org/postproject-otio-openassetio/actions/runs/37781479449",
+      "jobs": [
+        {
+          "name": "test",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "repository": "postproject-python-host",
+      "commit": "c42b8b862cb53efe90a3ce5003ef78f34bfd3337",
+      "run": "https://github.com/postproject-org/postproject-python-host/actions/runs/37781483743",
+      "jobs": [
+        {
+          "name": "test",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "repository": "postproject-otio-demo",
+      "commit": "c18f5bc1a700032f3136facf96f60f2831631580",
+      "run": "https://github.com/postproject-org/postproject-otio-demo/actions/runs/37781514572",
+      "jobs": [
+        {
+          "name": "test",
+          "conclusion": "success"
+        }
+      ]
+    }
+  ]
+}
