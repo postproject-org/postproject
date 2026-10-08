@@ -12,6 +12,7 @@ Before tagging a release:
    change is recorded. The release workflow uses that section as its notes.
 2. Run `python tools/check_versions.py`, verify all workspace and fuzz
    dependency versions are locked, and confirm both `cargo deny` policies pass.
+   The version check also rejects stale package filenames in current guides.
 3. Run formatting, Clippy, tests, rustdoc, the C/C++ installed consumers, and the
    fuzz-target compile audit exactly as CI does.
 4. Run the Criterion suite and record commit, toolchain, OS, CPU, storage, and

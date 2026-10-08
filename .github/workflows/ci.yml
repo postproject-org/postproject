@@ -54,6 +54,10 @@ jobs:
       - run: ty check --project python python/src python/tests examples/python docs/examples/python
       - run: python tools/check_python_id_typing.py
       - run: python tools/check_versions.py
+      - run: python -m unittest tools/test_check_versions.py
+      - run: ruff check tools/test_check_versions.py
+      - run: ruff format --check tools/test_check_versions.py
+      - run: ty check tools/test_check_versions.py
       - run: python tools/check_architecture.py
       - run: python -m unittest tools/test_check_architecture.py
       - run: ruff check tools/check_architecture.py tools/test_check_architecture.py
