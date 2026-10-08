@@ -96,14 +96,15 @@ not selected under the documented minimum-pilot gate. The
 [acceptance report](release-0.6-report.md) records exact verification and
 release-scoped limitations. The package was published on 2026-10-04.
 
-## Release 0.7 — API safety in development
+## Release 0.7 — API safety candidate
 
-Coordinate semantic identity types and validated state alternatives across
-Rust, C, C++, Python and CLI. Add coherent reads, scoped edits, atomic commit
-receipts, authority-controlled job leases and scoped bounded queries. Migrate
-all maintained consumers and verify installed packages, documentation and
-cross-host handoffs against one candidate. Remote services and replication
-remain outside this release. The development series has not been published.
+The `0.7.0-alpha.1` candidate coordinates semantic identities, validated state
+alternatives, coherent reads, scoped edits, atomic receipts, authority-timed
+leases and bounded queries across Rust, C, C++, Python and CLI. All maintained
+consumers use C ABI 51 / schema 19, with installed packages and cross-host
+handoffs verified. The [acceptance report](release-0.7-report.md) records
+qualification and compatibility limits. The candidate is unpublished; remote
+services and replication remain outside this release.
 
 ## Explicitly later
 

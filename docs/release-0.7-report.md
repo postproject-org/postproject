@@ -36,8 +36,15 @@ Benchmarks are informational; no hard latency claim applies.
 
 All maintained consumers use the installed candidate. The
 {doc}`api-safety-repositories` records commits, artifacts, checksums, commands
-and scope. Platform/package and full-host CI qualification is in progress;
-release readiness is not yet claimed.
+and scope. All 16 [SDK CI jobs](https://github.com/postproject-org/postproject/actions/runs/37800227404)
+pass at `9a068ef`, including Linux/macOS/Windows packages and the glibc 2.28
+wheel. All ten [downstream jobs](https://github.com/postproject-org/postproject/actions/runs/37789356724)
+pass at `42b9f9d`; later SDK changes affect examples/tests/tools/docs, with
+runtime, headers and bindings unchanged since `b25e082`.
+[Kdenlive’s final ten-patch series](https://github.com/postproject-org/postproject-kdenlive/actions/runs/37799419496)
+and the [SDK full-host workflow](https://github.com/postproject-org/postproject/actions/runs/37799941558)
+pass with/without PostProject and repeat the shared-host handoff.
+The coordinated candidate is release-ready.
 
 Both required handoffs pass locally. OBS 32.2.2 records a finalized output;
 Blender 5.2.2 adopts the original asset, preserves capture provenance, resolves
@@ -64,7 +71,10 @@ cross-series binary replacement is named.
 SDK and consumer changes are on GitHub `main`; the landing site retains
 published 0.6 links. Core artifacts precede consumer package publication;
 Manager 0.4 precedes the demo that requires it. Matching candidate artifacts
-already qualify consumers without a circular release dependency.
+already qualify consumers without a circular release dependency. Source and
+native review archives plus checksums are prepared using committed source,
+CMake install rules and verified platform prefixes. The review Linux archives
+make no manylinux claim; the separate glibc 2.28 wheel CI supplies that evidence.
 
 No release tag or package publication has occurred. Tagging and publication
 require explicit authorization and the checks in {doc}`releasing`; published

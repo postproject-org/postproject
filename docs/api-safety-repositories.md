@@ -37,7 +37,7 @@ a different platform or a later runtime change.
 ## Installed candidate
 
 The Linux release library, static library and CLI were rebuilt at `b25e082`
-into `target/qualification-abi51-install`. Later commits change tests,
+into `target/qualification-abi51-install`. Later commits change examples, tests,
 verification tools and documentation. Both installed headers match current
 source byte for byte; all 322 exported symbols match the manifest.
 
@@ -92,7 +92,7 @@ At SDK `9a068ef`, all 16 individual jobs pass in [SDK CI](https://github.com/pos
 At `42b9f9d`, [downstream CI](https://github.com/postproject-org/postproject/actions/runs/37789356724)
 (10 jobs) pass, as does [documentation deployment](https://github.com/postproject-org/postproject/actions/runs/37789355708).
 [Flatpak](https://github.com/postproject-org/postproject/actions/runs/37780003984)
-passes at `6f14a3b`; subsequent SDK changes affect tests, tools and docs.
+passes at `6f14a3b`; subsequent SDK changes affect examples, tests, tools and docs.
 
 Consumer push jobs pass for Manager, both validation experiments, Python host,
 C++ NLE, Ardour, OBS, Natron and the OTIO demo. Blender’s required lint/5.2.2 jobs
@@ -106,3 +106,10 @@ source; native archives use the CMake install rules. Downloaded Linux/macOS/
 Windows prefixes come from the passing `9a068ef` SDK run. Linux review archives
 make no manylinux claim; the separate glibc 2.28 wheel CI passes. Published
 release artifacts will be produced from their authorized tag.
+
+The [SDK Kdenlive workflow](https://github.com/postproject-org/postproject/actions/runs/37799941558)
+also passes both full builds and shared-host acceptance at `e60b1e9`.
+[Documentation build/deploy](https://github.com/postproject-org/postproject/actions/runs/37800227539)
+passes at `9a068ef`; released references remain built from their signed tags.
+Individual SDK and consumer job conclusions are retained beside the
+[trace manifest](evidence/release-0.7/manifest.json) as `*-ci.json` files.
