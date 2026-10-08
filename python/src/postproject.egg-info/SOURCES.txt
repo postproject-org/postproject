@@ -14,9 +14,11 @@ src/postproject.egg-info/SOURCES.txt
 src/postproject.egg-info/dependency_links.txt
 src/postproject.egg-info/requires.txt
 src/postproject.egg-info/top_level.txt
+tests/test_artifact_values.py
 tests/test_changes.py
 tests/test_commit_receipts.py
 tests/test_content_observations.py
+tests/test_content_values.py
 tests/test_errors.py
 tests/test_id_values.py
 tests/test_job_leases.py
@@ -26,6 +28,7 @@ tests/test_native.py
 tests/test_production.py
 tests/test_query_bounds.py
 tests/test_read_sessions.py
+tests/test_resolution_values.py
 tests/test_root_edits.py
 tests/typing_ids.py
 typing/wrong_ids.py.fail

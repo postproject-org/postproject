@@ -26,7 +26,7 @@ must not already exist.
 For an application target, consume the same package normally:
 
 ```cmake
-find_package(PostProject 0.5 REQUIRED CONFIG)
+find_package(PostProject 0.7 REQUIRED CONFIG)
 target_link_libraries(my_application PRIVATE PostProject::postproject)
 ```
 
