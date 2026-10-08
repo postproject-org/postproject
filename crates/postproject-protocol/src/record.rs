@@ -1,5 +1,7 @@
 //! Bounded manifests binding original revisions to complete chunk chains.
 
+mod wire;
+
 use postproject_core::Revision;
 use serde_json::json;
 
@@ -23,6 +25,14 @@ pub struct RecordManifest {
 }
 
 impl RecordManifest {
+    /// Decodes a bounded header, checking both logical and manifest integrity.
+    ///
+    /// # Errors
+    /// Rejects invalid fields, unsupported features and altered commitments.
+    pub fn from_document(document: &Document) -> Result<Self> {
+        wire::decode(document)
+    }
+
     /// Constructs the next record in an explicitly scoped source history.
     ///
     /// # Errors

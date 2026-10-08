@@ -69,8 +69,11 @@ Contexts are exactly `postproject.exchange.v1.` followed by `request`, `record`,
 `chunk`, `manifest`, `anchor` or `state`. Wire digests are 64 lowercase hex digits.
 The digest-bearing object's own `digest` field is excluded; every other field,
 including required features, predecessor and extensions, is included. A record
-manifest includes ordered chunk descriptors/digests; each chunk includes its
-scope, logical record identity, index and contents. A checkpoint manifest has a
+manifest binds the original revision and predecessor, effect/event counts and a
+chunk summary: exact count, reconstructed byte count and final chained digest.
+Each chunk binds its scope, revision, index, preceding chunk digest and contents.
+The first chunk has a null predecessor. This keeps record headers bounded even
+for very large native commits. A checkpoint manifest has a
 separate identity/digest from its stable source continuation anchor.
 
 Unknown critical fields/tags/required features reject atomically. Extensions are
@@ -85,6 +88,13 @@ Defaults: 64 MiB per proposal, 1,000 proposal commands, 32 MiB per encoded chunk
 remain authoritative, including metadata's 32 levels and 15 MiB aggregate value.
 Callers may lower codec limits; exceeding them reports `limit_exceeded`.
 Native transaction size has no proposal-command cap.
+
+Record chunks carry at most 16 MiB of raw bytes as padded base64, leaving room
+for their envelope within the 32 MiB encoded limit. A fragment may split UTF-8
+or a domain item; validate reconstructed domain items before replay. A logical
+record digest covers its unsigned manifest in the `record` domain. Its manifest
+digest covers that header plus `record_digest` in the `manifest` domain. Complete
+chunk framing alone does not prove valid domain state.
 
 Large logical records use a manifest and ordered bounded effect chunks. Large
 aggregate/binary fields use declared ordered continuations with exact totals and

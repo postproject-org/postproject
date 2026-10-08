@@ -157,3 +157,81 @@ fn super_revision(original: &Revision, sequence: u64) -> Revision {
     )
     .unwrap()
 }
+
+#[test]
+fn manifest_decoder_checks_features_exact_fields_and_both_digests() {
+    use postproject_protocol::{ChunkSummary, Document, Limits};
+    let scope = Scope::new(ProductionId::new(), HistoryId::new());
+    let predecessor = Position::new(scope, None, 0, Digest::from_bytes([7; 32])).unwrap();
+    let extensions = Extensions::new(
+        Document::parse(
+            br#"{"urn:extra":["future","9007199254740993"]}"#,
+            Limits::default(),
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    let manifest = RecordManifest::new(
+        predecessor,
+        revision(1),
+        ChunkSummary::new(1, 1, Digest::from_bytes([9; 32])).unwrap(),
+        1,
+        1,
+        extensions,
+    )
+    .unwrap();
+    let document = manifest.document().unwrap();
+    let bytes = document.canonical_bytes().unwrap();
+    assert_eq!(
+        RecordManifest::from_document(&Document::parse(&bytes, Limits::default()).unwrap())
+            .unwrap(),
+        manifest
+    );
+    let text = String::from_utf8(bytes).unwrap();
+    for (before, after, kind) in [
+        (
+            "Original context",
+            "Changed context",
+            FailureKind::Integrity,
+        ),
+        ("future", "altered", FailureKind::Integrity),
+        (
+            "\"events\":\"1\"",
+            "\"events\":\"2\"",
+            FailureKind::Integrity,
+        ),
+        (
+            "\"events\":\"1\"",
+            "\"events\":\"01\"",
+            FailureKind::Malformed,
+        ),
+        ("metadata.v1", "future.v1", FailureKind::Unsupported),
+        (
+            "\"version\":\"1\"",
+            "\"version\":\"2\"",
+            FailureKind::Unsupported,
+        ),
+        (
+            "\"effects\":\"1\"",
+            "\"effects\":\"1\",\"unexpected\":null",
+            FailureKind::Malformed,
+        ),
+    ] {
+        let changed = text.replace(before, after);
+        let document = Document::parse(changed.as_bytes(), Limits::default()).unwrap();
+        assert_eq!(
+            RecordManifest::from_document(&document).unwrap_err().kind(),
+            kind
+        );
+    }
+    for field in ["digest", "record_digest"] {
+        let mut altered: serde_json::Value = serde_json::from_str(&text).unwrap();
+        altered[field] = Digest::from_bytes([1; 32]).to_string().into();
+        let document =
+            Document::parse(&serde_json::to_vec(&altered).unwrap(), Limits::default()).unwrap();
+        assert_eq!(
+            RecordManifest::from_document(&document).unwrap_err().kind(),
+            FailureKind::Integrity
+        );
+    }
+}
