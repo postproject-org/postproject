@@ -35,6 +35,17 @@ pub(crate) fn text(value: &Value) -> Result<&str> {
     value.as_str().ok_or_else(malformed)
 }
 
+pub(crate) fn nullable<T>(
+    value: &Value,
+    decode: impl FnOnce(&Value) -> Result<T>,
+) -> Result<Option<T>> {
+    if value.is_null() {
+        Ok(None)
+    } else {
+        decode(value).map(Some)
+    }
+}
+
 pub(crate) fn bounded_text(value: &Value, max: usize) -> Result<&str> {
     let text = text(value)?;
     if text.len() > max {
