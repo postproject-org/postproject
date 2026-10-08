@@ -4753,6 +4753,11 @@ pub unsafe extern "C" fn pp_resolution_set_get_issue_frame(
             require_output(out_frame, "out_frame")?;
             let representation = representation_resolution_at(resolutions, representation_index)?;
             let issue = item_at(&representation.issues, issue_index, "availability issue")?;
+            if issue.kind() != AvailabilityIssueKind::MissingFrames {
+                return Err(invalid_argument(
+                    "availability issue does not carry missing frames",
+                ));
+            }
             let frame = item_at(issue.frames(), frame_index, "missing frame")?;
             out_frame.write(*frame);
             Ok(())

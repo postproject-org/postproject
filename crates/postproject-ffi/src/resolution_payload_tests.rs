@@ -140,3 +140,41 @@ fn resolution_handle_budget_includes_all_copied_evidence() {
     };
     assert_eq!(error.kind(), ErrorKind::Unsupported);
 }
+
+#[test]
+fn non_frame_issues_refuse_frame_projection_and_clear_output() {
+    for state in [
+        ResourceResolutionState::Offline,
+        ResourceResolutionState::Error,
+    ] {
+        let id = ResourceId::new();
+        let resource = ResourceResolution::new(id, state, Vec::new(), Vec::new())
+            .expect("valid resource resolution");
+        let representation = RepresentationResolution::aggregate(
+            RepresentationId::new(),
+            &ContentStructure::single_resource(id),
+            vec![resource],
+        )
+        .expect("valid aggregate");
+        let resolutions = PpResolutionSet::new(vec![(AssetId::new(), representation)])
+            .expect("bounded native result");
+        let mut frame = 99;
+        let mut error = ptr::null_mut();
+        // SAFETY: The borrowed set remains live and every output is writable.
+        let status = unsafe {
+            pp_resolution_set_get_issue_frame(
+                &raw const resolutions,
+                0,
+                0,
+                0,
+                &raw mut frame,
+                &raw mut error,
+            )
+        };
+        assert_eq!(status, PP_ERROR_INVALID_ARGUMENT);
+        assert_eq!(frame, 0);
+        assert!(!error.is_null());
+        // SAFETY: Release the one owned error returned on failure.
+        unsafe { pp_error_release(error) };
+    }
+}

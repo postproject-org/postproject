@@ -1584,6 +1584,8 @@ PP_API pp_error_code_t pp_resolution_set_get_issue(
     uint64_t issue_index, pp_resource_id_t *out_resource_id, uint8_t *out_required,
     pp_availability_issue_kind_t *out_kind, uint64_t *out_frame_count,
     pp_error_t **out_error);
+/* Only PP_AVAILABILITY_ISSUE_MISSING_FRAMES carries frames. Other kinds
+ * return PP_ERROR_INVALID_ARGUMENT and clear out_frame. */
 PP_API pp_error_code_t pp_resolution_set_get_issue_frame(
     const pp_resolution_set_t *resolutions, uint64_t representation_index,
     uint64_t issue_index, uint64_t frame_index, int64_t *out_frame,

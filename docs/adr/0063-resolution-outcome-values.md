@@ -37,7 +37,10 @@ their accessor. Borrowed values last until the resolution set is released.
 Availability diagnostics likewise carry one detail case: offline, ambiguous,
 resource error or missing frames. Only `MissingSequenceFrames` owns frame
 numbers, with a nonempty bounded canonical list. Python's `detail` union keeps
-`kind` and `frames` as derived display properties.
+`kind` and `frames` as derived display properties. C++
+`AvailabilityIssueDetail::create` checks a private variant; `value()` borrows
+its case. `AvailabilityIssue::kind()` and `frames()` derive from that detail.
+Its copy/move policy matches the resolution outcome.
 
 This changes no schema, persisted identity, locator encoding or standards
 mapping. Candidate URIs and authored evidence retain their existing meaning.

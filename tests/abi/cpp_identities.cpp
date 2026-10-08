@@ -8,6 +8,9 @@
 static_assert(!std::is_aggregate_v<postproject::ObjectRef>);
 static_assert(!std::is_aggregate_v<postproject::RepresentationContent>);
 static_assert(!std::is_aggregate_v<postproject::ResolutionOutcome>);
+static_assert(!std::is_aggregate_v<postproject::AvailabilityIssueDetail>);
+static_assert(std::is_same_v<decltype(std::declval<const postproject::AvailabilityIssueDetail &>().value()),
+                             const postproject::AvailabilityIssuePayload &>);
 static_assert(std::is_same_v<decltype(std::declval<const postproject::ResolutionOutcome &>().value()),
                              const postproject::ResolutionOutcomeValue &>);
 static_assert(std::is_same_v<decltype(std::declval<const postproject::ResolutionOutcome &>().candidates()),
@@ -125,6 +128,15 @@ int main() {
       detail::required_artifact_bytes(0, artifact_bytes, 2).has_value() ||
       detail::required_artifact_bytes(1, artifact_bytes, 0).has_value() ||
       detail::required_artifact_bytes(1, artifact_bytes, 16 * 1024 * 1024 + 1).has_value()) return 37;
+  auto frame_details = AvailabilityIssueDetail::create(MissingSequenceFrames{{1003, 1001, 1003}}).value();
+  if (frame_details.frames() != std::vector<std::int64_t>{1001, 1003} ||
+      frame_details.kind() != AvailabilityIssueKind::missing_frames ||
+      !std::holds_alternative<MissingSequenceFrames>(frame_details.value())) return 38;
+  if (AvailabilityIssueDetail::create(MissingSequenceFrames{{}}).has_value() ||
+      AvailabilityIssueDetail::create(MissingSequenceFrames{std::vector<std::int64_t>(100001, 1)}).has_value()) return 39;
+  if (!AvailabilityIssueDetail::create(OfflineResourceIssue{}).value().frames().empty() ||
+      !AvailabilityIssueDetail::create(AmbiguousResourceIssue{}).value().frames().empty() ||
+      !AvailabilityIssueDetail::create(ResourceErrorIssue{}).value().frames().empty()) return 40;
   ResolutionCandidate candidate{"file:///a.mov", 10000, std::nullopt, std::nullopt,
                                 {{EvidenceKind::full_hash_match, std::nullopt}}};
   auto candidates = std::vector<ResolutionCandidate>{candidate};

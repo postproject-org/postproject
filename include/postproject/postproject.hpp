@@ -1985,11 +1985,58 @@ struct ResourceResolution final {
   [[nodiscard]] const std::vector<ResolutionCandidate> &candidates() const noexcept { return outcome.candidates(); }
 };
 
+struct OfflineResourceIssue final {};
+struct AmbiguousResourceIssue final {};
+struct ResourceErrorIssue final {};
+struct MissingSequenceFrames final { std::vector<std::int64_t> frames; };
+using AvailabilityIssuePayload = std::variant<
+    OfflineResourceIssue, AmbiguousResourceIssue, ResourceErrorIssue, MissingSequenceFrames>;
+
+/// Owned availability detail; only the missing-frame case has a frame payload.
+class AvailabilityIssueDetail final {
+public:
+  [[nodiscard]] static Result<AvailabilityIssueDetail> create(AvailabilityIssuePayload value) {
+    if (value.valueless_by_exception())
+      return Error(ErrorCode::invalid_argument, "availability issue has no detail");
+    if (auto *missing = std::get_if<MissingSequenceFrames>(&value)) {
+      if (missing->frames.empty() || missing->frames.size() > 100000)
+        return Error(ErrorCode::invalid_argument, "missing-frame issue requires 1..100000 frames");
+      std::sort(missing->frames.begin(), missing->frames.end());
+      missing->frames.erase(std::unique(missing->frames.begin(), missing->frames.end()), missing->frames.end());
+    }
+    return AvailabilityIssueDetail(std::move(value));
+  }
+  AvailabilityIssueDetail(const AvailabilityIssueDetail &) = default;
+  AvailabilityIssueDetail(AvailabilityIssueDetail &&) noexcept = default;
+  AvailabilityIssueDetail &operator=(const AvailabilityIssueDetail &other) {
+    AvailabilityIssueDetail copy(other);
+    return *this = std::move(copy);
+  }
+  AvailabilityIssueDetail &operator=(AvailabilityIssueDetail &&) noexcept = default;
+  [[nodiscard]] const AvailabilityIssuePayload &value() const noexcept { return value_; }
+  [[nodiscard]] AvailabilityIssueKind kind() const noexcept {
+    if (std::holds_alternative<OfflineResourceIssue>(value_)) return AvailabilityIssueKind::offline_resource;
+    if (std::holds_alternative<AmbiguousResourceIssue>(value_)) return AvailabilityIssueKind::ambiguous_resource;
+    if (std::holds_alternative<ResourceErrorIssue>(value_)) return AvailabilityIssueKind::resource_error;
+    return AvailabilityIssueKind::missing_frames;
+  }
+  [[nodiscard]] const std::vector<std::int64_t> &frames() const noexcept {
+    if (const auto *missing = std::get_if<MissingSequenceFrames>(&value_)) return missing->frames;
+    static const std::vector<std::int64_t> empty;
+    return empty;
+  }
+
+private:
+  explicit AvailabilityIssueDetail(AvailabilityIssuePayload value) : value_(std::move(value)) {}
+  AvailabilityIssuePayload value_;
+};
+
 struct AvailabilityIssue final {
   ResourceId resource_id;
   bool required;
-  AvailabilityIssueKind kind;
-  std::vector<std::int64_t> frames;
+  AvailabilityIssueDetail detail;
+  [[nodiscard]] AvailabilityIssueKind kind() const noexcept { return detail.kind(); }
+  [[nodiscard]] const std::vector<std::int64_t> &frames() const noexcept { return detail.frames(); }
 };
 
 struct RepresentationResolution final {
@@ -3557,6 +3604,11 @@ resolution_values(ResolutionSetHandle resolutions) {
           resolutions.get(), representation_index, issue_index, &resource_id,
           &required, &kind, &frame_count, &issue_error);
       POSTPROJECT_TRY(check(issue_status, issue_error));
+      if (kind < PP_AVAILABILITY_ISSUE_OFFLINE_RESOURCE || kind > PP_AVAILABILITY_ISSUE_MISSING_FRAMES)
+        return Error(ErrorCode::unsupported, "unknown availability issue kind");
+      if (frame_count > 100000 ||
+          (kind != PP_AVAILABILITY_ISSUE_MISSING_FRAMES && frame_count != 0))
+        return Error(ErrorCode::internal, "availability issue carries unrelated or oversized frames");
       std::vector<std::int64_t> frames;
       for (std::uint64_t frame_index = 0; frame_index < frame_count;
            ++frame_index) {
@@ -3569,9 +3621,20 @@ resolution_values(ResolutionSetHandle resolutions) {
         POSTPROJECT_TRY(check(frame_status, frame_error));
         frames.push_back(frame);
       }
-      issues.push_back({detail::resource_id(resource_id), required != 0,
-                        static_cast<AvailabilityIssueKind>(kind),
-                        std::move(frames)});
+      auto detail = [&]() -> Result<AvailabilityIssueDetail> {
+        switch (kind) {
+        case PP_AVAILABILITY_ISSUE_OFFLINE_RESOURCE:
+          return AvailabilityIssueDetail::create(OfflineResourceIssue{});
+        case PP_AVAILABILITY_ISSUE_AMBIGUOUS_RESOURCE:
+          return AvailabilityIssueDetail::create(AmbiguousResourceIssue{});
+        case PP_AVAILABILITY_ISSUE_RESOURCE_ERROR:
+          return AvailabilityIssueDetail::create(ResourceErrorIssue{});
+        default:
+          return AvailabilityIssueDetail::create(MissingSequenceFrames{std::move(frames)});
+        }
+      }();
+      if (!detail) return Error(ErrorCode::internal, "invalid native availability issue detail");
+      issues.push_back({detail::resource_id(resource_id), required != 0, std::move(*detail)});
     }
     result.push_back({asset_id_value(asset_id), detail::representation_id(representation_id),
                       static_cast<RepresentationAvailability>(availability),

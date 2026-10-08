@@ -397,10 +397,10 @@ report_issues(const postproject::Production &production,
   std::vector<postproject::AvailabilityIssue> all;
   for (const auto &representation : production.resolveAsset(asset_id).value()) {
     for (const auto &issue : representation.issues) {
-      std::cout << "issue " << static_cast<std::uint32_t>(issue.kind)
+      std::cout << "issue " << static_cast<std::uint32_t>(issue.kind())
                 << (issue.required ? " (required)" : "") << ", frames:";
-      for (const auto frame : issue.frames) {
-        std::cout << ' ' << frame;
+      if (const auto *missing = std::get_if<postproject::MissingSequenceFrames>(&issue.detail.value())) {
+        for (const auto frame : missing->frames) std::cout << ' ' << frame;
       }
       std::cout << '\n';
       all.push_back(issue);
@@ -576,9 +576,9 @@ int main(int argc, char **argv) {
         std::any_of(
             issues.begin(), issues.end(),
             [](const postproject::AvailabilityIssue &issue) {
-              return issue.kind ==
+              return issue.kind() ==
                          postproject::AvailabilityIssueKind::missing_frames &&
-                     issue.frames == std::vector<std::int64_t>{1003};
+                     issue.frames() == std::vector<std::int64_t>{1003};
             }),
         "missing frame issue");
 
