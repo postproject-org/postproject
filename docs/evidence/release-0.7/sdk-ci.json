@@ -1,0 +1,87 @@
+{
+  "conclusion": "success",
+  "headSha": "42b9f9d173fa3ae62dd69017eb5948783c045efb",
+  "jobs": [
+    {
+      "name": "Minimum Rust 1.85",
+      "conclusion": "success",
+      "url": "https://github.com/postproject-org/postproject/actions/runs/37789355697/job/113352277406"
+    },
+    {
+      "name": "Python wheel",
+      "conclusion": "success",
+      "url": "https://github.com/postproject-org/postproject/actions/runs/37789355697/job/113352277768"
+    },
+    {
+      "name": "C++ header with current compilers",
+      "conclusion": "success",
+      "url": "https://github.com/postproject-org/postproject/actions/runs/37789355697/job/113352277806"
+    },
+    {
+      "name": "Native package (windows-latest)",
+      "conclusion": "success",
+      "url": "https://github.com/postproject-org/postproject/actions/runs/37789355697/job/113352277821"
+    },
+    {
+      "name": "Dependency policy",
+      "conclusion": "success",
+      "url": "https://github.com/postproject-org/postproject/actions/runs/37789355697/job/113352277835"
+    },
+    {
+      "name": "Formatting, lints, and documentation",
+      "conclusion": "success",
+      "url": "https://github.com/postproject-org/postproject/actions/runs/37789355697/job/113352277893"
+    },
+    {
+      "name": "Test (ubuntu-latest)",
+      "conclusion": "success",
+      "url": "https://github.com/postproject-org/postproject/actions/runs/37789355697/job/113352277959"
+    },
+    {
+      "name": "Linux platform wheel (glibc 2.28)",
+      "conclusion": "success",
+      "url": "https://github.com/postproject-org/postproject/actions/runs/37789355697/job/113352278020"
+    },
+    {
+      "name": "Native ASan and UBSan",
+      "conclusion": "success",
+      "url": "https://github.com/postproject-org/postproject/actions/runs/37789355697/job/113352278051"
+    },
+    {
+      "name": "Native package (ubuntu-latest)",
+      "conclusion": "success",
+      "url": "https://github.com/postproject-org/postproject/actions/runs/37789355697/job/113352278078"
+    },
+    {
+      "name": "Native package (macos-latest)",
+      "conclusion": "success",
+      "url": "https://github.com/postproject-org/postproject/actions/runs/37789355697/job/113352278089"
+    },
+    {
+      "name": "Reference executor (real FFmpeg)",
+      "conclusion": "success",
+      "url": "https://github.com/postproject-org/postproject/actions/runs/37789355697/job/113352278154"
+    },
+    {
+      "name": "Test (windows-latest)",
+      "conclusion": "success",
+      "url": "https://github.com/postproject-org/postproject/actions/runs/37789355697/job/113352278169"
+    },
+    {
+      "name": "Test (macos-latest)",
+      "conclusion": "success",
+      "url": "https://github.com/postproject-org/postproject/actions/runs/37789355697/job/113352278220"
+    },
+    {
+      "name": "Unified documentation and links",
+      "conclusion": "success",
+      "url": "https://github.com/postproject-org/postproject/actions/runs/37789355697/job/113352278325"
+    },
+    {
+      "name": "C ABI smoke test",
+      "conclusion": "success",
+      "url": "https://github.com/postproject-org/postproject/actions/runs/37789355697/job/113352278427"
+    }
+  ],
+  "url": "https://github.com/postproject-org/postproject/actions/runs/37789355697"
+}
