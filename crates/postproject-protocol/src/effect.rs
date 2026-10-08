@@ -1,5 +1,9 @@
 //! Authoritative facts are distinct from client command intent.
 
+mod stream;
+
+pub use stream::{MetadataEffectStart, MetadataOperation};
+
 use postproject_core::{MetadataProperty, MetadataValue, ObjectRef};
 use serde_json::{Value, json};
 

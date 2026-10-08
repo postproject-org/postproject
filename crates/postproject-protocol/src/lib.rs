@@ -28,7 +28,7 @@ pub use chunk::{
 pub use command::Command;
 pub use conflict::{decode_transaction_conflict, encode_transaction_conflict};
 pub use digest::{Digest, DigestDomain};
-pub use effect::{MetadataChange, MetadataEffect};
+pub use effect::{MetadataChange, MetadataEffect, MetadataEffectStart, MetadataOperation};
 pub use error::{FailureKind, ProtocolError, Result};
 pub use extensions::Extensions;
 pub use json::{Document, Limits};
