@@ -210,3 +210,9 @@ share — retire it explicitly. The resource and its identity are unaffected:
 Retiring a resource's only locator makes its representation show up in the
 knowledge-only [unresolved-media query](bounded-queries.md) until a new
 location is confirmed.
+
+Python resource results expose `outcome`, a frozen case such as
+`ResourceResolvedExact`, `ResourceAmbiguous` or `ResourceOffline`.
+Use `isinstance` to inspect the applicable payload. `state` and `candidates`
+are derived properties; an ambiguous result always contains at least two
+candidates. Candidate evidence is copied into owned tuples.

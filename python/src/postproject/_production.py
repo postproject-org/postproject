@@ -77,7 +77,7 @@ from ._abi import (
     Transaction as NativeTransaction,
 )
 from ._artifact import read_evaluation, read_reproducibility
-from ._errors import InternalError, InvalidArgumentError
+from ._errors import InternalError, InvalidArgumentError, UnsupportedError
 from ._model import (
     ActiveJobLease,
     Activity,
@@ -198,14 +198,21 @@ from ._model import (
     RepresentationResourceAddedEvent,
     ResolutionCandidate,
     ResolutionEvidence,
+    ResolutionOutcome,
     Resource,
     ResourceAddedEvent,
+    ResourceAmbiguous,
     ResourceFileFactsObservedEvent,
     ResourceFingerprintObservedEvent,
     ResourceId,
+    ResourceOffline,
+    ResourceOnlineAtKnownLocator,
     ResourceRef,
     ResourceResolution,
+    ResourceResolutionFailure,
     ResourceResolutionState,
+    ResourceResolvedExact,
+    ResourceResolvedProbable,
     Revision,
     RevisionContext,
     RevisionEvent,
@@ -5540,8 +5547,7 @@ def _resource_resolution_at(
         ctypes.byref(error),
     )
     native.check(status, error)
-    return ResourceResolution(
-        ResourceId(_uuid(resource_id)),
+    outcome = _resolution_outcome(
         _resource_resolution_state(int(state.value)),
         tuple(
             _resolution_candidate_at(
@@ -5553,6 +5559,10 @@ def _resource_resolution_at(
             )
             for candidate_index in range(int(candidate_count.value))
         ),
+    )
+    return ResourceResolution(
+        ResourceId(_uuid(resource_id)),
+        outcome,
         tuple(
             _resource_evidence_at(
                 native,
@@ -5563,6 +5573,36 @@ def _resource_resolution_at(
             )
             for evidence_index in range(int(evidence_count.value))
         ),
+    )
+
+
+def _resolution_outcome(
+    state: ResourceResolutionState, candidates: tuple[ResolutionCandidate, ...]
+) -> ResolutionOutcome:
+    if (
+        state
+        in (
+            ResourceResolutionState.ONLINE_AT_KNOWN_LOCATOR,
+            ResourceResolutionState.RESOLVED_EXACT,
+            ResourceResolutionState.RESOLVED_PROBABLE,
+        )
+        and len(candidates) == 1
+    ):
+        (candidate,) = candidates
+        if state is ResourceResolutionState.ONLINE_AT_KNOWN_LOCATOR:
+            return ResourceOnlineAtKnownLocator(candidate)
+        if state is ResourceResolutionState.RESOLVED_EXACT:
+            return ResourceResolvedExact(candidate)
+        return ResourceResolvedProbable(candidate)
+    if state is ResourceResolutionState.AMBIGUOUS and len(candidates) >= 2:
+        return ResourceAmbiguous(candidates)
+    if not candidates:
+        if state is ResourceResolutionState.OFFLINE:
+            return ResourceOffline()
+        if state is ResourceResolutionState.ERROR:
+            return ResourceResolutionFailure()
+    raise InternalError(
+        _abi.PP_ERROR_INTERNAL, "resolution state and candidate count disagree"
     )
 
 
@@ -6242,7 +6282,9 @@ def _resource_resolution_state(value: int) -> ResourceResolutionState:
         _abi.PP_RESOURCE_RESOLUTION_ERROR: ResourceResolutionState.ERROR,
     }.get(value)
     if result is None:
-        raise RuntimeError("resolution has an unknown resource state")
+        raise UnsupportedError(
+            _abi.PP_ERROR_UNSUPPORTED, "resolution has an unknown resource state"
+        )
     return result
 
 

@@ -1314,8 +1314,27 @@ class EvidenceKind(Enum):
 
 @dataclass(frozen=True, slots=True)
 class ResolutionEvidence:
+    """Copied diagnostic evidence with a known category."""
+
     kind: EvidenceKind
     detail: str | None = None
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.kind, EvidenceKind):
+            raise TypeError("evidence kind must be an EvidenceKind")
+        if self.detail is not None and not isinstance(self.detail, str):
+            raise TypeError("evidence detail must be text or None")
+
+
+def _resolution_evidence(
+    supplied: Iterable[ResolutionEvidence],
+) -> tuple[ResolutionEvidence, ...]:
+    evidence = tuple(islice(supplied, 100_001))
+    if len(evidence) > 100_000:
+        raise ValueError("resolution evidence exceeds 100000 items")
+    if any(not isinstance(item, ResolutionEvidence) for item in evidence):
+        raise TypeError("resolution evidence must contain ResolutionEvidence values")
+    return evidence
 
 
 @dataclass(frozen=True, slots=True)
@@ -1330,13 +1349,137 @@ class ResolutionCandidate:
     sequence_naming: SequenceNaming | None
     evidence: tuple[ResolutionEvidence, ...]
 
+    def __post_init__(self) -> None:
+        if not isinstance(self.uri, str) or not self.uri:
+            raise TypeError("candidate URI must be nonempty text")
+        if isinstance(self.confidence_basis_points, bool) or not isinstance(
+            self.confidence_basis_points, int
+        ):
+            raise TypeError("candidate confidence must be an integer")
+        if not 0 <= self.confidence_basis_points <= 10_000:
+            raise ValueError("candidate confidence must be in 0..10000")
+        if self.media_root is not None and not isinstance(self.media_root, str):
+            raise TypeError("candidate media root must be text or None")
+        if self.sequence_naming is not None and not isinstance(
+            self.sequence_naming, SequenceNaming
+        ):
+            raise TypeError("candidate naming must be SequenceNaming or None")
+        evidence = _resolution_evidence(self.evidence)
+        if not evidence:
+            raise ValueError("candidate must contain evidence")
+        object.__setattr__(self, "evidence", evidence)
+
+
+@dataclass(frozen=True, slots=True)
+class _SingleResolutionCandidate:
+    candidate: ResolutionCandidate
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.candidate, ResolutionCandidate):
+            raise TypeError("resolution requires one validated candidate")
+
+
+@dataclass(frozen=True, slots=True)
+class ResourceOnlineAtKnownLocator(_SingleResolutionCandidate):
+    """One persisted locator is available."""
+
+    state: ClassVar[ResourceResolutionState] = (
+        ResourceResolutionState.ONLINE_AT_KNOWN_LOCATOR
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class ResourceResolvedExact(_SingleResolutionCandidate):
+    """One candidate has exact identity evidence."""
+
+    state: ClassVar[ResourceResolutionState] = ResourceResolutionState.RESOLVED_EXACT
+
+
+@dataclass(frozen=True, slots=True)
+class ResourceResolvedProbable(_SingleResolutionCandidate):
+    """One candidate requires a caller decision before confirmation."""
+
+    state: ClassVar[ResourceResolutionState] = ResourceResolutionState.RESOLVED_PROBABLE
+
+
+@dataclass(frozen=True, slots=True)
+class ResourceOffline:
+    """No credible candidate was found."""
+
+    state: ClassVar[ResourceResolutionState] = ResourceResolutionState.OFFLINE
+
+
+@dataclass(frozen=True, slots=True)
+class ResourceAmbiguous:
+    """Two or more candidates require an explicit caller decision."""
+
+    candidates: tuple[ResolutionCandidate, ...]
+    state: ClassVar[ResourceResolutionState] = ResourceResolutionState.AMBIGUOUS
+
+    def __post_init__(self) -> None:
+        candidates = tuple(islice(self.candidates, 100_001))
+        if not 2 <= len(candidates) <= 100_000:
+            raise ValueError("ambiguous resolution requires 2..100000 candidates")
+        if any(not isinstance(item, ResolutionCandidate) for item in candidates):
+            raise TypeError("resolution candidates must be validated values")
+        object.__setattr__(self, "candidates", candidates)
+
+
+@dataclass(frozen=True, slots=True)
+class ResourceResolutionFailure:
+    """Discovery or verification could not complete safely."""
+
+    state: ClassVar[ResourceResolutionState] = ResourceResolutionState.ERROR
+
+
+ResolutionOutcome: TypeAlias = (
+    ResourceOnlineAtKnownLocator
+    | ResourceResolvedExact
+    | ResourceResolvedProbable
+    | ResourceOffline
+    | ResourceAmbiguous
+    | ResourceResolutionFailure
+)
+
 
 @dataclass(frozen=True, slots=True)
 class ResourceResolution:
+    """Owned resource facts with one checked resolution outcome."""
+
     resource_id: ResourceId
-    state: ResourceResolutionState
-    candidates: tuple[ResolutionCandidate, ...]
+    outcome: ResolutionOutcome
     evidence: tuple[ResolutionEvidence, ...]
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.resource_id, UUID):
+            raise TypeError("resource identity must be a UUID")
+        if not isinstance(
+            self.outcome,
+            (
+                ResourceOnlineAtKnownLocator,
+                ResourceResolvedExact,
+                ResourceResolvedProbable,
+                ResourceOffline,
+                ResourceAmbiguous,
+                ResourceResolutionFailure,
+            ),
+        ):
+            raise TypeError("resolution outcome must be a supported alternative")
+        object.__setattr__(self, "evidence", _resolution_evidence(self.evidence))
+
+    @property
+    def state(self) -> ResourceResolutionState:
+        """Display category derived from the outcome."""
+        return self.outcome.state
+
+    @property
+    def candidates(self) -> tuple[ResolutionCandidate, ...]:
+        """Applicable candidates derived from the outcome."""
+        if isinstance(self.outcome, _SingleResolutionCandidate):
+            return (self.outcome.candidate,)
+        if isinstance(self.outcome, ResourceAmbiguous):
+            return self.outcome.candidates
+        return ()
 
 
 @dataclass(frozen=True, slots=True)

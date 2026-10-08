@@ -42,6 +42,7 @@ from postproject import (
     ResourceFileFactsObservedEvent,
     ResourceFingerprintObservedEvent,
     ResourceId,
+    ResourceOnlineAtKnownLocator,
     ResourceResolutionState,
     RevisionEvent,
     SequenceNaming,
@@ -349,7 +350,8 @@ def verify_contents(production: Production, asset_id: AssetId) -> int:
         asset_id, verification=VerificationMode.CONTENT
     ):
         for resource in representation.resources:
-            if resource.state is ResourceResolutionState.ONLINE_AT_KNOWN_LOCATOR:
+            if isinstance(resource.outcome, ResourceOnlineAtKnownLocator):
+                assert resource.outcome.candidate.evidence
                 verified += 1
             elif resource.state is ResourceResolutionState.ERROR:
                 # FINGERPRINT_MISMATCH evidence: the content was replaced.
