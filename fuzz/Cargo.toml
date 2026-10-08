@@ -12,6 +12,7 @@ cargo-fuzz = true
 [dependencies]
 libfuzzer-sys = "0.4.13"
 postproject-core = { version = "0.7.0-alpha.1", path = "../crates/postproject-core" }
+postproject-protocol = { version = "0.7.0-alpha.1", path = "../crates/postproject-protocol" }
 postproject-ffi = { version = "0.7.0-alpha.1", path = "../crates/postproject-ffi" }
 postproject-storage-sqlite = { version = "0.7.0-alpha.1", path = "../crates/postproject-storage-sqlite" }
 tempfile = "3"
@@ -53,3 +54,10 @@ bench = false
 
 [workspace]
 members = ["."]
+
+[[bin]]
+name = "exchange_document"
+path = "fuzz_targets/exchange_document.rs"
+test = false
+doc = false
+bench = false
