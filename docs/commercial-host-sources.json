@@ -1,0 +1,22 @@
+{
+  "reviewed_on": "2026-10-09",
+  "resolve": {
+    "distribution": "DaVinci_Resolve_21.1.1_Linux.zip",
+    "edition": "free",
+    "platform": "Linux x86-64",
+    "distribution_sha256": "3135921e197ce3469ad1bc82768d4073059bda43ffdc9b43bed41d61a3efb12a",
+    "sources": {
+      "Developer/Scripting/README.md": "5f58c94da8ec3c1f390d77ad9c60675263591dc101159b302e50b5774513830b",
+      "Developer/Scripting/DaVinciResolveScript.pyi": "2755259ef5f57b5d477786f799892e5b86ed3945db84bf88fb69bf751b36e651"
+    },
+    "runtime_version_observed": null,
+    "runtime_executed": false
+  },
+  "reaper": {
+    "api_reference_version": "7.82",
+    "api_reference": "https://www.reaper.fm/sdk/reascript/reascripthelp.html",
+    "extension_sdk": "https://www.reaper.fm/sdk/plugin/plugin.php",
+    "reascript_guide": "https://www.reaper.fm/sdk/reascript/reascript.php",
+    "runtime_executed": false
+  }
+}

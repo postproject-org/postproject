@@ -41,3 +41,63 @@ playback usable. Uninstall leaves native media paths and harmless persisted
 references; any relink updates concrete paths only after explicit confirmation.
 Unproven persistence or source ownership blocks relinking. Track/mix exchange and
 automatic stem publication are outside this action.
+
+## DaVinci Resolve 21.1.1, free Linux edition
+
+Reviewed the supplied `DaVinci_Resolve_21.1.1_Linux.zip`, its installation/release
+notes and bundled `Developer/Scripting/{README.md,DaVinciResolveScript.pyi}`.
+The [source record](commercial-host-sources.json) pins archive and document
+checksums. Documentation was extracted without running the installer. Resolve
+runtime/build-number inspection, scripting access and persistence were not
+executed; no Studio entitlement is assumed.
+
+The vendor documents a bundled 64-bit Python 3.14 interpreter at
+`/opt/resolve/bin/ResolvePython`, with the scripting module available directly
+and no pip support. Internal Console/menu scripts have a `resolve` global;
+user scripts belong under
+`~/.local/share/DaVinciResolve/Fusion/Scripts/Utility`. External scripting
+configuration is documented under Studio. Free-edition internal access and each
+required method must be checked in the actual application; presence in the
+shared API definitions is insufficient.
+
+Use a user-invoked Python action consuming the installed PostProject binding and
+matching native library, deployed to a deliberate import location. Validate
+loading against the host interpreter; do not assume pip or the development
+environment is available inside Resolve. Lua plus a CLI helper is a fallback
+with a separate process/file contract. No native Resolve extension or new public
+JavaScript binding is needed for this route.
+
+`Project.GetUniqueId`, `MediaPoolItem.GetUniqueId` and `GetMediaId` expose host
+identities, but the vendor descriptions do not promise their stability across
+project export/import or duplication. Keep them as opaque external values.
+Proposed persistence is per-clip `SetThirdPartyMetadata` / `GetThirdPartyMetadata`
+with namespaced keys containing production and canonical representation
+references. Test save/close/`LoadProject`, Save As, DRP export/import, duplicate
+clips and subclips before relying on this storage. Read back exact strings and
+preserve unrelated metadata. No marker or filename fallback silently becomes
+canonical identity when metadata persistence fails.
+
+Declare **Register selected media-pool clips** as the initial action. Resolve
+known media first, require explicit selection on ambiguity, commit PostProject,
+then persist references and report partial host-write failure without inventing
+an atomic transaction across applications. Relinking remains separately
+user-invoked: `MediaPool.RelinkClips` changes folders, while `ReplaceClip` replaces
+the underlying asset and metadata. Neither is assumed to preserve references or
+subclip extents without testing. Render-output registration may inspect a named
+job through `GetRenderJobList` / `GetRenderJobStatus` and register verified output
+after completion; it does not acquire a PostProject worker lease automatically.
+
+Respect Resolve's project libraries and collaboration. `RefreshFolders` and
+`GetIsFolderStale` expose collaboration refresh state, without providing a
+cross-application lock or transaction. Reacquire host objects and check identity
+before writing; use PostProject's normal bases/conflicts. Project-library SQL is
+outside this integration. Uninstall retains concrete media paths, ordinary
+project operation and inert third-party references; missing production or
+unsupported scripting leaves registration/relink unavailable.
+
+The release notes require Rocky Linux 8.6, 32 GB RAM, a discrete GPU with 4 GB
+VRAM and OpenCL 1.2 or CUDA 12.8; the named NVIDIA driver minimum is 580.119.02.
+The free edition's processing/output limits and codec availability apply. A
+working GPU/runtime and demonstrated free-edition persistence are acceptance
+conditions, not evidence supplied by this archive. Installation, project-library
+upgrades and any Studio purchase need their own authorization.
