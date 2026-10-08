@@ -1806,14 +1806,24 @@ impl<'production> SqliteTransaction<'production> {
                 revision_id,
                 &self.pending_metadata_effects,
             )?;
-            revision = Some(Revision::new(
+            let committed_revision = Revision::new(
                 revision_id,
                 revision_sequence,
                 transaction_id,
                 committed_at,
                 context.origin().cloned(),
                 context.message().map(str::to_owned),
-            )?);
+            )?;
+            crate::exchange::capture_metadata(
+                self.transaction.as_ref().ok_or_else(|| {
+                    Error::new(ErrorKind::Internal, "commit has no SQLite transaction")
+                })?,
+                self.production.id(),
+                &committed_revision,
+                &self.pending_metadata_effects,
+                &events,
+            )?;
+            revision = Some(committed_revision);
         } else if !changed_keys.is_empty() {
             return Err(Error::new(
                 ErrorKind::Internal,
