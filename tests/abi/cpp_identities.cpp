@@ -118,6 +118,13 @@ static_assert(!std::is_invocable_v<decltype(&pp_object_ref_from_resource),
 int main() {
   using namespace postproject;
   const auto content_resource = ResourceId::fromString("00000000-0000-0000-0000-000000000001").value();
+  const std::uint8_t artifact_bytes[] = {1, 2};
+  auto copied_bytes = detail::required_artifact_bytes(1, artifact_bytes, 2).value();
+  if (copied_bytes != std::vector<std::uint8_t>{1, 2} ||
+      detail::required_artifact_bytes(1, nullptr, 2).has_value() ||
+      detail::required_artifact_bytes(0, artifact_bytes, 2).has_value() ||
+      detail::required_artifact_bytes(1, artifact_bytes, 0).has_value() ||
+      detail::required_artifact_bytes(1, artifact_bytes, 16 * 1024 * 1024 + 1).has_value()) return 37;
   ResolutionCandidate candidate{"file:///a.mov", 10000, std::nullopt, std::nullopt,
                                 {{EvidenceKind::full_hash_match, std::nullopt}}};
   auto candidates = std::vector<ResolutionCandidate>{candidate};

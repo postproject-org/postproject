@@ -3614,10 +3614,9 @@ artifact_dependency_path(const pp_artifact_reason_t &native) {
 inline Result<std::vector<std::uint8_t>>
 required_artifact_bytes(std::uint8_t present, const std::uint8_t *value,
                         std::uint64_t length) {
-  if (present == 0 || length == 0 || length > 16 * 1024 * 1024)
+  if (present == 0 || value == nullptr || length == 0 || length > 16 * 1024 * 1024)
     return Error(ErrorCode::internal, "invalid required artifact evidence bytes");
-  POSTPROJECT_TRY_ASSIGN(auto bytes, optional_bytes(present, value, length));
-  return std::move(*bytes);
+  return std::vector<std::uint8_t>(value, value + static_cast<std::size_t>(length));
 }
 
 inline Result<ArtifactReason> checked_artifact_reason(ArtifactReasonPayload payload) {
