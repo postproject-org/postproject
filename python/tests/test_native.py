@@ -6,10 +6,23 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from postproject import _native
+from postproject import UnsupportedError, _abi, _native
 
 
 class LibraryLocationTests(unittest.TestCase):
+    def test_incompatible_abi_rejects_before_signature_configuration(self) -> None:
+        library = mock.Mock()
+        library.pp_abi_version.return_value = _native.ABI_VERSION - 1
+        with (
+            mock.patch.object(_native.ctypes, "CDLL", return_value=library),
+            mock.patch.object(_native, "configure_api") as configure,
+        ):
+            with self.assertRaises(UnsupportedError) as caught:
+                _native.NativeLibrary(self.explicit)
+            self.assertEqual(caught.exception.code, _abi.PP_ERROR_UNSUPPORTED)
+            configure.assert_not_called()
+        self.assertNotIn(self.explicit.resolve(), _native._loaded)
+
     def setUp(self) -> None:
         self.temporary = tempfile.TemporaryDirectory()
         self.root = Path(self.temporary.name)

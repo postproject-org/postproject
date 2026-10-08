@@ -3125,8 +3125,9 @@ class RevisionWaiter:
         try:
             outcome = _WAIT_RESULTS[result.value]
         except KeyError as error:
-            raise RuntimeError(
-                f"unknown revision wait result {result.value}"
+            raise UnsupportedError(
+                _abi.PP_ERROR_UNSUPPORTED,
+                f"unknown revision wait result {result.value}",
             ) from error
         return RevisionWait(outcome, revisions)
 
@@ -5980,7 +5981,9 @@ def _metadata_value(
         native.check(status, error)
         return MetadataReference(_object_reference(target))
 
-    raise RuntimeError("metadata value has an unknown semantic kind")
+    raise UnsupportedError(
+        _abi.PP_ERROR_UNSUPPORTED, "metadata value has an unknown semantic kind"
+    )
 
 
 def _revision_at(
@@ -6189,7 +6192,9 @@ def _revision_event_at(
     elif kind == _abi.PP_REVISION_JOB_CANCELLED:
         payload = JobCancelledEvent(JobId(_uuid(event.job_id)))
     else:
-        raise RuntimeError("revision event has an unknown semantic kind")
+        raise UnsupportedError(
+            _abi.PP_ERROR_UNSUPPORTED, "revision event has an unknown semantic kind"
+        )
 
     return RevisionEvent(int(event.position), payload)
 
@@ -6224,7 +6229,9 @@ def _object_reference(value: _abi.ObjectRef) -> ObjectReference:
         return ActivityRef(ActivityId(object_id))
     if kind == _abi.PP_OBJECT_JOB:
         return JobRef(JobId(object_id))
-    raise RuntimeError("revision event has an unknown object-reference kind")
+    raise UnsupportedError(
+        _abi.PP_ERROR_UNSUPPORTED, "revision event has an unknown object-reference kind"
+    )
 
 
 def _representation_kind(value: int) -> RepresentationKind:
@@ -6235,7 +6242,9 @@ def _representation_kind(value: int) -> RepresentationKind:
         _abi.PP_REPRESENTATION_DERIVED: RepresentationKind.DERIVED,
     }.get(value)
     if result is None:
-        raise RuntimeError("representation has an unknown kind")
+        raise UnsupportedError(
+            _abi.PP_ERROR_UNSUPPORTED, "representation has an unknown kind"
+        )
     return result
 
 
@@ -6248,7 +6257,7 @@ def _job_state(value: int) -> JobState:
         _abi.PP_JOB_CANCELLED: JobState.CANCELLED,
     }.get(value)
     if result is None:
-        raise RuntimeError("job has an unknown state")
+        raise UnsupportedError(_abi.PP_ERROR_UNSUPPORTED, "job has an unknown state")
     return result
 
 
@@ -6268,7 +6277,9 @@ def _dependency_set_status(value: int) -> DependencySetStatus:
         _abi.PP_DEPENDENCY_SET_NEEDS_EXTRACTION: DependencySetStatus.NEEDS_EXTRACTION,
     }.get(value)
     if result is None:
-        raise RuntimeError("dependency set has an unknown status")
+        raise UnsupportedError(
+            _abi.PP_ERROR_UNSUPPORTED, "dependency set has an unknown status"
+        )
     return result
 
 
@@ -6280,7 +6291,9 @@ def _content_structure_kind(value: int) -> ContentStructureKind:
         _abi.PP_CONTENT_PACKAGE: ContentStructureKind.PACKAGE,
     }.get(value)
     if result is None:
-        raise RuntimeError("representation has an unknown content structure")
+        raise UnsupportedError(
+            _abi.PP_ERROR_UNSUPPORTED, "representation has an unknown content structure"
+        )
     return result
 
 
@@ -6291,7 +6304,9 @@ def _locator_availability(value: int) -> LocatorAvailability:
         _abi.PP_LOCATOR_OFFLINE: LocatorAvailability.OFFLINE,
     }.get(value)
     if result is None:
-        raise RuntimeError("locator has an unknown availability")
+        raise UnsupportedError(
+            _abi.PP_ERROR_UNSUPPORTED, "locator has an unknown availability"
+        )
     return result
 
 
@@ -6304,7 +6319,9 @@ def _representation_availability(value: int) -> RepresentationAvailability:
         _abi.PP_AVAILABILITY_ERROR: RepresentationAvailability.ERROR,
     }.get(value)
     if result is None:
-        raise RuntimeError("resolution has an unknown availability")
+        raise UnsupportedError(
+            _abi.PP_ERROR_UNSUPPORTED, "resolution has an unknown availability"
+        )
     return result
 
 
@@ -6366,13 +6383,16 @@ def _evidence_kind(value: int) -> EvidenceKind:
         _abi.PP_EVIDENCE_MEDIA_ROOT_UNAVAILABLE: EvidenceKind.MEDIA_ROOT_UNAVAILABLE,
         _abi.PP_EVIDENCE_CONFLICTING_CANDIDATE: EvidenceKind.CONFLICTING_CANDIDATE,
         _abi.PP_EVIDENCE_DISCOVERY_ERROR: EvidenceKind.DISCOVERY_ERROR,
+        _abi.PP_EVIDENCE_SEARCH_TRUNCATED: EvidenceKind.SEARCH_TRUNCATED,
         _abi.PP_EVIDENCE_FINGERPRINT_MISMATCH: EvidenceKind.FINGERPRINT_MISMATCH,
         _abi.PP_EVIDENCE_FINGERPRINT_NOT_VERIFIED: (
             EvidenceKind.FINGERPRINT_NOT_VERIFIED
         ),
     }.get(value)
     if result is None:
-        raise RuntimeError("resolution has an unknown evidence kind")
+        raise UnsupportedError(
+            _abi.PP_ERROR_UNSUPPORTED, "resolution has an unknown evidence kind"
+        )
     return result
 
 

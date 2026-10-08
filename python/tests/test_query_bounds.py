@@ -11,6 +11,7 @@ from postproject import (
     ActivityEdge,
     ActivitySpec,
     AssetRef,
+    EvidenceKind,
     Fingerprint,
     ImageSequenceSource,
     InvalidArgumentError,
@@ -28,6 +29,35 @@ from postproject import (
 
 
 class QueryBoundsTests(unittest.TestCase):
+    def test_truncated_file_search_preserves_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            media = root / "media.mov"
+            media.write_bytes(b"truncated search fixture")
+            with Production.create(root / "production.pproj") as production:
+                with production.transaction() as edit:
+                    asset = edit.import_media(media)
+                    edit.commit()
+                search = root / "search"
+                search.mkdir()
+                media.rename(search / media.name)
+                (search / "unrelated.mov").write_bytes(b"unrelated")
+                for reader in (production, production.read_session()):
+                    try:
+                        results = reader.resolve(
+                            asset,
+                            search_directories=(search,),
+                            max_entries_per_directory=1,
+                        )
+                        evidence = results[0].resources[0].evidence
+                        self.assertIn(
+                            EvidenceKind.SEARCH_TRUNCATED,
+                            {item.kind for item in evidence},
+                        )
+                    finally:
+                        if reader is not production:
+                            reader.close()
+
     def test_activity_timestamps_and_boolean_priorities_reject_before_staging(
         self,
     ) -> None:

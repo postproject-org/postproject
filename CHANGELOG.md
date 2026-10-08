@@ -4,6 +4,7 @@ All notable changes to PostProject will be documented here. The project uses
 [Semantic Versioning](https://semver.org/) once a stable API is released.
 
 ## Unreleased
+- Categorize Python boundary failures and decode search-truncation evidence (ADR 0064).
 - Resolution payload access checks the selected state (C ABI 51); C++/Python validate outcome cases (ADR 0063).
 - Artifact payload access checks the selected kind (C ABI 50); C++/Python use checked case values (ADR 0062).
 - C++/Python representation facts carry checked content alternatives; Python sequence rates use Fraction (ADR 0061).

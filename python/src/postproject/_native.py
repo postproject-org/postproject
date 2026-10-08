@@ -20,6 +20,7 @@ from ._errors import (
     ConflictKeyKind,
     PostProjectError,
     TransactionConflict,
+    UnsupportedError,
 )
 from ._model import (
     ActivityId,
@@ -76,13 +77,16 @@ class NativeLibrary:
                 library = super().__new__(cls)
                 library.path = resolved
                 library.lib = ctypes.CDLL(str(resolved))
-                configure_api(library.lib)
+                library.lib.pp_abi_version.argtypes = []
+                library.lib.pp_abi_version.restype = ctypes.c_uint32
                 version = int(library.lib.pp_abi_version())
                 if version != ABI_VERSION:
-                    raise RuntimeError(
+                    raise UnsupportedError(
+                        _abi.PP_ERROR_UNSUPPORTED,
                         f"PostProject ABI {version} is incompatible with required "
-                        f"ABI {ABI_VERSION}"
+                        f"ABI {ABI_VERSION}",
                     )
+                configure_api(library.lib)
                 _loaded[resolved] = library
         return library
 
@@ -114,7 +118,13 @@ class NativeLibrary:
 
 
 def _transaction_conflict(native: NativeTransactionConflict) -> TransactionConflict:
-    kind = ConflictKeyKind(int(native.kind))
+    try:
+        kind = ConflictKeyKind(int(native.kind))
+    except ValueError as error:
+        raise UnsupportedError(
+            _abi.PP_ERROR_UNSUPPORTED,
+            "native transaction conflict has an unknown key kind",
+        ) from error
     identifier = UUID(bytes=bytes(native.target.id.bytes))
     if kind is ConflictKeyKind.MEDIA_ROOT:
         target = MediaRootId(UUID(bytes=bytes(native.media_root_id.bytes)))
@@ -131,7 +141,10 @@ def _transaction_conflict(native: NativeTransactionConflict) -> TransactionConfl
         }
         target_type = target_types.get(int(native.target.kind))
         if target_type is None:
-            raise RuntimeError("native transaction conflict has an unknown target kind")
+            raise UnsupportedError(
+                _abi.PP_ERROR_UNSUPPORTED,
+                "native transaction conflict has an unknown target kind",
+            )
         target = target_type(identifier)
     fingerprint = kind in {
         ConflictKeyKind.RESOURCE_FINGERPRINT,
