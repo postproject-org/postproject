@@ -1483,11 +1483,88 @@ class ResourceResolution:
 
 
 @dataclass(frozen=True, slots=True)
+class OfflineResourceIssue:
+    """The resource has no credible locator."""
+
+    kind: ClassVar[AvailabilityIssueKind] = AvailabilityIssueKind.OFFLINE_RESOURCE
+
+
+@dataclass(frozen=True, slots=True)
+class AmbiguousResourceIssue:
+    """Resource candidates need a caller decision."""
+
+    kind: ClassVar[AvailabilityIssueKind] = AvailabilityIssueKind.AMBIGUOUS_RESOURCE
+
+
+@dataclass(frozen=True, slots=True)
+class ResourceErrorIssue:
+    """Resource discovery or verification failed."""
+
+    kind: ClassVar[AvailabilityIssueKind] = AvailabilityIssueKind.RESOURCE_ERROR
+
+
+@dataclass(frozen=True, slots=True)
+class MissingSequenceFrames:
+    """Owned, sorted missing-frame observations."""
+
+    frames: tuple[int, ...]
+    kind: ClassVar[AvailabilityIssueKind] = AvailabilityIssueKind.MISSING_FRAMES
+
+    def __post_init__(self) -> None:
+        frames = tuple(islice(self.frames, 100_001))
+        if not 1 <= len(frames) <= 100_000:
+            raise ValueError("missing-frame issue requires 1..100000 frames")
+        for frame in frames:
+            if isinstance(frame, bool) or not isinstance(frame, int):
+                raise TypeError("missing frames must be integers")
+            if not -(2**63) <= frame <= 2**63 - 1:
+                raise ValueError("missing frame is outside signed 64-bit range")
+        object.__setattr__(self, "frames", tuple(sorted(set(frames))))
+
+
+AvailabilityIssueDetail: TypeAlias = (
+    OfflineResourceIssue
+    | AmbiguousResourceIssue
+    | ResourceErrorIssue
+    | MissingSequenceFrames
+)
+
+
+@dataclass(frozen=True, slots=True)
 class AvailabilityIssue:
+    """Resource-specific diagnostic with only its applicable payload."""
+
     resource_id: ResourceId
     required: bool
-    kind: AvailabilityIssueKind
-    frames: tuple[int, ...]
+    detail: AvailabilityIssueDetail
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.resource_id, UUID):
+            raise TypeError("resource identity must be a UUID")
+        if not isinstance(self.required, bool):
+            raise TypeError("required must be bool")
+        if not isinstance(
+            self.detail,
+            (
+                OfflineResourceIssue,
+                AmbiguousResourceIssue,
+                ResourceErrorIssue,
+                MissingSequenceFrames,
+            ),
+        ):
+            raise TypeError("availability detail must be a supported alternative")
+
+    @property
+    def kind(self) -> AvailabilityIssueKind:
+        """Display category derived from the diagnostic detail."""
+        return self.detail.kind
+
+    @property
+    def frames(self) -> tuple[int, ...]:
+        """Missing frames exactly for a frame-specific diagnostic."""
+        return (
+            self.detail.frames if isinstance(self.detail, MissingSequenceFrames) else ()
+        )
 
 
 @dataclass(frozen=True, slots=True)

@@ -5,11 +5,17 @@ from dataclasses import replace
 from uuid import UUID
 
 from postproject import (
+    AmbiguousResourceIssue,
+    AvailabilityIssue,
+    AvailabilityIssueKind,
     EvidenceKind,
     InternalError,
+    MissingSequenceFrames,
+    OfflineResourceIssue,
     ResolutionCandidate,
     ResolutionEvidence,
     ResourceAmbiguous,
+    ResourceErrorIssue,
     ResourceId,
     ResourceOffline,
     ResourceOnlineAtKnownLocator,
@@ -20,10 +26,47 @@ from postproject import (
     ResourceResolvedProbable,
     UnsupportedError,
 )
-from postproject._production import _resolution_outcome, _resource_resolution_state
+from postproject._production import (
+    _availability_issue_kind,
+    _resolution_outcome,
+    _resource_resolution_state,
+)
 
 
 class ResolutionValueTests(unittest.TestCase):
+    def test_availability_issues_keep_only_applicable_frames(self) -> None:
+        frames = [1003, 1001, 1003]
+        detail = replace(MissingSequenceFrames((1001,)), frames=frames)
+        frames.clear()
+        self.assertEqual(detail.frames, (1001, 1003))
+        details = (
+            OfflineResourceIssue(),
+            AmbiguousResourceIssue(),
+            ResourceErrorIssue(),
+            detail,
+        )
+        for case, kind in zip(details, AvailabilityIssueKind, strict=True):
+            issue = AvailabilityIssue(ResourceId(UUID(int=1)), True, case)
+            self.assertIs(issue.kind, kind)
+            self.assertEqual(issue.frames, (1001, 1003) if case is detail else ())
+            self.assertIs(
+                _availability_issue_kind(list(AvailabilityIssueKind).index(kind) + 1),
+                kind,
+            )
+        with self.assertRaises(TypeError):
+            replace(OfflineResourceIssue(), frames=(1001,))
+        for invalid in ((), (2**63,), (1001,) * 100001):
+            with self.assertRaises(ValueError):
+                MissingSequenceFrames(invalid)
+        with self.assertRaises(TypeError):
+            MissingSequenceFrames((True,))
+        with self.assertRaises(TypeError):
+            replace(
+                AvailabilityIssue(ResourceId(UUID(int=1)), True, detail), required=1
+            )
+        with self.assertRaises(UnsupportedError):
+            _availability_issue_kind(999)
+
     def test_cases_have_only_their_applicable_candidates(self) -> None:
         candidate = ResolutionCandidate(
             "file:///example.mov",

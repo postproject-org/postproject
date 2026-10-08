@@ -31,6 +31,7 @@ from postproject import (
     ImageSequenceSource,
     LocatorMatch,
     MediaRootId,
+    MissingSequenceFrames,
     OrderedPartsSource,
     PackageSource,
     Production,
@@ -298,8 +299,9 @@ def report_availability_issues(
     for representation in production.resolve(asset_id):
         print(f"{representation.representation_id}: {representation.availability.name}")
         for issue in representation.issues:
-            # Missing frames are sorted individual frame numbers.
-            print(f"  issue {issue.kind.name} frames={list(issue.frames)}")
+            print(f"  issue {issue.kind.name}")
+            if isinstance(issue.detail, MissingSequenceFrames):
+                print(f"  missing frames={list(issue.detail.frames)}")
             issues.append(issue)
         for resource in representation.resources:
             for evidence in resource.evidence:

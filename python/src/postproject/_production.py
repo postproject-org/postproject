@@ -91,6 +91,7 @@ from ._model import (
     ActivityRef,
     ActivitySpec,
     AgentIdentity,
+    AmbiguousResourceIssue,
     ArtifactEvaluation,
     ArtifactReproducibility,
     Asset,
@@ -98,6 +99,7 @@ from ._model import (
     AssetImportedEvent,
     AssetRef,
     AvailabilityIssue,
+    AvailabilityIssueDetail,
     AvailabilityIssueKind,
     ClosedJobLease,
     CommitReceipt,
@@ -175,7 +177,9 @@ from ._model import (
     MetadataU64,
     MetadataUri,
     MetadataValue,
+    MissingSequenceFrames,
     ObjectReference,
+    OfflineResourceIssue,
     OrderedPartsContent,
     OrderedPartsSource,
     OriginIdentity,
@@ -203,6 +207,7 @@ from ._model import (
     Resource,
     ResourceAddedEvent,
     ResourceAmbiguous,
+    ResourceErrorIssue,
     ResourceFileFactsObservedEvent,
     ResourceFingerprintObservedEvent,
     ResourceId,
@@ -5739,16 +5744,37 @@ def _availability_issue_at(
         ctypes.byref(error),
     )
     native.check(status, error)
-    return AvailabilityIssue(
-        ResourceId(_uuid(resource_id)),
-        bool(required.value),
-        _availability_issue_kind(int(kind.value)),
-        tuple(
-            _missing_frame_at(
-                native, resolutions, representation_index, issue_index, frame_index
+    category = _availability_issue_kind(int(kind.value))
+    if frame_count.value > 100_000:
+        raise InternalError(
+            _abi.PP_ERROR_INTERNAL, "availability frame count exceeds bounds"
+        )
+    frames = tuple(
+        _missing_frame_at(
+            native, resolutions, representation_index, issue_index, frame_index
+        )
+        for frame_index in range(int(frame_count.value))
+    )
+    detail: AvailabilityIssueDetail
+    if category is AvailabilityIssueKind.MISSING_FRAMES:
+        if not frames:
+            raise InternalError(
+                _abi.PP_ERROR_INTERNAL, "missing-frame issue has no frames"
             )
-            for frame_index in range(int(frame_count.value))
-        ),
+        detail = MissingSequenceFrames(frames)
+    else:
+        if frames:
+            raise InternalError(
+                _abi.PP_ERROR_INTERNAL, "resource issue carries unrelated frames"
+            )
+        if category is AvailabilityIssueKind.OFFLINE_RESOURCE:
+            detail = OfflineResourceIssue()
+        elif category is AvailabilityIssueKind.AMBIGUOUS_RESOURCE:
+            detail = AmbiguousResourceIssue()
+        else:
+            detail = ResourceErrorIssue()
+    return AvailabilityIssue(
+        ResourceId(_uuid(resource_id)), bool(required.value), detail
     )
 
 
@@ -6316,7 +6342,9 @@ def _availability_issue_kind(value: int) -> AvailabilityIssueKind:
         ),
     }.get(value)
     if result is None:
-        raise RuntimeError("resolution has an unknown availability issue")
+        raise UnsupportedError(
+            _abi.PP_ERROR_UNSUPPORTED, "resolution has an unknown availability issue"
+        )
     return result
 
 

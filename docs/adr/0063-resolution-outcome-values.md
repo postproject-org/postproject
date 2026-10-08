@@ -34,5 +34,10 @@ state for `pp_resolution_set_get_resource`. Wrong-state access clears all
 outputs and returns `InvalidArgument`; candidate indices remain checked by
 their accessor. Borrowed values last until the resolution set is released.
 
+Availability diagnostics likewise carry one detail case: offline, ambiguous,
+resource error or missing frames. Only `MissingSequenceFrames` owns frame
+numbers, with a nonempty bounded canonical list. Python's `detail` union keeps
+`kind` and `frames` as derived display properties.
+
 This changes no schema, persisted identity, locator encoding or standards
 mapping. Candidate URIs and authored evidence retain their existing meaning.
