@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -11,7 +12,11 @@ from pathlib import Path
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--ty", default="ty", help="type-checker executable")
-    parser.add_argument("--python", help="installed candidate Python environment")
+    parser.add_argument(
+        "--python",
+        default=sys.executable,
+        help="installed candidate Python environment",
+    )
     parser.add_argument("--source", help="source package, for development checks only")
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
