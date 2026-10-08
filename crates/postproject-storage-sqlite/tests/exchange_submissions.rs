@@ -172,3 +172,79 @@ fn accepted_no_op_is_retained_without_a_revision() {
     );
 }
 
+#[test]
+fn nonexistent_and_forged_bases_are_terminal_but_other_scopes_are_not_retained() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("authority.pproj");
+    let mut production = SqliteProduction::create(&path, None).unwrap();
+    let target = ObjectRef::Production(production.production().id());
+    let base =
+        DecisionBase::new(production.production().id(), Some(RevisionId::new()), 17).unwrap();
+    let request = proposal(&production, Some(base), vec![append(target, 1)]);
+    let outcome = production.submit_proposal(&request).unwrap();
+    assert!(
+        matches!(outcome.status(), OutcomeStatus::Rejected(rejection) if rejection.kind() == RejectionKind::InvalidBase)
+    );
+    assert_eq!(production.submit_proposal(&request).unwrap(), outcome);
+    for scope in [
+        Scope::new(ProductionId::new(), request.scope().history()),
+        Scope::new(request.scope().production(), HistoryId::new()),
+    ] {
+        let foreign = Proposal::new(
+            scope,
+            request.client(),
+            request.request(),
+            None,
+            RevisionContext::default(),
+            vec![],
+            Extensions::default(),
+        )
+        .unwrap();
+        assert!(
+            matches!(production.submit_proposal(&foreign), Err(ExchangeError::Protocol(error)) if error.kind() == FailureKind::ScopeMismatch)
+        );
+    }
+    assert_eq!(
+        Connection::open(&path)
+            .unwrap()
+            .query_row("SELECT COUNT(*) FROM exchange_outcomes", [], |row| row
+                .get::<_, i64>(0))
+            .unwrap(),
+        1
+    );
+}
+
+#[test]
+fn outcome_persistence_failure_rolls_back_domain_and_can_retry_same_identity() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("authority.pproj");
+    let mut production = SqliteProduction::create(&path, None).unwrap();
+    let target = ObjectRef::Production(production.production().id());
+    let request = proposal(&production, None, vec![append(target, 1)]);
+    let connection = Connection::open(&path).unwrap();
+    connection.execute_batch("CREATE TRIGGER reject_outcome BEFORE INSERT ON exchange_outcomes BEGIN SELECT RAISE(ABORT, 'injected'); END;").unwrap();
+    assert!(
+        matches!(production.submit_proposal(&request), Err(ExchangeError::Store(error)) if error.kind() == ErrorKind::Storage)
+    );
+    assert!(
+        production
+            .metadata_values(target, &property())
+            .unwrap()
+            .is_empty()
+    );
+    assert!(production.changes_since(0, 10).unwrap().is_empty());
+    assert!(
+        production
+            .submission_outcome(request.scope(), request.client(), request.request())
+            .unwrap()
+            .is_none()
+    );
+    connection
+        .execute_batch("DROP TRIGGER reject_outcome")
+        .unwrap();
+    assert!(matches!(
+        production.submit_proposal(&request).unwrap().status(),
+        OutcomeStatus::Accepted(_)
+    ));
+    assert_eq!(production.changes_since(0, 10).unwrap().len(), 1);
+}
