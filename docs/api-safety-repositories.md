@@ -3,16 +3,17 @@
 Inventory checked against `gh repo list postproject-org` on 2026-10-04.
 All 13 non-archived organization repositories have local checkouts on `main`;
 the historical 12-repository evidence excludes the landing site. Local checks
-use 0.7.0-alpha.1 / Python 0.7.0a1, C ABI 51 and schema 19. Remote CI and
-full host/package checks remain open.
+use 0.7.0-alpha.1 / Python 0.7.0a1, C ABI 51 and schema 19. Required SDK/platform/package and downstream CI jobs pass. Kdenlive’s
+Qt 6.12 full-host lint gate remains open; Blender’s optional 5.3-alpha
+download is unavailable.
 
 | Repository | Baseline SHA | Candidate SHA / surface | Local result and remaining scope |
 |---|---|---|---|
-| [postproject](https://github.com/postproject-org/postproject) | `a413227b9dd048f744fa7393d8927891ee93d5e2` | `ebd97d5` / Rust, C, C++, Python, CLI | Six Rust gates, nine native contracts and sanitizer tests, 121 Python tests (one skip), 72 extracted checks, strict docs; platform/MSRV/Flatpak verification open |
-| [postproject-ardour](https://github.com/postproject-org/postproject-ardour) | `7ec34c2a972b936191494f25d420c4e962f8c047` | `a417d20` / C++ / pkg-config | Five replacement patches replay; stereo-WAV resolver scenario passes; full Linux host and macOS package CI open |
-| [postproject-blender](https://github.com/postproject-org/postproject-blender) | `8c62d4ca6243446219ce82383dd3ed823f850c3c` | `bfe5b95` / Python extension | 5.2.2 LTS: 24 tests run, one 5.3-only skip; OBS handoff passes; other platform and shared-host checks open |
-| [postproject-cpp-nle](https://github.com/postproject-org/postproject-cpp-nle) | `5d801c0b59526a098b9111beeb40b143bbe59ca1` | `8d2933a` / Installed C++ host | One CTest passes against the installed candidate; other platform CI open |
-| [postproject-kdenlive](https://github.com/postproject-org/postproject-kdenlive) | `2eb45f9019cdb48fdc35606768c9ecc164943b8f` | `33fc107` / Native C++ / Result | Ten replacement patches replay; Qt thumbnail lint/runtime checks pass; fresh full build and shared handoff running/open |
+| [postproject](https://github.com/postproject-org/postproject) | `a413227b9dd048f744fa7393d8927891ee93d5e2` | `42b9f9d` / Rust, C, C++, Python, CLI | Six Rust gates, nine native contracts and sanitizer tests, 121 Python tests (one skip), 72 extracted checks, strict docs; Rust 1.85, Linux/macOS/Windows packages, manylinux 2.28 and Flatpak CI pass |
+| [postproject-ardour](https://github.com/postproject-org/postproject-ardour) | `7ec34c2a972b936191494f25d420c4e962f8c047` | `a417d20` / C++ / pkg-config | Five replacement patches replay; stereo-WAV resolver scenario passes; full Linux with/without and macOS resolver CI pass |
+| [postproject-blender](https://github.com/postproject-org/postproject-blender) | `8c62d4ca6243446219ce82383dd3ed823f850c3c` | `bfe5b95` / Python extension | 5.2.2 LTS: 24 tests run, one 5.3-only skip; OBS handoff passes; required 5.2.2 CI and shared-host handoff pass; optional 5.3 download unavailable |
+| [postproject-cpp-nle](https://github.com/postproject-org/postproject-cpp-nle) | `5d801c0b59526a098b9111beeb40b143bbe59ca1` | `8d2933a` / Installed C++ host | One CTest passes against the installed candidate; own and SDK downstream CI pass |
+| [postproject-kdenlive](https://github.com/postproject-org/postproject-kdenlive) | `2eb45f9019cdb48fdc35606768c9ecc164943b8f` | `322aa7a` / Native C++ / Result | Ten replacement patches replay; full local build, document/pilot tests and shared handoff pass; Qt 6.12 CI lint fails |
 | [postproject-natron](https://github.com/postproject-org/postproject-natron) | `4694e97a65ab59954a3ef32c7984ed6ccd53a97f` | `ad2554d` / C++ / CPython stable ABI | Native contract, request-generation tests and Natron 2.5.0 normal/negative/plugin-free renderer paths pass on Linux |
 | [postproject-obs](https://github.com/postproject-org/postproject-obs) | `5c15a4a7fc39d4e22d191c3fc854915f098931c9` | `338e395` / C11 / Qt frontend | OBS 32.2.2: two contracts, eight isolated host scenarios and Blender adoption/move/plugin-free reopen pass on Linux |
 | [postproject-openassetio](https://github.com/postproject-org/postproject-openassetio) | `99ab45e38dc31b2ff5f8e63cd9a848f090cc389d` | `5e38c31` / Python validation host | One installed-wheel pytest passes; declared 0.7 range updated |
@@ -75,10 +76,25 @@ Ardour's five replay on `7968ec504ba8b70e6de5c09d0470264581a5e979`.
 Fresh enabled Kdenlive compilation and both document/pilot tests pass. The
 shared-production script passes with Blender 5.2.2 LTS (`d13f752e3b9c`), the
 rebuilt extension and the installed Manager under Python 3.13. Its retained
-workspace is `/tmp/tmp.uq9DfuqrlC`; traces are in
-`target/qualification-abi51-shared-traces`. OBS and Natron acceptance retain
+workspace is `/tmp/tmp.2sMCDlF6KV`; traces are in
+`target/qualification-abi51-final-shared-traces`. OBS and Natron acceptance retain
 their declared Linux host scope.
 
 Local logs and artifacts are retained under `target/qualification-abi51-*`.
-Patch replay trees reproduce the current series exactly. Host tests isolate
+Ardour’s replay reproduces the current series exactly. Kdenlive’s final
+replay is pending the Qt 6.12 lint fix. Host tests isolate
 configuration/cache; they do not claim an interactive human acceptance pass.
+
+## GitHub qualification
+
+At SDK `42b9f9d`, every individual job passes in [SDK CI](https://github.com/postproject-org/postproject/actions/runs/37789355697)
+(16 jobs), [downstream CI](https://github.com/postproject-org/postproject/actions/runs/37789356724)
+(10 jobs), and [documentation deployment](https://github.com/postproject-org/postproject/actions/runs/37789355708).
+[Flatpak](https://github.com/postproject-org/postproject/actions/runs/37780003984)
+passes at `6f14a3b`; subsequent SDK changes affect tests, tools and docs.
+
+Consumer push jobs pass for Manager, both validation experiments, Python host,
+C++ NLE, Ardour, OBS, Natron and the OTIO demo. Blender’s required lint/5.2.2 jobs
+pass; its optional 5.3-alpha job fails while downloading the unavailable host.
+[Kdenlive’s full-host jobs](https://github.com/postproject-org/postproject-kdenlive/actions/runs/37789160505)
+fail in Qt 6.12 lint at `322aa7a`, before compilation and host tests.
