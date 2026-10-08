@@ -499,7 +499,7 @@ fn changed_input_fingerprints_and_dependencies_reject_publication_after_reopen()
         );
         edit.rollback().unwrap();
         drop(edit);
-        assert!(reopened.activities().unwrap().is_empty());
+        assert_eq!(reopened.activities().unwrap(), []);
         assert_eq!(reopened.representations(fixture.asset).unwrap().len(), 1);
         assert!(matches!(
             reopened.job(fixture.job).unwrap().state(),
@@ -614,7 +614,7 @@ fn required_dependency_changes_cannot_be_attributed_to_earlier_work() {
                 fixture.store.representations(fixture.asset).unwrap().len(),
                 2
             );
-            assert!(fixture.store.activities().unwrap().is_empty());
+            assert_eq!(fixture.store.activities().unwrap(), []);
         }
     }
 }
@@ -658,7 +658,7 @@ fn corrupt_input_conflict_key_rejects_publication_as_storage_error() {
     );
     edit.rollback().unwrap();
     drop(edit);
-    assert!(fixture.store.activities().unwrap().is_empty());
+    assert_eq!(fixture.store.activities().unwrap(), []);
     assert_eq!(
         fixture.store.representations(fixture.asset).unwrap().len(),
         1

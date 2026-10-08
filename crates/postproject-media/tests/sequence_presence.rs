@@ -95,5 +95,5 @@ fn incomplete_directory_inventory_cannot_fabricate_missing_frame_evidence() {
         complete.state(),
         ResourceResolutionState::OnlineAtKnownLocator
     );
-    assert!(complete.missing_frames().is_empty());
+    assert_eq!(complete.missing_frames(), [] as [i64; 0]);
 }
