@@ -1,0 +1,167 @@
+//! Metadata records are captured atomically inside their original native edit.
+
+use std::path::Path;
+
+use postproject_core::{
+    ErrorKind, MetadataProperty, MetadataValue, ObjectRef, PropertyId, TransactionState,
+    VocabularyId,
+};
+use postproject_protocol::{
+    Document, Limits, MetadataEffectStart, MetadataOperation, RecordChunk, RecordManifest,
+    decode_event,
+};
+use postproject_storage_sqlite::SqliteProduction;
+use rusqlite::Connection;
+
+fn property() -> MetadataProperty {
+    MetadataProperty::new(
+        VocabularyId::new("urn:record:test").unwrap(),
+        PropertyId::new("ordered").unwrap(),
+    )
+}
+
+fn record(path: &Path, sequence: i64) -> (RecordManifest, Vec<Document>) {
+    let connection = Connection::open(path).unwrap();
+    let bytes: Vec<u8> = connection
+        .query_row(
+            "SELECT manifest FROM exchange_records WHERE sequence = ?1",
+            [sequence],
+            |row| row.get(0),
+        )
+        .unwrap();
+    let manifest =
+        RecordManifest::from_document(&Document::parse(&bytes, Limits::default()).unwrap())
+            .unwrap();
+    let mut statement = connection
+        .prepare(
+            "SELECT document FROM exchange_record_chunks WHERE revision_id = ?1 ORDER BY position",
+        )
+        .unwrap();
+    let rows = statement
+        .query_map([manifest.revision().id().as_bytes().as_slice()], |row| {
+            row.get::<_, Vec<u8>>(0)
+        })
+        .unwrap();
+    let mut chain = manifest.chunk_chain();
+    let mut bytes = Vec::new();
+    for row in rows {
+        let chunk =
+            RecordChunk::from_document(&Document::parse(&row.unwrap(), Limits::default()).unwrap())
+                .unwrap();
+        chain.push(&chunk).unwrap();
+        bytes.extend_from_slice(chunk.payload());
+    }
+    manifest.verify_chain(chain).unwrap();
+    let mut frames = Vec::new();
+    let mut remaining = bytes.as_slice();
+    while !remaining.is_empty() {
+        let size = usize::try_from(u64::from_be_bytes(remaining[..8].try_into().unwrap())).unwrap();
+        frames.push(Document::parse(&remaining[8..8 + size], Limits::default()).unwrap());
+        remaining = &remaining[8 + size..];
+    }
+    (manifest, frames)
+}
+
+#[test]
+fn native_records_keep_same_key_history_receipts_events_and_contiguous_heads() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("authority.pproj");
+    let mut production = SqliteProduction::create(&path, None).unwrap();
+    let target = ObjectRef::Production(production.production().id());
+    let base = production.read_session().unwrap().decision_base();
+    let mut edit = production.begin_edit(base).unwrap();
+    edit.add_metadata_value(target, &property(), &MetadataValue::i64(11))
+        .unwrap();
+    edit.replace_metadata_values(
+        target,
+        &property(),
+        &[MetadataValue::i64(12), MetadataValue::i64(12)],
+    )
+    .unwrap();
+    edit.remove_metadata_property(target, &property()).unwrap();
+    let receipt = edit.commit().unwrap();
+    drop(edit);
+    let (first, frames) = record(&path, 1);
+    assert_eq!(Some(first.revision()), receipt.revision());
+    assert_eq!(first.predecessor(), production.exchange_floor().unwrap());
+    assert_eq!(first.effect_count(), 3);
+    assert_eq!(first.event_count(), 3);
+    assert_eq!(
+        MetadataEffectStart::from_document(&frames[0])
+            .unwrap()
+            .operation(),
+        MetadataOperation::Appended(0)
+    );
+    assert_eq!(
+        MetadataEffectStart::decode_value(&frames[1]).unwrap(),
+        MetadataValue::i64(11)
+    );
+    assert_eq!(
+        MetadataEffectStart::from_document(&frames[2])
+            .unwrap()
+            .value_count(),
+        2
+    );
+    assert_eq!(
+        MetadataEffectStart::decode_value(&frames[3]).unwrap(),
+        MetadataValue::i64(12)
+    );
+    assert_eq!(
+        MetadataEffectStart::decode_value(&frames[4]).unwrap(),
+        MetadataValue::i64(12)
+    );
+    assert_eq!(
+        MetadataEffectStart::from_document(&frames[5])
+            .unwrap()
+            .operation(),
+        MetadataOperation::Removed
+    );
+    for (position, frame) in frames[6..].iter().enumerate() {
+        let event = decode_event(frame).unwrap();
+        assert_eq!(event.revision_id(), first.revision().id());
+        assert_eq!(event.position(), u32::try_from(position).unwrap());
+    }
+    let mut edit = production.begin_transaction().unwrap();
+    edit.add_metadata_value(target, &property(), &MetadataValue::i64(13))
+        .unwrap();
+    edit.commit().unwrap();
+    drop(edit);
+    drop(production);
+    assert_eq!(record(&path, 2).0.predecessor(), first.head().unwrap());
+}
+
+#[test]
+fn chunk_or_manifest_failure_rolls_back_domain_revision_and_record_together() {
+    for table in ["exchange_record_chunks", "exchange_records"] {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("authority.pproj");
+        let mut production = SqliteProduction::create(&path, None).unwrap();
+        Connection::open(&path).unwrap().execute_batch(&format!("CREATE TRIGGER reject_record BEFORE INSERT ON {table} BEGIN SELECT RAISE(ABORT, 'injected'); END;")).unwrap();
+        let target = ObjectRef::Production(production.production().id());
+        let mut edit = production.begin_transaction().unwrap();
+        edit.add_metadata_value(target, &property(), &MetadataValue::i64(1))
+            .unwrap();
+        assert_eq!(edit.commit().unwrap_err().kind(), ErrorKind::Storage);
+        assert_eq!(edit.state(), TransactionState::RolledBack);
+        drop(edit);
+        assert_eq!(
+            production.metadata_values(target, &property()).unwrap(),
+            Vec::<MetadataValue>::new()
+        );
+        assert!(production.latest_revision().unwrap().is_none());
+        let connection = Connection::open(&path).unwrap();
+        for table in [
+            "exchange_records",
+            "exchange_record_chunks",
+            "exchange_effect_fragments",
+        ] {
+            assert_eq!(
+                connection
+                    .query_row(&format!("SELECT count(*) FROM {table}"), [], |row| row
+                        .get::<_, i64>(0))
+                    .unwrap(),
+                0
+            );
+        }
+    }
+}
