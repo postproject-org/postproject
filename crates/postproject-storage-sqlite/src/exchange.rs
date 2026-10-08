@@ -6,6 +6,49 @@ use rusqlite::{Connection, OptionalExtension, params};
 
 use crate::{id_bytes, sqlite_error, stored_u64};
 
+/// Internal storage framing, below the untrusted-file value limit. This is not
+/// the public chunk envelope and imposes no total native transaction limit.
+const EFFECT_FRAGMENT_BYTES: usize = 1024 * 1024;
+
+pub(crate) fn persist_metadata_effects(
+    connection: &Connection,
+    revision: RevisionId,
+    effects: &[postproject_protocol::MetadataEffect],
+) -> Result<()> {
+    let mut insert = connection
+        .prepare(
+            "INSERT INTO exchange_effect_fragments
+         (revision_id, effect_position, fragment_position, payload) VALUES (?1, ?2, ?3, ?4)",
+        )
+        .map_err(sqlite_error("prepare authored effect fragments"))?;
+    for (position, effect) in effects.iter().enumerate() {
+        let payload = effect
+            .document()
+            .and_then(|document| document.canonical_bytes())
+            .map_err(|_| {
+                Error::new(
+                    ErrorKind::Internal,
+                    "cannot encode authored metadata effect",
+                )
+            })?;
+        let position = i64::try_from(position)
+            .map_err(|_| Error::new(ErrorKind::Unsupported, "too many authored effects"))?;
+        for (fragment, bytes) in payload.chunks(EFFECT_FRAGMENT_BYTES).enumerate() {
+            let fragment = i64::try_from(fragment)
+                .map_err(|_| Error::new(ErrorKind::Unsupported, "too many effect fragments"))?;
+            insert
+                .execute(params![
+                    revision.as_bytes().as_slice(),
+                    position,
+                    fragment,
+                    bytes
+                ])
+                .map_err(sqlite_error("persist authored effect fragment"))?;
+        }
+    }
+    Ok(())
+}
+
 pub(crate) fn role(connection: &Connection) -> Result<StoreRole> {
     let role = connection
         .query_row(

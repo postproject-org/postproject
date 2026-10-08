@@ -409,6 +409,7 @@ fn schema_eighteen_claims_expire_without_losing_attribution_or_requests() {
         .connection
         .execute_batch(
             "DROP TABLE job_clock;
+         DROP TABLE exchange_effect_fragments;
          DROP TABLE exchange_history;
          DELETE FROM schema_migrations WHERE version >= 19;
          UPDATE productions SET schema_version = 18;

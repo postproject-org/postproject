@@ -4,7 +4,7 @@ use postproject_core::{Error, ErrorKind, Result, Timestamp};
 use rusqlite::{Connection, Transaction, TransactionBehavior, params};
 
 /// The newest schema understood by this build.
-pub const CURRENT_SCHEMA_VERSION: u32 = 20;
+pub const CURRENT_SCHEMA_VERSION: u32 = 21;
 
 struct Migration {
     version: u32,
@@ -91,6 +91,10 @@ const MIGRATIONS: &[Migration] = &[
     Migration {
         version: 20,
         sql: include_str!("migrations/020_exchange_history.sql"),
+    },
+    Migration {
+        version: 21,
+        sql: include_str!("migrations/021_exchange_effect_fragments.sql"),
     },
 ];
 

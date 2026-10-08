@@ -50,10 +50,10 @@ fn schema_19_migration_anchors_at_retained_head_without_fabricating_effects() {
     let receipt = edit.commit().unwrap();
     drop(edit);
     drop(production);
-    // The schema-20 migration changes only this new relation/header. Recreate
-    // the exact predecessor shape with retained native revision/domain facts.
+    // Remove development exchange relations to recreate schema 19 with its
+    // retained native revision/domain facts.
     let connection = Connection::open(&path).unwrap();
-    connection.execute_batch("DROP TABLE exchange_history; DELETE FROM schema_migrations WHERE version = 20; UPDATE productions SET schema_version = 19; PRAGMA user_version = 19;").unwrap();
+    connection.execute_batch("DROP TABLE exchange_effect_fragments; DROP TABLE exchange_history; DELETE FROM schema_migrations WHERE version >= 20; UPDATE productions SET schema_version = 19; PRAGMA user_version = 19;").unwrap();
     drop(connection);
     let production = SqliteProduction::open(&path).unwrap();
     let floor = production.exchange_floor().unwrap();

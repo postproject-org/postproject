@@ -36,6 +36,7 @@ pub struct SqliteTransaction<'production> {
     production: &'production mut Production,
     revision_context: RevisionContext,
     pending_events: Vec<RevisionEventKind>,
+    pending_metadata_effects: Vec<postproject_protocol::MetadataEffect>,
     base_revision: Option<(Option<RevisionId>, u64)>,
     pending_conflict_keys: BTreeMap<Vec<u8>, SemanticConflictKey>,
     pending_changed_keys: BTreeMap<Vec<u8>, SemanticConflictKey>,
@@ -156,6 +157,7 @@ impl<'production> SqliteTransaction<'production> {
             production,
             revision_context: RevisionContext::default(),
             pending_events: Vec::new(),
+            pending_metadata_effects: Vec::new(),
             base_revision,
             pending_conflict_keys: BTreeMap::new(),
             pending_changed_keys: BTreeMap::new(),
@@ -1080,6 +1082,15 @@ impl<'production> SqliteTransaction<'production> {
                 target,
                 property: property.clone(),
             });
+        self.pending_metadata_effects.push(
+            postproject_protocol::MetadataEffect::appended(
+                target,
+                property.clone(),
+                crate::stored_u64(position, "metadata effect position")?,
+                value.clone(),
+            )
+            .map_err(|_| Error::new(ErrorKind::Internal, "invalid authored metadata effect"))?,
+        );
         Ok(())
     }
 
@@ -1135,6 +1146,11 @@ impl<'production> SqliteTransaction<'production> {
                         target,
                         property: property.clone(),
                     });
+                self.pending_metadata_effects
+                    .push(postproject_protocol::MetadataEffect::removed(
+                        target,
+                        property.clone(),
+                    ));
             }
         } else {
             self.record_conflict_key(SemanticConflictKey::MetadataProperty {
@@ -1146,6 +1162,12 @@ impl<'production> SqliteTransaction<'production> {
                     target,
                     property: property.clone(),
                 });
+            self.pending_metadata_effects
+                .push(postproject_protocol::MetadataEffect::replaced(
+                    target,
+                    property.clone(),
+                    values.to_vec(),
+                ));
         }
         Ok(())
     }
@@ -1183,6 +1205,11 @@ impl<'production> SqliteTransaction<'production> {
                 target,
                 property: property.clone(),
             });
+        self.pending_metadata_effects
+            .push(postproject_protocol::MetadataEffect::removed(
+                target,
+                property.clone(),
+            ));
         Ok(())
     }
 
@@ -1713,6 +1740,7 @@ impl<'production> SqliteTransaction<'production> {
                 self.lifecycle.mark_rolled_back()?;
             }
             self.pending_events.clear();
+            self.pending_metadata_effects.clear();
             self.pending_conflict_keys.clear();
             self.pending_changed_keys.clear();
             self.finish_leases(false);
@@ -1757,6 +1785,13 @@ impl<'production> SqliteTransaction<'production> {
                 revision_id,
                 revision_sequence,
             )?;
+            crate::exchange::persist_metadata_effects(
+                self.transaction.as_ref().ok_or_else(|| {
+                    Error::new(ErrorKind::Internal, "commit has no SQLite transaction")
+                })?,
+                revision_id,
+                &self.pending_metadata_effects,
+            )?;
             revision = Some(Revision::new(
                 revision_id,
                 revision_sequence,
@@ -1782,6 +1817,7 @@ impl<'production> SqliteTransaction<'production> {
             self.revision_signal.notify_commit();
         }
         self.pending_events.clear();
+        self.pending_metadata_effects.clear();
         self.pending_conflict_keys.clear();
         self.pending_changed_keys.clear();
         Ok(CommitReceipt::new(self.production.id(), revision))
@@ -1801,6 +1837,7 @@ impl<'production> SqliteTransaction<'production> {
             .map_err(sqlite_error("roll back domain transaction"))?;
         self.lifecycle.mark_rolled_back()?;
         self.pending_events.clear();
+        self.pending_metadata_effects.clear();
         self.pending_conflict_keys.clear();
         self.pending_changed_keys.clear();
         self.finish_leases(false);
