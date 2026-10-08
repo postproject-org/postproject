@@ -9,7 +9,7 @@ static int check_terminal_state(pp_production_t *production, int terminal) {
   pp_transaction_t *b = NULL;
   pp_transaction_t *c = NULL;
   pp_error_t *error = NULL;
-  pp_commit_receipt_t receipt;
+  pp_commit_receipt_t receipt = {0};
   int result = 1;
   if (pp_production_begin_transaction(production, &a, &error) != PP_OK)
     goto cleanup;
