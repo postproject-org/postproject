@@ -165,3 +165,79 @@ fn chunk_or_manifest_failure_rolls_back_domain_revision_and_record_together() {
         }
     }
 }
+
+#[test]
+fn public_reader_pins_chunks_and_finishes_without_collecting_the_body() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("authority.pproj");
+    let mut production = SqliteProduction::create(&path, None).unwrap();
+    let target = ObjectRef::Production(production.production().id());
+    assert_eq!(
+        production.exchange_head().unwrap(),
+        production.exchange_floor().unwrap()
+    );
+    assert!(production.record_reader(0).is_err());
+    let mut edit = production.begin_transaction().unwrap();
+    edit.add_metadata_value(
+        target,
+        &property(),
+        &MetadataValue::bytes(vec![7; 1024 * 1024]).unwrap(),
+    )
+    .unwrap();
+    edit.commit().unwrap();
+    drop(edit);
+    let head = production.exchange_head().unwrap();
+    let mut reader = production.record_reader(1).unwrap();
+    assert!(reader.manifest().chunks().count() > 1);
+    assert!(!reader.is_complete());
+    let mut edit = production.begin_transaction().unwrap();
+    edit.add_metadata_value(target, &property(), &MetadataValue::i64(2))
+        .unwrap();
+    edit.commit().unwrap();
+    drop(edit);
+    assert_eq!(reader.manifest().head().unwrap(), head);
+    let mut count = 0;
+    while reader.next_chunk().unwrap().is_some() {
+        count += 1;
+    }
+    assert_eq!(count, reader.manifest().chunks().count());
+    assert!(reader.is_complete());
+    assert!(reader.next_chunk().unwrap().is_none());
+    assert_eq!(
+        production
+            .record_reader(2)
+            .unwrap()
+            .manifest()
+            .predecessor(),
+        head
+    );
+    assert!(production.record_reader(3).is_err());
+    assert!(production.record_reader(u64::MAX).is_err());
+}
+
+#[test]
+fn missing_or_corrupt_chunks_make_public_readers_terminal() {
+    for missing in [false, true] {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("authority.pproj");
+        let mut production = SqliteProduction::create(&path, None).unwrap();
+        let target = ObjectRef::Production(production.production().id());
+        let mut edit = production.begin_transaction().unwrap();
+        edit.add_metadata_value(target, &property(), &MetadataValue::i64(1))
+            .unwrap();
+        edit.commit().unwrap();
+        drop(edit);
+        Connection::open(&path)
+            .unwrap()
+            .execute_batch(if missing {
+                "DELETE FROM exchange_record_chunks;"
+            } else {
+                "UPDATE exchange_record_chunks SET document = X'7B7D';"
+            })
+            .unwrap();
+        let mut reader = production.record_reader(1).unwrap();
+        assert!(reader.next_chunk().is_err());
+        assert!(!reader.is_complete());
+        assert!(reader.next_chunk().is_err());
+    }
+}
