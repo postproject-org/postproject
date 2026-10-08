@@ -1565,9 +1565,16 @@ PP_API pp_error_code_t pp_resolution_set_get_representation(
     pp_representation_availability_t *out_availability,
     uint64_t *out_resource_count, uint64_t *out_issue_count,
     pp_error_t **out_error);
+/* Read a resource state before selecting its payload. A mismatched selection
+ * returns PP_ERROR_INVALID_ARGUMENT and zero-initializes every payload output. */
+PP_API pp_error_code_t pp_resolution_set_get_resource_state(
+    const pp_resolution_set_t *resolutions, uint64_t representation_index,
+    uint64_t resource_index, pp_resource_resolution_state_t *out_state,
+    pp_error_t **out_error);
 PP_API pp_error_code_t pp_resolution_set_get_resource(
     const pp_resolution_set_t *resolutions, uint64_t representation_index,
-    uint64_t resource_index, pp_resource_id_t *out_resource_id,
+    uint64_t resource_index, pp_resource_resolution_state_t expected_state,
+    pp_resource_id_t *out_resource_id,
     pp_resource_resolution_state_t *out_state,
     uint64_t *out_candidate_count, uint64_t *out_evidence_count,
     pp_error_t **out_error);

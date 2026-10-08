@@ -29,5 +29,10 @@ category. `ResourceResolution` forwards the latter accessors. Input case
 records are unvalidated requests. Copy assignment preserves the old value if
 allocation fails; moved sources support destruction or reassignment.
 
+In C ABI 51, `pp_resolution_set_get_resource_state` selects the expected
+state for `pp_resolution_set_get_resource`. Wrong-state access clears all
+outputs and returns `InvalidArgument`; candidate indices remain checked by
+their accessor. Borrowed values last until the resolution set is released.
+
 This changes no schema, persisted identity, locator encoding or standards
 mapping. Candidate URIs and authored evidence retain their existing meaning.

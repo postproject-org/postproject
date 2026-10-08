@@ -25,6 +25,8 @@ mod read_queries;
 mod read_session;
 mod representations;
 mod resolution;
+#[cfg(test)]
+mod resolution_payload_tests;
 mod result_budget;
 mod revision_events;
 mod revision_waits;
@@ -194,7 +196,7 @@ const PP_REVISION_JOB_FAILED: u32 = 25;
 const PP_REVISION_JOB_CANCELLED: u32 = 26;
 
 /// Current pre-1.0 ABI version.
-pub const ABI_VERSION: u32 = 50;
+pub const ABI_VERSION: u32 = 51;
 
 /// Fixed-layout UUID-compatible public identifier.
 #[repr(C)]
@@ -4615,6 +4617,32 @@ pub unsafe extern "C" fn pp_resolution_set_get_representation(
     }
 }
 
+/// Reads the state used to select one resource payload.
+///
+/// # Safety
+///
+/// `resolutions` must be live; outputs must be writable or, for `out_error`, null.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_resolution_set_get_resource_state(
+    resolutions: *const PpResolutionSet,
+    representation_index: u64,
+    resource_index: u64,
+    out_state: *mut u32,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: Outputs are initialized and checked before writes.
+    unsafe {
+        initialize_value(out_state, 0);
+        ffi_call(out_error, || {
+            require_output(out_state, "out_state")?;
+            let resolution =
+                resource_resolution_at(resolutions, representation_index, resource_index)?;
+            out_state.write(resolution.state);
+            Ok(())
+        })
+    }
+}
+
 /// Reads one resource result nested under a representation result.
 ///
 /// # Safety
@@ -4626,6 +4654,7 @@ pub unsafe extern "C" fn pp_resolution_set_get_resource(
     resolutions: *const PpResolutionSet,
     representation_index: u64,
     resource_index: u64,
+    expected_state: u32,
     out_resource_id: *mut PpResourceId,
     out_state: *mut u32,
     out_candidate_count: *mut u64,
@@ -4645,6 +4674,11 @@ pub unsafe extern "C" fn pp_resolution_set_get_resource(
             require_output(out_evidence_count, "out_evidence_count")?;
             let resolution =
                 resource_resolution_at(resolutions, representation_index, resource_index)?;
+            if resolution.state != expected_state {
+                return Err(invalid_argument(
+                    "resolution payload does not match selected state",
+                ));
+            }
             out_resource_id.write(PpResourceId {
                 bytes: resolution.resource_id.into_bytes(),
             });

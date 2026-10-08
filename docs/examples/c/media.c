@@ -678,7 +678,9 @@ print_resolution_issues(const pp_production_t *production,
       pp_resource_resolution_state_t state;
       uint64_t candidate_count = 0;
       uint64_t evidence_count = 0;
-      status = pp_resolution_set_get_resource(resolutions, r, s, &resource_id,
+      status = pp_resolution_set_get_resource_state(resolutions, r, s, &state, error);
+      if (status != PP_OK) break;
+      status = pp_resolution_set_get_resource(resolutions, r, s, state, &resource_id,
                                               &state, &candidate_count,
                                               &evidence_count, error);
       for (uint64_t e = 0; status == PP_OK && e < evidence_count; ++e) {
@@ -847,7 +849,9 @@ static pp_error_code_t verify_contents(const pp_production_t *production,
       pp_resource_id_t resource_id;
       pp_resource_resolution_state_t state;
       uint64_t candidate_count = 0, evidence_count = 0;
-      status = pp_resolution_set_get_resource(resolutions, r, s, &resource_id,
+      status = pp_resolution_set_get_resource_state(resolutions, r, s, &state, error);
+      if (status != PP_OK) break;
+      status = pp_resolution_set_get_resource(resolutions, r, s, state, &resource_id,
                                               &state, &candidate_count,
                                               &evidence_count, error);
       if (status == PP_OK && state == PP_RESOURCE_ONLINE_AT_KNOWN_LOCATOR) {
@@ -916,7 +920,9 @@ static pp_error_code_t find_nearby(const pp_production_t *production,
       pp_resource_id_t resource_id;
       pp_resource_resolution_state_t state;
       uint64_t candidate_count = 0, evidence_count = 0;
-      status = pp_resolution_set_get_resource(resolutions, r, s, &resource_id,
+      status = pp_resolution_set_get_resource_state(resolutions, r, s, &state, error);
+      if (status != PP_OK) break;
+      status = pp_resolution_set_get_resource(resolutions, r, s, state, &resource_id,
                                               &state, &candidate_count,
                                               &evidence_count, error);
       const char *uri = NULL;
@@ -1090,7 +1096,9 @@ static pp_error_code_t relink_renamed_sequence(pp_production_t *production,
       pp_resource_id_t resource_id;
       pp_resource_resolution_state_t state;
       uint64_t candidate_count = 0, evidence_count = 0;
-      status = pp_resolution_set_get_resource(resolutions, r, s, &resource_id,
+      status = pp_resolution_set_get_resource_state(resolutions, r, s, &state, error);
+      if (status != PP_OK) break;
+      status = pp_resolution_set_get_resource(resolutions, r, s, state, &resource_id,
                                               &state, &candidate_count,
                                               &evidence_count, error);
       if (status != PP_OK || candidate_count != 1) {

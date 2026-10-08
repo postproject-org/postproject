@@ -3428,8 +3428,11 @@ resolution_resource(const pp_resolution_set_t *resolutions,
   std::uint64_t candidate_count = 0;
   std::uint64_t evidence_count = 0;
   pp_error_t *resource_error = nullptr;
+  const pp_error_code_t state_status = pp_resolution_set_get_resource_state(
+      resolutions, representation_index, resource_index, &state, &resource_error);
+  POSTPROJECT_TRY(check(state_status, resource_error));
   const pp_error_code_t resource_status = pp_resolution_set_get_resource(
-      resolutions, representation_index, resource_index,
+      resolutions, representation_index, resource_index, state,
       &resource_id, &state, &candidate_count, &evidence_count,
       &resource_error);
   POSTPROJECT_TRY(check(resource_status, resource_error));

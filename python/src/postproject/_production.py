@@ -5536,10 +5536,19 @@ def _resource_resolution_at(
     candidate_count = ctypes.c_uint64()
     evidence_count = ctypes.c_uint64()
     error = ctypes.POINTER(Error)()
+    status = native.lib.pp_resolution_set_get_resource_state(
+        resolutions,
+        representation_index,
+        resource_index,
+        ctypes.byref(state),
+        ctypes.byref(error),
+    )
+    native.check(status, error)
     status = native.lib.pp_resolution_set_get_resource(
         resolutions,
         representation_index,
         resource_index,
+        state.value,
         ctypes.byref(resource_id),
         ctypes.byref(state),
         ctypes.byref(candidate_count),

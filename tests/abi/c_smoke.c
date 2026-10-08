@@ -124,7 +124,9 @@ static pp_error_code_t resolve_in(pp_production_t *production,
   if (status == PP_OK) {
     pp_resource_id_t resource_id = {{0}};
     uint64_t evidence_count = 0;
-    status = pp_resolution_set_get_resource(*out_resolutions, 0, 0,
+    status = pp_resolution_set_get_resource_state(*out_resolutions, 0, 0, out_state, out_error);
+    if (status != PP_OK) return status;
+    status = pp_resolution_set_get_resource(*out_resolutions, 0, 0, *out_state,
                                             &resource_id, out_state,
                                             out_candidates, &evidence_count,
                                             out_error);
@@ -256,7 +258,9 @@ static int renamed_sequence_scenario(pp_production_t *production,
   pp_resource_id_t resource_id = {{0}};
   pp_resource_resolution_state_t unused_state = 0;
   uint64_t unused_count = 0;
-  status = pp_resolution_set_get_resource(resolutions, 0, 0, &resource_id,
+  status = pp_resolution_set_get_resource_state(resolutions, 0, 0, &state, &error);
+  if (status == PP_OK)
+  status = pp_resolution_set_get_resource(resolutions, 0, 0, state, &resource_id,
                                           &unused_state, &unused_count,
                                           &unused_count, &error);
   if (status == PP_OK) {
@@ -405,7 +409,7 @@ int main(int argc, char **argv) {
     return 64;
   }
   (void)remove(argv[1]);
-  if (pp_abi_version() != UINT32_C(50)) {
+  if (pp_abi_version() != UINT32_C(51)) {
     return 1;
   }
   pp_error_code_t status =
@@ -1180,8 +1184,10 @@ int main(int argc, char **argv) {
   pp_resource_resolution_state_t state = 0;
   uint64_t candidate_count = 0;
   uint64_t result_evidence_count = 0;
+  status = pp_resolution_set_get_resource_state(resolutions, 0, 0, &state, &error);
+  if (status == PP_OK)
   status = pp_resolution_set_get_resource(
-      resolutions, 0, 0, &resource_id, &state, &candidate_count,
+      resolutions, 0, 0, state, &resource_id, &state, &candidate_count,
       &result_evidence_count, &error);
   if (status != PP_OK || state != PP_RESOURCE_RESOLVED_EXACT ||
       candidate_count != UINT64_C(1) || bytes_are_zero(resource_id.bytes)) {
@@ -1755,8 +1761,9 @@ int main(int argc, char **argv) {
       pp_resolution_set_get_representation(
           resolutions, 0, &resolved_asset_id, &representation_id,
           &availability, &resource_count, &issue_count, &error) != PP_OK ||
+      pp_resolution_set_get_resource_state(resolutions, 0, 0, &state, &error) != PP_OK ||
       pp_resolution_set_get_resource(
-          resolutions, 0, 0, &resource_id, &state, &candidate_count,
+          resolutions, 0, 0, state, &resource_id, &state, &candidate_count,
           &result_evidence_count, &error) != PP_OK ||
       availability != PP_AVAILABILITY_ONLINE ||
       state != PP_RESOURCE_ONLINE_AT_KNOWN_LOCATOR) {

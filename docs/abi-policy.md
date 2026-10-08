@@ -1,6 +1,6 @@
 # ABI policy
 
-ABI version 50 is pre-release and may change during the 0.x series, with every
+ABI version 51 is pre-release and may change during the 0.x series, with every
 change recorded in the changelog and ABI tests. `pp_abi_version()` reports the
 implemented version. Exported symbol names are unversioned until the first stable
 release, but removals or signature changes require an explicit ABI-version bump.
@@ -24,6 +24,12 @@ isolation because their production and transaction lifecycle dependencies lack
 the required complete evidence from two independent hosts (ADR 0040).
 
 ## Types and ownership
+
+ABI 51 adds resource-resolution state reads and requires the selected state
+for payload access. A mismatch returns `PP_ERROR_INVALID_ARGUMENT` with zero
+outputs. C++/Python store checked outcome alternatives (ADR 0063). Candidate
+strings and evidence borrow the resolution set; owned projections copy them.
+The schema remains 19.
 
 ABI 50 adds artifact reason/issue category reads and requires the selected kind
 for payload access. A mismatched kind returns `PP_ERROR_INVALID_ARGUMENT` with

@@ -950,6 +950,7 @@ EXPORTED_SYMBOLS = (
     "pp_resolution_set_get_representation",
     "pp_resolution_set_get_resource",
     "pp_resolution_set_get_resource_evidence",
+    "pp_resolution_set_get_resource_state",
     "pp_resolution_set_release",
     "pp_resolution_set_representation_count",
     "pp_resource_id_format",
@@ -1544,7 +1545,9 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_resolution_set_representation_count.restype = ctypes.c_uint64
     lib.pp_resolution_set_get_representation.argtypes = [ctypes.POINTER(ResolutionSet), ctypes.c_uint64, ctypes.POINTER(AssetId), ctypes.POINTER(RepresentationId), ctypes.POINTER(RepresentationAvailability), ctypes.POINTER(ctypes.c_uint64), ctypes.POINTER(ctypes.c_uint64), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_resolution_set_get_representation.restype = ErrorCode
-    lib.pp_resolution_set_get_resource.argtypes = [ctypes.POINTER(ResolutionSet), ctypes.c_uint64, ctypes.c_uint64, ctypes.POINTER(ResourceId), ctypes.POINTER(ResourceResolutionState), ctypes.POINTER(ctypes.c_uint64), ctypes.POINTER(ctypes.c_uint64), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_resolution_set_get_resource_state.argtypes = [ctypes.POINTER(ResolutionSet), ctypes.c_uint64, ctypes.c_uint64, ctypes.POINTER(ResourceResolutionState), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_resolution_set_get_resource_state.restype = ErrorCode
+    lib.pp_resolution_set_get_resource.argtypes = [ctypes.POINTER(ResolutionSet), ctypes.c_uint64, ctypes.c_uint64, ResourceResolutionState, ctypes.POINTER(ResourceId), ctypes.POINTER(ResourceResolutionState), ctypes.POINTER(ctypes.c_uint64), ctypes.POINTER(ctypes.c_uint64), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_resolution_set_get_resource.restype = ErrorCode
     lib.pp_resolution_set_get_issue.argtypes = [ctypes.POINTER(ResolutionSet), ctypes.c_uint64, ctypes.c_uint64, ctypes.POINTER(ResourceId), ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(AvailabilityIssueKind), ctypes.POINTER(ctypes.c_uint64), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_resolution_set_get_issue.restype = ErrorCode

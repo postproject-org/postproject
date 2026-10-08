@@ -230,7 +230,9 @@ static pp_error_code_t resolve_asset(const pp_production_t *production,
       pp_resource_resolution_state_t state;
       uint64_t candidate_count = 0;
       uint64_t evidence_count = 0;
-      status = pp_resolution_set_get_resource(resolutions, r, s, &resource_id,
+      status = pp_resolution_set_get_resource_state(resolutions, r, s, &state, error);
+      if (status != PP_OK) break;
+      status = pp_resolution_set_get_resource(resolutions, r, s, state, &resource_id,
                                               &state, &candidate_count,
                                               &evidence_count, error);
       for (uint64_t c = 0; status == PP_OK && c < candidate_count; ++c) {
@@ -290,7 +292,9 @@ confirm_unique_candidates(pp_production_t *production,
       const char *root = NULL;
       uint8_t has_naming = 0;
       pp_sequence_naming_t naming;
-      status = pp_resolution_set_get_resource(resolutions, r, s, &resource_id,
+      status = pp_resolution_set_get_resource_state(resolutions, r, s, &state, error);
+      if (status != PP_OK) break;
+      status = pp_resolution_set_get_resource(resolutions, r, s, state, &resource_id,
                                               &state, &candidate_count,
                                               &evidence_count, error);
       /* Several candidates need a person to choose; never pick one here. */

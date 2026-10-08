@@ -4,7 +4,7 @@ All notable changes to PostProject will be documented here. The project uses
 [Semantic Versioning](https://semver.org/) once a stable API is released.
 
 ## Unreleased
-- Resolution outcomes carry applicable candidates and validate cardinality (ADR 0063).
+- Resolution payload access checks the selected state (C ABI 51); C++/Python validate outcome cases (ADR 0063).
 - Artifact payload access checks the selected kind (C ABI 50); C++/Python use checked case values (ADR 0062).
 - C++/Python representation facts carry one validated content alternative (ADR 0061).
 - Bound collection payloads and CLI JSON inputs; page larger collections (ADR 0060).
