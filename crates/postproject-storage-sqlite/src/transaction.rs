@@ -120,6 +120,7 @@ impl<'production> SqliteTransaction<'production> {
         let transaction = connection
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(sqlite_error("begin domain transaction"))?;
+        crate::exchange::require_authority(&transaction)?;
         let base_revision = base_revision
             .map(|revision_id| {
                 transaction

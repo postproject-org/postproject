@@ -13,6 +13,7 @@ mod json;
 mod metadata;
 mod position;
 mod proposal;
+mod role;
 mod scope;
 
 pub use command::Command;
@@ -24,6 +25,7 @@ pub use json::{Document, Limits};
 pub use metadata::{decode_metadata, encode_metadata};
 pub use position::Position;
 pub use proposal::{MAX_PROPOSAL_COMMANDS, Proposal};
+pub use role::StoreRole;
 pub use scope::{
     CheckpointId, ClientId, HistoryId, MirrorInstanceId, ProtocolBase, RequestId, Scope,
 };

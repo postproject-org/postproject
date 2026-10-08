@@ -1,10 +1,38 @@
 //! Private exchange persistence; portable history is independent of read cursors.
 
 use postproject_core::{DecisionBase, Error, ErrorKind, ProductionId, Result, RevisionId};
-use postproject_protocol::{Digest, HistoryId, Position, ProtocolBase, Scope};
+use postproject_protocol::{Digest, HistoryId, Position, ProtocolBase, Scope, StoreRole};
 use rusqlite::{Connection, OptionalExtension, params};
 
 use crate::{id_bytes, sqlite_error, stored_u64};
+
+pub(crate) fn role(connection: &Connection) -> Result<StoreRole> {
+    let role = connection
+        .query_row(
+            "SELECT role FROM exchange_history WHERE singleton = 1",
+            [],
+            |row| row.get::<_, i64>(0),
+        )
+        .map_err(sqlite_error("read exchange store role"))?;
+    match role {
+        1 => Ok(StoreRole::Authority),
+        2 => Ok(StoreRole::PassiveMirror),
+        _ => Err(Error::new(
+            ErrorKind::Storage,
+            "invalid exchange store role",
+        )),
+    }
+}
+
+pub(crate) fn require_authority(connection: &Connection) -> Result<()> {
+    if role(connection)? != StoreRole::Authority {
+        return Err(Error::new(
+            ErrorKind::Unsupported,
+            "passive mirror rejects ordinary writes and worker authority",
+        ));
+    }
+    Ok(())
+}
 
 pub(crate) fn scope(connection: &Connection, production: ProductionId) -> Result<Scope> {
     let history = connection

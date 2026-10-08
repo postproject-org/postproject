@@ -18,6 +18,9 @@ Development schema 20 adds one persistent history generation and a deterministic
 genesis/migration-floor anchor. Existing revisions remain intact. The codec now
 covers strict framing, every metadata value kind and metadata proposal intent;
 complete mutation/effect coverage and the other exchange workflows remain pending.
+Persisted passive roles reject native transaction opens and token import while
+retaining ordinary reads and coherent sessions. Synthetic role tests cover
+reopen and writer-lock enforcement; they do not establish checkpoint import.
 
 ## Mutations and effect requirements
 

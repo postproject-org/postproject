@@ -70,6 +70,7 @@ pub struct SqliteProduction {
     production: Production,
     revision_signal: Arc<RevisionSignal>,
     read_scope: Option<[u8; 16]>,
+    role: postproject_protocol::StoreRole,
     job_clock: Arc<dyn job_clock::JobClock>,
 }
 
@@ -148,6 +149,12 @@ struct StoredActivityEdge {
 type ActivityEdgesById<Edge> = BTreeMap<ActivityId, Vec<Edge>>;
 
 impl SqliteProduction {
+    /// Returns the persisted authority/passive role.
+    #[must_use]
+    pub const fn exchange_role(&self) -> postproject_protocol::StoreRole {
+        self.role
+    }
+
     /// Returns this store's persistent source production/history scope.
     ///
     /// # Errors
@@ -187,7 +194,7 @@ impl SqliteProduction {
         );
         persist_new_production(&mut connection, &production)?;
 
-        Ok(Self::from_parts(path.to_path_buf(), connection, production))
+        Self::from_parts(path.to_path_buf(), connection, production)
     }
 
     /// Opens an existing production file, applying supported migrations first.
@@ -209,18 +216,20 @@ impl SqliteProduction {
         migrations::migrate(&mut connection)?;
         let production = load_production(&connection)?;
 
-        Ok(Self::from_parts(path.to_path_buf(), connection, production))
+        Self::from_parts(path.to_path_buf(), connection, production)
     }
 
-    fn from_parts(path: PathBuf, connection: Connection, production: Production) -> Self {
-        Self {
+    fn from_parts(path: PathBuf, connection: Connection, production: Production) -> Result<Self> {
+        let role = exchange::role(&connection)?;
+        Ok(Self {
             path,
             connection,
             production,
             revision_signal: Arc::default(),
             read_scope: None,
+            role,
             job_clock: job_clock::system_clock(),
-        }
+        })
     }
 
     fn cursor_scope(&self) -> String {
@@ -360,14 +369,15 @@ impl SqliteProduction {
         self.revision_signal.close();
     }
 
-    /// Reports whether this adapter retains a pinned, read-only view.
+    /// Reports whether this adapter is a pinned view or a passive mirror.
     #[must_use]
     pub const fn is_read_only(&self) -> bool {
         self.read_scope.is_some()
+            || matches!(self.role, postproject_protocol::StoreRole::PassiveMirror)
     }
 
     fn require_live_store(&self) -> Result<()> {
-        if self.is_read_only() {
+        if self.read_scope.is_some() {
             return Err(Error::new(
                 ErrorKind::InvalidArgument,
                 "a pinned read view cannot write, open another view or wait for live changes",
@@ -2582,7 +2592,7 @@ impl SqliteProduction {
         }
         // A retained view already owns its read transaction. Live reads need
         // a short snapshot covering both the page and its through sequence.
-        let snapshot = if self.is_read_only() {
+        let snapshot = if self.read_scope.is_some() {
             None
         } else {
             Some(

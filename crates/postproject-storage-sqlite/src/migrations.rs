@@ -284,7 +284,8 @@ mod tests {
 
         let production = load_production(&connection).expect("load migrated production");
         let production =
-            SqliteProduction::from_parts(std::path::PathBuf::new(), connection, production);
+            SqliteProduction::from_parts(std::path::PathBuf::new(), connection, production)
+                .expect("open migrated production");
         let page = QueryPageRequest::new(10, None).expect("page request");
         let locator =
             LocatorIdentity::new("file:///schema-15/known.mov", None).expect("locator identity");
@@ -930,7 +931,8 @@ mod tests {
 
         let production = load_production(&connection).expect("load migrated production");
         let production =
-            SqliteProduction::from_parts(std::path::PathBuf::new(), connection, production);
+            SqliteProduction::from_parts(std::path::PathBuf::new(), connection, production)
+                .expect("open migrated production");
         let evaluation = production
             .evaluate_artifact(
                 RepresentationId::from_bytes([3_u8; 16]),
