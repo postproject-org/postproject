@@ -121,14 +121,15 @@ fn effect_persistence_failure_rolls_back_domain_revision_and_fragments() {
     assert_eq!(edit.state(), TransactionState::RolledBack);
     assert!(edit.commit().is_err());
     drop(edit);
-    assert!(effects(&path).is_empty());
-    assert!(
-        production
-            .metadata_values(target, &property())
-            .unwrap()
-            .is_empty()
+    assert_eq!(effects(&path), Vec::<MetadataEffect>::new());
+    assert_eq!(
+        production.metadata_values(target, &property()).unwrap(),
+        Vec::<MetadataValue>::new()
     );
-    assert!(production.changes_since(0, 10).unwrap().is_empty());
+    assert_eq!(
+        production.changes_since(0, 10).unwrap(),
+        Vec::<postproject_core::Revision>::new()
+    );
 }
 
 #[test]
@@ -148,7 +149,7 @@ fn no_op_and_rollback_leave_no_effects() {
         .unwrap();
     edit.rollback().unwrap();
     drop(edit);
-    assert!(effects(&path).is_empty());
+    assert_eq!(effects(&path), Vec::<MetadataEffect>::new());
 }
 
 #[test]

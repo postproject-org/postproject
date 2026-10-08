@@ -41,12 +41,12 @@ fn persisted_passive_role_rejects_every_native_write_open_but_retains_reads() {
         mirror.import_job_lease(&token).unwrap_err().kind(),
         ErrorKind::Unsupported
     );
-    assert!(
+    assert_eq!(
         mirror
             .assets_page(&QueryPageRequest::new(10, None).unwrap())
             .unwrap()
-            .items()
-            .is_empty()
+            .items(),
+        [] as [postproject_core::Asset; 0]
     );
     let scope = mirror.exchange_scope().unwrap();
     let view = mirror.read_session().unwrap().into_read_only();

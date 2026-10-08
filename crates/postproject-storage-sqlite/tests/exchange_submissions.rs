@@ -127,17 +127,21 @@ fn terminal_staging_rejection_discards_earlier_commands_and_survives_reopen() {
     assert!(
         matches!(outcome.status(), OutcomeStatus::Rejected(rejection) if rejection.kind() == RejectionKind::Domain(ErrorKind::InvalidArgument))
     );
-    assert!(
-        production
-            .metadata_values(target, &property())
-            .unwrap()
-            .is_empty()
+    assert_eq!(
+        production.metadata_values(target, &property()).unwrap(),
+        Vec::<MetadataValue>::new()
     );
-    assert!(production.changes_since(0, 10).unwrap().is_empty());
+    assert_eq!(
+        production.changes_since(0, 10).unwrap(),
+        Vec::<postproject_core::Revision>::new()
+    );
     drop(production);
     let mut production = SqliteProduction::open(&path).unwrap();
     assert_eq!(production.submit_proposal(&request).unwrap(), outcome);
-    assert!(production.changes_since(0, 10).unwrap().is_empty());
+    assert_eq!(
+        production.changes_since(0, 10).unwrap(),
+        Vec::<postproject_core::Revision>::new()
+    );
 }
 
 #[test]
@@ -161,7 +165,10 @@ fn accepted_no_op_is_retained_without_a_revision() {
         matches!(outcome.status(), OutcomeStatus::Accepted(receipt) if receipt.revision().is_none())
     );
     assert_eq!(production.submit_proposal(&request).unwrap(), outcome);
-    assert!(production.changes_since(0, 10).unwrap().is_empty());
+    assert_eq!(
+        production.changes_since(0, 10).unwrap(),
+        Vec::<postproject_core::Revision>::new()
+    );
     assert_eq!(
         Connection::open(&path)
             .unwrap()
@@ -226,13 +233,14 @@ fn outcome_persistence_failure_rolls_back_domain_and_can_retry_same_identity() {
     assert!(
         matches!(production.submit_proposal(&request), Err(ExchangeError::Store(error)) if error.kind() == ErrorKind::Storage)
     );
-    assert!(
-        production
-            .metadata_values(target, &property())
-            .unwrap()
-            .is_empty()
+    assert_eq!(
+        production.metadata_values(target, &property()).unwrap(),
+        Vec::<MetadataValue>::new()
     );
-    assert!(production.changes_since(0, 10).unwrap().is_empty());
+    assert_eq!(
+        production.changes_since(0, 10).unwrap(),
+        Vec::<postproject_core::Revision>::new()
+    );
     assert!(
         production
             .submission_outcome(request.scope(), request.client(), request.request())

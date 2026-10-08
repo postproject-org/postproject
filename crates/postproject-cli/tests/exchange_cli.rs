@@ -167,13 +167,14 @@ fn retained_rejection_and_no_op_are_distinct_from_unknown_identity() {
     assert_eq!(rejected["outcome"]["status"], "rejected");
     assert!(rejected["outcome"]["receipt"].is_null());
     let production = SqliteProduction::open(&path).unwrap();
-    assert!(
-        production
-            .metadata_values(target, &property())
-            .unwrap()
-            .is_empty()
+    assert_eq!(
+        production.metadata_values(target, &property()).unwrap(),
+        Vec::<MetadataValue>::new()
     );
-    assert!(production.changes_since(0, 10).unwrap().is_empty());
+    assert_eq!(
+        production.changes_since(0, 10).unwrap(),
+        Vec::<postproject_core::Revision>::new()
+    );
     let no_op = proposal(&production, vec![]);
     write_proposal(&file, &no_op);
     drop(production);
