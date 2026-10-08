@@ -7,6 +7,11 @@ find_package(PostProject 0.7 REQUIRED CONFIG)
 add_executable(postproject-c-example main.c)
 target_compile_features(postproject-c-example PRIVATE c_std_11)
 target_link_libraries(postproject-c-example PRIVATE PostProject::postproject)
+if(MSVC)
+    target_compile_options(postproject-c-example PRIVATE /W4 /WX)
+else()
+    target_compile_options(postproject-c-example PRIVATE -Wall -Wextra -Wpedantic -Werror)
+endif()
 
 if(WIN32)
     add_custom_command(

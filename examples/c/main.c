@@ -2,7 +2,7 @@
 
 #include <stdio.h>
 
-static void print_uuid(const pp_uuid_t *id) {
+static void print_asset_id(const pp_asset_id_t *id) {
   for (size_t index = 0; index < sizeof(id->bytes); ++index) {
     printf("%02x", id->bytes[index]);
   }
@@ -74,7 +74,7 @@ int main(int argc, char **argv) {
     fprintf(stderr, "operation failed (%u): %s\n", status,
             error != NULL ? pp_error_message(error) : "no details");
   } else {
-    print_uuid(&asset_id);
+    print_asset_id(&asset_id);
     printf("representations: %llu\n",
            (unsigned long long)pp_representation_set_count(representations));
     /* Use borrowed strings before releasing the set that owns them. */
