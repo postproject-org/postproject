@@ -27,11 +27,14 @@ fn view_is_pinned_before_return_and_writer_commits_without_reader_release() {
         .unwrap();
         edit.commit().unwrap();
     }
-    assert!(empty.read().media_roots().unwrap().is_empty());
+    assert_eq!(
+        empty.read().media_roots().unwrap(),
+        [] as [postproject_core::MediaRoot; 0]
+    );
     assert!(empty.read().latest_revision().unwrap().is_none());
     let added = RevisionEventFilter::new([RevisionEventType::MediaRootAdded]).unwrap();
     let page = empty.read().changes_since_filtered(0, &added, 10).unwrap();
-    assert!(page.revisions().is_empty());
+    assert_eq!(page.revisions(), []);
     assert_eq!(page.through_sequence(), 0);
     let current = writer.read_session().unwrap();
     assert_eq!(current.read().media_roots().unwrap().len(), 1);
@@ -59,7 +62,7 @@ fn view_is_pinned_before_return_and_writer_commits_without_reader_release() {
         .read()
         .changes_since_filtered(0, &removed, 10)
         .unwrap();
-    assert!(unmatched.revisions().is_empty());
+    assert_eq!(unmatched.revisions(), []);
     assert_eq!(unmatched.through_sequence(), 1);
     assert_eq!(
         writer
@@ -352,7 +355,10 @@ fn adapter_facade_stays_pinned_and_rejects_write_and_live_operations() {
     let receipt = edit.commit_with_receipt().unwrap();
     drop(edit);
     assert!(reader.latest_revision().unwrap().is_none());
-    assert!(reader.media_roots().unwrap().is_empty());
+    assert_eq!(
+        reader.media_roots().unwrap(),
+        [] as [postproject_core::MediaRoot; 0]
+    );
     assert_eq!(
         reader.begin_transaction().err().unwrap().kind(),
         ErrorKind::InvalidArgument

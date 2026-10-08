@@ -107,7 +107,7 @@ fn root_pages_observe_other_writers_and_retained_pages_stay_coherent() {
     let reader = SqliteProduction::open(&path).unwrap();
     let empty = reader.read_session().unwrap();
     let first = QueryPageRequest::new(1, None).unwrap();
-    assert!(reader.media_roots_page(&first).unwrap().items().is_empty());
+    assert_eq!(reader.media_roots_page(&first).unwrap().items(), []);
     {
         let mut transaction = writer.begin_transaction().unwrap();
         for value in [root(3, 1), root(1, -2), root(2, 1)] {
@@ -115,14 +115,7 @@ fn root_pages_observe_other_writers_and_retained_pages_stay_coherent() {
         }
         transaction.commit().unwrap();
     }
-    assert!(
-        empty
-            .read()
-            .media_roots_page(&first)
-            .unwrap()
-            .items()
-            .is_empty()
-    );
+    assert_eq!(empty.read().media_roots_page(&first).unwrap().items(), []);
     let live = reader.media_roots_page(&first).unwrap();
     assert_eq!(live.items()[0].id(), root(1, -2).id());
     assert!(live.next_cursor().is_some());

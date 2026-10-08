@@ -95,5 +95,8 @@ fn identifier_removal_rejects_unbased_work_and_stale_reattachments() {
         .unwrap();
     removal.commit().unwrap();
     drop(removal);
-    assert!(production.external_identifiers(target).unwrap().is_empty());
+    assert_eq!(
+        production.external_identifiers(target).unwrap(),
+        [] as [postproject_core::ExternalIdentifier; 0]
+    );
 }

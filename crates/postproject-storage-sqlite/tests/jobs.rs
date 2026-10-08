@@ -991,7 +991,7 @@ fn regeneration_plans_share_their_copied_parameter_budget() {
             .kind(),
         ErrorKind::Unsupported
     );
-    assert!(all_jobs(&production).is_empty());
+    assert_eq!(all_jobs(&production), [] as [postproject_core::Job; 0]);
     assert_eq!(
         production.latest_revision().unwrap().unwrap().id(),
         receipt.revision().unwrap().id()

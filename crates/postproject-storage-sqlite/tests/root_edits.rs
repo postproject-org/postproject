@@ -58,5 +58,8 @@ fn root_edits_require_bases_and_reject_intervening_changes_atomically() {
     removal.remove_media_root(root_id).unwrap();
     removal.commit().unwrap();
     drop(removal);
-    assert!(production.media_roots().unwrap().is_empty());
+    assert_eq!(
+        production.media_roots().unwrap(),
+        [] as [postproject_core::MediaRoot; 0]
+    );
 }

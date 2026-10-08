@@ -99,13 +99,16 @@ fn journal_preparation_failure_is_terminal_and_rolls_back_facts() {
         );
     }
     assert!(production.latest_revision().unwrap().is_none());
-    assert!(production.media_roots().unwrap().is_empty());
-    assert!(
+    assert_eq!(
+        production.media_roots().unwrap(),
+        [] as [postproject_core::MediaRoot; 0]
+    );
+    assert_eq!(
         SqliteProduction::open(&path)
             .unwrap()
             .media_roots()
-            .unwrap()
-            .is_empty()
+            .unwrap(),
+        [] as [postproject_core::MediaRoot; 0]
     );
     connection
         .execute_batch("DROP TRIGGER reject_revision")

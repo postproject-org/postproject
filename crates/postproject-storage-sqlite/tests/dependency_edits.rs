@@ -92,7 +92,7 @@ fn complete_observations_require_bases_and_preserve_a_newer_set() {
             .dependencies(),
         std::slice::from_ref(&dependency)
     );
-    assert!(production.media_roots().unwrap().is_empty());
+    assert_eq!(production.media_roots().unwrap(), [] as [MediaRoot; 0]);
     let fresh = production.read_session().unwrap().decision_base();
     let mut unchanged = production.begin_edit(fresh).unwrap();
     assert!(
