@@ -18,6 +18,17 @@
       "evidence": "user-supplied transcript; direct retrieval returned HTTP 403",
       "python_route": "Studio required",
       "free_lua_route": "conditional; FFI removal reported; remaining APIs unverified"
+    },
+    "community_knowledge_base": {
+      "distribution": "Resolve_Scripting_API_KB_v5_7_1.zip",
+      "distribution_sha256": "adfb2264a0695d4822dd99d009f69dc2a079ff74ad2a8920df059c763f395ced",
+      "document": "Resolve_Scripting_API_KB_v5_7_1.html",
+      "document_sha256": "425b0ec489d077aee6053674f6792b41459c6dbaf1f0bb52821d66c5a0fb4701",
+      "version": "5.7.1",
+      "api_version": "21.1",
+      "provenance": "community-sourced archive supplied by user; read without executing embedded scripts",
+      "discussion": "https://forum.blackmagicdesign.com/viewtopic.php?f=44&t=240024",
+      "discussion_retrieved": false
     }
   },
   "reaper": {

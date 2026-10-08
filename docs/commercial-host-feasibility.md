@@ -113,3 +113,12 @@ The free edition's processing/output limits and codec availability apply. A
 working GPU/runtime, the chosen edition's scripting access and demonstrated
 persistence are acceptance conditions, not evidence supplied by this archive.
 Studio entitlement and runtime remain unverified.
+
+The supplied community knowledge base v5.7.1 covers API 21.1 and separately
+labels runtime reports for 19.1.4 / 21.0.4. Its version section also marks Python
+as Studio-only. Use it as a source of test cases; its API summaries and older
+runtime reports do not qualify this 21.1.1 distribution. In particular, verify
+relink results by rereading `GetClipProperty("File Path")` and the canonical
+reference. Reported partial setter behavior reinforces the need for readback
+after host writes. Record `GetVersion`, `GetProductName` and `IsStudio` in actual
+acceptance evidence; those methods are present in the vendor definitions.
