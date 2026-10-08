@@ -5,8 +5,11 @@
 
 mod digest;
 mod error;
+mod fields;
 mod json;
+mod metadata;
 
 pub use digest::{Digest, DigestDomain};
 pub use error::{FailureKind, ProtocolError, Result};
 pub use json::{Document, Limits};
+pub use metadata::{decode_metadata, encode_metadata};
