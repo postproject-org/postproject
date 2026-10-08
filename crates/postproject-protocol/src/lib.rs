@@ -8,8 +8,12 @@ mod error;
 mod fields;
 mod json;
 mod metadata;
+mod scope;
 
 pub use digest::{Digest, DigestDomain};
 pub use error::{FailureKind, ProtocolError, Result};
 pub use json::{Document, Limits};
 pub use metadata::{decode_metadata, encode_metadata};
+pub use scope::{
+    CheckpointId, ClientId, HistoryId, MirrorInstanceId, ProtocolBase, RequestId, Scope,
+};

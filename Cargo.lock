@@ -738,6 +738,7 @@ dependencies = [
  "postproject-core",
  "serde",
  "serde_json",
+ "uuid",
 ]
 
 [[package]]
