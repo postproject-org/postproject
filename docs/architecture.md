@@ -33,6 +33,10 @@ inherit the workspace's compiler-enforced prohibition on unsafe code.
 Test-only dependencies are separate: storage tests may use media services to
 exercise the backend through domain operations.
 
+The experimental `postproject-protocol` crate depends on core and owns strict
+wire validation and canonical encoding (ADR 0065). It cannot depend on media,
+storage or application adapters. Core remains independent of the codec.
+
 `postproject-storage-sqlite` owns production-file migrations and transactional
 persistence. It implements the core `ProductionRead`, `ProductionStore`, and
 `ProductionStoreTransaction` contracts, which describe domain operations rather

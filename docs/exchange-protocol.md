@@ -81,7 +81,7 @@ and records. Unknown metadata vocabularies are supported ordinary domain facts.
 ## Bounds, checkpoints and replay
 
 Defaults: 64 MiB per proposal, 1,000 proposal commands, 32 MiB per encoded chunk,
-96 container levels and 1,000,000 JSON nodes per bounded document. Domain limits
+192 container levels and 1,000,000 JSON nodes per bounded document. Domain limits
 remain authoritative, including metadata's 32 levels and 15 MiB aggregate value.
 Callers may lower codec limits; exceeding them reports `limit_exceeded`.
 Native transaction size has no proposal-command cap.

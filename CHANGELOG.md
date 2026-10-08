@@ -5,6 +5,8 @@ All notable changes to PostProject will be documented here. The project uses
 
 ## Unreleased
 
+- Add the experimental portable-exchange codec and exact canonical value profile (ADR 0065).
+
 ## 0.7.0-alpha.1 - 2026-10-08
 
 - Start the `0.7.0-alpha.1` series (Python `0.7.0a1`, C ABI 51, schema 19).
