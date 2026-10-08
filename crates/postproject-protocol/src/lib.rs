@@ -5,6 +5,7 @@
 
 mod command;
 mod digest;
+mod effect;
 mod error;
 mod extensions;
 mod fields;
@@ -16,6 +17,7 @@ mod scope;
 
 pub use command::Command;
 pub use digest::{Digest, DigestDomain};
+pub use effect::{MetadataChange, MetadataEffect};
 pub use error::{FailureKind, ProtocolError, Result};
 pub use extensions::Extensions;
 pub use json::{Document, Limits};
