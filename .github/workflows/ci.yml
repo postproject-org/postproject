@@ -370,10 +370,11 @@ jobs:
       - name: Test installed wheel
         shell: bash
         run: |
-          python -m venv target/wheel-venv
-          target/wheel-venv/bin/python -m pip install --no-deps target/wheel/*.whl
+          wheel_venv="$RUNNER_TEMP/postproject-wheel-venv"
+          python -m venv "$wheel_venv"
+          "$wheel_venv/bin/python" -m pip install --no-deps target/wheel/*.whl
           POSTPROJECT_LIBRARY="$GITHUB_WORKSPACE/target/release/libpostproject.so" \
-            target/wheel-venv/bin/python examples/python/quickstart.py \
+            "$wheel_venv/bin/python" examples/python/quickstart.py \
             target/wheel-quickstart.pproj examples/fixtures/sample-media.dat
 
   platform-wheel-linux:
