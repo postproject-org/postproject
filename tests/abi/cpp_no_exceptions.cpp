@@ -36,12 +36,12 @@ int main(int argc, char **argv) {
   pp_object_ref_t native_reference{};
   native_reference.kind = 99;
   const auto invalid_reference = postproject::detail::object_ref(native_reference);
-  if (invalid_reference || invalid_reference.error().code() != postproject::ErrorCode::invalid_argument) return 25;
+  if (invalid_reference || invalid_reference.error().code() != postproject::ErrorCode::unsupported) return 25;
   // Malformed native state data must fail before creating a usable variant.
   pp_job_t native_job{};
   native_job.state = 99;
   const auto unknown_state = postproject::detail::job_status_value(native_job);
-  if (unknown_state || unknown_state.error().code() != postproject::ErrorCode::internal) return 20;
+  if (unknown_state || unknown_state.error().code() != postproject::ErrorCode::unsupported) return 20;
   native_job.state = PP_JOB_FAILED;
   if (postproject::detail::job_status_value(native_job)) return 21;
   native_job.failure_diagnostic = "";
