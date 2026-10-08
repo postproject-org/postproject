@@ -32,3 +32,32 @@ revision. A failure after a known commit uses `post_commit_failure` with
 `cause_code`, `commit_receipt` and ordered `commit_receipts`. Its exit category
 describes the cause. Inspect those receipts before retrying: the earlier writes
 are durable even when output delivery or later worker publication failed.
+
+## Development metadata exchange
+
+`exchange inspect production.pproj` reports source scope, persisted role,
+the retained floor and the observed revision head. The head is not yet a
+complete replay feed. `exchange submit production.pproj proposal.json` accepts
+the development protocol's metadata commands; its scoped base comes from the
+proposal. Global `--decision-base` and `--base-revision` options reject.
+
+With `--json`, the result's `outcome` is a protocol-major-1 object inside the
+CLI format-1 envelope. Protocol integers are exact decimal **strings**, including
+receipt sequences. Accepted no-op outcomes have `receipt.revision: null`.
+Terminal rejection returns a nonzero domain exit code and includes the retained
+outcome alongside `error`. Recover it with:
+
+```sh
+postproject --json exchange outcome production.pproj \
+  --history HISTORY_UUID --client CLIENT_UUID --request REQUEST_UUID
+```
+
+Lookup returns `outcome: null` for an unknown identity. It does not reapply a
+request. Equivalent retries return the original result; changed intent requires
+a new request UUID. `request_identity_mismatch` exits 4 and retains the original
+outcome. `scope_mismatch`, `invalid_base`, `malformed` and `limit_exceeded` exit 2;
+`mirror_read_only` exits 8. Proposal framing rejects duplicate keys and is
+bounded to 64 MiB before opening the production.
+
+Checkpoint exchange, complete catch-up and worker credential submission remain
+unavailable in this development slice.

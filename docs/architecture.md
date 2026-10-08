@@ -12,6 +12,9 @@ flowchart TD
     ffi --> media["postproject-media<br/>fingerprints, discovery, resolution"]
     cli --> storage
     cli --> media
+    cli --> protocol["postproject-protocol<br/>validated exchange values, codec"]
+    storage --> protocol
+    protocol --> core
     storage --> core["postproject-core<br/>IDs, domain values, store contracts"]
     media --> core
     storage --- pproj[(".pproj<br/>SQLite file")]
@@ -52,7 +55,7 @@ FFmpeg library enters the dependency graph.
 
 `postproject-ffi` exposes a manually designed C ABI with opaque handles and panic
 containment. The header-only C++ wrapper calls only that ABI. `postproject-cli`
-depends on the domain, media, and SQLite crates and exercises those services
+depends on the domain, media, protocol and SQLite crates and exercises those services
 without reimplementing their behavior.
 
 ## Why a C ABI
