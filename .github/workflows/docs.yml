@@ -117,6 +117,30 @@ jobs:
           python tools/check_docs_coverage.py include/postproject/postproject.h target/doxygen/xml
           sphinx-build --fail-on-warning --keep-going -b html docs "$GITHUB_WORKSPACE/target/site/0.6.0-alpha.1"
           cmake -E copy_directory "$GITHUB_WORKSPACE/target/site/0.6.0-alpha.1" "$GITHUB_WORKSPACE/target/site/latest"
+      - name: Find the 0.7 release tag
+        id: release_0_7
+        shell: bash
+        run: |
+          if git ls-remote --exit-code --tags origin refs/tags/v0.7.0-alpha.1 >/dev/null; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v7
+        if: steps.release_0_7.outputs.available == 'true'
+        with:
+          ref: v0.7.0-alpha.1
+          path: target/released-docs-source-0.7-alpha1
+      - name: Build 0.7 release documentation only after tagging
+        if: steps.release_0_7.outputs.available == 'true'
+        working-directory: target/released-docs-source-0.7-alpha1
+        run: |
+          mkdir -p target/doxygen
+          doxygen Doxyfile
+          python "$GITHUB_WORKSPACE/tools/normalize_doxygen_xml.py" target/doxygen/xml
+          python tools/check_docs_coverage.py include/postproject/postproject.h target/doxygen/xml
+          sphinx-build --fail-on-warning --keep-going -b html docs "$GITHUB_WORKSPACE/target/site/0.7.0-alpha.1"
+          cmake -E copy_directory "$GITHUB_WORKSPACE/target/site/0.7.0-alpha.1" "$GITHUB_WORKSPACE/target/site/latest"
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v4
         with:
