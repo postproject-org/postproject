@@ -1733,23 +1733,36 @@ impl<'production> SqliteTransaction<'production> {
         self.lifecycle.ensure_open()?;
         let result = self.commit_open();
         if result.is_err() {
-            // Dropping an outstanding SQLite transaction rolls it back even
-            // when journal preparation failed before the commit was attempted.
-            self.transaction.take();
-            if self.lifecycle.state() == TransactionState::Open {
-                self.lifecycle.mark_rolled_back()?;
-            }
-            self.pending_events.clear();
-            self.pending_metadata_effects.clear();
-            self.pending_conflict_keys.clear();
-            self.pending_changed_keys.clear();
-            self.finish_leases(false);
-            self.persist_failed_lease_time()?;
+            self.abort_failed_commit()?;
         }
         result
     }
 
     fn commit_open(&mut self) -> Result<CommitReceipt> {
+        let receipt = self.prepare_commit()?;
+        self.finish_commit(receipt)
+    }
+
+    fn abort_failed_commit(&mut self) -> Result<()> {
+        // Dropping an outstanding SQLite transaction rolls it back even when
+        // journal preparation failed before the commit was attempted.
+        self.transaction.take();
+        if self.lifecycle.state() == TransactionState::Open {
+            self.lifecycle.mark_rolled_back()?;
+        }
+        self.clear_pending();
+        self.finish_leases(false);
+        self.persist_failed_lease_time()
+    }
+
+    fn clear_pending(&mut self) {
+        self.pending_events.clear();
+        self.pending_metadata_effects.clear();
+        self.pending_conflict_keys.clear();
+        self.pending_changed_keys.clear();
+    }
+
+    fn prepare_commit(&mut self) -> Result<CommitReceipt> {
         self.check_lease_commit()?;
         let conflict_keys = self.pending_conflict_keys.clone();
         let changed_keys = self.pending_changed_keys.clone();
@@ -1806,6 +1819,10 @@ impl<'production> SqliteTransaction<'production> {
                 "semantic conflict keys require a revision event",
             ));
         }
+        Ok(CommitReceipt::new(self.production.id(), revision))
+    }
+
+    fn finish_commit(&mut self, receipt: CommitReceipt) -> Result<CommitReceipt> {
         let transaction = self.take_transaction()?;
         if let Err(error) = transaction.commit() {
             self.lifecycle.mark_rolled_back()?;
@@ -1816,11 +1833,8 @@ impl<'production> SqliteTransaction<'production> {
         if !self.pending_events.is_empty() {
             self.revision_signal.notify_commit();
         }
-        self.pending_events.clear();
-        self.pending_metadata_effects.clear();
-        self.pending_conflict_keys.clear();
-        self.pending_changed_keys.clear();
-        Ok(CommitReceipt::new(self.production.id(), revision))
+        self.clear_pending();
+        Ok(receipt)
     }
 
     /// Explicitly discards all staged mutations.
@@ -1836,10 +1850,7 @@ impl<'production> SqliteTransaction<'production> {
             .rollback()
             .map_err(sqlite_error("roll back domain transaction"))?;
         self.lifecycle.mark_rolled_back()?;
-        self.pending_events.clear();
-        self.pending_metadata_effects.clear();
-        self.pending_conflict_keys.clear();
-        self.pending_changed_keys.clear();
+        self.clear_pending();
         self.finish_leases(false);
         self.persist_failed_lease_time()?;
         Ok(())
