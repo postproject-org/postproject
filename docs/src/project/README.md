@@ -31,6 +31,8 @@ Use these pages when the implementation itself is relevant:
 - {doc}`../../benchmarks`
 - {doc}`../../compatibility-evidence`
 - {doc}`../../fuzzing`
+- {doc}`../../exchange-protocol` and {doc}`../../exchange-coverage` describe the
+  experimental exchange contract and its implementation coverage.
 
 These are engineering references. Application integrators should prefer the integrator and concept guides unless they are diagnosing implementation behavior.
 
@@ -69,6 +71,8 @@ When a change touches an area that maps to an external standard, consult the sta
 /benchmarks
 /compatibility-evidence
 /fuzzing
+/exchange-protocol
+/exchange-coverage
 releases
 decisions
 ```

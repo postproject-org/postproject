@@ -1,0 +1,18 @@
+{
+  "installed_candidate": null,
+  "repositories": [
+    {"repository": "postproject","base_commit": "663a8cf83b3062eb74636a4655c3882f1f607cdd","candidate_commit": null,"qualification": "pending","initial_untracked": ["?? python/build/"]},
+    {"repository": "postproject-ardour","base_commit": "a417d2032ce5ee8893c31fad1791286d89f195ef","candidate_commit": null,"qualification": "pending","initial_untracked": []},
+    {"repository": "postproject-blender","base_commit": "bfe5b959a52ffea94798f45039d5381764ffafac","candidate_commit": null,"qualification": "pending","initial_untracked": []},
+    {"repository": "postproject-cpp-nle","base_commit": "8d2933a8db4d945801272282f316808807c61584","candidate_commit": null,"qualification": "pending","initial_untracked": []},
+    {"repository": "postproject-kdenlive","base_commit": "24153ec76ba7e0420a5950be6163500d320f1719","candidate_commit": null,"qualification": "pending","initial_untracked": []},
+    {"repository": "postproject-natron","base_commit": "ad2554d6d0d2b65cc7bb8489106b166db2ccec23","candidate_commit": null,"qualification": "pending","initial_untracked": ["?? build-api-safety-guards/","?? build-content-values/","?? build-qualification-abi51/","?? build-resolution-values/"]},
+    {"repository": "postproject-obs","base_commit": "338e395f1f9245490a0914d6006d222384f726dd","candidate_commit": null,"qualification": "pending","initial_untracked": ["?? build-qualification-abi51/"]},
+    {"repository": "postproject-openassetio","base_commit": "5e38c3189dfa6f5224371df5a84e61d852eb4348","candidate_commit": null,"qualification": "pending","initial_untracked": ["?? build/"]},
+    {"repository": "postproject-openassetio-manager","base_commit": "ed5293c9f7fbc85d61a9658dd0909cfe036124db","candidate_commit": null,"qualification": "pending","initial_untracked": ["?? build/"]},
+    {"repository": "postproject-otio-demo","base_commit": "c18f5bc1a700032f3136facf96f60f2831631580","candidate_commit": null,"qualification": "pending","initial_untracked": ["?? build/"]},
+    {"repository": "postproject-otio-openassetio","base_commit": "81a6ee684ac9704080d86c64fa404ca470766c86","candidate_commit": null,"qualification": "pending","initial_untracked": []},
+    {"repository": "postproject-python-host","base_commit": "c42b8b862cb53efe90a3ce5003ef78f34bfd3337","candidate_commit": null,"qualification": "pending","initial_untracked": []},
+    {"repository": "postproject.org","base_commit": "606f228b61adefe1748b029b72228ec549dd37cb","candidate_commit": null,"qualification": "pending","initial_untracked": []}
+  ]
+}
