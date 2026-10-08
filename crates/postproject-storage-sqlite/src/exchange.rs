@@ -1,5 +1,11 @@
 //! Private exchange persistence; portable history is independent of read cursors.
 
+mod error;
+mod outcomes;
+
+pub use error::{ExchangeError, ExchangeResult};
+pub(crate) use outcomes::persist;
+
 use postproject_core::{DecisionBase, Error, ErrorKind, ProductionId, Result, RevisionId};
 use postproject_protocol::{Digest, HistoryId, Position, ProtocolBase, Scope, StoreRole};
 use rusqlite::{Connection, OptionalExtension, params};

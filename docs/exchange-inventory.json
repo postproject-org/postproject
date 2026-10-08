@@ -19,6 +19,7 @@
     {"table": "external_identifiers","classification": "portable","columns": ["id","target_kind","target_id","scheme","value","qualifier"],"exclude": ["id"]},
     {"table": "exchange_effect_fragments","classification": "portable","columns": ["revision_id","effect_position","fragment_position","payload"],"exclude": ["fragment_position"]},
     {"table": "exchange_history","classification": "portable","columns": ["singleton","history_id","instance_id","role","floor_revision_id","floor_sequence","anchor_digest"],"exclude": ["singleton","instance_id","role"]},
+    {"table": "exchange_outcomes","classification": "private","columns": ["history_id","client_id","request_id","request_digest","capability_binding","outcome"],"exclude": []},
     {"table": "image_sequence_missing_frames","classification": "portable","columns": ["representation_id","frame"],"exclude": []},
     {"table": "image_sequences","classification": "portable","columns": ["representation_id","resource_id","start_frame","end_frame","frame_step","rate_numerator","rate_denominator"],"exclude": []},
     {"table": "job_clock","classification": "private","columns": ["singleton","high_water_micros"],"exclude": []},

@@ -9,7 +9,7 @@ The package is `0.7.0-alpha.1` (Python `0.7.0a1`). Its APIs remain experimental
 after the coordinated migration and compatibility review; no additional stable
 family is named. The released 0.6 promise below remains intact.
 
-Current development migrates local files to schema 21 for persistent exchange
+Current development migrates local files to schema 22 for persistent exchange
 history/floor identity (ADR 0065). The released 0.7 baseline remains schema 19.
 Exchange implementation and projections are incomplete; this is not a new
 package release or a stable protocol/ABI promise.
