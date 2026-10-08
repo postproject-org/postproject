@@ -40,6 +40,11 @@ Integer arguments must fit their native ranges; conversion never wraps them.
 Booleans and other non-integers raise `TypeError`; overflowing integers raise
 `InvalidArgumentError`. Native operations also check domain limits.
 
+Closed owners and finished edits raise `InvalidArgumentError`. Required unknown
+native tags or an incompatible ABI raise `UnsupportedError`; inconsistent native
+payloads raise `InternalError`. These exceptions carry the corresponding native
+`code`. Repeated `close()` calls are harmless.
+
 Production operations may run concurrently from multiple Python threads; calls
 on one native handle serialize internally. Do not call `close()` concurrently
 with an operation, and do not share a transaction between concurrent callers.

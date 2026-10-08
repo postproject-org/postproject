@@ -4639,7 +4639,9 @@ def _media_root_page(
     native: NativeLibrary, handle: _Pointer[MediaRootSet]
 ) -> QueryPage[MediaRoot]:
     if not handle:
-        raise RuntimeError("native media-root query returned no result set")
+        raise InternalError(
+            _abi.PP_ERROR_INTERNAL, "native media-root query returned no result set"
+        )
     try:
         count = native.lib.pp_media_root_set_count(handle)
         items = tuple(
@@ -4691,7 +4693,9 @@ def _create_metadata_input(
     status = function(*arguments, ctypes.byref(handle), ctypes.byref(error))
     native.check(status, error)
     if not handle:
-        raise RuntimeError("native metadata input creation returned no handle")
+        raise InternalError(
+            _abi.PP_ERROR_INTERNAL, "native metadata input creation returned no handle"
+        )
     return handle
 
 
@@ -4864,7 +4868,9 @@ def _dependency_at(
     native.check(status, error)
     target = _object_reference(value.target)
     if not isinstance(target, (AssetRef, RepresentationRef)):
-        raise RuntimeError("native dependency has an unsupported target")
+        raise InternalError(
+            _abi.PP_ERROR_INTERNAL, "native dependency has an unsupported target"
+        )
     return Dependency(
         kind=_decode_required(value.kind, "dependency kind"),
         target=target,
@@ -4913,8 +4919,9 @@ def _job_at(native: NativeLibrary, jobs: _Pointer[JobSet], index: int) -> Job:
         scheme = _decode_optional(value.claim_agent_identifier_scheme)
         identifier_value = _decode_optional(value.claim_agent_identifier_value)
         if (scheme is None) != (identifier_value is None):
-            raise RuntimeError(
-                "native job claim returned an incomplete agent identifier"
+            raise InternalError(
+                _abi.PP_ERROR_INTERNAL,
+                "native job claim returned an incomplete agent identifier",
             )
         if scheme is not None and identifier_value is not None:
             identifier = ExternalIdentifier(
@@ -4975,7 +4982,10 @@ def _dependency_query_page(
         native.check(status, error)
         target = _object_reference(value.target)
         if not isinstance(target, (AssetRef, RepresentationRef)):
-            raise RuntimeError("native dependency query returned an invalid target")
+            raise InternalError(
+                _abi.PP_ERROR_INTERNAL,
+                "native dependency query returned an invalid target",
+            )
         items.append(DependencyMatch(target, int(value.depth)))
     return QueryPage(
         tuple(items),
@@ -4986,13 +4996,18 @@ def _dependency_query_page(
 
 def _resource_match(reference: ObjectReference, _depth: int) -> ResourceId:
     if not isinstance(reference, ResourceRef):
-        raise RuntimeError("native resource query returned a non-resource")
+        raise InternalError(
+            _abi.PP_ERROR_INTERNAL, "native resource query returned a non-resource"
+        )
     return reference.id
 
 
 def _representation_match(reference: ObjectReference, _depth: int) -> RepresentationId:
     if not isinstance(reference, RepresentationRef):
-        raise RuntimeError("native representation query returned a non-representation")
+        raise InternalError(
+            _abi.PP_ERROR_INTERNAL,
+            "native representation query returned a non-representation",
+        )
     return reference.id
 
 
@@ -5002,7 +5017,10 @@ def _object_match(reference: ObjectReference, _depth: int) -> ObjectReference:
 
 def _provenance_match(reference: ObjectReference, depth: int) -> ProvenanceMatch:
     if not isinstance(reference, RepresentationRef):
-        raise RuntimeError("native provenance query returned a non-representation")
+        raise InternalError(
+            _abi.PP_ERROR_INTERNAL,
+            "native provenance query returned a non-representation",
+        )
     return ProvenanceMatch(reference.id, depth)
 
 
@@ -5093,10 +5111,14 @@ def _regeneration_plan_at(
             native.lib.pp_job_set_release(jobs)
         if parameters:
             native.lib.pp_metadata_set_release(parameters)
-        raise RuntimeError("native regeneration plan is incomplete")
+        raise InternalError(
+            _abi.PP_ERROR_INTERNAL, "native regeneration plan is incomplete"
+        )
     try:
         if native.lib.pp_job_set_count(jobs) != 1:
-            raise RuntimeError("native regeneration plan must contain one job")
+            raise InternalError(
+                _abi.PP_ERROR_INTERNAL, "native regeneration plan must contain one job"
+            )
         job = _job_at(native, jobs, 0)
         assertions = tuple(
             _metadata_at(native, parameters, parameter_index)
@@ -5105,8 +5127,9 @@ def _regeneration_plan_at(
             )
         )
         if any(assertion.target != JobRef(job.id) for assertion in assertions):
-            raise RuntimeError(
-                "native regeneration parameter target does not match its job"
+            raise InternalError(
+                _abi.PP_ERROR_INTERNAL,
+                "native regeneration parameter target does not match its job",
             )
         return RegenerationJobPlan(
             RepresentationId(_uuid(artifact_id)), job, assertions
@@ -5967,7 +5990,9 @@ def _metadata_at(
     )
     native.check(status, error)
     if not value:
-        raise RuntimeError("native metadata assertion is missing its value")
+        raise InternalError(
+            _abi.PP_ERROR_INTERNAL, "native metadata assertion is missing its value"
+        )
     return MetadataAssertion(
         _object_reference(target),
         MetadataProperty(
@@ -6030,7 +6055,9 @@ def _metadata_value(
         try:
             parsed_coefficient = int(coefficient_text)
         except ValueError as exception:
-            raise RuntimeError("native metadata decimal is invalid") from exception
+            raise InternalError(
+                _abi.PP_ERROR_INTERNAL, "native metadata decimal is invalid"
+            ) from exception
         return MetadataDecimal(parsed_coefficient, int(scale.value))
 
     if kind == _abi.PP_METADATA_BOOL:
@@ -6091,7 +6118,9 @@ def _metadata_value(
             )
             native.check(status, error)
             if not item:
-                raise RuntimeError("native metadata list item is missing")
+                raise InternalError(
+                    _abi.PP_ERROR_INTERNAL, "native metadata list item is missing"
+                )
             items.append(_metadata_value(native, item))
         return MetadataList(tuple(items))
 
@@ -6110,7 +6139,9 @@ def _metadata_value(
             )
             native.check(status, error)
             if not field_value:
-                raise RuntimeError("native metadata structure field is missing")
+                raise InternalError(
+                    _abi.PP_ERROR_INTERNAL, "native metadata structure field is missing"
+                )
             fields.append(
                 MetadataStructField(
                     _decode_required(name.value, "metadata field name"),
@@ -6544,9 +6575,20 @@ def _evidence_kind(value: int) -> EvidenceKind:
 
 def _decode_required(value: bytes | None, label: str) -> str:
     if value is None:
-        raise RuntimeError(f"revision event is missing {label}")
-    return value.decode("utf-8")
+        raise InternalError(
+            _abi.PP_ERROR_INTERNAL, f"revision event is missing {label}"
+        )
+    return _decode_text(value)
 
 
 def _decode_optional(value: bytes | None) -> str | None:
-    return None if value is None else value.decode("utf-8")
+    return None if value is None else _decode_text(value)
+
+
+def _decode_text(value: bytes) -> str:
+    try:
+        return value.decode("utf-8")
+    except UnicodeDecodeError as error:
+        raise InternalError(
+            _abi.PP_ERROR_INTERNAL, "native text is not valid UTF-8"
+        ) from error

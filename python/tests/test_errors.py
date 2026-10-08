@@ -19,6 +19,19 @@ from postproject._errors import ERROR_TYPES
 
 
 class ErrorMappingTests(unittest.TestCase):
+    def test_missing_and_invalid_native_text_are_internal_errors(self) -> None:
+        calls = (
+            lambda: _production._decode_required(None, "required text"),
+            lambda: _production._decode_required(b"\xff", "required text"),
+            lambda: _production._decode_optional(b"\xff"),
+        )
+        for call in calls:
+            with self.assertRaises(InternalError) as caught:
+                call()
+            self.assertEqual(caught.exception.code, _abi.PP_ERROR_INTERNAL)
+        self.assertIsNone(_production._decode_optional(None))
+        self.assertEqual(_production._decode_required(b"", "required text"), "")
+
     def test_required_unknown_native_tags_are_unsupported(self) -> None:
         decoders = (
             _production._representation_kind,
