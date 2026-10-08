@@ -39,7 +39,7 @@ fn json_errors_preserve_categories_and_human_diagnostics() {
         .args(["job", "show", path, "11111111-1111-4111-8111-111111111111"])
         .assert()
         .code(3);
-    assert!(human.get_output().stdout.is_empty());
+    assert_eq!(human.get_output().stdout, [] as [u8; 0]);
 }
 
 #[test]

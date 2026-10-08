@@ -100,10 +100,11 @@ fn removal_requires_a_base_and_rejects_an_intervening_append() {
         removed["commit_receipt"]["revision"]["id"],
         second["commit_receipt"]["revision"]["id"]
     );
-    assert!(
+    assert_eq!(
         json(&["metadata", "list", path, "asset", asset])
             .as_array()
             .unwrap()
-            .is_empty()
+            .as_slice(),
+        [] as [Value; 0]
     );
 }

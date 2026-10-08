@@ -116,10 +116,11 @@ fn removal_rejects_old_observations_and_returns_its_own_receipt() {
         "observed",
     ]);
     assert_eq!(removed["commit_receipt"]["revision"]["sequence"], 4);
-    assert!(
+    assert_eq!(
         json(&["identifier", "list", path, "asset", asset])
             .as_array()
             .unwrap()
-            .is_empty()
+            .as_slice(),
+        [] as [Value; 0]
     );
 }

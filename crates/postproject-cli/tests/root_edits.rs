@@ -68,5 +68,8 @@ fn root_decisions_require_bases_and_preserve_stale_failures() {
     assert!(noop["commit_receipt"]["revision"].is_null());
     let removed = json(&["--decision-base", base, "root", "remove", path, root]);
     assert!(removed["commit_receipt"]["revision"]["id"].is_string());
-    assert!(json(&["root", "list", path]).as_array().unwrap().is_empty());
+    assert_eq!(
+        json(&["root", "list", path]).as_array().unwrap().as_slice(),
+        [] as [Value; 0]
+    );
 }
