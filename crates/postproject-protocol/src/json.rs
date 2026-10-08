@@ -1,11 +1,12 @@
 //! Bounded JSON framing, with duplicate keys checked before map insertion.
 
 mod decode;
+mod encode;
 
 use serde::de::DeserializeSeed;
 use serde_json::Value;
 
-use crate::{FailureKind, ProtocolError, Result};
+use crate::{Digest, DigestDomain, FailureKind, ProtocolError, Result};
 
 /// Maximum checked container depth, allowing all 32 levels of domain metadata.
 pub const MAX_CONTAINER_DEPTH: usize = 192;
@@ -61,6 +62,27 @@ pub struct Document {
 }
 
 impl Document {
+    /// Encodes canonical JSON, retaining all fields and array order.
+    ///
+    /// # Errors
+    /// Returns malformed if an internal value cannot use the exact wire profile.
+    pub fn canonical_bytes(&self) -> Result<Vec<u8>> {
+        encode::canonical(&self.value, false)
+    }
+
+    /// Computes integrity, omitting only the object's own top-level `digest`.
+    ///
+    /// This validates JSON framing, not the field's domain semantics.
+    ///
+    /// # Errors
+    /// Returns malformed for an internally unencodable value.
+    pub fn digest(&self, domain: DigestDomain) -> Result<Digest> {
+        Ok(Digest::of_canonical_bytes(
+            domain,
+            &encode::canonical(&self.value, true)?,
+        ))
+    }
+
     /// Parses a bounded object, rejecting duplicate keys and JSON number tokens.
     ///
     /// # Errors
