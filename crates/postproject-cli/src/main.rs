@@ -3,6 +3,7 @@
 #![forbid(unsafe_code)]
 
 mod errors;
+mod exchange;
 mod job_transport;
 mod json_input;
 
@@ -88,6 +89,8 @@ struct Cli {
 enum Command {
     /// Read a coherent bounded view and emit a detached decision token.
     Inspect(ProductionQueryArgs),
+    /// Submit portable metadata proposals and recover durable outcomes.
+    Exchange(exchange::ExchangeArgs),
     /// Create a production file.
     Init(InitArgs),
     /// Inspect and manage production media.
@@ -2058,6 +2061,7 @@ fn execute(cli: Cli) -> Result<()> {
     match cli.command {
         Command::Init(args) => init(args, cli.json),
         Command::Inspect(args) => inspect(&args, cli.json),
+        Command::Exchange(args) => exchange::execute(args, cli.json, base.is_some()),
         Command::Media(args) => match args.command {
             MediaCommand::Add(args) => media_add(&args, cli.json, base),
             MediaCommand::List(args) => media_list(&args, cli.json),
@@ -6324,6 +6328,9 @@ fn cli_revision_context(message: &str) -> Result<RevisionContext> {
 }
 
 fn print_error_json(error: &anyhow::Error) -> bool {
+    if let Some(rejected) = error.downcast_ref::<exchange::RejectedOutcome>() {
+        return exchange::print_rejection(rejected).is_ok();
+    }
     if let Some(committed) = error.downcast_ref::<CommittedOperationError>() {
         let receipt = &committed.receipt;
         return print_json(&serde_json::json!({"error": {

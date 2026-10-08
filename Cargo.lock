@@ -670,6 +670,7 @@ dependencies = [
  "hex",
  "postproject-core",
  "postproject-media",
+ "postproject-protocol",
  "postproject-storage-sqlite",
  "serde",
  "serde_json",

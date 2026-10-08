@@ -25,6 +25,7 @@ ALLOWED = {
     "postproject-cli": {
         "postproject-core",
         "postproject-media",
+        "postproject-protocol",
         "postproject-storage-sqlite",
     },
     "postproject-doc-examples": set(),
