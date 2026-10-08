@@ -115,7 +115,10 @@ fn observation_requires_current_context_and_receipts_include_file_facts() {
     let production = directory.path().join("production.pproj");
     let media = directory.path().join("clip.dat");
     std::fs::write(&media, b"unchanged content").unwrap();
-    let file = std::fs::File::open(&media).unwrap();
+    let file = std::fs::OpenOptions::new()
+        .write(true)
+        .open(&media)
+        .unwrap();
     file.set_modified(std::time::UNIX_EPOCH + std::time::Duration::from_secs(1))
         .unwrap();
     let path = production.to_str().unwrap();
