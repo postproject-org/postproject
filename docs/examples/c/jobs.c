@@ -113,7 +113,7 @@ static pp_error_code_t request_proxy(pp_production_t *production,
   }
   if (status == PP_OK) {
     char *saved = NULL;
-    pp_job_id_t parsed;
+    pp_job_id_t parsed = {0};
     pp_object_ref_t reference;
     status = pp_job_id_format(*out_job_id, &saved, error);
     if (status == PP_OK) status = pp_job_id_parse(saved, &parsed, error);
@@ -190,7 +190,7 @@ static pp_error_code_t claim_renew_release(pp_production_t *production,
       memcmp(&scoped_job, &job_id, sizeof job_id) != 0)) status = PP_ERROR_INTERNAL;
 
   pp_job_set_t *claimed = NULL;
-  pp_job_claim_t detail;
+  pp_job_claim_t detail = {0};
   if (status == PP_OK) status = pp_production_job(production, job_id, &claimed, error);
   if (status == PP_OK) status = pp_job_set_get_claim(claimed, 0, &detail, error);
   if (status == PP_OK && strcmp(detail.tool_name, "Example Transcoder") != 0) status = PP_ERROR_INTERNAL;
@@ -580,11 +580,11 @@ int main(int argc, char **argv) {
   pp_error_t *error = NULL;
   pp_asset_id_t asset_id;
   pp_representation_id_t original_id;
-  pp_job_id_t job_id;
-  pp_job_id_t failed_id;
-  pp_job_id_t cancelled_id;
+  pp_job_id_t job_id = {0};
+  pp_job_id_t failed_id = {0};
+  pp_job_id_t cancelled_id = {0};
   pp_representation_id_t proxy_id;
-  pp_job_id_t regeneration_id;
+  pp_job_id_t regeneration_id = {0};
   uint64_t before = 0;
   uint64_t count = 0;
 

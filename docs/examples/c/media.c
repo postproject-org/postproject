@@ -1173,7 +1173,7 @@ int main(int argc, char **argv) {
   pp_representation_id_t package_id;
   pp_representation_id_t original_id;
   pp_resource_id_t resource_id;
-  pp_locator_id_t old_locator_id;
+  pp_locator_id_t old_locator_id = {0};
   char old_uri[4096] = {0};
   uint64_t count = 0;
   uint64_t checkpoint = 0;

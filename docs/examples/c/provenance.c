@@ -188,7 +188,7 @@ static pp_error_code_t record_transcode(pp_production_t *production,
   pp_activity_set_t *consuming = NULL;
   pp_object_ref_set_t *descendants = NULL;
   pp_object_query_set_t *descendant_page = NULL;
-  pp_activity_id_t activity_id;
+  pp_activity_id_t activity_id = {0};
 
   pp_error_code_t status =
       pp_production_begin_transaction(production, &transaction, error);
@@ -202,7 +202,7 @@ static pp_error_code_t record_transcode(pp_production_t *production,
   }
   if (status == PP_OK) {
     char *saved = NULL;
-    pp_activity_id_t parsed;
+    pp_activity_id_t parsed = {0};
     pp_object_ref_t target;
     status = pp_activity_id_format(activity_id, &saved, error);
     if (status == PP_OK) status = pp_activity_id_parse(saved, &parsed, error);
@@ -214,7 +214,7 @@ static pp_error_code_t record_transcode(pp_production_t *production,
   }
   if (status == PP_OK) {
     char *saved = NULL;
-    pp_representation_id_t parsed;
+    pp_representation_id_t parsed = {0};
     pp_object_ref_t target;
     status = pp_representation_id_format(*original_id, &saved, error);
     if (status == PP_OK) status = pp_representation_id_parse(saved, &parsed, error);
@@ -363,7 +363,7 @@ static pp_error_code_t explain_stale_proxy(
   for (uint64_t i = 0; status == PP_OK && i < reason_count; ++i) {
     pp_artifact_reason_kind_t kind = 0;
     status = pp_artifact_evaluation_get_reason_kind(evaluation, i, &kind, error);
-    pp_artifact_reason_t reason;
+    pp_artifact_reason_t reason = {0};
     if (status == PP_OK) {
       status = pp_artifact_evaluation_get_reason(evaluation, i, kind, &reason, error);
     }
@@ -389,7 +389,7 @@ static pp_error_code_t explain_stale_proxy(
   if (status == PP_OK) {
     uint8_t reproducible = 0;
     uint8_t has_activity = 0;
-    pp_activity_id_t activity_id;
+    pp_activity_id_t activity_id = {0};
     const char *activity_kind;
     uint64_t issue_count = 0;
     status = pp_artifact_reproducibility_get(
@@ -399,7 +399,7 @@ static pp_error_code_t explain_stale_proxy(
     for (uint64_t i = 0; status == PP_OK && i < issue_count; ++i) {
       pp_artifact_reproducibility_issue_kind_t kind = 0;
       status = pp_artifact_reproducibility_get_issue_kind(report, i, &kind, error);
-      pp_artifact_reproducibility_issue_t issue;
+      pp_artifact_reproducibility_issue_t issue = {0};
       if (status == PP_OK) {
         status = pp_artifact_reproducibility_get_issue(report, i, kind, &issue, error);
       }
