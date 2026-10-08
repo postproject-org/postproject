@@ -18,11 +18,15 @@ class ArchitectureTests(unittest.TestCase):
         for target in ("postproject-storage-sqlite", "postproject-media"):
             with self.subTest(target=target):
                 self.assertEqual(
-                    dependency_violations([
-                        package("postproject-protocol", dependency(target)),
-                        package(target),
-                    ]),
-                    [f"forbidden production dependency: postproject-protocol -> {target}"],
+                    dependency_violations(
+                        [
+                            package("postproject-protocol", dependency(target)),
+                            package(target),
+                        ]
+                    ),
+                    [
+                        f"forbidden production dependency: postproject-protocol -> {target}"
+                    ],
                 )
 
     def test_optional_renamed_target_dependency_cannot_reverse_direction(self):

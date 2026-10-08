@@ -34,7 +34,7 @@ def canonical(input_text: str) -> bytes:
         parse_constant=reject_number,
     )
     if not isinstance(value, dict):
-        raise ValueError("document must be an object")
+        raise TypeError("document must be an object")
     # UTF-8 ordering agrees with scalar order, unlike UTF-16/JCS ordering.
     return json.dumps(
         value, ensure_ascii=False, sort_keys=True, separators=(",", ":")
@@ -47,8 +47,13 @@ def main() -> int:
     )
     for vector in vectors:
         assert canonical(vector["input"]) == vector["canonical"].encode("utf-8")
-    for invalid in ['{"a":null,"a":true}', '{"a":1}', '{"a":1.0}',
-                    '{"a":"\\ud800"}', '{}{}']:
+    for invalid in [
+        '{"a":null,"a":true}',
+        '{"a":1}',
+        '{"a":1.0}',
+        '{"a":"\\ud800"}',
+        "{}{}",
+    ]:
         try:
             canonical(invalid)
         except (ValueError, UnicodeError):

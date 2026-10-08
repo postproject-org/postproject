@@ -35,8 +35,7 @@ def problems(root: Path = ROOT) -> list[str]:
             if item["classification"] not in {"portable", "derived", "private"}:
                 result.append(f"invalid table classification: {name}")
             columns = [
-                row[1]
-                for row in connection.execute(f'PRAGMA table_info("{name}")')
+                row[1] for row in connection.execute(f'PRAGMA table_info("{name}")')
             ]
             if columns != item["columns"]:
                 result.append(f"unreviewed columns: {name}")
