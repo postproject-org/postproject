@@ -67,6 +67,10 @@ pub struct RecordChunkChain {
 }
 
 impl RecordChunkChain {
+    pub(crate) fn belongs_to(&self, scope: Scope, revision: RevisionId) -> bool {
+        self.scope == scope && self.revision == revision
+    }
+
     /// Starts verification for one explicitly advertised source revision.
     #[must_use]
     pub const fn new(scope: Scope, revision: RevisionId) -> Self {

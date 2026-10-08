@@ -17,6 +17,7 @@ mod outcome;
 mod position;
 mod proposal;
 mod receipt;
+mod record;
 mod rejection;
 mod role;
 mod scope;
@@ -36,6 +37,7 @@ pub use outcome::{Outcome, OutcomeStatus};
 pub use position::Position;
 pub use proposal::{MAX_PROPOSAL_COMMANDS, Proposal};
 pub use receipt::{decode_receipt, encode_receipt};
+pub use record::RecordManifest;
 pub use rejection::{Rejection, RejectionKind};
 pub use role::StoreRole;
 pub use scope::{
