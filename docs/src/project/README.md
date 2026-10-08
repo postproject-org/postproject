@@ -33,6 +33,8 @@ Use these pages when the implementation itself is relevant:
 - {doc}`../../fuzzing`
 - {doc}`../../exchange-protocol` and {doc}`../../exchange-coverage` describe the
   experimental exchange contract and its implementation coverage.
+- {doc}`../../commercial-host-feasibility` records the reviewed commercial
+  integration routes and their runtime limits.
 
 These are engineering references. Application integrators should prefer the integrator and concept guides unless they are diagnosing implementation behavior.
 
@@ -73,6 +75,7 @@ When a change touches an area that maps to an external standard, consult the sta
 /fuzzing
 /exchange-protocol
 /exchange-coverage
+/commercial-host-feasibility
 releases
 decisions
 ```
