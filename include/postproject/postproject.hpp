@@ -1888,11 +1888,101 @@ struct ResolutionCandidate final {
   std::vector<Evidence> evidence;
 };
 
+// Input cases are checked by ResolutionOutcome::create before being stored.
+struct ResourceOnlineAtKnownLocator final { std::vector<ResolutionCandidate> candidates; };
+struct ResourceResolvedExact final { std::vector<ResolutionCandidate> candidates; };
+struct ResourceResolvedProbable final { std::vector<ResolutionCandidate> candidates; };
+struct ResourceOffline final {};
+struct ResourceAmbiguous final { std::vector<ResolutionCandidate> candidates; };
+struct ResourceResolutionFailure final {};
+
+using ResolutionOutcomeValue = std::variant<
+    ResourceOnlineAtKnownLocator, ResourceResolvedExact, ResourceResolvedProbable,
+    ResourceOffline, ResourceAmbiguous, ResourceResolutionFailure>;
+
+/// Checked owned resolution; applicable candidates are borrowed from its case.
+class ResolutionOutcome final {
+public:
+  [[nodiscard]] static Result<ResolutionOutcome> create(ResolutionOutcomeValue value) {
+    if (value.valueless_by_exception())
+      return Error(ErrorCode::invalid_argument, "resolution has no outcome");
+    const auto *candidates = candidateValues(value);
+    const bool ambiguous = std::holds_alternative<ResourceAmbiguous>(value);
+    if (candidates != nullptr &&
+        (candidates->size() > 100000 ||
+         (ambiguous ? candidates->size() < 2 : candidates->size() != 1)))
+      return Error(ErrorCode::invalid_argument, "resolution candidate count disagrees with outcome");
+    std::size_t bytes = 0;
+    std::size_t items = candidates != nullptr ? candidates->size() : 0;
+    const auto retain = [&bytes](const std::string &text) {
+      constexpr std::size_t limit = 64 * 1024 * 1024;
+      if (text.size() > limit - bytes) return false;
+      bytes += text.size();
+      return true;
+    };
+    if (candidates != nullptr) for (const auto &candidate : *candidates) {
+      if (candidate.uri.empty() || candidate.confidence_basis_points > 10000 ||
+          candidate.evidence.empty() || candidate.evidence.size() > 100000 - items)
+        return Error(ErrorCode::invalid_argument, "invalid resolution candidate");
+      items += candidate.evidence.size();
+      if (!retain(candidate.uri) ||
+          (candidate.media_root && !retain(*candidate.media_root)) ||
+          (candidate.sequence_naming &&
+           (!retain(candidate.sequence_naming->prefix) || !retain(candidate.sequence_naming->suffix))))
+        return Error(ErrorCode::invalid_argument, "resolution payload exceeds 64 MiB");
+      for (const auto &evidence : candidate.evidence) {
+        const auto kind = static_cast<std::uint32_t>(evidence.kind);
+        if (kind < PP_EVIDENCE_KNOWN_LOCATOR_AVAILABLE || kind > PP_EVIDENCE_SEARCH_TRUNCATED)
+          return Error(ErrorCode::invalid_argument, "unknown resolution evidence kind");
+        if (evidence.detail && !retain(*evidence.detail))
+          return Error(ErrorCode::invalid_argument, "resolution evidence exceeds 64 MiB");
+      }
+    }
+    return ResolutionOutcome(std::move(value));
+  }
+  ResolutionOutcome(const ResolutionOutcome &) = default;
+  ResolutionOutcome(ResolutionOutcome &&) noexcept = default;
+  ResolutionOutcome &operator=(const ResolutionOutcome &other) {
+    ResolutionOutcome copy(other);
+    return *this = std::move(copy);
+  }
+  ResolutionOutcome &operator=(ResolutionOutcome &&) noexcept = default;
+
+  [[nodiscard]] const ResolutionOutcomeValue &value() const noexcept { return value_; }
+  [[nodiscard]] ResourceResolutionState state() const noexcept {
+    if (std::holds_alternative<ResourceOnlineAtKnownLocator>(value_))
+      return ResourceResolutionState::online_at_known_locator;
+    if (std::holds_alternative<ResourceResolvedExact>(value_)) return ResourceResolutionState::resolved_exact;
+    if (std::holds_alternative<ResourceResolvedProbable>(value_)) return ResourceResolutionState::resolved_probable;
+    if (std::holds_alternative<ResourceOffline>(value_)) return ResourceResolutionState::offline;
+    if (std::holds_alternative<ResourceAmbiguous>(value_)) return ResourceResolutionState::ambiguous;
+    return ResourceResolutionState::error;
+  }
+  [[nodiscard]] const std::vector<ResolutionCandidate> &candidates() const noexcept {
+    const auto *values = candidateValues(value_);
+    static const std::vector<ResolutionCandidate> empty;
+    return values != nullptr ? *values : empty;
+  }
+
+private:
+  explicit ResolutionOutcome(ResolutionOutcomeValue value) : value_(std::move(value)) {}
+  static const std::vector<ResolutionCandidate> *candidateValues(const ResolutionOutcomeValue &value) noexcept {
+    if (const auto *item = std::get_if<ResourceOnlineAtKnownLocator>(&value)) return &item->candidates;
+    if (const auto *item = std::get_if<ResourceResolvedExact>(&value)) return &item->candidates;
+    if (const auto *item = std::get_if<ResourceResolvedProbable>(&value)) return &item->candidates;
+    if (const auto *item = std::get_if<ResourceAmbiguous>(&value)) return &item->candidates;
+    return nullptr;
+  }
+  ResolutionOutcomeValue value_;
+};
+
 struct ResourceResolution final {
   ResourceId resource_id;
-  ResourceResolutionState state;
-  std::vector<ResolutionCandidate> candidates;
+  ResolutionOutcome outcome;
   std::vector<Evidence> evidence;
+
+  [[nodiscard]] ResourceResolutionState state() const noexcept { return outcome.state(); }
+  [[nodiscard]] const std::vector<ResolutionCandidate> &candidates() const noexcept { return outcome.candidates(); }
 };
 
 struct AvailabilityIssue final {
@@ -3344,6 +3434,8 @@ resolution_resource(const pp_resolution_set_t *resolutions,
       &resource_error);
   POSTPROJECT_TRY(check(resource_status, resource_error));
 
+  if (candidate_count > 100000 || evidence_count > 100000)
+    return Error(ErrorCode::internal, "resolution counts exceed bounds");
   std::vector<ResolutionCandidate> candidates;
   for (std::uint64_t candidate_index = 0;
        candidate_index < candidate_count; ++candidate_index) {
@@ -3361,6 +3453,8 @@ resolution_resource(const pp_resolution_set_t *resolutions,
             &has_naming, &naming, &candidate_evidence_count,
             &candidate_error);
     POSTPROJECT_TRY(check(candidate_status, candidate_error));
+    if (uri == nullptr || candidate_evidence_count > 100000)
+      return Error(ErrorCode::internal, "invalid native resolution candidate");
 
     std::vector<Evidence> evidence;
     for (std::uint64_t evidence_index = 0;
@@ -3390,9 +3484,32 @@ resolution_resource(const pp_resolution_set_t *resolutions,
                                   resource_index, evidence_index));
     evidence.push_back(std::move(item_6));
   }
+  Result<ResolutionOutcome> outcome = [&]() -> Result<ResolutionOutcome> {
+    switch (state) {
+    case PP_RESOURCE_ONLINE_AT_KNOWN_LOCATOR:
+      return ResolutionOutcome::create(ResourceOnlineAtKnownLocator{std::move(candidates)});
+    case PP_RESOURCE_RESOLVED_EXACT:
+      return ResolutionOutcome::create(ResourceResolvedExact{std::move(candidates)});
+    case PP_RESOURCE_RESOLVED_PROBABLE:
+      return ResolutionOutcome::create(ResourceResolvedProbable{std::move(candidates)});
+    case PP_RESOURCE_AMBIGUOUS:
+      return ResolutionOutcome::create(ResourceAmbiguous{std::move(candidates)});
+    case PP_RESOURCE_OFFLINE:
+    case PP_RESOURCE_RESOLUTION_ERROR:
+      if (!candidates.empty())
+        return Error(ErrorCode::internal, "resolution state and candidate count disagree");
+      if (state == PP_RESOURCE_OFFLINE) return ResolutionOutcome::create(ResourceOffline{});
+      return ResolutionOutcome::create(ResourceResolutionFailure{});
+    default:
+      return Error(ErrorCode::unsupported, "unknown resource resolution state");
+    }
+  }();
+  if (!outcome.has_value())
+    return Error(outcome.error().code() == ErrorCode::invalid_argument
+                     ? ErrorCode::internal : outcome.error().code(),
+                 outcome.error().message());
   return ResourceResolution{detail::resource_id(resource_id),
-                       static_cast<ResourceResolutionState>(state),
-                       std::move(candidates), std::move(evidence)};
+                            std::move(outcome).value(), std::move(evidence)};
 }
 
 inline Result<std::vector<RepresentationResolution>>

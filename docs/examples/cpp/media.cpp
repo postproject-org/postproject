@@ -199,10 +199,12 @@ std::size_t verify_contents(const postproject::Production &production,
   for (const auto &representation :
        production.resolveAsset(asset_id, options).value()) {
     for (const auto &resource : representation.resources) {
-      if (resource.state ==
-          postproject::ResourceResolutionState::online_at_known_locator) {
+      // value() exposes the applicable case without a second stored state.
+      if (const auto *known = std::get_if<postproject::ResourceOnlineAtKnownLocator>(
+              &resource.outcome.value())) {
+        if (known->candidates.size() != 1) return 0;
         ++verified;
-      } else if (resource.state ==
+      } else if (resource.state() ==
                  postproject::ResourceResolutionState::error) {
         // fingerprint_mismatch evidence: the content was replaced.
         std::cout << "content differs for " << resource.evidence.size()
@@ -235,13 +237,13 @@ find_nearby(const postproject::Production &production,
   for (const auto &representation : resolutions) {
     for (const auto &resource : representation.resources) {
       const bool discovered =
-          resource.state == postproject::ResourceResolutionState::resolved_exact ||
-          resource.state ==
+          resource.state() == postproject::ResourceResolutionState::resolved_exact ||
+          resource.state() ==
               postproject::ResourceResolutionState::resolved_probable;
       // A candidate from a search directory has no media root.
-      if (discovered && resource.candidates.size() == 1 &&
-          !resource.candidates.front().media_root.has_value()) {
-        return std::optional<std::string>(resource.candidates.front().uri);
+      if (discovered && resource.candidates().size() == 1 &&
+          !resource.candidates().front().media_root.has_value()) {
+        return std::optional<std::string>(resource.candidates().front().uri);
       }
     }
   }
@@ -261,11 +263,11 @@ relink_renamed_sequence(postproject::Production &production,
     for (const auto &resource : representation.resources) {
       // A renamed sequence is found by content; the candidate carries the
       // naming its files have now.
-      if (resource.candidates.size() != 1 ||
-          !resource.candidates.front().sequence_naming.has_value()) {
+      if (resource.candidates().size() != 1 ||
+          !resource.candidates().front().sequence_naming.has_value()) {
         continue;
       }
-      const auto &candidate = resource.candidates.front();
+      const auto &candidate = resource.candidates().front();
       for (const auto &evidence : candidate.evidence) {
         std::cout << candidate.uri << " evidence "
                   << static_cast<unsigned>(evidence.kind) << '\n';
@@ -405,7 +407,7 @@ report_issues(const postproject::Production &production,
     }
     for (const auto &resource : representation.resources) {
       std::cout << "  resource state "
-                << static_cast<std::uint32_t>(resource.state) << '\n';
+                << static_cast<std::uint32_t>(resource.state()) << '\n';
       for (const auto &evidence : resource.evidence) {
         std::cout << "  evidence " << static_cast<std::uint32_t>(evidence.kind)
                   << ": " << evidence.detail.value_or("-") << '\n';

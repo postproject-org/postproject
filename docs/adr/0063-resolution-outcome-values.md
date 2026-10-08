@@ -23,6 +23,11 @@ using derived `resource.state` and `resource.candidates` for display.
 An ambiguous outcome copies its candidate collection; candidate evidence is
 also copied. Required unknown native states return `UnsupportedError`.
 Native state/count inconsistencies return `InternalError`.
+C++ `ResolutionOutcome::create` checks case cardinality and candidate payloads.
+Its const `value()` and `candidates()` borrow owned data; `state()` derives the
+category. `ResourceResolution` forwards the latter accessors. Input case
+records are unvalidated requests. Copy assignment preserves the old value if
+allocation fails; moved sources support destruction or reassignment.
 
 This changes no schema, persisted identity, locator encoding or standards
 mapping. Candidate URIs and authored evidence retain their existing meaning.

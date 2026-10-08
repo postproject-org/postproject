@@ -7,6 +7,11 @@
 
 static_assert(!std::is_aggregate_v<postproject::ObjectRef>);
 static_assert(!std::is_aggregate_v<postproject::RepresentationContent>);
+static_assert(!std::is_aggregate_v<postproject::ResolutionOutcome>);
+static_assert(std::is_same_v<decltype(std::declval<const postproject::ResolutionOutcome &>().value()),
+                             const postproject::ResolutionOutcomeValue &>);
+static_assert(std::is_same_v<decltype(std::declval<const postproject::ResolutionOutcome &>().candidates()),
+                             const std::vector<postproject::ResolutionCandidate> &>);
 static_assert(std::is_same_v<decltype(std::declval<const postproject::RepresentationContent &>().value()),
                              const postproject::RepresentationContentValue &>);
 static_assert(!std::is_constructible_v<postproject::ObjectRef, postproject::ObjectKind, postproject::Uuid>);
@@ -113,6 +118,28 @@ static_assert(!std::is_invocable_v<decltype(&pp_object_ref_from_resource),
 int main() {
   using namespace postproject;
   const auto content_resource = ResourceId::fromString("00000000-0000-0000-0000-000000000001").value();
+  ResolutionCandidate candidate{"file:///a.mov", 10000, std::nullopt, std::nullopt,
+                                {{EvidenceKind::full_hash_match, std::nullopt}}};
+  auto candidates = std::vector<ResolutionCandidate>{candidate};
+  auto resolved = ResolutionOutcome::create(ResourceResolvedExact{candidates}).value();
+  candidates.clear();
+  if (resolved.state() != ResourceResolutionState::resolved_exact ||
+      resolved.candidates().size() != 1 ||
+      !std::holds_alternative<ResourceResolvedExact>(resolved.value())) return 31;
+  if (ResolutionOutcome::create(ResourceResolvedExact{{}}).has_value() ||
+      ResolutionOutcome::create(ResourceResolvedProbable{{candidate, candidate}}).has_value() ||
+      ResolutionOutcome::create(ResourceAmbiguous{{candidate}}).has_value()) return 32;
+  const auto ambiguous = ResolutionOutcome::create(ResourceAmbiguous{{candidate, candidate}}).value();
+  if (ambiguous.candidates().size() != 2 ||
+      !ResolutionOutcome::create(ResourceOffline{}).value().candidates().empty() ||
+      !ResolutionOutcome::create(ResourceResolutionFailure{}).value().candidates().empty()) return 33;
+  candidate.confidence_basis_points = 10001;
+  if (ResolutionOutcome::create(ResourceResolvedExact{{candidate}}).has_value()) return 34;
+  candidate.confidence_basis_points = 10000;
+  candidate.evidence.clear();
+  if (ResolutionOutcome::create(ResourceResolvedExact{{candidate}}).has_value()) return 35;
+  candidate.evidence = {{static_cast<EvidenceKind>(999), std::nullopt}};
+  if (ResolutionOutcome::create(ResourceResolvedExact{{candidate}}).has_value()) return 36;
   const RepresentationMember required{content_resource, "example:essence", true};
   auto members = std::vector<RepresentationMember>{required};
   auto checked = RepresentationContent::create(PackageContent{members}).value();

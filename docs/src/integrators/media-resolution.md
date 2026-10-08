@@ -216,3 +216,7 @@ Python resource results expose `outcome`, a frozen case such as
 Use `isinstance` to inspect the applicable payload. `state` and `candidates`
 are derived properties; an ambiguous result always contains at least two
 candidates. Candidate evidence is copied into owned tuples.
+
+C++ uses `resource.outcome.value()` with `std::get_if` for case inspection.
+`resource.state()` and `resource.candidates()` borrow from the checked outcome;
+these candidate references last while the owning result is unchanged.

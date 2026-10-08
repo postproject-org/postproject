@@ -104,7 +104,7 @@ resolve_asset(const postproject::Production &production,
               << static_cast<std::uint32_t>(representation.availability)
               << '\n';
     for (const auto &resource : representation.resources) {
-      for (const auto &candidate : resource.candidates) {
+      for (const auto &candidate : resource.candidates()) {
         std::cout << "candidate: " << candidate.uri << " ("
                   << candidate.confidence_basis_points << "/10000)\n";
       }
@@ -122,10 +122,10 @@ void confirm_unique_candidates(
   for (const auto &representation : resolutions) {
     for (const auto &resource : representation.resources) {
       // Several candidates need a person to choose; never pick one here.
-      if (resource.candidates.size() != 1) {
+      if (resource.candidates().size() != 1) {
         continue;
       }
-      const auto &candidate = resource.candidates.front();
+      const auto &candidate = resource.candidates().front();
       // Record the logical root the candidate was found under and, for an
       // image sequence, the naming of its files there.
       transaction
@@ -506,7 +506,7 @@ int main(int argc, char **argv) {
     require(std::rename(media.c_str(), (moved + "/A001.mov").c_str()) == 0,
             "move media");
     const auto resolutions = resolve_asset(production, asset_id, moved);
-    require(resolutions.front().resources.front().candidates.size() == 1,
+    require(resolutions.front().resources.front().candidates().size() == 1,
             "unique candidate");
     confirm_unique_candidates(production, resolutions);
 

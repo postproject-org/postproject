@@ -83,15 +83,15 @@ int renamed_sequence_scenario(const std::string &production_path) {
   const auto resolved = production.resolveAsset(asset_id, options).value();
   const auto &resource = resolved[0].resources[0];
   const postproject::SequenceNaming renamed{"shot-graded_", ".png", 4};
-  if (resource.state != postproject::ResourceResolutionState::resolved_probable ||
-      resource.candidates.size() != 1 ||
-      resource.candidates[0].sequence_naming != renamed ||
-      resource.candidates[0].uri.find("graded") == std::string::npos ||
-      !has_evidence(resource.candidates[0],
+  if (resource.state() != postproject::ResourceResolutionState::resolved_probable ||
+      resource.candidates().size() != 1 ||
+      resource.candidates()[0].sequence_naming != renamed ||
+      resource.candidates()[0].uri.find("graded") == std::string::npos ||
+      !has_evidence(resource.candidates()[0],
                     postproject::EvidenceKind::partial_fingerprint_match)) {
     return 70;
   }
-  const auto &candidate = resource.candidates[0];
+  const auto &candidate = resource.candidates()[0];
   auto confirmation = production.readSession().value().edit().value();
   confirmation
       .confirmLocator(resource.resource_id, candidate.uri, candidate.media_root,
@@ -123,9 +123,9 @@ int renamed_sequence_scenario(const std::string &production_path) {
     write_frame(plates, "shot-graded_", frame, contents[frame - 1]);
   }
   const auto ambiguous = production.resolveAsset(asset_id, options).value();
-  if (ambiguous[0].resources[0].state !=
+  if (ambiguous[0].resources[0].state() !=
           postproject::ResourceResolutionState::ambiguous ||
-      ambiguous[0].resources[0].candidates.size() != 2) {
+      ambiguous[0].resources[0].candidates().size() != 2) {
     return 72;
   }
   return 0;
@@ -394,20 +394,20 @@ int main(int argc, char **argv) {
     }
     const auto resolutions = production.resolveAssets({asset_id}, options).value();
     if (resolutions.size() != 1 || !(resolutions[0].asset_id == asset_id) ||
-        resolutions[0].resources[0].candidates.empty() ||
-        resolutions[0].resources[0].candidates[0].media_root !=
+        resolutions[0].resources[0].candidates().empty() ||
+        resolutions[0].resources[0].candidates()[0].media_root !=
             std::optional<std::string>("fixtures") ||
         resolutions[0].availability !=
             postproject::RepresentationAvailability::online ||
         resolutions[0].resources.size() != 1 ||
-        resolutions[0].resources[0].state !=
+        resolutions[0].resources[0].state() !=
             postproject::ResourceResolutionState::resolved_exact ||
-        resolutions[0].resources[0].candidates.size() != 1 ||
+        resolutions[0].resources[0].candidates().size() != 1 ||
         resolutions[0]
                 .resources[0]
-                .candidates[0]
+                .candidates()[0]
                 .confidence_basis_points != 10000 ||
-        resolutions[0].resources[0].candidates[0].evidence.empty()) {
+        resolutions[0].resources[0].candidates()[0].evidence.empty()) {
       return 11;
     }
     auto cancel_token = postproject::CancelToken::create().value();
@@ -588,7 +588,7 @@ int main(int argc, char **argv) {
     auto confirmation = production.readSession().value().edit().value();
     confirmation.confirmLocator(
         resolutions[0].resources[0].resource_id,
-        resolutions[0].resources[0].candidates[0].uri,
+        resolutions[0].resources[0].candidates()[0].uri,
         std::string("fixtures")).value();
     confirmation.setMediaRootEnabled(root_id, false).value();
     confirmation.retireLocator(
@@ -604,7 +604,7 @@ int main(int argc, char **argv) {
         locator_page.items.begin(), locator_page.items.end(),
         [&](const postproject::ResourceLocator &candidate) {
           return candidate.locator.uri ==
-                 resolutions[0].resources[0].candidates[0].uri;
+                 resolutions[0].resources[0].candidates()[0].uri;
         });
     if (rooted.items.size() != 1 ||
         rooted.items[0].id != resolutions[0].representation_id ||
@@ -681,7 +681,7 @@ int main(int argc, char **argv) {
         persisted[0].availability !=
             postproject::RepresentationAvailability::online ||
         persisted[0].resources.size() != 1 ||
-        persisted[0].resources[0].state !=
+        persisted[0].resources[0].state() !=
             postproject::ResourceResolutionState::online_at_known_locator) {
       return 12;
     }
