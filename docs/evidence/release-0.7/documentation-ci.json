@@ -1,0 +1,17 @@
+{
+  "conclusion": "success",
+  "headSha": "42b9f9d173fa3ae62dd69017eb5948783c045efb",
+  "jobs": [
+    {
+      "name": "build",
+      "conclusion": "success",
+      "url": "https://github.com/postproject-org/postproject/actions/runs/37789355708/job/113352309549"
+    },
+    {
+      "name": "deploy",
+      "conclusion": "success",
+      "url": "https://github.com/postproject-org/postproject/actions/runs/37789355708/job/113355232248"
+    }
+  ],
+  "url": "https://github.com/postproject-org/postproject/actions/runs/37789355708"
+}

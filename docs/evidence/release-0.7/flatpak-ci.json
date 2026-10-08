@@ -1,0 +1,12 @@
+{
+  "conclusion": "success",
+  "headSha": "6f14a3b38b8773520e9810b073f45a676c66c5e1",
+  "jobs": [
+    {
+      "name": "Module on the KDE 6.10 SDK",
+      "conclusion": "success",
+      "url": "https://github.com/postproject-org/postproject/actions/runs/37780003984/job/113320419464"
+    }
+  ],
+  "url": "https://github.com/postproject-org/postproject/actions/runs/37780003984"
+}
