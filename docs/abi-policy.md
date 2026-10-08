@@ -13,8 +13,7 @@ Release 0.6 names the C++17 `cpp-result-propagation` family (ADR 0020).
 `Result<T>` (including `Result<void>`), `POSTPROJECT_TRY` and
 `POSTPROJECT_TRY_ASSIGN` retain their success/error ownership and propagation
 protocol within `0.6.x`. Diagnostic text and compiler-specific layouts are
-not promised. Other APIs remain experimental, with migration notes for
-maintained consumers. This names no C ABI operation family or cross-series
+not promised. Other APIs remain experimental. This names no C ABI operation family or cross-series
 binary replacement promise.
 
 Release 0.5 named no compatibility subset (ADR 0020). Every API in the `0.5.x`
@@ -25,114 +24,28 @@ the required complete evidence from two independent hosts (ADR 0040).
 
 ## Types and ownership
 
-ABI 51 adds resource-resolution state reads and requires the selected state
-for payload access. A mismatch returns `PP_ERROR_INVALID_ARGUMENT` with zero
-outputs. C++/Python store checked outcome alternatives (ADR 0063). Candidate
-strings and evidence borrow the resolution set; owned projections copy them.
-The schema remains 19.
+The 0.7 candidate uses distinct native IDs, checked content/state payloads,
+coherent read sessions, production-scoped decision bases and atomic commit
+receipts. Use the receipt-returning commit for ordinary writes. Every commit
+attempt is terminal; no-change commits create no revision. Read results own
+their copied facts and survive session release. Filesystem verification observes
+current bytes against the retained database knowledge.
 
-ABI 50 adds artifact reason/issue category reads and requires the selected kind
-for payload access. A mismatched kind returns `PP_ERROR_INVALID_ARGUMENT` with
-a zero-initialized record. Payload strings, paths and byte spans borrow their
-owning result handle. C++ and Python copy applicable payloads into checked
-case values. The schema remains 19.
+C payload accessors require the selected kind/state and clear outputs on a
+mismatch. C++ and Python own checked alternatives. Unknown closed tags are
+unsupported; malformed payloads are corruption (ADRs 0061–0064).
 
-ABI 49 removes claim credentials from `pp_job_t` and `pp_job_claim_t` and from
-Rust/C++/Python job observations. Job facts contain attribution and expiry only;
-worker ownership comes from an opaque lease or explicit private token import.
-Use matching headers, native libraries and Python wheels after these layout
-changes. No persisted identity or job request changes meaning.
+Job leases own production-bound worker authority. Durations are exact whole
+microseconds from 1 us through 24 h. Claiming edits activate pending ownership
+only on commit; transitions and publication recheck the authority clock and
+current state. Freeing a handle never releases a durable claim. Public job facts
+contain attribution and expiry, with private credential transport kept separate
+(ADRs 0057–0058).
 
-ABI 48 removes caller-timed claim-ID transitions in favor of owning job lease
-handles and explicit scoped token transport (ADR 0057). Lease durations are
-whole microseconds from 1 us through 24 h. Pending handles become active only
-on their edit's commit; freeing a handle never releases the durable claim.
-Storage checks time/state at operation and commit boundaries. Recompile native
-consumers and use matching Python wheels. Schema 19 expires legacy claims
-during upgrade.
-
-ABI 47 adds `PP_REVISION_RESOURCE_FILE_FACTS_OBSERVED` and
-`PP_CONFLICT_RESOURCE_FILE_FACTS` without changing signatures or layouts.
-Explicit observations require decision bases; session edits retain their view
-for content observation. Schema 18 preserves the journal while allowing changed
-file facts to create revisions. Use matching development projections (ADR 0056).
-
-The ABI 47 development tree adds bounded live/retained media-root pages and a
-borrowed set continuation (ADR 0053). Existing root getters read current facts
-and return `PP_ERROR_UNSUPPORTED` above 1000 roots. Page reads accept 1–1000;
-their cursors retain the existing production/view scope. No public layout or
-existing signature changes. Use matching development headers and Python wheels.
-
-ABI 47 carries resource IDs through membership, locators, resolution,
-verification, dependencies and revision events. Required scalar C inputs use
-`pp_resource_id_t` values; C++ uses `ResourceId`. Recompile consumers and use
-matching Python wheels. Schema 17 and saved UUID text retain their meaning
-(ADR 0049).
-
-ABI 46 carries representation IDs through reads, resolution, dependencies,
-artifacts, activity edges, jobs and revision events. Small required C inputs
-use `pp_representation_id_t` values; arrays and optional filters borrow typed
-IDs. Recompile consumers with matching headers and library; use the matching
-Python wheel. Schema 17 and saved UUID text retain their meaning (ADR 0049).
-
-ABI 45 types activity creation, provenance summaries, job completion,
-artifact reports and revision events as `pp_activity_id_t` / C++ `ActivityId`.
-Scalar inputs take values. Checked reference helpers support activity targets.
-Recompile consumers and install matching Python wheels. Schema 17 and UUID
-text remain unchanged (ADR 0049).
-
-ABI 44 carries distinct job identities through job operations, summaries,
-regeneration plans and revision events. Scalar job arguments use `pp_job_id_t`
-by value; C++ uses `JobId`. Checked object-reference helpers support job
-metadata targets. A job identity grants no worker authority; the claim/lease
-migration remains separate. Recompile consumers and use matching Python
-wheels. Schema 17 and UUID text retain their meaning (ADR 0049).
-
-ABI 43 carries distinct locator IDs through retirement, locator reads and
-revision events. Scalar retirement takes `pp_locator_id_t` by value; C++ uses
-`LocatorId`. Recompile native consumers and use matching Python wheels.
-Schema 17 and persisted UUID text remain unchanged (ADR 0049).
-
-ABI 42 types media-root inputs, summaries, revision events and conflicts as
-`pp_media_root_id_t` / C++ `MediaRootId`. Scalar mutations take IDs by value.
-Root conflicts use a dedicated identity field, not a fabricated object kind.
-Recompile native consumers and use matching Python wheels; schema 17 and UUID
-text are unchanged (ADR 0049).
-
-ABI 41 carries distinct asset identities through imports, reads, resolution,
-job requests and asset-bearing result fields. Scalar inputs take
-`pp_asset_id_t` by value; array inputs borrow that type. C++ uses `AssetId`.
-Use `pp_object_ref_from_asset` or `ObjectRef::asset` for asset targets.
-Recompile consumers with matching headers and use a matching Python wheel.
-Persisted bytes and schema 17 are unchanged (ADR 0049).
-
-ABI 40 projects revision and transaction identities as distinct C/C++ values
-in journal summaries, receipts, decision bases and conflicts. Revision arguments
-are passed by value; use `pp_revision_id_t` or C++ `RevisionId`, and
-`pp_transaction_id_t` or `TransactionId` for commit transaction identities.
-Recompile consumers and use a matching Python wheel. UUID text, persisted
-bytes and schema 17 retain their meaning (ADR 0049).
-
-ABI 39 uses distinct `pp_production_id_t` values in production identity reads,
-host bindings, decision bases and receipts (ADR 0049). Host binding formatting
-takes the production ID by value. Recompile consumers and use matching Python
-wheels; generic UUIDs cannot substitute implicitly. Persisted bytes and schema
-17 are unchanged. Other native identity families are still being migrated.
-
-ABI 38 adds `pp_transaction_commit_with_receipt` and the stack-owned
-`pp_commit_receipt_t` (ADR 0045). `PP_COMMIT_NO_CHANGE` creates no revision;
-`PP_COMMIT_REVISION_CREATED` identifies only this commit's revision. Outputs
-are initialized on failure, and no failure result claims a successful commit.
-Every commit attempt is terminal. Existing void commit calls remain available
-during the coordinated consumer migration; no published 0.6 artifact changes.
-Conflict details now have `has_base_revision`: zero represents an empty-journal
-decision, rather than a fabricated UUID. C++/Python project that field as an
-optional revision and CLI JSON uses null. This changes the conflict-record
-layout and requires recompilation with the ABI 38 header.
-
-Read sessions project resources, locators, roots, external identifiers and
-bounded known-media lookup through the same checked owned sets as live production reads. These
-operations retain the session's view and cursor scope.
+Schema 19 preserves stored identities, media knowledge and revisions. Schema 18
+adds journaled file-fact observations; schema 19 expires legacy claims while
+introducing authority time. Explicit observations and destructive edits require
+decision bases. These internal contracts introduce no standards mapping.
 
 Productions, transactions, asset sets, media-root sets, representation sets,
 resolution sets, activity sets, external-identifier sets, object-reference sets,
@@ -140,7 +53,7 @@ object-query sets, locator-query sets, dependency sets, dependency-query sets,
 job sets, regeneration-plan sets, metadata sets, metadata values, metadata
 inputs, artifact evaluations, reproducibility reports, revision sets,
 revision-event sets, revision waiters, fingerprints, cancellation tokens,
-resolution options, media sources, known-media sets, and errors are opaque handles. A
+resolution options, media sources, known-media sets, read sessions, job leases, and errors are opaque handles. A
 successful creation/open call transfers one production ownership reference to the
 caller, which releases it exactly once with `pp_production_release`. Failed calls
 optionally transfer an error object, released exactly once with
