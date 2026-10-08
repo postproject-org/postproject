@@ -4,7 +4,7 @@ use postproject_core::{Error, ErrorKind, Result, Timestamp};
 use rusqlite::{Connection, Transaction, TransactionBehavior, params};
 
 /// The newest schema understood by this build.
-pub const CURRENT_SCHEMA_VERSION: u32 = 22;
+pub const CURRENT_SCHEMA_VERSION: u32 = 23;
 
 struct Migration {
     version: u32,
@@ -100,6 +100,10 @@ const MIGRATIONS: &[Migration] = &[
         version: 22,
         sql: include_str!("migrations/022_exchange_outcomes.sql"),
     },
+    Migration {
+        version: 23,
+        sql: include_str!("migrations/023_exchange_records.sql"),
+    },
 ];
 
 pub(crate) fn migrate(connection: &mut Connection) -> Result<()> {
@@ -147,7 +151,7 @@ fn apply_migration_in(transaction: &Transaction<'_>, migration: &Migration) -> R
     transaction
         .execute_batch(migration.sql)
         .map_err(migration_error(migration.version, "apply statements"))?;
-    if migration.version == 20 {
+    if matches!(migration.version, 20 | 23) {
         crate::exchange::initialize_anchor(transaction)?;
     }
     transaction

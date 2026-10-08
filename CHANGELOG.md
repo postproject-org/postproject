@@ -6,7 +6,7 @@ All notable changes to PostProject will be documented here. The project uses
 ## Unreleased
 
 - Add the experimental portable-exchange codec and exact canonical value profile (ADR 0065).
-- Persist exchange histories, authored metadata effects and durable metadata submission outcomes in schema 22.
+- Persist exchange histories, authored metadata effects, record framing and durable metadata submission outcomes in schema 23.
 
 ## 0.7.0-alpha.1 - 2026-10-08
 
