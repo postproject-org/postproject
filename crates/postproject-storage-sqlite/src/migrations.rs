@@ -206,12 +206,7 @@ mod tests {
             .expect("query migration history")
             .collect::<std::result::Result<_, _>>()
             .expect("read migration history");
-        assert_eq!(
-            applied,
-            [
-                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20
-            ]
-        );
+        assert_eq!(applied, (1..=CURRENT_SCHEMA_VERSION).collect::<Vec<_>>());
         for table in [
             "productions",
             "assets",
