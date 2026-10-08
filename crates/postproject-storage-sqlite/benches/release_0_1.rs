@@ -10,8 +10,8 @@ use std::{fs, hint::black_box, path::PathBuf};
 use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
 use postproject_core::{
     Asset, AssetId, ContentStructure, Locator, LocatorAvailability, LocatorId, OriginalMediaImport,
-    Representation, RepresentationFingerprint, RepresentationId, RepresentationKind, Resource,
-    ResourceFingerprint, ResourceId, Timestamp,
+    QueryPageRequest, Representation, RepresentationFingerprint, RepresentationId,
+    RepresentationKind, Resource, ResourceFingerprint, ResourceId, Timestamp,
 };
 use postproject_media::{MediaResolver, prepare_media_root, prepare_original_media};
 use postproject_storage_sqlite::SqliteProduction;
@@ -87,22 +87,39 @@ fn benchmark_large_production_load(criterion: &mut Criterion) {
         |bencher| {
             bencher.iter(|| {
                 let production = SqliteProduction::open(&path).expect("open benchmark production");
-                let assets = production.assets().expect("enumerate benchmark assets");
-                for asset in &assets {
-                    for representation in production
-                        .representations(asset.id())
-                        .expect("load benchmark representations")
-                    {
-                        black_box(representation.fingerprints());
-                        for resource in production
-                            .resources(representation.id())
-                            .expect("load benchmark resources")
+                let read = production.read_session().expect("pin benchmark reads");
+                let mut cursor = None;
+                let mut count = 0;
+                loop {
+                    let request = QueryPageRequest::new(1000, cursor).expect("bounded asset page");
+                    let page = read
+                        .read()
+                        .assets_page(&request)
+                        .expect("enumerate benchmark assets");
+                    count += page.items().len();
+                    for asset in page.items() {
+                        for representation in read
+                            .read()
+                            .representations(asset.id())
+                            .expect("load benchmark representations")
                         {
-                            black_box(resource.fingerprints());
+                            black_box(representation.fingerprints());
+                            for resource in read
+                                .read()
+                                .resources(representation.id())
+                                .expect("load benchmark resources")
+                            {
+                                black_box(resource.fingerprints());
+                            }
                         }
                     }
+                    cursor = page.next_cursor().cloned();
+                    if cursor.is_none() {
+                        break;
+                    }
                 }
-                black_box(assets);
+                assert_eq!(count, LARGE_PROJECT_ASSET_COUNT);
+                black_box(count);
             });
         },
     );
