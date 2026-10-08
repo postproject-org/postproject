@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 ALLOWED = {
     "postproject-core": set(),
     "postproject-protocol": {"postproject-core"},
-    "postproject-storage-sqlite": {"postproject-core"},
+    "postproject-storage-sqlite": {"postproject-core", "postproject-protocol"},
     "postproject-media": {"postproject-core"},
     "postproject-ffi-macros": set(),
     "postproject-ffi": {

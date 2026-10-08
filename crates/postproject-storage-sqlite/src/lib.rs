@@ -9,6 +9,7 @@ mod artifact;
 mod artifact_reasons;
 mod dependency_evaluation;
 mod dependency_snapshot;
+mod exchange;
 mod job_clock;
 mod job_lease;
 mod metadata_codec;
@@ -147,6 +148,24 @@ struct StoredActivityEdge {
 type ActivityEdgesById<Edge> = BTreeMap<ActivityId, Vec<Edge>>;
 
 impl SqliteProduction {
+    /// Returns this store's persistent source production/history scope.
+    ///
+    /// # Errors
+    /// Returns storage errors for missing or corrupt exchange identity.
+    pub fn exchange_scope(&self) -> Result<postproject_protocol::Scope> {
+        exchange::scope(&self.connection, self.production.id())
+    }
+
+    /// Returns the persistent genesis/migration replay floor.
+    ///
+    /// Earlier revisions remain observation history, not replayable effects.
+    ///
+    /// # Errors
+    /// Returns storage errors for an invalid or unavailable anchor.
+    pub fn exchange_floor(&self) -> Result<postproject_protocol::Position> {
+        exchange::floor(&self.connection, self.production.id())
+    }
+
     /// Creates a new production file and persists its identity atomically.
     ///
     /// # Errors
@@ -3940,6 +3959,7 @@ fn persist_new_production(connection: &mut Connection, production: &Production) 
             ],
         )
         .map_err(sqlite_error("persist new production"))?;
+    exchange::initialize_anchor(&transaction)?;
     transaction
         .commit()
         .map_err(sqlite_error("commit production creation"))

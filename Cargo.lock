@@ -749,6 +749,7 @@ dependencies = [
  "criterion",
  "postproject-core",
  "postproject-media",
+ "postproject-protocol",
  "rusqlite",
  "tempfile",
 ]

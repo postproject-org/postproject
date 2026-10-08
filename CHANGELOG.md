@@ -6,6 +6,7 @@ All notable changes to PostProject will be documented here. The project uses
 ## Unreleased
 
 - Add the experimental portable-exchange codec and exact canonical value profile (ADR 0065).
+- Persist source-history generations and replay-floor anchors in schema 20.
 
 ## 0.7.0-alpha.1 - 2026-10-08
 

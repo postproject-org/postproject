@@ -17,6 +17,7 @@
     {"table": "dependencies","classification": "portable","columns": ["source_representation_id","position","source_resource_id","kind","target_kind","target_id","resolved_representation_id","required","authored_reference"],"exclude": []},
     {"table": "dependency_sets","classification": "portable","columns": ["source_representation_id","recorded_revision_sequence","needs_extraction"],"exclude": []},
     {"table": "external_identifiers","classification": "portable","columns": ["id","target_kind","target_id","scheme","value","qualifier"],"exclude": ["id"]},
+    {"table": "exchange_history","classification": "portable","columns": ["singleton","history_id","instance_id","role","floor_revision_id","floor_sequence","anchor_digest"],"exclude": ["singleton","instance_id","role"]},
     {"table": "image_sequence_missing_frames","classification": "portable","columns": ["representation_id","frame"],"exclude": []},
     {"table": "image_sequences","classification": "portable","columns": ["representation_id","resource_id","start_frame","end_frame","frame_step","rate_numerator","rate_denominator"],"exclude": []},
     {"table": "job_clock","classification": "private","columns": ["singleton","high_water_micros"],"exclude": []},

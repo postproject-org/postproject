@@ -41,6 +41,12 @@ impl DigestDomain {
 pub struct Digest([u8; 32]);
 
 impl Digest {
+    /// Reconstructs exact bytes from validated storage or an integrity manifest.
+    #[must_use]
+    pub const fn from_bytes(bytes: [u8; 32]) -> Self {
+        Self(bytes)
+    }
+
     /// Hashes canonical bytes in the specified protocol domain.
     #[must_use]
     pub fn of_canonical_bytes(domain: DigestDomain, bytes: &[u8]) -> Self {

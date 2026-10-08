@@ -409,7 +409,8 @@ fn schema_eighteen_claims_expire_without_losing_attribution_or_requests() {
         .connection
         .execute_batch(
             "DROP TABLE job_clock;
-         DELETE FROM schema_migrations WHERE version = 19;
+         DROP TABLE exchange_history;
+         DELETE FROM schema_migrations WHERE version >= 19;
          UPDATE productions SET schema_version = 18;
          PRAGMA user_version = 18;",
         )
@@ -431,7 +432,10 @@ fn schema_eighteen_claims_expire_without_losing_attribution_or_requests() {
         )
         .unwrap();
     assert_eq!(high_water, None);
-    assert_eq!(reopened.production().schema_version(), 19);
+    assert_eq!(
+        reopened.production().schema_version(),
+        crate::CURRENT_SCHEMA_VERSION
+    );
 }
 
 #[test]

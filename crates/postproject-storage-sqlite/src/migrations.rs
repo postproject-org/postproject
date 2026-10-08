@@ -4,7 +4,7 @@ use postproject_core::{Error, ErrorKind, Result, Timestamp};
 use rusqlite::{Connection, Transaction, TransactionBehavior, params};
 
 /// The newest schema understood by this build.
-pub const CURRENT_SCHEMA_VERSION: u32 = 19;
+pub const CURRENT_SCHEMA_VERSION: u32 = 20;
 
 struct Migration {
     version: u32,
@@ -88,6 +88,10 @@ const MIGRATIONS: &[Migration] = &[
         version: 19,
         sql: include_str!("migrations/019_job_clock.sql"),
     },
+    Migration {
+        version: 20,
+        sql: include_str!("migrations/020_exchange_history.sql"),
+    },
 ];
 
 pub(crate) fn migrate(connection: &mut Connection) -> Result<()> {
@@ -135,6 +139,9 @@ fn apply_migration_in(transaction: &Transaction<'_>, migration: &Migration) -> R
     transaction
         .execute_batch(migration.sql)
         .map_err(migration_error(migration.version, "apply statements"))?;
+    if migration.version == 20 {
+        crate::exchange::initialize_anchor(transaction)?;
+    }
     transaction
         .execute(
             "INSERT INTO schema_migrations (version, applied_at_micros) VALUES (?1, ?2)",
@@ -194,7 +201,7 @@ mod tests {
         assert_eq!(
             applied,
             [
-                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19
+                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20
             ]
         );
         for table in [

@@ -12,6 +12,7 @@ publish = false
 [dependencies]
 blake3 = "1"
 postproject-core = { version = "0.7.0-alpha.1", path = "../postproject-core" }
+postproject-protocol = { version = "0.7.0-alpha.1", path = "../postproject-protocol" }
 rusqlite = { version = "0.40.2", default-features = false, features = ["bundled", "limits"] }
 
 [dev-dependencies]
