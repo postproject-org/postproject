@@ -88,8 +88,9 @@ class JobLeaseTests(unittest.TestCase):
                 edit.commit()
         self.assertEqual(self.production.job(self.job).state, JobState.REQUESTED)
         lease.close()
-        with self.assertRaises(RuntimeError):
+        with self.assertRaises(InvalidArgumentError) as caught:
             _ = lease.state
+        self.assertEqual(caught.exception.code, 1)
 
     def test_pending_claim_and_metadata_publication_commit_together(self) -> None:
         with self.production.transaction() as edit:

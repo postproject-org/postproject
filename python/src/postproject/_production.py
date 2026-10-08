@@ -2476,7 +2476,10 @@ class ReadSession:
         )
         self._native.check(status, error)
         if not handle:
-            raise RuntimeError("native filtered revision query returned no result set")
+            raise InternalError(
+                _abi.PP_ERROR_INTERNAL,
+                "native filtered revision query returned no result set",
+            )
         try:
             revisions = _revisions_in(self._native, handle)
         finally:
@@ -2492,7 +2495,10 @@ class ReadSession:
             self._native, self._native.lib.pp_read_session_latest_revision, self._handle
         )
         if len(revisions) > 1:
-            raise RuntimeError("native latest-revision query returned multiple values")
+            raise InternalError(
+                _abi.PP_ERROR_INTERNAL,
+                "native latest-revision query returned multiple values",
+            )
         return revisions[0] if revisions else None
 
     def changes_since(self, sequence: int, limit: int) -> tuple[Revision, ...]:
@@ -2625,7 +2631,9 @@ class ReadSession:
             native_id,
         )
         if len(page.items) != 1:
-            raise RuntimeError("native job read returned no single job")
+            raise InternalError(
+                _abi.PP_ERROR_INTERNAL, "native job read returned no single job"
+            )
         return page.items[0]
 
     def jobs(
@@ -2672,7 +2680,9 @@ class ReadSession:
         )
         self._native.check(status, error)
         if not handle:
-            raise RuntimeError("native artifact evaluation returned no result")
+            raise InternalError(
+                _abi.PP_ERROR_INTERNAL, "native artifact evaluation returned no result"
+            )
         try:
             return read_evaluation(self._native, handle)
         finally:
@@ -2695,7 +2705,10 @@ class ReadSession:
         )
         self._native.check(status, error)
         if not handle:
-            raise RuntimeError("native artifact reproducibility returned no report")
+            raise InternalError(
+                _abi.PP_ERROR_INTERNAL,
+                "native artifact reproducibility returned no report",
+            )
         try:
             return read_reproducibility(self._native, handle)
         finally:
@@ -2739,10 +2752,14 @@ class ReadSession:
         )
         self._native.check(status, error)
         if not handle:
-            raise RuntimeError("native asset read returned no result set")
+            raise InternalError(
+                _abi.PP_ERROR_INTERNAL, "native asset read returned no result set"
+            )
         try:
             if self._native.lib.pp_asset_set_count(handle) != 1:
-                raise RuntimeError("native asset read returned no single asset")
+                raise InternalError(
+                    _abi.PP_ERROR_INTERNAL, "native asset read returned no single asset"
+                )
             return _asset_at(self._native, handle, 0)
         finally:
             self._native.lib.pp_asset_set_release(handle)
@@ -2758,8 +2775,9 @@ class ReadSession:
             native_id,
         )
         if len(page.items) != 1:
-            raise RuntimeError(
-                "native representation read returned no single representation"
+            raise InternalError(
+                _abi.PP_ERROR_INTERNAL,
+                "native representation read returned no single representation",
             )
         return page.items[0]
 
@@ -2778,7 +2796,9 @@ class ReadSession:
         )
         self._native.check(status, error)
         if not handle:
-            raise RuntimeError("native asset query returned no result set")
+            raise InternalError(
+                _abi.PP_ERROR_INTERNAL, "native asset query returned no result set"
+            )
         try:
             count = self._native.lib.pp_asset_set_count(handle)
             return QueryPage(
@@ -2892,7 +2912,9 @@ class ReadSession:
         )
         self._native.check(status, error)
         if not handle:
-            raise RuntimeError("native media-root query returned no result set")
+            raise InternalError(
+                _abi.PP_ERROR_INTERNAL, "native media-root query returned no result set"
+            )
         try:
             count = self._native.lib.pp_media_root_set_count(handle)
             return tuple(
@@ -3022,7 +3044,9 @@ class ReadSession:
                 self._native.lib.pp_metadata_input_release(native_value)
         self._native.check(status, error)
         if not handle:
-            raise RuntimeError("native metadata query returned no result set")
+            raise InternalError(
+                _abi.PP_ERROR_INTERNAL, "native metadata query returned no result set"
+            )
         try:
             count = self._native.lib.pp_metadata_set_count(handle)
             return QueryPage(
@@ -3052,7 +3076,9 @@ class ReadSession:
         )
         self._native.check(status, error)
         if not handle:
-            raise RuntimeError("native identifier query returned no result set")
+            raise InternalError(
+                _abi.PP_ERROR_INTERNAL, "native identifier query returned no result set"
+            )
         try:
             count = self._native.lib.pp_external_identifier_set_count(handle)
             return tuple(
@@ -3080,7 +3106,10 @@ class ReadSession:
         )
         self._native.check(status, error)
         if not handle:
-            raise RuntimeError("native identifier lookup returned no result set")
+            raise InternalError(
+                _abi.PP_ERROR_INTERNAL,
+                "native identifier lookup returned no result set",
+            )
         try:
             count = self._native.lib.pp_object_ref_set_count(handle)
             return tuple(
@@ -3094,7 +3123,10 @@ class ReadSession:
         self, handle: _Pointer[KnownMediaSet]
     ) -> QueryPage[KnownMediaMatch]:
         if not handle:
-            raise RuntimeError("native known-media query returned no result set")
+            raise InternalError(
+                _abi.PP_ERROR_INTERNAL,
+                "native known-media query returned no result set",
+            )
         try:
             count = self._native.lib.pp_known_media_set_count(handle)
             return QueryPage(
@@ -3117,7 +3149,10 @@ class ReadSession:
         status = function(*arguments, ctypes.byref(handle), ctypes.byref(error))
         self._native.check(status, error)
         if not handle:
-            raise RuntimeError("native representation query returned no result set")
+            raise InternalError(
+                _abi.PP_ERROR_INTERNAL,
+                "native representation query returned no result set",
+            )
         try:
             count = self._native.lib.pp_representation_set_count(handle)
             return QueryPage(
@@ -3139,7 +3174,9 @@ class ReadSession:
 
     def _require_open(self) -> None:
         if not self._finalizer.alive:
-            raise RuntimeError("read session is closed")
+            raise InvalidArgumentError(
+                _abi.PP_ERROR_INVALID_ARGUMENT, "read session is closed"
+            )
 
     def __enter__(self) -> Self:
         self._require_open()
@@ -3184,7 +3221,9 @@ class RevisionWaiter:
         """
 
         if not self._finalizer.alive:
-            raise RuntimeError("revision waiter is closed")
+            raise InvalidArgumentError(
+                _abi.PP_ERROR_INVALID_ARGUMENT, "revision waiter is closed"
+            )
         if not 0 <= timeout <= _MAX_REVISION_WAIT_SECONDS:
             raise ValueError("revision wait timeout must be 0-60 seconds")
         result = ctypes.c_uint32()
@@ -3201,7 +3240,9 @@ class RevisionWaiter:
         )
         self._native.check(status, error)
         if not handle:
-            raise RuntimeError("native revision wait returned no result set")
+            raise InternalError(
+                _abi.PP_ERROR_INTERNAL, "native revision wait returned no result set"
+            )
         try:
             revisions = _revisions_in(self._native, handle)
         finally:
@@ -3938,9 +3979,13 @@ class Transaction:
 
     def _require_open(self) -> None:
         if not self._finalizer.alive:
-            raise RuntimeError("transaction is closed")
+            raise InvalidArgumentError(
+                _abi.PP_ERROR_INVALID_ARGUMENT, "transaction is closed"
+            )
         if self._finished:
-            raise RuntimeError("transaction is already finished")
+            raise InvalidArgumentError(
+                _abi.PP_ERROR_INVALID_ARGUMENT, "transaction is already finished"
+            )
 
 
 class JobLease:
@@ -3952,7 +3997,9 @@ class JobLease:
 
     def __init__(self, native: NativeLibrary, handle: _Pointer[_abi.JobLease]) -> None:
         if not handle:
-            raise RuntimeError("native claim returned no lease handle")
+            raise InternalError(
+                _abi.PP_ERROR_INTERNAL, "native claim returned no lease handle"
+            )
         self._native = native
         self._handle = handle
         self._finalizer = weakref.finalize(self, native.lib.pp_job_lease_free, handle)
@@ -3973,6 +4020,14 @@ class JobLease:
             ctypes.byref(error),
         )
         self._native.check(status, error)
+        if state.value not in (
+            _abi.PP_JOB_LEASE_ACTIVE,
+            _abi.PP_JOB_LEASE_PENDING,
+            _abi.PP_JOB_LEASE_CLOSED,
+        ):
+            raise UnsupportedError(
+                _abi.PP_ERROR_UNSUPPORTED, "native lease has an unknown state"
+            )
         ownership: JobLeaseStatus
         if state.value == _abi.PP_JOB_LEASE_ACTIVE:
             ownership = ActiveJobLease(expiry.value)
@@ -3981,7 +4036,10 @@ class JobLease:
         elif state.value == _abi.PP_JOB_LEASE_CLOSED and expiry.value == 0:
             ownership = ClosedJobLease()
         else:
-            raise RuntimeError("native lease has an unknown or inconsistent state")
+            raise InternalError(
+                _abi.PP_ERROR_INTERNAL,
+                "native lease has an unknown or inconsistent state",
+            )
         return ProductionId(_uuid(production)), JobId(_uuid(job)), ownership
 
     @property
@@ -4013,7 +4071,9 @@ class JobLease:
         try:
             value = token.value
             if value is None:
-                raise RuntimeError("native lease export returned no token")
+                raise InternalError(
+                    _abi.PP_ERROR_INTERNAL, "native lease export returned no token"
+                )
             return value.decode("ascii")
         finally:
             self._native.lib.pp_string_release(token)
@@ -4025,7 +4085,9 @@ class JobLease:
 
     def _require_open(self) -> None:
         if not self._finalizer.alive:
-            raise RuntimeError("job lease handle is closed")
+            raise InvalidArgumentError(
+                _abi.PP_ERROR_INVALID_ARGUMENT, "job lease handle is closed"
+            )
 
     def _for_native(self, native: NativeLibrary) -> _Pointer[_abi.JobLease]:
         self._require_open()

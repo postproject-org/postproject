@@ -967,13 +967,19 @@ class ProductionTests(unittest.TestCase):
         transaction = production.transaction()
         transaction.close()
         transaction.close()
-        with self.assertRaisesRegex(RuntimeError, "transaction is closed"):
+        with self.assertRaisesRegex(
+            InvalidArgumentError, "transaction is closed"
+        ) as caught:
             transaction.set_revision_context(RevisionContext(message="closed"))
+        self.assertEqual(caught.exception.code, 1)
 
         production.close()
         production.close()
-        with self.assertRaisesRegex(RuntimeError, "production is closed"):
+        with self.assertRaisesRegex(
+            InvalidArgumentError, "production is closed"
+        ) as caught:
             _ = production.id
+        self.assertEqual(caught.exception.code, 1)
 
     def test_finalizer_releases_an_open_transaction(self) -> None:
         with Production.create(

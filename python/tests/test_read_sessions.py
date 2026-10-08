@@ -84,8 +84,9 @@ class ReadSessionTests(unittest.TestCase):
                 with reader.read_session() as closed:
                     copied = closed.media_roots_page(limit=1).items
                 self.assertEqual(copied[0].priority, -1)
-                with self.assertRaises(RuntimeError):
+                with self.assertRaises(InvalidArgumentError) as caught:
                     closed.media_roots_page(limit=1)
+                self.assertEqual(caught.exception.code, 1)
 
     def test_dependency_replacement_requires_a_base_and_preserves_newer_facts(
         self,
