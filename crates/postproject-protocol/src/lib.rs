@@ -4,6 +4,7 @@
 //! additionally use checked core constructors and current storage guards.
 
 mod command;
+mod conflict;
 mod digest;
 mod effect;
 mod error;
@@ -18,6 +19,7 @@ mod role;
 mod scope;
 
 pub use command::Command;
+pub use conflict::{decode_transaction_conflict, encode_transaction_conflict};
 pub use digest::{Digest, DigestDomain};
 pub use effect::{MetadataChange, MetadataEffect};
 pub use error::{FailureKind, ProtocolError, Result};
