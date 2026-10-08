@@ -24,7 +24,7 @@ use PostProject:
         "org.freedesktop.Sdk.Extension.rust-stable"
     ],
     "modules": [
-        "postproject-0.5.0-alpha.1-flatpak.json",
+        "postproject-0.7.0-alpha.1-flatpak.json",
         {
             "name": "my-application",
             "buildsystem": "cmake-ninja"
@@ -70,10 +70,10 @@ To try a revision that has not been released, render the module for a local
 archive. The command also writes a small check application that builds it:
 
 ```sh
-git archive --format=tar.gz --prefix=postproject-0.5.0-alpha.1/ \
-  --output=target/flatpak/postproject-0.5.0-alpha.1-source.tar.gz HEAD
-python3 tools/flatpak_module.py render --version 0.5.0-alpha.1 \
-  --archive target/flatpak/postproject-0.5.0-alpha.1-source.tar.gz \
+git archive --format=tar.gz --prefix=postproject-0.7.0-alpha.1/ \
+  --output=target/flatpak/postproject-0.7.0-alpha.1-source.tar.gz HEAD
+python3 tools/flatpak_module.py render --version 0.7.0-alpha.1 \
+  --archive target/flatpak/postproject-0.7.0-alpha.1-source.tar.gz \
   --output target/flatpak
 flatpak-builder --user --install-deps-from=flathub --force-clean \
   target/flatpak/app target/flatpak/org.postproject.FlatpakCheck.json
