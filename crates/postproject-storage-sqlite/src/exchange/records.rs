@@ -1,6 +1,9 @@
 //! Atomic capture of the metadata vertical slice; other families remain pending.
 
+mod reader;
 mod writer;
+
+pub use reader::RecordReader;
 
 use postproject_core::{
     Error, ErrorKind, ProductionId, Result, Revision, RevisionEvent, RevisionEventKind,
@@ -21,7 +24,19 @@ pub(crate) fn position(
     if sequence == floor.sequence() {
         return Ok(Some(floor));
     }
-    if sequence < floor.sequence() {
+    manifest(connection, production, sequence)?
+        .map(|manifest| manifest.head())
+        .transpose()
+        .map_err(|_| invalid())
+}
+
+fn manifest(
+    connection: &Connection,
+    production: ProductionId,
+    sequence: u64,
+) -> Result<Option<RecordManifest>> {
+    let floor = super::floor(connection, production)?;
+    if sequence <= floor.sequence() {
         return Ok(None);
     }
     let bytes = connection
@@ -60,7 +75,7 @@ pub(crate) fn position(
     {
         return Err(invalid());
     }
-    Ok(Some(position))
+    Ok(Some(manifest))
 }
 
 pub(crate) fn capture_metadata(

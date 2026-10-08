@@ -6,7 +6,9 @@ mod records;
 
 pub use error::{ExchangeError, ExchangeResult};
 pub(crate) use outcomes::{lookup, persist};
+pub use records::RecordReader;
 pub(crate) use records::capture_metadata;
+pub(crate) use records::position;
 
 use postproject_core::{DecisionBase, Error, ErrorKind, ProductionId, Result, RevisionId};
 use postproject_protocol::{Digest, HistoryId, Position, ProtocolBase, Scope, StoreRole};

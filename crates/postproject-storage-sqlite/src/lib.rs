@@ -52,7 +52,7 @@ use rusqlite::{
     Connection, OpenFlags, OptionalExtension, limits::Limit, params, params_from_iter, types::Value,
 };
 
-pub use exchange::{ExchangeError, ExchangeResult};
+pub use exchange::{ExchangeError, ExchangeResult, RecordReader};
 pub use job_lease::SqliteJobLease;
 pub use migrations::CURRENT_SCHEMA_VERSION;
 pub use read_session::SqliteReadSession;
@@ -150,6 +150,33 @@ struct StoredActivityEdge {
 type ActivityEdgesById<Edge> = BTreeMap<ActivityId, Vec<Edge>>;
 
 impl SqliteProduction {
+    /// Opens a bounded record stream on its own coherent view.
+    ///
+    /// # Errors
+    /// Returns `history_gap` for an unavailable complete record, including the
+    /// retained floor. Returns malformed for an out-of-range sequence.
+    pub fn record_reader(&self, sequence: u64) -> ExchangeResult<RecordReader> {
+        RecordReader::open(self.read_session()?.into_read_only(), sequence)
+    }
+
+    /// Returns the complete current exchange boundary from one coherent view.
+    ///
+    /// # Errors
+    /// Returns `history_gap` when the native head has incomplete effect capture,
+    /// or storage failures for an invalid persisted boundary.
+    pub fn exchange_head(&self) -> ExchangeResult<postproject_protocol::Position> {
+        let view = self.read_session()?;
+        let sequence = view.decision_base().sequence();
+        let reader = view.into_read_only();
+        exchange::position(&reader.connection, reader.production.id(), sequence)?.ok_or_else(|| {
+            postproject_protocol::ProtocolError::new(
+                postproject_protocol::FailureKind::HistoryGap,
+                "native head has no complete replay boundary",
+            )
+            .into()
+        })
+    }
+
     /// Returns the persisted authority/passive role.
     #[must_use]
     pub const fn exchange_role(&self) -> postproject_protocol::StoreRole {
