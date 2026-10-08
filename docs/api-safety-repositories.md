@@ -32,3 +32,53 @@ a release tag requires separate explicit authorization.
 
 Candidate inputs and commands are recorded below. Local results do not qualify
 a different platform or a later runtime change.
+
+## Installed candidate
+
+The Linux release library, static library and CLI were rebuilt at `b25e082`
+into `target/qualification-abi51-install`. Later commits change tests,
+verification tools and documentation. Both installed headers match current
+source byte for byte; all 322 exported symbols match the manifest.
+
+| Artifact | SHA-256 |
+|---|---|
+| `libpostproject.so` | `cc0e7cf1a36ff20a34256f360c81eaef713e747d4803ecf41a198faf80c397e5` |
+| `libpostproject.a` | `cc2932f7ab9ca45f761311dd8ccf0ec5fba0ac7d9cb25f1ad332bc9d706e6f68` |
+| CLI `postproject` | `5020a75746a538f596c0e8865f36bef730daa3d5441f4073d6c042654841df1e` |
+| Neutral wheel `postproject-0.7.0a1-py3-none-any.whl` | `aecbf4e0aff301e8382a6e91345665800caef50dff7a3a568bd34ee514e2f3dc` |
+| Local wheel `postproject-0.7.0a1-py3-none-linux_x86_64.whl` | `05a73600074aabf13501d0c7658efae61bf4091da54a466c67b693ed8b442818` |
+| Blender extension `postproject_relink-0.1.0-linux_x64.zip` | `71f6e63724d1216d5cc7366d1d610bdfe9f4d08a6f69a33f813a71951ba9e2eb` |
+
+The neutral wheel's nine Python source files match current source. These are
+local review artifacts; the Linux wheel makes no manylinux claim. CI separately
+builds and tests the glibc 2.28 wheel. Packages remain unpublished.
+
+## Reproduction and local evidence
+
+Run the six required Rust gates from the workspace instructions, followed by
+the installed consumer commands in {doc}`testing`. Candidate native tests use
+`target/qualification-abi51-native`; extracted examples use
+`target/qualification-abi51-examples`. Python tests use the installed neutral
+wheel with `POSTPROJECT_LIBRARY` and `POSTPROJECT_CLI` pointing into the prefix.
+`tools/check_python_id_typing.py --python VENV/bin/python --ty VENV/bin/ty`
+checks installed typing metadata, positive examples and nine negative cases.
+
+Strict Doxygen/Sphinx, offline links and spelling pass. Exact Rust 1.85.0
+checks all workspace targets/features. The installed C/C++ contracts pass with
+ASan/UBSan; the Rust library is not sanitizer-instrumented. Five nightly
+libFuzzer/AddressSanitizer campaigns ran at least 60 seconds each without a
+finding. All six Criterion workloads pass, including a coherent, paged
+10,000-asset read. No hard latency threshold or published timing claim applies.
+
+Kdenlive's ten patches replay on `55e16e85cd9a9c6e032cd27a621137b4da881a7c`;
+Ardour's five replay on `7968ec504ba8b70e6de5c09d0470264581a5e979`.
+Fresh enabled Kdenlive compilation and both document/pilot tests pass. The
+shared-production script passes with Blender 5.2.2 LTS (`d13f752e3b9c`), the
+rebuilt extension and the installed Manager under Python 3.13. Its retained
+workspace is `/tmp/tmp.uq9DfuqrlC`; traces are in
+`target/qualification-abi51-shared-traces`. OBS and Natron acceptance retain
+their declared Linux host scope.
+
+Local logs and artifacts are retained under `target/qualification-abi51-*`.
+Patch replay trees reproduce the current series exactly. Host tests isolate
+configuration/cache; they do not claim an interactive human acceptance pass.
