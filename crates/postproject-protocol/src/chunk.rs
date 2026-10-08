@@ -1,6 +1,9 @@
 //! Bounded byte continuations for one authoritative logical record.
 
+mod chain;
 mod wire;
+
+pub use chain::{ChunkSummary, RecordChunkChain};
 
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use postproject_core::RevisionId;

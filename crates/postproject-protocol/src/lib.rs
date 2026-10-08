@@ -21,7 +21,9 @@ mod rejection;
 mod role;
 mod scope;
 
-pub use chunk::{MAX_RECORD_CHUNK_BYTES, MAX_RECORD_CHUNK_PAYLOAD, RecordChunk};
+pub use chunk::{
+    ChunkSummary, MAX_RECORD_CHUNK_BYTES, MAX_RECORD_CHUNK_PAYLOAD, RecordChunk, RecordChunkChain,
+};
 pub use command::Command;
 pub use conflict::{decode_transaction_conflict, encode_transaction_conflict};
 pub use digest::{Digest, DigestDomain};

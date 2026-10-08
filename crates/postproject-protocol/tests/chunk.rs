@@ -150,3 +150,72 @@ fn strict_decoder_rejects_tampering_and_unsupported_framing() {
         FailureKind::Integrity
     );
 }
+
+#[test]
+fn chain_rejects_partial_reordered_foreign_and_altered_chunks_without_advancing() {
+    use postproject_protocol::{ChunkSummary, RecordChunkChain};
+    let scope = Scope::new(ProductionId::new(), HistoryId::new());
+    let revision = RevisionId::new();
+    let first =
+        RecordChunk::new(scope, revision, 0, None, vec![1, 2], Extensions::default()).unwrap();
+    let next = RecordChunk::new(
+        scope,
+        revision,
+        1,
+        Some(first.digest().unwrap()),
+        vec![3],
+        Extensions::default(),
+    )
+    .unwrap();
+    let mut chain = RecordChunkChain::new(scope, revision);
+    assert!(chain.clone().finish().is_err());
+    assert_eq!(
+        chain.push(&next).unwrap_err().kind(),
+        FailureKind::HistoryGap
+    );
+    assert_eq!(
+        chain
+            .push(
+                &RecordChunk::new(
+                    Scope::new(scope.production(), HistoryId::new()),
+                    revision,
+                    0,
+                    None,
+                    vec![1],
+                    Extensions::default()
+                )
+                .unwrap()
+            )
+            .unwrap_err()
+            .kind(),
+        FailureKind::ScopeMismatch
+    );
+    chain.push(&first).unwrap();
+    let boundary = chain.clone().finish().unwrap();
+    assert_eq!(boundary.count(), 1);
+    assert_eq!(
+        chain.push(&first).unwrap_err().kind(),
+        FailureKind::HistoryGap
+    );
+    let altered = RecordChunk::new(
+        scope,
+        revision,
+        1,
+        Some(postproject_protocol::Digest::from_bytes([0; 32])),
+        vec![3],
+        Extensions::default(),
+    )
+    .unwrap();
+    assert_eq!(
+        chain.push(&altered).unwrap_err().kind(),
+        FailureKind::Integrity
+    );
+    assert_eq!(chain.clone().finish().unwrap(), boundary);
+    chain.push(&next).unwrap();
+    assert_eq!(
+        chain.finish().unwrap(),
+        ChunkSummary::new(2, 3, next.digest().unwrap()).unwrap()
+    );
+    assert!(ChunkSummary::new(0, 0, first.digest().unwrap()).is_err());
+    assert!(ChunkSummary::new(2, 1, first.digest().unwrap()).is_err());
+}
