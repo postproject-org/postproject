@@ -226,7 +226,7 @@ static pp_error_code_t resolve_asset(const pp_production_t *production,
       printf("availability: %u\n", availability);
     }
     for (uint64_t s = 0; status == PP_OK && s < resource_count; ++s) {
-      pp_resource_id_t resource_id;
+      pp_resource_id_t resource_id = {0};
       pp_resource_resolution_state_t state;
       uint64_t candidate_count = 0;
       uint64_t evidence_count = 0;
@@ -281,7 +281,7 @@ confirm_unique_candidates(pp_production_t *production,
         resolutions, r, &asset_id, &representation_id, &availability,
         &resource_count, &issue_count, error);
     for (uint64_t s = 0; status == PP_OK && s < resource_count; ++s) {
-      pp_resource_id_t resource_id;
+      pp_resource_id_t resource_id = {0};
       pp_resource_resolution_state_t state;
       uint64_t candidate_count = 0;
       uint64_t evidence_count = 0;
@@ -675,7 +675,7 @@ static pp_error_code_t print_asset_locators(const pp_production_t *production,
       status =
           pp_object_query_set_get(resource_page, s, &resource, &depth, error);
       if (status == PP_OK) {
-        pp_resource_id_t resource_id;
+        pp_resource_id_t resource_id = {0};
         status = pp_object_ref_get_resource(&resource, &resource_id, error);
         if (status == PP_OK)
           status = print_resource_locators(production, &resource_id, error);
@@ -768,7 +768,7 @@ static pp_error_code_t read_known_objects(const pp_production_t *production,
   int64_t created_at = 0;
   const char *name = NULL;
   const char *source = NULL;
-  pp_resource_id_t resource_id;
+  pp_resource_id_t resource_id = {0};
   const char *role = NULL;
   uint8_t required = 0;
   pp_error_code_t status =

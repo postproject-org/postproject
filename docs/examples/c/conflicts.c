@@ -33,8 +33,8 @@ static pp_error_code_t latest_revision(pp_production_t *production,
 
 static pp_error_code_t
 update_from_a_base_revision(pp_production_t *production, pp_error_t **error) {
-  pp_media_root_id_t root_id;
-  pp_revision_id_t base_id;
+  pp_media_root_id_t root_id = {0};
+  pp_revision_id_t base_id = {0};
   pp_revision_id_t superseding_id;
   uint64_t base_sequence = 0;
   uint64_t superseding_sequence = 0;
@@ -122,7 +122,7 @@ update_from_a_base_revision(pp_production_t *production, pp_error_t **error) {
   transaction = NULL;
 
   /* Retry only after re-reading and deciding that enabling is still right. */
-  pp_revision_id_t refreshed_id;
+  pp_revision_id_t refreshed_id = {0};
   uint64_t refreshed_sequence = 0;
   if (status == PP_OK) {
     status = latest_revision(production, &refreshed_id, &refreshed_sequence,

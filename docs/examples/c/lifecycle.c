@@ -14,7 +14,7 @@
 /* [asset-identity] */
 static pp_error_code_t asset_identity(const char *saved_id, pp_error_t **error) {
   pp_asset_id_t asset;
-  pp_object_ref_t target;
+  pp_object_ref_t target = {0};
   pp_asset_id_t projected;
   char *canonical = NULL;
   pp_error_code_t status = pp_asset_id_parse(saved_id, &asset, error);
@@ -48,7 +48,7 @@ static pp_error_code_t open_production(const char *path,
   pp_asset_set_t *assets = NULL;
   pp_revision_set_t *latest = NULL;
   pp_production_id_t production_id;
-  pp_production_id_t parsed_id;
+  pp_production_id_t parsed_id = {0};
   char *identity_text = NULL;
   uint8_t exists = 0;
 
@@ -283,7 +283,7 @@ int main(int argc, char **argv) {
 
   pp_production_t *production = NULL;
   pp_error_t *error = NULL;
-  pp_asset_id_t asset_id;
+  pp_asset_id_t asset_id = {0};
   uint64_t before = 0;
   uint64_t after = 0;
   int has_archive = 0;
