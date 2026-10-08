@@ -14,13 +14,16 @@ historical Shotcut scaffold has no remote and is outside qualification.
 [Repository inputs](exchange-repositories.json) record exact starting commits
 and preexisting untracked builds. Candidate qualification has **not** run.
 
-Development schema 21 retains one persistent history generation and a deterministic
+Development schema 22 retains one persistent history generation and a deterministic
 genesis/migration-floor anchor. Existing revisions remain intact. The codec now
 covers strict framing, every metadata value kind and metadata proposal intent;
 complete mutation/effect coverage and the other exchange workflows remain pending.
 Metadata mutations now capture exact authored effects inside the native commit,
 including repeated edits to one property. Internal 1 MiB fragments preserve
 legal large values. They are not yet complete public records or a replay feed.
+Identified metadata submissions retain accepted/no-op/rejected public outcomes
+in the same writer transaction. Other command families and credentials remain
+unsupported; the full authority and replay gates remain pending.
 Persisted passive roles reject native transaction opens and token import while
 retaining ordinary reads and coherent sessions. Synthetic role tests cover
 reopen and writer-lock enforcement; they do not establish checkpoint import.

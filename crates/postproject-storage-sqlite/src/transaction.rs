@@ -3,6 +3,7 @@
 use std::collections::BTreeMap;
 
 mod job_leases;
+mod submission;
 
 use postproject_core::{
     Activity, AgentIdentity, CommitReceipt, ContentStructure, ContentStructureKind, DecisionBase,
