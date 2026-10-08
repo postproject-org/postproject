@@ -42,6 +42,10 @@ Native representation handles share one additional budget across every
 representation, member, sparse frame, resource, locator and fingerprint they
 retain. Enrichment cannot multiply the per-query storage budget; choose a
 smaller representation page after `Unsupported`.
+Native resolution sets also share their copied-payload budget across all
+representations, resources, candidates, evidence and missing-frame issues.
+Check the complete borrowed result before creating native string copies;
+large requests return `Unsupported` and can be split into smaller asset groups.
 Regeneration plans likewise share their budget across all copied job inputs
 and producer parameters; a bounded parameter set cannot be copied once per
 artifact without an aggregate limit.

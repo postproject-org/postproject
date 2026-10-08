@@ -104,3 +104,38 @@ fn resolution_selection_checks_all_states_and_clears_wrong_payload_outputs() {
         unsafe { pp_error_release(error) };
     }
 }
+
+#[test]
+fn resolution_handle_budget_includes_all_copied_evidence() {
+    let resource_id = ResourceId::new();
+    let resource = ResourceResolution::new(
+        resource_id,
+        ResourceResolutionState::Offline,
+        Vec::new(),
+        vec![ResolutionEvidence::new(
+            EvidenceKind::DiscoveryError,
+            Some("x".repeat(9 * 1024 * 1024)),
+        )],
+    )
+    .expect("valid resource result");
+    let resolution = RepresentationResolution::aggregate(
+        RepresentationId::new(),
+        &ContentStructure::single_resource(resource_id),
+        vec![resource],
+    )
+    .expect("valid representation result");
+    let values = vec![(AssetId::new(), resolution); 8];
+    let retained = PpResolutionSet::new(values[..7].to_vec()).expect("63 MiB fits");
+    assert_eq!(retained.representations.len(), 7);
+    let detail = retained.representations[6].resources[0].evidence[0]
+        .detail
+        .as_ref()
+        .expect("copied detail");
+    assert_eq!(detail.as_bytes().len(), 9 * 1024 * 1024);
+    drop(retained);
+    let error = match PpResolutionSet::new(values) {
+        Ok(_) => panic!("72 MiB must not be copied into a native result"),
+        Err(error) => error,
+    };
+    assert_eq!(error.kind(), ErrorKind::Unsupported);
+}

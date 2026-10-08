@@ -6939,8 +6939,42 @@ unsafe fn write_copy<T: Copy>(output: *mut T, value: T, label: &str) -> Result<(
 }
 
 impl PpResolutionSet {
-    fn new(resolutions: Vec<(AssetId, RepresentationResolution)>) -> Self {
-        Self {
+    fn new(resolutions: Vec<(AssetId, RepresentationResolution)>) -> Result<Self, Error> {
+        let mut budget = result_budget::ResultBudget::default();
+        for (_, resolution) in &resolutions {
+            budget.record(1, size_of::<AbiRepresentationResolution>())?;
+            for resource in resolution.resources() {
+                budget.record(1, size_of::<AbiResolution>())?;
+                for candidate in resource.candidates() {
+                    budget.record(1, size_of::<AbiCandidate>())?;
+                    budget.record(0, candidate.uri().len().saturating_add(1))?;
+                    if let Some(root) = candidate.media_root() {
+                        budget.record(0, root.len().saturating_add(1))?;
+                    }
+                    if let Some(naming) = candidate.sequence_naming() {
+                        budget.record(
+                            0,
+                            naming
+                                .prefix()
+                                .len()
+                                .saturating_add(naming.suffix().len())
+                                .saturating_add(2),
+                        )?;
+                    }
+                    for evidence in candidate.evidence() {
+                        retain_resolution_evidence(&mut budget, evidence)?;
+                    }
+                }
+                for evidence in resource.evidence() {
+                    retain_resolution_evidence(&mut budget, evidence)?;
+                }
+            }
+            for issue in resolution.issues() {
+                budget.record(1, size_of::<AvailabilityIssue>())?;
+                budget.record(issue.frames().len(), size_of_val(issue.frames()))?;
+            }
+        }
+        Ok(Self {
             representations: resolutions
                 .into_iter()
                 .map(|(asset_id, resolution)| AbiRepresentationResolution {
@@ -6976,8 +7010,27 @@ impl PpResolutionSet {
                     issues: resolution.issues().to_vec(),
                 })
                 .collect(),
-        }
+        })
     }
+}
+
+fn retain_resolution_evidence(
+    budget: &mut result_budget::ResultBudget,
+    evidence: &ResolutionEvidence,
+) -> Result<(), Error> {
+    budget.record(1, size_of::<AbiEvidence>())?;
+    if let Some(detail) = evidence.detail() {
+        // Sanitizing NUL expands one byte to a three-byte replacement character.
+        let bytes = detail.len().saturating_add(
+            detail
+                .bytes()
+                .filter(|byte| *byte == 0)
+                .count()
+                .saturating_mul(2),
+        );
+        budget.record(0, bytes.saturating_add(1))?;
+    }
+    Ok(())
 }
 
 impl From<&ResolutionEvidence> for AbiEvidence {
@@ -7446,7 +7499,9 @@ mod tests {
 
     #[test]
     fn resolution_accessors_reject_out_of_range_indices() {
-        let resolutions = Box::into_raw(Box::new(PpResolutionSet::new(Vec::new())));
+        let resolutions = Box::into_raw(Box::new(
+            PpResolutionSet::new(Vec::new()).expect("empty result"),
+        ));
         let mut asset_id = PpAssetId { bytes: [9; 16] };
         let mut representation_id = PpRepresentationId { bytes: [9; 16] };
         let mut availability = 99;
@@ -7524,10 +7579,9 @@ mod tests {
             vec![resource],
         )
         .expect("valid aggregate");
-        let resolutions = Box::into_raw(Box::new(PpResolutionSet::new(vec![(
-            AssetId::new(),
-            representation,
-        )])));
+        let resolutions = Box::into_raw(Box::new(
+            PpResolutionSet::new(vec![(AssetId::new(), representation)]).expect("bounded result"),
+        ));
         let mut asset_id = PpAssetId { bytes: [0; 16] };
         let mut id = PpRepresentationId { bytes: [0; 16] };
         let mut availability = 0;

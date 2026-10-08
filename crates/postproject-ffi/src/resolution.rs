@@ -315,7 +315,7 @@ pub unsafe extern "C" fn pp_production_resolve_assets(
             let default_options = PpResolutionOptions::default();
             let options = options.as_ref().unwrap_or(&default_options);
             let resolutions = resolve_assets(production, asset_ids, options)?;
-            out_resolutions.write(Box::into_raw(Box::new(PpResolutionSet::new(resolutions))));
+            out_resolutions.write(Box::into_raw(Box::new(PpResolutionSet::new(resolutions)?)));
             Ok(())
         })
     }
