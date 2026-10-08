@@ -109,13 +109,38 @@ pub(crate) fn floor(connection: &Connection, production: ProductionId) -> Result
     let digest: [u8; 32] = digest
         .try_into()
         .map_err(|_| Error::new(ErrorKind::Storage, "invalid exchange anchor length"))?;
-    Position::new(
+    let position = Position::new(
         scope,
         revision,
         stored_u64(sequence, "exchange floor sequence")?,
         Digest::from_bytes(digest),
     )
-    .map_err(|_| Error::new(ErrorKind::Storage, "invalid exchange floor"))
+    .map_err(|_| Error::new(ErrorKind::Storage, "invalid exchange floor"))?;
+    let expected = Position::anchor(position.decision_base())
+        .map_err(|_| Error::new(ErrorKind::Storage, "invalid exchange anchor"))?;
+    if expected != position {
+        return Err(Error::new(
+            ErrorKind::Storage,
+            "exchange anchor digest mismatch",
+        ));
+    }
+    if let Some(revision) = position.revision() {
+        let actual = connection
+            .query_row(
+                "SELECT sequence FROM revisions WHERE id = ?1",
+                [revision.as_bytes().as_slice()],
+                |row| row.get::<_, i64>(0),
+            )
+            .optional()
+            .map_err(sqlite_error("validate exchange floor revision"))?;
+        if actual != Some(sequence) {
+            return Err(Error::new(
+                ErrorKind::Storage,
+                "exchange floor revision mismatch",
+            ));
+        }
+    }
+    Ok(position)
 }
 
 /// Called inside migration/creation, before committing a usable production.

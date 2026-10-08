@@ -1,6 +1,8 @@
 //! Persistent identities and honest migration floors before complete capture.
 
-use postproject_core::{MetadataProperty, MetadataValue, ObjectRef, PropertyId, VocabularyId};
+use postproject_core::{
+    ErrorKind, MetadataProperty, MetadataValue, ObjectRef, PropertyId, VocabularyId,
+};
 use postproject_protocol::{Position, ProtocolBase};
 use postproject_storage_sqlite::{CURRENT_SCHEMA_VERSION, SqliteProduction};
 use rusqlite::Connection;
@@ -78,5 +80,60 @@ fn schema_19_migration_anchors_at_retained_head_without_fabricating_effects() {
             .exchange_floor()
             .unwrap(),
         floor
+    );
+}
+
+#[test]
+fn corrupted_anchor_and_forged_retained_floor_are_storage_errors() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("corrupted.pproj");
+    let mut production = SqliteProduction::create(&path, None).unwrap();
+    let target = ObjectRef::Production(production.production().id());
+    let property = MetadataProperty::new(
+        VocabularyId::new("urn:anchor").unwrap(),
+        PropertyId::new("fact").unwrap(),
+    );
+    let mut edit = production.begin_transaction().unwrap();
+    edit.add_metadata_value(target, &property, &MetadataValue::string("fact").unwrap())
+        .unwrap();
+    let receipt = edit.commit().unwrap();
+    drop(edit);
+    let original = production.exchange_floor().unwrap();
+    let connection = Connection::open(&path).unwrap();
+    connection
+        .execute(
+            "UPDATE exchange_history SET anchor_digest = zeroblob(32)",
+            [],
+        )
+        .unwrap();
+    assert_eq!(
+        production.exchange_floor().unwrap_err().kind(),
+        ErrorKind::Storage
+    );
+    // A digest consistent with a forged sequence still cannot authorize a floor
+    // whose retained revision has a different durable sequence.
+    let revision = receipt.revision().unwrap().id();
+    let forged = Position::anchor(
+        ProtocolBase::new(
+            original.scope(),
+            postproject_core::DecisionBase::new(production.production().id(), Some(revision), 2)
+                .unwrap(),
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    connection.execute(
+        "UPDATE exchange_history SET floor_revision_id = ?1, floor_sequence = 2, anchor_digest = ?2",
+        rusqlite::params![revision.as_bytes().as_slice(), forged.digest().as_bytes().as_slice()],
+    ).unwrap();
+    assert_eq!(
+        production.exchange_floor().unwrap_err().kind(),
+        ErrorKind::Storage
+    );
+    drop(production);
+    let reopened = SqliteProduction::open(&path).unwrap();
+    assert_eq!(
+        reopened.exchange_floor().unwrap_err().kind(),
+        ErrorKind::Storage
     );
 }
