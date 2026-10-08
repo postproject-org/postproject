@@ -3,9 +3,9 @@
 Inventory checked against `gh repo list postproject-org` on 2026-10-04.
 All 13 non-archived organization repositories have local checkouts on `main`;
 the historical 12-repository evidence excludes the landing site. Local checks
-use 0.7.0-alpha.1 / Python 0.7.0a1, C ABI 51 and schema 19. Required SDK/platform/package and downstream CI jobs pass. Kdenlive’s
-Qt 6.12 full-host lint gate remains open; Blender’s optional 5.3-alpha
-download is unavailable.
+use 0.7.0-alpha.1 / Python 0.7.0a1, C ABI 51 and schema 19. Required SDK/platform/package and downstream checks pass. Kdenlive’s
+Qt 6.12 full builds and shared-host workflow pass; Blender’s optional
+5.3-alpha download is unavailable.
 
 | Repository | Baseline SHA | Candidate SHA / surface | Local result and remaining scope |
 |---|---|---|---|
@@ -13,7 +13,7 @@ download is unavailable.
 | [postproject-ardour](https://github.com/postproject-org/postproject-ardour) | `7ec34c2a972b936191494f25d420c4e962f8c047` | `a417d20` / C++ / pkg-config | Five replacement patches replay; stereo-WAV resolver scenario passes; full Linux with/without and macOS resolver CI pass |
 | [postproject-blender](https://github.com/postproject-org/postproject-blender) | `8c62d4ca6243446219ce82383dd3ed823f850c3c` | `bfe5b95` / Python extension | 5.2.2 LTS: 24 tests run, one 5.3-only skip; OBS handoff passes; required 5.2.2 CI and shared-host handoff pass; optional 5.3 download unavailable |
 | [postproject-cpp-nle](https://github.com/postproject-org/postproject-cpp-nle) | `5d801c0b59526a098b9111beeb40b143bbe59ca1` | `8d2933a` / Installed C++ host | One CTest passes against the installed candidate; own and SDK downstream CI pass |
-| [postproject-kdenlive](https://github.com/postproject-org/postproject-kdenlive) | `2eb45f9019cdb48fdc35606768c9ecc164943b8f` | `24153ec` / Native C++ / Result | Ten replacement patches replay; full local build, document/pilot tests and shared handoff pass; Qt 6.12 CI lint fails |
+| [postproject-kdenlive](https://github.com/postproject-org/postproject-kdenlive) | `2eb45f9019cdb48fdc35606768c9ecc164943b8f` | `24153ec` / Native C++ / Result | Ten replacement patches replay; ten replacement patches, full with/without builds, document/pilot tests and shared handoff pass in Qt 6.12 CI |
 | [postproject-natron](https://github.com/postproject-org/postproject-natron) | `4694e97a65ab59954a3ef32c7984ed6ccd53a97f` | `ad2554d` / C++ / CPython stable ABI | Native contract, request-generation tests and Natron 2.5.0 normal/negative/plugin-free renderer paths pass on Linux |
 | [postproject-obs](https://github.com/postproject-org/postproject-obs) | `5c15a4a7fc39d4e22d191c3fc854915f098931c9` | `338e395` / C11 / Qt frontend | OBS 32.2.2: two contracts, eight isolated host scenarios and Blender adoption/move/plugin-free reopen pass on Linux |
 | [postproject-openassetio](https://github.com/postproject-org/postproject-openassetio) | `99ab45e38dc31b2ff5f8e63cd9a848f090cc389d` | `5e38c31` / Python validation host | One installed-wheel pytest passes; declared 0.7 range updated |
@@ -90,12 +90,19 @@ configuration/cache; they do not claim an interactive human acceptance pass.
 
 At SDK `9a068ef`, all 16 individual jobs pass in [SDK CI](https://github.com/postproject-org/postproject/actions/runs/37800227404).
 At `42b9f9d`, [downstream CI](https://github.com/postproject-org/postproject/actions/runs/37789356724)
-(10 jobs) and [documentation deployment](https://github.com/postproject-org/postproject/actions/runs/37789355708).
+(10 jobs) pass, as does [documentation deployment](https://github.com/postproject-org/postproject/actions/runs/37789355708).
 [Flatpak](https://github.com/postproject-org/postproject/actions/runs/37780003984)
 passes at `6f14a3b`; subsequent SDK changes affect tests, tools and docs.
 
 Consumer push jobs pass for Manager, both validation experiments, Python host,
 C++ NLE, Ardour, OBS, Natron and the OTIO demo. Blender’s required lint/5.2.2 jobs
 pass; its optional 5.3-alpha job fails while downloading the unavailable host.
-[Kdenlive’s full-host jobs](https://github.com/postproject-org/postproject-kdenlive/actions/runs/37789160505)
-fail in Qt 6.12 lint at `322aa7a`, before compilation and host tests.
+[Kdenlive’s full-host jobs](https://github.com/postproject-org/postproject-kdenlive/actions/runs/37799419496)
+pass with/without PostProject at `24153ec`, including shared-production acceptance.
+
+Review archives and `SHA256SUMS` are prepared in
+`target/qualification-abi51-release-preview`. Source archives use committed
+source; native archives use the CMake install rules. Downloaded Linux/macOS/
+Windows prefixes come from the passing `9a068ef` SDK run. Linux review archives
+make no manylinux claim; the separate glibc 2.28 wheel CI passes. Published
+release artifacts will be produced from their authorized tag.

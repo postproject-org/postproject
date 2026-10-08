@@ -1,0 +1,17 @@
+{
+  "conclusion": "success",
+  "headSha": "24153ec76ba7e0420a5950be6163500d320f1719",
+  "jobs": [
+    {
+      "name": "Kdenlive with PostProject",
+      "conclusion": "success",
+      "url": "https://github.com/postproject-org/postproject-kdenlive/actions/runs/37799419496/job/113387345265"
+    },
+    {
+      "name": "Kdenlive without PostProject",
+      "conclusion": "success",
+      "url": "https://github.com/postproject-org/postproject-kdenlive/actions/runs/37799419496/job/113387345687"
+    }
+  ],
+  "url": "https://github.com/postproject-org/postproject-kdenlive/actions/runs/37799419496"
+}
