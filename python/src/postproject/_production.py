@@ -414,7 +414,9 @@ class Production:
         )
         native.check(status, error)
         if not handle:
-            raise RuntimeError("native production creation returned no handle")
+            raise InternalError(
+                _abi.PP_ERROR_INTERNAL, "native production creation returned no handle"
+            )
         return cls(native, handle)
 
     @classmethod
@@ -434,7 +436,9 @@ class Production:
         )
         native.check(status, error)
         if not handle:
-            raise RuntimeError("native production open returned no handle")
+            raise InternalError(
+                _abi.PP_ERROR_INTERNAL, "native production open returned no handle"
+            )
         return cls(native, handle)
 
     @property
@@ -487,7 +491,9 @@ class Production:
         )
         self._native.check(status, error)
         if not handle:
-            raise RuntimeError("native media-root query returned no result set")
+            raise InternalError(
+                _abi.PP_ERROR_INTERNAL, "native media-root query returned no result set"
+            )
         try:
             count = self._native.lib.pp_media_root_set_count(handle)
             return tuple(
@@ -518,7 +524,9 @@ class Production:
             native_id,
         )
         if len(page.items) != 1:
-            raise RuntimeError("native job read returned no single job")
+            raise InternalError(
+                _abi.PP_ERROR_INTERNAL, "native job read returned no single job"
+            )
         return page.items[0]
 
     def jobs(
@@ -726,7 +734,9 @@ class Production:
         )
         self._native.check(status, error)
         if not handle:
-            raise RuntimeError("native artifact evaluation returned no result")
+            raise InternalError(
+                _abi.PP_ERROR_INTERNAL, "native artifact evaluation returned no result"
+            )
         try:
             return read_evaluation(self._native, handle)
         finally:
@@ -749,7 +759,10 @@ class Production:
         )
         self._native.check(status, error)
         if not handle:
-            raise RuntimeError("native artifact reproducibility returned no report")
+            raise InternalError(
+                _abi.PP_ERROR_INTERNAL,
+                "native artifact reproducibility returned no report",
+            )
         try:
             return read_reproducibility(self._native, handle)
         finally:
@@ -839,10 +852,14 @@ class Production:
         )
         self._native.check(status, error)
         if not handle:
-            raise RuntimeError("native asset read returned no result set")
+            raise InternalError(
+                _abi.PP_ERROR_INTERNAL, "native asset read returned no result set"
+            )
         try:
             if self._native.lib.pp_asset_set_count(handle) != 1:
-                raise RuntimeError("native asset read returned no single asset")
+                raise InternalError(
+                    _abi.PP_ERROR_INTERNAL, "native asset read returned no single asset"
+                )
             return _asset_at(self._native, handle, 0)
         finally:
             self._native.lib.pp_asset_set_release(handle)
@@ -858,8 +875,9 @@ class Production:
             native_id,
         )
         if len(page.items) != 1:
-            raise RuntimeError(
-                "native representation read returned no single representation"
+            raise InternalError(
+                _abi.PP_ERROR_INTERNAL,
+                "native representation read returned no single representation",
             )
         return page.items[0]
 
@@ -893,7 +911,9 @@ class Production:
         )
         self._native.check(status, error)
         if not handle:
-            raise RuntimeError("native asset query returned no result set")
+            raise InternalError(
+                _abi.PP_ERROR_INTERNAL, "native asset query returned no result set"
+            )
         try:
             count = self._native.lib.pp_asset_set_count(handle)
             return QueryPage(
@@ -1098,7 +1118,9 @@ class Production:
                 self._native.lib.pp_metadata_input_release(native_value)
         self._native.check(status, error)
         if not handle:
-            raise RuntimeError("native metadata query returned no result set")
+            raise InternalError(
+                _abi.PP_ERROR_INTERNAL, "native metadata query returned no result set"
+            )
         try:
             count = self._native.lib.pp_metadata_set_count(handle)
             return QueryPage(
@@ -1289,7 +1311,9 @@ class Production:
         )
         self._native.check(status, error)
         if not handle:
-            raise RuntimeError("native asset query returned no result set")
+            raise InternalError(
+                _abi.PP_ERROR_INTERNAL, "native asset query returned no result set"
+            )
         try:
             count = self._native.lib.pp_asset_set_count(handle)
             return tuple(
@@ -1311,7 +1335,10 @@ class Production:
         )
         self._native.check(status, error)
         if not handle:
-            raise RuntimeError("native representation query returned no result set")
+            raise InternalError(
+                _abi.PP_ERROR_INTERNAL,
+                "native representation query returned no result set",
+            )
         try:
             count = self._native.lib.pp_representation_set_count(handle)
             return tuple(
@@ -1351,15 +1378,18 @@ class Production:
         )
         self._native.check(status, error)
         if not handle:
-            raise RuntimeError("native provenance query returned no result set")
+            raise InternalError(
+                _abi.PP_ERROR_INTERNAL, "native provenance query returned no result set"
+            )
         try:
             count = self._native.lib.pp_object_ref_set_count(handle)
             result: list[RepresentationId] = []
             for index in range(int(count)):
                 reference = _object_reference_at(self._native, handle, index)
                 if not isinstance(reference, RepresentationRef):
-                    raise RuntimeError(
-                        "native provenance query returned a non-representation"
+                    raise InternalError(
+                        _abi.PP_ERROR_INTERNAL,
+                        "native provenance query returned a non-representation",
                     )
                 result.append(reference.id)
             return tuple(result)
@@ -1383,7 +1413,9 @@ class Production:
         )
         self._native.check(status, error)
         if not handle:
-            raise RuntimeError("native identifier query returned no result set")
+            raise InternalError(
+                _abi.PP_ERROR_INTERNAL, "native identifier query returned no result set"
+            )
         try:
             count = self._native.lib.pp_external_identifier_set_count(handle)
             return tuple(
@@ -1411,7 +1443,10 @@ class Production:
         )
         self._native.check(status, error)
         if not handle:
-            raise RuntimeError("native identifier lookup returned no result set")
+            raise InternalError(
+                _abi.PP_ERROR_INTERNAL,
+                "native identifier lookup returned no result set",
+            )
         try:
             count = self._native.lib.pp_object_ref_set_count(handle)
             return tuple(
@@ -1425,7 +1460,10 @@ class Production:
         self, handle: _Pointer[KnownMediaSet]
     ) -> QueryPage[KnownMediaMatch]:
         if not handle:
-            raise RuntimeError("native known-media query returned no result set")
+            raise InternalError(
+                _abi.PP_ERROR_INTERNAL,
+                "native known-media query returned no result set",
+            )
         try:
             count = self._native.lib.pp_known_media_set_count(handle)
             return QueryPage(
@@ -1469,7 +1507,10 @@ class Production:
             self._native.lib.pp_production_latest_revision, self._handle
         )
         if len(revisions) > 1:
-            raise RuntimeError("native latest-revision query returned multiple values")
+            raise InternalError(
+                _abi.PP_ERROR_INTERNAL,
+                "native latest-revision query returned multiple values",
+            )
         return revisions[0] if revisions else None
 
     def changes_since(self, sequence: int, limit: int) -> tuple[Revision, ...]:
@@ -1514,7 +1555,10 @@ class Production:
         )
         self._native.check(status, error)
         if not handle:
-            raise RuntimeError("native filtered revision query returned no result set")
+            raise InternalError(
+                _abi.PP_ERROR_INTERNAL,
+                "native filtered revision query returned no result set",
+            )
         try:
             revisions = _revisions_in(self._native, handle)
         finally:
@@ -1536,7 +1580,10 @@ class Production:
         )
         self._native.check(status, error)
         if not handle:
-            raise RuntimeError("native revision waiter creation returned no handle")
+            raise InternalError(
+                _abi.PP_ERROR_INTERNAL,
+                "native revision waiter creation returned no handle",
+            )
         return RevisionWaiter(self._native, handle)
 
     def _revision_events(self, revision_id: RevisionId) -> tuple[RevisionEvent, ...]:
@@ -1554,7 +1601,10 @@ class Production:
         )
         self._native.check(status, error)
         if not handle:
-            raise RuntimeError("native revision-event query returned no result set")
+            raise InternalError(
+                _abi.PP_ERROR_INTERNAL,
+                "native revision-event query returned no result set",
+            )
         try:
             count = self._native.lib.pp_revision_event_set_count(handle)
             return tuple(
@@ -1641,7 +1691,9 @@ class Production:
             )
         self._native.check(status, error)
         if not handle:
-            raise RuntimeError("native transaction creation returned no handle")
+            raise InternalError(
+                _abi.PP_ERROR_INTERNAL, "native transaction creation returned no handle"
+            )
         transaction = Transaction(self._native, handle)
         if origin is not None or message is not None:
             identity = OriginIdentity(origin) if isinstance(origin, str) else origin
@@ -1668,7 +1720,9 @@ class Production:
 
     def _require_open(self) -> None:
         if not self._finalizer.alive:
-            raise RuntimeError("production is closed")
+            raise InvalidArgumentError(
+                _abi.PP_ERROR_INVALID_ARGUMENT, "production is closed"
+            )
 
     def _revision_set(
         self, function: Callable[..., int], *arguments: object
@@ -1683,7 +1737,9 @@ class Production:
         status = function(*arguments, ctypes.byref(handle), ctypes.byref(error))
         self._native.check(status, error)
         if not handle:
-            raise RuntimeError("native activity query returned no result set")
+            raise InternalError(
+                _abi.PP_ERROR_INTERNAL, "native activity query returned no result set"
+            )
         try:
             count = self._native.lib.pp_activity_set_count(handle)
             return tuple(
@@ -1705,7 +1761,10 @@ class Production:
         status = function(*arguments, ctypes.byref(handle), ctypes.byref(error))
         self._native.check(status, error)
         if not handle:
-            raise RuntimeError("native representation query returned no result set")
+            raise InternalError(
+                _abi.PP_ERROR_INTERNAL,
+                "native representation query returned no result set",
+            )
         try:
             count = self._native.lib.pp_representation_set_count(handle)
             return QueryPage(
@@ -1742,7 +1801,9 @@ def _read_jobs(
     status = function(*arguments, ctypes.byref(handle), ctypes.byref(error))
     native.check(status, error)
     if not handle:
-        raise RuntimeError("native job query returned no result set")
+        raise InternalError(
+            _abi.PP_ERROR_INTERNAL, "native job query returned no result set"
+        )
     try:
         count = native.lib.pp_job_set_count(handle)
         return QueryPage(
@@ -1805,7 +1866,10 @@ def _format_decision_base(
     native.check(status, error)
     try:
         if token.value is None:
-            raise RuntimeError("native decision-base formatter returned no token")
+            raise InternalError(
+                _abi.PP_ERROR_INTERNAL,
+                "native decision-base formatter returned no token",
+            )
         return token.value.decode("utf-8")
     finally:
         native.lib.pp_string_release(token)
@@ -1881,7 +1945,9 @@ def _resolve_assets(
     )
     native.check(status, error)
     if not handle:
-        raise RuntimeError("native resolution query returned no result set")
+        raise InternalError(
+            _abi.PP_ERROR_INTERNAL, "native resolution query returned no result set"
+        )
     try:
         count = native.lib.pp_resolution_set_representation_count(handle)
         return tuple(
@@ -1903,7 +1969,9 @@ def _object_query_page(
     status = function(*arguments, ctypes.byref(handle), ctypes.byref(error))
     native.check(status, error)
     if not handle:
-        raise RuntimeError("native object query returned no result set")
+        raise InternalError(
+            _abi.PP_ERROR_INTERNAL, "native object query returned no result set"
+        )
     try:
         count = native.lib.pp_object_query_set_count(handle)
         items: list[_ObjectQueryItem] = []
@@ -1942,7 +2010,9 @@ def _locator_page(
     native: NativeLibrary, handle: _Pointer[LocatorQuerySet]
 ) -> QueryPage[LocatorMatch]:
     if not handle:
-        raise RuntimeError("native locator query returned no result set")
+        raise InternalError(
+            _abi.PP_ERROR_INTERNAL, "native locator query returned no result set"
+        )
     try:
         count = native.lib.pp_locator_query_set_count(handle)
         return QueryPage(
@@ -1963,7 +2033,9 @@ def _metadata_set(
     status = function(*arguments, ctypes.byref(handle), ctypes.byref(error))
     native.check(status, error)
     if not handle:
-        raise RuntimeError("native metadata query returned no result set")
+        raise InternalError(
+            _abi.PP_ERROR_INTERNAL, "native metadata query returned no result set"
+        )
     try:
         count = native.lib.pp_metadata_set_count(handle)
         return tuple(_metadata_at(native, handle, index) for index in range(int(count)))
@@ -1996,7 +2068,9 @@ def _read_regeneration_plans(
     )
     native.check(status, error)
     if not result_handle:
-        raise RuntimeError("native regeneration query returned no result set")
+        raise InternalError(
+            _abi.PP_ERROR_INTERNAL, "native regeneration query returned no result set"
+        )
     try:
         return tuple(
             _regeneration_plan_at(native, result_handle, index)
@@ -2016,7 +2090,9 @@ def _read_revision_event_page(
     status = function(*arguments, ctypes.byref(handle), ctypes.byref(error))
     native.check(status, error)
     if not handle:
-        raise RuntimeError("native revision-event query returned no result set")
+        raise InternalError(
+            _abi.PP_ERROR_INTERNAL, "native revision-event query returned no result set"
+        )
     try:
         count = native.lib.pp_revision_event_set_count(handle)
         return QueryPage(
@@ -2037,7 +2113,9 @@ def _read_revisions(
     status = function(*arguments, ctypes.byref(handle), ctypes.byref(error))
     native.check(status, error)
     if not handle:
-        raise RuntimeError("native revision query returned no result set")
+        raise InternalError(
+            _abi.PP_ERROR_INTERNAL, "native revision query returned no result set"
+        )
     try:
         return tuple(
             _revision_at(native, handle, index)
@@ -2055,7 +2133,9 @@ def _read_activity_page(
     status = function(*arguments, ctypes.byref(handle), ctypes.byref(error))
     native.check(status, error)
     if not handle:
-        raise RuntimeError("native activity query returned no result set")
+        raise InternalError(
+            _abi.PP_ERROR_INTERNAL, "native activity query returned no result set"
+        )
     try:
         count = native.lib.pp_activity_set_count(handle)
         return QueryPage(
@@ -2074,7 +2154,9 @@ def _read_dependency_query(
     status = function(*arguments, ctypes.byref(handle), ctypes.byref(error))
     native.check(status, error)
     if not handle:
-        raise RuntimeError("native dependency query returned no result set")
+        raise InternalError(
+            _abi.PP_ERROR_INTERNAL, "native dependency query returned no result set"
+        )
     try:
         return _dependency_query_page(native, handle)
     finally:
@@ -2089,7 +2171,9 @@ def _read_dependency_set(
     status = function(*arguments, ctypes.byref(handle), ctypes.byref(error))
     native.check(status, error)
     if not handle:
-        raise RuntimeError("native dependency query returned no result set")
+        raise InternalError(
+            _abi.PP_ERROR_INTERNAL, "native dependency query returned no result set"
+        )
     try:
         present = ctypes.c_uint8()
         source_id = _abi.RepresentationId()
