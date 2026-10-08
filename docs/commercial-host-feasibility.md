@@ -60,12 +60,22 @@ configuration is documented under Studio. Free-edition internal access and each
 required method must be checked in the actual application; presence in the
 shared API definitions is insufficient.
 
-Use a user-invoked Python action consuming the installed PostProject binding and
-matching native library, deployed to a deliberate import location. Validate
-loading against the host interpreter; do not assume pip or the development
-environment is available inside Resolve. Lua plus a CLI helper is a fallback
-with a separate process/file contract. No native Resolve extension or new public
-JavaScript binding is needed for this route.
+The supplied transcript of the [21.1 scripting discussion](https://forum.blackmagicdesign.com/viewtopic.php?f=44&t=239905)
+quotes release notes moving Python scripting to Studio. It also reports removal
+of Lua FFI from the free edition; the exact remaining Lua API set is unspecified.
+The forum blocked automated retrieval, so this evidence came from the user,
+separately from the bundled API definitions. Plan the Python route for **Studio**;
+the downloaded free distribution does not qualify it.
+
+For Studio, use a user-invoked Python action consuming the installed PostProject
+binding and matching native library, deployed to a deliberate import location.
+Validate loading against the host interpreter; do not assume pip or the
+development environment is available inside Resolve. A free-edition Lua action
+with a CLI helper is only a conditional route: first verify its host APIs and
+permitted process/file operations. It cannot rely on Lua FFI. If those checks
+fail, the fallback is manual media export plus a separately invoked PostProject
+CLI, without automatic host reference persistence. No native Resolve extension
+or new public JavaScript binding is needed for the proposed route.
 
 `Project.GetUniqueId`, `MediaPoolItem.GetUniqueId` and `GetMediaId` expose host
 identities, but the vendor descriptions do not promise their stability across
@@ -98,6 +108,6 @@ unsupported scripting leaves registration/relink unavailable.
 The release notes require Rocky Linux 8.6, 32 GB RAM, a discrete GPU with 4 GB
 VRAM and OpenCL 1.2 or CUDA 12.8; the named NVIDIA driver minimum is 580.119.02.
 The free edition's processing/output limits and codec availability apply. A
-working GPU/runtime and demonstrated free-edition persistence are acceptance
+working GPU/runtime, the chosen edition's scripting access and demonstrated persistence are acceptance
 conditions, not evidence supplied by this archive. Installation, project-library
 upgrades and any Studio purchase need their own authorization.

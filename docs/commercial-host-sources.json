@@ -10,7 +10,14 @@
       "Developer/Scripting/DaVinciResolveScript.pyi": "2755259ef5f57b5d477786f799892e5b86ed3945db84bf88fb69bf751b36e651"
     },
     "runtime_version_observed": null,
-    "runtime_executed": false
+    "runtime_executed": false,
+    "scripting_discussion": {
+      "url": "https://forum.blackmagicdesign.com/viewtopic.php?f=44&t=239905",
+      "title": "v21.1 Advanced scripting now requires DaVinci Resolve Studio",
+      "evidence": "user-supplied transcript; direct retrieval returned HTTP 403",
+      "python_route": "Studio required",
+      "free_lua_route": "conditional; FFI removal reported; remaining APIs unverified"
+    }
   },
   "reaper": {
     "api_reference_version": "7.82",
