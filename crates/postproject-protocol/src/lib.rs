@@ -10,6 +10,7 @@ mod extensions;
 mod fields;
 mod json;
 mod metadata;
+mod proposal;
 mod scope;
 
 pub use command::Command;
@@ -18,6 +19,7 @@ pub use error::{FailureKind, ProtocolError, Result};
 pub use extensions::Extensions;
 pub use json::{Document, Limits};
 pub use metadata::{decode_metadata, encode_metadata};
+pub use proposal::{MAX_PROPOSAL_COMMANDS, Proposal};
 pub use scope::{
     CheckpointId, ClientId, HistoryId, MirrorInstanceId, ProtocolBase, RequestId, Scope,
 };
