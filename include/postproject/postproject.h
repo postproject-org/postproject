@@ -1539,7 +1539,8 @@ PP_API pp_error_code_t pp_resolution_options_add_search_directory(
 PP_API pp_error_code_t pp_resolution_options_set_verification(
     pp_resolution_options_t *options, pp_verification_mode_t verification,
     pp_error_t **out_error);
-/* A directory exceeding its entry budget is searched partially and reported
+/* Depth is 1..64; the entry budget is positive. Aggregate overflow returns
+ * PP_ERROR_UNSUPPORTED. A directory exceeding its entry budget is searched partially and reported
  * with PP_EVIDENCE_SEARCH_TRUNCATED; resolution continues. */
 PP_API pp_error_code_t pp_resolution_options_set_limits(
     pp_resolution_options_t *options, uint32_t max_depth,

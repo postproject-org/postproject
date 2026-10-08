@@ -19,7 +19,7 @@ use crate::{
     FULL_FINGERPRINT_ALGORITHM, InspectionOutcome, MediaInspector, SEQUENCE_FINGERPRINT_ALGORITHM,
     SEQUENCE_FINGERPRINT_VERSION, TechnicalMetadata, canonical_file_uri,
     fingerprint::is_file_fingerprint_domain, fingerprint_file, fingerprint_image_sequence,
-    local_file_path, recognition::numbered_name,
+    local_file_path, recognition::numbered_name, resolution_budget::ResolutionBudget,
 };
 
 /// One machine's directory mapping for a production-portable root name.
@@ -224,12 +224,13 @@ impl MediaResolver {
     ///
     /// # Errors
     ///
-    /// Returns [`ErrorKind::InvalidArgument`] if either limit is zero.
+    /// Returns [`ErrorKind::InvalidArgument`] if depth is outside 1..=64
+    /// or the entry limit is zero.
     pub fn new(options: ResolverOptions) -> Result<Self> {
-        if options.max_depth == 0 || options.max_entries_per_directory == 0 {
+        if !(1..=64).contains(&options.max_depth) || options.max_entries_per_directory == 0 {
             return Err(Error::new(
                 ErrorKind::InvalidArgument,
-                "resolver depth and entry limits must be greater than zero",
+                "resolver depth must be in 1..=64 and the entry limit must be positive",
             ));
         }
         Ok(Self { options })
@@ -241,8 +242,8 @@ impl MediaResolver {
     /// its own naming. Every directory in `scope` is then walked at most once
     /// for the whole call, and the resulting index is shared by every resource
     /// that needs discovery, so resolving many offline resources together
-    /// costs one scan. Traversal does not follow symlinks, is ordered by
-    /// filename, is bounded per directory, filters by stored size before
+    /// costs one scan. Traversal does not follow symlinks, is bounded globally
+    /// and per directory, filters by stored size before
     /// hashing, and returns all equally credible matches. A moved or renamed
     /// sequence is found by grouping each directory's numbered files by
     /// prefix, suffix, and padding; a group holding every expected frame is
@@ -254,6 +255,8 @@ impl MediaResolver {
     /// Returns [`ErrorKind::InvalidArgument`] if a known locator belongs to a
     /// different resource or a resource is not part of its structure,
     /// [`ErrorKind::Cancelled`] when the options' token is cancelled, and
+    /// [`ErrorKind::Unsupported`] when the aggregate request, directory index
+    /// or retained results exceed 100000 items or 64 MiB of payload, and
     /// otherwise only when a result value cannot be constructed. Filesystem
     /// discovery failures are represented as evidence in the results.
     pub fn resolve(
@@ -261,14 +264,65 @@ impl MediaResolver {
         items: &[ResolutionItem<'_>],
         scope: &SearchScope,
     ) -> Result<Vec<ResourceResolution>> {
+        let mut input_budget = ResolutionBudget::default();
+        input_budget.record(items.len(), size_of_val(items))?;
+        for directory in scope.search_directories() {
+            input_budget.record(1, directory.as_os_str().as_encoded_bytes().len())?;
+        }
+        for mapping in scope.root_mappings() {
+            input_budget.record(
+                1,
+                mapping
+                    .name()
+                    .len()
+                    .saturating_add(mapping.directory().as_os_str().as_encoded_bytes().len()),
+            )?;
+        }
+        for root in scope.media_roots() {
+            input_budget.record(
+                1,
+                root.name()
+                    .len()
+                    .saturating_add(root.legacy_uri().map_or(0, str::len)),
+            )?;
+        }
+        for item in items {
+            input_budget.record(item.known_locators.len(), size_of_val(item.known_locators))?;
+            for locator in item.known_locators {
+                input_budget.record(
+                    0,
+                    locator
+                        .uri()
+                        .len()
+                        .saturating_add(locator.media_root().map_or(0, str::len)),
+                )?;
+                if let Some(naming) = locator.sequence_naming() {
+                    input_budget.record(
+                        0,
+                        naming.prefix().len().saturating_add(naming.suffix().len()),
+                    )?;
+                }
+            }
+            for fingerprint in item.resource.fingerprints() {
+                input_budget.record(
+                    1,
+                    fingerprint
+                        .algorithm()
+                        .len()
+                        .saturating_add(fingerprint.value().len()),
+                )?;
+            }
+        }
         let mut index = LazyIndex::default();
-        items
-            .iter()
-            .map(|item| {
-                self.check_cancelled()?;
-                self.resolve_item(item, scope, &mut index)
-            })
-            .collect()
+        let mut output_budget = ResolutionBudget::default();
+        let mut results = Vec::new();
+        for item in items {
+            self.check_cancelled()?;
+            let resolution = self.resolve_item(item, scope, &mut index)?;
+            output_budget.resolution(&resolution)?;
+            results.push(resolution);
+        }
+        Ok(results)
     }
 
     /// Resolves one resource under roots and mappings at the presence tier.
@@ -527,6 +581,7 @@ enum IndexState {
 struct DirectoryIndex {
     files: Vec<IndexedFile>,
     diagnostics: Vec<ResolutionEvidence>,
+    budget: ResolutionBudget,
 }
 
 struct IndexedFile {
@@ -549,7 +604,11 @@ impl DirectoryIndex {
         let mut index = Self {
             files: Vec::new(),
             diagnostics: search.diagnostics,
+            budget: ResolutionBudget::default(),
         };
+        for evidence in &index.diagnostics {
+            index.budget.evidence(evidence)?;
+        }
         for directory in search.directories {
             index.scan(resolver, &directory)?;
         }
@@ -562,51 +621,68 @@ impl DirectoryIndex {
         for entry in WalkDir::new(&directory.path)
             .follow_links(false)
             .max_depth(options.max_depth)
-            .sort_by_file_name()
+            // Keep each bounded-depth ancestor open: sorting or closing it
+            // would make walkdir collect an unbounded directory before our limit.
+            .max_open(65)
         {
             resolver.check_cancelled()?;
             entries_seen = entries_seen.saturating_add(1);
             if entries_seen > options.max_entries_per_directory {
-                self.diagnostics.push(ResolutionEvidence::new(
+                self.diagnostic(ResolutionEvidence::new(
                     EvidenceKind::SearchTruncated,
                     Some(format!(
                         "{}: entry limit {} reached",
                         directory.label, options.max_entries_per_directory
                     )),
-                ));
+                ))?;
                 break;
             }
+            self.budget.record(1, 0)?;
             let entry = match entry {
                 Ok(entry) => entry,
                 Err(error) => {
-                    self.diagnostics.push(ResolutionEvidence::new(
+                    self.diagnostic(ResolutionEvidence::new(
                         if directory.root.is_some() {
                             EvidenceKind::MediaRootUnavailable
                         } else {
                             EvidenceKind::DiscoveryError
                         },
                         Some(format!("{}: {error}", directory.label)),
-                    ));
+                    ))?;
                     continue;
                 }
             };
             if !entry.file_type().is_file() {
                 continue;
             }
-            let Some(metadata) = ok_or_discovery_error(
-                &mut self.diagnostics,
-                entry
-                    .metadata()
-                    .map_err(|error| format!("inspect {}: {error}", entry.path().display())),
-            ) else {
-                continue;
+            let metadata = match entry.metadata() {
+                Ok(metadata) => metadata,
+                Err(error) => {
+                    self.diagnostic(ResolutionEvidence::new(
+                        EvidenceKind::DiscoveryError,
+                        Some(format!("inspect {}: {error}", entry.path().display())),
+                    ))?;
+                    continue;
+                }
             };
+            self.budget.record(
+                0,
+                size_of::<IndexedFile>()
+                    .saturating_add(entry.path().as_os_str().as_encoded_bytes().len())
+                    .saturating_add(directory.root.as_ref().map_or(0, String::len)),
+            )?;
             self.files.push(IndexedFile {
                 root: directory.root.clone(),
                 path: entry.into_path(),
                 size: metadata.len(),
             });
         }
+        Ok(())
+    }
+
+    fn diagnostic(&mut self, evidence: ResolutionEvidence) -> Result<()> {
+        self.budget.evidence(&evidence)?;
+        self.diagnostics.push(evidence);
         Ok(())
     }
 
@@ -1438,6 +1514,83 @@ mod tests {
     use crate::{
         ImageSequenceSource, prepare_media_root, prepare_original_media, prepare_representation,
     };
+
+    #[test]
+    fn aggregate_request_limits_reject_before_scanning() {
+        let directory = tempfile::tempdir().expect("create directory");
+        let path = directory.path().join("clip.mov");
+        fs::write(&path, b"media").expect("write media");
+        let prepared = prepare_original_media(&path, None, None).expect("prepare import");
+        let item = ResolutionItem::new(
+            &prepared.resources()[0],
+            prepared.representation().content_structure(),
+            prepared.locators(),
+        );
+        let resolver = MediaResolver::default();
+        let scope = SearchScope::default();
+        assert_eq!(
+            resolver
+                .resolve(&[item], &scope)
+                .expect("ordinary resolve")
+                .len(),
+            1
+        );
+        assert_eq!(
+            resolver
+                .resolve(&vec![item; 100_001], &scope)
+                .unwrap_err()
+                .kind(),
+            ErrorKind::Unsupported
+        );
+        let scope = SearchScope {
+            search_directories: vec![directory.path().to_path_buf(); 100_001],
+            ..SearchScope::default()
+        };
+        assert_eq!(
+            resolver.resolve(&[item], &scope).unwrap_err().kind(),
+            ErrorKind::Unsupported
+        );
+        assert_eq!(fs::read(&path).expect("media remains readable"), b"media");
+        for depth in [0, 65, usize::MAX] {
+            assert_eq!(
+                MediaResolver::new(ResolverOptions {
+                    max_depth: depth,
+                    ..ResolverOptions::default()
+                })
+                .unwrap_err()
+                .kind(),
+                ErrorKind::InvalidArgument
+            );
+        }
+    }
+
+    #[test]
+    fn directory_scan_cannot_allocate_past_the_shared_entry_budget() {
+        let directory = tempfile::tempdir().expect("create directory");
+        fs::write(directory.path().join("one.mov"), b"one").expect("write first file");
+        fs::write(directory.path().join("two.mov"), b"two").expect("write second file");
+        let mut index = DirectoryIndex {
+            files: Vec::new(),
+            diagnostics: Vec::new(),
+            budget: ResolutionBudget::default(),
+        };
+        index
+            .budget
+            .record(99_999, 0)
+            .expect("previous directories fit");
+        let error = index
+            .scan(
+                &MediaResolver::default(),
+                &SearchDirectory {
+                    root: None,
+                    label: "remaining directory".to_owned(),
+                    path: directory.path().to_path_buf(),
+                },
+            )
+            .expect_err("root consumes last entry; first file exceeds shared budget");
+        assert_eq!(error.kind(), ErrorKind::Unsupported);
+        assert!(index.files.is_empty());
+    }
 
     #[test]
     fn known_online_locator_wins_without_root_scan() {

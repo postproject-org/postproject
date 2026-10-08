@@ -14,6 +14,7 @@ mod inventory;
 mod path;
 mod recognition;
 mod representation_fingerprint;
+mod resolution_budget;
 mod resolver;
 mod sequence_fingerprint;
 

@@ -42,6 +42,14 @@ Native representation handles share one additional budget across every
 representation, member, sparse frame, resource, locator and fingerprint they
 retain. Enrichment cannot multiply the per-query storage budget; choose a
 smaller representation page after `Unsupported`.
+Media resolution bounds the combined resource/search request, shared directory
+index and retained result payloads independently at 100000 items and 64 MiB.
+Depth is 1..64. Directory traversal streams unsorted entries with at most 65
+open ancestors: sorting or closing an ancestor would buffer an entire directory
+before the entry budget. Returned candidates retain their deterministic order;
+a truncated search can inspect only part of a directory.
+Per-directory truncation evidence remains unchanged; aggregate overflow fails
+explicitly with `Unsupported` instead of silently discarding candidates.
 Native resolution sets also share their copied-payload budget across all
 representations, resources, candidates, evidence and missing-frame issues.
 Check the complete borrowed result before creating native string copies;

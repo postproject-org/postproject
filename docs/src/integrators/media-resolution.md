@@ -220,3 +220,8 @@ candidates. Candidate evidence is copied into owned tuples.
 C++ uses `resource.outcome.value()` with `std::get_if` for case inspection.
 `resource.state()` and `resource.candidates()` borrow from the checked outcome;
 these candidate references last while the owning result is unchanged.
+
+Resolution depth is 1..64. A combined request, discovery index or retained
+result exceeding 100000 items or 64 MiB returns `Unsupported`; reduce the
+resource or search scope. Returned candidates are ordered deterministically,
+while a truncated directory search covers only part of its entries.

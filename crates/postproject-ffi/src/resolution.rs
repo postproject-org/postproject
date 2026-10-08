@@ -232,9 +232,9 @@ pub unsafe extern "C" fn pp_resolution_options_set_limits(
             let options = options
                 .as_mut()
                 .ok_or_else(|| invalid_argument("options must not be null"))?;
-            if max_depth == 0 || max_entries_per_directory == 0 {
+            if !(1..=64).contains(&max_depth) || max_entries_per_directory == 0 {
                 return Err(invalid_argument(
-                    "resolution depth and entry limits must be greater than zero",
+                    "resolution depth must be in 1..=64 and the entry limit must be positive",
                 ));
             }
             let max_depth = usize::try_from(max_depth)
@@ -299,6 +299,9 @@ pub unsafe extern "C" fn pp_production_resolve_assets(
             require_output(out_resolutions, "out_resolutions")?;
             let count = usize::try_from(asset_count)
                 .map_err(|_| invalid_argument("asset_count is too large"))?;
+            if count > 100_000 {
+                return Err(invalid_argument("asset_count exceeds 100000"));
+            }
             if count > (isize::MAX as usize) / size_of::<PpAssetId>() {
                 return Err(invalid_argument("asset_count is not addressable"));
             }
@@ -386,6 +389,20 @@ mod tests {
     use crate::{PP_ERROR_INVALID_ARGUMENT, PP_OK, production_handle};
 
     #[test]
+    fn excessive_depth_rejects_without_poisoning_options() {
+        let mut options = PpResolutionOptions::default();
+        let mut error = ptr::null_mut();
+        // SAFETY: Options remain live and the error output is writable.
+        let status =
+            unsafe { pp_resolution_options_set_limits(&raw mut options, 65, 100, &raw mut error) };
+        assert_eq!(status, PP_ERROR_INVALID_ARGUMENT);
+        assert_eq!(options.resolver.max_depth, 64);
+        assert_eq!(options.resolver.max_entries_per_directory, 100_000);
+        // SAFETY: Release the owned error exactly once.
+        unsafe { crate::pp_error_release(error) };
+    }
+
+    #[test]
     fn resolution_rejects_unaddressable_arrays_and_accepts_empty_input() {
         let directory = tempfile::tempdir().expect("create directory");
         let production = production_handle(
@@ -411,7 +428,7 @@ mod tests {
         let asset = PpAssetId { bytes: [0; 16] };
         let first_unaddressable = (isize::MAX as u64) / size_of::<PpAssetId>() as u64 + 1;
         for retained in [false, true] {
-            for count in [first_unaddressable, u64::MAX, 0] {
+            for count in [first_unaddressable, u64::MAX, 100_001, 0] {
                 let mut resolutions = ptr::dangling_mut();
                 // SAFETY: Oversized counts reject before the live asset is
                 // accessed; the zero-count case permits a null input.
