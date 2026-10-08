@@ -209,7 +209,10 @@ fn remove_keywords(production: &mut SqliteProduction, asset_id: AssetId) -> Resu
     let target = ObjectRef::Asset(asset_id);
     let base = {
         let view = production.read_session()?;
-        assert!(!view.read().metadata_values(target, &keywords)?.is_empty());
+        assert_ne!(
+            view.read().metadata_values(target, &keywords)?,
+            [] as [postproject_core::MetadataValue; 0]
+        );
         view.decision_base()
     };
     {

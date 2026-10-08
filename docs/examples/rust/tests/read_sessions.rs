@@ -17,12 +17,12 @@ fn read_then_edit(production: &mut SqliteProduction, media: &Path) -> Result<()>
         edit.commit_with_receipt()?
     };
     assert_eq!(receipt.revision().expect("import revision").sequence(), 1);
-    assert!(
+    assert_eq!(
         empty
             .read()
             .assets_page(&QueryPageRequest::new(10, None)?)?
-            .items()
-            .is_empty()
+            .items(),
+        []
     );
     drop(empty);
 
@@ -39,7 +39,10 @@ fn read_then_edit(production: &mut SqliteProduction, media: &Path) -> Result<()>
     assert!(events.next_cursor().is_some());
     assert!(continuation.next_cursor().is_none());
     assert!(continuation.items()[0].position() > events.items()[0].position());
-    assert!(view.read().plan_regeneration(&[])?.is_empty());
+    assert_eq!(
+        view.read().plan_regeneration(&[])?,
+        [] as [postproject_core::RegenerationJobPlan; 0]
+    );
     let copied = view.read().asset(asset_id)?;
     let page = view
         .read()
