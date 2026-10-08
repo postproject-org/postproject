@@ -409,6 +409,8 @@ fn schema_eighteen_claims_expire_without_losing_attribution_or_requests() {
         .connection
         .execute_batch(
             "DROP TABLE job_clock;
+         DROP TABLE exchange_record_chunks;
+         DROP TABLE exchange_records;
          DROP TABLE exchange_effect_fragments;
          DROP TABLE exchange_outcomes;
          DROP TABLE exchange_history;
