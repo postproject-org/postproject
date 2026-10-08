@@ -50,6 +50,8 @@ before the entry budget. Returned candidates retain their deterministic order;
 a truncated search can inspect only part of a directory.
 Per-directory truncation evidence remains unchanged; aggregate overflow fails
 explicitly with `Unsupported` instead of silently discarding candidates.
+The native stored-knowledge snapshot shares a budget across representations,
+resources, locators, fingerprints and roots before holding the combined work.
 Native resolution sets also share their copied-payload budget across all
 representations, resources, candidates, evidence and missing-frame issues.
 Check the complete borrowed result before creating native string copies;

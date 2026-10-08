@@ -11,7 +11,7 @@ use postproject_media::{
 
 use crate::{
     PpAssetId, PpError, PpProduction, PpResolutionSet, ffi_call, initialize_output,
-    invalid_argument, lock_production, require_output, required_utf8,
+    invalid_argument, lock_production, require_output, required_utf8, result_budget::ResultBudget,
 };
 
 const PP_VERIFY_PRESENCE: u32 = 1;
@@ -339,19 +339,32 @@ fn resolve_assets(
     let (media_roots, work) = {
         let inner = lock_production(&production.state);
         let mut work: Vec<AssetWork> = Vec::new();
+        let mut budget = ResultBudget::default();
         for asset_id in asset_ids {
             let asset_id = AssetId::from_bytes(asset_id.bytes);
             inner.asset(asset_id)?;
             for representation in inner.representations(asset_id)? {
+                retain_representation_work(&mut budget, &representation)?;
                 let mut resources = Vec::new();
                 for resource in inner.resources(representation.id())? {
                     let locators = inner.locators(resource.id())?;
+                    retain_resource_work(&mut budget, &resource, &locators)?;
                     resources.push((resource, locators));
                 }
                 work.push((asset_id, representation, resources));
             }
         }
-        (inner.media_roots()?, work)
+        let roots = inner.media_roots()?;
+        for root in &roots {
+            budget.record(
+                1,
+                size_of_val(root)
+                    .saturating_add(root.name().len())
+                    .saturating_add(root.label().map_or(0, str::len))
+                    .saturating_add(root.legacy_uri().map_or(0, str::len)),
+            )?;
+        }
+        (roots, work)
     };
 
     let scope = options.search_directories.iter().fold(
@@ -381,12 +394,163 @@ fn resolve_assets(
         .collect()
 }
 
+fn retain_representation_work(
+    budget: &mut ResultBudget,
+    representation: &postproject_core::Representation,
+) -> Result<(), Error> {
+    budget.record(1, size_of_val(representation))?;
+    for fingerprint in representation.fingerprints() {
+        budget.record(
+            1,
+            fingerprint
+                .algorithm()
+                .len()
+                .saturating_add(fingerprint.value().len()),
+        )?;
+    }
+    let structure = representation.content_structure();
+    if let Some(sequence) = structure.image_sequence_descriptor() {
+        budget.record(
+            sequence.known_missing_frames().len(),
+            size_of_val(sequence.known_missing_frames()),
+        )?;
+    }
+    if let Some(members) = structure.members() {
+        budget.record(members.len(), size_of_val(members))?;
+        for member in members {
+            budget.record(0, member.role().as_str().len())?;
+        }
+    }
+    Ok(())
+}
+
+fn retain_resource_work(
+    budget: &mut ResultBudget,
+    resource: &postproject_core::Resource,
+    locators: &[postproject_core::Locator],
+) -> Result<(), Error> {
+    budget.record(1, size_of_val(resource))?;
+    for fingerprint in resource.fingerprints() {
+        budget.record(
+            1,
+            fingerprint
+                .algorithm()
+                .len()
+                .saturating_add(fingerprint.value().len()),
+        )?;
+    }
+    budget.record(locators.len(), size_of_val(locators))?;
+    for locator in locators {
+        budget.record(
+            0,
+            locator
+                .uri()
+                .len()
+                .saturating_add(locator.media_root().map_or(0, str::len)),
+        )?;
+        if let Some(naming) = locator.sequence_naming() {
+            budget.record(
+                0,
+                naming.prefix().len().saturating_add(naming.suffix().len()),
+            )?;
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use std::ptr;
 
     use super::*;
     use crate::{PP_ERROR_INVALID_ARGUMENT, PP_OK, production_handle};
+
+    #[test]
+    fn combined_asset_knowledge_is_bounded_before_filesystem_work() {
+        use postproject_core::{OriginalMediaImport, Resource, ResourceFingerprint};
+
+        let directory = tempfile::tempdir().expect("create directory");
+        let mut store = postproject_storage_sqlite::SqliteProduction::create(
+            directory.path().join("production.pproj"),
+            None,
+        )
+        .expect("create production");
+        let mut ids = Vec::new();
+        for index in 0..2 {
+            let path = directory.path().join(format!("clip-{index}.mov"));
+            std::fs::write(&path, b"media").expect("write media");
+            let prepared = postproject_media::prepare_original_media(&path, None, None)
+                .expect("prepare import");
+            let fingerprints = (0..4)
+                .map(|domain| {
+                    ResourceFingerprint::new(
+                        format!("foreign-{domain}"),
+                        1,
+                        vec![7; 9 * 1024 * 1024],
+                    )
+                    .expect("valid foreign fingerprint")
+                })
+                .collect();
+            let resource = Resource::new(
+                prepared.resources()[0].id(),
+                fingerprints,
+                prepared.resources()[0].file_facts(),
+            );
+            let import = OriginalMediaImport::new(
+                prepared.asset().clone(),
+                prepared.representation().clone(),
+                vec![resource],
+                prepared.locators().to_vec(),
+            )
+            .expect("consistent import");
+            let mut transaction = store.begin_transaction().expect("begin import");
+            transaction.import_original(&import).expect("stage import");
+            transaction.commit().expect("commit import");
+            ids.push(PpAssetId {
+                bytes: import.asset().id().into_bytes(),
+            });
+        }
+        let before = store.latest_revision().expect("read committed head");
+        let production = production_handle(store);
+        let mut resolutions = ptr::null_mut();
+        let mut error = ptr::null_mut();
+        // SAFETY: The production and ID array remain live; outputs are writable.
+        let status = unsafe {
+            pp_production_resolve_assets(
+                &raw const production,
+                ids.as_ptr(),
+                1,
+                ptr::null(),
+                &raw mut resolutions,
+                &raw mut error,
+            )
+        };
+        assert_eq!(status, PP_OK);
+        assert!(!resolutions.is_null());
+        // SAFETY: The successful result is released exactly once.
+        unsafe { crate::pp_resolution_set_release(resolutions) };
+        // SAFETY: Both IDs are live; failure must clear the previously released output.
+        let status = unsafe {
+            pp_production_resolve_assets(
+                &raw const production,
+                ids.as_ptr(),
+                2,
+                ptr::null(),
+                &raw mut resolutions,
+                &raw mut error,
+            )
+        };
+        assert_eq!(status, crate::PP_ERROR_UNSUPPORTED);
+        assert!(resolutions.is_null());
+        assert_eq!(
+            lock_production(&production.state)
+                .latest_revision()
+                .expect("read head"),
+            before
+        );
+        // SAFETY: The failed call returned one owned error.
+        unsafe { crate::pp_error_release(error) };
+    }
 
     #[test]
     fn excessive_depth_rejects_without_poisoning_options() {
