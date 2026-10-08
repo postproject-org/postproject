@@ -11,8 +11,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent / "_ext"))
 
 project = "PostProject"
 author = "PostProject contributors"
-release = "0.6.0-alpha.1"
-version = "0.6"
+release = "0.7.0-alpha.1"
+version = "0.7"
 
 extensions = [
     "myst_parser",
@@ -45,7 +45,7 @@ breathe_default_project = "PostProject"
 breathe_domain_by_extension = {"h": "c", "hpp": "cpp"}
 
 html_theme = "furo"
-html_title = f"PostProject {release} · ABI 37"
+html_title = f"PostProject {release} · ABI 51"
 html_static_path = ["_static"]
 html_css_files = ["theme.css", "postproject.css"]
 html_favicon = "_static/logo.svg"

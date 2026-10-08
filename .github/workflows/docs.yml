@@ -141,6 +141,20 @@ jobs:
           python tools/check_docs_coverage.py include/postproject/postproject.h target/doxygen/xml
           sphinx-build --fail-on-warning --keep-going -b html docs "$GITHUB_WORKSPACE/target/site/0.7.0-alpha.1"
           cmake -E copy_directory "$GITHUB_WORKSPACE/target/site/0.7.0-alpha.1" "$GITHUB_WORKSPACE/target/site/latest"
+      - name: Add the published 0.7 version to the selector
+        if: steps.release_0_7.outputs.available == 'true'
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          path = Path("target/site/versions.json")
+          versions = json.loads(path.read_text())
+          versions[0]["title"] = "Latest · 0.7.0-alpha.1 (ABI 51)"
+          versions.insert(1, {"version": "0.7.0-alpha.1",
+                              "title": "0.7.0-alpha.1 (ABI 51)",
+                              "url": "https://docs.postproject.org/0.7.0-alpha.1/"})
+          path.write_text(json.dumps(versions, indent=2) + "\n")
+          PY
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v4
         with:

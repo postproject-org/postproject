@@ -50,6 +50,17 @@ def main() -> None:
         raise SystemExit(
             f"Doxygen version {documentation_version} does not match {rust_version}"
         )
+    sphinx = (ROOT / "docs" / "conf.py").read_text(encoding="utf-8")
+    if _capture(sphinx, r'(?m)^release = "([^"]+)"') != rust_version:
+        raise SystemExit("Sphinx release does not match the workspace version")
+    if _capture(sphinx, r'(?m)^version = "([^"]+)"') != ".".join(
+        match["base"].split(".")[:2]
+    ):
+        raise SystemExit("Sphinx series does not match the workspace version")
+    ffi = (ROOT / "crates/postproject-ffi/src/lib.rs").read_text(encoding="utf-8")
+    abi = _capture(ffi, r"pub const ABI_VERSION: u32 = (\d+);")
+    if _capture(sphinx, r'html_title = f"PostProject \{release\} · ABI (\d+)"') != abi:
+        raise SystemExit("Sphinx title does not match the C ABI version")
     print(f"release versions agree: {rust_version} / {python_version}")
 
 
