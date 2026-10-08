@@ -59,6 +59,8 @@ user scripts belong under
 configuration is documented under Studio. Free-edition internal access and each
 required method must be checked in the actual application; presence in the
 shared API definitions is insufficient.
+The supplied reference manual, chapter 4, page 106, independently marks external
+scripting as Studio-only.
 
 The supplied transcript of the [21.1 scripting discussion](https://forum.blackmagicdesign.com/viewtopic.php?f=44&t=239905)
 quotes release notes moving Python scripting to Studio. It also reports removal
@@ -108,6 +110,6 @@ unsupported scripting leaves registration/relink unavailable.
 The release notes require Rocky Linux 8.6, 32 GB RAM, a discrete GPU with 4 GB
 VRAM and OpenCL 1.2 or CUDA 12.8; the named NVIDIA driver minimum is 580.119.02.
 The free edition's processing/output limits and codec availability apply. A
-working GPU/runtime, the chosen edition's scripting access and demonstrated persistence are acceptance
-conditions, not evidence supplied by this archive. Installation, project-library
-upgrades and any Studio purchase need their own authorization.
+working GPU/runtime, the chosen edition's scripting access and demonstrated
+persistence are acceptance conditions, not evidence supplied by this archive.
+Studio entitlement and runtime remain unverified.

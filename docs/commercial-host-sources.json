@@ -7,7 +7,8 @@
     "distribution_sha256": "3135921e197ce3469ad1bc82768d4073059bda43ffdc9b43bed41d61a3efb12a",
     "sources": {
       "Developer/Scripting/README.md": "5f58c94da8ec3c1f390d77ad9c60675263591dc101159b302e50b5774513830b",
-      "Developer/Scripting/DaVinciResolveScript.pyi": "2755259ef5f57b5d477786f799892e5b86ed3945db84bf88fb69bf751b36e651"
+      "Developer/Scripting/DaVinciResolveScript.pyi": "2755259ef5f57b5d477786f799892e5b86ed3945db84bf88fb69bf751b36e651",
+      "docs/DaVinci_Resolve_Manual.pdf": "5dad6e417159ade62b69e9c38295b80cac3f33a7381b6d29c21fba0e47fe4224"
     },
     "runtime_version_observed": null,
     "runtime_executed": false,
