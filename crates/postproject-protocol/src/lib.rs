@@ -30,6 +30,7 @@ mod representation;
 mod resource;
 mod role;
 mod scope;
+mod structure;
 mod version;
 
 pub use assertion::SnapshotAssertion;
@@ -66,4 +67,5 @@ pub use role::StoreRole;
 pub use scope::{
     CheckpointId, ClientId, HistoryId, MirrorInstanceId, ProtocolBase, RequestId, Scope,
 };
+pub use structure::StructureHeader;
 pub use version::ConflictVersion;
