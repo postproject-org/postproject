@@ -13,7 +13,13 @@ fn rehashed_job_contradictions_rollback_all_lifecycle_and_publication_facts() {
     let (source, jobs, _) = fixture(directory.path());
     let original = source.record_reader(2).unwrap().manifest().clone();
     let frames = support::frames(&source, 2);
-    let cases: [(&str, usize, &[&str], serde_json::Value); 8] = [
+    let cases: [(&str, usize, &[&str], serde_json::Value); 9] = [
+        (
+            "job.transition",
+            0,
+            &["state", "expires_at_micros"],
+            i64::MAX.to_string().into(),
+        ),
         (
             "job.transition",
             0,

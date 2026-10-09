@@ -1,10 +1,14 @@
-use postproject_core::{JobId, JobState, RevisionEventKind, Timestamp};
+use std::time::Duration;
+
+use postproject_core::{
+    JobId, JobState, RevisionEventKind, Timestamp, validate_job_lease_duration,
+};
 use serde_json::json;
 
 use super::state;
 use crate::{
     Document, Result,
-    fields::{exact, malformed, nullable, object, text, unsupported},
+    fields::{checked, exact, malformed, nullable, object, text, unsupported},
 };
 
 /// One authored job lifecycle operation, without its private capability.
@@ -86,6 +90,18 @@ impl JobTransition {
             return Err(malformed());
         }
         let now = authority_time.map(Timestamp::as_unix_micros);
+        if matches!(operation, JobOperation::Claim | JobOperation::Renew) {
+            let JobState::Claimed(claim) = &state else {
+                return Err(malformed());
+            };
+            let micros = claim
+                .expires_at()
+                .as_unix_micros()
+                .checked_sub(now.ok_or_else(malformed)?)
+                .and_then(|value| u64::try_from(value).ok())
+                .ok_or_else(malformed)?;
+            checked(validate_job_lease_duration(Duration::from_micros(micros)))?;
+        }
         let valid = match (operation, &previous, &state) {
             (JobOperation::Claim, old, JobState::Claimed(new)) => {
                 let now = now.ok_or_else(malformed)?;

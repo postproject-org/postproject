@@ -84,7 +84,7 @@ fn all_native_transitions_preserve_their_exact_original_decisions() {
             JobOperation::Claim,
             JobState::Requested,
             claim(i64::MAX, "first"),
-            Some(9_007_199_254_740_993),
+            Some(i64::MAX - 10),
             Some(i64::MAX as u64),
         ),
     ];
@@ -104,6 +104,43 @@ fn all_native_transitions_preserve_their_exact_original_decisions() {
         );
         assert_eq!(change.input_boundary(), boundary);
         assert_eq!(change.authority_time().map(Timestamp::as_unix_micros), time);
+    }
+}
+
+#[test]
+fn recorded_claim_and_renewal_durations_retain_the_native_one_day_limit() {
+    let day = 86_400_000_000;
+    for operation in [JobOperation::Claim, JobOperation::Renew] {
+        let previous = if operation == JobOperation::Claim {
+            JobState::Requested
+        } else {
+            claim(20, "first")
+        };
+        let boundary = (operation == JobOperation::Claim).then_some(0);
+        assert!(
+            JobTransition::new(
+                JobId::new(),
+                operation,
+                previous.clone(),
+                claim(day + 10, "first"),
+                Some(Timestamp::from_unix_micros(10)),
+                boundary
+            )
+            .is_ok()
+        );
+        for (now, expiry) in [(10, day + 11), (i64::MIN, i64::MAX), (10, 10), (10, 9)] {
+            assert!(
+                JobTransition::new(
+                    JobId::new(),
+                    operation,
+                    previous.clone(),
+                    claim(expiry, "first"),
+                    Some(Timestamp::from_unix_micros(now)),
+                    boundary
+                )
+                .is_err()
+            );
+        }
     }
 }
 

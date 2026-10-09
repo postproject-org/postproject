@@ -148,7 +148,8 @@ asset/representation role/root and one of the five observed states. Following
 within the native 100,000-input bound. A request effect starts in requested state.
 `job.transition` retains the original operation, before/after state, nullable
 authority time and claim/completion input decision sequence. Cancellation has no
-authority time; other transitions retain it exactly. An input boundary of zero
+authority time; other transitions retain it exactly. Claim/renew durations retain
+the native whole-microsecond range from 1 µs through 24 hours. An input boundary of zero
 identifies a genesis decision. These fields describe the source decision and
 grant no authority to the receiver.
 
