@@ -222,7 +222,10 @@ fn missing_or_corrupt_chunks_make_public_readers_terminal() {
 
 #[test]
 fn uncaptured_families_never_advertise_a_complete_replay_head() {
-    use postproject_core::{Activity, ActivityId, ActivityKind, ActivityOutput};
+    use postproject_core::{
+        Activity, ActivityId, ActivityKind, ActivityOutput, Job, JobId, JobKind,
+        RepresentationKind, RequestedJobOutput,
+    };
     use postproject_media::prepare_original_media;
     use postproject_protocol::FailureKind;
     use postproject_storage_sqlite::ExchangeError;
@@ -241,6 +244,17 @@ fn uncaptured_families_never_advertise_a_complete_replay_head() {
             ActivityKind::new("unknown:activity").unwrap(),
             Vec::new(),
             vec![ActivityOutput::new(import.representation().id(), None)],
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    // Supported creation and activity effects must not hide an uncaptured job.
+    edit.request_job(
+        &Job::new(
+            JobId::new(),
+            JobKind::new("unknown:job").unwrap(),
+            vec![import.representation().id()],
+            RequestedJobOutput::new(import.asset().id(), RepresentationKind::Proxy, None).unwrap(),
         )
         .unwrap(),
     )
