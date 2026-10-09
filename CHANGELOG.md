@@ -5,7 +5,7 @@ All notable changes to PostProject will be documented here. The project uses
 
 ## Unreleased
 
-- Add experimental portable-exchange codecs for metadata and prepared media intent, media facts, provenance attribution, inert job observations and original observations (ADR 0065).
+- Add experimental portable-exchange codecs for metadata, media/dependency/activity intent, authored facts, inert job observations and original observations (ADR 0065).
 - Persist exchange histories, metadata/media/dependency/activity/job records and durable submission outcomes in schema 25; reconstruct passive metadata checkpoints and replay native authored facts.
 - Roll back failed media, fingerprint, dependency, activity and job staging while preserving unrelated edits and guards.
 - Preserve activity identifier attachments when capturing native edits.

@@ -1,8 +1,9 @@
 //! Ordered semantic intent; storage remains responsible for current-state guards.
 
 use postproject_core::{
-    FileFacts, Locator, LocatorId, MediaRoot, MediaRootId, MetadataProperty, MetadataValue,
-    ObjectRef, OriginalMediaImport, PropertyId, RepresentationImport, ResourceId, VocabularyId,
+    Activity, Dependency, FileFacts, Locator, LocatorId, MediaRoot, MediaRootId, MetadataProperty,
+    MetadataValue, ObjectRef, OriginalMediaImport, PropertyId, RepresentationFingerprint,
+    RepresentationId, RepresentationImport, ResourceFingerprint, ResourceId, VocabularyId,
 };
 use serde_json::{Value, json};
 
@@ -14,8 +15,10 @@ use crate::{
     metadata,
 };
 
+mod activity;
 mod evidence;
 mod media;
+mod observations;
 mod prepared;
 
 /// A checked domain command offered by the current development codec.
@@ -26,6 +29,29 @@ pub enum Command {
     ImportOriginal(OriginalMediaImport),
     /// Adds a complete prepared representation to an existing asset.
     AddRepresentation(RepresentationImport),
+    /// Publishes attribution and edges with snapshots captured by storage.
+    CreateActivity(Activity),
+    /// Replaces a complete ordered dependency observation, including empty.
+    RecordDependencySet {
+        /// Representation whose prepared content was inspected.
+        representation_id: RepresentationId,
+        /// Exact ordered occurrences, with no assigned observation revision.
+        dependencies: Vec<Dependency>,
+    },
+    /// Observes exact resource identity evidence under its native base guard.
+    RecordResourceFingerprint {
+        /// Stable resource identity.
+        resource_id: ResourceId,
+        /// Prepared algorithm/version/bytes, without an observation revision.
+        fingerprint: ResourceFingerprint,
+    },
+    /// Observes exact representation evidence under its native base guard.
+    RecordRepresentationFingerprint {
+        /// Stable representation identity.
+        representation_id: RepresentationId,
+        /// Prepared algorithm/version/bytes, without an observation revision.
+        fingerprint: RepresentationFingerprint,
+    },
     /// Adds complete logical root configuration, without a local mapping.
     AddMediaRoot(MediaRoot),
     /// Changes an existing root under its native decision guard.
@@ -84,11 +110,15 @@ impl Command {
     #[must_use]
     pub const fn required_feature(&self) -> RecordFeature {
         match self {
+            Self::CreateActivity(_) => RecordFeature::Provenance,
+            Self::RecordDependencySet { .. } => RecordFeature::Dependencies,
             Self::AppendMetadata { .. }
             | Self::ReplaceMetadata { .. }
             | Self::RemoveMetadata { .. } => RecordFeature::Metadata,
             Self::ImportOriginal(_)
             | Self::AddRepresentation(_)
+            | Self::RecordResourceFingerprint { .. }
+            | Self::RecordRepresentationFingerprint { .. }
             | Self::AddMediaRoot(_)
             | Self::SetMediaRootEnabled { .. }
             | Self::RemoveMediaRoot(_)
@@ -150,6 +180,10 @@ pub(crate) fn encode(command: &Command) -> Result<Value> {
             json!({"kind":"metadata.remove","target":encode_reference(*target)?,"property":encode_property(property)})
         }
         Command::ImportOriginal(_) | Command::AddRepresentation(_) => prepared::encode(command)?,
+        Command::CreateActivity(value) => activity::encode(value)?,
+        Command::RecordDependencySet { .. }
+        | Command::RecordResourceFingerprint { .. }
+        | Command::RecordRepresentationFingerprint { .. } => observations::encode(command)?,
         other => media::encode(other)?,
     })
 }
@@ -161,6 +195,10 @@ pub(crate) fn decode(value: &Value) -> Result<Command> {
         "metadata.replace" => &["kind", "target", "property", "values"][..],
         "metadata.remove" => &["kind", "target", "property"][..],
         "media.import-original" | "representation.add" => return prepared::decode(kind, value),
+        "activity.create" => return activity::decode(value).map(Command::CreateActivity),
+        "dependency.observe-set"
+        | "resource.observe-fingerprint"
+        | "representation.observe-fingerprint" => return observations::decode(kind, value),
         _ => return media::decode(kind, value),
     };
     let fields = object(value, keys)?;

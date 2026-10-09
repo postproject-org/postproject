@@ -62,7 +62,10 @@ pub(super) fn decode(value: &Value) -> Result<Proposal> {
     let mut advertised = Vec::with_capacity(features.len());
     for feature in features {
         let name = text(feature)?;
-        if !matches!(name, "media.v1" | "metadata.v1") {
+        if !matches!(
+            name,
+            "dependencies.v1" | "media.v1" | "metadata.v1" | "provenance.v1"
+        ) {
             return Err(unsupported());
         }
         if advertised.last().is_some_and(|previous| *previous >= name) {
