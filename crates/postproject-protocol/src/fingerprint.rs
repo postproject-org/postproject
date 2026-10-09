@@ -5,7 +5,9 @@ use postproject_core::FingerprintSnapshot;
 use serde_json::{Value, json};
 
 mod observation;
+mod recompute;
 pub use observation::{FingerprintObservation, FingerprintState};
+pub use recompute::FingerprintRecomputation;
 
 use crate::{
     Document, Result,
