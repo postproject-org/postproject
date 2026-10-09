@@ -14,10 +14,25 @@ use crate::{
     exchange::checkpoint::{sections, writer::SectionWriter},
 };
 
+mod staging;
+
 #[test]
 fn streamed_activity_keeps_authored_attribution_and_original_fingerprints() {
     let directory = tempfile::tempdir().unwrap();
-    let mut source = SqliteProduction::create(directory.path().join("source.pproj"), None).unwrap();
+    let (source, activity, _) = source(directory.path());
+    assert_stream(&source, &activity);
+    source
+        .connection
+        .execute(
+            "DELETE FROM activity_outputs WHERE activity_id = ?1",
+            [activity.id().as_bytes().as_slice()],
+        )
+        .unwrap();
+    assert!(super::header(&source.connection, activity.id()).is_err());
+}
+
+fn source(directory: &std::path::Path) -> (SqliteProduction, Activity, [OriginalMediaImport; 2]) {
+    let mut source = SqliteProduction::create(directory.join("source.pproj"), None).unwrap();
     let first = media();
     let second = media();
     let activity = activity(first.representation().id(), second.representation().id());
@@ -33,15 +48,7 @@ fn streamed_activity_keeps_authored_attribution_and_original_fingerprints() {
     .unwrap();
     edit.commit().unwrap();
     drop(edit);
-    assert_stream(&source, &activity);
-    source
-        .connection
-        .execute(
-            "DELETE FROM activity_outputs WHERE activity_id = ?1",
-            [activity.id().as_bytes().as_slice()],
-        )
-        .unwrap();
-    assert!(super::header(&source.connection, activity.id()).is_err());
+    (source, activity, [first, second])
 }
 
 fn activity(input: RepresentationId, output: RepresentationId) -> Activity {
