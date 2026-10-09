@@ -32,14 +32,11 @@ fn original_metadata_observations_round_trip_exactly() {
             decode_event(&Document::parse(changed.as_bytes(), Limits::default()).unwrap()).is_err()
         );
     }
+    let unknown = format!(
+        r#"{{"kind":"observation","revision":"{}","position":"0","event":{{"kind":"future_event"}}}}"#,
+        RevisionId::new()
+    );
     assert!(
-        encode_event(&RevisionEvent::new(
-            RevisionId::new(),
-            0,
-            RevisionEventKind::JobCancelled {
-                job_id: postproject_core::JobId::new()
-            }
-        ))
-        .is_err()
+        decode_event(&Document::parse(unknown.as_bytes(), Limits::default()).unwrap()).is_err()
     );
 }

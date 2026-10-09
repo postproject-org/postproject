@@ -5,6 +5,7 @@ use serde_json::{Value, json};
 
 mod knowledge;
 mod media;
+mod work;
 
 use crate::{
     Document, Result,
@@ -36,6 +37,15 @@ fn encode_kind(event: &RevisionEventKind) -> Result<Value> {
         | RevisionEventKind::ActivityInputAdded { .. }
         | RevisionEventKind::ActivityOutputAdded { .. }
         | RevisionEventKind::DependencySetRecorded { .. } => return knowledge::encode(event),
+        RevisionEventKind::ResourceFingerprintObserved { .. }
+        | RevisionEventKind::RepresentationFingerprintObserved { .. }
+        | RevisionEventKind::JobRequested { .. }
+        | RevisionEventKind::JobClaimed { .. }
+        | RevisionEventKind::JobClaimRenewed { .. }
+        | RevisionEventKind::JobClaimReleased { .. }
+        | RevisionEventKind::JobSucceeded { .. }
+        | RevisionEventKind::JobFailed { .. }
+        | RevisionEventKind::JobCancelled { .. } => return work::encode(event),
         _ => return media::encode(event),
     };
     Ok(
@@ -63,6 +73,20 @@ pub fn decode_event(document: &Document) -> Result<RevisionEvent> {
 
 fn decode_kind(value: &Value) -> Result<RevisionEventKind> {
     let name = text(value.get("kind").ok_or_else(crate::fields::malformed)?)?;
+    if matches!(
+        name,
+        "resource_fingerprint_observed"
+            | "representation_fingerprint_observed"
+            | "job_requested"
+            | "job_claimed"
+            | "job_claim_renewed"
+            | "job_claim_released"
+            | "job_succeeded"
+            | "job_failed"
+            | "job_cancelled"
+    ) {
+        return work::decode(value);
+    }
     if matches!(
         name,
         "external_identifier_added"
