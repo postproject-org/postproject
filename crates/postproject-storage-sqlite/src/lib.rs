@@ -150,6 +150,28 @@ struct StoredActivityEdge {
 type ActivityEdgesById<Edge> = BTreeMap<ActivityId, Vec<Edge>>;
 
 impl SqliteProduction {
+    /// Recovers an owned private checkpoint staging directory after interruption.
+    ///
+    /// A sealed, unchanged complete stage is promoted to a new destination and
+    /// returned. An unsealed owned stage is discarded and returns `None`; retry
+    /// with the original checkpoint. Unknown files/symlinks reject before any
+    /// removal. Existing destinations and altered sealed stages remain intact.
+    ///
+    /// # Errors
+    /// Rejects missing/invalid ownership, altered completion evidence, exhausted
+    /// disk budgets, existing destinations and unsupported promotion or schema.
+    pub fn recover_checkpoint_import(
+        staging_directory: impl AsRef<Path>,
+        destination: impl AsRef<Path>,
+        limits: CheckpointLimits,
+    ) -> ExchangeResult<Option<Self>> {
+        exchange::recover_checkpoint_import(
+            staging_directory.as_ref(),
+            destination.as_ref(),
+            limits,
+        )
+    }
+
     /// Validates a metadata checkpoint and creates a new passive mirror.
     ///
     /// Uses private staging on the destination filesystem and publishes only

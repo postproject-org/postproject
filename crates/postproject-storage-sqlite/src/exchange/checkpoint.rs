@@ -6,6 +6,7 @@ mod writer;
 
 pub use import::CheckpointLimits;
 pub(crate) use import::import;
+pub(crate) use import::recover;
 
 use postproject_protocol::{
     CheckpointChunk, CheckpointId, CheckpointManifest, CheckpointSection, Extensions, FailureKind,

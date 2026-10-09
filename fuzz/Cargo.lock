@@ -437,6 +437,8 @@ dependencies = [
  "postproject-core",
  "postproject-protocol",
  "rusqlite",
+ "rustix",
+ "tempfile",
 ]
 
 [[package]]

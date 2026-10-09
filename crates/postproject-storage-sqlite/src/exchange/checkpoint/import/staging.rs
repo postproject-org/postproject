@@ -1,7 +1,7 @@
 //! A private directory on the destination filesystem; closed-file publication.
 
 use std::{
-    fs::File,
+    fs::OpenOptions,
     path::{Path, PathBuf},
 };
 
@@ -17,11 +17,13 @@ pub(super) struct Staging {
     path: TempPath,
     directory: TempDir,
     destination: PathBuf,
+    disk_bytes: u64,
 }
 
 impl Staging {
     pub(super) fn new(
         destination: &Path,
+        manifest: &postproject_protocol::CheckpointManifest,
         limits: CheckpointLimits,
     ) -> ExchangeResult<(Self, Connection)> {
         if destination.try_exists().map_err(|error| io_error(&error))? {
@@ -43,6 +45,7 @@ impl Staging {
             .tempfile_in(directory.path())
             .map_err(|error| io_error(&error))?
             .into_temp_path();
+        super::completion::create(directory.path(), &path, manifest)?;
         let mut connection = open_connection(&path)?;
         // New imports have no live readers. Reserve half the disk budget for
         // the rollback journal; never create a WAL or promote open handles.
@@ -60,6 +63,7 @@ impl Staging {
             path,
             directory,
             destination: destination.to_path_buf(),
+            disk_bytes: limits.disk_bytes,
         };
         stage.check_disk(limits.disk_bytes)?;
         Ok((stage, connection))
@@ -88,16 +92,25 @@ impl Staging {
         connection
             .close()
             .map_err(|(_, error)| sqlite_error("close checkpoint staging")(error))?;
-        File::open(&self.path)
+        OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(&self.path)
             .and_then(|file| file.sync_all())
             .map_err(|error| io_error(&error))?;
+        #[cfg(test)]
+        crash_before_promotion("before-seal");
+        super::completion::seal(self.directory.path(), &self.path)?;
+        self.check_disk(self.disk_bytes)?;
+        #[cfg(test)]
+        crash_before_promotion("after-seal");
         promote(&self.path, &self.destination)?;
         Ok(self.destination)
     }
 }
 
 #[cfg(any(target_os = "linux", target_os = "macos"))]
-fn promote(source: &Path, destination: &Path) -> ExchangeResult<()> {
+pub(super) fn promote(source: &Path, destination: &Path) -> ExchangeResult<()> {
     // Fail on unsupported kernels/filesystems; do not fall back to overwriting
     // rename or link/unlink. Linux and Apple expose exclusive atomic rename.
     rustix::fs::renameat_with(
@@ -112,7 +125,7 @@ fn promote(source: &Path, destination: &Path) -> ExchangeResult<()> {
 }
 
 #[cfg(target_os = "windows")]
-fn promote(source: &Path, destination: &Path) -> ExchangeResult<()> {
+pub(super) fn promote(source: &Path, destination: &Path) -> ExchangeResult<()> {
     // tempfile's Windows implementation calls MoveFileExW without REPLACE_EXISTING.
     TempPath::try_from_path(source)
         .map_err(|error| io_error(&error))?
@@ -122,7 +135,7 @@ fn promote(source: &Path, destination: &Path) -> ExchangeResult<()> {
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
-fn promote(_: &Path, _: &Path) -> ExchangeResult<()> {
+pub(super) fn promote(_: &Path, _: &Path) -> ExchangeResult<()> {
     Err(Error::new(
         ErrorKind::Unsupported,
         "atomic checkpoint promotion is unavailable on this platform",
@@ -130,11 +143,22 @@ fn promote(_: &Path, _: &Path) -> ExchangeResult<()> {
     .into())
 }
 
-fn io_error(error: &std::io::Error) -> Error {
+pub(super) fn io_error(error: &std::io::Error) -> Error {
     let kind = if error.kind() == std::io::ErrorKind::AlreadyExists {
         ErrorKind::AlreadyExists
     } else {
         ErrorKind::Io
     };
     Error::new(kind, format!("checkpoint staging filesystem: {error}"))
+}
+
+#[cfg(test)]
+fn crash_before_promotion(phase: &str) {
+    if std::env::var("POSTPROJECT_CHECKPOINT_TEST_CRASH")
+        .ok()
+        .as_deref()
+        == Some(phase)
+    {
+        std::process::exit(77);
+    }
 }

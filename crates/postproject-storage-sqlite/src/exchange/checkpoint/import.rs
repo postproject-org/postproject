@@ -1,15 +1,23 @@
 //! Only a fully checked private transaction can reach the destination name.
 
 mod bodies;
+mod completion;
 mod limits;
 mod metadata_state;
+mod recovery;
 mod staging;
 
+#[cfg(test)]
+mod tests;
+
 pub use limits::CheckpointLimits;
+pub(crate) use recovery::recover;
 
 use std::path::Path;
 
-use postproject_protocol::{CheckpointChunk, CheckpointManifest, FrameDecoder};
+use postproject_protocol::{
+    CheckpointChunk, CheckpointManifest, Extensions, FailureKind, FrameDecoder, ProtocolError,
+};
 
 use crate::{ExchangeResult, SqliteProduction, sqlite_error};
 
@@ -19,6 +27,9 @@ pub(crate) fn import(
     chunks: impl IntoIterator<Item = ExchangeResult<CheckpointChunk>>,
     limits: CheckpointLimits,
 ) -> ExchangeResult<SqliteProduction> {
+    if manifest.extensions() != &Extensions::default() {
+        return Err(unsupported_extensions().into());
+    }
     let mut remaining = limits
         .encoded_bytes
         .checked_sub(
@@ -26,7 +37,7 @@ pub(crate) fn import(
                 .map_err(|_| limits::budget())?,
         )
         .ok_or_else(limits::budget)?;
-    let (stage, mut connection) = staging::Staging::new(destination, limits)?;
+    let (stage, mut connection) = staging::Staging::new(destination, manifest, limits)?;
     let transaction = connection
         .transaction()
         .map_err(sqlite_error("begin private checkpoint import"))?;
@@ -47,6 +58,9 @@ pub(crate) fn import(
         let mut items = 0_u64;
         for _ in 0..declared.count() {
             let chunk = chunks.next().ok_or_else(super::invalid)??;
+            if chunk.extensions() != &Extensions::default() {
+                return Err(unsupported_extensions().into());
+            }
             remaining = remaining
                 .checked_sub(
                     u64::try_from(chunk.document()?.canonical_bytes()?.len())
@@ -87,4 +101,11 @@ pub(crate) fn import(
     stage.check_disk(limits.disk_bytes)?;
     let path = stage.promote(connection)?;
     Ok(SqliteProduction::open(path)?)
+}
+
+fn unsupported_extensions() -> ProtocolError {
+    ProtocolError::new(
+        FailureKind::Unsupported,
+        "checkpoint extension preservation is not implemented yet",
+    )
 }

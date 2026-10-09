@@ -74,6 +74,68 @@ fn replace_section(
     (rewritten, output)
 }
 
+#[test]
+fn unsupported_checkpoint_extensions_are_rejected_without_silent_loss() {
+    use postproject_protocol::{ChunkSummary, FailureKind};
+    use postproject_storage_sqlite::ExchangeError;
+    let directory = tempfile::tempdir().unwrap();
+    let source = SqliteProduction::create(directory.path().join("source.pproj"), None).unwrap();
+    let mut chunks = Vec::new();
+    let manifest = source
+        .export_checkpoint(|chunk| {
+            chunks.push(chunk);
+            Ok(())
+        })
+        .unwrap();
+    let extensions = Extensions::new(
+        Document::parse(br#"{"example:fact":["Exact","Exact"]}"#, Limits::default()).unwrap(),
+    )
+    .unwrap();
+    let extended = CheckpointManifest::new(
+        manifest.id(),
+        manifest.head(),
+        manifest.floor(),
+        *manifest.sections(),
+        extensions.clone(),
+    )
+    .unwrap();
+    let first = &chunks[0];
+    let chunk = CheckpointChunk::new(
+        first.scope(),
+        first.checkpoint(),
+        first.section(),
+        first.index(),
+        first.previous(),
+        first.payload().to_vec(),
+        extensions,
+    )
+    .unwrap();
+    let mut summaries = *manifest.sections();
+    summaries[0] = SectionSummary::new(
+        CheckpointSection::Production,
+        1,
+        Some(ChunkSummary::new(1, chunk.payload().len() as u64, chunk.digest().unwrap()).unwrap()),
+    )
+    .unwrap();
+    let chunk_manifest = CheckpointManifest::new(
+        manifest.id(),
+        manifest.head(),
+        manifest.floor(),
+        summaries,
+        Extensions::default(),
+    )
+    .unwrap();
+    let mut extended_chunks = chunks.clone();
+    extended_chunks[0] = chunk;
+    for (manifest, chunks) in [(extended, chunks), (chunk_manifest, extended_chunks)] {
+        let destination = directory.path().join("rejected.pproj");
+        assert!(
+            matches!(SqliteProduction::import_checkpoint(&destination, &manifest, chunks.into_iter().map(Ok), CheckpointLimits::default()), Err(ExchangeError::Protocol(error)) if error.kind() == FailureKind::Unsupported)
+        );
+        assert!(!destination.exists());
+    }
+}
+
 fn documents(chunks: &[CheckpointChunk], section: CheckpointSection) -> Vec<Document> {
     let mut decoder = FrameDecoder::new(Limits::default());
     let mut documents = Vec::new();
