@@ -78,8 +78,9 @@ The first chunk has a null predecessor. This keeps record headers bounded even
 for very large native commits. A checkpoint manifest has a
 separate identity/digest from its stable source continuation anchor.
 
-Record requirements are unique and lexically ordered: `dependencies.v1`, `media.v1`, `metadata.v1`
-and `record-chunks.v1` are recognized. Every record requires chunk framing and at
+Record requirements are unique and lexically ordered: `dependencies.v1`,
+`media.v1`, `metadata.v1`, `provenance.v1` and `record-chunks.v1` are recognized.
+Every record requires chunk framing and at
 least one domain codec. Existing metadata manifests keep their exact two-feature
 encoding. A receiver must reject an unsupported body before publishing state;
 understanding the manifest alone does not establish media replay support.
@@ -126,8 +127,20 @@ It rejects equivalent current replacements that would have been native no-ops.
 
 `activity.header` retains assigned identity, exact kind, optional authored times,
 checked tool/agent attribution and native input/output counts. Empty input sets
-are valid; at least one output is required. Complete activity edge/snapshot replay
-remains unsupported.
+are valid; at least one output is required. Ordered `activity.edge` headers carry
+representation/role, the original snapshot boundary, fingerprint counts and an
+explicit dependency-snapshot marker. Absent legacy evidence differs from an
+explicitly empty observation. Input paths follow their edge fingerprints:
+`activity.dependency-path` declares status, subject, segment and fingerprint
+counts; `activity.dependency-segment` retains both path and authored dependency
+positions. Individual subject fingerprints follow the segments.
+
+Native capture streams immutable staging-time rows inside the original commit,
+including evidence predating later changes in that same edit. Replay consumes
+those facts and checks counts, ordering, references, cycles and complete required
+path coverage against the applied authored prefix. It generates no replacement
+snapshots and does no media I/O. Existing 64-segment and 1,000-visited-representation
+capture limits retain their explicit truncation statuses.
 
 `original.creation` retains the assigned asset header and is followed by its
 complete original representation. `representation.creation` declares scalar ownership plus resource, locator and

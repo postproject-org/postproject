@@ -105,11 +105,17 @@ activity; handled late errors leave the enclosing edit usable without a prefix.
 
 Record manifests name the required domain codecs in a unique lexical set, covered
 by their integrity commitment. Metadata-only records retain their earlier bytes;
-media records add `media.v1`, and dependency records add `dependencies.v1`.
+media records add `media.v1`, dependency records add `dependencies.v1`, and
+immutable activity records add `provenance.v1`.
 Dependency bodies stream a complete header and ordered individual occurrences,
 preserving empty sets and intermediate replacements within one revision. Replay
 checks references, recording boundaries and no-op consistency before publication.
 Receivers validate the complete body before commit.
+Activity capture retains scalar attribution and streams immutable edge/path
+evidence from the original transaction. Later observations cannot replace those
+snapshots. Replay validates the provided evidence against its authored prefix,
+including full bounded path coverage, without generating snapshots or loading a
+whole activity graph. Derived output keys rebuild through the existing triggers.
 Legacy metadata evidence is encoded incrementally without a whole replacement
 document allocation or a proposal-sized cap on native replacements.
 
