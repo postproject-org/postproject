@@ -2,9 +2,9 @@
 
 use std::collections::BTreeMap;
 
-#[cfg(test)]
 mod conflict_key;
 mod dependency_compare;
+pub(crate) use conflict_key::decode as decode_conflict_key;
 pub(crate) mod dependency_persist;
 pub(crate) mod fingerprint_capture;
 mod job_capture;

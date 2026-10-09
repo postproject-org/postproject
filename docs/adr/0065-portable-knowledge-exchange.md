@@ -147,6 +147,10 @@ require `jobs.v1`. Earlier development `metadata.v1` outcomes remain readable.
 Schema 26 raises the private outcome bound to 512 KiB, preserving retained bytes
 and bindings. At most 1,000 fixed-width summaries, 64 KiB extensions and bounded
 receipt/conflict context fit this limit. It does not constrain native edits.
+Checkpoint guard export decodes every actual private key through checked domain
+constructors rather than inferring keys from events. Guard frames are a unique
+set; earlier development metadata ordering remains readable. Unsupported domain
+sections still reject explicitly until their checkpoint bodies are available.
 Legacy metadata evidence is encoded incrementally without a whole replacement
 document allocation or a proposal-sized cap on native replacements.
 

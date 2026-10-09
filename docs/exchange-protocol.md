@@ -266,6 +266,10 @@ fingerprint history/recomputation, public jobs/input boundaries, revisions/event
 and semantic conflict floors/versions. Derived indexes are rebuilt. SQLite row
 IDs, local mappings/caches, worker secrets, operational clock and private dedup
 bindings are excluded. Public ordering uses section-defined positions.
+Semantic versions form a set of unique checked domain keys. Export streams
+actual guard rows in deterministic key order; the private index encoding stays
+inside storage. Import accepts earlier metadata ordering but rejects duplicates,
+missing versions and boundaries inconsistent with retained observations.
 
 Checkpoint framing declares all 18 sections, including explicit empty ones, in
 this order: production, assets, resources, representations, structures, roots,

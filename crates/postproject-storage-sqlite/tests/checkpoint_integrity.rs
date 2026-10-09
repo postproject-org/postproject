@@ -239,3 +239,74 @@ fn contradictory_snapshots_orders_and_missing_semantic_versions_reject() {
         vec![MetadataValue::i64(1)]
     );
 }
+
+#[test]
+fn semantic_version_sets_accept_earlier_ordering_but_reject_repeated_domain_keys() {
+    let directory = tempfile::tempdir().unwrap();
+    let mut source = SqliteProduction::create(directory.path().join("source.pproj"), None).unwrap();
+    let target = ObjectRef::Production(source.production().id());
+    let mut edit = source.begin_transaction().unwrap();
+    for name in ["aaa", "b"] {
+        let property = MetadataProperty::new(
+            VocabularyId::new("urn:keys").unwrap(),
+            PropertyId::new(name).unwrap(),
+        );
+        edit.add_metadata_value(target, &property, &MetadataValue::i64(7))
+            .unwrap();
+    }
+    edit.commit().unwrap();
+    drop(edit);
+    let mut chunks = Vec::new();
+    let manifest = source
+        .export_checkpoint(|chunk| {
+            chunks.push(chunk);
+            Ok(())
+        })
+        .unwrap();
+    let mut versions = documents(&chunks, CheckpointSection::ConflictVersions);
+    assert_eq!(versions.len(), 2);
+    // The previous development exporter sorted metadata property text rather
+    // than its checked native index key. Both unique sets carry the same facts.
+    versions.reverse();
+    let (reordered, body) = replace_section(
+        &manifest,
+        &chunks,
+        CheckpointSection::ConflictVersions,
+        &versions,
+    );
+    let mirror = SqliteProduction::import_checkpoint(
+        directory.path().join("mirror.pproj"),
+        &reordered,
+        body.into_iter().map(Ok),
+        CheckpointLimits::default(),
+    )
+    .unwrap();
+    assert_eq!(
+        mirror.exchange_head().unwrap(),
+        source.exchange_head().unwrap()
+    );
+    for name in ["aaa", "b"] {
+        let property = MetadataProperty::new(
+            VocabularyId::new("urn:keys").unwrap(),
+            PropertyId::new(name).unwrap(),
+        );
+        assert_eq!(
+            mirror.metadata_values(target, &property).unwrap(),
+            source.metadata_values(target, &property).unwrap()
+        );
+    }
+    versions[1] = versions[0].clone();
+    let (duplicated, body) = replace_section(
+        &manifest,
+        &chunks,
+        CheckpointSection::ConflictVersions,
+        &versions,
+    );
+    let destination = directory.path().join("duplicated.pproj");
+    assert!(
+        matches!(SqliteProduction::import_checkpoint(&destination, &duplicated,
+        body.into_iter().map(Ok), CheckpointLimits::default()), Err(postproject_storage_sqlite::ExchangeError::Protocol(error))
+        if error.kind() == postproject_protocol::FailureKind::Integrity)
+    );
+    assert!(!destination.exists());
+}

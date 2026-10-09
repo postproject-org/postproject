@@ -62,28 +62,25 @@ impl Bodies<'_, '_> {
 
     pub(super) fn version(&mut self, document: &Document) -> ExchangeResult<()> {
         let version = ConflictVersion::from_document(document)?;
-        let SemanticConflictKey::MetadataProperty { target, property } = version.key() else {
+        let SemanticConflictKey::MetadataProperty { target, .. } = version.key() else {
             return Err(invalid().into());
         };
         if *target != ObjectRef::Production(self.manifest.head().scope().production()) {
             return Err(invalid().into());
         }
         self.validate_revision(version.revision(), version.sequence())?;
-        let (kind, id) = crate::encode_metadata_target(target)?;
-        let key = (
-            kind,
-            id.to_vec(),
-            property.vocabulary().as_str().to_owned(),
-            property.property().as_str().to_owned(),
-        );
-        if self
-            .version_key
-            .as_ref()
-            .is_some_and(|previous| previous >= &key)
-        {
+        let key = encode_conflict_key(version.key())?;
+        let duplicate: bool = self
+            .transaction
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM conflict_versions WHERE conflict_key = ?1)",
+                [&key],
+                |row| row.get(0),
+            )
+            .map_err(sqlite_error("check unique checkpoint semantic key"))?;
+        if duplicate {
             return Err(invalid().into());
         }
-        self.version_key = Some(key);
         self.transaction.execute("INSERT INTO conflict_versions (conflict_key, last_changed_revision_id, last_changed_revision_sequence) VALUES (?1, ?2, ?3)", params![encode_conflict_key(version.key())?, version.revision().as_bytes().as_slice(), i64::try_from(version.sequence()).map_err(|_| invalid())?])
             .map_err(sqlite_error("stage checkpoint semantic version"))?;
         Ok(())
