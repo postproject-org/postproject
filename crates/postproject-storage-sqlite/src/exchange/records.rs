@@ -1,6 +1,6 @@
 //! Atomic capture of the metadata vertical slice; other families remain pending.
 
-mod chunks;
+pub(super) mod chunks;
 mod reader;
 mod replay;
 mod writer;
@@ -34,7 +34,7 @@ pub(crate) fn position(
         .map_err(|_| invalid())
 }
 
-fn manifest(
+pub(super) fn manifest(
     connection: &Connection,
     production: ProductionId,
     sequence: u64,

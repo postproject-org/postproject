@@ -10,7 +10,7 @@ use crate::{ExchangeResult, sqlite_error};
 
 const FRAGMENT_BYTES: usize = 1024 * 1024;
 
-pub(super) fn persist(connection: &Connection, chunk: &RecordChunk) -> Result<()> {
+pub(in crate::exchange) fn persist(connection: &Connection, chunk: &RecordChunk) -> Result<()> {
     let bytes = chunk
         .document()
         .and_then(|document| document.canonical_bytes())
@@ -30,7 +30,7 @@ pub(super) fn persist(connection: &Connection, chunk: &RecordChunk) -> Result<()
     Ok(())
 }
 
-pub(super) fn load(
+pub(in crate::exchange) fn load(
     connection: &Connection,
     revision: RevisionId,
     index: u64,
