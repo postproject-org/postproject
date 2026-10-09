@@ -64,7 +64,7 @@ pub(super) fn decode(value: &Value) -> Result<Proposal> {
         let name = text(feature)?;
         if !matches!(
             name,
-            "dependencies.v1" | "media.v1" | "metadata.v1" | "provenance.v1"
+            "dependencies.v1" | "jobs.v1" | "media.v1" | "metadata.v1" | "provenance.v1"
         ) {
             return Err(unsupported());
         }

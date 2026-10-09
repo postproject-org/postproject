@@ -131,7 +131,13 @@ impl Proposal {
         let mut features: BTreeSet<_> = self
             .commands
             .iter()
-            .map(Command::required_feature)
+            .flat_map(|command| {
+                let mut codecs = BTreeSet::from([command.required_feature()]);
+                if matches!(command, Command::CompleteJob { .. }) {
+                    codecs.extend([RecordFeature::Media, RecordFeature::Provenance]);
+                }
+                codecs
+            })
             .collect();
         if features.is_empty() {
             features.insert(RecordFeature::Metadata);

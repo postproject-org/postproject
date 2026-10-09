@@ -1,9 +1,12 @@
 //! Ordered semantic intent; storage remains responsible for current-state guards.
 
+use std::time::Duration;
+
 use postproject_core::{
-    Activity, Dependency, FileFacts, Locator, LocatorId, MediaRoot, MediaRootId, MetadataProperty,
-    MetadataValue, ObjectRef, OriginalMediaImport, PropertyId, RepresentationFingerprint,
-    RepresentationId, RepresentationImport, ResourceFingerprint, ResourceId, VocabularyId,
+    Activity, AgentIdentity, Dependency, FileFacts, Job, JobFailure, JobId, Locator, LocatorId,
+    MediaRoot, MediaRootId, MetadataProperty, MetadataValue, ObjectRef, OriginalMediaImport,
+    PropertyId, RepresentationFingerprint, RepresentationId, RepresentationImport,
+    ResourceFingerprint, ResourceId, ToolIdentity, VocabularyId,
 };
 use serde_json::{Value, json};
 
@@ -17,6 +20,7 @@ use crate::{
 
 mod activity;
 mod evidence;
+mod jobs;
 mod media;
 mod observations;
 mod prepared;
@@ -25,6 +29,46 @@ mod prepared;
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum Command {
+    /// Enqueues prepared requested work, without an executable claim.
+    RequestJob(Job),
+    /// Requests new ownership using authority time and a checked duration.
+    ClaimJob {
+        /// Stable job identity.
+        job_id: JobId,
+        /// Checked worker-tool attribution.
+        tool: ToolIdentity,
+        /// Optional checked agent attribution.
+        agent: Option<AgentIdentity>,
+        /// Positive whole microseconds, no longer than 24 hours.
+        duration: Duration,
+    },
+    /// Requests renewal through separately supplied private ownership.
+    RenewJob {
+        /// Stable job identity.
+        job_id: JobId,
+        /// Positive whole microseconds, no longer than 24 hours.
+        duration: Duration,
+    },
+    /// Releases work through separately supplied private ownership.
+    ReleaseJob(JobId),
+    /// Fails work through separately supplied private ownership.
+    FailJob {
+        /// Stable job identity.
+        job_id: JobId,
+        /// Checked bounded failure observation.
+        failure: JobFailure,
+    },
+    /// Publishes prepared output/provenance through private ownership.
+    CompleteJob {
+        /// Stable job identity.
+        job_id: JobId,
+        /// Complete checked output measured before submission.
+        output: Box<RepresentationImport>,
+        /// Attribution and edges without storage-captured snapshots.
+        activity: Box<Activity>,
+    },
+    /// Requests administrative cancellation without claiming ownership.
+    CancelJob(JobId),
     /// Imports a complete checked aggregate measured before submission.
     ImportOriginal(OriginalMediaImport),
     /// Adds a complete prepared representation to an existing asset.
@@ -110,6 +154,13 @@ impl Command {
     #[must_use]
     pub const fn required_feature(&self) -> RecordFeature {
         match self {
+            Self::RequestJob(_)
+            | Self::ClaimJob { .. }
+            | Self::RenewJob { .. }
+            | Self::ReleaseJob(_)
+            | Self::FailJob { .. }
+            | Self::CompleteJob { .. }
+            | Self::CancelJob(_) => RecordFeature::Jobs,
             Self::CreateActivity(_) => RecordFeature::Provenance,
             Self::RecordDependencySet { .. } => RecordFeature::Dependencies,
             Self::AppendMetadata { .. }
@@ -162,6 +213,13 @@ pub(crate) fn decode_property(value: &Value) -> Result<MetadataProperty> {
 
 pub(crate) fn encode(command: &Command) -> Result<Value> {
     Ok(match command {
+        Command::RequestJob(_)
+        | Command::ClaimJob { .. }
+        | Command::RenewJob { .. }
+        | Command::ReleaseJob(_)
+        | Command::FailJob { .. }
+        | Command::CompleteJob { .. }
+        | Command::CancelJob(_) => jobs::encode(command)?,
         Command::AppendMetadata {
             target,
             property,
@@ -191,6 +249,8 @@ pub(crate) fn encode(command: &Command) -> Result<Value> {
 pub(crate) fn decode(value: &Value) -> Result<Command> {
     let kind = text(value.get("kind").ok_or_else(malformed)?)?;
     let keys = match kind {
+        "job.request" | "job.claim" | "job.renew" | "job.release" | "job.fail" | "job.complete"
+        | "job.cancel" => return jobs::decode(kind, value),
         "metadata.append" => &["kind", "target", "property", "value"][..],
         "metadata.replace" => &["kind", "target", "property", "values"][..],
         "metadata.remove" => &["kind", "target", "property"][..],

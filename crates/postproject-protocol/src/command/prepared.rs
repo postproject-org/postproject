@@ -30,7 +30,7 @@ pub(super) fn encode(command: &Command) -> Result<Value> {
     })
 }
 
-fn encode_media(
+pub(super) fn encode_media(
     representation: &Representation,
     resources: &[Resource],
     locators: &[postproject_core::Locator],
@@ -78,7 +78,7 @@ pub(super) fn decode(kind: &str, value: &Value) -> Result<Command> {
     })
 }
 
-fn decode_media(value: &Value) -> Result<RepresentationImport> {
+pub(super) fn decode_media(value: &Value) -> Result<RepresentationImport> {
     let fields = object(
         value,
         &[
