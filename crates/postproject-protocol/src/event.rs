@@ -3,6 +3,7 @@
 use postproject_core::{RevisionEvent, RevisionEventKind};
 use serde_json::{Value, json};
 
+mod knowledge;
 mod media;
 
 use crate::{
@@ -29,6 +30,12 @@ fn encode_kind(event: &RevisionEventKind) -> Result<Value> {
         RevisionEventKind::MetadataRemoved { target, property } => {
             ("metadata_removed", *target, property)
         }
+        RevisionEventKind::ExternalIdentifierAdded { .. }
+        | RevisionEventKind::ExternalIdentifierRemoved { .. }
+        | RevisionEventKind::ActivityCreated { .. }
+        | RevisionEventKind::ActivityInputAdded { .. }
+        | RevisionEventKind::ActivityOutputAdded { .. }
+        | RevisionEventKind::DependencySetRecorded { .. } => return knowledge::encode(event),
         _ => return media::encode(event),
     };
     Ok(
@@ -56,6 +63,17 @@ pub fn decode_event(document: &Document) -> Result<RevisionEvent> {
 
 fn decode_kind(value: &Value) -> Result<RevisionEventKind> {
     let name = text(value.get("kind").ok_or_else(crate::fields::malformed)?)?;
+    if matches!(
+        name,
+        "external_identifier_added"
+            | "external_identifier_removed"
+            | "activity_created"
+            | "activity_input_added"
+            | "activity_output_added"
+            | "dependency_set_recorded"
+    ) {
+        return knowledge::decode(value);
+    }
     if !matches!(name, "metadata_added_or_replaced" | "metadata_removed") {
         return media::decode(value);
     }
