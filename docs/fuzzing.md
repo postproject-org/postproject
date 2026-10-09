@@ -38,3 +38,6 @@ cargo deny --manifest-path fuzz/Cargo.toml --config fuzz/deny.toml check
 The [schema-24 decoder campaign](evidence/schema-24/decoder-fuzz.json) records
 its exact scope, compiler, checksums and successful sanitizer rerun. It predates
 incremental frame decoding and passive replay.
+The [incremental-frame campaigns](evidence/schema-24/frame-decoder-fuzz.json)
+also exercise raw framed bodies and portable production/version headers; storage
+replay and checkpoint import are outside their scope.

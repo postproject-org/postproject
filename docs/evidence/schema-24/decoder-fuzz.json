@@ -26,7 +26,8 @@
   "prior_attempt": "491155 executions completed; sandbox denied LeakSanitizer process inspection. An authorized rerun outside the sandbox passed. The empty environment artifact is not a codec regression.",
   "binary_sha256": "da395b78cd82419fc99115702251ff30ca756771f71c496301c48625b26eb9f0",
   "log_sha256": "d210450cc3bded847b996cfb5a6fce7967643764e75c5b521aef216e8b18661d",
-  "local_binary": "fuzz/target/x86_64-unknown-linux-gnu/release/exchange_document",
+  "local_binary": "Historical build path, overwritten by the subsequent incremental-frame build",
   "local_log": "target/fuzz-toolchain/campaign.log",
-  "limitations": "Bounded decoder testing only; no complete protocol, replay, checkpoint, commercial-host or release acceptance claim. Newly added FrameDecoder is outside this campaign."
+  "limitations": "Bounded decoder testing only; no complete protocol, replay, checkpoint, commercial-host or release acceptance claim. Newly added FrameDecoder is outside this campaign.",
+  "binary_retained": false
 }

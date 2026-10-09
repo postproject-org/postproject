@@ -1,0 +1,49 @@
+{
+  "scope": "Development incremental record frames, portable production headers, semantic versions and prior bounded document decoders",
+  "status": "passed",
+  "target_source_commit": "5f85390b160aab6ddd876f48a260031bf27aaa56",
+  "build_provenance": "Incremental build while unused snapshot-assertion code and replay tests were added. Exercised decoder source hashes are recorded below; this is not a clean release-candidate qualification.",
+  "compiler": "rustc 1.101.0-nightly (1d81eb4ad 2026-10-07)",
+  "cargo_fuzz": "0.13.2",
+  "sanitizer": "AddressSanitizer with LeakSanitizer",
+  "configured_seconds_per_round": 60,
+  "configured_max_input_bytes": 65536,
+  "rounds": [
+    {
+      "seed": 3462284770,
+      "executions": 286013,
+      "actual_seconds": 61,
+      "coverage": 3635,
+      "features": 10609,
+      "final_corpus_files": 1312,
+      "final_generated_input_limit_bytes": 3178,
+      "reported_peak_rss_mib": 455,
+      "exit_code": 0,
+      "local_log": "target/fuzz-toolchain/frame-campaign.log",
+      "log_sha256": "05e7eabbe6f33285f205497660fb1d584e12e220fd288d55fa6a7868d9b7e5ea"
+    },
+    {
+      "seed": 3455537941,
+      "executions": 277427,
+      "actual_seconds": 61,
+      "coverage": 3781,
+      "features": 10907,
+      "final_corpus_files": 1345,
+      "final_generated_input_limit_bytes": 3398,
+      "reported_peak_rss_mib": 466,
+      "exit_code": 0,
+      "local_log": "target/fuzz-toolchain/portable-frames-campaign.log",
+      "log_sha256": "15523eca1e48b37f656712b334894a7edd9d96384d58b859fe4d95c004163153"
+    }
+  ],
+  "seeding": "Prior actual document corpus, an original 1649-byte metadata record body, then four additional original production/version documents and their framed forms. The second round addresses those newly added header seeds.",
+  "source_sha256": {
+    "fuzz/fuzz_targets/exchange_document.rs": "9ea9b61aa960ff30d95cfb9c9d47e1476316f8649a020e9f9b3ef731d4bfe557",
+    "crates/postproject-protocol/src/frame.rs": "87664c04640524c60a65611b6fcec7793779b19f210ac0b1ce8e065fd934c3ef",
+    "crates/postproject-protocol/src/production.rs": "422587d08a2bb602c0bc7a40b2820422792e26fb152de526c78bf04d6ee67c8d",
+    "crates/postproject-protocol/src/version.rs": "238b5388c7fb19c878b1e4ad9d3b5b7d75ba378dab4cc434a7926e995c87ad67"
+  },
+  "binary_sha256": "a9c78a1dd6c35c39a3fc1f15ff8e4a6eef9ad706c1ca035609560fe0ace29f4c",
+  "local_binary": "target/fuzz-toolchain/frame-campaign-binary",
+  "limitations": "Bounded decoder testing only. SnapshotAssertion, checkpoint sections/import, storage replay and commercial hosts are outside these campaigns. No final conformance or release claim."
+}
