@@ -79,7 +79,7 @@ for very large native commits. A checkpoint manifest has a
 separate identity/digest from its stable source continuation anchor.
 
 Record requirements are unique and lexically ordered: `dependencies.v1`,
-`media.v1`, `metadata.v1`, `provenance.v1` and `record-chunks.v1` are recognized.
+`jobs.v1`, `media.v1`, `metadata.v1`, `provenance.v1` and `record-chunks.v1` are recognized.
 Every record requires chunk framing and at
 least one domain codec. Existing metadata manifests keep their exact two-feature
 encoding. A receiver must reject an unsupported body before publishing state;
@@ -141,6 +141,24 @@ those facts and checks counts, ordering, references, cycles and complete require
 path coverage against the applied authored prefix. It generates no replacement
 snapshots and does no media I/O. Existing 64-segment and 1,000-visited-representation
 capture limits retain their explicit truncation statuses.
+
+`job.header` retains the stable request ID, exact work kind, input count, requested
+asset/representation role/root and one of the five observed states. Following
+`job.input` frames preserve canonical input UUID order and original positions,
+within the native 100,000-input bound. A request effect starts in requested state.
+`job.transition` retains the original operation, before/after state, nullable
+authority time and claim/completion input decision sequence. Cancellation has no
+authority time; other transitions retain it exactly. An input boundary of zero
+identifies a genesis decision. These fields describe the source decision and
+grant no authority to the receiver.
+
+Claimed detail preserves tool/agent attribution and expiry; succeeded detail
+preserves activity/output IDs; failed detail preserves the exact diagnostic.
+Bearer claim IDs are forbidden. Replay checks prior state, lifecycle constraints,
+input boundaries and completion's requested output/producing activity. It never
+consults its clock or authorizes work. Schema 25 materializes claimed mirrors
+with a derived inert marker and NULL credential, preserving their native read
+projection. Neither the marker nor private authority clock enters the wire.
 
 `original.creation` retains the assigned asset header and is followed by its
 complete original representation. `representation.creation` declares scalar ownership plus resource, locator and
