@@ -1,7 +1,7 @@
 use crate::{
     ChunkSummary, Digest, DigestDomain, Document, Extensions, FailureKind, Position, ProtocolError,
     RecordManifest, Result,
-    fields::{array, exact, malformed, object, text, unsupported},
+    fields::{exact, malformed, object, text, unsupported},
     receipt::decode_revision,
 };
 
@@ -28,13 +28,7 @@ pub(super) fn decode(document: &Document) -> Result<RecordManifest> {
     if text(&fields["version"])? != "1" {
         return Err(unsupported());
     }
-    let features = array(&fields["required_features"], 64)?;
-    if features.len() != 2
-        || text(&features[0])? != "metadata.v1"
-        || text(&features[1])? != "record-chunks.v1"
-    {
-        return Err(unsupported());
-    }
+    let features = super::features::decode(&fields["required_features"])?;
     let chunks = object(
         &fields["chunks"],
         &["count", "payload_bytes", "last_digest"],
@@ -54,7 +48,8 @@ pub(super) fn decode(document: &Document) -> Result<RecordManifest> {
         Extensions::new(Document {
             value: fields["extensions"].clone(),
         })?,
-    )?;
+    )?
+    .with_required_features(features)?;
     let declared_record: Digest = exact(&fields["record_digest"])?;
     let declared_manifest: Digest = exact(&fields["digest"])?;
     if manifest.record_digest()? != declared_record

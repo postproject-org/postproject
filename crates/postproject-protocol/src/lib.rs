@@ -76,7 +76,7 @@ pub use proposal::{MAX_PROPOSAL_COMMANDS, Proposal};
 pub use receipt::{
     decode_receipt, decode_revision_observation, encode_receipt, encode_revision_observation,
 };
-pub use record::RecordManifest;
+pub use record::{RecordFeature, RecordManifest};
 pub use rejection::{Rejection, RejectionKind};
 pub use representation::RepresentationHeader;
 pub use resource::ResourceHeader;

@@ -1,6 +1,11 @@
 //! Bounded manifests binding original revisions to complete chunk chains.
 
+mod features;
 mod wire;
+
+pub use features::RecordFeature;
+
+use std::collections::BTreeSet;
 
 use postproject_core::Revision;
 use serde_json::json;
@@ -21,6 +26,7 @@ pub struct RecordManifest {
     chunks: ChunkSummary,
     effects: u64,
     events: u64,
+    features: BTreeSet<RecordFeature>,
     extensions: Extensions,
 }
 
@@ -60,6 +66,7 @@ impl RecordManifest {
             chunks,
             effects,
             events,
+            features: BTreeSet::from([RecordFeature::Metadata, RecordFeature::RecordChunks]),
             extensions,
         })
     }
@@ -93,6 +100,28 @@ impl RecordManifest {
     #[must_use]
     pub const fn extensions(&self) -> &Extensions {
         &self.extensions
+    }
+
+    /// Sets the required body codecs, retaining their canonical lexical order.
+    ///
+    /// `new` defaults to metadata and record chunks, preserving earlier records.
+    /// Adding a requirement changes the logical record digest.
+    ///
+    /// # Errors
+    /// Rejects a set without record chunks or without a domain codec.
+    pub fn with_required_features(
+        mut self,
+        features: impl IntoIterator<Item = RecordFeature>,
+    ) -> Result<Self> {
+        let features = features.into_iter().collect();
+        features::validate(&features)?;
+        self.features = features;
+        Ok(self)
+    }
+
+    /// Returns the required codecs in canonical lexical wire order.
+    pub fn required_features(&self) -> impl Iterator<Item = RecordFeature> + '_ {
+        self.features.iter().copied()
     }
 
     /// Starts a constant-space verifier for this record's exact source identity.
@@ -158,10 +187,14 @@ impl RecordManifest {
     }
 
     fn unsigned_document(&self) -> Result<Document> {
+        let features: Vec<_> = self
+            .required_features()
+            .map(RecordFeature::wire_name)
+            .collect();
         Ok(Document {
             value: json!({
                 "kind":"record.manifest","version":"1",
-                "required_features":["metadata.v1","record-chunks.v1"],
+                "required_features":features,
                 "predecessor":self.predecessor.document().value,
                 "revision":encode_revision(&self.revision)?,
                 "chunks":{"count":self.chunks.count().to_string(),
