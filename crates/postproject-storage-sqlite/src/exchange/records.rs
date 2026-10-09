@@ -90,8 +90,7 @@ pub(crate) fn capture_records(
     events: &[RevisionEventKind],
     extensions: &Extensions,
 ) -> Result<()> {
-    // An incomplete family or predecessor never masquerades as a replay record.
-    // Existing native operations remain usable during this development slice.
+    // A native changing commit must never succeed without complete capture.
     if !events.iter().all(|event| {
         matches!(
             event,
@@ -124,10 +123,13 @@ pub(crate) fn capture_records(
                 | RevisionEventKind::MediaRootRemoved { .. }
         )
     }) {
-        return Ok(());
+        return Err(incomplete());
     }
     let Some(predecessor) = position(connection, production, revision.sequence() - 1)? else {
-        return Ok(());
+        return Err(Error::new(
+            ErrorKind::Storage,
+            "native commit lacks its complete exchange predecessor",
+        ));
     };
     let mut expected = events.iter();
     for effect in effects {

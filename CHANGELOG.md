@@ -13,6 +13,7 @@ All notable changes to PostProject will be documented here. The project uses
 - Enforce the same JSON resource limits for typed and decoded proposals.
 - Close same-edit lease ownership when the final claim is cancelled or superseded.
 - Retain compact noncredential job results with public outcomes in schema 26.
+- Require complete authored capture for every native changing commit.
 
 ## 0.7.0-alpha.1 - 2026-10-08
 

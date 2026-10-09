@@ -45,8 +45,9 @@ revision without assembling a whole evidence document. Metadata/media suffixes h
 ordered chunk chains and independently pinned Rust readers. Records retain the
 original revision/context, same-key history and observation events. Every current
 native mutation family is captured. Older incomplete development histories still
-need an explicit migration/resynchronization policy; missing predecessors remain
-`history_gap`. Whole checkpoints and installed exchange projections remain pending. Rust passive application validates metadata/media
+need an explicit migration/resynchronization policy. Readers report `history_gap`;
+native changing commits with a missing predecessor fail and roll back.
+Whole checkpoints and installed exchange projections remain pending. Rust passive application validates metadata/media
 records atomically, preserving original revision/events and semantic versions.
 All four content shapes converge across distinct files without media I/O.
 Repeated root/locator/file-fact transitions retain authored intermediates.
