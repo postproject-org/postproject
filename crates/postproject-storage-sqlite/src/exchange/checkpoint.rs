@@ -1,7 +1,6 @@
 //! Coherent bounded checkpoint transport; domain coverage grows in checked slices.
 
 mod import;
-#[cfg(test)]
 mod media_facts;
 mod sections;
 mod writer;
@@ -62,6 +61,10 @@ pub(crate) fn export(
                 &ProductionHeader::from_production(&view.production).document(),
                 true,
             )?,
+            CheckpointSection::Assets
+            | CheckpointSection::Resources
+            | CheckpointSection::Representations
+            | CheckpointSection::Structures => sections::media(&view, &mut writer, section)?,
             CheckpointSection::Metadata => sections::metadata(&view, &mut writer)?,
             CheckpointSection::Roots => sections::roots(&view, &mut writer)?,
             CheckpointSection::Revisions => sections::revisions(&view, &mut writer)?,

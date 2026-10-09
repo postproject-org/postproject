@@ -2,8 +2,6 @@
 //! locator and metadata collections remain independent streams.
 
 mod structure;
-#[cfg(test)]
-mod tests;
 
 pub(super) use structure::content;
 

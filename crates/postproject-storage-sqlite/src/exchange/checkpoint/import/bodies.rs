@@ -2,6 +2,7 @@
 
 mod facts;
 mod history;
+mod media;
 mod records;
 
 use postproject_protocol::{CheckpointManifest, CheckpointSection, Document};
@@ -11,6 +12,7 @@ use crate::ExchangeResult;
 
 pub(super) struct Bodies<'a, 'connection> {
     transaction: &'a Transaction<'connection>,
+    structure: Option<media::PendingStructure>,
     manifest: &'a CheckpointManifest,
     revisions: u64,
     event_sequence: u64,
@@ -31,6 +33,7 @@ impl<'a, 'connection> Bodies<'a, 'connection> {
     ) -> Self {
         Self {
             transaction,
+            structure: None,
             manifest,
             revisions: 0,
             event_sequence: 0,
@@ -53,8 +56,30 @@ impl<'a, 'connection> Bodies<'a, 'connection> {
             .remaining_frames
             .checked_sub(1)
             .ok_or_else(super::limits::budget)?;
+        if self.structure.is_some() && section != CheckpointSection::Structures {
+            return Err(super::super::invalid().into());
+        }
+        // New media staging helpers remain closed until retained-state checks
+        // cover their full domain. A caller must never publish a partial profile.
+        if matches!(
+            section,
+            CheckpointSection::Assets
+                | CheckpointSection::Resources
+                | CheckpointSection::Representations
+                | CheckpointSection::Structures
+        ) {
+            return Err(postproject_protocol::ProtocolError::new(
+                postproject_protocol::FailureKind::Unsupported,
+                "checkpoint media evidence validation is not complete yet",
+            )
+            .into());
+        }
         match section {
             CheckpointSection::Production => self.production(document)?,
+            CheckpointSection::Assets => self.asset(document)?,
+            CheckpointSection::Resources => self.resource(document)?,
+            CheckpointSection::Representations => self.representation(document)?,
+            CheckpointSection::Structures => return self.structure(document),
             CheckpointSection::Metadata => self.metadata(document)?,
             CheckpointSection::Roots => self.root(document)?,
             CheckpointSection::Revisions => self.revision(document)?,
@@ -77,6 +102,7 @@ impl<'a, 'connection> Bodies<'a, 'connection> {
         if self.revisions != self.manifest.head().sequence()
             || self.event_sequence != self.revisions
             || self.record.is_some()
+            || self.structure.is_some()
             || self.record_head != self.manifest.head()
         {
             return Err(super::super::invalid().into());
