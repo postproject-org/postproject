@@ -388,3 +388,67 @@ fn rollback_discards_activity_rows() {
     );
     transaction.rollback().expect("close transaction");
 }
+
+#[test]
+fn failed_activity_staging_rolls_back_even_when_delete_cleanup_would_fail() {
+    let directory = tempdir().unwrap();
+    let path = directory.path().join("failed-activity.pproj");
+    let mut production = SqliteProduction::create(&path, None).unwrap();
+    let (source, source_id) = import(21);
+    let (output, output_id) = import(22);
+    let mut transaction = production.begin_transaction().unwrap();
+    transaction.import_original(&source).unwrap();
+    transaction.import_original(&output).unwrap();
+    transaction.commit().unwrap();
+    drop(transaction);
+    let connection = rusqlite::Connection::open(&path).unwrap();
+    connection.execute_batch("CREATE TRIGGER fail_output BEFORE INSERT ON activity_outputs BEGIN SELECT RAISE(ABORT, 'injected output failure'); END;
+        CREATE TRIGGER fail_delete BEFORE DELETE ON activities BEGIN SELECT RAISE(ABORT, 'injected cleanup failure'); END;").unwrap();
+    let activity = activity(ActivityId::new(), source_id, output_id);
+    let mut transaction = production.begin_transaction().unwrap();
+    assert!(transaction.create_activity(&activity).is_err());
+    transaction
+        .add_media_root(
+            postproject_core::MediaRoot::new(
+                postproject_core::MediaRootId::new(),
+                "independent",
+                None,
+                None,
+                0,
+                true,
+            )
+            .unwrap(),
+        )
+        .unwrap();
+    transaction.commit().unwrap();
+    drop(transaction);
+    for table in [
+        "activities",
+        "activity_inputs",
+        "activity_outputs",
+        "activity_input_dependency_snapshots",
+        "activity_input_dependency_paths",
+        "activity_input_fingerprint_snapshots",
+        "activity_output_fingerprint_snapshots",
+        "activity_output_keys",
+    ] {
+        let count: i64 = connection
+            .query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(count, 0, "failed activity prefix in {table}");
+    }
+    let record = production.record_reader(2).unwrap().manifest().clone();
+    assert_eq!(record.effect_count(), 1);
+    assert_eq!(record.event_count(), 1);
+    connection
+        .execute_batch("DROP TRIGGER fail_output; DROP TRIGGER fail_delete;")
+        .unwrap();
+    let mut transaction = production.begin_transaction().unwrap();
+    transaction.create_activity(&activity).unwrap();
+    transaction.commit().unwrap();
+    drop(transaction);
+    assert_eq!(production.activities().unwrap().len(), 1);
+    assert_eq!(production.ancestors(output_id).unwrap(), [source_id]);
+}

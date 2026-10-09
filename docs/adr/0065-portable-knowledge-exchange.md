@@ -99,6 +99,9 @@ Dependency replacement compares stored occurrences incrementally, independently
 of public collection read budgets. An unchanged observation still guards its
 dependency-set key against the caller's base; it emits no effect or revision.
 Failed replacement rolls back rows, queued facts and newly staged guards.
+Activity staging uses that same savepoint boundary for edges, immutable snapshots,
+cycle validation and queued facts. Cleanup does not depend on deleting a partial
+activity; handled late errors leave the enclosing edit usable without a prefix.
 
 Record manifests name the required domain codecs in a unique lexical set, covered
 by their integrity commitment. Metadata-only records retain their earlier bytes;

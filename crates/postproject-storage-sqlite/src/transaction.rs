@@ -1665,11 +1665,15 @@ impl<'production> SqliteTransaction<'production> {
     /// representation, [`ErrorKind::AlreadyExists`] for a duplicate activity,
     /// [`ErrorKind::Conflict`] when the new edges create a cycle, or a
     /// transaction/storage error.
+    pub fn create_activity(&mut self, activity: &Activity) -> Result<()> {
+        self.stage_media_atomically(|transaction| transaction.create_activity_inner(activity))
+    }
+
     #[allow(
         clippy::too_many_lines,
         reason = "activity, storage-captured edge snapshots, cycle validation, and events are one atomic mutation"
     )]
-    pub fn create_activity(&mut self, activity: &Activity) -> Result<()> {
+    fn create_activity_inner(&mut self, activity: &Activity) -> Result<()> {
         let transaction = self.open_transaction()?;
         let snapshot_sequence = next_revision_sequence(transaction)?;
         let tool = activity.tool();
@@ -1703,7 +1707,7 @@ impl<'production> SqliteTransaction<'production> {
             )
             .map_err(mutation_error("persist activity"))?;
 
-        let edge_result = (|| {
+        let edge_result: Result<()> = (|| {
             for input in activity.inputs() {
                 transaction
                     .execute(
@@ -1753,12 +1757,8 @@ impl<'production> SqliteTransaction<'production> {
             }
             Ok(())
         })();
-        if let Err(error) = edge_result {
-            delete_activity(transaction, activity)?;
-            return Err(error);
-        }
+        edge_result?;
         if activity_creates_cycle(transaction, activity)? {
-            delete_activity(transaction, activity)?;
             return Err(Error::new(
                 ErrorKind::Conflict,
                 "activity would create a provenance cycle",
@@ -3371,14 +3371,4 @@ fn activity_creates_cycle(transaction: &Transaction<'_>, activity: &Activity) ->
             |row| row.get(0),
         )
         .map_err(sqlite_error("check activity cycle"))
-}
-
-fn delete_activity(transaction: &Transaction<'_>, activity: &Activity) -> Result<()> {
-    transaction
-        .execute(
-            "DELETE FROM activities WHERE id = ?1",
-            [activity.id().as_bytes().as_slice()],
-        )
-        .map(|_| ())
-        .map_err(sqlite_error("discard invalid activity"))
 }
