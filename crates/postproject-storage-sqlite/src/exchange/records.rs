@@ -88,6 +88,7 @@ pub(crate) fn capture_records(
     revision: &Revision,
     effects: &[super::CapturedEffect],
     events: &[RevisionEventKind],
+    extensions: &Extensions,
 ) -> Result<()> {
     // An incomplete family or predecessor never masquerades as a replay record.
     // Existing native operations remain usable during this development slice.
@@ -142,7 +143,7 @@ pub(crate) fn capture_records(
         chunks,
         u64::try_from(effects.len()).map_err(|_| encoding())?,
         u64::try_from(events.len()).map_err(|_| encoding())?,
-        Extensions::default(),
+        extensions.clone(),
     )
     .and_then(|manifest| {
         manifest.with_required_features(

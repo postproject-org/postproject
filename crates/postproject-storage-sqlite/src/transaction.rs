@@ -37,6 +37,7 @@ pub struct SqliteTransaction<'production> {
     lifecycle: TransactionLifecycle,
     production: &'production mut Production,
     revision_context: RevisionContext,
+    record_extensions: postproject_protocol::Extensions,
     pending_events: Vec<RevisionEventKind>,
     pending_effects: Vec<crate::exchange::CapturedEffect>,
     base_revision: Option<(Option<RevisionId>, u64)>,
@@ -158,6 +159,7 @@ impl<'production> SqliteTransaction<'production> {
             lifecycle: TransactionLifecycle::new(),
             production,
             revision_context: RevisionContext::default(),
+            record_extensions: postproject_protocol::Extensions::default(),
             pending_events: Vec::new(),
             pending_effects: Vec::new(),
             base_revision,
@@ -1808,6 +1810,7 @@ impl<'production> SqliteTransaction<'production> {
     }
 
     fn clear_pending(&mut self) {
+        self.record_extensions = postproject_protocol::Extensions::default();
         self.pending_events.clear();
         self.pending_effects.clear();
         self.pending_conflict_keys.clear();
@@ -1875,6 +1878,7 @@ impl<'production> SqliteTransaction<'production> {
                 &committed_revision,
                 &self.pending_effects,
                 &events,
+                &self.record_extensions,
             )?;
             revision = Some(committed_revision);
         } else if !changed_keys.is_empty() {

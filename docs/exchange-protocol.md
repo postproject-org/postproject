@@ -30,6 +30,8 @@ revision/transaction/time/context, ordered complete effects, public events and
 extensions. Native writes use their original transaction identity and need no
 invented client request. Historical effects preserve intermediate observations
 that remain publicly meaningful, rather than only the final state.
+Accepted submission extensions survive in the original record manifest, replay
+and retained checkpoint records; they remain part of request equality.
 
 At migration, retain old revisions and create a persistent replay-floor anchor.
 Its digest uses the `anchor` domain over canonical production/history/floor.

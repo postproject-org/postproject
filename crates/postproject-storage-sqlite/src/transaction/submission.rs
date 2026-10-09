@@ -95,6 +95,7 @@ impl SqliteTransaction<'_> {
 
     fn stage_proposal(&mut self, proposal: &Proposal) -> Result<()> {
         self.set_revision_context(proposal.context().clone())?;
+        self.record_extensions = proposal.extensions().clone();
         for command in proposal.commands() {
             match command {
                 Command::AppendMetadata {
