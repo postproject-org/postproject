@@ -1,5 +1,7 @@
 //! Deterministic authority/fencing coverage without public clock injection.
 
+mod inert_replay;
+
 use std::sync::atomic::{AtomicI64, Ordering};
 
 use postproject_core::{
@@ -28,7 +30,7 @@ impl JobClock for Clock {
 }
 
 struct Fixture {
-    _directory: TempDir,
+    directory: TempDir,
     store: SqliteProduction,
     clock: Arc<Clock>,
     job: JobId,
@@ -77,7 +79,7 @@ impl Fixture {
         edit.commit().unwrap();
         drop(edit);
         Self {
-            _directory: directory,
+            directory,
             store,
             clock,
             job: job.id(),
