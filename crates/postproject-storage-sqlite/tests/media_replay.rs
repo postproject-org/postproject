@@ -1,12 +1,12 @@
 //! Distinct files retain complete media and authored mixed-operation history.
 
 use postproject_core::{
-    Asset, AssetId, ContentStructure, FileFacts, FrameRange, ImageSequenceDescriptor, Locator,
-    LocatorAvailability, LocatorId, MediaRoot, MediaRootId, MetadataProperty, MetadataValue,
-    ObjectRef, OriginalMediaImport, PropertyId, RationalRate, Representation,
-    RepresentationFingerprint, RepresentationId, RepresentationImport, RepresentationKind,
-    Resource, ResourceFingerprint, ResourceId, ResourceMember, ResourceRole, SequenceNaming,
-    Timestamp, VocabularyId,
+    Asset, AssetId, ContentStructure, ExternalIdentifier, FileFacts, FrameRange, IdentifierScheme,
+    ImageSequenceDescriptor, Locator, LocatorAvailability, LocatorId, MediaRoot, MediaRootId,
+    MetadataProperty, MetadataValue, ObjectRef, OriginalMediaImport, PropertyId, RationalRate,
+    Representation, RepresentationFingerprint, RepresentationId, RepresentationImport,
+    RepresentationKind, Resource, ResourceFingerprint, ResourceId, ResourceMember, ResourceRole,
+    SequenceNaming, Timestamp, VocabularyId,
 };
 use postproject_protocol::{
     Document, Extensions, FrameDecoder, Limits, MediaChange, RecordChunk, RecordFeature,
@@ -505,6 +505,7 @@ fn assert_rejected_prefix(
         "assets",
         "resources",
         "representations",
+        "external_identifiers",
         "revisions",
         "revision_events",
         "conflict_versions",
@@ -554,5 +555,109 @@ fn failed_native_record_persistence_rolls_back_the_complete_media_commit() {
         assert_eq!(edit.commit().unwrap().revision().unwrap().sequence(), 1);
         drop(edit);
         assert_eq!(source.exchange_head().unwrap().sequence(), 1);
+    }
+}
+
+#[test]
+fn identifier_lifecycles_keep_exact_owner_qualifier_and_intermediate_observations() {
+    let directory = tempfile::tempdir().unwrap();
+    let source_path = directory.path().join("source.pproj");
+    let mirror_path = directory.path().join("mirror.pproj");
+    let mut source = SqliteProduction::create(&source_path, None).unwrap();
+    let mut mirror = SqliteProduction::create_genesis_mirror(
+        &mirror_path,
+        source.production(),
+        source.exchange_floor().unwrap(),
+    )
+    .unwrap();
+    let import = fixture(ContentStructure::single_resource(ResourceId::new()));
+    let targets = [
+        ObjectRef::Asset(import.asset().id()),
+        ObjectRef::Representation(import.representation().id()),
+        ObjectRef::Resource(import.resources()[0].id()),
+    ];
+    let identifier = ExternalIdentifier::new(
+        IdentifierScheme::new("unknown:ID").unwrap(),
+        "urn:Value:名\"\\?",
+        None,
+    )
+    .unwrap();
+    let qualified = ExternalIdentifier::new(
+        identifier.scheme().clone(),
+        identifier.value(),
+        Some("Case/名".into()),
+    )
+    .unwrap();
+    let different_case = ExternalIdentifier::new(
+        IdentifierScheme::new("unknown:id").unwrap(),
+        identifier.value(),
+        None,
+    )
+    .unwrap();
+    let base = source.read_session().unwrap().decision_base();
+    let mut edit = source.begin_edit(base).unwrap();
+    edit.import_original(&import).unwrap();
+    for target in targets {
+        edit.add_external_identifier(target, &identifier).unwrap();
+    }
+    for target in targets {
+        edit.remove_external_identifier(target, &identifier)
+            .unwrap();
+    }
+    for target in targets {
+        edit.add_external_identifier(target, &identifier).unwrap();
+    }
+    edit.add_external_identifier(targets[2], &qualified)
+        .unwrap();
+    edit.add_external_identifier(targets[2], &different_case)
+        .unwrap();
+    let revision = edit.commit().unwrap().revision().unwrap().id();
+    drop(edit);
+    apply_sequence(&source, &mut mirror, 1);
+    for target in targets {
+        assert_eq!(
+            mirror.external_identifiers(target).unwrap(),
+            source.external_identifiers(target).unwrap()
+        );
+    }
+    assert_eq!(mirror.external_identifiers(targets[2]).unwrap().len(), 3);
+    assert_eq!(
+        mirror.events_for_revision(revision).unwrap(),
+        source.events_for_revision(revision).unwrap()
+    );
+    assert_eq!(guard_rows(&mirror_path), guard_rows(&source_path));
+    let original = source.record_reader(1).unwrap().manifest().clone();
+    assert_eq!(original.effect_count(), 12);
+    let original_frames = record_frames(&source, 1);
+    let asset = import.asset().id().to_string();
+    let foreign = AssetId::new().to_string();
+    for (index, (before, after)) in [
+        ("identifier.added", "identifier.removed"),
+        (asset.as_str(), foreign.as_str()),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let mut forged = original_frames.clone();
+        let frame = forged
+            .iter_mut()
+            .find(|frame| frame.kind().unwrap() == "identifier.added")
+            .unwrap();
+        let encoded = String::from_utf8(frame.canonical_bytes().unwrap()).unwrap();
+        assert!(encoded.contains(before));
+        *frame = Document::parse(
+            encoded.replacen(before, after, 1).as_bytes(),
+            Limits::default(),
+        )
+        .unwrap();
+        let (manifest, chunk) = rehashed_record(&original, &forged);
+        assert_rejected_prefix(
+            &source,
+            &directory
+                .path()
+                .join(format!("identifier-forgery-{index}.pproj")),
+            &manifest,
+            chunk,
+        );
     }
 }

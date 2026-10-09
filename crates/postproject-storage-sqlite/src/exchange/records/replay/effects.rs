@@ -1,8 +1,8 @@
 use postproject_core::{AssetId, RepresentationKind, RevisionEventKind, SemanticConflictKey};
 use postproject_protocol::{
-    Document, FailureKind, FingerprintChangeStart, MediaChange, MetadataEffectStart,
-    MetadataOperation, ProtocolError, RecordFeature, RecordManifest, RepresentationCreationStart,
-    decode_event, decode_original_creation_start,
+    Document, FailureKind, FingerprintChangeStart, IdentifierChange, MediaChange,
+    MetadataEffectStart, MetadataOperation, ProtocolError, RecordFeature, RecordManifest,
+    RepresentationCreationStart, decode_event, decode_original_creation_start,
 };
 use rusqlite::{Transaction, params};
 
@@ -78,6 +78,7 @@ impl<'a, 'connection> ApplyEffects<'a, 'connection> {
                 }
                 "representation.creation" => self.start_creation(document),
                 "fingerprint.change" => self.start_fingerprint(document),
+                "identifier.added" | "identifier.removed" => self.identifier_document(document),
                 "resource.file-facts"
                 | "root.added"
                 | "root.enabled"
@@ -120,6 +121,22 @@ impl<'a, 'connection> ApplyEffects<'a, 'connection> {
             return Err(invalid().into());
         }
         self.events += 1;
+        Ok(())
+    }
+
+    fn identifier_document(&mut self, document: &Document) -> ExchangeResult<()> {
+        self.require_feature(RecordFeature::Media)?;
+        let change = IdentifierChange::from_document(document)?;
+        super::identifier_change::apply(self.transaction, &change)?;
+        super::facts::changed(self.transaction, self.manifest, &change.conflict_key())?;
+        super::facts::observation(
+            self.transaction,
+            self.manifest,
+            self.expected_events,
+            &change.observation(),
+        )?;
+        self.expected_events += 1;
+        self.effects += 1;
         Ok(())
     }
 

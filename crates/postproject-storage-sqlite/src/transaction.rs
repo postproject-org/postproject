@@ -1023,6 +1023,16 @@ impl<'production> SqliteTransaction<'production> {
         identifier: &ExternalIdentifier,
     ) -> Result<()> {
         let (target_kind, target_id) = encode_identifier_target(&target)?;
+        let captured = postproject_protocol::IdentifierChange::Added(
+            postproject_protocol::IdentifierAttachment::new(target, identifier.clone()).map_err(
+                |_| {
+                    Error::new(
+                        ErrorKind::Internal,
+                        "native identifier target has no exchange encoding",
+                    )
+                },
+            )?,
+        );
         let transaction = self.open_transaction()?;
         if !identifier_target_exists(transaction, target_kind, target_id)? {
             return Err(Error::new(
@@ -1053,6 +1063,8 @@ impl<'production> SqliteTransaction<'production> {
                 target,
                 identifier: identifier.clone(),
             });
+        self.pending_effects
+            .push(crate::exchange::CapturedEffect::IdentifierChanged(captured));
         Ok(())
     }
 
@@ -1072,6 +1084,16 @@ impl<'production> SqliteTransaction<'production> {
     ) -> Result<()> {
         self.require_decision_base()?;
         let (target_kind, target_id) = encode_identifier_target(&target)?;
+        let captured = postproject_protocol::IdentifierChange::Removed(
+            postproject_protocol::IdentifierAttachment::new(target, identifier.clone()).map_err(
+                |_| {
+                    Error::new(
+                        ErrorKind::Internal,
+                        "native identifier target has no exchange encoding",
+                    )
+                },
+            )?,
+        );
         let changed = self
             .open_transaction()?
             .execute(
@@ -1102,6 +1124,8 @@ impl<'production> SqliteTransaction<'production> {
                 target,
                 identifier: identifier.clone(),
             });
+        self.pending_effects
+            .push(crate::exchange::CapturedEffect::IdentifierChanged(captured));
         Ok(())
     }
 

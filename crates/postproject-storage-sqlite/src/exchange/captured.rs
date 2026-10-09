@@ -4,8 +4,9 @@ use postproject_core::{
     Locator, OriginalMediaImport, Representation, RepresentationImport, Resource, RevisionEventKind,
 };
 use postproject_protocol::{
-    Document, FingerprintChangeStart, FingerprintRecomputation, MediaChange, MetadataChange,
-    MetadataEffect, RecordFeature, encode_original_creation, encode_representation_creation,
+    Document, FingerprintChangeStart, FingerprintRecomputation, IdentifierChange, MediaChange,
+    MetadataChange, MetadataEffect, RecordFeature, encode_original_creation,
+    encode_representation_creation,
 };
 
 pub(crate) struct CapturedFingerprint {
@@ -19,6 +20,7 @@ pub(crate) enum CapturedEffect {
     RepresentationCreated(Box<RepresentationImport>),
     MediaChanged(MediaChange),
     FingerprintChanged(Box<CapturedFingerprint>),
+    IdentifierChanged(IdentifierChange),
 }
 
 impl From<MetadataEffect> for CapturedEffect {
@@ -34,7 +36,8 @@ impl CapturedEffect {
             Self::OriginalCreated(_)
             | Self::RepresentationCreated(_)
             | Self::MediaChanged(_)
-            | Self::FingerprintChanged(_) => None,
+            | Self::FingerprintChanged(_)
+            | Self::IdentifierChanged(_) => None,
         }
     }
 
@@ -44,7 +47,8 @@ impl CapturedEffect {
             Self::OriginalCreated(_)
             | Self::RepresentationCreated(_)
             | Self::MediaChanged(_)
-            | Self::FingerprintChanged(_) => RecordFeature::Media,
+            | Self::FingerprintChanged(_)
+            | Self::IdentifierChanged(_) => RecordFeature::Media,
         }
     }
 
@@ -61,6 +65,7 @@ impl CapturedEffect {
                 Box::new(encode_representation_creation(import, sequence)?)
             }
             Self::MediaChanged(change) => Box::new(std::iter::once(change.document())),
+            Self::IdentifierChanged(change) => Box::new(std::iter::once(change.document())),
             Self::FingerprintChanged(change) => Box::new(
                 std::iter::once(change.start.document())
                     .chain(change.markers.iter().map(|marker| Ok(marker.document()))),
@@ -70,6 +75,7 @@ impl CapturedEffect {
 
     pub(crate) fn observations(&self) -> Box<dyn Iterator<Item = RevisionEventKind> + '_> {
         match self {
+            Self::IdentifierChanged(change) => Box::new(std::iter::once(change.observation())),
             Self::FingerprintChanged(change) => {
                 Box::new(std::iter::once(change.start.observation()))
             }
