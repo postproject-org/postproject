@@ -1,0 +1,73 @@
+{
+  "kind": "proposal",
+  "version": "1",
+  "required_features": [
+    "metadata.v1"
+  ],
+  "production": "00000000-0000-4000-8000-000000000001",
+  "history": "00000000-0000-4000-8000-000000000002",
+  "client": "00000000-0000-4000-8000-000000000003",
+  "request": "00000000-0000-4000-8000-000000000064",
+  "base": null,
+  "origin": null,
+  "message": "Fixed independent Python vector",
+  "commands": [
+    {
+      "kind": "metadata.append",
+      "target": {
+        "kind": "production",
+        "id": "00000000-0000-4000-8000-000000000001"
+      },
+      "property": {
+        "vocabulary": "urn:vendor:Unknown",
+        "property": "Repeated"
+      },
+      "value": {
+        "kind": "struct",
+        "value": [
+          {
+            "name": "Text",
+            "value": {
+              "kind": "list",
+              "value": [
+                {
+                  "kind": "string",
+                  "value": "same"
+                },
+                {
+                  "kind": "string",
+                  "value": "same"
+                }
+              ]
+            }
+          },
+          {
+            "name": "Exact",
+            "value": {
+              "kind": "decimal",
+              "coefficient": "-170141183460469231731687303715884105728",
+              "scale": "3"
+            }
+          },
+          {
+            "name": "Ratio",
+            "value": {
+              "kind": "rational",
+              "numerator": "-9223372036854775808",
+              "denominator": "18446744073709551615"
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "extensions": {
+    "vendor:exact": {
+      "ordered": [
+        "\u540c",
+        "\u540c",
+        "\ud83d\ude00"
+      ]
+    }
+  }
+}

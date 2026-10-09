@@ -1,0 +1,37 @@
+{
+  "kind": "proposal",
+  "version": "1",
+  "required_features": [
+    "media.v1"
+  ],
+  "production": "00000000-0000-4000-8000-000000000001",
+  "history": "00000000-0000-4000-8000-000000000002",
+  "client": "00000000-0000-4000-8000-000000000003",
+  "request": "00000000-0000-4000-8000-000000000065",
+  "base": null,
+  "origin": null,
+  "message": "Fixed independent Python vector",
+  "commands": [
+    {
+      "kind": "root.add",
+      "root": {
+        "kind": "root.fact",
+        "id": "00000000-0000-4000-8000-000000000004",
+        "name": "plates",
+        "label": "Exact \ud83d\ude00",
+        "legacy_uri": null,
+        "priority": "-2147483648",
+        "enabled": true
+      }
+    }
+  ],
+  "extensions": {
+    "vendor:exact": {
+      "ordered": [
+        "\u540c",
+        "\u540c",
+        "\ud83d\ude00"
+      ]
+    }
+  }
+}
