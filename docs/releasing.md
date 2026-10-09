@@ -13,6 +13,12 @@ Before tagging a release:
 2. Run `python tools/check_versions.py`, verify all workspace and fuzz
    dependency versions are locked, and confirm both `cargo deny` policies pass.
    The version check also rejects stale package filenames in current guides.
+   Audit version numbers across every active pilot, demo, Manager and site
+   repository. Update package metadata, SDK dependency ranges, native version
+   guards and current installation examples for the candidate; preserve versions
+   in historical release reports. Build the referenced wheels and run each
+   consumer suite against the candidate before pushing its updates. Installation
+   examples must distinguish published artifacts from wheels built from source.
 3. Run formatting, Clippy, tests, rustdoc, the C/C++ installed consumers, and the
    fuzz-target compile audit exactly as CI does.
 4. Run the Criterion suite and record commit, toolchain, OS, CPU, storage, and
