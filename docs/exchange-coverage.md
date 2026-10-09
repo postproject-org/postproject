@@ -19,7 +19,9 @@ genesis/migration-floor anchor. Existing revisions remain intact. The codec now
 covers strict framing, every metadata value kind, metadata proposal intent,
 media fact/creation bodies and all existing original observation kinds;
 Job codecs preserve all five observed states without credentials. Schema 25 permits
-inert claimed observations in mirrors; job capture and replay remain pending.
+inert claimed observations in mirrors. Native capture and passive replay cover
+requests, claims, renewals, release, failure, cancellation and atomic completion.
+They retain intermediate states and input decisions without worker credentials.
 Complete mutation/effect coverage and the other exchange workflows remain pending.
 Media codecs retain identities, ownership, compact structures, individual ordered
 members/exceptions, roots, locators, exact identifiers and fingerprint history.
@@ -41,9 +43,10 @@ including repeated edits to one property. Internal 1 MiB fragments preserve
 legal large values; a 65 MiB native replacement also commits and replays as one
 revision without assembling a whole evidence document. Metadata/media suffixes have bounded record manifests,
 ordered chunk chains and independently pinned Rust readers. Records retain the
-original revision/context, same-key history and observation events. Other families
-or a missing complete predecessor leave an explicit `history_gap`; a complete
-replay feed remains incomplete. Rust passive application validates metadata/media
+original revision/context, same-key history and observation events. Every current
+native mutation family is captured. Older incomplete development histories still
+need an explicit migration/resynchronization policy; missing predecessors remain
+`history_gap`. Whole checkpoints and installed exchange projections remain pending. Rust passive application validates metadata/media
 records atomically, preserving original revision/events and semantic versions.
 All four content shapes converge across distinct files without media I/O.
 Repeated root/locator/file-fact transitions retain authored intermediates.

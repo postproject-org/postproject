@@ -116,7 +116,7 @@ activity; handled late errors leave the enclosing edit usable without a prefix.
 Record manifests name the required domain codecs in a unique lexical set, covered
 by their integrity commitment. Metadata-only records retain their earlier bytes;
 media records add `media.v1`, dependency records add `dependencies.v1`, and
-immutable activity records add `provenance.v1`.
+immutable activity records add `provenance.v1`; work observations add `jobs.v1`.
 Dependency bodies stream a complete header and ordered individual occurrences,
 preserving empty sets and intermediate replacements within one revision. Replay
 checks references, recording boundaries and no-op consistency before publication.
@@ -126,6 +126,15 @@ evidence from the original transaction. Later observations cannot replace those
 snapshots. Replay validates the provided evidence against its authored prefix,
 including full bounded path coverage, without generating snapshots or loading a
 whole activity graph. Derived output keys rebuild through the existing triggers.
+Job request inputs stream in their original canonical order. Mutable lifecycle
+states are copied at each authored operation, including intermediate transitions
+within an edit. Effects retain exact authority time and the original input
+decision sequence; credentials and clock high-water remain private. Passive
+application checks the prior state, lifecycle constraints, request/output and
+publication provenance. It preserves expired claims without consulting a clock,
+reauthorizing a worker or executing work. Request/transition capture failures
+roll back their domain rows and queued observations while preserving unrelated
+edits. Whole job checkpoints and command submission remain pending.
 Legacy metadata evidence is encoded incrementally without a whole replacement
 document allocation or a proposal-sized cap on native replacements.
 

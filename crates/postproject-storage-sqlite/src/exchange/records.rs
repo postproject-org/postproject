@@ -1,4 +1,4 @@
-//! Atomic capture of metadata and media; other families remain pending.
+//! Atomic capture of all current native mutation families.
 
 pub(super) mod chunks;
 mod reader;
