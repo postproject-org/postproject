@@ -541,10 +541,10 @@ fn failed_native_record_persistence_rolls_back_the_complete_media_commit() {
             source.exchange_head().unwrap(),
             source.exchange_floor().unwrap()
         );
-        assert!(source.assets().unwrap().is_empty());
-        assert!(source.media_roots().unwrap().is_empty());
-        assert!(source.changes_since(0, 10).unwrap().is_empty());
-        assert!(guard_rows(&path).is_empty());
+        assert_eq!(source.assets().unwrap(), []);
+        assert_eq!(source.media_roots().unwrap(), []);
+        assert_eq!(source.changes_since(0, 10).unwrap(), []);
+        assert_eq!(guard_rows(&path), []);
         connection
             .execute_batch("DROP TRIGGER reject_capture")
             .unwrap();
