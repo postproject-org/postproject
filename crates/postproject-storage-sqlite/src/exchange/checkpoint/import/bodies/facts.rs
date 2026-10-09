@@ -1,4 +1,3 @@
-use postproject_core::{ObjectRef, SemanticConflictKey};
 use postproject_protocol::{
     ConflictVersion, Document, ProductionHeader, SnapshotAssertion, decode_conflict_floor,
     decode_root,
@@ -28,9 +27,7 @@ impl Bodies<'_, '_> {
 
     pub(super) fn metadata(&mut self, document: &Document) -> ExchangeResult<()> {
         let assertion = SnapshotAssertion::from_document(document)?;
-        if assertion.target() != ObjectRef::Production(self.manifest.head().scope().production()) {
-            return Err(invalid().into());
-        }
+        self.target_scope(assertion.target())?;
         let target = assertion.target();
         let (kind, id) = crate::encode_metadata_target(&target)?;
         let property = assertion.property();
@@ -76,12 +73,7 @@ impl Bodies<'_, '_> {
 
     pub(super) fn version(&mut self, document: &Document) -> ExchangeResult<()> {
         let version = ConflictVersion::from_document(document)?;
-        match version.key() {
-            SemanticConflictKey::MetadataProperty { target, .. }
-                if *target == ObjectRef::Production(self.manifest.head().scope().production()) => {}
-            SemanticConflictKey::MediaRoot(_) => {}
-            _ => return Err(invalid().into()),
-        }
+        self.semantic_target(version.key())?;
         self.validate_revision(version.revision(), version.sequence())?;
         let key = encode_conflict_key(version.key())?;
         let duplicate: bool = self

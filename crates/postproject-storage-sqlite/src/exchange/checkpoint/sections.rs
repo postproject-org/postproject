@@ -14,7 +14,7 @@ pub(super) use media::media;
 pub(super) use roots::roots;
 pub(super) use versions::{conflict_floor, versions};
 
-use postproject_core::{MetadataProperty, ObjectRef, PropertyId, VocabularyId};
+use postproject_core::{MetadataProperty, PropertyId, VocabularyId};
 use postproject_protocol::{CheckpointChunk, SnapshotAssertion};
 
 use crate::{ExchangeResult, SqliteProduction, metadata_codec, sqlite_error};
@@ -40,9 +40,6 @@ pub(super) fn metadata<Sink: FnMut(CheckpointChunk) -> ExchangeResult<()>>(
             row.get(1)
                 .map_err(sqlite_error("read metadata target identity"))?,
         )?;
-        if target != ObjectRef::Production(view.production.id()) {
-            return Err(super::invalid().into());
-        }
         let property = MetadataProperty::new(
             VocabularyId::new(
                 row.get::<_, String>(2)

@@ -1,4 +1,4 @@
-use postproject_core::{ObjectRef, RevisionEvent, RevisionId};
+use postproject_core::{RevisionEvent, RevisionId};
 use postproject_protocol::{Document, decode_event, decode_revision_observation};
 use rusqlite::{Connection, OptionalExtension, params};
 
@@ -34,19 +34,7 @@ impl Bodies<'_, '_> {
         if u64::from(event.position()) != self.event_position {
             return Err(invalid().into());
         }
-        let target = match event.kind() {
-            postproject_core::RevisionEventKind::MetadataAddedOrReplaced { target, .. }
-            | postproject_core::RevisionEventKind::MetadataRemoved { target, .. } => *target,
-            postproject_core::RevisionEventKind::MediaRootAdded { .. }
-            | postproject_core::RevisionEventKind::MediaRootEnabledChanged { .. }
-            | postproject_core::RevisionEventKind::MediaRootRemoved { .. } => {
-                ObjectRef::Production(self.manifest.head().scope().production())
-            }
-            _ => return Err(invalid().into()),
-        };
-        if target != ObjectRef::Production(self.manifest.head().scope().production()) {
-            return Err(invalid().into());
-        }
+        self.event_targets(event.kind())?;
         persist_revision_event(
             self.transaction,
             event.revision_id(),

@@ -6,6 +6,7 @@ mod fingerprints;
 mod history;
 mod media;
 mod records;
+mod references;
 
 use postproject_protocol::{CheckpointManifest, CheckpointSection, Document};
 use rusqlite::Transaction;
@@ -120,6 +121,7 @@ impl<'a, 'connection> Bodies<'a, 'connection> {
             return Err(super::super::invalid().into());
         }
         self.validate_fingerprints()?;
+        self.validate_media()?;
         self.validate_boundaries()
     }
 }

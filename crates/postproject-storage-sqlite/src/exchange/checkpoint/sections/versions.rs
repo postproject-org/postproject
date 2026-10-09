@@ -1,4 +1,4 @@
-use postproject_core::{DecisionBase, RevisionId, SemanticConflictKey};
+use postproject_core::{DecisionBase, RevisionId};
 use postproject_protocol::{CheckpointChunk, ConflictVersion, encode_conflict_floor};
 use rusqlite::OptionalExtension;
 
@@ -50,17 +50,6 @@ pub(in crate::exchange::checkpoint) fn versions<
             .get(0)
             .map_err(sqlite_error("read private semantic key"))?;
         let key = decode_conflict_key(&encoded)?;
-        // Keep this vertical slice honest until the other domain sections land.
-        if !matches!(
-            key,
-            SemanticConflictKey::MetadataProperty { .. } | SemanticConflictKey::MediaRoot(_)
-        ) {
-            return Err(postproject_protocol::ProtocolError::new(
-                postproject_protocol::FailureKind::Unsupported,
-                "checkpoint semantic family is not supported yet",
-            )
-            .into());
-        }
         let sequence: i64 = row.get(2).map_err(sqlite_error("read semantic boundary"))?;
         let actual: Option<i64> = row
             .get(3)
