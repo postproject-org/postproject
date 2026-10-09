@@ -1,8 +1,8 @@
 use postproject_core::{AssetId, RepresentationKind, RevisionEventKind, SemanticConflictKey};
 use postproject_protocol::{
-    Document, FailureKind, MediaChange, MetadataEffectStart, MetadataOperation, ProtocolError,
-    RecordFeature, RecordManifest, RepresentationCreationStart, decode_event,
-    decode_original_creation_start,
+    Document, FailureKind, FingerprintChangeStart, MediaChange, MetadataEffectStart,
+    MetadataOperation, ProtocolError, RecordFeature, RecordManifest, RepresentationCreationStart,
+    decode_event, decode_original_creation_start,
 };
 use rusqlite::{Transaction, params};
 
@@ -27,6 +27,7 @@ enum Pending {
     Metadata(MetadataEffectStart, u64),
     Original(AssetId),
     Creation(Box<super::creation::CreationApply>),
+    Fingerprint(Box<super::fingerprint_change::FingerprintApply>),
 }
 
 impl<'a, 'connection> ApplyEffects<'a, 'connection> {
@@ -49,6 +50,7 @@ impl<'a, 'connection> ApplyEffects<'a, 'connection> {
             Some(Pending::Metadata(..)) => return self.value(document),
             Some(Pending::Original(_)) => return self.start_creation(document),
             Some(Pending::Creation(_)) => return self.creation_document(document),
+            Some(Pending::Fingerprint(_)) => return self.fingerprint_document(document),
             None => {}
         }
         if self.effects < self.manifest.effect_count() {
@@ -75,6 +77,7 @@ impl<'a, 'connection> ApplyEffects<'a, 'connection> {
                     Ok(())
                 }
                 "representation.creation" => self.start_creation(document),
+                "fingerprint.change" => self.start_fingerprint(document),
                 "resource.file-facts"
                 | "root.added"
                 | "root.enabled"
@@ -117,6 +120,42 @@ impl<'a, 'connection> ApplyEffects<'a, 'connection> {
             return Err(invalid().into());
         }
         self.events += 1;
+        Ok(())
+    }
+
+    fn start_fingerprint(&mut self, document: &Document) -> ExchangeResult<()> {
+        self.require_feature(RecordFeature::Media)?;
+        let start = FingerprintChangeStart::from_document(document)?;
+        let markers = start.marker_count();
+        let observation = start.observation();
+        let key = start.conflict_key();
+        let pending = super::fingerprint_change::FingerprintApply::begin(
+            self.transaction,
+            self.manifest,
+            start,
+        )?;
+        super::facts::changed(self.transaction, self.manifest, &key)?;
+        super::facts::observation(
+            self.transaction,
+            self.manifest,
+            self.expected_events,
+            &observation,
+        )?;
+        self.expected_events += 1;
+        self.effects += 1;
+        if markers != 0 {
+            self.effect = Some(Pending::Fingerprint(Box::new(pending)));
+        }
+        Ok(())
+    }
+
+    fn fingerprint_document(&mut self, document: &Document) -> ExchangeResult<()> {
+        let Some(Pending::Fingerprint(pending)) = self.effect.as_mut() else {
+            return Err(invalid().into());
+        };
+        if pending.push(self.transaction, self.manifest, document)? {
+            self.effect = None;
+        }
         Ok(())
     }
 

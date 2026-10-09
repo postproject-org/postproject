@@ -3,6 +3,7 @@
 mod creation;
 mod effects;
 mod facts;
+mod fingerprint_change;
 mod limits;
 mod media_change;
 
