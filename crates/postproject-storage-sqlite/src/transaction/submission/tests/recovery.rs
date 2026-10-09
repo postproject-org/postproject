@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use postproject_core::{ErrorKind, JobClaimId, JobLeaseState, JobState, ToolIdentity};
-use postproject_protocol::{Command, FailureKind, OutcomeStatus};
+use postproject_protocol::{Command, FailureKind, JobResult, JobResultState, OutcomeStatus};
 
 use super::Fixture;
 use crate::{ExchangeError, ReplayLimits, SqliteProduction};
@@ -27,6 +27,13 @@ fn completed_token_request_recovers_before_expiry_clock_and_ownership_guards() {
         JobLeaseState::Active { .. }
     ));
     let token = lease.export_token().unwrap();
+    assert_eq!(
+        claim_outcome.jobs(),
+        &[JobResult::new(
+            fixture.job.id(),
+            JobResultState::Claimed(postproject_core::Timestamp::from_unix_micros(200))
+        )]
+    );
     let secret = token.rsplit(':').next().unwrap();
     assert!(!format!("{claim_outcome:?}").contains(secret));
     assert!(
@@ -49,6 +56,22 @@ fn completed_token_request_recovers_before_expiry_clock_and_ownership_guards() {
         .unwrap();
     assert_eq!(result.leases().len(), 0);
     let outcome = result.into_parts().0;
+    let JobState::Succeeded(completed) = fixture
+        .source
+        .job(fixture.job.id())
+        .unwrap()
+        .state()
+        .clone()
+    else {
+        panic!("completion did not publish a terminal state");
+    };
+    assert_eq!(
+        outcome.jobs(),
+        &[JobResult::new(
+            fixture.job.id(),
+            JobResultState::Succeeded(completed)
+        )]
+    );
     assert!(
         matches!(outcome.status(), OutcomeStatus::Accepted(receipt)
         if receipt.revision().unwrap().sequence() == 3),

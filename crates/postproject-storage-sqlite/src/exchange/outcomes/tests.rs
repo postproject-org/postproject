@@ -107,3 +107,53 @@ fn malformed_stored_binding_is_corruption_even_for_public_recovery() {
         Err(super::super::error::ExchangeError::Store(error)) if error.kind() == ErrorKind::Storage)
     );
 }
+
+#[test]
+fn large_job_results_recover_after_reopen_with_their_original_public_facts() {
+    use postproject_core::{ActivityId, JobCompletion, JobId, RepresentationId};
+    use postproject_protocol::{Command, JobResult, JobResultState};
+
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("source.pproj");
+    let source = SqliteProduction::create(&path, None).unwrap();
+    let mut ids: Vec<_> = (0..1000).map(|_| JobId::new()).collect();
+    ids.sort();
+    let proposal = Proposal::new(
+        source.exchange_scope().unwrap(),
+        ClientId::new(),
+        RequestId::new(),
+        None,
+        RevisionContext::default(),
+        ids.iter().copied().map(Command::CancelJob).collect(),
+        Extensions::default(),
+    )
+    .unwrap();
+    let jobs = ids
+        .into_iter()
+        .map(|id| {
+            JobResult::new(
+                id,
+                JobResultState::Succeeded(JobCompletion::new(
+                    ActivityId::new(),
+                    RepresentationId::new(),
+                )),
+            )
+        })
+        .collect();
+    let outcome = Outcome::accepted_with_jobs(
+        &proposal,
+        CommitReceipt::new(source.production().id(), None),
+        jobs,
+    )
+    .unwrap();
+    assert!(outcome.document().unwrap().canonical_bytes().unwrap().len() > 128 * 1024);
+    persist(&source.connection, &outcome, Some(&[7; 32])).unwrap();
+    drop(source);
+    let source = SqliteProduction::open(path).unwrap();
+    assert_eq!(
+        source
+            .submission_outcome(proposal.scope(), proposal.client(), proposal.request())
+            .unwrap(),
+        Some(outcome)
+    );
+}
