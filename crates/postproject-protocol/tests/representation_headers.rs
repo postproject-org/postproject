@@ -20,7 +20,13 @@ fn all_roles_preserve_original_identity_and_asset_ownership() {
             ContentStructure::single_resource(ResourceId::new()),
             Vec::new(),
         );
-        let header = RepresentationHeader::from_representation(&representation);
+        let header =
+            RepresentationHeader::new(representation.id(), representation.asset_id(), kind)
+                .unwrap();
+        assert_eq!(
+            header,
+            RepresentationHeader::from_representation(&representation)
+        );
         let bytes = header.document().unwrap().canonical_bytes().unwrap();
         let restored = RepresentationHeader::from_document(
             &Document::parse(&bytes, Limits::default()).unwrap(),

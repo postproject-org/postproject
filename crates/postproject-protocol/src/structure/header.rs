@@ -1,6 +1,6 @@
 use postproject_core::{
-    ContentStructureKind, FrameRange, MAX_CONTENT_MEMBERS, MAX_SEQUENCE_EXCEPTIONS, RationalRate,
-    Representation, RepresentationId, ResourceId,
+    ContentStructure, ContentStructureKind, FrameRange, MAX_CONTENT_MEMBERS,
+    MAX_SEQUENCE_EXCEPTIONS, RationalRate, Representation, RepresentationId, ResourceId,
 };
 use serde_json::{Value, json};
 
@@ -37,7 +37,14 @@ impl StructureHeader {
     /// # Errors
     /// Rejects future core shapes without a defined wire representation.
     pub fn from_representation(representation: &Representation) -> Result<Self> {
-        let structure = representation.content_structure();
+        Self::from_structure(representation.id(), representation.content_structure())
+    }
+
+    /// Copies a checked content shape without loading fingerprints or locations.
+    ///
+    /// # Errors
+    /// Rejects future shapes without a defined wire representation.
+    pub fn from_structure(owner: RepresentationId, structure: &ContentStructure) -> Result<Self> {
         let shape = match structure.kind() {
             ContentStructureKind::SingleResource => {
                 Shape::Single(structure.single_resource_id().ok_or_else(malformed)?)
@@ -61,10 +68,7 @@ impl StructureHeader {
             }
             _ => return Err(unsupported()),
         };
-        Ok(Self {
-            owner: representation.id(),
-            shape,
-        })
+        Ok(Self { owner, shape })
     }
 
     /// Returns the owning representation identity.

@@ -17,6 +17,23 @@ pub struct RepresentationHeader {
 }
 
 impl RepresentationHeader {
+    /// Creates scalar ownership without constructing or loading an aggregate.
+    ///
+    /// # Errors
+    /// Rejects future roles without a defined wire representation.
+    pub fn new(id: RepresentationId, asset_id: AssetId, kind: RepresentationKind) -> Result<Self> {
+        if !matches!(
+            kind,
+            RepresentationKind::Original
+                | RepresentationKind::Proxy
+                | RepresentationKind::Optimized
+                | RepresentationKind::Derived
+        ) {
+            return Err(unsupported());
+        }
+        Ok(Self { id, asset_id, kind })
+    }
+
     /// Copies scalar facts without cloning resources, members or fingerprints.
     #[must_use]
     pub const fn from_representation(representation: &Representation) -> Self {

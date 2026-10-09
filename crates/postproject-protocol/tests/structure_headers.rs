@@ -39,7 +39,15 @@ fn all_shapes_have_bounded_headers_with_exact_continuation_totals() {
     ];
     for content in contents {
         let representation = representation(content);
-        let header = StructureHeader::from_representation(&representation).unwrap();
+        let header = StructureHeader::from_structure(
+            representation.id(),
+            representation.content_structure(),
+        )
+        .unwrap();
+        assert_eq!(
+            header,
+            StructureHeader::from_representation(&representation).unwrap()
+        );
         let bytes = header.document().canonical_bytes().unwrap();
         assert!(bytes.len() < 600);
         let restored =

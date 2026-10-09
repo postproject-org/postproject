@@ -6,13 +6,12 @@ All notable changes to PostProject will be documented here. The project uses
 ## Unreleased
 
 - Add experimental portable-exchange codecs for metadata/media/dependency/activity/job intent, authored facts and original observations (ADR 0065).
-- Persist exchange histories, metadata/media/dependency/activity/job records and privately bound submission outcomes in schema 25; reconstruct passive metadata checkpoints and replay native authored facts.
+- Persist exchange histories, metadata/media/dependency/activity/job records and privately bound submission outcomes and compact job results in schema 26; reconstruct passive metadata/root checkpoints and replay native authored facts.
 - Roll back failed media, fingerprint, dependency, activity and job staging while preserving unrelated edits and guards.
 - Preserve activity identifier attachments when capturing native edits.
 - Stream large dependency comparisons and guard unchanged observations against stale bases.
 - Enforce the same JSON resource limits for typed and decoded proposals.
 - Close same-edit lease ownership when the final claim is cancelled or superseded.
-- Retain compact noncredential job results with public outcomes in schema 26.
 - Require complete authored capture for every native changing commit.
 
 ## 0.7.0-alpha.1 - 2026-10-08
