@@ -1924,6 +1924,7 @@ impl<'production> SqliteTransaction<'production> {
 
     fn prepare_commit(&mut self) -> Result<CommitReceipt> {
         self.check_lease_commit()?;
+        self.reconcile_lease_delivery()?;
         let conflict_keys = self.pending_conflict_keys.snapshot();
         let changed_keys = self.pending_changed_keys.snapshot();
         if let Some(base_revision) = self.base_revision {

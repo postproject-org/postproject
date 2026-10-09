@@ -37,6 +37,8 @@ impl SqliteTransaction<'_> {
         let lease = SqliteJobLease::pending(self.production.id(), job, secret, self.id());
         self.lease_guards.push(expiry.as_unix_micros());
         self.lease_updates.push(LeaseUpdate {
+            job,
+            secret,
             state: Arc::clone(&lease.state),
             after: JobLeaseState::Active { expires_at: expiry },
             newly_claimed: true,
@@ -181,6 +183,8 @@ impl SqliteTransaction<'_> {
     ) {
         self.lease_guards.push(guarded_expiry.as_unix_micros());
         self.lease_updates.push(LeaseUpdate {
+            job: lease.job,
+            secret: lease.secret,
             state: Arc::clone(&lease.state),
             after,
             newly_claimed: false,
@@ -218,6 +222,23 @@ impl SqliteTransaction<'_> {
             update.finish(committed);
         }
         self.lease_guards.clear();
+    }
+
+    pub(super) fn reconcile_lease_delivery(&mut self) -> Result<()> {
+        let connection = self
+            .transaction
+            .as_ref()
+            .ok_or_else(|| Error::new(ErrorKind::Internal, "lease delivery has no transaction"))?;
+        for update in &mut self.lease_updates {
+            let current: bool = connection.query_row(
+                "SELECT EXISTS(SELECT 1 FROM jobs WHERE id = ?1 AND state = 2 AND claim_id = ?2)",
+                params![update.job.as_bytes().as_slice(), update.secret.as_bytes().as_slice()],
+                |row| row.get(0)).map_err(sqlite_error("check final job ownership"))?;
+            if !current {
+                update.after = JobLeaseState::Closed;
+            }
+        }
+        Ok(())
     }
 
     pub(super) fn persist_failed_lease_time(&mut self) -> Result<()> {

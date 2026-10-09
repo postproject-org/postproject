@@ -29,6 +29,20 @@ impl JobClock for Clock {
     }
 }
 
+#[test]
+fn same_edit_cancellation_closes_pending_ownership_only_on_commit() {
+    let mut fixture = Fixture::new();
+    let mut edit = fixture.store.begin_transaction().unwrap();
+    let lease = edit
+        .claim_job_lease(fixture.job, &tool(), None, Duration::from_micros(100))
+        .unwrap();
+    edit.cancel_job(fixture.job).unwrap();
+    assert_eq!(lease.state().unwrap(), JobLeaseState::Pending);
+    edit.commit().unwrap();
+    assert_eq!(lease.state().unwrap(), JobLeaseState::Closed);
+    assert!(lease.export_token().is_err());
+}
+
 struct Fixture {
     directory: TempDir,
     store: SqliteProduction,

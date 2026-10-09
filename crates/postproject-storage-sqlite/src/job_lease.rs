@@ -174,6 +174,8 @@ pub(crate) fn state_error() -> Error {
 }
 
 pub(crate) struct LeaseUpdate {
+    pub job: JobId,
+    pub secret: JobClaimId,
     pub state: Arc<Mutex<JobLeaseState>>,
     pub after: JobLeaseState,
     pub newly_claimed: bool,
