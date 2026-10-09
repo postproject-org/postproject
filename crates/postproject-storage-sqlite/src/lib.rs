@@ -198,7 +198,7 @@ impl SqliteProduction {
 
     /// Streams a checkpoint from one pinned view and returns its final manifest.
     ///
-    /// Currently supports production metadata and retained metadata history.
+    /// Currently supports production metadata, logical roots and their retained history.
     /// The sink receives bounded chunks in section order. Publish the returned
     /// manifest only after saving every chunk; failure produces no manifest.
     /// Dropping or failing the sink releases the view. Long exports can retain WAL.
@@ -233,7 +233,7 @@ impl SqliteProduction {
     ///
     /// Returns `true` for a new apply or `false` for a verified identical
     /// duplicate. Retains original revisions/events and advances no local clock.
-    /// Only metadata effects are currently supported. Receiver budgets include
+    /// Replays supported authored domain effects. Receiver budgets include
     /// encoded envelopes; iterator errors cancel and roll back the whole apply.
     ///
     /// # Errors

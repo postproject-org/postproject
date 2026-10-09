@@ -52,7 +52,7 @@ records atomically, preserving original revision/events and semantic versions.
 All four content shapes converge across distinct files without media I/O.
 Repeated root/locator/file-fact transitions retain authored intermediates.
 Rehashed contradictory creation facts reject without a visible staged prefix.
-Rust checkpoint export/import now reconstructs production metadata, retained
+Rust checkpoint export/import now reconstructs production metadata, roots, retained
 revisions/events, semantic guards and post-floor records through bounded sections.
 Export pins one view; import checks current assertions against authored effects
 and promotes a closed passive store exclusively. Two distinct checkpoint bases

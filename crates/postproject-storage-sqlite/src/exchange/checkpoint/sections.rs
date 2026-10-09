@@ -1,9 +1,11 @@
 //! Stream source rows through checked domain codecs, never a whole section Vec.
 
 mod history;
+mod roots;
 mod versions;
 
 pub(super) use history::{events, records, revisions};
+pub(super) use roots::roots;
 pub(super) use versions::{conflict_floor, versions};
 
 use postproject_core::{MetadataProperty, ObjectRef, PropertyId, VocabularyId};

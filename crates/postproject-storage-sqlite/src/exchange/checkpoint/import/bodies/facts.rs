@@ -1,6 +1,7 @@
 use postproject_core::{ObjectRef, SemanticConflictKey};
 use postproject_protocol::{
     ConflictVersion, Document, ProductionHeader, SnapshotAssertion, decode_conflict_floor,
+    decode_root,
 };
 use rusqlite::params;
 
@@ -60,13 +61,26 @@ impl Bodies<'_, '_> {
         Ok(())
     }
 
+    pub(super) fn root(&self, document: &Document) -> ExchangeResult<()> {
+        let root = decode_root(document)?;
+        self.transaction.execute("INSERT INTO media_roots (id, name, label, legacy_uri, priority, enabled) VALUES (?1, ?2, ?3, ?4, ?5, ?6)", params![root.id().as_bytes().as_slice(), root.name(), root.label(), root.legacy_uri(), root.priority(), root.is_enabled()])
+            .map_err(|error| {
+                if error.sqlite_error_code() == Some(rusqlite::ErrorCode::ConstraintViolation) {
+                    crate::ExchangeError::Protocol(invalid())
+                } else {
+                    sqlite_error("stage checkpoint root")(error).into()
+                }
+            })?;
+        Ok(())
+    }
+
     pub(super) fn version(&mut self, document: &Document) -> ExchangeResult<()> {
         let version = ConflictVersion::from_document(document)?;
-        let SemanticConflictKey::MetadataProperty { target, .. } = version.key() else {
-            return Err(invalid().into());
-        };
-        if *target != ObjectRef::Production(self.manifest.head().scope().production()) {
-            return Err(invalid().into());
+        match version.key() {
+            SemanticConflictKey::MetadataProperty { target, .. }
+                if *target == ObjectRef::Production(self.manifest.head().scope().production()) => {}
+            SemanticConflictKey::MediaRoot(_) => {}
+            _ => return Err(invalid().into()),
         }
         self.validate_revision(version.revision(), version.sequence())?;
         let key = encode_conflict_key(version.key())?;

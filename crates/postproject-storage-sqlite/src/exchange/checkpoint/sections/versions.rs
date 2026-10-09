@@ -51,7 +51,10 @@ pub(in crate::exchange::checkpoint) fn versions<
             .map_err(sqlite_error("read private semantic key"))?;
         let key = decode_conflict_key(&encoded)?;
         // Keep this vertical slice honest until the other domain sections land.
-        if !matches!(key, SemanticConflictKey::MetadataProperty { .. }) {
+        if !matches!(
+            key,
+            SemanticConflictKey::MetadataProperty { .. } | SemanticConflictKey::MediaRoot(_)
+        ) {
             return Err(postproject_protocol::ProtocolError::new(
                 postproject_protocol::FailureKind::Unsupported,
                 "checkpoint semantic family is not supported yet",

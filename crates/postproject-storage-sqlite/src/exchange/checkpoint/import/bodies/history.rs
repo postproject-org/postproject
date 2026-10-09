@@ -40,6 +40,11 @@ impl Bodies<'_, '_> {
         let target = match event.kind() {
             postproject_core::RevisionEventKind::MetadataAddedOrReplaced { target, .. }
             | postproject_core::RevisionEventKind::MetadataRemoved { target, .. } => *target,
+            postproject_core::RevisionEventKind::MediaRootAdded { .. }
+            | postproject_core::RevisionEventKind::MediaRootEnabledChanged { .. }
+            | postproject_core::RevisionEventKind::MediaRootRemoved { .. } => {
+                ObjectRef::Production(self.manifest.head().scope().production())
+            }
             _ => return Err(invalid().into()),
         };
         if target != ObjectRef::Production(self.manifest.head().scope().production()) {
@@ -131,6 +136,32 @@ impl Bodies<'_, '_> {
             let expected: i64 = row.get(4).map_err(sqlite_error("read guard sequence"))?;
             let actual: Option<i64> = self.transaction.query_row("SELECT last_changed_revision_sequence FROM conflict_versions WHERE conflict_key = ?1", [encode_conflict_key(&key)?], |row| row.get(0))
                 .optional().map_err(sqlite_error("validate imported semantic version"))?;
+            if actual != Some(expected) {
+                return Err(invalid().into());
+            }
+            matched += 1;
+        }
+        let mut statement = self.transaction.prepare("SELECT e.primary_id, max(r.sequence) FROM revision_events e JOIN revisions r ON r.id = e.revision_id WHERE e.kind IN (6, 15, 16) GROUP BY e.primary_id HAVING max(r.sequence) > ?1")
+            .map_err(sqlite_error("prepare imported root guard validation"))?;
+        let mut rows = statement
+            .query([baseline])
+            .map_err(sqlite_error("query imported root guards"))?;
+        while let Some(row) = rows
+            .next()
+            .map_err(sqlite_error("read imported root guard"))?
+        {
+            let key = SemanticConflictKey::MediaRoot(postproject_core::MediaRootId::from_bytes(
+                crate::id_bytes(
+                    row.get(0)
+                        .map_err(sqlite_error("read root guard identity"))?,
+                    "root guard",
+                )?,
+            ));
+            let expected: i64 = row
+                .get(1)
+                .map_err(sqlite_error("read root guard boundary"))?;
+            let actual: Option<i64> = self.transaction.query_row("SELECT last_changed_revision_sequence FROM conflict_versions WHERE conflict_key = ?1", [encode_conflict_key(&key)?], |row| row.get(0))
+                .optional().map_err(sqlite_error("validate imported root guard"))?;
             if actual != Some(expected) {
                 return Err(invalid().into());
             }

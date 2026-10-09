@@ -1,5 +1,7 @@
 use postproject_core::{RevisionEventKind, RevisionId};
-use postproject_protocol::{Document, MetadataEffectStart, RecordManifest, decode_event};
+use postproject_protocol::{
+    Document, MediaChange, MetadataEffectStart, RecordFeature, RecordManifest, decode_event,
+};
 use rusqlite::Connection;
 
 use crate::ExchangeResult;
@@ -9,6 +11,9 @@ use super::super::{super::super::invalid, history::observation};
 pub(super) struct RetainedEffects {
     revision: RevisionId,
     total: u64,
+    total_events: u64,
+    media: bool,
+    metadata: bool,
     effects: u64,
     events: u64,
     remaining_values: u64,
@@ -18,10 +23,17 @@ pub(super) struct RetainedEffects {
 }
 
 impl RetainedEffects {
-    pub(super) const fn new(manifest: &RecordManifest, genesis: bool) -> Self {
+    pub(super) fn new(manifest: &RecordManifest, genesis: bool) -> Self {
         Self {
             revision: manifest.revision().id(),
             total: manifest.effect_count(),
+            total_events: manifest.event_count(),
+            media: manifest
+                .required_features()
+                .any(|feature| feature == RecordFeature::Media),
+            metadata: manifest
+                .required_features()
+                .any(|feature| feature == RecordFeature::Metadata),
             effects: 0,
             events: 0,
             remaining_values: 0,
@@ -47,6 +59,29 @@ impl RetainedEffects {
             self.value_index += 1;
             self.remaining_values -= 1;
         } else if self.effects < self.total {
+            if matches!(
+                document.kind()?,
+                "root.added" | "root.enabled" | "root.removed"
+            ) {
+                if !self.media {
+                    return Err(invalid().into());
+                }
+                let change = MediaChange::from_document(document)?;
+                let expected = observation(
+                    connection,
+                    self.revision,
+                    u32::try_from(self.effects).map_err(|_| invalid())?,
+                )?;
+                if expected.kind() != &change.observation() {
+                    return Err(invalid().into());
+                }
+                super::super::super::root_state::change(connection, &change, self.genesis)?;
+                self.effects += 1;
+                return Ok(());
+            }
+            if !self.metadata {
+                return Err(invalid().into());
+            }
             let effect = MetadataEffectStart::from_document(document)?;
             let position = u32::try_from(self.effects).map_err(|_| invalid())?;
             let expected = observation(connection, self.revision, position)?;
@@ -70,7 +105,7 @@ impl RetainedEffects {
             self.value_index = 0;
             self.effect = Some(effect);
         } else {
-            if self.events >= self.total {
+            if self.events >= self.total_events {
                 return Err(invalid().into());
             }
             let position = u32::try_from(self.events).map_err(|_| invalid())?;
@@ -84,7 +119,10 @@ impl RetainedEffects {
     }
 
     pub(super) fn finish(self) -> ExchangeResult<()> {
-        if self.effects != self.total || self.events != self.total || self.remaining_values != 0 {
+        if self.effects != self.total
+            || self.events != self.total_events
+            || self.remaining_values != 0
+        {
             return Err(invalid().into());
         }
         Ok(())

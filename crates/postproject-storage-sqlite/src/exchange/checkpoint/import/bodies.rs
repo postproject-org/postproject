@@ -56,6 +56,7 @@ impl<'a, 'connection> Bodies<'a, 'connection> {
         match section {
             CheckpointSection::Production => self.production(document)?,
             CheckpointSection::Metadata => self.metadata(document)?,
+            CheckpointSection::Roots => self.root(document)?,
             CheckpointSection::Revisions => self.revision(document)?,
             CheckpointSection::Events => self.event(document)?,
             CheckpointSection::ConflictVersions => self.version(document)?,

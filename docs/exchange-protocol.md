@@ -280,14 +280,16 @@ match the source head sequence; record totals match head minus source replay
 floor. A nonempty section declares item count and complete chunk-chain summary;
 an empty section declares zero items and no chunks. Chunks bind source scope,
 checkpoint identity, section, index, predecessor digest and exact payload bytes.
-Rust export/import currently supports production metadata and its retained
-history/guards/records. Metadata items are `metadata.assertion` frames with exact
+Rust export/import currently supports production metadata, logical roots and
+their retained history/guards/records. `root.fact` retains configured names,
+labels, fallback URIs, priority and enabled state; local mappings are excluded. Metadata items are `metadata.assertion` frames with exact
 target, property, position and typed value. `revision.observation` retains the
 original context/time/transaction. `conflict.version` uses a semantic key;
 `conflict.floor` retains the independent conflict migration baseline. Each
 retained-record item starts with its original manifest, followed by exactly its
 advertised record chunks. Frame and section boundaries must be fully consumed.
-Other domain bodies, pre-floor development fragments and nonempty checkpoint
+Root history validates additions, enabled transitions and removals against the
+current section, including removed-root guards. Other domain bodies, pre-floor development fragments and nonempty checkpoint
 envelope extensions reject as unsupported; complete production import is pending.
 
 Checkpoint receiver defaults are 1 GiB encoded transport, 2 GiB private staging

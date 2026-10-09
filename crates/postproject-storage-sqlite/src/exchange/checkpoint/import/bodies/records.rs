@@ -39,9 +39,7 @@ impl Bodies<'_, '_> {
                 |row| row.get(0),
             )
             .map_err(sqlite_error("validate retained record event total"))?;
-        if u64::try_from(events).ok() != Some(manifest.event_count())
-            || manifest.effect_count() != manifest.event_count()
-        {
+        if u64::try_from(events).ok() != Some(manifest.event_count()) {
             return Err(invalid().into());
         }
         let effects =

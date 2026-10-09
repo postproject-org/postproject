@@ -5,6 +5,7 @@ mod completion;
 mod limits;
 mod metadata_state;
 mod recovery;
+mod root_state;
 mod staging;
 
 #[cfg(test)]
@@ -45,6 +46,7 @@ pub(crate) fn import(
         .execute_batch("PRAGMA defer_foreign_keys = ON;")
         .map_err(sqlite_error("defer private checkpoint cross-references"))?;
     metadata_state::create(&transaction)?;
+    root_state::create(&transaction)?;
     let mut bodies = bodies::Bodies::new(&transaction, manifest, limits);
     let mut chunks = chunks.into_iter();
     for summary in manifest.sections() {
@@ -95,6 +97,7 @@ pub(crate) fn import(
     }
     bodies.finish()?;
     metadata_state::finish(&transaction, manifest.floor().sequence() == 0)?;
+    root_state::finish(&transaction, manifest.floor().sequence() == 0)?;
     transaction
         .commit()
         .map_err(sqlite_error("commit complete private checkpoint"))?;

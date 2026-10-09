@@ -1,4 +1,4 @@
-//! Coherent bounded checkpoint transport; metadata domain slice only for now.
+//! Coherent bounded checkpoint transport; domain coverage grows in checked slices.
 
 mod import;
 mod sections;
@@ -32,13 +32,13 @@ pub(crate) fn export(
         })?;
     // Do not silently omit unsupported current objects in this vertical slice.
     let unsupported: bool = view.connection.query_row(
-        "SELECT EXISTS(SELECT 1 FROM assets UNION ALL SELECT 1 FROM resources UNION ALL SELECT 1 FROM representations UNION ALL SELECT 1 FROM media_roots UNION ALL SELECT 1 FROM activities UNION ALL SELECT 1 FROM jobs UNION ALL SELECT 1 FROM external_identifiers)",
+        "SELECT EXISTS(SELECT 1 FROM assets UNION ALL SELECT 1 FROM resources UNION ALL SELECT 1 FROM representations UNION ALL SELECT 1 FROM activities UNION ALL SELECT 1 FROM jobs UNION ALL SELECT 1 FROM external_identifiers)",
         [], |row| row.get(0),
     ).map_err(sqlite_error("check checkpoint domain coverage"))?;
     if unsupported {
         return Err(ProtocolError::new(
             FailureKind::Unsupported,
-            "checkpoint currently supports production metadata only",
+            "checkpoint currently supports production metadata and roots",
         )
         .into());
     }
@@ -61,6 +61,7 @@ pub(crate) fn export(
                 true,
             )?,
             CheckpointSection::Metadata => sections::metadata(&view, &mut writer)?,
+            CheckpointSection::Roots => sections::roots(&view, &mut writer)?,
             CheckpointSection::Revisions => sections::revisions(&view, &mut writer)?,
             CheckpointSection::Events => sections::events(&view, &mut writer)?,
             CheckpointSection::ConflictVersions => sections::versions(&view, &mut writer)?,
