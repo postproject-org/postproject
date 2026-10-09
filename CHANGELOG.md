@@ -12,6 +12,7 @@ All notable changes to PostProject will be documented here. The project uses
 - Stream large dependency comparisons and guard unchanged observations against stale bases.
 - Enforce the same JSON resource limits for typed and decoded proposals.
 - Close same-edit lease ownership when the final claim is cancelled or superseded.
+- Retain compact noncredential job results with public outcomes in schema 26.
 
 ## 0.7.0-alpha.1 - 2026-10-08
 

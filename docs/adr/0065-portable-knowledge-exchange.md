@@ -137,6 +137,16 @@ roll back their domain rows and queued observations while preserving unrelated
 edits. Job submissions reuse native operations and accept separately bound
 local ownership. Recovery precedes clock/claim checks and never reissues a lease.
 Whole job checkpoints and installed submission projections remain pending.
+Public accepted outcomes retain one final summary per lifecycle-affected job,
+sorted by UUID: state, claimed expiry or successful publication IDs. Full request,
+attribution, diagnostic and input evidence remains in the receipt's effects.
+This is a recovery summary, not a replacement for the full observational job.
+Intermediate states stay in records; rejected outcomes contain no staged jobs.
+`outcomes.v1` identifies the common result envelope; nonempty summaries also
+require `jobs.v1`. Earlier development `metadata.v1` outcomes remain readable.
+Schema 26 raises the private outcome bound to 512 KiB, preserving retained bytes
+and bindings. At most 1,000 fixed-width summaries, 64 KiB extensions and bounded
+receipt/conflict context fit this limit. It does not constrain native edits.
 Legacy metadata evidence is encoded incrementally without a whole replacement
 document allocation or a proposal-sized cap on native replacements.
 

@@ -150,6 +150,21 @@ pub enum Command {
 }
 
 impl Command {
+    /// Returns the job whose lifecycle this command observes in its result.
+    #[must_use]
+    pub const fn affected_job_id(&self) -> Option<JobId> {
+        match self {
+            Self::RequestJob(job) => Some(job.id()),
+            Self::ClaimJob { job_id, .. }
+            | Self::RenewJob { job_id, .. }
+            | Self::ReleaseJob(job_id)
+            | Self::FailJob { job_id, .. }
+            | Self::CompleteJob { job_id, .. }
+            | Self::CancelJob(job_id) => Some(*job_id),
+            _ => None,
+        }
+    }
+
     /// Returns the domain codec required to decode this intent.
     #[must_use]
     pub const fn required_feature(&self) -> RecordFeature {

@@ -5,10 +5,11 @@ mod wire;
 pub use job::{JobResult, JobResultState};
 
 use postproject_core::CommitReceipt;
+use std::collections::BTreeSet;
 
 use crate::{
-    ClientId, Digest, Document, Extensions, Proposal, Rejection, RequestId, Result, Scope,
-    fields::malformed,
+    ClientId, Digest, Document, Extensions, Limits, MAX_PROPOSAL_COMMANDS, Proposal, Rejection,
+    RequestId, Result, Scope, fields::malformed,
 };
 
 /// A terminal result retained independently of current domain state.
@@ -32,6 +33,7 @@ pub struct Outcome {
     request_digest: Digest,
     extensions: Extensions,
     status: OutcomeStatus,
+    jobs: Vec<JobResult>,
 }
 
 impl Outcome {
@@ -40,7 +42,30 @@ impl Outcome {
     /// # Errors
     /// Rejects a receipt from another production or unsupported request intent.
     pub fn accepted(proposal: &Proposal, receipt: CommitReceipt) -> Result<Self> {
-        Self::new(proposal, OutcomeStatus::Accepted(receipt))
+        Self::accepted_with_jobs(proposal, receipt, vec![])
+    }
+
+    /// Builds an accepted result with one final summary per affected job.
+    ///
+    /// Summaries must be unique and sorted by job UUID; intermediate operations
+    /// and complete attribution/diagnostics remain in the committed record.
+    ///
+    /// # Errors
+    /// Rejects missing/extra jobs, invalid ordering, scope or encoded bounds.
+    pub fn accepted_with_jobs(
+        proposal: &Proposal,
+        receipt: CommitReceipt,
+        jobs: Vec<JobResult>,
+    ) -> Result<Self> {
+        let expected: BTreeSet<_> = proposal
+            .commands()
+            .iter()
+            .filter_map(crate::Command::affected_job_id)
+            .collect();
+        if !expected.into_iter().eq(jobs.iter().map(|job| job.job_id())) {
+            return Err(malformed());
+        }
+        Self::new(proposal, OutcomeStatus::Accepted(receipt), jobs)
     }
 
     /// Builds a terminal result preserving the request's identity/extensions.
@@ -48,10 +73,10 @@ impl Outcome {
     /// # Errors
     /// Rejects unsupported future request intent.
     pub fn rejected(proposal: &Proposal, rejection: Rejection) -> Result<Self> {
-        Self::new(proposal, OutcomeStatus::Rejected(rejection))
+        Self::new(proposal, OutcomeStatus::Rejected(rejection), vec![])
     }
 
-    fn new(proposal: &Proposal, status: OutcomeStatus) -> Result<Self> {
+    fn new(proposal: &Proposal, status: OutcomeStatus, jobs: Vec<JobResult>) -> Result<Self> {
         Self::from_parts(
             proposal.scope(),
             proposal.client(),
@@ -59,6 +84,7 @@ impl Outcome {
             proposal.digest()?,
             proposal.extensions().clone(),
             status,
+            jobs,
         )
     }
 
@@ -69,19 +95,33 @@ impl Outcome {
         request_digest: Digest,
         extensions: Extensions,
         status: OutcomeStatus,
+        jobs: Vec<JobResult>,
     ) -> Result<Self> {
         if matches!(&status, OutcomeStatus::Accepted(receipt) if receipt.production_id() != scope.production())
         {
             return Err(malformed());
         }
-        Ok(Self {
+        if jobs.len() > MAX_PROPOSAL_COMMANDS
+            || jobs
+                .windows(2)
+                .any(|pair| pair[0].job_id() >= pair[1].job_id())
+            || matches!(&status, OutcomeStatus::Rejected(_)) && !jobs.is_empty()
+        {
+            return Err(malformed());
+        }
+        let outcome = Self {
             scope,
             client,
             request,
             request_digest,
             extensions,
             status,
-        })
+            jobs,
+        };
+        outcome
+            .document()?
+            .bounded_canonical_bytes(Self::limits())?;
+        Ok(outcome)
     }
 
     /// Encodes the complete public result with an explicit terminal alternative.
@@ -129,5 +169,21 @@ impl Outcome {
     #[must_use]
     pub const fn status(&self) -> &OutcomeStatus {
         &self.status
+    }
+
+    /// Borrows final commit observations, sorted by affected job UUID.
+    #[must_use]
+    pub fn jobs(&self) -> &[JobResult] {
+        &self.jobs
+    }
+
+    /// Returns bounds for the public receipt, extensions and up to 1,000 jobs.
+    #[must_use]
+    pub fn limits() -> Limits {
+        Limits {
+            bytes: 512 * 1024,
+            depth: 192,
+            nodes: 32_768,
+        }
     }
 }
