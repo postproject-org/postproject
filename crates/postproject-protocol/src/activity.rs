@@ -1,8 +1,10 @@
 //! Scalar provenance identity and attribution, independent of edge collections.
 
 mod edge;
+mod path;
 mod wire;
 pub use edge::{ActivityEdgeHeader, ActivityEdgeSide};
+pub use path::{ActivityPathHeader, ActivityPathSegment, ActivityPathStatus};
 
 use crate::{Document, Result, fields::malformed};
 use postproject_core::{
