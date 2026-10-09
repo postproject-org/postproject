@@ -1,5 +1,8 @@
 //! Well-hashed envelopes do not excuse contradictory domain/history facts.
 
+#[path = "checkpoint_integrity/media.rs"]
+mod media;
+
 use postproject_core::{MetadataProperty, MetadataValue, ObjectRef, PropertyId, VocabularyId};
 use postproject_protocol::{
     CheckpointChunk, CheckpointChunkChain, CheckpointManifest, CheckpointSection, Document,
