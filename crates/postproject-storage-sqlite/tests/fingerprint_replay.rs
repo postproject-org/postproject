@@ -4,7 +4,9 @@ use postproject_core::{
     RepresentationFingerprint, RepresentationId, ResourceFingerprint, ResourceId,
 };
 use postproject_media::prepare_original_media;
-use postproject_protocol::{Document, FingerprintChangeStart, FrameDecoder, Limits};
+use postproject_protocol::{
+    Document, Extensions, FingerprintChangeStart, FrameDecoder, Limits, RecordChunk, RecordManifest,
+};
 use postproject_storage_sqlite::{ReplayLimits, SqliteProduction};
 use rusqlite::Connection;
 
@@ -247,4 +249,195 @@ fn assert_evidence_rows_equal(source: &std::path::Path, mirror: &std::path::Path
             "different original evidence in {table}"
         );
     }
+}
+
+#[test]
+fn rehashed_fingerprint_contradictions_never_publish_any_observation_prefix() {
+    let directory = tempfile::tempdir().unwrap();
+    let media = directory.path().join("clip.mov");
+    std::fs::write(&media, b"original").unwrap();
+    let import = prepare_original_media(&media, None, None).unwrap();
+    let resource = &import.resources()[0];
+    let initial = &resource.fingerprints()[0];
+    let changed =
+        ResourceFingerprint::new(initial.algorithm(), initial.version(), vec![99]).unwrap();
+    let mut source = SqliteProduction::create(directory.path().join("source.pproj"), None).unwrap();
+    let mut edit = source.begin_transaction().unwrap();
+    edit.import_original(&import).unwrap();
+    edit.commit().unwrap();
+    drop(edit);
+    let base = source.read_session().unwrap().decision_base();
+    let mut edit = source.begin_edit(base).unwrap();
+    edit.record_resource_fingerprint(resource.id(), &changed)
+        .unwrap();
+    edit.record_representation_fingerprint(
+        import.representation().id(),
+        &import.representation().fingerprints()[0],
+    )
+    .unwrap();
+    edit.commit().unwrap();
+    drop(edit);
+    let original = source.record_reader(2).unwrap().manifest().clone();
+    let original_frames = frames(&source, 2);
+    let resource_id = resource.id().to_string();
+    let foreign = ResourceId::new().to_string();
+    let contradictions = [
+        (
+            "fingerprint.change",
+            0,
+            "\"archived_position\":\"0\"",
+            "\"archived_position\":\"1\"",
+        ),
+        (
+            "fingerprint.change",
+            0,
+            "\"observed_revision_sequence\":\"1\"",
+            "\"observed_revision_sequence\":null",
+        ),
+        (
+            "fingerprint.change",
+            0,
+            "\"observed_revision_sequence\":\"2\"",
+            "\"observed_revision_sequence\":\"1\"",
+        ),
+        (
+            "fingerprint.change",
+            0,
+            "\"marker_count\":\"1\"",
+            "\"marker_count\":\"2\"",
+        ),
+        (
+            "fingerprint.recomputation",
+            0,
+            resource_id.as_str(),
+            foreign.as_str(),
+        ),
+        (
+            "fingerprint.recomputation",
+            0,
+            "\"revision_sequence\":\"2\"",
+            "\"revision_sequence\":\"1\"",
+        ),
+        (
+            "fingerprint.change",
+            1,
+            "\"revision_sequence\":\"2\"",
+            "\"revision_sequence\":\"1\"",
+        ),
+        (
+            "fingerprint.change",
+            1,
+            "\"dependency_invalidated\":false",
+            "\"dependency_invalidated\":true",
+        ),
+    ];
+    for (index, (kind, occurrence, before, after)) in contradictions.into_iter().enumerate() {
+        let mut forged = original_frames.clone();
+        let frame = forged
+            .iter_mut()
+            .filter(|frame| frame.kind().unwrap() == kind)
+            .nth(occurrence)
+            .unwrap();
+        let encoded = String::from_utf8(frame.canonical_bytes().unwrap()).unwrap();
+        assert!(encoded.contains(before));
+        *frame = Document::parse(
+            encoded.replacen(before, after, 1).as_bytes(),
+            Limits::default(),
+        )
+        .unwrap();
+        assert_forgery(
+            &source,
+            &import,
+            &original,
+            &forged,
+            &directory.path().join(format!("mirror-{index}.pproj")),
+        );
+    }
+    let mut truncated = original_frames;
+    truncated.retain(|frame| frame.kind().unwrap() != "fingerprint.recomputation");
+    assert_forgery(
+        &source,
+        &import,
+        &original,
+        &truncated,
+        &directory.path().join("missing-marker.pproj"),
+    );
+}
+
+fn assert_forgery(
+    source: &SqliteProduction,
+    import: &postproject_core::OriginalMediaImport,
+    original: &RecordManifest,
+    forged: &[Document],
+    path: &std::path::Path,
+) {
+    let (manifest, chunk) = rehashed(original, forged);
+    let mut mirror = SqliteProduction::create_genesis_mirror(
+        path,
+        source.production(),
+        source.exchange_floor().unwrap(),
+    )
+    .unwrap();
+    apply(source, &mut mirror, 1);
+    let prior = mirror.exchange_head().unwrap();
+    assert!(
+        mirror
+            .apply_record(&manifest, [Ok(chunk)], ReplayLimits::default())
+            .is_err()
+    );
+    assert_eq!(mirror.exchange_head().unwrap(), prior);
+    assert_eq!(
+        mirror.resources(import.representation().id()).unwrap(),
+        import.resources()
+    );
+    assert_eq!(mirror.changes_since(0, 10).unwrap().len(), 1);
+    assert_no_fingerprint_prefix(path);
+}
+
+fn assert_no_fingerprint_prefix(path: &std::path::Path) {
+    let connection = Connection::open(path).unwrap();
+    for table in [
+        "resource_fingerprint_history",
+        "representation_fingerprint_history",
+        "representation_fingerprint_recomputations",
+    ] {
+        let count: i64 = connection
+            .query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(count, 0, "visible forged prefix in {table}");
+    }
+}
+
+fn rehashed(original: &RecordManifest, documents: &[Document]) -> (RecordManifest, RecordChunk) {
+    let mut payload = Vec::new();
+    for document in documents {
+        let bytes = document.canonical_bytes().unwrap();
+        payload.extend_from_slice(&u64::try_from(bytes.len()).unwrap().to_be_bytes());
+        payload.extend(bytes);
+    }
+    let chunk = RecordChunk::new(
+        original.predecessor().scope(),
+        original.revision().id(),
+        0,
+        None,
+        payload,
+        Extensions::default(),
+    )
+    .unwrap();
+    let mut chain = original.chunk_chain();
+    chain.push(&chunk).unwrap();
+    let manifest = RecordManifest::new(
+        original.predecessor(),
+        original.revision().clone(),
+        chain.finish().unwrap(),
+        original.effect_count(),
+        original.event_count(),
+        original.extensions().clone(),
+    )
+    .unwrap()
+    .with_required_features(original.required_features())
+    .unwrap();
+    (manifest, chunk)
 }

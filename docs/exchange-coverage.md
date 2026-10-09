@@ -23,8 +23,10 @@ Media codecs retain identities, ownership, compact structures, individual ordere
 members/exceptions, roots, locators, exact identifiers and fingerprint history.
 Creation decoding yields provisional facts individually, checking complete resource
 and location coverage. Original/representation creation, roots, locators and
-file-fact updates now enter ordered native capture and atomic passive replay.
-Standalone fingerprint updates and media checkpoint bodies remain pending.
+file-fact and standalone fingerprint updates now enter ordered native capture and
+atomic passive replay. Media checkpoint bodies remain pending. Fingerprint replay
+preserves same-revision supersessions and unchanged dirty clears, and rejects
+rehashed contradictory boundaries, markers and incomplete owner coverage.
 The maximum-member/exception codec tests do not qualify
 whole-production reconstruction or installed exchange surfaces.
 Metadata mutations now capture exact authored effects inside the native commit,

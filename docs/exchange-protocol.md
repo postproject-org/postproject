@@ -105,6 +105,11 @@ schemes, values and qualifiers. `fingerprint.snapshot` preserves original bytes
 and nullable observation sequences. `fingerprint.observation` distinguishes
 current evidence from ordered superseded values, including changes within the
 same revision. `fingerprint.recomputation` records the original marking boundary.
+`fingerprint.change` retains previous/current evidence, original archive position,
+marker count, cleared dirty evidence and dependency invalidation. Its following
+markers are ordered by representation UUID. An unchanged dirty clear preserves
+the current fingerprint's observation boundary. Replay checks prior evidence,
+archive order and complete owner coverage without measuring media.
 All existing observation kinds retain their original revision and position;
 public job notifications contain only the job ID and operation kind.
 
@@ -119,7 +124,8 @@ discard every staged prefix on failure. Rust native capture and passive replay
 now adopt complete original/representation creation, roots, locators and changed
 resource file facts. Root/locator effects retain additions and intermediate
 enabled/removal states; file-fact effects retain authored sizes/times. Standalone
-fingerprint updates and whole-production checkpoint bodies remain incomplete.
+fingerprint updates retain exact historical boundaries and recomputation facts.
+Whole-production checkpoint bodies remain incomplete.
 
 ## Bounds, checkpoints and replay
 
