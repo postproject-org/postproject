@@ -23,7 +23,10 @@ Schema 23 starts complete record storage at its migration head. Earlier
 development effect fragments remain partial evidence, without a replay claim.
 The source generation and retained submission outcomes remain unchanged.
 Schema 24 fragments canonical chunk envelopes below SQLite's value bound while
-retaining their exact bytes, identities and digests.
+retaining their exact bytes, identities and digests. Metadata-only replay uses
+that storage in one writer transaction, with explicit receiver budgets and
+original event cross-checks. Genesis initialization creates an empty passive
+file with the source header and anchor; complete checkpoints remain unimplemented.
 
 Bind `(production, history, client, request)` to the complete normalized proposal
 and a private credential binding. Persist accepted, no-change and terminal domain

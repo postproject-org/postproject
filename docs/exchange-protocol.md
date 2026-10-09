@@ -105,6 +105,16 @@ empty replacements and removals carry none. Original `observation` frames follow
 all effects, retaining their revision IDs and contiguous positions. Replay checks
 the manifest's total effect/event counts and consumes the entire body.
 
+The current Rust metadata receiver stages verified canonical chunks inside one
+writer transaction, then decodes effect/value frames and checks original events.
+It validates target existence and assigned append positions; updates semantic
+property versions; and commits facts, original history and the source boundary
+together. Input iterator errors cancel the transaction. Identical duplicates
+still require the complete matching chunk chain, without applying effects again.
+Default receiver budgets are 1 GiB of total encoded manifest/chunk bytes and the
+per-document limits above. Callers may explicitly raise receiver budgets to
+accept larger native records. These defaults do not cap native transactions.
+
 Large logical records use a manifest and ordered bounded effect chunks. Large
 aggregate/binary fields use declared ordered continuations with exact totals and
 digest validation. No truncation or extra visible revisions is permitted. A

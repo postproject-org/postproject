@@ -24,7 +24,10 @@ legal large values. Metadata-only suffixes now have bounded record manifests,
 ordered chunk chains and independently pinned Rust readers. Records retain the
 original revision/context, same-key history and observation events. Other families
 or a missing complete predecessor leave an explicit `history_gap`; a complete
-replay feed and passive application remain pending.
+replay feed remains incomplete. Rust passive application now validates metadata
+records atomically, preserving revision/events and semantic property versions.
+Genesis initialization supports empty source stores; complete checkpoints remain
+pending. Receiver budgets and iterator cancellation roll back the whole apply.
 Identified metadata submissions retain accepted/no-op/rejected public outcomes
 in the same writer transaction. Other command families and credentials remain
 unsupported; the full authority and replay gates remain pending.

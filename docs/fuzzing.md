@@ -34,3 +34,7 @@ has a matching dependency-policy configuration; audit it with:
 ```sh
 cargo deny --manifest-path fuzz/Cargo.toml --config fuzz/deny.toml check
 ```
+
+The [schema-24 decoder campaign](evidence/schema-24/decoder-fuzz.json) records
+its exact scope, compiler, checksums and successful sanitizer rerun. It predates
+incremental frame decoding and passive replay.
