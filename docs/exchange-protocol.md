@@ -18,6 +18,17 @@ client/request IDs, nullable base, origin/message, ordered commands and
 cannot choose authority time, revisions, conflict versions or privileged state.
 Missing bases are allowed only by the existing additive/state-guarded contracts.
 
+The submission codec currently supports `metadata.append`, `metadata.replace`,
+`metadata.remove`, `root.add`, `root.set-enabled`, `root.remove`, `locator.add`,
+`locator.retire`, `identifier.add`, `identifier.remove` and
+`resource.observe-file-facts`. Nested media facts retain exact checked values;
+retirement supplies only the locator ID. Measured file facts carry no assigned
+revision. Destructive operations keep their native base requirements.
+Proposal requirements are the exact unique lexical set of command codecs
+(`media.v1` and/or `metadata.v1`); an empty proposal retains `metadata.v1`.
+Missing, redundant or reordered declarations reject. Prepared aggregates and
+worker commands are not yet implemented in submission.
+
 An outcome contains the original scoped request identity and either its own
 accepted receipt (nullable new revision) or a structured terminal domain
 rejection. Recover a lost reply by looking up or resubmitting the same identity.

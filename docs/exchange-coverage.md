@@ -16,7 +16,7 @@ and preexisting untracked builds. Candidate qualification has **not** run.
 
 Development schema 25 retains one persistent history generation and a deterministic
 genesis/migration-floor anchor. Existing revisions remain intact. The codec now
-covers strict framing, every metadata value kind, metadata proposal intent,
+covers strict framing, every metadata value kind, metadata/scalar media proposal intent,
 media fact/creation bodies and all existing original observation kinds;
 Job codecs preserve all five observed states without credentials. Schema 25 permits
 inert claimed observations in mirrors. Native capture and passive replay cover
@@ -61,9 +61,12 @@ Process-exit tests cover streaming, private commit and completion sealing;
 restart preserves unrelated files and altered/existing destinations.
 Other domain bodies, pre-floor development fragments and checkpoint envelope
 extensions remain unsupported. Complete production checkpoints remain pending.
-Identified metadata submissions retain accepted/no-op/rejected public outcomes
-in the same writer transaction. Other command families and credentials remain
-unsupported; the full authority and replay gates remain pending.
+Identified metadata/scalar media submissions retain accepted/no-op/rejected public
+outcomes in the same writer transaction. Root, locator, identifier and file-fact
+commands reuse native bases and guards; reopen recovery precedes reevaluation,
+and ordered intermediate effects replay into a distinct passive file. Prepared
+aggregates, other command families and credentials remain unsupported; the full
+authority and replay gates remain pending.
 Persisted passive roles reject native transaction opens and token import while
 retaining ordinary reads and coherent sessions. Role tests cover reopen and
 writer-lock enforcement; checkpoint tests cover the production-metadata slice
