@@ -56,22 +56,7 @@ fn completed_token_request_recovers_before_expiry_clock_and_ownership_guards() {
         .unwrap();
     assert_eq!(result.leases().len(), 0);
     let outcome = result.into_parts().0;
-    let JobState::Succeeded(completed) = fixture
-        .source
-        .job(fixture.job.id())
-        .unwrap()
-        .state()
-        .clone()
-    else {
-        panic!("completion did not publish a terminal state");
-    };
-    assert_eq!(
-        outcome.jobs(),
-        &[JobResult::new(
-            fixture.job.id(),
-            JobResultState::Succeeded(completed)
-        )]
-    );
+    assert_completion_facts(&fixture, &outcome);
     assert!(
         matches!(outcome.status(), OutcomeStatus::Accepted(receipt)
         if receipt.revision().unwrap().sequence() == 3),
@@ -119,6 +104,25 @@ fn completed_token_request_recovers_before_expiry_clock_and_ownership_guards() {
         JobState::Succeeded(_)
     ));
     assert_replay(&fixture);
+}
+
+fn assert_completion_facts(fixture: &Fixture, outcome: &postproject_protocol::Outcome) {
+    let JobState::Succeeded(completed) = fixture
+        .source
+        .job(fixture.job.id())
+        .unwrap()
+        .state()
+        .clone()
+    else {
+        panic!("completion did not publish a terminal state");
+    };
+    assert_eq!(
+        outcome.jobs(),
+        &[JobResult::new(
+            fixture.job.id(),
+            JobResultState::Succeeded(completed)
+        )]
+    );
 }
 
 fn assert_replay(fixture: &Fixture) {
