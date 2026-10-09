@@ -1,0 +1,221 @@
+{
+  "anchor": {
+    "kind": "anchor",
+    "version": "1",
+    "production": "00000000-0000-4000-8000-000000000001",
+    "history": "00000000-0000-4000-8000-000000000002",
+    "revision": null,
+    "sequence": "0"
+  },
+  "floor": {
+    "production": "00000000-0000-4000-8000-000000000001",
+    "history": "00000000-0000-4000-8000-000000000002",
+    "revision": null,
+    "sequence": "0",
+    "digest": "bee5f938e8af5b92fbf9a176cc0fe4c2b7dc52a779f8ebbc2c43e9df65d16ad1"
+  },
+  "body": [
+    {
+      "kind": "metadata.effect",
+      "target": {
+        "kind": "production",
+        "id": "00000000-0000-4000-8000-000000000001"
+      },
+      "property": {
+        "vocabulary": "urn:vendor:Unknown",
+        "property": "Repeated"
+      },
+      "operation": "appended",
+      "position": "0",
+      "values": "1"
+    },
+    {
+      "kind": "metadata.value",
+      "value": {
+        "kind": "struct",
+        "value": [
+          {
+            "name": "Text",
+            "value": {
+              "kind": "list",
+              "value": [
+                {
+                  "kind": "string",
+                  "value": "same"
+                },
+                {
+                  "kind": "string",
+                  "value": "same"
+                }
+              ]
+            }
+          },
+          {
+            "name": "Exact",
+            "value": {
+              "kind": "decimal",
+              "coefficient": "-170141183460469231731687303715884105728",
+              "scale": "3"
+            }
+          },
+          {
+            "name": "Ratio",
+            "value": {
+              "kind": "rational",
+              "numerator": "-9223372036854775808",
+              "denominator": "18446744073709551615"
+            }
+          },
+          {
+            "name": "Unicode",
+            "value": {
+              "kind": "string",
+              "value": "名😀\n "
+            }
+          }
+        ]
+      }
+    },
+    {
+      "kind": "observation",
+      "revision": "00000000-0000-4000-8000-0000000002bc",
+      "position": "0",
+      "event": {
+        "kind": "metadata_added_or_replaced",
+        "target": {
+          "kind": "production",
+          "id": "00000000-0000-4000-8000-000000000001"
+        },
+        "property": {
+          "vocabulary": "urn:vendor:Unknown",
+          "property": "Repeated"
+        }
+      }
+    }
+  ],
+  "chunks": [
+    {
+      "kind": "record.chunk",
+      "version": "1",
+      "required_features": [
+        "record-chunks.v1"
+      ],
+      "production": "00000000-0000-4000-8000-000000000001",
+      "history": "00000000-0000-4000-8000-000000000002",
+      "revision": "00000000-0000-4000-8000-0000000002bc",
+      "index": "0",
+      "previous": null,
+      "payload": "AAAAAAAAAA==",
+      "extensions": {
+        "vendor:exact": {
+          "ordered": [
+            "同",
+            "同",
+            "😀"
+          ]
+        }
+      },
+      "digest": "3bef2ac27d450b85617a339fdc7a39412d8783c11873ddfc4e6b0309461273bd"
+    },
+    {
+      "kind": "record.chunk",
+      "version": "1",
+      "required_features": [
+        "record-chunks.v1"
+      ],
+      "production": "00000000-0000-4000-8000-000000000001",
+      "history": "00000000-0000-4000-8000-000000000002",
+      "revision": "00000000-0000-4000-8000-0000000002bc",
+      "index": "1",
+      "previous": "3bef2ac27d450b85617a339fdc7a39412d8783c11873ddfc4e6b0309461273bd",
+      "payload": "3Xsia2luZCI6Im1ldGFkYXRhLmVmZmVjdCIsIm9wZXJhdGlvbiI6ImFwcGVuZGVkIiwicG9zaXRpb24iOiIwIiwicHJvcGVydHkiOnsicHJvcGVydHkiOiJSZXBlYXRlZCIsInZvY2FidWxhcnkiOiJ1cm46dmVuZG9yOlVua25vd24ifSwidGFyZ2V0Ijp7ImlkIjoiMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDAxIiwia2luZCI6InByb2R1Y3Rpb24ifSwidmFsdWVzIjoiMSJ9AAAAAAAAAdt7ImtpbmQiOiJtZXRhZGF0YS52YWx1ZSIsInZhbHVlIjp7ImtpbmQiOiJzdHJ1Y3QiLCJ2YWx1ZSI6W3sibmFtZSI6IlRleHQiLCJ2YWx1ZSI6eyJraW5kIjoibGlzdCIsInZhbHVlIjpbeyJraW5kIjoic3RyaW5nIiwidmFsdWUiOiJzYW1lIn0seyJraW5kIjoic3RyaW5nIiwidmFsdWUiOiJzYW1lIn1dfX0seyJuYW1lIjoiRXhhY3QiLCJ2YWx1ZSI6eyJjb2VmZmljaWVudCI6Ii0xNzAxNDExODM0NjA0NjkyMzE3MzE2ODczMDM3MTU4ODQxMDU3MjgiLCJraW5kIjoiZGVjaW1hbCIsInNjYWxlIjoiMyJ9fSx7Im5hbWUiOiJSYXRpbyIsInZhbHVlIjp7ImRlbm9taW5hdG9yIjoiMTg0NDY3NDQwNzM3MDk1NTE2MTUiLCJraW5kIjoicmF0aW9uYWwiLCJudW1lcmF0b3IiOiItOTIyMzM3MjAzNjg1NDc3NTgwOCJ9fSx7Im5hbWUiOiJVbmljb2RlIiwidmFsdWUiOnsia2luZCI6InN0cmluZyIsInZhbHVlIjoi5Q==",
+      "extensions": {
+        "vendor:exact": {
+          "ordered": [
+            "同",
+            "同",
+            "😀"
+          ]
+        }
+      },
+      "digest": "56966e58510be8d7098096842cb8098d767e46e39279dcf7d73ebd655bc8831a"
+    },
+    {
+      "kind": "record.chunk",
+      "version": "1",
+      "required_features": [
+        "record-chunks.v1"
+      ],
+      "production": "00000000-0000-4000-8000-000000000001",
+      "history": "00000000-0000-4000-8000-000000000002",
+      "revision": "00000000-0000-4000-8000-0000000002bc",
+      "index": "2",
+      "previous": "56966e58510be8d7098096842cb8098d767e46e39279dcf7d73ebd655bc8831a",
+      "payload": "kI3wn5iAXG7igKgifX1dfX0AAAAAAAABFXsiZXZlbnQiOnsia2luZCI6Im1ldGFkYXRhX2FkZGVkX29yX3JlcGxhY2VkIiwicHJvcGVydHkiOnsicHJvcGVydHkiOiJSZXBlYXRlZCIsInZvY2FidWxhcnkiOiJ1cm46dmVuZG9yOlVua25vd24ifSwidGFyZ2V0Ijp7ImlkIjoiMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDAxIiwia2luZCI6InByb2R1Y3Rpb24ifX0sImtpbmQiOiJvYnNlcnZhdGlvbiIsInBvc2l0aW9uIjoiMCIsInJldmlzaW9uIjoiMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMmJjIn0=",
+      "extensions": {
+        "vendor:exact": {
+          "ordered": [
+            "同",
+            "同",
+            "😀"
+          ]
+        }
+      },
+      "digest": "95f0bd23ae581abb35fd019cd4bcbd4c901cb6bd0329695bc4ee4191cafb2f72"
+    }
+  ],
+  "manifest": {
+    "kind": "record.manifest",
+    "version": "1",
+    "required_features": [
+      "metadata.v1",
+      "record-chunks.v1"
+    ],
+    "predecessor": {
+      "production": "00000000-0000-4000-8000-000000000001",
+      "history": "00000000-0000-4000-8000-000000000002",
+      "revision": null,
+      "sequence": "0",
+      "digest": "bee5f938e8af5b92fbf9a176cc0fe4c2b7dc52a779f8ebbc2c43e9df65d16ad1"
+    },
+    "revision": {
+      "id": "00000000-0000-4000-8000-0000000002bc",
+      "transaction": "00000000-0000-4000-8000-0000000002bd",
+      "sequence": "1",
+      "committed_at": "-9223372036854775808",
+      "context": {
+        "origin": {
+          "name": "Exact 名",
+          "version": "9",
+          "uri": "unknown:CASE"
+        },
+        "message": "Exact same"
+      }
+    },
+    "chunks": {
+      "count": "3",
+      "payload_bytes": "997",
+      "last_digest": "95f0bd23ae581abb35fd019cd4bcbd4c901cb6bd0329695bc4ee4191cafb2f72"
+    },
+    "effects": "1",
+    "events": "1",
+    "extensions": {
+      "vendor:exact": {
+        "ordered": [
+          "同",
+          "同",
+          "😀"
+        ]
+      }
+    },
+    "record_digest": "370781365a1d67e2ef2dcc2b2f1e2f5a91690e9bc505bcca8e7c3516bf2d5ad7",
+    "digest": "05259c973ba8b2b6fed8bf4645d01ad310bc535ab4aacb4284e25474221b351f"
+  },
+  "head": {
+    "production": "00000000-0000-4000-8000-000000000001",
+    "history": "00000000-0000-4000-8000-000000000002",
+    "revision": "00000000-0000-4000-8000-0000000002bc",
+    "sequence": "1",
+    "digest": "370781365a1d67e2ef2dcc2b2f1e2f5a91690e9bc505bcca8e7c3516bf2d5ad7"
+  }
+}
