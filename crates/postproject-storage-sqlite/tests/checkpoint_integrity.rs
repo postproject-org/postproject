@@ -1,5 +1,7 @@
 //! Well-hashed envelopes do not excuse contradictory domain/history facts.
 
+#[path = "checkpoint_integrity/activity.rs"]
+mod activity;
 #[path = "checkpoint_integrity/media.rs"]
 mod media;
 
@@ -45,7 +47,13 @@ fn replace_section(
         .unwrap();
     *summary = SectionSummary::new(
         section,
-        documents.len() as u64,
+        documents
+            .iter()
+            .filter(|document| {
+                section != CheckpointSection::Activities
+                    || document.kind().unwrap() == "activity.header"
+            })
+            .count() as u64,
         if replacement.is_empty() {
             None
         } else {
