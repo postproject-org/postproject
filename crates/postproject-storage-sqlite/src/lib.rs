@@ -120,6 +120,7 @@ struct StoredRevisionEvent {
     fingerprint_version: Option<i64>,
 }
 
+#[derive(Clone)]
 struct StoredJob {
     id: Vec<u8>,
     kind: String,
@@ -4486,7 +4487,33 @@ fn decode_job_with(
         })
         .collect::<Result<Vec<_>>>()?;
 
-    let state = match stored.state {
+    let state = decode_job_state(connection, &stored)?;
+    let output = RequestedJobOutput::new(
+        AssetId::from_bytes(id_bytes(stored.output_asset_id, "job output asset")?),
+        decode_representation_kind(stored.output_representation_kind)?,
+        stored.target_root,
+    )
+    .map_err(stored_domain_error("job requested output"))?;
+    let job = Job::new(
+        id,
+        JobKind::new(stored.kind).map_err(stored_domain_error("job kind"))?,
+        inputs.clone(),
+        output,
+    )
+    .map_err(stored_domain_error("job"))?;
+    if job.inputs() != inputs {
+        return Err(stored_invariant("job inputs are not in canonical order"));
+    }
+    Ok(job.with_state(state))
+}
+
+#[allow(
+    clippy::too_many_lines,
+    reason = "validate all persisted state alternatives together"
+)]
+fn decode_job_state(connection: &Connection, stored: &StoredJob) -> Result<JobState> {
+    let stored = stored.clone();
+    Ok(match stored.state {
         1 | 5 => {
             ensure_job_detail_empty(&stored)?;
             if stored.state == 1 {
@@ -4574,24 +4601,7 @@ fn decode_job_with(
                 format!("stored job state {value} is invalid"),
             ));
         }
-    };
-    let output = RequestedJobOutput::new(
-        AssetId::from_bytes(id_bytes(stored.output_asset_id, "job output asset")?),
-        decode_representation_kind(stored.output_representation_kind)?,
-        stored.target_root,
-    )
-    .map_err(stored_domain_error("job requested output"))?;
-    let job = Job::new(
-        id,
-        JobKind::new(stored.kind).map_err(stored_domain_error("job kind"))?,
-        inputs.clone(),
-        output,
-    )
-    .map_err(stored_domain_error("job"))?;
-    if job.inputs() != inputs {
-        return Err(stored_invariant("job inputs are not in canonical order"));
-    }
-    Ok(job.with_state(state))
+    })
 }
 
 fn validate_job_credential(connection: &Connection, stored: &StoredJob) -> Result<()> {
