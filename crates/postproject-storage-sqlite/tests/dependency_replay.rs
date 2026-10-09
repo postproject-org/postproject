@@ -342,3 +342,79 @@ fn rehashed_dependency_contradictions_publish_no_creation_or_history_prefix() {
         chunk,
     );
 }
+
+#[test]
+fn failed_dependency_staging_keeps_prior_set_guards_and_authored_queue() {
+    let directory = tempfile::tempdir().unwrap();
+    let (mut source, import) = source(directory.path());
+    let source_path = directory.path().join("source.pproj");
+    let connection = rusqlite::Connection::open(&source_path).unwrap();
+    connection.execute_batch("CREATE TRIGGER fail_dependency BEFORE INSERT ON dependencies WHEN NEW.position = 1 BEGIN SELECT RAISE(ABORT, 'injected dependency write failure'); END;").unwrap();
+    let representation = import.representation().id();
+    let original = source.dependency_set(representation).unwrap();
+    let replacement = vec![dependencies(&import)[0].clone(); 2];
+    let base = source.read_session().unwrap().decision_base();
+    let mut edit = source.begin_edit(base).unwrap();
+    assert_eq!(
+        edit.record_dependency_set(representation, &replacement)
+            .unwrap_err()
+            .kind(),
+        postproject_core::ErrorKind::AlreadyExists
+    );
+    edit.add_media_root(
+        postproject_core::MediaRoot::new(
+            postproject_core::MediaRootId::new(),
+            "independent",
+            None,
+            None,
+            0,
+            true,
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    edit.commit().unwrap();
+    drop(edit);
+    assert_eq!(source.dependency_set(representation).unwrap(), original);
+    let manifest = source.record_reader(2).unwrap().manifest().clone();
+    assert_eq!(manifest.effect_count(), 1);
+    assert_eq!(manifest.event_count(), 1);
+    let mut key = vec![3];
+    key.extend_from_slice(representation.as_bytes());
+    let dependency_sequence: i64 = connection
+        .query_row(
+            "SELECT last_changed_revision_sequence FROM conflict_versions WHERE conflict_key = ?1",
+            [key],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(dependency_sequence, 1);
+    connection
+        .execute_batch("DROP TRIGGER fail_dependency")
+        .unwrap();
+    let base = source.read_session().unwrap().decision_base();
+    let mut edit = source.begin_edit(base).unwrap();
+    assert!(
+        edit.record_dependency_set(representation, &replacement)
+            .unwrap()
+    );
+    edit.commit().unwrap();
+    drop(edit);
+    let mut mirror = SqliteProduction::create_genesis_mirror(
+        directory.path().join("failure-mirror.pproj"),
+        source.production(),
+        source.exchange_floor().unwrap(),
+    )
+    .unwrap();
+    for sequence in 1..=3 {
+        apply(&source, &mut mirror, sequence);
+    }
+    assert_eq!(
+        mirror.dependency_set(representation).unwrap(),
+        source.dependency_set(representation).unwrap()
+    );
+    assert_eq!(
+        mirror.exchange_head().unwrap(),
+        source.exchange_head().unwrap()
+    );
+}
