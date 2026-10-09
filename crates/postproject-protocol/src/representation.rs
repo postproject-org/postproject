@@ -62,7 +62,7 @@ impl RepresentationHeader {
         })
     }
 
-    /// Decodes scalar facts; storage verifies asset existence and original uniqueness.
+    /// Decodes scalar facts; storage verifies asset existence and ownership.
     ///
     /// # Errors
     /// Rejects unknown fields, unsupported kinds and noncanonical typed identities.

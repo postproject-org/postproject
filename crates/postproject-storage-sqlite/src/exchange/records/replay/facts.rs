@@ -39,3 +39,17 @@ pub(super) fn changed(
         .map_err(sqlite_error("persist replayed semantic version"))?;
     Ok(())
 }
+
+pub(super) fn structural<T>(result: postproject_core::Result<T>) -> ExchangeResult<T> {
+    result.map_err(|error| match error.kind() {
+        postproject_core::ErrorKind::Storage | postproject_core::ErrorKind::Internal => {
+            error.into()
+        }
+        postproject_core::ErrorKind::Unsupported => postproject_protocol::ProtocolError::new(
+            postproject_protocol::FailureKind::Unsupported,
+            "portable fact is unsupported by this receiver",
+        )
+        .into(),
+        _ => super::effects::invalid().into(),
+    })
+}

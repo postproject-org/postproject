@@ -2632,7 +2632,7 @@ impl ProductionStoreTransaction for SqliteTransaction<'_> {
     }
 }
 
-fn encode_structure_kind(value: ContentStructureKind) -> Result<i64> {
+pub(crate) fn encode_structure_kind(value: ContentStructureKind) -> Result<i64> {
     match value {
         ContentStructureKind::SingleResource => Ok(0),
         ContentStructureKind::ImageSequence => Ok(1),
@@ -2645,7 +2645,7 @@ fn encode_structure_kind(value: ContentStructureKind) -> Result<i64> {
     }
 }
 
-fn encode_representation_kind(value: RepresentationKind) -> Result<i64> {
+pub(crate) fn encode_representation_kind(value: RepresentationKind) -> Result<i64> {
     match value {
         RepresentationKind::Original => Ok(0),
         RepresentationKind::Proxy => Ok(1),
@@ -2658,7 +2658,7 @@ fn encode_representation_kind(value: RepresentationKind) -> Result<i64> {
     }
 }
 
-fn asset_exists(
+pub(crate) fn asset_exists(
     transaction: &Transaction<'_>,
     asset_id: postproject_core::AssetId,
 ) -> Result<bool> {
@@ -2942,7 +2942,7 @@ fn encode_availability(value: LocatorAvailability) -> Result<i64> {
     }
 }
 
-fn persist_resource(
+pub(crate) fn persist_resource(
     transaction: &Transaction<'_>,
     resource: &Resource,
     observation_sequence: i64,
@@ -2989,7 +2989,7 @@ fn persist_resource(
     Ok(())
 }
 
-fn persist_content_structure(
+pub(crate) fn persist_content_structure(
     transaction: &Transaction<'_>,
     representation_id: postproject_core::RepresentationId,
     structure: &ContentStructure,
@@ -3056,7 +3056,7 @@ fn persist_content_structure(
 /// A locator of an image-sequence resource must carry a naming and no other
 /// locator may. A resource's locators are unique by URI and naming, so one
 /// directory may be recorded under two namings.
-fn persist_locator(transaction: &Transaction<'_>, locator: &Locator) -> Result<()> {
+pub(crate) fn persist_locator(transaction: &Transaction<'_>, locator: &Locator) -> Result<()> {
     let resource_id = *locator.resource_id().as_bytes();
     let sequence_resource: bool = transaction
         .query_row(
@@ -3266,7 +3266,7 @@ pub(crate) fn delete_metadata_property(
         .map_err(mutation_error("remove metadata property"))
 }
 
-fn mutation_error(context: &'static str) -> impl FnOnce(rusqlite::Error) -> Error {
+pub(crate) fn mutation_error(context: &'static str) -> impl FnOnce(rusqlite::Error) -> Error {
     move |error| {
         let kind = if error.sqlite_error_code() == Some(ErrorCode::ConstraintViolation) {
             ErrorKind::AlreadyExists
