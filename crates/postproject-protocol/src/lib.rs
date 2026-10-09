@@ -16,6 +16,7 @@ mod error;
 mod event;
 mod extensions;
 mod fields;
+mod fingerprint;
 mod frame;
 mod identifier;
 mod json;
@@ -52,6 +53,7 @@ pub use effect::{MetadataChange, MetadataEffect, MetadataEffectStart, MetadataOp
 pub use error::{FailureKind, ProtocolError, Result};
 pub use event::{decode_event, encode_event};
 pub use extensions::Extensions;
+pub use fingerprint::{decode_fingerprint_snapshot, encode_fingerprint_snapshot};
 pub use frame::FrameDecoder;
 pub use identifier::IdentifierAttachment;
 pub use json::{Document, Limits};
