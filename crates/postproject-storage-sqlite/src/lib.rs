@@ -150,6 +150,23 @@ struct StoredActivityEdge {
 type ActivityEdgesById<Edge> = BTreeMap<ActivityId, Vec<Edge>>;
 
 impl SqliteProduction {
+    /// Creates an empty passive store at a validated source genesis anchor.
+    ///
+    /// Retains the source identity, creation time and name; allocates only a
+    /// private local instance identity. This imports no later production facts
+    /// and authenticates no source. Use complete checkpoints for nonempty bases.
+    ///
+    /// # Errors
+    /// Rejects wrong scope, nongeneses, altered anchors or an existing path.
+    /// Returns storage/migration errors without producing a writable authority.
+    pub fn create_genesis_mirror(
+        path: impl AsRef<Path>,
+        source: &Production,
+        anchor: postproject_protocol::Position,
+    ) -> ExchangeResult<Self> {
+        exchange::create_genesis_mirror(path.as_ref(), source, anchor)
+    }
+
     /// Opens a bounded record stream on its own coherent view.
     ///
     /// # Errors

@@ -1,10 +1,12 @@
 //! Private exchange persistence; portable history is independent of read cursors.
 
 mod error;
+mod genesis;
 mod outcomes;
 mod records;
 
 pub use error::{ExchangeError, ExchangeResult};
+pub(crate) use genesis::create as create_genesis_mirror;
 pub(crate) use outcomes::{lookup, persist};
 pub use records::RecordReader;
 pub(crate) use records::capture_metadata;
