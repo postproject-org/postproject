@@ -1,7 +1,11 @@
 //! Coherent bounded checkpoint transport; metadata domain slice only for now.
 
+mod import;
 mod sections;
 mod writer;
+
+pub use import::CheckpointLimits;
+pub(crate) use import::import;
 
 use postproject_protocol::{
     CheckpointChunk, CheckpointId, CheckpointManifest, CheckpointSection, Extensions, FailureKind,
@@ -34,6 +38,15 @@ pub(crate) fn export(
         return Err(ProtocolError::new(
             FailureKind::Unsupported,
             "checkpoint currently supports production metadata only",
+        )
+        .into());
+    }
+    let partial_history: bool = view.connection.query_row("SELECT EXISTS(SELECT 1 FROM exchange_effect_fragments e JOIN revisions r ON r.id = e.revision_id WHERE r.sequence <= ?1)", [i64::try_from(floor.sequence()).map_err(|_| invalid())?], |row| row.get(0))
+        .map_err(sqlite_error("check earlier development effect evidence"))?;
+    if partial_history {
+        return Err(ProtocolError::new(
+            FailureKind::Unsupported,
+            "checkpoint cannot yet transport pre-floor development effect evidence",
         )
         .into());
     }

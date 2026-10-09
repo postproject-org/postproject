@@ -1,0 +1,90 @@
+//! Only a fully checked private transaction can reach the destination name.
+
+mod bodies;
+mod limits;
+mod metadata_state;
+mod staging;
+
+pub use limits::CheckpointLimits;
+
+use std::path::Path;
+
+use postproject_protocol::{CheckpointChunk, CheckpointManifest, FrameDecoder};
+
+use crate::{ExchangeResult, SqliteProduction, sqlite_error};
+
+pub(crate) fn import(
+    destination: &Path,
+    manifest: &CheckpointManifest,
+    chunks: impl IntoIterator<Item = ExchangeResult<CheckpointChunk>>,
+    limits: CheckpointLimits,
+) -> ExchangeResult<SqliteProduction> {
+    let mut remaining = limits
+        .encoded_bytes
+        .checked_sub(
+            u64::try_from(manifest.document()?.canonical_bytes()?.len())
+                .map_err(|_| limits::budget())?,
+        )
+        .ok_or_else(limits::budget)?;
+    let (stage, mut connection) = staging::Staging::new(destination, limits)?;
+    let transaction = connection
+        .transaction()
+        .map_err(sqlite_error("begin private checkpoint import"))?;
+    transaction
+        .execute_batch("PRAGMA defer_foreign_keys = ON;")
+        .map_err(sqlite_error("defer private checkpoint cross-references"))?;
+    metadata_state::create(&transaction)?;
+    let mut bodies = bodies::Bodies::new(&transaction, manifest, limits);
+    let mut chunks = chunks.into_iter();
+    for summary in manifest.sections() {
+        let Some(declared) = summary.chunks() else {
+            continue;
+        };
+        let mut chain = manifest
+            .section_chain(summary.section())
+            .ok_or_else(super::invalid)?;
+        let mut decoder = FrameDecoder::new(limits.document);
+        let mut items = 0_u64;
+        for _ in 0..declared.count() {
+            let chunk = chunks.next().ok_or_else(super::invalid)??;
+            remaining = remaining
+                .checked_sub(
+                    u64::try_from(chunk.document()?.canonical_bytes()?.len())
+                        .map_err(|_| limits::budget())?,
+                )
+                .ok_or_else(limits::budget)?;
+            chain.push(&chunk)?;
+            let mut offset = 0;
+            while offset < chunk.payload().len() {
+                let (consumed, document) = decoder.consume(&chunk.payload()[offset..])?;
+                offset += consumed;
+                if let Some(document) = document {
+                    if bodies.document(summary.section(), &document)? {
+                        items = items.checked_add(1).ok_or_else(super::invalid)?;
+                        if items > summary.items() {
+                            return Err(super::invalid().into());
+                        }
+                    }
+                }
+            }
+            stage.check_disk(limits.disk_bytes)?;
+        }
+        decoder.finish()?;
+        manifest.verify_section(summary.section(), chain)?;
+        if items != summary.items() {
+            return Err(super::invalid().into());
+        }
+    }
+    if let Some(extra) = chunks.next() {
+        extra?;
+        return Err(super::invalid().into());
+    }
+    bodies.finish()?;
+    metadata_state::finish(&transaction, manifest.floor().sequence() == 0)?;
+    transaction
+        .commit()
+        .map_err(sqlite_error("commit complete private checkpoint"))?;
+    stage.check_disk(limits.disk_bytes)?;
+    let path = stage.promote(connection)?;
+    Ok(SqliteProduction::open(path)?)
+}

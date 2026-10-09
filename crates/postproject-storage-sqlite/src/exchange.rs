@@ -6,7 +6,9 @@ mod genesis;
 mod outcomes;
 mod records;
 
+pub use checkpoint::CheckpointLimits;
 pub(crate) use checkpoint::export as export_checkpoint;
+pub(crate) use checkpoint::import as import_checkpoint;
 pub use error::{ExchangeError, ExchangeResult};
 pub(crate) use genesis::create as create_genesis_mirror;
 pub(crate) use outcomes::{lookup, persist};

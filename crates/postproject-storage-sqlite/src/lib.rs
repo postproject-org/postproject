@@ -52,7 +52,7 @@ use rusqlite::{
     Connection, OpenFlags, OptionalExtension, limits::Limit, params, params_from_iter, types::Value,
 };
 
-pub use exchange::{ExchangeError, ExchangeResult, RecordReader, ReplayLimits};
+pub use exchange::{CheckpointLimits, ExchangeError, ExchangeResult, RecordReader, ReplayLimits};
 pub use job_lease::SqliteJobLease;
 pub use migrations::CURRENT_SCHEMA_VERSION;
 pub use read_session::SqliteReadSession;
@@ -150,6 +150,26 @@ struct StoredActivityEdge {
 type ActivityEdgesById<Edge> = BTreeMap<ActivityId, Vec<Edge>>;
 
 impl SqliteProduction {
+    /// Validates a metadata checkpoint and creates a new passive mirror.
+    ///
+    /// Uses private staging on the destination filesystem and publishes only
+    /// after completeness, domain, history and digest checks. Existing files
+    /// reject, including a competing file created during import. Iterator errors
+    /// cancel; the destination is absent until closed-file atomic promotion.
+    /// Receiver budgets can be raised for larger sources.
+    ///
+    /// # Errors
+    /// Rejects unsupported facts/platforms, corrupt/incomplete streams, budget
+    /// exhaustion, existing destinations and storage/filesystem failures.
+    pub fn import_checkpoint(
+        destination: impl AsRef<Path>,
+        manifest: &postproject_protocol::CheckpointManifest,
+        chunks: impl IntoIterator<Item = ExchangeResult<postproject_protocol::CheckpointChunk>>,
+        limits: CheckpointLimits,
+    ) -> ExchangeResult<Self> {
+        exchange::import_checkpoint(destination.as_ref(), manifest, chunks, limits)
+    }
+
     /// Streams a checkpoint from one pinned view and returns its final manifest.
     ///
     /// Currently supports production metadata and retained metadata history.
