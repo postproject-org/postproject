@@ -2,9 +2,7 @@ use postproject_core::{Result, RevisionId};
 use postproject_protocol::{
     ChunkSummary, Document, Extensions, RecordChunk, RecordChunkChain, Scope,
 };
-use rusqlite::{Connection, params};
-
-use crate::sqlite_error;
+use rusqlite::Connection;
 
 // Keep stored envelopes below SQLite's 16 MiB untrusted-value bound.
 const PAYLOAD_BYTES: usize = 1024 * 1024;
@@ -66,12 +64,7 @@ impl<'a> RecordWriter<'a> {
         .map_err(|_| super::encoding())?;
         self.chain.push(&chunk).map_err(|_| super::encoding())?;
         self.previous = Some(chunk.digest().map_err(|_| super::encoding())?);
-        let document = chunk
-            .document()
-            .and_then(|document| document.canonical_bytes())
-            .map_err(|_| super::encoding())?;
-        self.connection.execute("INSERT INTO exchange_record_chunks (revision_id, position, document) VALUES (?1, ?2, ?3)", params![self.revision.as_bytes().as_slice(), i64::try_from(self.index).map_err(|_| super::encoding())?, document])
-            .map_err(sqlite_error("persist committed record chunk"))?;
+        super::chunks::persist(self.connection, &chunk)?;
         self.index = self.index.checked_add(1).ok_or_else(super::encoding)?;
         Ok(())
     }

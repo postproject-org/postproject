@@ -7,8 +7,7 @@ use postproject_core::{
     VocabularyId,
 };
 use postproject_protocol::{
-    Document, Limits, MetadataEffectStart, MetadataOperation, RecordChunk, RecordManifest,
-    decode_event,
+    Document, Limits, MetadataEffectStart, MetadataOperation, RecordManifest, decode_event,
 };
 use postproject_storage_sqlite::SqliteProduction;
 use rusqlite::Connection;
@@ -21,37 +20,16 @@ fn property() -> MetadataProperty {
 }
 
 fn record(path: &Path, sequence: i64) -> (RecordManifest, Vec<Document>) {
-    let connection = Connection::open(path).unwrap();
-    let bytes: Vec<u8> = connection
-        .query_row(
-            "SELECT manifest FROM exchange_records WHERE sequence = ?1",
-            [sequence],
-            |row| row.get(0),
-        )
+    let production = SqliteProduction::open(path).unwrap();
+    let mut reader = production
+        .record_reader(u64::try_from(sequence).unwrap())
         .unwrap();
-    let manifest =
-        RecordManifest::from_document(&Document::parse(&bytes, Limits::default()).unwrap())
-            .unwrap();
-    let mut statement = connection
-        .prepare(
-            "SELECT document FROM exchange_record_chunks WHERE revision_id = ?1 ORDER BY position",
-        )
-        .unwrap();
-    let rows = statement
-        .query_map([manifest.revision().id().as_bytes().as_slice()], |row| {
-            row.get::<_, Vec<u8>>(0)
-        })
-        .unwrap();
-    let mut chain = manifest.chunk_chain();
+    let manifest = reader.manifest().clone();
     let mut bytes = Vec::new();
-    for row in rows {
-        let chunk =
-            RecordChunk::from_document(&Document::parse(&row.unwrap(), Limits::default()).unwrap())
-                .unwrap();
-        chain.push(&chunk).unwrap();
+    while let Some(chunk) = reader.next_chunk().unwrap() {
         bytes.extend_from_slice(chunk.payload());
     }
-    manifest.verify_chain(chain).unwrap();
+    assert!(reader.is_complete());
     let mut frames = Vec::new();
     let mut remaining = bytes.as_slice();
     while !remaining.is_empty() {

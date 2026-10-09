@@ -4,7 +4,7 @@ use postproject_core::{Error, ErrorKind, Result, Timestamp};
 use rusqlite::{Connection, Transaction, TransactionBehavior, params};
 
 /// The newest schema understood by this build.
-pub const CURRENT_SCHEMA_VERSION: u32 = 23;
+pub const CURRENT_SCHEMA_VERSION: u32 = 24;
 
 struct Migration {
     version: u32,
@@ -104,6 +104,10 @@ const MIGRATIONS: &[Migration] = &[
         version: 23,
         sql: include_str!("migrations/023_exchange_records.sql"),
     },
+    Migration {
+        version: 24,
+        sql: include_str!("migrations/024_exchange_chunk_fragments.sql"),
+    },
 ];
 
 pub(crate) fn migrate(connection: &mut Connection) -> Result<()> {
@@ -189,6 +193,29 @@ mod tests {
     };
 
     use crate::{SqliteProduction, load_production};
+
+    #[test]
+    fn schema_twenty_three_chunks_migrate_without_changing_exact_bytes() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        for migration in &MIGRATIONS[..23] {
+            apply_migration(&mut connection, migration).unwrap();
+        }
+        connection.execute("INSERT INTO revisions (id, sequence, transaction_id, committed_at_micros) VALUES (zeroblob(16), 1, zeroblob(16), 0)", []).unwrap();
+        let bytes = vec![42_u8; 1_048_577];
+        connection.execute("INSERT INTO exchange_record_chunks (revision_id, position, document) VALUES (zeroblob(16), 0, ?1)", [&bytes]).unwrap();
+        migrate(&mut connection).unwrap();
+        let fragments: Vec<(i64, Vec<u8>)> = connection.prepare("SELECT fragment_position, document FROM exchange_record_chunks ORDER BY fragment_position").unwrap()
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?))).unwrap().collect::<std::result::Result<_, _>>().unwrap();
+        assert_eq!(fragments.len(), 2);
+        assert_eq!(fragments[0].0, 0);
+        assert_eq!(fragments[1].0, 1);
+        assert_eq!(fragments[0].1.len(), 1_048_576);
+        assert_eq!(fragments[1].1.len(), 1);
+        assert_eq!(
+            [fragments[0].1.as_slice(), fragments[1].1.as_slice()].concat(),
+            bytes
+        );
+    }
 
     #[test]
     fn migrates_schema_zero_fixture_to_current() {

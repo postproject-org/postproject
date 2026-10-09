@@ -14,7 +14,7 @@ historical Shotcut scaffold has no remote and is outside qualification.
 [Repository inputs](exchange-repositories.json) record exact starting commits
 and preexisting untracked builds. Candidate qualification has **not** run.
 
-Development schema 23 retains one persistent history generation and a deterministic
+Development schema 24 retains one persistent history generation and a deterministic
 genesis/migration-floor anchor. Existing revisions remain intact. The codec now
 covers strict framing, every metadata value kind and metadata proposal intent;
 complete mutation/effect coverage and the other exchange workflows remain pending.

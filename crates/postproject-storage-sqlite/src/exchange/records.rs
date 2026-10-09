@@ -1,5 +1,6 @@
 //! Atomic capture of the metadata vertical slice; other families remain pending.
 
+mod chunks;
 mod reader;
 mod writer;
 

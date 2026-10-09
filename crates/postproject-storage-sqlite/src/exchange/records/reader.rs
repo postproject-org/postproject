@@ -1,8 +1,7 @@
 use postproject_core::{Error, ErrorKind};
 use postproject_protocol::{
-    Document, FailureKind, Limits, ProtocolError, RecordChunk, RecordChunkChain, RecordManifest,
+    FailureKind, ProtocolError, RecordChunk, RecordChunkChain, RecordManifest,
 };
-use rusqlite::{OptionalExtension, params};
 
 use crate::{ExchangeResult, SqliteProduction, sqlite_error};
 
@@ -91,13 +90,10 @@ impl RecordReader {
     fn read_next(&mut self) -> ExchangeResult<Option<RecordChunk>> {
         let view = self.view.as_ref().ok_or_else(super::invalid)?;
         let revision = self.manifest.revision().id();
-        let bytes = view.connection.query_row("SELECT document FROM exchange_record_chunks WHERE revision_id = ?1 AND position = ?2", params![revision.as_bytes().as_slice(), i64::try_from(self.next).map_err(|_| super::invalid())?], |row| row.get::<_, Vec<u8>>(0))
-            .optional().map_err(sqlite_error("read committed record chunk"))?
-            .ok_or_else(|| ProtocolError::new(FailureKind::HistoryGap, "committed record chunk is missing"))?;
-        let chunk = RecordChunk::from_document(&Document::parse(
-            &bytes,
-            Limits::new(2_097_152, 192, 8192)?,
-        )?)?;
+        let chunk =
+            super::chunks::load(&view.connection, revision, self.next)?.ok_or_else(|| {
+                ProtocolError::new(FailureKind::HistoryGap, "committed record chunk is missing")
+            })?;
         self.chain
             .as_mut()
             .ok_or_else(super::invalid)?
@@ -107,7 +103,7 @@ impl RecordReader {
             let count: i64 = view
                 .connection
                 .query_row(
-                    "SELECT count(*) FROM exchange_record_chunks WHERE revision_id = ?1",
+                    "SELECT count(DISTINCT position) FROM exchange_record_chunks WHERE revision_id = ?1",
                     [revision.as_bytes().as_slice()],
                     |row| row.get(0),
                 )
