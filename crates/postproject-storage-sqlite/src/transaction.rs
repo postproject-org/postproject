@@ -3,6 +3,7 @@
 use std::collections::BTreeMap;
 
 mod job_leases;
+mod media_atomic;
 mod submission;
 
 use postproject_core::{
@@ -201,6 +202,10 @@ impl<'production> SqliteTransaction<'production> {
     /// [`ErrorKind::Unsupported`] if the file size exceeds SQLite's signed
     /// integer range, or a storage/conflict error if persistence fails.
     pub fn import_original(&mut self, import: &OriginalMediaImport) -> Result<()> {
+        self.stage_media_atomically(|transaction| transaction.import_original_inner(import))
+    }
+
+    fn import_original_inner(&mut self, import: &OriginalMediaImport) -> Result<()> {
         let transaction = self.open_transaction()?;
         let asset = import.asset();
 
@@ -233,6 +238,10 @@ impl<'production> SqliteTransaction<'production> {
     /// Returns [`ErrorKind::NotFound`] when the owning asset is absent, or a
     /// storage-domain error when persistence rejects the aggregate.
     pub fn add_representation(&mut self, import: &RepresentationImport) -> Result<()> {
+        self.stage_media_atomically(|transaction| transaction.add_representation_inner(import))
+    }
+
+    fn add_representation_inner(&mut self, import: &RepresentationImport) -> Result<()> {
         let transaction = self.open_transaction()?;
         if !asset_exists(transaction, import.representation().asset_id())? {
             return Err(Error::new(
@@ -523,12 +532,14 @@ impl<'production> SqliteTransaction<'production> {
     ) -> Result<()> {
         const SAVEPOINT: &str = "postproject_complete_job";
         let pending_event_count = self.pending_events.len();
+        let pending_effect_count = self.pending_effects.len();
         self.open_transaction()?
             .execute_batch("SAVEPOINT postproject_complete_job")
             .map_err(sqlite_error("start job completion savepoint"))?;
         let result = self.complete_job_inner(job_id, claim_id, now, output, activity);
         if let Err(error) = result {
             self.pending_events.truncate(pending_event_count);
+            self.pending_effects.truncate(pending_effect_count);
             self.open_transaction()?
                 .execute_batch(&format!("ROLLBACK TO {SAVEPOINT}; RELEASE {SAVEPOINT}"))
                 .map_err(sqlite_error("roll back job completion"))?;
@@ -539,6 +550,7 @@ impl<'production> SqliteTransaction<'production> {
             .execute_batch(&format!("RELEASE {SAVEPOINT}"))
         {
             self.pending_events.truncate(pending_event_count);
+            self.pending_effects.truncate(pending_effect_count);
             self.open_transaction()?
                 .execute_batch(&format!("ROLLBACK TO {SAVEPOINT}; RELEASE {SAVEPOINT}"))
                 .map_err(sqlite_error("roll back unreleased job completion"))?;
