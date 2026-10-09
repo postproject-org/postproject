@@ -62,3 +62,45 @@ fn semantic_versions_preserve_unknown_properties_and_exact_revision_boundaries()
     assert!(ConflictVersion::new(key.clone(), revision, 0).is_err());
     assert!(ConflictVersion::new(key, revision, u64::MAX).is_err());
 }
+
+#[test]
+fn snapshot_assertions_preserve_exact_ordered_values_and_reject_row_ids() {
+    use postproject_core::MetadataValue;
+    use postproject_protocol::SnapshotAssertion;
+    let target = ObjectRef::Production(ProductionId::new());
+    let property = MetadataProperty::new(
+        VocabularyId::new("urn:unknown:exact").unwrap(),
+        PropertyId::new("Repeated").unwrap(),
+    );
+    let value = MetadataValue::list(vec![
+        MetadataValue::u64(u64::MAX),
+        MetadataValue::u64(u64::MAX),
+    ])
+    .unwrap();
+    let assertion = SnapshotAssertion::new(
+        target,
+        property.clone(),
+        9_007_199_254_740_993,
+        value.clone(),
+    )
+    .unwrap();
+    assert_eq!(assertion.target(), target);
+    assert_eq!(assertion.property(), &property);
+    assert_eq!(assertion.position(), 9_007_199_254_740_993);
+    assert_eq!(assertion.value(), &value);
+    let bytes = assertion.document().unwrap().canonical_bytes().unwrap();
+    assert_eq!(
+        SnapshotAssertion::from_document(&Document::parse(&bytes, Limits::default()).unwrap())
+            .unwrap(),
+        assertion
+    );
+    let mut fields: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    fields["row_id"] = "1".into();
+    assert!(
+        SnapshotAssertion::from_document(
+            &Document::parse(&serde_json::to_vec(&fields).unwrap(), Limits::default()).unwrap()
+        )
+        .is_err()
+    );
+    assert!(SnapshotAssertion::new(target, property, u64::MAX, value).is_err());
+}

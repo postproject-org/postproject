@@ -3,6 +3,7 @@
 //! Parsing a JSON document validates framing only. Domain command decoding must
 //! additionally use checked core constructors and current storage guards.
 
+mod assertion;
 mod chunk;
 mod command;
 mod conflict;
@@ -26,6 +27,7 @@ mod role;
 mod scope;
 mod version;
 
+pub use assertion::SnapshotAssertion;
 pub use chunk::{
     ChunkSummary, MAX_RECORD_CHUNK_BYTES, MAX_RECORD_CHUNK_PAYLOAD, RecordChunk, RecordChunkChain,
 };
