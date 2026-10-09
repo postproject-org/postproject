@@ -4,6 +4,7 @@ use std::collections::BTreeMap;
 
 mod job_leases;
 mod media_atomic;
+mod pending_keys;
 mod submission;
 
 use postproject_core::{
@@ -41,8 +42,8 @@ pub struct SqliteTransaction<'production> {
     pending_events: Vec<RevisionEventKind>,
     pending_effects: Vec<crate::exchange::CapturedEffect>,
     base_revision: Option<(Option<RevisionId>, u64)>,
-    pending_conflict_keys: BTreeMap<Vec<u8>, SemanticConflictKey>,
-    pending_changed_keys: BTreeMap<Vec<u8>, SemanticConflictKey>,
+    pending_conflict_keys: pending_keys::PendingKeys,
+    pending_changed_keys: pending_keys::PendingKeys,
     revision_signal: &'production RevisionSignal,
     lease_authority: crate::job_clock::LeaseAuthority,
     lease_high_water: Option<i64>,
@@ -163,8 +164,8 @@ impl<'production> SqliteTransaction<'production> {
             pending_events: Vec::new(),
             pending_effects: Vec::new(),
             base_revision,
-            pending_conflict_keys: BTreeMap::new(),
-            pending_changed_keys: BTreeMap::new(),
+            pending_conflict_keys: pending_keys::PendingKeys::default(),
+            pending_changed_keys: pending_keys::PendingKeys::default(),
             revision_signal,
             lease_authority,
             lease_high_water: None,
@@ -549,6 +550,8 @@ impl<'production> SqliteTransaction<'production> {
         const SAVEPOINT: &str = "postproject_complete_job";
         let pending_event_count = self.pending_events.len();
         let pending_effect_count = self.pending_effects.len();
+        let conflict_keys = self.pending_conflict_keys.checkpoint();
+        let changed_keys = self.pending_changed_keys.checkpoint();
         self.open_transaction()?
             .execute_batch("SAVEPOINT postproject_complete_job")
             .map_err(sqlite_error("start job completion savepoint"))?;
@@ -556,6 +559,8 @@ impl<'production> SqliteTransaction<'production> {
         if let Err(error) = result {
             self.pending_events.truncate(pending_event_count);
             self.pending_effects.truncate(pending_effect_count);
+            self.pending_conflict_keys.rollback_to(conflict_keys);
+            self.pending_changed_keys.rollback_to(changed_keys);
             self.open_transaction()?
                 .execute_batch(&format!("ROLLBACK TO {SAVEPOINT}; RELEASE {SAVEPOINT}"))
                 .map_err(sqlite_error("roll back job completion"))?;
@@ -567,6 +572,8 @@ impl<'production> SqliteTransaction<'production> {
         {
             self.pending_events.truncate(pending_event_count);
             self.pending_effects.truncate(pending_effect_count);
+            self.pending_conflict_keys.rollback_to(conflict_keys);
+            self.pending_changed_keys.rollback_to(changed_keys);
             self.open_transaction()?
                 .execute_batch(&format!("ROLLBACK TO {SAVEPOINT}; RELEASE {SAVEPOINT}"))
                 .map_err(sqlite_error("roll back unreleased job completion"))?;
@@ -1316,11 +1323,21 @@ impl<'production> SqliteTransaction<'production> {
     ///
     /// Returns [`ErrorKind::NotFound`] for an absent resource or a transaction/
     /// storage error. An identical current value is a successful no-op.
+    pub fn record_resource_fingerprint(
+        &mut self,
+        resource_id: ResourceId,
+        fingerprint: &ResourceFingerprint,
+    ) -> Result<bool> {
+        self.stage_media_atomically(|transaction| {
+            transaction.record_resource_fingerprint_inner(resource_id, fingerprint)
+        })
+    }
+
     #[allow(
         clippy::too_many_lines,
         reason = "archive, current observation, aggregate invalidation and journal form one mutation"
     )]
-    pub fn record_resource_fingerprint(
+    fn record_resource_fingerprint_inner(
         &mut self,
         resource_id: ResourceId,
         fingerprint: &ResourceFingerprint,
@@ -1441,11 +1458,21 @@ impl<'production> SqliteTransaction<'production> {
     ///
     /// Returns [`ErrorKind::NotFound`] for an absent representation or a
     /// transaction/storage error.
+    pub fn record_representation_fingerprint(
+        &mut self,
+        representation_id: RepresentationId,
+        fingerprint: &RepresentationFingerprint,
+    ) -> Result<bool> {
+        self.stage_media_atomically(|transaction| {
+            transaction.record_representation_fingerprint_inner(representation_id, fingerprint)
+        })
+    }
+
     #[allow(
         clippy::too_many_lines,
         reason = "the archive, current-row update, dirty-marker clear, and event are one auditable mutation"
     )]
-    pub fn record_representation_fingerprint(
+    fn record_representation_fingerprint_inner(
         &mut self,
         representation_id: RepresentationId,
         fingerprint: &RepresentationFingerprint,
@@ -1819,8 +1846,8 @@ impl<'production> SqliteTransaction<'production> {
 
     fn prepare_commit(&mut self) -> Result<CommitReceipt> {
         self.check_lease_commit()?;
-        let conflict_keys = self.pending_conflict_keys.clone();
-        let changed_keys = self.pending_changed_keys.clone();
+        let conflict_keys = self.pending_conflict_keys.snapshot();
+        let changed_keys = self.pending_changed_keys.snapshot();
         if let Some(base_revision) = self.base_revision {
             let conflict =
                 find_transaction_conflict(self.open_transaction()?, base_revision, &conflict_keys)?;
