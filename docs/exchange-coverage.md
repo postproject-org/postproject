@@ -7,20 +7,24 @@ Baseline inspected on 2026-10-08: tag `v0.7.0-alpha.1` resolves to
 publication at 18:11:25 UTC. The tag contains an SSH signature; local signature
 verification is unavailable without `gpg.ssh.allowedSignersFile`.
 
-The development delta changes installation/Flatpak documentation and version
+At implementation start, the development delta changed installation/Flatpak documentation and version
 guards only. Preserve those corrections. The workspace instructions apply to
 all 13 active GitHub repositories; no nested instructions were found. The
 historical Shotcut scaffold has no remote and is outside qualification.
 [Repository inputs](exchange-repositories.json) record exact starting commits
 and preexisting untracked builds. Candidate qualification has **not** run.
 
-Development schema 22 retains one persistent history generation and a deterministic
+Development schema 23 retains one persistent history generation and a deterministic
 genesis/migration-floor anchor. Existing revisions remain intact. The codec now
 covers strict framing, every metadata value kind and metadata proposal intent;
 complete mutation/effect coverage and the other exchange workflows remain pending.
 Metadata mutations now capture exact authored effects inside the native commit,
 including repeated edits to one property. Internal 1 MiB fragments preserve
-legal large values. They are not yet complete public records or a replay feed.
+legal large values. Metadata-only suffixes now have bounded record manifests,
+ordered chunk chains and independently pinned Rust readers. Records retain the
+original revision/context, same-key history and observation events. Other families
+or a missing complete predecessor leave an explicit `history_gap`; a complete
+replay feed and passive application remain pending.
 Identified metadata submissions retain accepted/no-op/rejected public outcomes
 in the same writer transaction. Other command families and credentials remain
 unsupported; the full authority and replay gates remain pending.

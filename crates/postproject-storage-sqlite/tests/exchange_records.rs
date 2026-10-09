@@ -241,3 +241,35 @@ fn missing_or_corrupt_chunks_make_public_readers_terminal() {
         assert!(reader.next_chunk().is_err());
     }
 }
+
+#[test]
+fn uncaptured_families_never_advertise_a_complete_replay_head() {
+    use postproject_core::{MediaRoot, MediaRootId};
+    use postproject_protocol::FailureKind;
+    use postproject_storage_sqlite::ExchangeError;
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("authority.pproj");
+    let mut production = SqliteProduction::create(&path, None).unwrap();
+    let target = ObjectRef::Production(production.production().id());
+    let mut edit = production.begin_transaction().unwrap();
+    edit.add_media_root(MediaRoot::new(MediaRootId::new(), "rushes", None, None, 0, true).unwrap())
+        .unwrap();
+    edit.commit().unwrap();
+    drop(edit);
+    assert!(
+        matches!(production.exchange_head(), Err(ExchangeError::Protocol(error)) if error.kind() == FailureKind::HistoryGap)
+    );
+    let mut edit = production.begin_transaction().unwrap();
+    edit.add_metadata_value(target, &property(), &MetadataValue::i64(1))
+        .unwrap();
+    edit.commit().unwrap();
+    drop(edit);
+    assert!(
+        matches!(production.record_reader(2), Err(ExchangeError::Protocol(error)) if error.kind() == FailureKind::HistoryGap)
+    );
+    assert_eq!(
+        production.metadata_values(target, &property()).unwrap(),
+        [MetadataValue::i64(1)]
+    );
+    assert_eq!(production.exchange_floor().unwrap().sequence(), 0);
+}
