@@ -4,6 +4,7 @@
 //! additionally use checked core constructors and current storage guards.
 
 mod assertion;
+mod checkpoint;
 mod chunk;
 mod command;
 mod conflict;
@@ -28,6 +29,7 @@ mod scope;
 mod version;
 
 pub use assertion::SnapshotAssertion;
+pub use checkpoint::{CheckpointSection, SectionSummary};
 pub use chunk::{
     ChunkSummary, MAX_RECORD_CHUNK_BYTES, MAX_RECORD_CHUNK_PAYLOAD, RecordChunk, RecordChunkChain,
 };
