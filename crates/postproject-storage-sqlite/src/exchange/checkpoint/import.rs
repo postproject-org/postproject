@@ -3,6 +3,8 @@
 mod bodies;
 mod completion;
 mod guard_state;
+#[cfg(test)]
+mod identifier_state;
 mod limits;
 #[cfg(test)]
 mod media_state;
