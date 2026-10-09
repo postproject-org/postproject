@@ -52,7 +52,7 @@ use rusqlite::{
     Connection, OpenFlags, OptionalExtension, limits::Limit, params, params_from_iter, types::Value,
 };
 
-pub use exchange::{ExchangeError, ExchangeResult, RecordReader};
+pub use exchange::{ExchangeError, ExchangeResult, RecordReader, ReplayLimits};
 pub use job_lease::SqliteJobLease;
 pub use migrations::CURRENT_SCHEMA_VERSION;
 pub use read_session::SqliteReadSession;
@@ -157,7 +157,7 @@ impl SqliteProduction {
     /// and authenticates no source. Use complete checkpoints for nonempty bases.
     ///
     /// # Errors
-    /// Rejects wrong scope, nongeneses, altered anchors or an existing path.
+    /// Rejects wrong scope, non-genesis positions, altered anchors or an existing path.
     /// Returns storage/migration errors without producing a writable authority.
     pub fn create_genesis_mirror(
         path: impl AsRef<Path>,
@@ -165,6 +165,26 @@ impl SqliteProduction {
         anchor: postproject_protocol::Position,
     ) -> ExchangeResult<Self> {
         exchange::create_genesis_mirror(path.as_ref(), source, anchor)
+    }
+
+    /// Atomically applies one complete source record to a passive mirror.
+    ///
+    /// Returns `true` for a new apply or `false` for a verified identical
+    /// duplicate. Retains original revisions/events and advances no local clock.
+    /// Only metadata effects are currently supported. Receiver budgets include
+    /// encoded envelopes; iterator errors cancel and roll back the whole apply.
+    ///
+    /// # Errors
+    /// Rejects authority/read views, foreign histories, gaps, divergence,
+    /// incomplete/corrupt bodies, structural mismatches and exhausted budgets.
+    /// Storage failures leave recovery to the same-record retry after reopening.
+    pub fn apply_record(
+        &mut self,
+        manifest: &postproject_protocol::RecordManifest,
+        chunks: impl IntoIterator<Item = ExchangeResult<postproject_protocol::RecordChunk>>,
+        limits: ReplayLimits,
+    ) -> ExchangeResult<bool> {
+        exchange::apply(self, manifest, chunks, limits)
     }
 
     /// Opens a bounded record stream on its own coherent view.

@@ -2,9 +2,12 @@
 
 mod chunks;
 mod reader;
+mod replay;
 mod writer;
 
 pub use reader::RecordReader;
+pub use replay::ReplayLimits;
+pub(crate) use replay::apply;
 
 use postproject_core::{
     Error, ErrorKind, ProductionId, Result, Revision, RevisionEvent, RevisionEventKind,
