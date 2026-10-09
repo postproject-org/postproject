@@ -88,7 +88,10 @@ fn parent_replacement_preserves_all_states_children_attachments_and_private_fact
         rows(&connection, "PRAGMA foreign_keys"),
         vec![vec![Value::Integer(1)]]
     );
-    assert!(rows(&connection, "PRAGMA foreign_key_check").is_empty());
+    assert_eq!(
+        rows(&connection, "PRAGMA foreign_key_check"),
+        Vec::<Vec<Value>>::new()
+    );
     assert_eq!(
         rows(&connection, "SELECT sum(claim_inert) FROM jobs"),
         vec![vec![Value::Integer(0)]]
@@ -139,19 +142,19 @@ fn a_late_child_restore_failure_rolls_back_the_entire_migration() {
         rows(&connection, "SELECT count(*) FROM metadata_assertions"),
         vec![vec![Value::Integer(5)]]
     );
-    assert!(
+    assert_eq!(
         rows(
             &connection,
             "SELECT name FROM sqlite_schema WHERE name = 'jobs_exchange'"
-        )
-        .is_empty()
+        ),
+        Vec::<Vec<Value>>::new()
     );
-    assert!(
+    assert_eq!(
         rows(
             &connection,
             "SELECT name FROM sqlite_temp_schema WHERE name = 'exchange_job_inputs_backup'"
-        )
-        .is_empty()
+        ),
+        Vec::<Vec<Value>>::new()
     );
     connection
         .execute_batch("DROP TRIGGER reject_restored_input;")
