@@ -51,7 +51,7 @@ pub use conflict::{decode_transaction_conflict, encode_transaction_conflict};
 pub use conflict_floor::{decode_conflict_floor, encode_conflict_floor};
 pub use creation::{
     CreationDecoder, CreationFact, RepresentationCreationStart, ResourceCreationStart,
-    encode_representation_creation,
+    decode_original_creation_start, encode_original_creation, encode_representation_creation,
 };
 pub use digest::{Digest, DigestDomain};
 pub use effect::{

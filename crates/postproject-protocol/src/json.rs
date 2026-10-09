@@ -62,6 +62,19 @@ pub struct Document {
 }
 
 impl Document {
+    /// Returns a document's string kind for domain-decoder dispatch.
+    ///
+    /// This does not validate or authorize the remaining fields.
+    ///
+    /// # Errors
+    /// Rejects a missing or nonstring kind.
+    pub fn kind(&self) -> Result<&str> {
+        self.value
+            .get("kind")
+            .and_then(Value::as_str)
+            .ok_or_else(crate::fields::malformed)
+    }
+
     /// Encodes canonical JSON, retaining all fields and array order.
     ///
     /// # Errors

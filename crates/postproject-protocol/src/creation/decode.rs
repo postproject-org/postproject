@@ -222,13 +222,21 @@ impl CreationDecoder {
     /// # Errors
     /// Rejects failed/incomplete streams and missing locations for any resource.
     pub fn finish(self) -> Result<()> {
-        if self.phase != Phase::Complete
-            || self.resources != self.expected
-            || self.located != self.expected
-            || self.locators != self.header.locator_count()
-        {
+        if !self.is_complete() {
             return Err(malformed());
         }
         Ok(())
+    }
+
+    /// Returns whether all advertised facts and full location coverage are checked.
+    ///
+    /// An enclosing record must still validate its remaining effects, observations
+    /// and integrity commitments before any staging facts become visible.
+    #[must_use]
+    pub fn is_complete(&self) -> bool {
+        self.phase == Phase::Complete
+            && self.resources == self.expected
+            && self.located == self.expected
+            && self.locators == self.header.locator_count()
     }
 }

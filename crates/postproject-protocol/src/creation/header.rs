@@ -1,4 +1,4 @@
-use postproject_core::{MAX_CONTENT_MEMBERS, RepresentationImport, Resource};
+use postproject_core::{MAX_CONTENT_MEMBERS, OriginalMediaImport, RepresentationImport, Resource};
 use serde_json::json;
 
 use crate::{
@@ -21,6 +21,19 @@ impl RepresentationCreationStart {
     /// # Errors
     /// Rejects counts outside the existing resource/storage ranges.
     pub fn from_import(import: &RepresentationImport) -> Result<Self> {
+        Self::new(
+            RepresentationHeader::from_representation(import.representation()),
+            count(import.resources().len())?,
+            count(import.locators().len())?,
+            count(import.representation().fingerprints().len())?,
+        )
+    }
+
+    /// Copies the original import's representation ownership and continuation counts.
+    ///
+    /// # Errors
+    /// Rejects counts outside the existing resource/storage ranges.
+    pub fn from_original(import: &OriginalMediaImport) -> Result<Self> {
         Self::new(
             RepresentationHeader::from_representation(import.representation()),
             count(import.resources().len())?,
