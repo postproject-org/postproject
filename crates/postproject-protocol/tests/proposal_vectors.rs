@@ -1,4 +1,4 @@
-//! Fixed expected bytes/digests authored by Python without the PostProject codec.
+//! Fixed expected bytes/digests authored by Python without the `PostProject` codec.
 
 use std::path::Path;
 
