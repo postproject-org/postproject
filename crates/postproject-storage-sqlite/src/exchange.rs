@@ -1,5 +1,6 @@
 //! Private exchange persistence; portable history is independent of read cursors.
 
+mod activity_capture;
 mod captured;
 mod checkpoint;
 mod error;

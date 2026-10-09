@@ -121,7 +121,7 @@ pub(crate) fn capture_records(
     };
     let mut expected = events.iter();
     for effect in effects {
-        effect.visit_observations(|event| {
+        effect.visit_observations(connection, |event| {
             if expected.next() != Some(&event) {
                 return Err(incomplete());
             }
@@ -133,7 +133,9 @@ pub(crate) fn capture_records(
     }
     let mut writer = writer::RecordWriter::new(connection, predecessor.scope(), revision.id());
     for effect in effects {
-        effect.write_frames(revision.sequence(), |frame| writer.document(frame))?;
+        effect.write_frames(connection, revision.sequence(), |frame| {
+            writer.document(frame)
+        })?;
     }
     for (position, event) in events.iter().enumerate() {
         let position = u32::try_from(position).map_err(|_| encoding())?;

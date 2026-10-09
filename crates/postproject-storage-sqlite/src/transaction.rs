@@ -1788,6 +1788,12 @@ impl<'production> SqliteTransaction<'production> {
                     role: output.role().cloned(),
                 }
             }));
+        self.pending_effects
+            .push(crate::exchange::CapturedEffect::ActivityCreated(Box::new(
+                postproject_protocol::ActivityHeader::from_activity(activity).map_err(|_| {
+                    Error::new(ErrorKind::Internal, "cannot capture native activity header")
+                })?,
+            )));
         Ok(())
     }
 
