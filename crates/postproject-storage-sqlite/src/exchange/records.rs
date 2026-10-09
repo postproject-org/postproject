@@ -106,6 +106,9 @@ pub(crate) fn capture_records(
                 | RevisionEventKind::ExternalIdentifierAdded { .. }
                 | RevisionEventKind::ExternalIdentifierRemoved { .. }
                 | RevisionEventKind::DependencySetRecorded { .. }
+                | RevisionEventKind::ActivityCreated { .. }
+                | RevisionEventKind::ActivityInputAdded { .. }
+                | RevisionEventKind::ActivityOutputAdded { .. }
                 | RevisionEventKind::RepresentationResourceAdded { .. }
                 | RevisionEventKind::LocatorAdded { .. }
                 | RevisionEventKind::LocatorRetired { .. }

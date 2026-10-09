@@ -1,8 +1,9 @@
 use postproject_core::{AssetId, RepresentationKind, RevisionEventKind, SemanticConflictKey};
 use postproject_protocol::{
-    DependencySetHeader, Document, FailureKind, FingerprintChangeStart, IdentifierChange,
-    MediaChange, MetadataEffectStart, MetadataOperation, ProtocolError, RecordFeature,
-    RecordManifest, RepresentationCreationStart, decode_event, decode_original_creation_start,
+    ActivityHeader, DependencySetHeader, Document, FailureKind, FingerprintChangeStart,
+    IdentifierChange, MediaChange, MetadataEffectStart, MetadataOperation, ProtocolError,
+    RecordFeature, RecordManifest, RepresentationCreationStart, decode_event,
+    decode_original_creation_start,
 };
 use rusqlite::{Transaction, params};
 
@@ -24,6 +25,7 @@ pub(super) struct ApplyEffects<'a, 'connection> {
 }
 
 enum Pending {
+    Activity(Box<super::activity::ActivityApply>),
     Metadata(MetadataEffectStart, u64),
     Original(AssetId),
     Creation(Box<super::creation::CreationApply>),
@@ -48,6 +50,7 @@ impl<'a, 'connection> ApplyEffects<'a, 'connection> {
 
     pub(super) fn document(&mut self, document: &Document) -> ExchangeResult<()> {
         match self.effect.as_ref() {
+            Some(Pending::Activity(_)) => return self.activity_document(document),
             Some(Pending::Metadata(..)) => return self.value(document),
             Some(Pending::Original(_)) => return self.start_creation(document),
             Some(Pending::Creation(_)) => return self.creation_document(document),
@@ -57,6 +60,18 @@ impl<'a, 'connection> ApplyEffects<'a, 'connection> {
         }
         if self.effects < self.manifest.effect_count() {
             return match document.kind()? {
+                "activity.header" => {
+                    self.require_feature(RecordFeature::Provenance)?;
+                    let pending = super::activity::ActivityApply::begin(
+                        self.transaction,
+                        self.manifest,
+                        ActivityHeader::from_document(document)?,
+                        &mut self.expected_events,
+                    )?;
+                    self.effect = Some(Pending::Activity(Box::new(pending)));
+                    self.effects += 1;
+                    Ok(())
+                }
                 "metadata.effect" => {
                     self.require_feature(RecordFeature::Metadata)?;
                     self.start(MetadataEffectStart::from_document(document)?)
@@ -124,6 +139,21 @@ impl<'a, 'connection> ApplyEffects<'a, 'connection> {
             return Err(invalid().into());
         }
         self.events += 1;
+        Ok(())
+    }
+
+    fn activity_document(&mut self, document: &Document) -> ExchangeResult<()> {
+        let Some(Pending::Activity(pending)) = self.effect.as_mut() else {
+            return Err(invalid().into());
+        };
+        if pending.push(
+            self.transaction,
+            self.manifest,
+            document,
+            &mut self.expected_events,
+        )? {
+            self.effect = None;
+        }
         Ok(())
     }
 
