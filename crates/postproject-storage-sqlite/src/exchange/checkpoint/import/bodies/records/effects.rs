@@ -1,4 +1,4 @@
-use postproject_core::{RevisionEventKind, RevisionId};
+use postproject_core::{RevisionEventKind, RevisionId, SemanticConflictKey};
 use postproject_protocol::{
     Document, MediaChange, MetadataEffectStart, RecordFeature, RecordManifest, decode_event,
 };
@@ -10,6 +10,7 @@ use super::super::{super::super::invalid, history::observation};
 
 pub(super) struct RetainedEffects {
     revision: RevisionId,
+    sequence: u64,
     total: u64,
     total_events: u64,
     media: bool,
@@ -26,6 +27,7 @@ impl RetainedEffects {
     pub(super) fn new(manifest: &RecordManifest, genesis: bool) -> Self {
         Self {
             revision: manifest.revision().id(),
+            sequence: manifest.revision().sequence(),
             total: manifest.effect_count(),
             total_events: manifest.event_count(),
             media: manifest
@@ -76,6 +78,11 @@ impl RetainedEffects {
                     return Err(invalid().into());
                 }
                 super::super::super::root_state::change(connection, &change, self.genesis)?;
+                super::super::super::guard_state::recorded(
+                    connection,
+                    &change.conflict_key(),
+                    self.sequence,
+                )?;
                 self.effects += 1;
                 return Ok(());
             }
@@ -100,6 +107,14 @@ impl RetainedEffects {
                 return Err(invalid().into());
             }
             super::super::super::metadata_state::start(connection, &effect, self.genesis)?;
+            super::super::super::guard_state::recorded(
+                connection,
+                &SemanticConflictKey::MetadataProperty {
+                    target: effect.target(),
+                    property: effect.property().clone(),
+                },
+                self.sequence,
+            )?;
             self.effects += 1;
             self.remaining_values = effect.value_count();
             self.value_index = 0;

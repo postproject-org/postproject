@@ -107,7 +107,6 @@ impl<'a, 'connection> Bodies<'a, 'connection> {
         {
             return Err(super::super::invalid().into());
         }
-        self.validate_boundaries()?;
-        self.validate_versions()
+        self.validate_boundaries()
     }
 }

@@ -2,6 +2,7 @@
 
 mod bodies;
 mod completion;
+mod guard_state;
 mod limits;
 mod metadata_state;
 mod recovery;
@@ -47,6 +48,7 @@ pub(crate) fn import(
         .map_err(sqlite_error("defer private checkpoint cross-references"))?;
     metadata_state::create(&transaction)?;
     root_state::create(&transaction)?;
+    guard_state::create(&transaction)?;
     let mut bodies = bodies::Bodies::new(&transaction, manifest, limits);
     let mut chunks = chunks.into_iter();
     for summary in manifest.sections() {
@@ -98,6 +100,7 @@ pub(crate) fn import(
     bodies.finish()?;
     metadata_state::finish(&transaction, manifest.floor().sequence() == 0)?;
     root_state::finish(&transaction, manifest.floor().sequence() == 0)?;
+    guard_state::finish(&transaction, manifest.floor().sequence())?;
     transaction
         .commit()
         .map_err(sqlite_error("commit complete private checkpoint"))?;

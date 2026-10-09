@@ -154,6 +154,8 @@ sections still reject explicitly until their checkpoint bodies are available.
 Logical roots now carry their original configuration and deletion guards. A
 private bounded consistency audit checks retained transitions against current
 roots; unknown migration facts remain baseline facts, never invented additions.
+Semantic guards must match original observations and the exact authored key set
+above the replay floor. Initial creation locators do not invent changed guards.
 Scalar ownership and content headers can be built without loading fingerprint
 or locator collections. Transport continues to use the existing domain checks.
 Legacy metadata evidence is encoded incrementally without a whole replacement
