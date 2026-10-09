@@ -1,14 +1,16 @@
 //! Distinct files retain complete media and authored mixed-operation history.
 
 use postproject_core::{
-    Asset, AssetId, ContentStructure, FrameRange, ImageSequenceDescriptor, Locator,
+    Asset, AssetId, ContentStructure, FileFacts, FrameRange, ImageSequenceDescriptor, Locator,
     LocatorAvailability, LocatorId, MediaRoot, MediaRootId, MetadataProperty, MetadataValue,
     ObjectRef, OriginalMediaImport, PropertyId, RationalRate, Representation,
     RepresentationFingerprint, RepresentationId, RepresentationImport, RepresentationKind,
     Resource, ResourceFingerprint, ResourceId, ResourceMember, ResourceRole, SequenceNaming,
     Timestamp, VocabularyId,
 };
-use postproject_protocol::RecordFeature;
+use postproject_protocol::{
+    Document, FrameDecoder, Limits, MediaChange, RecordFeature, ResourceCreationStart,
+};
 use postproject_storage_sqlite::{ReplayLimits, SqliteProduction};
 
 fn fixture(content: ContentStructure) -> OriginalMediaImport {
@@ -206,10 +208,7 @@ fn apply_sequence(source: &SqliteProduction, mirror: &mut SqliteProduction, sequ
             )
             .unwrap()
     );
-    assert_eq!(
-        mirror.exchange_head().unwrap(),
-        manifest.head().unwrap()
-    );
+    assert_eq!(mirror.exchange_head().unwrap(), manifest.head().unwrap());
 }
 
 #[test]
@@ -267,6 +266,16 @@ fn representation_addition_and_same_root_locator_transitions_keep_history_and_gu
     let mut edit = source.begin_edit(base).unwrap();
     edit.set_media_root_enabled(root.id(), false).unwrap();
     edit.add_representation(&proxy).unwrap();
+    let first_facts = FileFacts::new(7, Some(Timestamp::from_unix_micros(-123)));
+    let last_facts = FileFacts::new(99, None);
+    assert!(
+        edit.record_resource_file_facts(proxy.resources()[0].id(), first_facts)
+            .unwrap()
+    );
+    assert!(
+        edit.record_resource_file_facts(proxy.resources()[0].id(), last_facts)
+            .unwrap()
+    );
     edit.add_locator(&locator).unwrap();
     edit.retire_locator(proxy.locators()[0].id()).unwrap();
     edit.set_media_root_enabled(root.id(), true).unwrap();
@@ -274,6 +283,7 @@ fn representation_addition_and_same_root_locator_transitions_keep_history_and_gu
     let revision = edit.commit().unwrap().revision().unwrap().id();
     drop(edit);
     apply_sequence(&source, &mut mirror, 2);
+    assert_authored_file_facts(&source, proxy.resources()[0].id(), first_facts, last_facts);
     assert_eq!(
         mirror.representation(proxy.representation().id()).unwrap(),
         *proxy.representation()
@@ -292,6 +302,66 @@ fn representation_addition_and_same_root_locator_transitions_keep_history_and_gu
         source.changes_since(0, 10).unwrap()
     );
     assert_eq!(guard_rows(&mirror_path), guard_rows(&source_path));
+    assert_eq!(
+        mirror.resources(proxy.representation().id()).unwrap()[0].file_facts(),
+        Some(last_facts)
+    );
+}
+
+fn assert_authored_file_facts(
+    source: &SqliteProduction,
+    resource_id: ResourceId,
+    first: FileFacts,
+    last: FileFacts,
+) {
+    let frames = record_frames(source, 2);
+    let facts: Vec<_> = frames
+        .iter()
+        .filter(|frame| frame.kind().unwrap() == "resource.file-facts")
+        .map(|frame| MediaChange::from_document(frame).unwrap())
+        .collect();
+    assert_eq!(
+        facts,
+        [
+            MediaChange::ResourceFileFacts {
+                resource_id,
+                facts: first
+            },
+            MediaChange::ResourceFileFacts {
+                resource_id,
+                facts: last
+            }
+        ]
+    );
+    let creation = frames
+        .iter()
+        .find(|frame| frame.kind().unwrap() == "resource.creation")
+        .unwrap();
+    assert_eq!(
+        ResourceCreationStart::from_document(creation)
+            .unwrap()
+            .resource()
+            .file_facts(),
+        None
+    );
+}
+
+fn record_frames(source: &SqliteProduction, sequence: u64) -> Vec<Document> {
+    let mut reader = source.record_reader(sequence).unwrap();
+    let mut decoder = FrameDecoder::new(Limits::default());
+    let mut frames = Vec::new();
+    while let Some(chunk) = reader.next_chunk().unwrap() {
+        let mut offset = 0;
+        while offset < chunk.payload().len() {
+            let (consumed, document) = decoder.consume(&chunk.payload()[offset..]).unwrap();
+            offset += consumed;
+            if let Some(document) = document {
+                frames.push(document);
+            }
+        }
+    }
+    decoder.finish().unwrap();
+    frames
 }
 
 fn guard_rows(path: &std::path::Path) -> Vec<(Vec<u8>, Vec<u8>, i64)> {

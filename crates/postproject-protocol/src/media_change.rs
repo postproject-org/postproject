@@ -1,18 +1,26 @@
-//! Authored locator and root changes, separate from their observation projection.
+//! Authored scalar media changes, separate from their observation projection.
 
 use postproject_core::{
-    Locator, LocatorId, MediaRoot, MediaRootId, ResourceId, RevisionEventKind, SemanticConflictKey,
+    FileFacts, Locator, LocatorId, MediaRoot, MediaRootId, Resource, ResourceId, RevisionEventKind,
+    SemanticConflictKey,
 };
 use serde_json::json;
 
 use crate::{
-    Document, Result, decode_locator, decode_root, encode_locator, encode_root,
+    Document, ResourceHeader, Result, decode_locator, decode_root, encode_locator, encode_root,
     fields::{exact, malformed, object, unsupported},
 };
 
-/// One authored root or locator mutation, without local resolver mappings.
+/// One authored scalar media mutation, without local resolver mappings.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum MediaChange {
+    /// A changed measured size/time on one existing resource.
+    ResourceFileFacts {
+        /// Original resource identity.
+        resource_id: ResourceId,
+        /// Authored observation; replay performs no measurement.
+        facts: FileFacts,
+    },
     /// Complete original configured-root facts.
     RootAdded(MediaRoot),
     /// A changed enabled flag on an existing root.
@@ -43,6 +51,9 @@ impl MediaChange {
     pub fn document(&self) -> Result<Document> {
         Ok(Document {
             value: match self {
+                Self::ResourceFileFacts { resource_id, facts } => {
+                    json!({"kind":"resource.file-facts", "resource":ResourceHeader::from_resource(&Resource::new(*resource_id, Vec::new(), Some(*facts))).document().value})
+                }
                 Self::RootAdded(root) => {
                     json!({"kind":"root.added", "root":encode_root(root).value})
                 }
@@ -69,6 +80,16 @@ impl MediaChange {
     /// Rejects unknown kinds/fields and malformed domain values.
     pub fn from_document(document: &Document) -> Result<Self> {
         Ok(match document.kind()? {
+            "resource.file-facts" => {
+                let fields = object(&document.value, &["kind", "resource"])?;
+                let resource = ResourceHeader::from_document(&Document {
+                    value: fields["resource"].clone(),
+                })?;
+                Self::ResourceFileFacts {
+                    resource_id: resource.id(),
+                    facts: resource.file_facts().ok_or_else(malformed)?,
+                }
+            }
             "root.added" => {
                 let fields = object(&document.value, &["kind", "root"])?;
                 Self::RootAdded(decode_root(&Document {
@@ -107,6 +128,11 @@ impl MediaChange {
     #[must_use]
     pub fn observation(&self) -> RevisionEventKind {
         match self {
+            Self::ResourceFileFacts { resource_id, .. } => {
+                RevisionEventKind::ResourceFileFactsObserved {
+                    resource_id: *resource_id,
+                }
+            }
             Self::RootAdded(root) => RevisionEventKind::MediaRootAdded {
                 media_root_id: root.id(),
             },
@@ -135,6 +161,9 @@ impl MediaChange {
     #[must_use]
     pub const fn conflict_key(&self) -> SemanticConflictKey {
         match self {
+            Self::ResourceFileFacts { resource_id, .. } => {
+                SemanticConflictKey::ResourceFileFacts(*resource_id)
+            }
             Self::RootAdded(root) => SemanticConflictKey::MediaRoot(root.id()),
             Self::RootEnabled { root_id, .. } | Self::RootRemoved(root_id) => {
                 SemanticConflictKey::MediaRoot(*root_id)

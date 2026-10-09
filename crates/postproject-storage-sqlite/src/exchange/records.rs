@@ -99,6 +99,7 @@ pub(crate) fn capture_metadata(
                 | RevisionEventKind::AssetImported { .. }
                 | RevisionEventKind::RepresentationAdded { .. }
                 | RevisionEventKind::ResourceAdded { .. }
+                | RevisionEventKind::ResourceFileFactsObserved { .. }
                 | RevisionEventKind::RepresentationResourceAdded { .. }
                 | RevisionEventKind::LocatorAdded { .. }
                 | RevisionEventKind::LocatorRetired { .. }

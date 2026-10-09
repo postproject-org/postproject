@@ -1,8 +1,8 @@
 //! Exact root/locator changes retain their historical observation and guard.
 
 use postproject_core::{
-    Locator, LocatorAvailability, LocatorId, MediaRoot, MediaRootId, ResourceId, SequenceNaming,
-    Timestamp,
+    FileFacts, Locator, LocatorAvailability, LocatorId, MediaRoot, MediaRootId, ResourceId,
+    SequenceNaming, Timestamp,
 };
 use postproject_protocol::{Document, FailureKind, Limits, MediaChange};
 
@@ -27,6 +27,10 @@ fn every_change_retains_exact_facts_observation_and_semantic_key() {
     .unwrap()
     .with_sequence_naming(SequenceNaming::new("shot.", ".exr", 4).unwrap());
     let changes = [
+        MediaChange::ResourceFileFacts {
+            resource_id: locator.resource_id(),
+            facts: FileFacts::new(u64::MAX, Some(Timestamp::from_unix_micros(i64::MIN))),
+        },
         MediaChange::RootAdded(root.clone()),
         MediaChange::RootEnabled {
             root_id: root.id(),

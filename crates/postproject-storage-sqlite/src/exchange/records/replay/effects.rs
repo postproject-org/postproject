@@ -75,7 +75,11 @@ impl<'a, 'connection> ApplyEffects<'a, 'connection> {
                     Ok(())
                 }
                 "representation.creation" => self.start_creation(document),
-                "root.added" | "root.enabled" | "root.removed" | "locator.added"
+                "resource.file-facts"
+                | "root.added"
+                | "root.enabled"
+                | "root.removed"
+                | "locator.added"
                 | "locator.retired" => {
                     self.require_feature(RecordFeature::Media)?;
                     let change = MediaChange::from_document(document)?;

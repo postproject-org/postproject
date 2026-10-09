@@ -9,6 +9,14 @@ use crate::{
 
 pub(super) fn apply(transaction: &Transaction<'_>, change: &MediaChange) -> ExchangeResult<()> {
     let changed = match change {
+        MediaChange::ResourceFileFacts { resource_id, facts } => {
+            let size = i64::try_from(facts.size_bytes()).map_err(|_| postproject_protocol::ProtocolError::new(postproject_protocol::FailureKind::Unsupported, "file size exceeds this receiver's storage range"))?;
+            let modified = facts.modified_at().map(postproject_core::Timestamp::as_unix_micros);
+            structural(transaction.execute(
+                "UPDATE resources SET file_size_bytes = ?2, modified_at_micros = ?3 WHERE id = ?1 AND (file_size_bytes IS NOT ?2 OR modified_at_micros IS NOT ?3)",
+                params![resource_id.as_bytes().as_slice(), size, modified],
+            ).map_err(mutation_error("stage replayed file facts")))?
+        }
         MediaChange::RootAdded(root) => structural(transaction.execute(
             "INSERT INTO media_roots (id, name, label, legacy_uri, priority, enabled) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
             params![root.id().as_bytes().as_slice(), root.name(), root.label(), root.legacy_uri(), root.priority(), root.is_enabled()],

@@ -1296,6 +1296,10 @@ impl<'production> SqliteTransaction<'production> {
             self.record_conflict_key(SemanticConflictKey::ResourceFileFacts(resource_id))?;
             self.pending_events
                 .push(RevisionEventKind::ResourceFileFactsObserved { resource_id });
+            self.pending_effects
+                .push(crate::exchange::CapturedEffect::MediaChanged(
+                    postproject_protocol::MediaChange::ResourceFileFacts { resource_id, facts },
+                ));
         } else {
             self.record_observation_guard(SemanticConflictKey::ResourceFileFacts(resource_id))?;
         }
