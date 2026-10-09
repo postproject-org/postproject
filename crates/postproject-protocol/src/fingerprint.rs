@@ -4,8 +4,10 @@ use base64::{Engine as _, engine::general_purpose::STANDARD};
 use postproject_core::FingerprintSnapshot;
 use serde_json::{Value, json};
 
+mod change;
 mod observation;
 mod recompute;
+pub use change::FingerprintChangeStart;
 pub use observation::{FingerprintObservation, FingerprintState};
 pub use recompute::FingerprintRecomputation;
 

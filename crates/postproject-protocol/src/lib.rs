@@ -62,7 +62,7 @@ pub use error::{FailureKind, ProtocolError, Result};
 pub use event::{decode_event, encode_event};
 pub use extensions::Extensions;
 pub use fingerprint::{
-    FingerprintObservation, FingerprintRecomputation, FingerprintState,
+    FingerprintChangeStart, FingerprintObservation, FingerprintRecomputation, FingerprintState,
     decode_fingerprint_snapshot, encode_fingerprint_snapshot,
 };
 pub use frame::FrameDecoder;
