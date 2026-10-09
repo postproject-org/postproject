@@ -183,3 +183,34 @@ fn provenance_requirements_are_sorted_and_integrity_covered() {
         changed
     );
 }
+
+#[test]
+fn job_requirements_are_sorted_and_integrity_covered() {
+    let original = metadata_record();
+    let changed = original
+        .clone()
+        .with_required_features([
+            RecordFeature::RecordChunks,
+            RecordFeature::Media,
+            RecordFeature::Jobs,
+            RecordFeature::Dependencies,
+        ])
+        .unwrap();
+    assert_eq!(
+        changed.required_features().collect::<Vec<_>>(),
+        [
+            RecordFeature::Dependencies,
+            RecordFeature::Jobs,
+            RecordFeature::Media,
+            RecordFeature::RecordChunks,
+        ]
+    );
+    assert_ne!(
+        changed.record_digest().unwrap(),
+        original.record_digest().unwrap()
+    );
+    assert_eq!(
+        RecordManifest::from_document(&changed.document().unwrap()).unwrap(),
+        changed
+    );
+}
