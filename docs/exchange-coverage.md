@@ -22,17 +22,23 @@ complete mutation/effect coverage and the other exchange workflows remain pendin
 Media codecs retain identities, ownership, compact structures, individual ordered
 members/exceptions, roots, locators, exact identifiers and fingerprint history.
 Creation decoding yields provisional facts individually, checking complete resource
-and location coverage. These bodies are not yet wired into native capture or
-checkpoint storage. The maximum-member/exception codec tests do not qualify
+and location coverage. Original/representation creation, roots, locators and
+file-fact updates now enter ordered native capture and atomic passive replay.
+Standalone fingerprint updates and media checkpoint bodies remain pending.
+The maximum-member/exception codec tests do not qualify
 whole-production reconstruction or installed exchange surfaces.
 Metadata mutations now capture exact authored effects inside the native commit,
 including repeated edits to one property. Internal 1 MiB fragments preserve
-legal large values. Metadata-only suffixes now have bounded record manifests,
+legal large values; a 65 MiB native replacement also commits and replays as one
+revision without assembling a whole evidence document. Metadata/media suffixes have bounded record manifests,
 ordered chunk chains and independently pinned Rust readers. Records retain the
 original revision/context, same-key history and observation events. Other families
 or a missing complete predecessor leave an explicit `history_gap`; a complete
-replay feed remains incomplete. Rust passive application now validates metadata
-records atomically, preserving revision/events and semantic property versions.
+replay feed remains incomplete. Rust passive application validates metadata/media
+records atomically, preserving original revision/events and semantic versions.
+All four content shapes converge across distinct files without media I/O.
+Repeated root/locator/file-fact transitions retain authored intermediates.
+Rehashed contradictory creation facts reject without a visible staged prefix.
 Rust checkpoint export/import now reconstructs production metadata, retained
 revisions/events, semantic guards and post-floor records through bounded sections.
 Export pins one view; import checks current assertions against authored effects

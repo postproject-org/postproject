@@ -76,6 +76,12 @@ The first chunk has a null predecessor. This keeps record headers bounded even
 for very large native commits. A checkpoint manifest has a
 separate identity/digest from its stable source continuation anchor.
 
+Record requirements are unique and lexically ordered: `media.v1`, `metadata.v1`
+and `record-chunks.v1` are recognized. Every record requires chunk framing and at
+least one domain codec. Existing metadata manifests keep their exact two-feature
+encoding. A receiver must reject an unsupported body before publishing state;
+understanding the manifest alone does not establish media replay support.
+
 Unknown critical fields/tags/required features reject atomically. Extensions are
 a bounded object whose keys are namespaced identifiers containing `:`; values
 follow the same strict JSON profile. Preserve extensions in equality/outcomes
@@ -100,14 +106,18 @@ same revision. `fingerprint.recomputation` records the original marking boundary
 All existing observation kinds retain their original revision and position;
 public job notifications contain only the job ID and operation kind.
 
-`representation.creation` declares scalar ownership plus resource, locator and
+`original.creation` retains the assigned asset header and is followed by its
+complete original representation. `representation.creation` declares scalar ownership plus resource, locator and
 representation-fingerprint counts. Continuations contain representation evidence,
 the complete structure, each `resource.creation` header and its evidence, then
 locators. Initial fingerprints retain the original observation revision. Decode
 yields provisional facts individually and verifies exact ownership, order, totals
 and resource/location coverage before completion. The enclosing transaction must
-discard every staged prefix on failure. These media bodies are not yet adopted
-by native commit capture or checkpoint reconstruction.
+discard every staged prefix on failure. Rust native capture and passive replay
+now adopt complete original/representation creation, roots, locators and changed
+resource file facts. Root/locator effects retain additions and intermediate
+enabled/removal states; file-fact effects retain authored sizes/times. Standalone
+fingerprint updates and whole-production checkpoint bodies remain incomplete.
 
 ## Bounds, checkpoints and replay
 
@@ -116,6 +126,9 @@ Defaults: 64 MiB per proposal, 1,000 proposal commands, 32 MiB per encoded chunk
 remain authoritative, including metadata's 32 levels and 15 MiB aggregate value.
 Callers may lower codec limits; exceeding them reports `limit_exceeded`.
 Native transaction size has no proposal-command cap.
+Legacy authored metadata evidence also streams one value at a time into 1 MiB
+storage fragments, preserving the original canonical document bytes. A native
+replacement may exceed the 64 MiB proposal limit without creating extra revisions.
 
 Record chunks carry at most 16 MiB of raw bytes as padded base64, leaving room
 for their envelope within the 32 MiB encoded limit. A fragment may split UTF-8
@@ -133,11 +146,14 @@ empty replacements and removals carry none. Original `observation` frames follow
 all effects, retaining their revision IDs and contiguous positions. Replay checks
 the manifest's total effect/event counts and consumes the entire body.
 
-The current Rust metadata receiver stages verified canonical chunks inside one
-writer transaction, then decodes effect/value frames and checks original events.
+The current Rust metadata/media receiver stages verified canonical chunks inside one
+writer transaction, then decodes complete effects and checks original events.
 It validates target existence and assigned append positions; updates semantic
 property versions; and commits facts, original history and the source boundary
-together. Input iterator errors cancel the transaction. Identical duplicates
+together. One creation effect may yield several original observations; replay
+checks their exact original order independently of the effect count. Media
+references are deferred inside private staging until the complete aggregate
+validates. Input iterator errors cancel the transaction. Identical duplicates
 still require the complete matching chunk chain, without applying effects again.
 Default receiver budgets are 1 GiB of total encoded manifest/chunk bytes and the
 per-document limits above. Callers may explicitly raise receiver budgets to

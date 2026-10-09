@@ -23,7 +23,7 @@ Schema 23 starts complete record storage at its migration head. Earlier
 development effect fragments remain partial evidence, without a replay claim.
 The source generation and retained submission outcomes remain unchanged.
 Schema 24 fragments canonical chunk envelopes below SQLite's value bound while
-retaining their exact bytes, identities and digests. Metadata-only replay uses
+retaining their exact bytes, identities and digests. Metadata/media replay uses
 that storage in one writer transaction, with explicit receiver budgets and
 original event cross-checks. Genesis initialization creates an empty passive
 file with the source header and anchor. Production-metadata checkpoints retain
@@ -85,7 +85,19 @@ membership/range invariants. Creation decoding retains bounded resource-identity
 sets and yields evidence/locators individually, checking exact totals and complete
 coverage before completion. Its facts remain provisional until the enclosing
 transaction validates and commits. Standalone codec support does not establish
-native capture or whole-production checkpoint coverage.
+whole-production checkpoint coverage. Native capture and passive replay now
+adopt complete original/representation creation, roots, locators and resource
+file-fact updates. Capture retains prepared values at their authored operation;
+it never reconstructs creation from the final transaction state. A media staging
+error rolls back its rows and queued facts while preserving unrelated edits.
+Replay checks multiple original observations per creation effect in their source
+order. Deferred references remain private until complete aggregate validation.
+
+Record manifests name the required domain codecs in a unique lexical set, covered
+by their integrity commitment. Metadata-only records retain their earlier bytes;
+media records add `media.v1`. Receivers validate the complete body before commit.
+Legacy metadata evidence is encoded incrementally without a whole replacement
+document allocation or a proposal-sized cap on native replacements.
 
 ## Compatibility and limits
 
