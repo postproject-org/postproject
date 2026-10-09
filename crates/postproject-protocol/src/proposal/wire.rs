@@ -17,7 +17,7 @@ pub(super) fn encode(proposal: &Proposal) -> Result<Value> {
         .origin()
         .map(|origin| json!({"name":origin.name(),"version":origin.version(),"uri":origin.uri()}));
     Ok(json!({
-        "kind":"proposal","version":"1","required_features":["metadata.v1"],
+        "kind":"proposal","version":"1","required_features":proposal.required_features().into_iter().map(crate::RecordFeature::wire_name).collect::<Vec<_>>(),
         "production":proposal.scope().production().to_string(),"history":proposal.scope().history().to_string(),
         "client":proposal.client().to_string(),"request":proposal.request().to_string(),
         "base":base,"origin":origin,"message":proposal.context().message(),
@@ -59,10 +59,16 @@ pub(super) fn decode(value: &Value) -> Result<Proposal> {
         return Err(unsupported());
     }
     let features = array(&fields["required_features"], 64)?;
-    // The current vertical slice advertises exactly one required feature. A
-    // decoder must never silently discard a feature during normalization.
-    if features.len() != 1 || text(&features[0])? != "metadata.v1" {
-        return Err(unsupported());
+    let mut advertised = Vec::with_capacity(features.len());
+    for feature in features {
+        let name = text(feature)?;
+        if !matches!(name, "media.v1" | "metadata.v1") {
+            return Err(unsupported());
+        }
+        if advertised.last().is_some_and(|previous| *previous >= name) {
+            return Err(malformed());
+        }
+        advertised.push(name);
     }
     let scope = Scope::new(exact(&fields["production"])?, exact(&fields["history"])?);
     let client: ClientId = exact(&fields["client"])?;
@@ -96,5 +102,15 @@ pub(super) fn decode(value: &Value) -> Result<Proposal> {
     let extensions = Extensions::new(Document {
         value: fields["extensions"].clone(),
     })?;
-    Proposal::new(scope, client, request, base, context, commands, extensions)
+    let proposal = Proposal::new(scope, client, request, base, context, commands, extensions)?;
+    if proposal
+        .required_features()
+        .into_iter()
+        .map(crate::RecordFeature::wire_name)
+        .collect::<Vec<_>>()
+        != advertised
+    {
+        return Err(malformed());
+    }
+    Ok(proposal)
 }

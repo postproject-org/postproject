@@ -1,20 +1,51 @@
 //! Ordered semantic intent; storage remains responsible for current-state guards.
 
-use postproject_core::{MetadataProperty, MetadataValue, ObjectRef, PropertyId, VocabularyId};
+use postproject_core::{
+    FileFacts, Locator, LocatorId, MediaRoot, MediaRootId, MetadataProperty, MetadataValue,
+    ObjectRef, PropertyId, ResourceId, VocabularyId,
+};
 use serde_json::{Value, json};
 
 use crate::{
-    Document, Result,
+    Document, IdentifierAttachment, RecordFeature, Result,
     fields::{
         array, checked, decode_reference, encode_reference, malformed, object, text, unsupported,
     },
     metadata,
 };
 
+mod media;
+
 /// A checked domain command offered by the current development codec.
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum Command {
+    /// Adds complete logical root configuration, without a local mapping.
+    AddMediaRoot(MediaRoot),
+    /// Changes an existing root under its native decision guard.
+    SetMediaRootEnabled {
+        /// Stable configured-root identity.
+        root_id: MediaRootId,
+        /// Requested resolver participation.
+        enabled: bool,
+    },
+    /// Removes an existing logical root under its native decision guard.
+    RemoveMediaRoot(MediaRootId),
+    /// Adds complete prepared locator/naming observations.
+    AddLocator(Locator),
+    /// Retires an existing access route under its native decision guard.
+    RetireLocator(LocatorId),
+    /// Adds one exact identifier attachment.
+    AddIdentifier(IdentifierAttachment),
+    /// Removes one exact attachment under its native decision guard.
+    RemoveIdentifier(IdentifierAttachment),
+    /// Records measured resource evidence without measuring it on submission.
+    RecordResourceFileFacts {
+        /// Stable resource identity.
+        resource_id: ResourceId,
+        /// Exact prepared size/time observations.
+        facts: FileFacts,
+    },
     /// Appends one value while advancing the property's destructive-edit guard.
     AppendMetadata {
         /// Production-scoped assertion target.
@@ -43,6 +74,23 @@ pub enum Command {
 }
 
 impl Command {
+    /// Returns the domain codec required to decode this intent.
+    #[must_use]
+    pub const fn required_feature(&self) -> RecordFeature {
+        match self {
+            Self::AppendMetadata { .. }
+            | Self::ReplaceMetadata { .. }
+            | Self::RemoveMetadata { .. } => RecordFeature::Metadata,
+            Self::AddMediaRoot(_)
+            | Self::SetMediaRootEnabled { .. }
+            | Self::RemoveMediaRoot(_)
+            | Self::AddLocator(_)
+            | Self::RetireLocator(_)
+            | Self::AddIdentifier(_)
+            | Self::RemoveIdentifier(_)
+            | Self::RecordResourceFileFacts { .. } => RecordFeature::Media,
+        }
+    }
     /// Encodes checked intent without authorizing a current-state mutation.
     ///
     /// # Errors
@@ -93,6 +141,7 @@ pub(crate) fn encode(command: &Command) -> Result<Value> {
         Command::RemoveMetadata { target, property } => {
             json!({"kind":"metadata.remove","target":encode_reference(*target)?,"property":encode_property(property)})
         }
+        other => media::encode(other)?,
     })
 }
 
@@ -102,7 +151,7 @@ pub(crate) fn decode(value: &Value) -> Result<Command> {
         "metadata.append" => &["kind", "target", "property", "value"][..],
         "metadata.replace" => &["kind", "target", "property", "values"][..],
         "metadata.remove" => &["kind", "target", "property"][..],
-        _ => return Err(unsupported()),
+        _ => return media::decode(kind, value),
     };
     let fields = object(value, keys)?;
     let target = decode_reference(&fields["target"])?;

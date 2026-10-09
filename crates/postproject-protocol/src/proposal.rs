@@ -2,11 +2,13 @@
 
 mod wire;
 
+use std::collections::BTreeSet;
+
 use postproject_core::RevisionContext;
 
 use crate::{
     ClientId, Command, Digest, DigestDomain, Document, Extensions, FailureKind, ProtocolBase,
-    ProtocolError, RequestId, Result, Scope,
+    ProtocolError, RecordFeature, RequestId, Result, Scope,
 };
 
 /// Maximum number of top-level commands in one portable proposal.
@@ -120,6 +122,21 @@ impl Proposal {
     #[must_use]
     pub fn commands(&self) -> &[Command] {
         &self.commands
+    }
+    /// Returns the exact lexical set of codecs used by this proposal.
+    ///
+    /// Empty proposals retain the original metadata profile for compatibility.
+    #[must_use]
+    pub fn required_features(&self) -> BTreeSet<RecordFeature> {
+        let mut features: BTreeSet<_> = self
+            .commands
+            .iter()
+            .map(Command::required_feature)
+            .collect();
+        if features.is_empty() {
+            features.insert(RecordFeature::Metadata);
+        }
+        features
     }
     /// Returns exact preserved extension facts.
     #[must_use]
