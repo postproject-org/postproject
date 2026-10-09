@@ -61,11 +61,13 @@ Process-exit tests cover streaming, private commit and completion sealing;
 restart preserves unrelated files and altered/existing destinations.
 Other domain bodies, pre-floor development fragments and checkpoint envelope
 extensions remain unsupported. Complete production checkpoints remain pending.
-Identified metadata/scalar media submissions retain accepted/no-op/rejected public
+Identified metadata/media submissions retain accepted/no-op/rejected public
 outcomes in the same writer transaction. Root, locator, identifier and file-fact
 commands reuse native bases and guards; reopen recovery precedes reevaluation,
 and ordered intermediate effects replay into a distinct passive file. Prepared
-aggregates, other command families and credentials remain unsupported; the full
+original/representation aggregates submit atomically and retain their receipts
+after reopen; no media is opened on submission or replay. Other command families
+and credentials remain unsupported; the full
 authority and replay gates remain pending.
 Persisted passive roles reject native transaction opens and token import while
 retaining ordinary reads and coherent sessions. Role tests cover reopen and
