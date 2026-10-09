@@ -16,6 +16,8 @@ pub enum RecordFeature {
     Media,
     /// Typed, ordered metadata changes.
     Metadata,
+    /// Immutable activities and their original fingerprint/dependency evidence.
+    Provenance,
     /// Bounded, chained chunks containing length-prefixed documents.
     RecordChunks,
 }
@@ -28,6 +30,7 @@ impl RecordFeature {
             Self::Dependencies => "dependencies.v1",
             Self::Media => "media.v1",
             Self::Metadata => "metadata.v1",
+            Self::Provenance => "provenance.v1",
             Self::RecordChunks => "record-chunks.v1",
         }
     }
@@ -52,6 +55,7 @@ pub(super) fn decode(value: &serde_json::Value) -> Result<BTreeSet<RecordFeature
             "dependencies.v1" => RecordFeature::Dependencies,
             "media.v1" => RecordFeature::Media,
             "metadata.v1" => RecordFeature::Metadata,
+            "provenance.v1" => RecordFeature::Provenance,
             "record-chunks.v1" => RecordFeature::RecordChunks,
             _ => return Err(unsupported()),
         };
