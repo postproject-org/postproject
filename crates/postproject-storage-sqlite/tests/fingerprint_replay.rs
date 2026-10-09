@@ -254,29 +254,8 @@ fn assert_evidence_rows_equal(source: &std::path::Path, mirror: &std::path::Path
 #[test]
 fn rehashed_fingerprint_contradictions_never_publish_any_observation_prefix() {
     let directory = tempfile::tempdir().unwrap();
-    let media = directory.path().join("clip.mov");
-    std::fs::write(&media, b"original").unwrap();
-    let import = prepare_original_media(&media, None, None).unwrap();
+    let (source, import) = fingerprint_source(directory.path());
     let resource = &import.resources()[0];
-    let initial = &resource.fingerprints()[0];
-    let changed =
-        ResourceFingerprint::new(initial.algorithm(), initial.version(), vec![99]).unwrap();
-    let mut source = SqliteProduction::create(directory.path().join("source.pproj"), None).unwrap();
-    let mut edit = source.begin_transaction().unwrap();
-    edit.import_original(&import).unwrap();
-    edit.commit().unwrap();
-    drop(edit);
-    let base = source.read_session().unwrap().decision_base();
-    let mut edit = source.begin_edit(base).unwrap();
-    edit.record_resource_fingerprint(resource.id(), &changed)
-        .unwrap();
-    edit.record_representation_fingerprint(
-        import.representation().id(),
-        &import.representation().fingerprints()[0],
-    )
-    .unwrap();
-    edit.commit().unwrap();
-    drop(edit);
     let original = source.record_reader(2).unwrap().manifest().clone();
     let original_frames = frames(&source, 2);
     let resource_id = resource.id().to_string();
@@ -362,6 +341,42 @@ fn rehashed_fingerprint_contradictions_never_publish_any_observation_prefix() {
         &truncated,
         &directory.path().join("missing-marker.pproj"),
     );
+}
+
+fn fingerprint_source(
+    directory: &std::path::Path,
+) -> (SqliteProduction, postproject_core::OriginalMediaImport) {
+    let (mut source, import) = original_source(directory);
+    let resource = &import.resources()[0];
+    let initial = &resource.fingerprints()[0];
+    let changed =
+        ResourceFingerprint::new(initial.algorithm(), initial.version(), vec![99]).unwrap();
+    let base = source.read_session().unwrap().decision_base();
+    let mut edit = source.begin_edit(base).unwrap();
+    edit.record_resource_fingerprint(resource.id(), &changed)
+        .unwrap();
+    edit.record_representation_fingerprint(
+        import.representation().id(),
+        &import.representation().fingerprints()[0],
+    )
+    .unwrap();
+    edit.commit().unwrap();
+    drop(edit);
+    (source, import)
+}
+
+fn original_source(
+    directory: &std::path::Path,
+) -> (SqliteProduction, postproject_core::OriginalMediaImport) {
+    let media = directory.join("clip.mov");
+    std::fs::write(&media, b"original").unwrap();
+    let import = prepare_original_media(&media, None, None).unwrap();
+    let mut source = SqliteProduction::create(directory.join("source.pproj"), None).unwrap();
+    let mut edit = source.begin_transaction().unwrap();
+    edit.import_original(&import).unwrap();
+    edit.commit().unwrap();
+    drop(edit);
+    (source, import)
 }
 
 fn assert_forgery(
