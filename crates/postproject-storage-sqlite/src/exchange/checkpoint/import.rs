@@ -4,6 +4,8 @@ mod bodies;
 mod completion;
 mod guard_state;
 mod limits;
+#[cfg(test)]
+mod media_state;
 mod metadata_state;
 mod recovery;
 mod root_state;
