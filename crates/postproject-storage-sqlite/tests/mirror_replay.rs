@@ -177,9 +177,10 @@ fn replay_crash_worker() {
             .unwrap();
     let mut reader = source.record_reader(1).unwrap();
     let manifest = reader.manifest().clone();
+    let after_commit = std::env::var_os("POSTPROJECT_REPLAY_CRASH_AFTER_COMMIT").is_some();
     let mut count = 0;
     let chunks = std::iter::from_fn(|| {
-        if count == 1 {
+        if count == 1 && !after_commit {
             std::process::exit(77);
         }
         count += 1;
@@ -188,6 +189,9 @@ fn replay_crash_worker() {
     mirror
         .apply_record(&manifest, chunks, ReplayLimits::default())
         .unwrap();
+    if after_commit {
+        std::process::exit(78);
+    }
     panic!("worker did not reach the crash point");
 }
 
@@ -217,4 +221,84 @@ fn process_exit_after_chunk_staging_recovers_and_retries_the_same_record() {
         mirror.exchange_head().unwrap(),
         source.exchange_head().unwrap()
     );
+}
+
+#[test]
+fn a_durable_submission_captures_and_replays_its_own_original_receipt() {
+    use postproject_core::RevisionContext;
+    use postproject_protocol::{ClientId, Command, Extensions, OutcomeStatus, Proposal, RequestId};
+    let directory = tempfile::tempdir().unwrap();
+    let mut source = SqliteProduction::create(directory.path().join("source.pproj"), None).unwrap();
+    let mut mirror = SqliteProduction::create_genesis_mirror(
+        directory.path().join("mirror.pproj"),
+        source.production(),
+        source.exchange_floor().unwrap(),
+    )
+    .unwrap();
+    let target = ObjectRef::Production(source.production().id());
+    let request = Proposal::new(
+        source.exchange_scope().unwrap(),
+        ClientId::new(),
+        RequestId::new(),
+        None,
+        RevisionContext::default(),
+        vec![Command::AppendMetadata {
+            target,
+            property: property(),
+            value: MetadataValue::u64(u64::MAX),
+        }],
+        Extensions::default(),
+    )
+    .unwrap();
+    let outcome = source.submit_proposal(&request).unwrap();
+    let OutcomeStatus::Accepted(receipt) = outcome.status() else {
+        panic!("submission rejected");
+    };
+    assert!(apply(
+        &source,
+        &mut mirror,
+        receipt.revision().unwrap().sequence()
+    ));
+    assert_eq!(
+        mirror.changes_since(0, 1).unwrap().first(),
+        receipt.revision()
+    );
+    assert_eq!(
+        mirror.metadata_values(target, &property()).unwrap(),
+        [MetadataValue::u64(u64::MAX)]
+    );
+    assert_eq!(source.submit_proposal(&request).unwrap(), outcome);
+    assert!(!apply(&source, &mut mirror, 1));
+}
+
+#[test]
+fn process_exit_after_commit_recovers_an_identical_duplicate_without_another_revision() {
+    let directory = tempfile::tempdir().unwrap();
+    let source_path = directory.path().join("source.pproj");
+    let mirror_path = directory.path().join("mirror.pproj");
+    let mut source = SqliteProduction::create(&source_path, None).unwrap();
+    drop(
+        SqliteProduction::create_genesis_mirror(
+            &mirror_path,
+            source.production(),
+            source.exchange_floor().unwrap(),
+        )
+        .unwrap(),
+    );
+    first_record(&mut source);
+    let status = std::process::Command::new(std::env::current_exe().unwrap())
+        .args(["--exact", "replay_crash_worker", "--nocapture"])
+        .env("POSTPROJECT_REPLAY_CRASH_SOURCE", &source_path)
+        .env("POSTPROJECT_REPLAY_CRASH_MIRROR", &mirror_path)
+        .env("POSTPROJECT_REPLAY_CRASH_AFTER_COMMIT", "1")
+        .status()
+        .unwrap();
+    assert_eq!(status.code(), Some(78));
+    let mut mirror = SqliteProduction::open(&mirror_path).unwrap();
+    assert_eq!(
+        mirror.exchange_head().unwrap(),
+        source.exchange_head().unwrap()
+    );
+    assert!(!apply(&source, &mut mirror, 1));
+    assert_eq!(mirror.changes_since(0, 10).unwrap().len(), 1);
 }
