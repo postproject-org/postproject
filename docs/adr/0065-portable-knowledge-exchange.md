@@ -79,6 +79,14 @@ adapters may depend on it; media remains independent. Core gains no codec or
 framework dependency. The wire rules and failure contracts are specified in
 [the protocol specification](../exchange-protocol.md).
 
+Media aggregate bodies use scalar headers and individual member, exception,
+fingerprint and locator continuations. Existing core structure constructors check
+membership/range invariants. Creation decoding retains bounded resource-identity
+sets and yields evidence/locators individually, checking exact totals and complete
+coverage before completion. Its facts remain provisional until the enclosing
+transaction validates and commits. Standalone codec support does not establish
+native capture or whole-production checkpoint coverage.
+
 ## Compatibility and limits
 
 Protocol major 1 is experimental and independent of package, ABI, schema and CLI

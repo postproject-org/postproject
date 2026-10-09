@@ -81,6 +81,34 @@ a bounded object whose keys are namespaced identifiers containing `:`; values
 follow the same strict JSON profile. Preserve extensions in equality/outcomes
 and records. Unknown metadata vocabularies are supported ordinary domain facts.
 
+## Media body facts
+
+Standalone media codecs separate scalar `asset.header`, `resource.header` and
+`representation.header` facts from aggregate collections. `structure.header`
+declares a single resource, compact image sequence, ordered parts or package.
+Ordered `structure.member` and sorted `structure.exception` frames follow its
+exact totals. Existing core limits remain 100,000 members or sparse exceptions;
+these are independent of the proposal-command cap. Sequence naming belongs to
+each `locator.fact`, rather than the content descriptor.
+
+`root.fact` retains configured roots and their historical legacy URI, without
+local directory mappings. `identifier.attachment` retains exact typed targets,
+schemes, values and qualifiers. `fingerprint.snapshot` preserves original bytes
+and nullable observation sequences. `fingerprint.observation` distinguishes
+current evidence from ordered superseded values, including changes within the
+same revision. `fingerprint.recomputation` records the original marking boundary.
+All existing observation kinds retain their original revision and position;
+public job notifications contain only the job ID and operation kind.
+
+`representation.creation` declares scalar ownership plus resource, locator and
+representation-fingerprint counts. Continuations contain representation evidence,
+the complete structure, each `resource.creation` header and its evidence, then
+locators. Initial fingerprints retain the original observation revision. Decode
+yields provisional facts individually and verifies exact ownership, order, totals
+and resource/location coverage before completion. The enclosing transaction must
+discard every staged prefix on failure. These media bodies are not yet adopted
+by native commit capture or checkpoint reconstruction.
+
 ## Bounds, checkpoints and replay
 
 Defaults: 64 MiB per proposal, 1,000 proposal commands, 32 MiB per encoded chunk,

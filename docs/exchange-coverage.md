@@ -16,8 +16,15 @@ and preexisting untracked builds. Candidate qualification has **not** run.
 
 Development schema 24 retains one persistent history generation and a deterministic
 genesis/migration-floor anchor. Existing revisions remain intact. The codec now
-covers strict framing, every metadata value kind and metadata proposal intent;
+covers strict framing, every metadata value kind, metadata proposal intent,
+media fact/creation bodies and all existing original observation kinds;
 complete mutation/effect coverage and the other exchange workflows remain pending.
+Media codecs retain identities, ownership, compact structures, individual ordered
+members/exceptions, roots, locators, exact identifiers and fingerprint history.
+Creation decoding yields provisional facts individually, checking complete resource
+and location coverage. These bodies are not yet wired into native capture or
+checkpoint storage. The maximum-member/exception codec tests do not qualify
+whole-production reconstruction or installed exchange surfaces.
 Metadata mutations now capture exact authored effects inside the native commit,
 including repeated edits to one property. Internal 1 MiB fragments preserve
 legal large values. Metadata-only suffixes now have bounded record manifests,
