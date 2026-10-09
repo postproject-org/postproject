@@ -1,6 +1,6 @@
 use postproject_core::{Error, ErrorKind};
 use postproject_protocol::{
-    ClientId, Digest, Document, FailureKind, Limits, Outcome, ProtocolError, RequestId, Scope,
+    ClientId, Digest, Document, FailureKind, Outcome, ProtocolError, RequestId, Scope,
 };
 use rusqlite::{Connection, OptionalExtension, params};
 
@@ -89,8 +89,7 @@ fn read(
                 .map_err(|_| Error::new(ErrorKind::Storage, "invalid stored capability binding"))
         })
         .transpose()?;
-    let limits = Limits::new(128 * 1024, 192, 8192)?;
-    let outcome = Document::parse(&bytes, limits)
+    let outcome = Document::parse(&bytes, Outcome::limits())
         .and_then(|document| Outcome::from_document(&document))
         .map_err(|_| Error::new(ErrorKind::Storage, "invalid stored submission outcome"))?;
     if outcome.scope() != scope

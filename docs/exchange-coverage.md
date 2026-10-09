@@ -14,7 +14,7 @@ historical Shotcut scaffold has no remote and is outside qualification.
 [Repository inputs](exchange-repositories.json) record exact starting commits
 and preexisting untracked builds. Candidate qualification has **not** run.
 
-Development schema 25 retains one persistent history generation and a deterministic
+Development schema 26 retains one persistent history generation and a deterministic
 genesis/migration-floor anchor. Existing revisions remain intact. The codec now
 covers strict framing, every metadata value kind, metadata/scalar media proposal intent,
 media fact/creation bodies and all existing original observation kinds;
@@ -73,8 +73,9 @@ All seven job commands reuse native authority guards. Local submissions accept
 borrowed leases or private tokens and deliver newly committed active ownership
 separately. Rejected staging closes pending claims and retains observed authority
 time. Recovery precedes clock, expiry and current ownership checks; duplicates
-deliver no new ownership. Public per-job results and the full authority gate
-remain pending.
+deliver no new ownership. Accepted outcomes retain sorted final job summaries
+with state, expiry and completion IDs; complete observations stay in records.
+The full authority gate remains pending.
 Private outcome persistence validates bounded credential bindings. Public lookup
 returns the original result without credentials; submission compares both public
 intent and private context before current-state guards. Installed worker

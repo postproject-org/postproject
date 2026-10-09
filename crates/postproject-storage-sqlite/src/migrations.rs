@@ -3,12 +3,15 @@
 #[cfg(test)]
 #[path = "migrations/job_observations.rs"]
 mod job_observations;
+#[cfg(test)]
+#[path = "migrations/outcome_bounds.rs"]
+mod outcome_bounds;
 
 use postproject_core::{Error, ErrorKind, Result, Timestamp};
 use rusqlite::{Connection, Transaction, TransactionBehavior, params};
 
 /// The newest schema understood by this build.
-pub const CURRENT_SCHEMA_VERSION: u32 = 25;
+pub const CURRENT_SCHEMA_VERSION: u32 = 26;
 
 struct Migration {
     version: u32,
@@ -115,6 +118,10 @@ const MIGRATIONS: &[Migration] = &[
     Migration {
         version: 25,
         sql: include_str!("migrations/025_inert_job_observations.sql"),
+    },
+    Migration {
+        version: 26,
+        sql: include_str!("migrations/026_job_result_outcomes.sql"),
     },
 ];
 

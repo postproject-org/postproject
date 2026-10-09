@@ -57,7 +57,9 @@ impl SqliteTransaction<'_> {
                 .and_then(|()| self.prepare_commit())
             {
                 Ok(receipt) => {
-                    let outcome = Outcome::accepted(proposal, receipt.clone())?;
+                    let observations = jobs::observations(self, proposal)?;
+                    let outcome =
+                        Outcome::accepted_with_jobs(proposal, receipt.clone(), observations)?;
                     self.open_transaction()?
                         .execute_batch("RELEASE submission_body")
                         .map_err(sqlite_error("finish submission staging"))?;
@@ -186,7 +188,7 @@ impl SqliteTransaction<'_> {
 }
 
 impl SqliteProduction {
-    /// Submits identified metadata/media intent through native atomic staging.
+    /// Submits identified semantic intent through native atomic staging.
     ///
     /// Equivalent retries return the original accepted/no-op/rejected result
     /// before checking current state. Newly claimed ownership is deliberately

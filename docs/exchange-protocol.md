@@ -50,6 +50,15 @@ An outcome contains the original scoped request identity and either its own
 accepted receipt (nullable new revision) or a structured terminal domain
 rejection. Recover a lost reply by looking up or resubmitting the same identity.
 Changed intent needs a new request. Public lookup never delivers credentials.
+The `outcomes.v1` envelope includes `jobs`, with one final summary per affected
+job in ascending UUID order. Nonempty summaries also require `jobs.v1`. Each
+contains `job_id` and a tagged `state`: requested, cancelled or failed carries
+only `kind`; claimed adds exact `expires_at_micros`; succeeded adds `activity_id`
+and `representation_id`. Complete attribution, diagnostics and input evidence
+remain in the receipt's committed effects. Rejections have an empty job list.
+Results are bounded to 512 KiB/32,768 JSON nodes, including up to 1,000 summaries
+and preserved extensions. Retained earlier development `metadata.v1` results
+remain readable without rewriting their identities, private bindings or bytes.
 Claim activation occurs at commit; private delivery happens separately. Lost
 credential delivery requires expiry or coordinator cancellation, without reissue.
 

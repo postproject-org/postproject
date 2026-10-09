@@ -1,15 +1,34 @@
 //! Native worker operations keep their authority clock, input and claim guards.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use postproject_core::{Error, ErrorKind, JobId, JobLeaseState, Result};
-use postproject_protocol::{Command, Outcome};
+use postproject_protocol::{Command, JobResult, Outcome, Proposal};
 
 use super::{
     SqliteTransaction,
     capabilities::{Capability, CapabilityInput},
 };
 use crate::{LocalSubmissionResult, SqliteJobLease};
+
+pub(super) fn observations(
+    edit: &mut SqliteTransaction<'_>,
+    proposal: &Proposal,
+) -> Result<Vec<JobResult>> {
+    let ids: BTreeSet<_> = proposal
+        .commands()
+        .iter()
+        .filter_map(Command::affected_job_id)
+        .collect();
+    ids.into_iter()
+        .map(|id| {
+            let header = crate::exchange::job_capture::header(edit.open_transaction()?, id)?;
+            JobResult::from_state(id, header.state()).map_err(|_| {
+                Error::new(ErrorKind::Internal, "cannot summarize committed job state")
+            })
+        })
+        .collect()
+}
 
 pub(super) struct StagedCapabilities<'a, 'b> {
     input: &'a CapabilityInput<'b>,
