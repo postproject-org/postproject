@@ -2007,7 +2007,7 @@ fn persist_conflict_versions(
     Ok(())
 }
 
-fn encode_conflict_key(key: &SemanticConflictKey) -> Result<Vec<u8>> {
+pub(crate) fn encode_conflict_key(key: &SemanticConflictKey) -> Result<Vec<u8>> {
     let mut encoded = Vec::new();
     match key {
         SemanticConflictKey::ResourceFileFacts(resource_id) => {
@@ -2125,25 +2125,17 @@ fn persist_revision(
             |row| row.get(0),
         )
         .map_err(mutation_error("allocate revision sequence"))?;
-    let origin = context.origin();
-    transaction
-        .execute(
-            "INSERT INTO revisions (
-                id, sequence, transaction_id, committed_at_micros,
-                origin_name, origin_version, origin_uri, message
-             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-            params![
-                revision_id.as_bytes().as_slice(),
-                sequence,
-                transaction_id.as_bytes().as_slice(),
-                committed_at.as_unix_micros(),
-                origin.map(postproject_core::OriginIdentity::name),
-                origin.and_then(postproject_core::OriginIdentity::version),
-                origin.and_then(postproject_core::OriginIdentity::uri),
-                context.message(),
-            ],
-        )
-        .map_err(mutation_error("persist revision"))?;
+    persist_revision_header(
+        transaction,
+        &Revision::new(
+            revision_id,
+            crate::stored_u64(sequence, "revision sequence")?,
+            transaction_id,
+            committed_at,
+            context.origin().cloned(),
+            context.message().map(str::to_owned),
+        )?,
+    )?;
 
     let event_result = events.iter().enumerate().try_for_each(|(position, event)| {
         let position = i64::try_from(position).map_err(|error| {
@@ -2152,39 +2144,7 @@ fn persist_revision(
                 format!("revision event position cannot be stored: {error}"),
             )
         })?;
-        let event = stored_event(event)?;
-        transaction
-            .execute(
-                "INSERT INTO revision_events (
-                    revision_id, position, kind, target_kind, primary_id,
-                    secondary_id, structural_position, vocabulary, property,
-                    identifier_scheme, identifier_value, identifier_qualifier,
-                    activity_kind, role, fingerprint_algorithm, fingerprint_version
-                 ) VALUES (
-                    ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12,
-                    ?13, ?14, ?15, ?16
-                 )",
-                params![
-                    revision_id.as_bytes().as_slice(),
-                    position,
-                    event.kind,
-                    event.target_kind,
-                    event.primary_id,
-                    event.secondary_id,
-                    event.structural_position,
-                    event.vocabulary,
-                    event.property,
-                    event.identifier_scheme,
-                    event.identifier_value,
-                    event.identifier_qualifier,
-                    event.activity_kind,
-                    event.role,
-                    event.fingerprint_algorithm,
-                    event.fingerprint_version,
-                ],
-            )
-            .map(|_| ())
-            .map_err(mutation_error("persist revision event"))
+        persist_revision_event(transaction, revision_id, position, event)
     });
     if let Err(error) = event_result {
         transaction
@@ -2196,6 +2156,77 @@ fn persist_revision(
         return Err(error);
     }
     crate::stored_u64(sequence, "persisted revision sequence")
+}
+
+pub(crate) fn persist_revision_header(
+    transaction: &Transaction<'_>,
+    revision: &Revision,
+) -> Result<()> {
+    let origin = revision.origin();
+    transaction
+        .execute(
+            "INSERT INTO revisions (
+                id, sequence, transaction_id, committed_at_micros,
+                origin_name, origin_version, origin_uri, message
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            params![
+                revision.id().as_bytes().as_slice(),
+                i64::try_from(revision.sequence()).map_err(|_| Error::new(
+                    ErrorKind::Unsupported,
+                    "revision sequence cannot be stored"
+                ))?,
+                revision.transaction_id().as_bytes().as_slice(),
+                revision.committed_at().as_unix_micros(),
+                origin.map(postproject_core::OriginIdentity::name),
+                origin.and_then(postproject_core::OriginIdentity::version),
+                origin.and_then(postproject_core::OriginIdentity::uri),
+                revision.message(),
+            ],
+        )
+        .map_err(mutation_error("persist revision"))?;
+
+    Ok(())
+}
+
+pub(crate) fn persist_revision_event(
+    transaction: &Transaction<'_>,
+    revision_id: RevisionId,
+    position: i64,
+    event: &RevisionEventKind,
+) -> Result<()> {
+    let event = stored_event(event)?;
+    transaction
+        .execute(
+            "INSERT INTO revision_events (
+                    revision_id, position, kind, target_kind, primary_id,
+                    secondary_id, structural_position, vocabulary, property,
+                    identifier_scheme, identifier_value, identifier_qualifier,
+                    activity_kind, role, fingerprint_algorithm, fingerprint_version
+                 ) VALUES (
+                    ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12,
+                    ?13, ?14, ?15, ?16
+                 )",
+            params![
+                revision_id.as_bytes().as_slice(),
+                position,
+                event.kind,
+                event.target_kind,
+                event.primary_id,
+                event.secondary_id,
+                event.structural_position,
+                event.vocabulary,
+                event.property,
+                event.identifier_scheme,
+                event.identifier_value,
+                event.identifier_qualifier,
+                event.activity_kind,
+                event.role,
+                event.fingerprint_algorithm,
+                event.fingerprint_version,
+            ],
+        )
+        .map(|_| ())
+        .map_err(mutation_error("persist revision event"))
 }
 
 #[allow(
@@ -3081,7 +3112,7 @@ fn identifier_target_exists(
         .map_err(sqlite_error("check external identifier target"))
 }
 
-fn ensure_metadata_target_exists(
+pub(crate) fn ensure_metadata_target_exists(
     transaction: &Transaction<'_>,
     target_kind: i64,
     target_id: &[u8; 16],
@@ -3116,7 +3147,7 @@ fn ensure_metadata_target_exists(
     Ok(())
 }
 
-fn next_metadata_position(
+pub(crate) fn next_metadata_position(
     transaction: &Transaction<'_>,
     target_kind: i64,
     target_id: &[u8; 16],
@@ -3139,7 +3170,7 @@ fn next_metadata_position(
         .map_err(sqlite_error("choose metadata value position"))
 }
 
-fn insert_metadata_value(
+pub(crate) fn insert_metadata_value(
     transaction: &Transaction<'_>,
     target_kind: i64,
     target_id: &[u8; 16],
@@ -3165,7 +3196,7 @@ fn insert_metadata_value(
         .map_err(mutation_error("persist metadata value"))
 }
 
-fn delete_metadata_property(
+pub(crate) fn delete_metadata_property(
     transaction: &Transaction<'_>,
     target_kind: i64,
     target_id: &[u8; 16],
