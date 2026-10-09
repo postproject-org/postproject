@@ -66,8 +66,10 @@ outcomes in the same writer transaction. Root, locator, identifier and file-fact
 commands reuse native bases and guards; reopen recovery precedes reevaluation,
 and ordered intermediate effects replay into a distinct passive file. Prepared
 original/representation aggregates submit atomically and retain their receipts
-after reopen; no media is opened on submission or replay. Other command families
-and credentials remain unsupported; the full
+after reopen; no media is opened on submission or replay. Fingerprint/dependency
+observations reuse mandatory bases. Activity commands capture native evidence
+before any later same-proposal changes; replay preserves that historical state.
+Job commands and credentials remain unsupported; the full
 authority and replay gates remain pending.
 Persisted passive roles reject native transaction opens and token import while
 retaining ordinary reads and coherent sessions. Role tests cover reopen and

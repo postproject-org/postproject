@@ -21,16 +21,24 @@ Missing bases are allowed only by the existing additive/state-guarded contracts.
 The submission codec currently supports `metadata.append`, `metadata.replace`,
 `metadata.remove`, `root.add`, `root.set-enabled`, `root.remove`, `locator.add`,
 `locator.retire`, `identifier.add`, `identifier.remove` and
-`resource.observe-file-facts`, `media.import-original` and `representation.add`.
+`resource.observe-file-facts`, `media.import-original`, `representation.add`,
+`resource.observe-fingerprint`, `representation.observe-fingerprint`,
+`dependency.observe-set` and `activity.create`.
 Prepared aggregates contain scalar asset/representation/resource headers,
 complete structure frames, locators and fingerprint algorithm/version/bytes.
 Their fingerprints cannot supply observation revisions; storage assigns these.
 Asset creation and filesystem times remain prepared source evidence.
+Dependency intent retains complete ordered occurrences, including an empty set;
+it supplies no extraction state or recording revision. Activity intent supplies
+timing, tool/agent attribution and canonical edges, with no captured snapshots.
+Storage captures fingerprint/dependency evidence at publication. Activity
+parameters and identifiers use subsequent metadata/identifier commands.
 Nested media facts retain exact checked values;
 retirement supplies only the locator ID. Measured file facts carry no assigned
 revision. Destructive operations keep their native base requirements.
 Proposal requirements are the exact unique lexical set of command codecs
-(`media.v1` and/or `metadata.v1`); an empty proposal retains `metadata.v1`.
+(`dependencies.v1`, `media.v1`, `metadata.v1`, `provenance.v1` as needed);
+an empty proposal retains `metadata.v1`.
 Missing, redundant or reordered declarations reject. Worker commands are not
 yet implemented in submission.
 
