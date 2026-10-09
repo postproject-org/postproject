@@ -29,6 +29,7 @@ mod rejection;
 mod representation;
 mod resource;
 mod role;
+mod root;
 mod scope;
 mod structure;
 mod version;
@@ -64,6 +65,7 @@ pub use rejection::{Rejection, RejectionKind};
 pub use representation::RepresentationHeader;
 pub use resource::ResourceHeader;
 pub use role::StoreRole;
+pub use root::{decode_root, encode_root};
 pub use scope::{
     CheckpointId, ClientId, HistoryId, MirrorInstanceId, ProtocolBase, RequestId, Scope,
 };
