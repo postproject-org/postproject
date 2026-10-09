@@ -753,6 +753,7 @@ dependencies = [
  "postproject-protocol",
  "rusqlite",
  "rustix",
+ "serde_json",
  "tempfile",
 ]
 
