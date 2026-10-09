@@ -11,8 +11,8 @@ use super::super::RetainedEffects;
 use crate::{
     SqliteProduction,
     exchange::checkpoint::import::{
-        fingerprint_state, guard_state, identifier_state, locator_state, media_state,
-        metadata_state, recomputation_state, root_state,
+        activity_state, fingerprint_state, guard_state, identifier_state, locator_state,
+        media_state, metadata_state, recomputation_state, root_state,
     },
 };
 
@@ -42,7 +42,7 @@ fn removal_retains_pre_floor_root_name_and_clears_later_locator_associations() {
     audit(&source, 1, 4);
 }
 
-fn audit(source: &SqliteProduction, floor: u64, head: u64) {
+pub(super) fn audit(source: &SqliteProduction, floor: u64, head: u64) {
     let connection = &source.connection;
     metadata_state::create(connection).unwrap();
     root_state::create(connection).unwrap();
@@ -51,12 +51,15 @@ fn audit(source: &SqliteProduction, floor: u64, head: u64) {
     locator_state::create(connection).unwrap();
     identifier_state::create(connection).unwrap();
     fingerprint_state::create(connection).unwrap();
+    activity_state::create(connection, 10_000_000, || Ok(())).unwrap();
     recomputation_state::create(connection).unwrap();
-    for sequence in floor + 1..=head {
+    for sequence in 1..=head {
         let revision = source.changes_since(sequence - 1, 1).unwrap().remove(0);
         for event in source.events_for_revision(revision.id()).unwrap() {
             guard_state::observed(connection, &event, sequence).unwrap();
         }
+    }
+    for sequence in floor + 1..=head {
         let mut reader = source.record_reader(sequence).unwrap();
         let mut effects = RetainedEffects::new(reader.manifest(), floor);
         let mut decoder = FrameDecoder::new(Limits::default());
@@ -73,6 +76,7 @@ fn audit(source: &SqliteProduction, floor: u64, head: u64) {
         decoder.finish().unwrap();
         effects.finish().unwrap();
     }
+    activity_state::finish(connection, floor).unwrap();
     media_state::finish(connection, floor == 0).unwrap();
     locator_state::finish(connection, floor == 0).unwrap();
     identifier_state::finish(connection, floor == 0).unwrap();
@@ -91,7 +95,7 @@ fn audit(source: &SqliteProduction, floor: u64, head: u64) {
     assert_eq!(leftovers, 0);
 }
 
-fn populate(source: &mut SqliteProduction, root: Option<&str>) {
+pub(super) fn populate(source: &mut SqliteProduction, root: Option<&str>) {
     let asset = Asset::new(AssetId::new(), Timestamp::from_unix_micros(-1), None, None);
     let resource = Resource::new(
         ResourceId::new(),
