@@ -42,6 +42,16 @@ floor may retain an unknown earlier property prefix, without inventing evidence.
 See the upstream [rename API](https://docs.rs/rustix/1.1.5/rustix/fs/fn.renameat_with.html)
 and [Windows implementation](https://github.com/Stebalien/tempfile/blob/v3.27.0/src/file/imp/windows.rs).
 
+Schema 25 adds a derived inert-claim marker. Claimed authority jobs require their
+original private credential; claimed mirror jobs require no credential. Both
+retain exact attribution and expiry. The marker is never portable authority.
+An atomic parent replacement preserves job inputs, metadata, indexes and private
+clock/credentials with foreign keys enabled. A late child-restore failure rolls
+back the migration. SQLite's [DROP TABLE foreign-key behavior](https://www.sqlite.org/foreignkeys.html#fk_schemacommands)
+and [table replacement guidance](https://www.sqlite.org/lang_altertable.html#otheralter)
+were checked on 2026-10-09. This local materialization adds no external standards
+mapping or executable capability.
+
 Private imports record an ownership marker and seal the closed database plus
 that marker with a completion checksum. Restart discards an owned unsealed
 directory or promotes an unchanged sealed stage. Unknown files, symlinks,

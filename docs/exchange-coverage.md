@@ -14,11 +14,13 @@ historical Shotcut scaffold has no remote and is outside qualification.
 [Repository inputs](exchange-repositories.json) record exact starting commits
 and preexisting untracked builds. Candidate qualification has **not** run.
 
-Development schema 24 retains one persistent history generation and a deterministic
+Development schema 25 retains one persistent history generation and a deterministic
 genesis/migration-floor anchor. Existing revisions remain intact. The codec now
 covers strict framing, every metadata value kind, metadata proposal intent,
 media fact/creation bodies and all existing original observation kinds;
-complete mutation/effect coverage and the other exchange workflows remain pending.
+Job codecs preserve all five observed states without credentials. Schema 25 permits
+inert claimed observations in mirrors; job capture and replay remain pending.
+Complete mutation/effect coverage and the other exchange workflows remain pending.
 Media codecs retain identities, ownership, compact structures, individual ordered
 members/exceptions, roots, locators, exact identifiers and fingerprint history.
 Creation decoding yields provisional facts individually, checking complete resource

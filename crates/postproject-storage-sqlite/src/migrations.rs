@@ -1,10 +1,14 @@
 //! Numbered, transactional SQLite schema migrations.
 
+#[cfg(test)]
+#[path = "migrations/job_observations.rs"]
+mod job_observations;
+
 use postproject_core::{Error, ErrorKind, Result, Timestamp};
 use rusqlite::{Connection, Transaction, TransactionBehavior, params};
 
 /// The newest schema understood by this build.
-pub const CURRENT_SCHEMA_VERSION: u32 = 24;
+pub const CURRENT_SCHEMA_VERSION: u32 = 25;
 
 struct Migration {
     version: u32,
@@ -107,6 +111,10 @@ const MIGRATIONS: &[Migration] = &[
     Migration {
         version: 24,
         sql: include_str!("migrations/024_exchange_chunk_fragments.sql"),
+    },
+    Migration {
+        version: 25,
+        sql: include_str!("migrations/025_inert_job_observations.sql"),
     },
 ];
 

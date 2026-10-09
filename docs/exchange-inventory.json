@@ -26,7 +26,7 @@
     {"table": "image_sequences","classification": "portable","columns": ["representation_id","resource_id","start_frame","end_frame","frame_step","rate_numerator","rate_denominator"],"exclude": []},
     {"table": "job_clock","classification": "private","columns": ["singleton","high_water_micros"],"exclude": []},
     {"table": "job_inputs","classification": "portable","columns": ["job_id","position","representation_id"],"exclude": []},
-    {"table": "jobs","classification": "portable","columns": ["id","kind","output_asset_id","output_representation_kind","target_root","state","claim_id","claim_tool_name","claim_tool_version","claim_tool_uri","claim_agent_name","claim_agent_scheme","claim_agent_value","claim_agent_qualifier","claim_expires_at_micros","completion_activity_id","completion_representation_id","failure_diagnostic"],"exclude": ["claim_id"]},
+    {"table": "jobs","classification": "portable","columns": ["id","kind","output_asset_id","output_representation_kind","target_root","state","claim_inert","claim_id","claim_tool_name","claim_tool_version","claim_tool_uri","claim_agent_name","claim_agent_scheme","claim_agent_value","claim_agent_qualifier","claim_expires_at_micros","completion_activity_id","completion_representation_id","failure_diagnostic"],"exclude": ["claim_id","claim_inert"]},
     {"table": "locator_sequence_namings","classification": "portable","columns": ["locator_id","prefix","suffix","padding"],"exclude": []},
     {"table": "locators","classification": "portable","columns": ["id","resource_id","uri","last_seen_micros","availability","media_root_name"],"exclude": []},
     {"table": "media_root_representations","classification": "derived","columns": ["media_root_name","representation_id","locator_id"],"exclude": []},

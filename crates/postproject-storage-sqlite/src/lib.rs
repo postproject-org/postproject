@@ -139,6 +139,7 @@ struct StoredJob {
     completion_activity_id: Option<Vec<u8>>,
     completion_representation_id: Option<Vec<u8>>,
     failure_diagnostic: Option<String>,
+    claim_inert: i64,
 }
 
 struct StoredActivityEdge {
@@ -2458,7 +2459,7 @@ impl SqliteProduction {
                     claim_tool_version, claim_tool_uri, claim_agent_name,
                     claim_agent_scheme, claim_agent_value, claim_agent_qualifier,
                     claim_expires_at_micros, completion_activity_id,
-                    completion_representation_id, failure_diagnostic
+                    completion_representation_id, failure_diagnostic, claim_inert
              FROM jobs{where_clause} ORDER BY id LIMIT ?"
         );
         let mut statement = self
@@ -2508,7 +2509,7 @@ impl SqliteProduction {
                         claim_tool_version, claim_tool_uri, claim_agent_name,
                         claim_agent_scheme, claim_agent_value, claim_agent_qualifier,
                         claim_expires_at_micros, completion_activity_id,
-                        completion_representation_id, failure_diagnostic
+                        completion_representation_id, failure_diagnostic, claim_inert
                  FROM jobs WHERE id = ?1",
                 [job_id.as_bytes().as_slice()],
                 stored_job_row,
@@ -4441,6 +4442,7 @@ fn stored_job_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<StoredJob> {
         completion_activity_id: row.get(15)?,
         completion_representation_id: row.get(16)?,
         failure_diagnostic: row.get(17)?,
+        claim_inert: row.get(18)?,
     })
 }
 
@@ -4500,13 +4502,7 @@ fn decode_job_with(
             {
                 return Err(stored_invariant("claimed job has terminal detail"));
             }
-            let claim_id = JobClaimId::from_bytes(id_bytes(
-                required_stored(stored.claim_id, "job claim ID")?,
-                "job claim",
-            )?);
-            if claim_id.as_bytes() == &[0; 16] {
-                return Err(stored_invariant("claimed job has a nil credential"));
-            }
+            validate_job_credential(connection, &stored)?;
             let tool = ToolIdentity::new(
                 required_stored(stored.claim_tool_name, "job claim tool name")?,
                 stored.claim_tool_version,
@@ -4598,8 +4594,31 @@ fn decode_job_with(
     Ok(job.with_state(state))
 }
 
+fn validate_job_credential(connection: &Connection, stored: &StoredJob) -> Result<()> {
+    let role: i64 = connection
+        .query_row(
+            "SELECT role FROM exchange_history WHERE singleton = 1",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(sqlite_error("load job observation role"))?;
+    match (role, stored.claim_inert, &stored.claim_id) {
+        (2, 1, None) => Ok(()),
+        (1, 0, Some(bytes)) => {
+            let claim = JobClaimId::from_bytes(id_bytes(bytes.clone(), "job claim")?);
+            if claim.as_bytes() == &[0; 16] {
+                Err(stored_invariant("claimed job has a nil credential"))
+            } else {
+                Ok(())
+            }
+        }
+        _ => Err(stored_invariant("job credential contradicts store role")),
+    }
+}
+
 fn ensure_job_claim_detail_empty(stored: &StoredJob) -> Result<()> {
-    if stored.claim_id.is_some()
+    if stored.claim_inert != 0
+        || stored.claim_id.is_some()
         || stored.claim_tool_name.is_some()
         || stored.claim_tool_version.is_some()
         || stored.claim_tool_uri.is_some()
