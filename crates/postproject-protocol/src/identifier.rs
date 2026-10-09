@@ -3,6 +3,9 @@
 use postproject_core::{ExternalIdentifier, IdentifierScheme, ObjectRef};
 use serde_json::{Value, json};
 
+mod change;
+pub use change::IdentifierChange;
+
 use crate::{
     Document, Result,
     fields::{checked, decode_reference, encode_reference, nullable, object, text, unsupported},

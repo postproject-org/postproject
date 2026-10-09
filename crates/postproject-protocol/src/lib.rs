@@ -66,7 +66,7 @@ pub use fingerprint::{
     decode_fingerprint_snapshot, encode_fingerprint_snapshot,
 };
 pub use frame::FrameDecoder;
-pub use identifier::IdentifierAttachment;
+pub use identifier::{IdentifierAttachment, IdentifierChange};
 pub use json::{Document, Limits};
 pub use locator::{decode_locator, encode_locator};
 pub use media_change::MediaChange;
