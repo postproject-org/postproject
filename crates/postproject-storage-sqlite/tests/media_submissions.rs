@@ -31,9 +31,20 @@ fn proposal(
 }
 
 fn import(source: &mut SqliteProduction) -> (ResourceId, RepresentationId) {
+    let aggregate = prepared_import();
+    let mut edit = source.begin_transaction().unwrap();
+    edit.import_original(&aggregate).unwrap();
+    edit.commit().unwrap();
+    (
+        aggregate.resources()[0].id(),
+        aggregate.representation().id(),
+    )
+}
+
+fn prepared_import() -> OriginalMediaImport {
     let asset = Asset::new(AssetId::new(), Timestamp::from_unix_micros(-7), None, None);
     let id = ResourceId::new();
-    let aggregate = OriginalMediaImport::new(
+    OriginalMediaImport::new(
         asset.clone(),
         Representation::new(
             RepresentationId::new(),
@@ -54,11 +65,7 @@ fn import(source: &mut SqliteProduction) -> (ResourceId, RepresentationId) {
             .unwrap(),
         ],
     )
-    .unwrap();
-    let mut edit = source.begin_transaction().unwrap();
-    edit.import_original(&aggregate).unwrap();
-    edit.commit().unwrap();
-    (id, aggregate.representation().id())
+    .unwrap()
 }
 
 fn root() -> MediaRoot {
@@ -203,3 +210,6 @@ fn replay(source: &SqliteProduction, mirror: &mut SqliteProduction) {
 
 #[path = "media_submissions/guards.rs"]
 mod guards;
+
+#[path = "media_submissions/prepared.rs"]
+mod prepared;

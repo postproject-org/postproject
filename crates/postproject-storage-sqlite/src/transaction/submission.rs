@@ -98,6 +98,8 @@ impl SqliteTransaction<'_> {
         self.record_extensions = proposal.extensions().clone();
         for command in proposal.commands() {
             match command {
+                Command::ImportOriginal(import) => self.import_original(import)?,
+                Command::AddRepresentation(import) => self.add_representation(import)?,
                 Command::AddMediaRoot(root) => self.add_media_root(root.clone())?,
                 Command::SetMediaRootEnabled { root_id, enabled } => {
                     self.set_media_root_enabled(*root_id, *enabled)?;
@@ -140,11 +142,11 @@ impl SqliteTransaction<'_> {
 }
 
 impl SqliteProduction {
-    /// Submits identified metadata/scalar media intent through native atomic staging.
+    /// Submits identified metadata/media intent through native atomic staging.
     ///
     /// Equivalent retries return the original accepted/no-op/rejected result
-    /// before checking current state. Prepared aggregate and credential-bearing
-    /// job commands remain outside this development submission slice.
+    /// before checking current state. Credential-bearing job commands remain
+    /// outside this development submission slice.
     ///
     /// # Errors
     /// Rejects mismatched scope/request identity and passive roles; storage
