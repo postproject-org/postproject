@@ -100,7 +100,8 @@ these are independent of the proposal-command cap. Sequence naming belongs to
 each `locator.fact`, rather than the content descriptor.
 
 `root.fact` retains configured roots and their historical legacy URI, without
-local directory mappings. `identifier.attachment` retains exact typed targets,
+local directory mappings. `identifier.attachment` retains asset, representation,
+resource and activity targets,
 schemes, values and qualifiers. `identifier.added` and `identifier.removed` retain
 authored transitions, including same-revision removal/re-addition and distinct
 optional qualifiers. `fingerprint.snapshot` preserves original bytes and nullable

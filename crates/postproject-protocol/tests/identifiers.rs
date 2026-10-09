@@ -1,8 +1,8 @@
 //! Unknown identifier vocabularies retain exact spelling without new standards mappings.
 
 use postproject_core::{
-    AssetId, ExternalIdentifier, IdentifierScheme, ObjectRef, ProductionId, RepresentationId,
-    ResourceId,
+    ActivityId, AssetId, ExternalIdentifier, IdentifierScheme, ObjectRef, ProductionId,
+    RepresentationId, ResourceId,
 };
 use postproject_protocol::{Document, FailureKind, IdentifierAttachment, Limits};
 
@@ -21,6 +21,7 @@ fn attachments_retain_all_supported_targets_and_exact_external_values() {
         ObjectRef::Asset(AssetId::new()),
         ObjectRef::Representation(RepresentationId::new()),
         ObjectRef::Resource(ResourceId::new()),
+        ObjectRef::Activity(ActivityId::new()),
     ] {
         for qualifier in [None, Some("scope:EXACT".into())] {
             let original = identifier();

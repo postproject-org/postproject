@@ -19,14 +19,17 @@ pub struct IdentifierAttachment {
 }
 
 impl IdentifierAttachment {
-    /// Binds an identifier to an asset, representation or resource.
+    /// Binds an identifier to an asset, representation, resource or activity.
     ///
     /// # Errors
     /// Rejects target kinds not supported by the native attachment operations.
     pub fn new(target: ObjectRef, identifier: ExternalIdentifier) -> Result<Self> {
         if !matches!(
             target,
-            ObjectRef::Asset(_) | ObjectRef::Representation(_) | ObjectRef::Resource(_)
+            ObjectRef::Asset(_)
+                | ObjectRef::Representation(_)
+                | ObjectRef::Resource(_)
+                | ObjectRef::Activity(_)
         ) {
             return Err(unsupported());
         }

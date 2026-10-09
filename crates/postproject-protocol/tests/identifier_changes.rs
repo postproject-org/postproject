@@ -1,8 +1,8 @@
 //! Identifier transitions preserve opaque spelling and qualifier distinctions.
 
 use postproject_core::{
-    AssetId, ExternalIdentifier, IdentifierScheme, ObjectRef, RepresentationId, ResourceId,
-    SemanticConflictKey,
+    ActivityId, AssetId, ExternalIdentifier, IdentifierScheme, ObjectRef, RepresentationId,
+    ResourceId, SemanticConflictKey,
 };
 use postproject_protocol::{Document, IdentifierAttachment, IdentifierChange, Limits};
 
@@ -12,6 +12,7 @@ fn additions_and_removals_preserve_every_exact_target_and_qualifier() {
         ObjectRef::Asset(AssetId::new()),
         ObjectRef::Representation(RepresentationId::new()),
         ObjectRef::Resource(ResourceId::new()),
+        ObjectRef::Activity(ActivityId::new()),
     ] {
         for qualifier in [None, Some("Case名".to_owned())] {
             let identifier = ExternalIdentifier::new(
