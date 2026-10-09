@@ -1,4 +1,4 @@
-//! Identified local metadata proposals reuse the native staging/commit path.
+//! Identified local proposals reuse the native staging/commit path.
 
 use postproject_core::{CommitReceipt, Error, ErrorKind, Result};
 use postproject_protocol::{Command, FailureKind, Outcome, Proposal, ProtocolError, Rejection};
@@ -98,6 +98,22 @@ impl SqliteTransaction<'_> {
         self.record_extensions = proposal.extensions().clone();
         for command in proposal.commands() {
             match command {
+                Command::AddMediaRoot(root) => self.add_media_root(root.clone())?,
+                Command::SetMediaRootEnabled { root_id, enabled } => {
+                    self.set_media_root_enabled(*root_id, *enabled)?;
+                }
+                Command::RemoveMediaRoot(id) => self.remove_media_root(*id)?,
+                Command::AddLocator(locator) => self.add_locator(locator)?,
+                Command::RetireLocator(id) => self.retire_locator(*id)?,
+                Command::AddIdentifier(attachment) => {
+                    self.add_external_identifier(attachment.target(), attachment.identifier())?;
+                }
+                Command::RemoveIdentifier(attachment) => {
+                    self.remove_external_identifier(attachment.target(), attachment.identifier())?;
+                }
+                Command::RecordResourceFileFacts { resource_id, facts } => {
+                    self.record_resource_file_facts(*resource_id, *facts)?;
+                }
                 Command::AppendMetadata {
                     target,
                     property,
@@ -124,11 +140,11 @@ impl SqliteTransaction<'_> {
 }
 
 impl SqliteProduction {
-    /// Submits identified metadata intent through the native atomic commit path.
+    /// Submits identified metadata/scalar media intent through native atomic staging.
     ///
     /// Equivalent retries return the original accepted/no-op/rejected result
-    /// before checking current state. This development slice does not yet offer
-    /// complete history export, replay or credential-bearing job commands.
+    /// before checking current state. Prepared aggregate and credential-bearing
+    /// job commands remain outside this development submission slice.
     ///
     /// # Errors
     /// Rejects mismatched scope/request identity and passive roles; storage
