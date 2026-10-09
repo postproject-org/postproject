@@ -150,6 +150,22 @@ struct StoredActivityEdge {
 type ActivityEdgesById<Edge> = BTreeMap<ActivityId, Vec<Edge>>;
 
 impl SqliteProduction {
+    /// Streams a checkpoint from one pinned view and returns its final manifest.
+    ///
+    /// Currently supports production metadata and retained metadata history.
+    /// The sink receives bounded chunks in section order. Publish the returned
+    /// manifest only after saving every chunk; failure produces no manifest.
+    /// Dropping or failing the sink releases the view. Long exports can retain WAL.
+    ///
+    /// # Errors
+    /// Rejects unsupported domain facts, incomplete history and sink/storage errors.
+    pub fn export_checkpoint(
+        &self,
+        sink: impl FnMut(postproject_protocol::CheckpointChunk) -> ExchangeResult<()>,
+    ) -> ExchangeResult<postproject_protocol::CheckpointManifest> {
+        exchange::export_checkpoint(self, sink)
+    }
+
     /// Creates an empty passive store at a validated source genesis anchor.
     ///
     /// Retains the source identity, creation time and name; allocates only a

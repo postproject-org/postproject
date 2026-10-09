@@ -1,10 +1,12 @@
 //! Private exchange persistence; portable history is independent of read cursors.
 
+mod checkpoint;
 mod error;
 mod genesis;
 mod outcomes;
 mod records;
 
+pub(crate) use checkpoint::export as export_checkpoint;
 pub use error::{ExchangeError, ExchangeResult};
 pub(crate) use genesis::create as create_genesis_mirror;
 pub(crate) use outcomes::{lookup, persist};
