@@ -2,6 +2,8 @@
 
 mod bodies;
 mod completion;
+#[cfg(test)]
+mod fingerprint_state;
 mod guard_state;
 #[cfg(test)]
 mod identifier_state;
