@@ -7,6 +7,8 @@ mod guard_state;
 mod identifier_state;
 mod limits;
 #[cfg(test)]
+mod locator_state;
+#[cfg(test)]
 mod media_state;
 mod metadata_state;
 mod recovery;
