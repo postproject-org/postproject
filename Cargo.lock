@@ -752,6 +752,7 @@ dependencies = [
  "postproject-media",
  "postproject-protocol",
  "rusqlite",
+ "rustix",
  "tempfile",
 ]
 

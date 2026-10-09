@@ -26,7 +26,21 @@ Schema 24 fragments canonical chunk envelopes below SQLite's value bound while
 retaining their exact bytes, identities and digests. Metadata-only replay uses
 that storage in one writer transaction, with explicit receiver budgets and
 original event cross-checks. Genesis initialization creates an empty passive
-file with the source header and anchor; complete checkpoints remain unimplemented.
+file with the source header and anchor. Production-metadata checkpoints retain
+current assertions, original history, semantic guards and complete post-floor
+records. Other domain sections and earlier development fragments remain unsupported.
+
+Import uses an owned private directory on the destination filesystem, one SQL
+transaction and explicit byte, disk and decoding-work budgets. The production
+header becomes durable only with the fully validated passive state. Close SQLite
+before exclusive promotion: Linux/macOS use `rustix`'s atomic rename with
+`NOREPLACE`, failing on unsupported filesystems; Windows uses `tempfile`'s
+`MoveFileExW` route without replacement. No link/unlink fallback is used on Unix.
+These dependencies remain in the SQLite adapter; core gains no dependency.
+Current assertions are checked against retained authored effects. A migration
+floor may retain an unknown earlier property prefix, without inventing evidence.
+See the upstream [rename API](https://docs.rs/rustix/1.1.5/rustix/fs/fn.renameat_with.html)
+and [Windows implementation](https://docs.rs/tempfile/3.27.0/src/tempfile/file/imp/windows.rs.html).
 
 Bind `(production, history, client, request)` to the complete normalized proposal
 and a private credential binding. Persist accepted, no-change and terminal domain
