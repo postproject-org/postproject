@@ -1,5 +1,6 @@
 //! Domain section items are checked before the private transaction can commit.
 
+mod access;
 mod facts;
 mod history;
 mod media;
@@ -67,6 +68,8 @@ impl<'a, 'connection> Bodies<'a, 'connection> {
                 | CheckpointSection::Resources
                 | CheckpointSection::Representations
                 | CheckpointSection::Structures
+                | CheckpointSection::Locators
+                | CheckpointSection::Identifiers
         ) {
             return Err(postproject_protocol::ProtocolError::new(
                 postproject_protocol::FailureKind::Unsupported,
@@ -76,6 +79,8 @@ impl<'a, 'connection> Bodies<'a, 'connection> {
         }
         match section {
             CheckpointSection::Production => self.production(document)?,
+            CheckpointSection::Locators => self.locator(document)?,
+            CheckpointSection::Identifiers => self.identifier(document)?,
             CheckpointSection::Assets => self.asset(document)?,
             CheckpointSection::Resources => self.resource(document)?,
             CheckpointSection::Representations => self.representation(document)?,

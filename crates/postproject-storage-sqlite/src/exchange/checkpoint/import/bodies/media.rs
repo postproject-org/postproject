@@ -92,7 +92,7 @@ impl Bodies<'_, '_> {
     }
 }
 
-fn insert<T>(result: rusqlite::Result<T>) -> ExchangeResult<T> {
+pub(super) fn insert<T>(result: rusqlite::Result<T>) -> ExchangeResult<T> {
     result.map_err(|error| {
         if error.sqlite_error_code() == Some(rusqlite::ErrorCode::ConstraintViolation) {
             invalid().into()
@@ -102,7 +102,7 @@ fn insert<T>(result: rusqlite::Result<T>) -> ExchangeResult<T> {
     })
 }
 
-fn structural<T>(result: postproject_core::Result<T>) -> ExchangeResult<T> {
+pub(super) fn structural<T>(result: postproject_core::Result<T>) -> ExchangeResult<T> {
     result.map_err(|error| match error.kind() {
         postproject_core::ErrorKind::AlreadyExists
         | postproject_core::ErrorKind::InvalidArgument

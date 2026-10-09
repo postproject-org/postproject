@@ -65,6 +65,8 @@ pub(crate) fn export(
             | CheckpointSection::Resources
             | CheckpointSection::Representations
             | CheckpointSection::Structures => sections::media(&view, &mut writer, section)?,
+            CheckpointSection::Locators => sections::locators(&view, &mut writer)?,
+            CheckpointSection::Identifiers => sections::identifiers(&view, &mut writer)?,
             CheckpointSection::Metadata => sections::metadata(&view, &mut writer)?,
             CheckpointSection::Roots => sections::roots(&view, &mut writer)?,
             CheckpointSection::Revisions => sections::revisions(&view, &mut writer)?,

@@ -6,6 +6,7 @@ use postproject_core::{
 };
 
 use crate::{SqliteProduction, exchange::checkpoint::media_facts};
+use postproject_core::{ExternalIdentifier, IdentifierScheme, ObjectRef};
 
 #[test]
 fn scalar_and_structural_reads_preserve_all_shapes_without_loading_other_collections() {
@@ -83,6 +84,8 @@ fn scalar_and_structural_reads_preserve_all_shapes_without_loading_other_collect
                 .unwrap();
         let mut edit = source.begin_transaction().unwrap();
         edit.import_original(&import).unwrap();
+        edit.add_external_identifier(ObjectRef::Asset(asset.id()), &attachment())
+            .unwrap();
         edit.commit().unwrap();
         drop(edit);
         assert_eq!(
@@ -112,7 +115,7 @@ fn scalar_and_structural_reads_preserve_all_shapes_without_loading_other_collect
 fn assert_staging_round_trip(source: &SqliteProduction, import: &OriginalMediaImport) {
     use super::super::Bodies;
     use crate::exchange::checkpoint::{sections, writer::SectionWriter};
-    use postproject_protocol::{CheckpointId, CheckpointSection, FrameDecoder, Limits};
+    use postproject_protocol::{CheckpointId, CheckpointSection};
     let directory = tempfile::tempdir().unwrap();
     let mut destination =
         SqliteProduction::create(directory.path().join("staged.pproj"), None).unwrap();
@@ -127,6 +130,8 @@ fn assert_staging_round_trip(source: &SqliteProduction, import: &OriginalMediaIm
         CheckpointSection::Resources,
         CheckpointSection::Representations,
         CheckpointSection::Structures,
+        CheckpointSection::Locators,
+        CheckpointSection::Identifiers,
     ] {
         let mut chunks = Vec::new();
         let mut sink = |chunk| {
@@ -139,39 +144,24 @@ fn assert_staging_round_trip(source: &SqliteProduction, import: &OriginalMediaIm
             section,
             &mut sink,
         );
-        sections::media(source, &mut writer, section).unwrap();
+        match section {
+            CheckpointSection::Locators => sections::locators(source, &mut writer).unwrap(),
+            CheckpointSection::Identifiers => sections::identifiers(source, &mut writer).unwrap(),
+            _ => sections::media(source, &mut writer, section).unwrap(),
+        }
         let summary = writer.finish().unwrap();
         assert_eq!(
             summary.items(),
-            if section == CheckpointSection::Resources {
+            if matches!(
+                section,
+                CheckpointSection::Resources | CheckpointSection::Locators
+            ) {
                 import.resources().len() as u64
             } else {
                 1
             }
         );
-        let mut decoder = FrameDecoder::new(Limits::default());
-        let mut starts = 0;
-        for chunk in chunks {
-            let mut offset = 0;
-            while offset < chunk.payload().len() {
-                let (consumed, document) = decoder.consume(&chunk.payload()[offset..]).unwrap();
-                offset += consumed;
-                if let Some(document) = document {
-                    match section {
-                        CheckpointSection::Assets => bodies.asset(&document).unwrap(),
-                        CheckpointSection::Resources => bodies.resource(&document).unwrap(),
-                        CheckpointSection::Representations => {
-                            bodies.representation(&document).unwrap();
-                        }
-                        CheckpointSection::Structures => {
-                            starts += u64::from(bodies.structure(&document).unwrap());
-                        }
-                        _ => unreachable!(),
-                    }
-                }
-            }
-        }
-        decoder.finish().unwrap();
+        let starts = stage_section(&mut bodies, section, chunks);
         if section == CheckpointSection::Structures {
             assert_eq!(starts, summary.items());
         }
@@ -184,6 +174,7 @@ fn assert_staging_round_trip(source: &SqliteProduction, import: &OriginalMediaIm
         media_facts::content(&transaction, import.representation().id()).unwrap(),
         *import.representation().content_structure()
     );
+    assert_staged_access(&transaction, import);
     // Component checks only: public import stays closed until its complete
     // retained-state validator is implemented.
     let document = postproject_protocol::encode_asset(import.asset());
@@ -193,4 +184,78 @@ fn assert_staging_round_trip(source: &SqliteProduction, import: &OriginalMediaIm
     drop(bodies);
     transaction.rollback().unwrap();
     assert_eq!(destination.assets().unwrap(), Vec::new());
+}
+
+fn stage_section(
+    bodies: &mut super::super::Bodies<'_, '_>,
+    section: postproject_protocol::CheckpointSection,
+    chunks: Vec<postproject_protocol::CheckpointChunk>,
+) -> u64 {
+    use postproject_protocol::{CheckpointSection, FrameDecoder, Limits};
+    let mut decoder = FrameDecoder::new(Limits::default());
+    let mut starts = 0;
+    for chunk in chunks {
+        let mut offset = 0;
+        while offset < chunk.payload().len() {
+            let (consumed, document) = decoder.consume(&chunk.payload()[offset..]).unwrap();
+            offset += consumed;
+            if let Some(document) = document {
+                match section {
+                    CheckpointSection::Locators => bodies.locator(&document).unwrap(),
+                    CheckpointSection::Identifiers => bodies.identifier(&document).unwrap(),
+                    CheckpointSection::Assets => bodies.asset(&document).unwrap(),
+                    CheckpointSection::Resources => bodies.resource(&document).unwrap(),
+                    CheckpointSection::Representations => {
+                        bodies.representation(&document).unwrap();
+                    }
+                    CheckpointSection::Structures => {
+                        starts += u64::from(bodies.structure(&document).unwrap());
+                    }
+                    _ => unreachable!(),
+                }
+            }
+        }
+    }
+    decoder.finish().unwrap();
+    starts
+}
+
+fn assert_staged_access(connection: &rusqlite::Connection, import: &OriginalMediaImport) {
+    for expected in import.locators() {
+        let stored = connection.query_row("SELECT l.id, l.uri, l.last_seen_micros, l.availability, l.media_root_name, n.prefix, n.suffix, n.padding FROM locators l LEFT JOIN locator_sequence_namings n ON n.locator_id = l.id WHERE l.id = ?1", [expected.id().as_bytes().as_slice()], crate::StoredLocator::read).unwrap();
+        assert_eq!(
+            stored.into_locator(expected.resource_id()).unwrap(),
+            *expected
+        );
+    }
+    let attachment = connection
+        .query_row(
+            "SELECT scheme, value, qualifier FROM external_identifiers",
+            [],
+            |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, Option<String>>(2)?,
+                ))
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        attachment,
+        (
+            "unknown:CASE".into(),
+            "Exact 名".into(),
+            Some("Qual".into())
+        )
+    );
+}
+
+fn attachment() -> ExternalIdentifier {
+    ExternalIdentifier::new(
+        IdentifierScheme::new("unknown:CASE").unwrap(),
+        "Exact 名",
+        Some("Qual".into()),
+    )
+    .unwrap()
 }
