@@ -41,7 +41,7 @@ mod scope;
 mod structure;
 mod version;
 
-pub use activity::ActivityHeader;
+pub use activity::{ActivityEdgeHeader, ActivityEdgeSide, ActivityHeader};
 pub use assertion::SnapshotAssertion;
 pub use asset::{decode_asset, encode_asset};
 pub use checkpoint::{
