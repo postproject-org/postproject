@@ -1,0 +1,34 @@
+{
+  "kind": "proposal",
+  "version": "1",
+  "required_features": [
+    "media.v1"
+  ],
+  "production": "00000000-0000-4000-8000-000000000001",
+  "history": "00000000-0000-4000-8000-000000000002",
+  "client": "00000000-0000-4000-8000-000000000003",
+  "request": "00000000-0000-4000-8000-000000000066",
+  "base": null,
+  "origin": null,
+  "message": "Fixed independent Python vector",
+  "commands": [
+    {
+      "kind": "resource.observe-fingerprint",
+      "id": "00000000-0000-4000-8000-000000000008",
+      "fingerprint": {
+        "algorithm": "vendor_unknown",
+        "version": "65535",
+        "value": "/wAB"
+      }
+    }
+  ],
+  "extensions": {
+    "vendor:exact": {
+      "ordered": [
+        "\u540c",
+        "\u540c",
+        "\ud83d\ude00"
+      ]
+    }
+  }
+}

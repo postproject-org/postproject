@@ -1,0 +1,63 @@
+{
+  "kind": "proposal",
+  "version": "1",
+  "required_features": [
+    "dependencies.v1"
+  ],
+  "production": "00000000-0000-4000-8000-000000000001",
+  "history": "00000000-0000-4000-8000-000000000002",
+  "client": "00000000-0000-4000-8000-000000000003",
+  "request": "00000000-0000-4000-8000-000000000067",
+  "base": null,
+  "origin": null,
+  "message": "Fixed independent Python vector",
+  "commands": [
+    {
+      "kind": "dependency.observe-set",
+      "id": "00000000-0000-4000-8000-000000000006",
+      "occurrences": [
+        {
+          "kind": "dependency.occurrence",
+          "source_representation_id": "00000000-0000-4000-8000-000000000006",
+          "position": "0",
+          "dependency": {
+            "source_resource_id": null,
+            "kind": "vendor:Reference",
+            "target": {
+              "kind": "asset",
+              "id": "00000000-0000-4000-8000-000000000005"
+            },
+            "resolved_representation_id": null,
+            "required": true,
+            "authored_reference": "exact://\u540c#same"
+          }
+        },
+        {
+          "kind": "dependency.occurrence",
+          "source_representation_id": "00000000-0000-4000-8000-000000000006",
+          "position": "1",
+          "dependency": {
+            "source_resource_id": null,
+            "kind": "vendor:Reference",
+            "target": {
+              "kind": "asset",
+              "id": "00000000-0000-4000-8000-000000000005"
+            },
+            "resolved_representation_id": null,
+            "required": true,
+            "authored_reference": "exact://\u540c#same"
+          }
+        }
+      ]
+    }
+  ],
+  "extensions": {
+    "vendor:exact": {
+      "ordered": [
+        "\u540c",
+        "\u540c",
+        "\ud83d\ude00"
+      ]
+    }
+  }
+}
