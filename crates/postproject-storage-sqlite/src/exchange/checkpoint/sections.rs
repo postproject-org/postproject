@@ -1,6 +1,7 @@
 //! Stream source rows through checked domain codecs, never a whole section Vec.
 
 mod access;
+mod activities;
 mod fingerprints;
 mod history;
 mod media;
@@ -8,6 +9,7 @@ mod roots;
 mod versions;
 
 pub(super) use access::{identifiers, locators};
+pub(super) use activities::activities;
 pub(super) use fingerprints::fingerprints;
 pub(super) use history::{events, records, revisions};
 pub(super) use media::media;
