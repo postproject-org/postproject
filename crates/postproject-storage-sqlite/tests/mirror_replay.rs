@@ -146,13 +146,14 @@ fn missing_chunks_budget_cancellation_and_storage_failure_leave_genesis_visible(
             .is_err()
     );
     assert_eq!(mirror.exchange_head().unwrap(), anchor);
-    assert!(mirror.changes_since(0, 10).unwrap().is_empty());
+    assert_eq!(
+        mirror.changes_since(0, 10).unwrap(),
+        Vec::<postproject_core::Revision>::new()
+    );
     let target = ObjectRef::Production(source.production().id());
-    assert!(
-        mirror
-            .metadata_values(target, &property())
-            .unwrap()
-            .is_empty()
+    assert_eq!(
+        mirror.metadata_values(target, &property()).unwrap(),
+        Vec::<MetadataValue>::new()
     );
     let staged: i64 = connection
         .query_row("SELECT count(*) FROM exchange_record_chunks", [], |row| {
@@ -215,7 +216,10 @@ fn process_exit_after_chunk_staging_recovers_and_retries_the_same_record() {
     assert_eq!(status.code(), Some(77));
     let mut mirror = SqliteProduction::open(&mirror_path).unwrap();
     assert_eq!(mirror.exchange_head().unwrap(), anchor);
-    assert!(mirror.changes_since(0, 10).unwrap().is_empty());
+    assert_eq!(
+        mirror.changes_since(0, 10).unwrap(),
+        Vec::<postproject_core::Revision>::new()
+    );
     assert!(apply(&source, &mut mirror, 1));
     assert_eq!(
         mirror.exchange_head().unwrap(),

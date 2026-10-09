@@ -96,12 +96,15 @@ fn rehashed_wrong_positions_or_events_roll_back_all_staged_state() {
             matches!(mirror.apply_record(&manifest, [Ok(chunk)], ReplayLimits::default()), Err(ExchangeError::Protocol(error)) if error.kind() == FailureKind::Integrity)
         );
         assert_eq!(mirror.exchange_head().unwrap(), anchor);
-        assert!(mirror.changes_since(0, 10).unwrap().is_empty());
-        assert!(
+        assert_eq!(
+            mirror.changes_since(0, 10).unwrap(),
+            Vec::<postproject_core::Revision>::new()
+        );
+        assert_eq!(
             mirror
                 .metadata_values(ObjectRef::Production(source.production().id()), &property())
-                .unwrap()
-                .is_empty()
+                .unwrap(),
+            Vec::<MetadataValue>::new()
         );
     }
 }
