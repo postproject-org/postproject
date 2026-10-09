@@ -1,6 +1,6 @@
 //! Validate the complete source body before one atomic passive publication.
 
-mod activity;
+pub(super) mod activity;
 mod creation;
 mod dependency;
 mod effects;

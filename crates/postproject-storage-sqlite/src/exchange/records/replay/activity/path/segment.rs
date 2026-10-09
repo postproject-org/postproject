@@ -9,29 +9,37 @@ pub(super) fn persist(
     transaction: &Transaction<'_>,
     path: i64,
     segment: &ActivityPathSegment,
+    prefix: bool,
 ) -> ExchangeResult<()> {
     let occurrence = segment.occurrence();
     let dependency = occurrence.dependency();
     let source = occurrence.source_representation_id();
     let position = i64::try_from(occurrence.position()).map_err(|_| invalid())?;
-    let prior = transaction.query_row("SELECT source_resource_id, kind, target_kind, target_id, resolved_representation_id, required, authored_reference FROM dependencies WHERE source_representation_id = ?1 AND position = ?2 AND EXISTS(SELECT 1 FROM dependency_sets WHERE source_representation_id = ?1 AND needs_extraction = 0)", params![source.as_bytes().as_slice(), position], |row|Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?, row.get(5)?, row.get(6)?))).optional().map_err(sqlite_error("validate original authored dependency segment"))?;
-    let prior = prior
-        .map(
-            |(resource, kind, target_kind, target, resolved, required, authored)| {
-                decode_dependency(
-                    resource,
-                    kind,
-                    target_kind,
-                    target,
-                    resolved,
-                    required,
-                    authored,
-                )
-            },
-        )
-        .transpose()?;
-    if prior.as_ref() != Some(dependency) {
-        return Err(invalid().into());
+    super::super::super::facts::structural(crate::transaction::validate_dependency_references(
+        transaction,
+        source,
+        dependency,
+    ))?;
+    if prefix {
+        let prior = transaction.query_row("SELECT source_resource_id, kind, target_kind, target_id, resolved_representation_id, required, authored_reference FROM dependencies WHERE source_representation_id = ?1 AND position = ?2 AND EXISTS(SELECT 1 FROM dependency_sets WHERE source_representation_id = ?1 AND needs_extraction = 0)", params![source.as_bytes().as_slice(), position], |row|Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?, row.get(5)?, row.get(6)?))).optional().map_err(sqlite_error("validate original authored dependency segment"))?;
+        let prior = prior
+            .map(
+                |(resource, kind, target_kind, target, resolved, required, authored)| {
+                    decode_dependency(
+                        resource,
+                        kind,
+                        target_kind,
+                        target,
+                        resolved,
+                        required,
+                        authored,
+                    )
+                },
+            )
+            .transpose()?;
+        if prior.as_ref() != Some(dependency) {
+            return Err(invalid().into());
+        }
     }
     let (target_kind, target) = match dependency.target() {
         DependencyTarget::Asset(id) => (1, id.into_bytes()),

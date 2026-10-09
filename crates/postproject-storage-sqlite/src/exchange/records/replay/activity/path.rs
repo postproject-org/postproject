@@ -1,13 +1,11 @@
 mod segment;
 
 use postproject_core::RepresentationId;
-use postproject_protocol::{
-    ActivityPathHeader, ActivityPathSegment, ActivityPathStatus, Document, RecordManifest,
-};
+use postproject_protocol::{ActivityPathHeader, ActivityPathSegment, ActivityPathStatus, Document};
 use rusqlite::{OptionalExtension, Transaction, params};
 
 use super::super::effects::invalid;
-use super::fingerprints;
+use super::{context::Context, fingerprints};
 use crate::{ExchangeResult, sqlite_error, transaction::representation_exists};
 
 pub(super) struct PathApply {
@@ -23,6 +21,7 @@ pub(super) struct PathApply {
 impl PathApply {
     pub(super) fn begin(
         transaction: &Transaction<'_>,
+        context: Context<'_>,
         document: &Document,
         input: i64,
         position: u64,
@@ -34,7 +33,7 @@ impl PathApply {
         {
             return Err(invalid().into());
         }
-        if header.status() == ActivityPathStatus::Recorded {
+        if context.prefix() && header.status() == ActivityPathStatus::Recorded {
             fingerprints::count(
                 transaction,
                 header.subject_representation_id(),
@@ -59,7 +58,7 @@ impl PathApply {
             previous_domain: None,
         };
         if state.header.segment_count() == 0 {
-            state.validate_subject(transaction)?;
+            state.validate_subject(transaction, context)?;
         }
         Ok(state)
     }
@@ -67,7 +66,7 @@ impl PathApply {
     pub(super) fn push(
         &mut self,
         transaction: &Transaction<'_>,
-        manifest: &RecordManifest,
+        context: Context<'_>,
         document: &Document,
     ) -> ExchangeResult<()> {
         if self.segments < self.header.segment_count() {
@@ -78,7 +77,7 @@ impl PathApply {
             {
                 return Err(invalid().into());
             }
-            segment::persist(transaction, self.id, &segment)?;
+            segment::persist(transaction, self.id, &segment, context.prefix())?;
             self.last_source = occurrence.source_representation_id();
             self.next_source = match occurrence.dependency().target() {
                 postproject_core::DependencyTarget::Representation(id) => Some(id),
@@ -89,12 +88,12 @@ impl PathApply {
             };
             self.segments += 1;
             if self.segments == self.header.segment_count() {
-                self.validate_subject(transaction)?;
+                self.validate_subject(transaction, context)?;
             }
         } else if self.fingerprints < self.header.fingerprint_count() {
             fingerprints::push(
                 transaction,
-                manifest,
+                context,
                 document,
                 fingerprints::Owner {
                     table: "activity_input_dependency_fingerprint_snapshots",
@@ -111,7 +110,11 @@ impl PathApply {
         Ok(())
     }
 
-    fn validate_subject(&self, transaction: &Transaction<'_>) -> ExchangeResult<()> {
+    fn validate_subject(
+        &self,
+        transaction: &Transaction<'_>,
+        context: Context<'_>,
+    ) -> ExchangeResult<()> {
         let subject = self.header.subject_representation_id();
         if self.header.status() == ActivityPathStatus::Unresolved {
             if self.next_source.is_some() || subject != self.last_source {
@@ -119,6 +122,9 @@ impl PathApply {
             }
         } else if self.next_source != Some(subject) {
             return Err(invalid().into());
+        }
+        if !context.prefix() {
+            return Ok(());
         }
         let needs_extraction = transaction
             .query_row(

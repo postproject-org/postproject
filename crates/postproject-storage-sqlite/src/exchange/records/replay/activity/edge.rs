@@ -1,8 +1,8 @@
-use postproject_protocol::{ActivityEdgeHeader, ActivityEdgeSide, Document, RecordManifest};
+use postproject_protocol::{ActivityEdgeHeader, ActivityEdgeSide, Document};
 use rusqlite::{Transaction, params};
 
 use super::super::effects::invalid;
-use super::{fingerprints, path::PathApply};
+use super::{context::Context, fingerprints, path::PathApply};
 use crate::{
     ExchangeResult, dependency_snapshot::validate_dependency_paths, sqlite_error,
     transaction::representation_exists,
@@ -20,11 +20,15 @@ pub(super) struct EdgeApply {
 impl EdgeApply {
     pub(super) fn begin(
         transaction: &Transaction<'_>,
-        manifest: &RecordManifest,
+        context: Context<'_>,
         header: ActivityEdgeHeader,
     ) -> ExchangeResult<Self> {
-        if header.snapshot_revision_sequence() != Some(manifest.revision().sequence())
-            || (header.side() == ActivityEdgeSide::Input && !header.has_dependency_snapshot())
+        if context.prefix()
+            && (header.snapshot_revision_sequence() != Some(context.sequence())
+                || (header.side() == ActivityEdgeSide::Input && !header.has_dependency_snapshot()))
+            || header
+                .snapshot_revision_sequence()
+                .is_some_and(|sequence| sequence > context.sequence())
             || !representation_exists(transaction, header.representation_id())?
         {
             return Err(invalid().into());
@@ -35,22 +39,27 @@ impl EdgeApply {
                 return Err(invalid().into());
             }
         }
-        fingerprints::count(
-            transaction,
-            header.representation_id(),
-            header.fingerprint_count(),
-        )?;
+        if context.prefix() {
+            fingerprints::count(
+                transaction,
+                header.representation_id(),
+                header.fingerprint_count(),
+            )?;
+        }
         let table = match header.side() {
             ActivityEdgeSide::Input => "activity_inputs",
             ActivityEdgeSide::Output => "activity_outputs",
         };
-        transaction.execute(&format!("INSERT INTO {table} (activity_id, representation_id, role, snapshot_revision_sequence) VALUES (?1, ?2, ?3, ?4)"), params![header.activity_id().as_bytes().as_slice(), header.representation_id().as_bytes().as_slice(), header.role().map(postproject_core::ActivityRole::as_str), i64::try_from(manifest.revision().sequence()).map_err(|_|invalid())?])
+        transaction.execute(&format!("INSERT INTO {table} (activity_id, representation_id, role, snapshot_revision_sequence) VALUES (?1, ?2, ?3, ?4)"), params![header.activity_id().as_bytes().as_slice(), header.representation_id().as_bytes().as_slice(), header.role().map(postproject_core::ActivityRole::as_str), header.snapshot_revision_sequence().map(i64::try_from).transpose().map_err(|_|invalid())?])
             .map_err(sqlite_error("stage original activity edge"))?;
         let id = transaction.last_insert_rowid();
         if header.has_dependency_snapshot() {
             transaction.execute("INSERT INTO activity_input_dependency_snapshots (activity_input_id) VALUES (?1)", [id]).map_err(sqlite_error("stage original dependency snapshot marker"))?;
         }
-        if header.has_dependency_snapshot() && header.dependency_path_count() == 0 {
+        if context.prefix()
+            && header.has_dependency_snapshot()
+            && header.dependency_path_count() == 0
+        {
             super::super::facts::structural(validate_dependency_paths(
                 transaction,
                 id,
@@ -70,9 +79,10 @@ impl EdgeApply {
     pub(super) fn push(
         &mut self,
         transaction: &Transaction<'_>,
-        manifest: &RecordManifest,
+        context: Context<'_>,
         document: &Document,
     ) -> ExchangeResult<()> {
+        let context = context.at_boundary(self.header.snapshot_revision_sequence());
         if self.fingerprints < self.header.fingerprint_count() {
             let (table, column) = match self.header.side() {
                 ActivityEdgeSide::Input => {
@@ -85,7 +95,7 @@ impl EdgeApply {
             };
             fingerprints::push(
                 transaction,
-                manifest,
+                context,
                 document,
                 fingerprints::Owner {
                     table,
@@ -97,13 +107,14 @@ impl EdgeApply {
             )?;
             self.fingerprints += 1;
         } else if let Some(path) = self.path.as_mut() {
-            path.push(transaction, manifest, document)?;
+            path.push(transaction, context, document)?;
             if path.complete() {
                 self.path = None;
             }
         } else if self.paths < self.header.dependency_path_count() {
             let path = PathApply::begin(
                 transaction,
+                context,
                 document,
                 self.id,
                 self.paths,
@@ -116,7 +127,7 @@ impl EdgeApply {
         } else {
             return Err(invalid().into());
         }
-        if self.complete() && self.header.has_dependency_snapshot() {
+        if context.prefix() && self.complete() && self.header.has_dependency_snapshot() {
             super::super::facts::structural(validate_dependency_paths(
                 transaction,
                 self.id,

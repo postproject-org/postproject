@@ -7,6 +7,7 @@ mod writer;
 
 pub use reader::RecordReader;
 pub use replay::ReplayLimits;
+pub(in crate::exchange) use replay::activity::ActivityApply;
 pub(crate) use replay::apply;
 
 use postproject_core::{

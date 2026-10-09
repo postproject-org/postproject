@@ -1,3 +1,4 @@
+mod context;
 mod edge;
 mod fingerprints;
 mod path;
@@ -10,8 +11,9 @@ use rusqlite::{Transaction, params};
 
 use super::{effects::invalid, facts};
 use crate::{ExchangeResult, sqlite_error};
+use context::Context;
 
-pub(super) struct ActivityApply {
+pub(in crate::exchange) struct ActivityApply {
     header: ActivityHeader,
     edges: u64,
     edge: Option<edge::EdgeApply>,
@@ -28,22 +30,30 @@ impl ActivityApply {
         header: ActivityHeader,
         event: &mut u64,
     ) -> ExchangeResult<Self> {
+        let state = Self::begin_checkpoint(transaction, header)?;
+        facts::observation(
+            transaction,
+            manifest,
+            *event,
+            &RevisionEventKind::ActivityCreated {
+                activity_id: state.header.id(),
+                kind: state.header.kind().clone(),
+            },
+        )?;
+        *event += 1;
+        Ok(state)
+    }
+
+    pub(in crate::exchange) fn begin_checkpoint(
+        transaction: &Transaction<'_>,
+        header: ActivityHeader,
+    ) -> ExchangeResult<Self> {
         let tool = header.tool();
         let agent = header.agent();
         let identifier = agent.and_then(postproject_core::AgentIdentity::identifier);
         transaction.execute("INSERT INTO activities (id, kind, started_at_micros, finished_at_micros, tool_name, tool_version, tool_uri, agent_name, agent_identifier_scheme, agent_identifier_value, agent_identifier_qualifier) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
             params![header.id().as_bytes().as_slice(), header.kind().as_str(), header.started_at().map(postproject_core::Timestamp::as_unix_micros), header.finished_at().map(postproject_core::Timestamp::as_unix_micros), tool.map(postproject_core::ToolIdentity::name), tool.and_then(postproject_core::ToolIdentity::version), tool.and_then(postproject_core::ToolIdentity::uri), agent.and_then(postproject_core::AgentIdentity::name), identifier.map(|value|value.scheme().as_str()), identifier.map(postproject_core::ExternalIdentifier::value), identifier.and_then(postproject_core::ExternalIdentifier::qualifier)])
             .map_err(sqlite_error("stage original activity attribution"))?;
-        facts::observation(
-            transaction,
-            manifest,
-            *event,
-            &RevisionEventKind::ActivityCreated {
-                activity_id: header.id(),
-                kind: header.kind().clone(),
-            },
-        )?;
-        *event += 1;
         Ok(Self {
             header,
             edges: 0,
@@ -59,14 +69,33 @@ impl ActivityApply {
         document: &Document,
         event: &mut u64,
     ) -> ExchangeResult<bool> {
+        self.push_context(transaction, Context::Prefix(manifest), document, event)
+    }
+
+    pub(in crate::exchange) fn push_checkpoint(
+        &mut self,
+        transaction: &Transaction<'_>,
+        head: u64,
+        document: &Document,
+    ) -> ExchangeResult<bool> {
+        self.push_context(transaction, Context::Checkpoint(head), document, &mut 0)
+    }
+
+    fn push_context(
+        &mut self,
+        transaction: &Transaction<'_>,
+        context: Context<'_>,
+        document: &Document,
+        event: &mut u64,
+    ) -> ExchangeResult<bool> {
         if let Some(edge) = self.edge.as_mut() {
-            edge.push(transaction, manifest, document)?;
+            edge.push(transaction, context, document)?;
             if !edge.complete() {
                 return Ok(false);
             }
             self.edge = None;
         } else {
-            self.start_edge(transaction, manifest, document, event)?;
+            self.start_edge(transaction, context, document, event)?;
         }
         let complete = self.edges == self.header.input_count() + self.header.output_count()
             && self.edge.is_none();
@@ -79,7 +108,7 @@ impl ActivityApply {
     fn start_edge(
         &mut self,
         transaction: &Transaction<'_>,
-        manifest: &RecordManifest,
+        context: Context<'_>,
         document: &Document,
         event: &mut u64,
     ) -> ExchangeResult<()> {
@@ -106,7 +135,7 @@ impl ActivityApply {
         {
             return Err(invalid().into());
         }
-        let pending = edge::EdgeApply::begin(transaction, manifest, header.clone())?;
+        let pending = edge::EdgeApply::begin(transaction, context, header.clone())?;
         let observation = match side {
             ActivityEdgeSide::Input => RevisionEventKind::ActivityInputAdded {
                 activity_id: self.header.id(),
@@ -119,8 +148,10 @@ impl ActivityApply {
                 role: header.role().cloned(),
             },
         };
-        facts::observation(transaction, manifest, *event, &observation)?;
-        *event += 1;
+        if let Context::Prefix(manifest) = context {
+            facts::observation(transaction, manifest, *event, &observation)?;
+            *event += 1;
+        }
         self.edges += 1;
         self.previous = Some(key);
         if !pending.complete() {

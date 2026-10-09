@@ -1,6 +1,7 @@
 //! Domain section items are checked before the private transaction can commit.
 
 mod access;
+mod activities;
 mod facts;
 mod fingerprints;
 mod history;
@@ -16,6 +17,7 @@ use crate::ExchangeResult;
 pub(super) struct Bodies<'a, 'connection> {
     transaction: &'a Transaction<'connection>,
     structure: Option<media::PendingStructure>,
+    activity: Option<crate::exchange::records::ActivityApply>,
     manifest: &'a CheckpointManifest,
     revisions: u64,
     event_sequence: u64,
@@ -39,6 +41,7 @@ impl<'a, 'connection> Bodies<'a, 'connection> {
         Self {
             transaction,
             structure: None,
+            activity: None,
             manifest,
             revisions: 0,
             event_sequence: 0,
@@ -66,6 +69,9 @@ impl<'a, 'connection> Bodies<'a, 'connection> {
         if self.structure.is_some() && section != CheckpointSection::Structures {
             return Err(super::super::invalid().into());
         }
+        if self.activity.is_some() && section != CheckpointSection::Activities {
+            return Err(super::super::invalid().into());
+        }
         match section {
             CheckpointSection::Production => self.production(document)?,
             CheckpointSection::Locators => self.locator(document)?,
@@ -75,6 +81,7 @@ impl<'a, 'connection> Bodies<'a, 'connection> {
             CheckpointSection::Resources => self.resource(document)?,
             CheckpointSection::Representations => self.representation(document)?,
             CheckpointSection::Structures => return self.structure(document),
+            CheckpointSection::Activities => return self.activity(document),
             CheckpointSection::Metadata => self.metadata(document)?,
             CheckpointSection::Roots => self.root(document)?,
             CheckpointSection::Revisions => self.revision(document)?,
@@ -98,6 +105,7 @@ impl<'a, 'connection> Bodies<'a, 'connection> {
             || self.event_sequence != self.revisions
             || self.record.is_some()
             || self.structure.is_some()
+            || self.activity.is_some()
             || self.record_head != self.manifest.head()
         {
             return Err(super::super::invalid().into());
