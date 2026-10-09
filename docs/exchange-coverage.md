@@ -27,7 +27,9 @@ or a missing complete predecessor leave an explicit `history_gap`; a complete
 replay feed remains incomplete. Rust passive application now validates metadata
 records atomically, preserving revision/events and semantic property versions.
 Genesis initialization supports empty source stores; complete checkpoints remain
-pending. Receiver budgets and iterator cancellation roll back the whole apply.
+pending. Checkpoint headers now declare every ordered section and bind scoped
+section chunks without treating framing as validated state. Receiver budgets
+and iterator cancellation roll back the whole apply.
 Identified metadata submissions retain accepted/no-op/rejected public outcomes
 in the same writer transaction. Other command families and credentials remain
 unsupported; the full authority and replay gates remain pending.

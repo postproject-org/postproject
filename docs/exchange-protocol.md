@@ -128,6 +128,17 @@ and semantic conflict floors/versions. Derived indexes are rebuilt. SQLite row
 IDs, local mappings/caches, worker secrets, operational clock and private dedup
 bindings are excluded. Public ordering uses section-defined positions.
 
+Checkpoint framing declares all 18 sections, including explicit empty ones, in
+this order: production, assets, resources, representations, structures, roots,
+locators, identifiers, metadata, activities, dependencies, fingerprints, jobs,
+revisions, events, conflict versions, conflict floor and retained records.
+Production and conflict floor each contain one item. Retained revision totals
+match the source head sequence; record totals match head minus source replay
+floor. A nonempty section declares item count and complete chunk-chain summary;
+an empty section declares zero items and no chunks. Chunks bind source scope,
+checkpoint identity, section, index, predecessor digest and exact payload bytes.
+This framing is implemented; coherent export and complete import remain pending.
+
 A complete manifest declares source scope, checkpoint identity, anchor, replay
 floor and ordered section/chunk counts/digests, including empty sections. Publish
 only after every chunk is durable. Import validates references, cycles, exact
