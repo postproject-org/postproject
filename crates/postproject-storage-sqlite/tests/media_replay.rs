@@ -9,7 +9,8 @@ use postproject_core::{
     Timestamp, VocabularyId,
 };
 use postproject_protocol::{
-    Document, FrameDecoder, Limits, MediaChange, RecordFeature, ResourceCreationStart,
+    Document, Extensions, FrameDecoder, Limits, MediaChange, RecordChunk, RecordFeature,
+    RecordManifest, ResourceCreationStart,
 };
 use postproject_storage_sqlite::{ReplayLimits, SqliteProduction};
 
@@ -369,4 +370,189 @@ fn guard_rows(path: &std::path::Path) -> Vec<(Vec<u8>, Vec<u8>, i64)> {
     connection.prepare("SELECT conflict_key, last_changed_revision_id, last_changed_revision_sequence FROM conflict_versions ORDER BY conflict_key").unwrap()
         .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?))).unwrap()
         .map(Result::unwrap).collect()
+}
+
+fn rehashed_record(
+    original: &RecordManifest,
+    frames: &[Document],
+) -> (RecordManifest, RecordChunk) {
+    let mut payload = Vec::new();
+    for frame in frames {
+        let bytes = frame.canonical_bytes().unwrap();
+        payload.extend_from_slice(&u64::try_from(bytes.len()).unwrap().to_be_bytes());
+        payload.extend(bytes);
+    }
+    let chunk = RecordChunk::new(
+        original.predecessor().scope(),
+        original.revision().id(),
+        0,
+        None,
+        payload,
+        Extensions::default(),
+    )
+    .unwrap();
+    let mut chain = original.chunk_chain();
+    chain.push(&chunk).unwrap();
+    let manifest = RecordManifest::new(
+        original.predecessor(),
+        original.revision().clone(),
+        chain.finish().unwrap(),
+        original.effect_count(),
+        original.event_count(),
+        original.extensions().clone(),
+    )
+    .unwrap()
+    .with_required_features(original.required_features())
+    .unwrap();
+    (manifest, chunk)
+}
+
+#[test]
+fn rehashed_contradictions_and_missing_required_codec_never_publish_a_media_prefix() {
+    let directory = tempfile::tempdir().unwrap();
+    let mut source = SqliteProduction::create(directory.path().join("source.pproj"), None).unwrap();
+    let import = fixture(ContentStructure::single_resource(ResourceId::new()));
+    let mut edit = source.begin_transaction().unwrap();
+    edit.import_original(&import).unwrap();
+    edit.commit().unwrap();
+    drop(edit);
+    let original = source.record_reader(1).unwrap().manifest().clone();
+    let frames = record_frames(&source, 1);
+    let foreign_asset = AssetId::new().to_string();
+    let foreign_resource = ResourceId::new().to_string();
+    let asset = import.asset().id().to_string();
+    let resource = import.resources()[0].id().to_string();
+    let contradictions = [
+        (
+            "representation.creation",
+            "\"role\":\"original\"",
+            "\"role\":\"proxy\"",
+        ),
+        (
+            "representation.creation",
+            asset.as_str(),
+            foreign_asset.as_str(),
+        ),
+        ("locator.fact", resource.as_str(), foreign_resource.as_str()),
+        (
+            "fingerprint.observation",
+            "\"observed_revision_sequence\":\"1\"",
+            "\"observed_revision_sequence\":\"2\"",
+        ),
+        ("observation", asset.as_str(), foreign_asset.as_str()),
+        (
+            "resource.creation",
+            "\"file_facts\":null",
+            "\"file_facts\":{\"size_bytes\":\"18446744073709551615\",\"modified_at_micros\":null}",
+        ),
+    ];
+    for (index, (kind, before, after)) in contradictions.into_iter().enumerate() {
+        let mut forged = frames.clone();
+        let frame = forged
+            .iter_mut()
+            .find(|frame| frame.kind().unwrap() == kind)
+            .unwrap();
+        let text = String::from_utf8(frame.canonical_bytes().unwrap()).unwrap();
+        assert!(text.contains(before));
+        *frame = Document::parse(
+            text.replacen(before, after, 1).as_bytes(),
+            Limits::default(),
+        )
+        .unwrap();
+        let (manifest, chunk) = rehashed_record(&original, &forged);
+        assert_rejected_prefix(
+            &source,
+            &directory.path().join(format!("forgery-{index}.pproj")),
+            &manifest,
+            chunk,
+        );
+    }
+    let (manifest, chunk) = rehashed_record(&original, &frames);
+    let manifest = manifest
+        .with_required_features([RecordFeature::Metadata, RecordFeature::RecordChunks])
+        .unwrap();
+    assert_rejected_prefix(
+        &source,
+        &directory.path().join("missing-feature.pproj"),
+        &manifest,
+        chunk,
+    );
+}
+
+fn assert_rejected_prefix(
+    source: &SqliteProduction,
+    path: &std::path::Path,
+    manifest: &RecordManifest,
+    chunk: RecordChunk,
+) {
+    let mut mirror = SqliteProduction::create_genesis_mirror(
+        path,
+        source.production(),
+        source.exchange_floor().unwrap(),
+    )
+    .unwrap();
+    assert!(
+        mirror
+            .apply_record(manifest, [Ok(chunk)], ReplayLimits::default())
+            .is_err()
+    );
+    assert_eq!(
+        mirror.exchange_head().unwrap(),
+        source.exchange_floor().unwrap()
+    );
+    let connection = rusqlite::Connection::open(path).unwrap();
+    for table in [
+        "assets",
+        "resources",
+        "representations",
+        "revisions",
+        "revision_events",
+        "conflict_versions",
+        "exchange_records",
+        "exchange_record_chunks",
+    ] {
+        let count: i64 = connection
+            .query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(count, 0, "visible prefix in {table}");
+    }
+}
+
+#[test]
+fn failed_native_record_persistence_rolls_back_the_complete_media_commit() {
+    for table in ["exchange_records", "exchange_record_chunks"] {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("source.pproj");
+        let mut source = SqliteProduction::create(&path, None).unwrap();
+        let import = fixture(ContentStructure::single_resource(ResourceId::new()));
+        let root = MediaRoot::new(MediaRootId::new(), "rushes", None, None, 0, true).unwrap();
+        let connection = rusqlite::Connection::open(&path).unwrap();
+        connection.execute_batch(&format!("CREATE TRIGGER reject_capture BEFORE INSERT ON {table} BEGIN SELECT RAISE(ABORT, 'injected'); END;")).unwrap();
+        let mut edit = source.begin_transaction().unwrap();
+        edit.import_original(&import).unwrap();
+        edit.add_media_root(root.clone()).unwrap();
+        assert!(edit.commit().is_err());
+        assert_eq!(edit.state(), postproject_core::TransactionState::RolledBack);
+        assert!(edit.commit().is_err());
+        drop(edit);
+        assert_eq!(
+            source.exchange_head().unwrap(),
+            source.exchange_floor().unwrap()
+        );
+        assert!(source.assets().unwrap().is_empty());
+        assert!(source.media_roots().unwrap().is_empty());
+        assert!(source.changes_since(0, 10).unwrap().is_empty());
+        assert!(guard_rows(&path).is_empty());
+        connection
+            .execute_batch("DROP TRIGGER reject_capture")
+            .unwrap();
+        let mut edit = source.begin_transaction().unwrap();
+        edit.import_original(&import).unwrap();
+        edit.add_media_root(root).unwrap();
+        assert_eq!(edit.commit().unwrap().revision().unwrap().sequence(), 1);
+        drop(edit);
+        assert_eq!(source.exchange_head().unwrap().sequence(), 1);
+    }
 }

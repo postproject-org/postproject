@@ -1867,7 +1867,7 @@ impl<'production> SqliteTransaction<'production> {
                 context.origin().cloned(),
                 context.message().map(str::to_owned),
             )?;
-            crate::exchange::capture_metadata(
+            crate::exchange::capture_records(
                 self.transaction.as_ref().ok_or_else(|| {
                     Error::new(ErrorKind::Internal, "commit has no SQLite transaction")
                 })?,

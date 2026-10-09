@@ -10,7 +10,7 @@ use crate::{
 /// The wire names are ordered lexically and covered by the record digest.
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum RecordFeature {
-    /// Asset and representation creation, structures, locators and fingerprints.
+    /// Media identity, structures, roots, locators and fingerprint evidence.
     Media,
     /// Typed, ordered metadata changes.
     Metadata,

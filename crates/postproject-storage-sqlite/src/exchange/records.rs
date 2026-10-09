@@ -82,7 +82,7 @@ pub(super) fn manifest(
     Ok(Some(manifest))
 }
 
-pub(crate) fn capture_metadata(
+pub(crate) fn capture_records(
     connection: &Connection,
     production: ProductionId,
     revision: &Revision,
