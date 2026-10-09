@@ -6,6 +6,7 @@ mod checkpoint;
 mod error;
 mod fragments;
 mod genesis;
+pub(crate) mod job_capture;
 mod outcomes;
 mod records;
 

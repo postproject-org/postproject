@@ -6,8 +6,9 @@ use postproject_core::{
 };
 use postproject_protocol::{
     ActivityHeader, DependencyOccurrence, DependencySetHeader, Document, FingerprintChangeStart,
-    FingerprintRecomputation, IdentifierChange, MediaChange, MetadataChange, MetadataEffect,
-    RecordFeature, encode_original_creation, encode_representation_creation,
+    FingerprintRecomputation, IdentifierChange, JobHeader, JobTransition, MediaChange,
+    MetadataChange, MetadataEffect, RecordFeature, encode_original_creation,
+    encode_representation_creation,
 };
 use rusqlite::Connection;
 
@@ -24,6 +25,8 @@ pub(crate) enum CapturedEffect {
     FingerprintChanged(Box<CapturedFingerprint>),
     IdentifierChanged(IdentifierChange),
     ActivityCreated(Box<ActivityHeader>),
+    JobRequested(Box<JobHeader>),
+    JobChanged(Box<JobTransition>),
     DependencyRecorded {
         source: RepresentationId,
         dependencies: Vec<Dependency>,
@@ -46,6 +49,8 @@ impl CapturedEffect {
             | Self::FingerprintChanged(_)
             | Self::IdentifierChanged(_)
             | Self::ActivityCreated(_)
+            | Self::JobRequested(_)
+            | Self::JobChanged(_)
             | Self::DependencyRecorded { .. } => None,
         }
     }
@@ -55,6 +60,7 @@ impl CapturedEffect {
             Self::Metadata(_) => RecordFeature::Metadata,
             Self::DependencyRecorded { .. } => RecordFeature::Dependencies,
             Self::ActivityCreated(_) => RecordFeature::Provenance,
+            Self::JobRequested(_) | Self::JobChanged(_) => RecordFeature::Jobs,
             Self::OriginalCreated(_)
             | Self::RepresentationCreated(_)
             | Self::MediaChanged(_)
@@ -69,6 +75,9 @@ impl CapturedEffect {
         sequence: u64,
         mut write: impl FnMut(&Document) -> Result<()>,
     ) -> Result<()> {
+        if let Self::JobRequested(header) = self {
+            return super::job_capture::write(connection, header, &mut write);
+        }
         if let Self::ActivityCreated(header) = self {
             return super::activity_capture::write(connection, header, &mut write);
         }
@@ -85,7 +94,8 @@ impl CapturedEffect {
         Box<dyn Iterator<Item = postproject_protocol::Result<Document>> + '_>,
     > {
         Ok(match self {
-            Self::ActivityCreated(_) => {
+            Self::JobChanged(change) => Box::new(std::iter::once(change.document())),
+            Self::ActivityCreated(_) | Self::JobRequested(_) => {
                 return Err(postproject_protocol::ProtocolError::new(
                     postproject_protocol::FailureKind::Unsupported,
                     "activity uses immutable storage evidence",
@@ -147,6 +157,12 @@ impl CapturedEffect {
     fn observations(&self) -> Box<dyn Iterator<Item = RevisionEventKind> + '_> {
         match self {
             Self::ActivityCreated(_) => Box::new(std::iter::empty()),
+            Self::JobRequested(header) => {
+                Box::new(std::iter::once(RevisionEventKind::JobRequested {
+                    job_id: header.id(),
+                }))
+            }
+            Self::JobChanged(change) => Box::new(std::iter::once(change.observation())),
             Self::DependencyRecorded { source, .. } => {
                 Box::new(std::iter::once(RevisionEventKind::DependencySetRecorded {
                     representation_id: *source,

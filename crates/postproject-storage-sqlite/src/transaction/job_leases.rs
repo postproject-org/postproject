@@ -67,8 +67,8 @@ impl SqliteTransaction<'_> {
     /// # Errors
     /// Rejects invalid ownership, expired/superseded claims, clock or storage errors.
     pub fn release_job_lease(&mut self, lease: &SqliteJobLease) -> Result<()> {
-        let (_, expiry) = self.checked_lease(lease)?;
-        self.release_job_claim(lease.job, lease.secret)?;
+        let (now, expiry) = self.checked_lease(lease)?;
+        self.release_job_claim(lease.job, lease.secret, now)?;
         self.update_lease(lease, expiry, JobLeaseState::Closed);
         Ok(())
     }

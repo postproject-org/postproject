@@ -5,6 +5,7 @@ use std::collections::BTreeMap;
 mod dependency_compare;
 pub(crate) mod dependency_persist;
 pub(crate) mod fingerprint_capture;
+mod job_capture;
 mod job_leases;
 mod media_atomic;
 mod pending_keys;
@@ -283,6 +284,19 @@ impl<'production> SqliteTransaction<'production> {
     /// the requested state, [`ErrorKind::NotFound`] when an asset, input, or
     /// target root is absent, or a transaction/storage error.
     pub fn request_job(&mut self, job: &Job) -> Result<()> {
+        self.stage_media_atomically(|this| {
+            this.request_job_inner(job)?;
+            let header = postproject_protocol::JobHeader::from_job(job)
+                .map_err(|_| Error::new(ErrorKind::Internal, "cannot capture job request"))?;
+            this.pending_effects
+                .push(crate::exchange::CapturedEffect::JobRequested(Box::new(
+                    header,
+                )));
+            Ok(())
+        })
+    }
+
+    fn request_job_inner(&mut self, job: &Job) -> Result<()> {
         self.lifecycle.ensure_open()?;
         if !matches!(job.state(), JobState::Requested) {
             return Err(Error::new(
@@ -362,7 +376,7 @@ impl<'production> SqliteTransaction<'production> {
     }
 
     // Applies the private authority-selected claim identity and times.
-    fn claim_job_with_id(
+    fn claim_job_with_id_inner(
         &mut self,
         job_id: JobId,
         claim_id: JobClaimId,
@@ -419,7 +433,7 @@ impl<'production> SqliteTransaction<'production> {
     /// Returns [`ErrorKind::InvalidArgument`] for a non-future expiry,
     /// [`ErrorKind::NotFound`] for an absent job, [`ErrorKind::Conflict`] for a
     /// stale token, expired lease, or non-extending expiry, or a storage error.
-    fn renew_job_claim(
+    fn renew_job_claim_inner(
         &mut self,
         job_id: JobId,
         claim_id: JobClaimId,
@@ -461,7 +475,7 @@ impl<'production> SqliteTransaction<'production> {
     /// Returns [`ErrorKind::NotFound`] for an absent job,
     /// [`ErrorKind::Conflict`] for a stale token or non-claimed job, or a
     /// transaction/storage error.
-    fn release_job_claim(&mut self, job_id: JobId, claim_id: JobClaimId) -> Result<()> {
+    fn release_job_claim_inner(&mut self, job_id: JobId, claim_id: JobClaimId) -> Result<()> {
         let transaction = self.open_transaction()?;
         let changed = transaction
             .execute(
@@ -494,7 +508,7 @@ impl<'production> SqliteTransaction<'production> {
     /// Returns [`ErrorKind::NotFound`] for an absent job,
     /// [`ErrorKind::Conflict`] for a stale token, expired lease, or non-claimed
     /// job, or a transaction/storage error.
-    fn fail_job(
+    fn fail_job_inner(
         &mut self,
         job_id: JobId,
         claim_id: JobClaimId,
@@ -541,7 +555,7 @@ impl<'production> SqliteTransaction<'production> {
     /// [`ErrorKind::InvalidArgument`] when output or activity facts do not
     /// match the request, or a transaction/storage error. Any failure rolls
     /// back all completion-specific changes.
-    fn complete_job(
+    fn complete_job_staged(
         &mut self,
         job_id: JobId,
         claim_id: JobClaimId,
@@ -712,7 +726,7 @@ impl<'production> SqliteTransaction<'production> {
     /// Returns [`ErrorKind::NotFound`] for an absent job,
     /// [`ErrorKind::Conflict`] for a terminal job, or a transaction/storage
     /// error.
-    pub fn cancel_job(&mut self, job_id: JobId) -> Result<()> {
+    fn cancel_job_inner(&mut self, job_id: JobId) -> Result<()> {
         let transaction = self.open_transaction()?;
         let changed = transaction
             .execute(
