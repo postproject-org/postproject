@@ -62,6 +62,7 @@ jobs:
       - run: python tools/check_exchange_inventory.py
       - run: python -m unittest tools/test_check_exchange_inventory.py
       - run: python tools/check_exchange_vectors.py
+      - run: python -m unittest tools/test_check_exchange_streams.py
       - run: python -m unittest tools/test_check_architecture.py
       - run: ruff check tools/check_architecture.py tools/test_check_architecture.py
       - run: ruff format --check tools/check_architecture.py tools/test_check_architecture.py
