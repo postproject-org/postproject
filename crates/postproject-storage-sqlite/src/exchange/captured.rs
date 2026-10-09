@@ -4,15 +4,21 @@ use postproject_core::{
     Locator, OriginalMediaImport, Representation, RepresentationImport, Resource, RevisionEventKind,
 };
 use postproject_protocol::{
-    Document, MediaChange, MetadataChange, MetadataEffect, RecordFeature, encode_original_creation,
-    encode_representation_creation,
+    Document, FingerprintChangeStart, FingerprintRecomputation, MediaChange, MetadataChange,
+    MetadataEffect, RecordFeature, encode_original_creation, encode_representation_creation,
 };
+
+pub(crate) struct CapturedFingerprint {
+    pub(crate) start: FingerprintChangeStart,
+    pub(crate) markers: Vec<FingerprintRecomputation>,
+}
 
 pub(crate) enum CapturedEffect {
     Metadata(MetadataEffect),
     OriginalCreated(Box<OriginalMediaImport>),
     RepresentationCreated(Box<RepresentationImport>),
     MediaChanged(MediaChange),
+    FingerprintChanged(Box<CapturedFingerprint>),
 }
 
 impl From<MetadataEffect> for CapturedEffect {
@@ -25,18 +31,20 @@ impl CapturedEffect {
     pub(crate) const fn metadata(&self) -> Option<&MetadataEffect> {
         match self {
             Self::Metadata(effect) => Some(effect),
-            Self::OriginalCreated(_) | Self::RepresentationCreated(_) | Self::MediaChanged(_) => {
-                None
-            }
+            Self::OriginalCreated(_)
+            | Self::RepresentationCreated(_)
+            | Self::MediaChanged(_)
+            | Self::FingerprintChanged(_) => None,
         }
     }
 
     pub(crate) const fn feature(&self) -> RecordFeature {
         match self {
             Self::Metadata(_) => RecordFeature::Metadata,
-            Self::OriginalCreated(_) | Self::RepresentationCreated(_) | Self::MediaChanged(_) => {
-                RecordFeature::Media
-            }
+            Self::OriginalCreated(_)
+            | Self::RepresentationCreated(_)
+            | Self::MediaChanged(_)
+            | Self::FingerprintChanged(_) => RecordFeature::Media,
         }
     }
 
@@ -53,11 +61,18 @@ impl CapturedEffect {
                 Box::new(encode_representation_creation(import, sequence)?)
             }
             Self::MediaChanged(change) => Box::new(std::iter::once(change.document())),
+            Self::FingerprintChanged(change) => Box::new(
+                std::iter::once(change.start.document())
+                    .chain(change.markers.iter().map(|marker| Ok(marker.document()))),
+            ),
         })
     }
 
     pub(crate) fn observations(&self) -> Box<dyn Iterator<Item = RevisionEventKind> + '_> {
         match self {
+            Self::FingerprintChanged(change) => {
+                Box::new(std::iter::once(change.start.observation()))
+            }
             Self::MediaChanged(change) => Box::new(std::iter::once(change.observation())),
             Self::Metadata(effect) => {
                 let removed = matches!(effect.change(), MetadataChange::Removed)

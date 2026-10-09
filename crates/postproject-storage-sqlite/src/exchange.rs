@@ -8,7 +8,7 @@ mod genesis;
 mod outcomes;
 mod records;
 
-pub(crate) use captured::CapturedEffect;
+pub(crate) use captured::{CapturedEffect, CapturedFingerprint};
 pub use checkpoint::CheckpointLimits;
 pub(crate) use checkpoint::export as export_checkpoint;
 pub(crate) use checkpoint::import as import_checkpoint;

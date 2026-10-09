@@ -2,6 +2,7 @@
 
 use std::collections::BTreeMap;
 
+pub(crate) mod fingerprint_capture;
 mod job_leases;
 mod media_atomic;
 mod pending_keys;
@@ -1373,6 +1374,17 @@ impl<'production> SqliteTransaction<'production> {
             return Err(Error::new(ErrorKind::NotFound, "resource does not exist"));
         }
         let sequence = next_revision_sequence(transaction)?;
+        let captured = fingerprint_capture::prepare(
+            transaction,
+            ObjectRef::Resource(resource_id),
+            postproject_core::FingerprintSnapshot::new(
+                fingerprint.algorithm(),
+                fingerprint.version(),
+                fingerprint.value().to_vec(),
+                Some(crate::stored_u64(sequence, "fingerprint revision")?),
+            )?,
+            current.as_ref(),
+        )?;
         if let Some((value, observed_sequence)) = current {
             transaction
                 .execute(
@@ -1447,6 +1459,10 @@ impl<'production> SqliteTransaction<'production> {
             algorithm: fingerprint.algorithm().to_owned(),
             version: fingerprint.version(),
         })?;
+        self.pending_effects
+            .push(crate::exchange::CapturedEffect::FingerprintChanged(
+                Box::new(captured),
+            ));
         Ok(true)
     }
 
@@ -1522,6 +1538,17 @@ impl<'production> SqliteTransaction<'production> {
             ));
         }
         let sequence = next_revision_sequence(transaction)?;
+        let captured = fingerprint_capture::prepare(
+            transaction,
+            ObjectRef::Representation(representation_id),
+            postproject_core::FingerprintSnapshot::new(
+                fingerprint.algorithm(),
+                fingerprint.version(),
+                fingerprint.value().to_vec(),
+                Some(crate::stored_u64(sequence, "fingerprint revision")?),
+            )?,
+            current.as_ref(),
+        )?;
         if let Some((value, observed_sequence)) = current {
             if value != fingerprint.value() {
                 transaction
@@ -1598,6 +1625,10 @@ impl<'production> SqliteTransaction<'production> {
             algorithm: fingerprint.algorithm().to_owned(),
             version: fingerprint.version(),
         })?;
+        self.pending_effects
+            .push(crate::exchange::CapturedEffect::FingerprintChanged(
+                Box::new(captured),
+            ));
         Ok(true)
     }
 
