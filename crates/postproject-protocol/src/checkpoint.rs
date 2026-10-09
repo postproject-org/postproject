@@ -5,3 +5,6 @@ mod section;
 pub use manifest::CheckpointManifest;
 pub use section::{CheckpointSection, SectionSummary};
 
+mod chunk;
+mod wire;
+pub use chunk::CheckpointChunk;
