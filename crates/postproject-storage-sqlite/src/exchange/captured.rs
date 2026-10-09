@@ -1,8 +1,8 @@
 //! Ordered authored operations, retained before their original atomic commit.
 
 use postproject_core::{
-    Dependency, DependencySetStatus, Locator, OriginalMediaImport, Representation,
-    RepresentationId, RepresentationImport, Resource, RevisionEventKind,
+    Dependency, DependencySetStatus, Error, ErrorKind, Locator, OriginalMediaImport,
+    Representation, RepresentationId, RepresentationImport, Resource, Result, RevisionEventKind,
 };
 use postproject_protocol::{
     DependencyOccurrence, DependencySetHeader, Document, FingerprintChangeStart,
@@ -59,7 +59,18 @@ impl CapturedEffect {
         }
     }
 
-    pub(crate) fn frames(
+    pub(crate) fn write_frames(
+        &self,
+        sequence: u64,
+        mut write: impl FnMut(&Document) -> Result<()>,
+    ) -> Result<()> {
+        for frame in self.portable_frames(sequence).map_err(|_| encoding())? {
+            write(&frame.map_err(|_| encoding())?)?;
+        }
+        Ok(())
+    }
+
+    fn portable_frames(
         &self,
         sequence: u64,
     ) -> postproject_protocol::Result<
@@ -105,7 +116,17 @@ impl CapturedEffect {
         })
     }
 
-    pub(crate) fn observations(&self) -> Box<dyn Iterator<Item = RevisionEventKind> + '_> {
+    pub(crate) fn visit_observations(
+        &self,
+        mut visit: impl FnMut(RevisionEventKind) -> Result<()>,
+    ) -> Result<()> {
+        for event in self.observations() {
+            visit(event)?;
+        }
+        Ok(())
+    }
+
+    fn observations(&self) -> Box<dyn Iterator<Item = RevisionEventKind> + '_> {
         match self {
             Self::DependencyRecorded { source, .. } => {
                 Box::new(std::iter::once(RevisionEventKind::DependencySetRecorded {
@@ -150,6 +171,13 @@ impl CapturedEffect {
             )),
         }
     }
+}
+
+fn encoding() -> Error {
+    Error::new(
+        ErrorKind::Internal,
+        "cannot encode complete authored record",
+    )
 }
 
 fn representation_observations<'a>(

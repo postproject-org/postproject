@@ -119,22 +119,21 @@ pub(crate) fn capture_records(
     let Some(predecessor) = position(connection, production, revision.sequence() - 1)? else {
         return Ok(());
     };
-    if effects.is_empty()
-        || effects
-            .iter()
-            .flat_map(super::CapturedEffect::observations)
-            .ne(events.iter().cloned())
-    {
-        return Err(Error::new(
-            ErrorKind::Internal,
-            "authored capture does not cover every observation",
-        ));
+    let mut expected = events.iter();
+    for effect in effects {
+        effect.visit_observations(|event| {
+            if expected.next() != Some(&event) {
+                return Err(incomplete());
+            }
+            Ok(())
+        })?;
+    }
+    if effects.is_empty() || expected.next().is_some() {
+        return Err(incomplete());
     }
     let mut writer = writer::RecordWriter::new(connection, predecessor.scope(), revision.id());
     for effect in effects {
-        for frame in effect.frames(revision.sequence()).map_err(|_| encoding())? {
-            writer.document(&frame.map_err(|_| encoding())?)?;
-        }
+        effect.write_frames(revision.sequence(), |frame| writer.document(frame))?;
     }
     for (position, event) in events.iter().enumerate() {
         let position = u32::try_from(position).map_err(|_| encoding())?;
@@ -174,6 +173,12 @@ pub(crate) fn capture_records(
 
 fn invalid() -> Error {
     Error::new(ErrorKind::Storage, "invalid stored record manifest")
+}
+fn incomplete() -> Error {
+    Error::new(
+        ErrorKind::Internal,
+        "authored capture does not cover every observation",
+    )
 }
 fn encoding() -> Error {
     Error::new(
