@@ -4,8 +4,9 @@ use postproject_core::{
     Asset, AssetId, ContentStructure, FrameRange, ImageSequenceDescriptor, Locator,
     LocatorAvailability, LocatorId, MediaRoot, MediaRootId, MetadataProperty, MetadataValue,
     ObjectRef, OriginalMediaImport, PropertyId, RationalRate, Representation,
-    RepresentationFingerprint, RepresentationId, RepresentationKind, Resource, ResourceFingerprint,
-    ResourceId, ResourceMember, ResourceRole, SequenceNaming, Timestamp, VocabularyId,
+    RepresentationFingerprint, RepresentationId, RepresentationImport, RepresentationKind,
+    Resource, ResourceFingerprint, ResourceId, ResourceMember, ResourceRole, SequenceNaming,
+    Timestamp, VocabularyId,
 };
 use postproject_protocol::RecordFeature;
 use postproject_storage_sqlite::{ReplayLimits, SqliteProduction};
@@ -191,4 +192,111 @@ fn assert_creation_replay(import: &OriginalMediaImport) {
             )
             .unwrap()
     );
+}
+
+fn apply_sequence(source: &SqliteProduction, mirror: &mut SqliteProduction, sequence: u64) {
+    let mut reader = source.record_reader(sequence).unwrap();
+    let manifest = reader.manifest().clone();
+    assert!(
+        mirror
+            .apply_record(
+                &manifest,
+                std::iter::from_fn(|| reader.next_chunk().transpose()),
+                ReplayLimits::default()
+            )
+            .unwrap()
+    );
+    assert_eq!(
+        mirror.exchange_head().unwrap(),
+        manifest.head().unwrap()
+    );
+}
+
+#[test]
+fn representation_addition_and_same_root_locator_transitions_keep_history_and_guards() {
+    let directory = tempfile::tempdir().unwrap();
+    let source_path = directory.path().join("source.pproj");
+    let mirror_path = directory.path().join("mirror.pproj");
+    let mut source = SqliteProduction::create(&source_path, None).unwrap();
+    let mut mirror = SqliteProduction::create_genesis_mirror(
+        &mirror_path,
+        source.production(),
+        source.exchange_floor().unwrap(),
+    )
+    .unwrap();
+    let original = fixture(ContentStructure::single_resource(ResourceId::new()));
+    let root = MediaRoot::new(
+        MediaRootId::new(),
+        "rushes",
+        Some("Exact".into()),
+        None,
+        -7,
+        true,
+    )
+    .unwrap();
+    let mut edit = source.begin_transaction().unwrap();
+    edit.import_original(&original).unwrap();
+    edit.add_media_root(root.clone()).unwrap();
+    edit.commit().unwrap();
+    drop(edit);
+    apply_sequence(&source, &mut mirror, 1);
+
+    let (_, representation, resources, locators) =
+        fixture(ContentStructure::single_resource(ResourceId::new())).into_parts();
+    let proxy = RepresentationImport::new(
+        Representation::new(
+            representation.id(),
+            original.asset().id(),
+            RepresentationKind::Proxy,
+            representation.content_structure().clone(),
+            representation.fingerprints().to_vec(),
+        ),
+        resources,
+        locators,
+    )
+    .unwrap();
+    let locator = Locator::new(
+        LocatorId::new(),
+        proxy.resources()[0].id(),
+        "unknown:alternate-copy",
+        None,
+        LocatorAvailability::Unknown,
+    )
+    .unwrap();
+    let base = source.read_session().unwrap().decision_base();
+    let mut edit = source.begin_edit(base).unwrap();
+    edit.set_media_root_enabled(root.id(), false).unwrap();
+    edit.add_representation(&proxy).unwrap();
+    edit.add_locator(&locator).unwrap();
+    edit.retire_locator(proxy.locators()[0].id()).unwrap();
+    edit.set_media_root_enabled(root.id(), true).unwrap();
+    edit.remove_media_root(root.id()).unwrap();
+    let revision = edit.commit().unwrap().revision().unwrap().id();
+    drop(edit);
+    apply_sequence(&source, &mut mirror, 2);
+    assert_eq!(
+        mirror.representation(proxy.representation().id()).unwrap(),
+        *proxy.representation()
+    );
+    assert_eq!(
+        mirror.locators(proxy.resources()[0].id()).unwrap(),
+        [locator]
+    );
+    assert_eq!(mirror.media_roots().unwrap(), Vec::<MediaRoot>::new());
+    assert_eq!(
+        mirror.events_for_revision(revision).unwrap(),
+        source.events_for_revision(revision).unwrap()
+    );
+    assert_eq!(
+        mirror.changes_since(0, 10).unwrap(),
+        source.changes_since(0, 10).unwrap()
+    );
+    assert_eq!(guard_rows(&mirror_path), guard_rows(&source_path));
+}
+
+fn guard_rows(path: &std::path::Path) -> Vec<(Vec<u8>, Vec<u8>, i64)> {
+    let connection = rusqlite::Connection::open(path).unwrap();
+    connection.prepare("SELECT conflict_key, last_changed_revision_id, last_changed_revision_sequence FROM conflict_versions ORDER BY conflict_key").unwrap()
+        .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?))).unwrap()
+        .map(Result::unwrap).collect()
 }
