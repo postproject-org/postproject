@@ -101,6 +101,8 @@ pub(crate) fn capture_records(
                 | RevisionEventKind::RepresentationAdded { .. }
                 | RevisionEventKind::ResourceAdded { .. }
                 | RevisionEventKind::ResourceFileFactsObserved { .. }
+                | RevisionEventKind::ResourceFingerprintObserved { .. }
+                | RevisionEventKind::RepresentationFingerprintObserved { .. }
                 | RevisionEventKind::RepresentationResourceAdded { .. }
                 | RevisionEventKind::LocatorAdded { .. }
                 | RevisionEventKind::LocatorRetired { .. }
