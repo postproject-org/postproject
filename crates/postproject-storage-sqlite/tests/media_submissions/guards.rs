@@ -22,12 +22,15 @@ fn rejected_media_staging_discards_all_earlier_commands_and_is_terminal() {
         matches!(outcome.status(), OutcomeStatus::Rejected(rejection)
         if rejection.kind() == RejectionKind::Domain(ErrorKind::InvalidArgument))
     );
-    assert!(source.media_roots().unwrap().is_empty());
+    assert_eq!(source.media_roots().unwrap(), [] as [MediaRoot; 0]);
     assert_eq!(source.exchange_head().unwrap(), head);
     drop(source);
     let mut source = SqliteProduction::open(&path).unwrap();
     assert_eq!(source.submit_proposal(&request).unwrap(), outcome);
-    assert!(source.changes_since(0, 10).unwrap().is_empty());
+    assert_eq!(
+        source.changes_since(0, 10).unwrap(),
+        [] as [postproject_core::Revision; 0]
+    );
 }
 
 #[test]

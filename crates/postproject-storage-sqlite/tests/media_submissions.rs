@@ -153,26 +153,26 @@ fn ordered_media_commands_recover_before_current_guards_and_replay_exactly() {
             .unwrap(),
         Some(outcome)
     );
-    assert!(source.media_roots().unwrap().is_empty());
+    assert_eq!(source.media_roots().unwrap(), [] as [MediaRoot; 0]);
     assert_eq!(source.locators(resource).unwrap(), original_locators);
-    assert!(
+    assert_eq!(
         source
             .external_identifiers(ObjectRef::Resource(resource))
-            .unwrap()
-            .is_empty()
+            .unwrap(),
+        [] as [ExternalIdentifier; 0]
     );
     replay(&source, &mut mirror);
     assert_eq!(
         mirror.resources(representation).unwrap()[0].file_facts(),
         Some(facts)
     );
-    assert!(mirror.media_roots().unwrap().is_empty());
+    assert_eq!(mirror.media_roots().unwrap(), [] as [MediaRoot; 0]);
     assert_eq!(mirror.locators(resource).unwrap(), original_locators);
-    assert!(
+    assert_eq!(
         mirror
             .external_identifiers(ObjectRef::Resource(resource))
-            .unwrap()
-            .is_empty()
+            .unwrap(),
+        [] as [ExternalIdentifier; 0]
     );
     assert_eq!(
         mirror.exchange_head().unwrap(),

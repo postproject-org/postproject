@@ -144,15 +144,15 @@ fn failed_activity_discards_fingerprint_and_dependency_changes_and_retains_rejec
         "{outcome:?}"
     );
     assert_eq!(source.exchange_head().unwrap(), head);
-    assert!(
+    assert_eq!(
         source
             .representation(representation)
             .unwrap()
-            .fingerprints()
-            .is_empty()
+            .fingerprints(),
+        []
     );
     assert!(source.dependency_set(representation).unwrap().is_none());
-    assert!(source.activities().unwrap().is_empty());
+    assert_eq!(source.activities().unwrap(), [] as [Activity; 0]);
     drop(source);
     let mut source = SqliteProduction::open(&path).unwrap();
     assert_eq!(source.submit_proposal(&request).unwrap(), outcome);

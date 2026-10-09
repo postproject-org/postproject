@@ -131,7 +131,10 @@ fn later_missing_asset_rolls_back_all_prepared_import_rows_and_history() {
         source.asset(original.asset().id()).unwrap_err().kind(),
         ErrorKind::NotFound
     );
-    assert!(source.changes_since(0, 10).unwrap().is_empty());
+    assert_eq!(
+        source.changes_since(0, 10).unwrap(),
+        [] as [postproject_core::Revision; 0]
+    );
     let connection = rusqlite::Connection::open(&path).unwrap();
     for table in [
         "assets",
