@@ -829,12 +829,18 @@ impl<'production> SqliteTransaction<'production> {
     /// or a missing owning resource, or [`ErrorKind::Storage`] for other
     /// persistence failures.
     pub fn add_locator(&mut self, locator: &Locator) -> Result<()> {
-        persist_locator(self.open_transaction()?, locator)?;
+        self.stage_media_atomically(|transaction| {
+            persist_locator(transaction.open_transaction()?, locator)
+        })?;
         self.record_conflict_key(SemanticConflictKey::LocatorSet(locator.resource_id()))?;
         self.pending_events.push(RevisionEventKind::LocatorAdded {
             resource_id: locator.resource_id(),
             locator_id: locator.id(),
         });
+        self.pending_effects
+            .push(crate::exchange::CapturedEffect::MediaChanged(
+                postproject_protocol::MediaChange::LocatorAdded(locator.clone()),
+            ));
         Ok(())
     }
 
@@ -873,6 +879,13 @@ impl<'production> SqliteTransaction<'production> {
             resource_id,
             locator_id,
         });
+        self.pending_effects
+            .push(crate::exchange::CapturedEffect::MediaChanged(
+                postproject_protocol::MediaChange::LocatorRetired {
+                    resource_id,
+                    locator_id,
+                },
+            ));
         Ok(())
     }
 
@@ -900,8 +913,10 @@ impl<'production> SqliteTransaction<'production> {
                 ],
             )
             .map_err(mutation_error("persist media root"))?;
-        // The transaction consumes this value; no in-memory root cache remains.
-        drop(root);
+        self.pending_effects
+            .push(crate::exchange::CapturedEffect::MediaChanged(
+                postproject_protocol::MediaChange::RootAdded(root),
+            ));
         self.pending_events
             .push(RevisionEventKind::MediaRootAdded { media_root_id });
         // New identities still merge independently; recording their initial
@@ -946,6 +961,10 @@ impl<'production> SqliteTransaction<'production> {
                 media_root_id: root_id,
                 enabled,
             });
+        self.pending_effects
+            .push(crate::exchange::CapturedEffect::MediaChanged(
+                postproject_protocol::MediaChange::RootEnabled { root_id, enabled },
+            ));
         Ok(())
     }
 
@@ -973,6 +992,10 @@ impl<'production> SqliteTransaction<'production> {
             .push(RevisionEventKind::MediaRootRemoved {
                 media_root_id: root_id,
             });
+        self.pending_effects
+            .push(crate::exchange::CapturedEffect::MediaChanged(
+                postproject_protocol::MediaChange::RootRemoved(root_id),
+            ));
         Ok(())
     }
 

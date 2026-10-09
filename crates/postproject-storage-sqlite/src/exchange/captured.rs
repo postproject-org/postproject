@@ -4,7 +4,7 @@ use postproject_core::{
     Locator, OriginalMediaImport, Representation, RepresentationImport, Resource, RevisionEventKind,
 };
 use postproject_protocol::{
-    Document, MetadataChange, MetadataEffect, RecordFeature, encode_original_creation,
+    Document, MediaChange, MetadataChange, MetadataEffect, RecordFeature, encode_original_creation,
     encode_representation_creation,
 };
 
@@ -12,6 +12,7 @@ pub(crate) enum CapturedEffect {
     Metadata(MetadataEffect),
     OriginalCreated(Box<OriginalMediaImport>),
     RepresentationCreated(Box<RepresentationImport>),
+    MediaChanged(MediaChange),
 }
 
 impl From<MetadataEffect> for CapturedEffect {
@@ -24,14 +25,18 @@ impl CapturedEffect {
     pub(crate) const fn metadata(&self) -> Option<&MetadataEffect> {
         match self {
             Self::Metadata(effect) => Some(effect),
-            Self::OriginalCreated(_) | Self::RepresentationCreated(_) => None,
+            Self::OriginalCreated(_) | Self::RepresentationCreated(_) | Self::MediaChanged(_) => {
+                None
+            }
         }
     }
 
     pub(crate) const fn feature(&self) -> RecordFeature {
         match self {
             Self::Metadata(_) => RecordFeature::Metadata,
-            Self::OriginalCreated(_) | Self::RepresentationCreated(_) => RecordFeature::Media,
+            Self::OriginalCreated(_) | Self::RepresentationCreated(_) | Self::MediaChanged(_) => {
+                RecordFeature::Media
+            }
         }
     }
 
@@ -47,11 +52,13 @@ impl CapturedEffect {
             Self::RepresentationCreated(import) => {
                 Box::new(encode_representation_creation(import, sequence)?)
             }
+            Self::MediaChanged(change) => Box::new(std::iter::once(change.document())),
         })
     }
 
     pub(crate) fn observations(&self) -> Box<dyn Iterator<Item = RevisionEventKind> + '_> {
         match self {
+            Self::MediaChanged(change) => Box::new(std::iter::once(change.observation())),
             Self::Metadata(effect) => {
                 let removed = matches!(effect.change(), MetadataChange::Removed)
                     || matches!(effect.change(), MetadataChange::Replaced(values) if values.is_empty());
