@@ -1,16 +1,16 @@
-use postproject_core::{FingerprintSnapshot, Result};
+use postproject_core::{Error, FingerprintSnapshot};
 use postproject_protocol::{Document, encode_fingerprint_snapshot};
 use rusqlite::Connection;
 
 use crate::{sqlite_error, stored_domain_error, stored_u64};
 
-pub(super) fn write(
+pub(super) fn write<E: From<Error>>(
     connection: &Connection,
     table: &'static str,
     column: &'static str,
     owner: i64,
-    write: &mut impl FnMut(&Document) -> Result<()>,
-) -> Result<()> {
+    write: &mut impl FnMut(&Document) -> Result<(), E>,
+) -> Result<(), E> {
     let sql = format!(
         "SELECT algorithm, algorithm_version, value, observed_revision_sequence FROM {table} WHERE {column} = ?1 ORDER BY algorithm, algorithm_version"
     );

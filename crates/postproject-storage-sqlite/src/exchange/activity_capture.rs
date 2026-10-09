@@ -11,11 +11,11 @@ use rusqlite::{Connection, params};
 
 use crate::{id_bytes, sqlite_error, stored_domain_error, stored_u64};
 
-pub(super) fn write(
+pub(super) fn write<E: From<Error>>(
     connection: &Connection,
     header: &ActivityHeader,
-    write: &mut impl FnMut(&Document) -> Result<()>,
-) -> Result<()> {
+    write: &mut impl FnMut(&Document) -> std::result::Result<(), E>,
+) -> std::result::Result<(), E> {
     write(&header.document())?;
     edges(connection, header, |id, edge| {
         write(&edge.document())?;
@@ -62,11 +62,11 @@ pub(super) fn observations(
     })
 }
 
-fn edges(
+fn edges<E: From<Error>>(
     connection: &Connection,
     header: &ActivityHeader,
-    mut visit: impl FnMut(i64, ActivityEdgeHeader) -> Result<()>,
-) -> Result<()> {
+    mut visit: impl FnMut(i64, ActivityEdgeHeader) -> std::result::Result<(), E>,
+) -> std::result::Result<(), E> {
     for (side, table, fingerprints, column, count) in [
         (
             ActivityEdgeSide::Input,
@@ -144,20 +144,20 @@ fn edges(
                     )
                     .map_err(|_| invalid())?;
             } else if fingerprint_count != 0 {
-                return Err(invalid());
+                return Err(invalid().into());
             }
             if marker {
                 edge = edge
                     .with_dependency_snapshot(stored_u64(path_count, "authored edge path count")?)
                     .map_err(|_| invalid())?;
             } else if path_count != 0 {
-                return Err(invalid());
+                return Err(invalid().into());
             }
             visit(id, edge)?;
             position += 1;
         }
         if position != count {
-            return Err(invalid());
+            return Err(invalid().into());
         }
     }
     Ok(())

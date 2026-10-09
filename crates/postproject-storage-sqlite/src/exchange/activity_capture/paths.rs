@@ -1,4 +1,4 @@
-use postproject_core::{RepresentationId, Result};
+use postproject_core::{Error, RepresentationId};
 use postproject_protocol::{
     ActivityPathHeader, ActivityPathSegment, ActivityPathStatus, DependencyOccurrence, Document,
 };
@@ -6,11 +6,11 @@ use rusqlite::Connection;
 
 use crate::{decode_dependency, id_bytes, sqlite_error, stored_u64};
 
-pub(super) fn write(
+pub(super) fn write<E: From<Error>>(
     connection: &Connection,
     input: i64,
-    write: &mut impl FnMut(&Document) -> Result<()>,
-) -> Result<()> {
+    write: &mut impl FnMut(&Document) -> Result<(), E>,
+) -> Result<(), E> {
     let mut statement = connection.prepare("SELECT p.id, p.position, p.status, p.subject_representation_id, (SELECT COUNT(*) FROM activity_input_dependency_path_edges WHERE path_id = p.id), (SELECT COUNT(*) FROM activity_input_dependency_fingerprint_snapshots WHERE path_id = p.id) FROM activity_input_dependency_paths p WHERE activity_input_id = ?1 ORDER BY position")
         .map_err(sqlite_error("prepare authored dependency paths"))?;
     let rows = statement
@@ -34,7 +34,7 @@ pub(super) fn write(
             2 => ActivityPathStatus::Unresolved,
             3 => ActivityPathStatus::DepthTruncated,
             4 => ActivityPathStatus::RepresentationsTruncated,
-            _ => return Err(super::invalid()),
+            _ => return Err(super::invalid().into()),
         };
         let header = ActivityPathHeader::new(
             stored_u64(authored_position, "authored dependency path position")?,
@@ -45,7 +45,7 @@ pub(super) fn write(
         )
         .map_err(|_| super::invalid())?;
         if u64::try_from(position).map_err(|_| super::invalid())? != header.position() {
-            return Err(super::invalid());
+            return Err(super::invalid().into());
         }
         write(&header.document())?;
         write_segments(connection, id, write)?;
@@ -60,11 +60,11 @@ pub(super) fn write(
     Ok(())
 }
 
-fn write_segments(
+fn write_segments<E: From<Error>>(
     connection: &Connection,
     path: i64,
-    write: &mut impl FnMut(&Document) -> Result<()>,
-) -> Result<()> {
+    write: &mut impl FnMut(&Document) -> Result<(), E>,
+) -> Result<(), E> {
     let mut statement = connection.prepare("SELECT position, source_representation_id, dependency_position, source_resource_id, kind, target_kind, target_id, resolved_representation_id, authored_reference FROM activity_input_dependency_path_edges WHERE path_id = ?1 ORDER BY position")
         .map_err(sqlite_error("prepare authored dependency segments"))?;
     let mut rows = statement
@@ -99,7 +99,7 @@ fn write_segments(
             stored.0, stored.1, stored.2, stored.3, stored.4, 1, stored.5,
         )?;
         if stored_u64(authored_position, "authored path position")? != position {
-            return Err(super::invalid());
+            return Err(super::invalid().into());
         }
         let occurrence = DependencyOccurrence::new(
             RepresentationId::from_bytes(id_bytes(source, "authored segment source")?),
