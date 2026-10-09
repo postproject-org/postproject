@@ -8,6 +8,9 @@ use crate::ExchangeResult;
 
 use super::super::{super::super::invalid, history::observation};
 
+#[cfg(test)]
+mod tests;
+
 pub(super) struct RetainedEffects {
     revision: RevisionId,
     sequence: u64,
@@ -16,6 +19,7 @@ pub(super) struct RetainedEffects {
     media: bool,
     metadata: bool,
     effects: u64,
+    expected_events: u64,
     events: u64,
     remaining_values: u64,
     value_index: u64,
@@ -37,6 +41,7 @@ impl RetainedEffects {
                 .required_features()
                 .any(|feature| feature == RecordFeature::Metadata),
             effects: 0,
+            expected_events: 0,
             events: 0,
             remaining_values: 0,
             value_index: 0,
@@ -69,14 +74,7 @@ impl RetainedEffects {
                     return Err(invalid().into());
                 }
                 let change = MediaChange::from_document(document)?;
-                let expected = observation(
-                    connection,
-                    self.revision,
-                    u32::try_from(self.effects).map_err(|_| invalid())?,
-                )?;
-                if expected.kind() != &change.observation() {
-                    return Err(invalid().into());
-                }
+                self.expect_observation(connection, &change.observation())?;
                 super::super::super::root_state::change(connection, &change, self.genesis)?;
                 super::super::super::guard_state::recorded(
                     connection,
@@ -90,8 +88,6 @@ impl RetainedEffects {
                 return Err(invalid().into());
             }
             let effect = MetadataEffectStart::from_document(document)?;
-            let position = u32::try_from(self.effects).map_err(|_| invalid())?;
-            let expected = observation(connection, self.revision, position)?;
             let kind = if effect.value_count() == 0 {
                 RevisionEventKind::MetadataRemoved {
                     target: effect.target(),
@@ -103,9 +99,7 @@ impl RetainedEffects {
                     property: effect.property().clone(),
                 }
             };
-            if expected.kind() != &kind {
-                return Err(invalid().into());
-            }
+            self.expect_observation(connection, &kind)?;
             super::super::super::metadata_state::start(connection, &effect, self.genesis)?;
             super::super::super::guard_state::recorded(
                 connection,
@@ -137,9 +131,30 @@ impl RetainedEffects {
         if self.effects != self.total
             || self.events != self.total_events
             || self.remaining_values != 0
+            || self.expected_events != self.total_events
         {
             return Err(invalid().into());
         }
+        Ok(())
+    }
+
+    fn expect_observation(
+        &mut self,
+        connection: &Connection,
+        kind: &RevisionEventKind,
+    ) -> ExchangeResult<()> {
+        if self.expected_events >= self.total_events {
+            return Err(invalid().into());
+        }
+        let expected = observation(
+            connection,
+            self.revision,
+            u32::try_from(self.expected_events).map_err(|_| invalid())?,
+        )?;
+        if expected.kind() != kind {
+            return Err(invalid().into());
+        }
+        self.expected_events += 1;
         Ok(())
     }
 }
