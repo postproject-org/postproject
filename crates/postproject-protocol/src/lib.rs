@@ -4,6 +4,7 @@
 //! additionally use checked core constructors and current storage guards.
 
 mod assertion;
+mod asset;
 mod checkpoint;
 mod chunk;
 mod command;
@@ -25,11 +26,13 @@ mod proposal;
 mod receipt;
 mod record;
 mod rejection;
+mod resource;
 mod role;
 mod scope;
 mod version;
 
 pub use assertion::SnapshotAssertion;
+pub use asset::{decode_asset, encode_asset};
 pub use checkpoint::{
     CheckpointChunk, CheckpointChunkChain, CheckpointManifest, CheckpointSection, SectionSummary,
 };
@@ -56,6 +59,7 @@ pub use receipt::{
 };
 pub use record::RecordManifest;
 pub use rejection::{Rejection, RejectionKind};
+pub use resource::ResourceHeader;
 pub use role::StoreRole;
 pub use scope::{
     CheckpointId, ClientId, HistoryId, MirrorInstanceId, ProtocolBase, RequestId, Scope,
