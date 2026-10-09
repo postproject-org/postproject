@@ -78,7 +78,7 @@ The first chunk has a null predecessor. This keeps record headers bounded even
 for very large native commits. A checkpoint manifest has a
 separate identity/digest from its stable source continuation anchor.
 
-Record requirements are unique and lexically ordered: `media.v1`, `metadata.v1`
+Record requirements are unique and lexically ordered: `dependencies.v1`, `media.v1`, `metadata.v1`
 and `record-chunks.v1` are recognized. Every record requires chunk framing and at
 least one domain codec. Existing metadata manifests keep their exact two-feature
 encoding. A receiver must reject an unsupported body before publishing state;
@@ -115,6 +115,14 @@ the current fingerprint's observation boundary. Replay checks prior evidence,
 archive order and complete owner coverage without measuring media.
 All existing observation kinds retain their original revision and position;
 public job notifications contain only the job ID and operation kind.
+
+`dependency.set` declares the original recording revision, extraction status and
+exact occurrence count, including a complete empty observation. Individual
+`dependency.occurrence` frames retain authored order, repeated occurrences,
+optional source resources, floating or pinned targets, recorded resolution,
+requiredness and exact reference text. Native replacement emits current status;
+replay validates references and the original revision without extracting content.
+It rejects equivalent current replacements that would have been native no-ops.
 
 `original.creation` retains the assigned asset header and is followed by its
 complete original representation. `representation.creation` declares scalar ownership plus resource, locator and

@@ -27,6 +27,11 @@ exact identifiers, file-fact and standalone fingerprint updates now enter ordere
 atomic passive replay. Media checkpoint bodies remain pending. Fingerprint replay
 preserves same-revision supersessions and unchanged dirty clears, and rejects
 rehashed contradictory boundaries, markers and incomplete owner coverage.
+Dependency replacement captures complete empty and ordered occurrence sets,
+including repeated, floating, pinned and resolved references. Passive application
+preserves invalidation/re-extraction boundaries and rejects contradictory bodies
+without publishing a creation or history prefix. Native comparison streams beyond
+the public collection budget; unchanged observations retain stale-base guards.
 The maximum-member/exception codec tests do not qualify
 whole-production reconstruction or installed exchange surfaces.
 Metadata mutations now capture exact authored effects inside the native commit,

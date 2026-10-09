@@ -102,7 +102,11 @@ Failed replacement rolls back rows, queued facts and newly staged guards.
 
 Record manifests name the required domain codecs in a unique lexical set, covered
 by their integrity commitment. Metadata-only records retain their earlier bytes;
-media records add `media.v1`. Receivers validate the complete body before commit.
+media records add `media.v1`, and dependency records add `dependencies.v1`.
+Dependency bodies stream a complete header and ordered individual occurrences,
+preserving empty sets and intermediate replacements within one revision. Replay
+checks references, recording boundaries and no-op consistency before publication.
+Receivers validate the complete body before commit.
 Legacy metadata evidence is encoded incrementally without a whole replacement
 document allocation or a proposal-sized cap on native replacements.
 
