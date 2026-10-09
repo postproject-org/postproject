@@ -1,8 +1,10 @@
 //! Validate the complete source body before one atomic passive publication.
 
+mod creation;
 mod effects;
 mod facts;
 mod limits;
+mod media_change;
 
 pub use limits::ReplayLimits;
 
@@ -38,6 +40,9 @@ pub(crate) fn apply(
         .checked_sub(u64::try_from(bytes.len()).map_err(|_| budget())?)
         .ok_or_else(budget)?;
     if !duplicate {
+        transaction
+            .execute_batch("PRAGMA defer_foreign_keys = ON")
+            .map_err(sqlite_error("defer private replay references"))?;
         persist_revision_header(&transaction, manifest.revision())?;
     }
     let mut chain = manifest.chunk_chain();

@@ -1,7 +1,8 @@
-use postproject_core::{RevisionEventKind, SemanticConflictKey};
+use postproject_core::{AssetId, RepresentationKind, RevisionEventKind, SemanticConflictKey};
 use postproject_protocol::{
-    Document, FailureKind, MetadataEffectStart, MetadataOperation, ProtocolError, RecordManifest,
-    decode_event,
+    Document, FailureKind, MediaChange, MetadataEffectStart, MetadataOperation, ProtocolError,
+    RecordFeature, RecordManifest, RepresentationCreationStart, decode_event,
+    decode_original_creation_start,
 };
 use rusqlite::{Transaction, params};
 
@@ -16,10 +17,16 @@ use crate::{
 pub(super) struct ApplyEffects<'a, 'connection> {
     transaction: &'a Transaction<'connection>,
     manifest: &'a RecordManifest,
-    effect: Option<(MetadataEffectStart, u64)>,
+    effect: Option<Pending>,
     effects: u64,
     expected_events: u64,
     events: u64,
+}
+
+enum Pending {
+    Metadata(MetadataEffectStart, u64),
+    Original(AssetId),
+    Creation(Box<super::creation::CreationApply>),
 }
 
 impl<'a, 'connection> ApplyEffects<'a, 'connection> {
@@ -38,11 +45,58 @@ impl<'a, 'connection> ApplyEffects<'a, 'connection> {
     }
 
     pub(super) fn document(&mut self, document: &Document) -> ExchangeResult<()> {
-        if self.effect.is_some() {
-            return self.value(document);
+        match self.effect.as_ref() {
+            Some(Pending::Metadata(..)) => return self.value(document),
+            Some(Pending::Original(_)) => return self.start_creation(document),
+            Some(Pending::Creation(_)) => return self.creation_document(document),
+            None => {}
         }
         if self.effects < self.manifest.effect_count() {
-            return self.start(MetadataEffectStart::from_document(document)?);
+            return match document.kind()? {
+                "metadata.effect" => {
+                    self.require_feature(RecordFeature::Metadata)?;
+                    self.start(MetadataEffectStart::from_document(document)?)
+                }
+                "original.creation" => {
+                    self.require_feature(RecordFeature::Media)?;
+                    let asset = decode_original_creation_start(document)?;
+                    super::creation::asset(self.transaction, &asset)?;
+                    super::facts::observation(
+                        self.transaction,
+                        self.manifest,
+                        self.expected_events,
+                        &RevisionEventKind::AssetImported {
+                            asset_id: asset.id(),
+                        },
+                    )?;
+                    self.expected_events += 1;
+                    self.effects += 1;
+                    self.effect = Some(Pending::Original(asset.id()));
+                    Ok(())
+                }
+                "representation.creation" => self.start_creation(document),
+                "root.added" | "root.enabled" | "root.removed" | "locator.added"
+                | "locator.retired" => {
+                    self.require_feature(RecordFeature::Media)?;
+                    let change = MediaChange::from_document(document)?;
+                    super::media_change::apply(self.transaction, &change)?;
+                    super::facts::changed(self.transaction, self.manifest, &change.conflict_key())?;
+                    super::facts::observation(
+                        self.transaction,
+                        self.manifest,
+                        self.expected_events,
+                        &change.observation(),
+                    )?;
+                    self.expected_events += 1;
+                    self.effects += 1;
+                    Ok(())
+                }
+                _ => Err(ProtocolError::new(
+                    FailureKind::Unsupported,
+                    "unsupported authored effect",
+                )
+                .into()),
+            };
         }
         if self.events >= self.manifest.event_count() {
             return Err(invalid().into());
@@ -122,13 +176,15 @@ impl<'a, 'connection> ApplyEffects<'a, 'connection> {
         self.expected_events += 1;
         self.effects += 1;
         if effect.value_count() > 0 {
-            self.effect = Some((effect, 0));
+            self.effect = Some(Pending::Metadata(effect, 0));
         }
         Ok(())
     }
 
     fn value(&mut self, document: &Document) -> ExchangeResult<()> {
-        let (effect, index) = self.effect.as_mut().ok_or_else(invalid)?;
+        let Some(Pending::Metadata(effect, index)) = self.effect.as_mut() else {
+            return Err(invalid().into());
+        };
         let value = MetadataEffectStart::decode_value(document)?;
         let encoded = metadata_codec::encode(&value)?;
         let target = effect.target();
@@ -149,6 +205,52 @@ impl<'a, 'connection> ApplyEffects<'a, 'connection> {
         *index += 1;
         if *index == effect.value_count() {
             self.effect = None;
+        }
+        Ok(())
+    }
+
+    fn require_feature(&self, feature: RecordFeature) -> ExchangeResult<()> {
+        if !self
+            .manifest
+            .required_features()
+            .any(|required| required == feature)
+        {
+            return Err(invalid().into());
+        }
+        Ok(())
+    }
+
+    fn start_creation(&mut self, document: &Document) -> ExchangeResult<()> {
+        self.require_feature(RecordFeature::Media)?;
+        let header = RepresentationCreationStart::from_document(document)?;
+        if let Some(Pending::Original(asset)) = self.effect.take() {
+            if header.representation().asset_id() != asset
+                || header.representation().kind() != RepresentationKind::Original
+            {
+                return Err(invalid().into());
+            }
+        } else {
+            self.effects += 1;
+        }
+        let creation = super::creation::CreationApply::new(
+            self.transaction,
+            self.manifest,
+            header,
+            &mut self.expected_events,
+        )?;
+        self.effect = Some(Pending::Creation(Box::new(creation)));
+        Ok(())
+    }
+
+    fn creation_document(&mut self, document: &Document) -> ExchangeResult<()> {
+        let Some(Pending::Creation(mut creation)) = self.effect.take() else {
+            return Err(invalid().into());
+        };
+        creation.document(self.transaction, self.manifest, document)?;
+        if creation.is_complete() {
+            creation.finish()?;
+        } else {
+            self.effect = Some(Pending::Creation(creation));
         }
         Ok(())
     }
