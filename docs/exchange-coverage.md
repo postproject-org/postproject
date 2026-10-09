@@ -26,16 +26,23 @@ original revision/context, same-key history and observation events. Other famili
 or a missing complete predecessor leave an explicit `history_gap`; a complete
 replay feed remains incomplete. Rust passive application now validates metadata
 records atomically, preserving revision/events and semantic property versions.
-Genesis initialization supports empty source stores; complete checkpoints remain
-pending. Checkpoint headers now declare every ordered section and bind scoped
-section chunks without treating framing as validated state. Receiver budgets
-and iterator cancellation roll back the whole apply.
+Rust checkpoint export/import now reconstructs production metadata, retained
+revisions/events, semantic guards and post-floor records through bounded sections.
+Export pins one view; import checks current assertions against authored effects
+and promotes a closed passive store exclusively. Two distinct checkpoint bases
+converge through a contiguous suffix, including a migrated schema-19 baseline.
+Receiver budgets and iterator cancellation roll back the whole import/apply.
+Process-exit tests cover streaming, private commit and completion sealing;
+restart preserves unrelated files and altered/existing destinations.
+Other domain bodies, pre-floor development fragments and checkpoint envelope
+extensions remain unsupported. Complete production checkpoints remain pending.
 Identified metadata submissions retain accepted/no-op/rejected public outcomes
 in the same writer transaction. Other command families and credentials remain
 unsupported; the full authority and replay gates remain pending.
 Persisted passive roles reject native transaction opens and token import while
-retaining ordinary reads and coherent sessions. Synthetic role tests cover
-reopen and writer-lock enforcement; they do not establish checkpoint import.
+retaining ordinary reads and coherent sessions. Role tests cover reopen and
+writer-lock enforcement; checkpoint tests cover the production-metadata slice
+rather than the full portable inventory.
 
 ## Mutations and effect requirements
 

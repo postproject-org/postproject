@@ -40,7 +40,13 @@ These dependencies remain in the SQLite adapter; core gains no dependency.
 Current assertions are checked against retained authored effects. A migration
 floor may retain an unknown earlier property prefix, without inventing evidence.
 See the upstream [rename API](https://docs.rs/rustix/1.1.5/rustix/fs/fn.renameat_with.html)
-and [Windows implementation](https://docs.rs/tempfile/3.27.0/src/tempfile/file/imp/windows.rs.html).
+and [Windows implementation](https://github.com/Stebalien/tempfile/blob/v3.27.0/src/file/imp/windows.rs).
+
+Private imports record an ownership marker and seal the closed database plus
+that marker with a completion checksum. Restart discards an owned unsealed
+directory or promotes an unchanged sealed stage. Unknown files, symlinks,
+changed seals and existing destinations reject without removal. These private
+checks establish neither source authentication nor portable authority state.
 
 Bind `(production, history, client, request)` to the complete normalized proposal
 and a private credential binding. Persist accepted, no-change and terminal domain

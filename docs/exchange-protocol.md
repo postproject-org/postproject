@@ -137,7 +137,27 @@ match the source head sequence; record totals match head minus source replay
 floor. A nonempty section declares item count and complete chunk-chain summary;
 an empty section declares zero items and no chunks. Chunks bind source scope,
 checkpoint identity, section, index, predecessor digest and exact payload bytes.
-This framing is implemented; coherent export and complete import remain pending.
+Rust export/import currently supports production metadata and its retained
+history/guards/records. Metadata items are `metadata.assertion` frames with exact
+target, property, position and typed value. `revision.observation` retains the
+original context/time/transaction. `conflict.version` uses a semantic key;
+`conflict.floor` retains the independent conflict migration baseline. Each
+retained-record item starts with its original manifest, followed by exactly its
+advertised record chunks. Frame and section boundaries must be fully consumed.
+Other domain bodies, pre-floor development fragments and nonempty checkpoint
+envelope extensions reject as unsupported; complete production import is pending.
+
+Checkpoint receiver defaults are 1 GiB encoded transport, 2 GiB private staging
+disk and 10,000,000 decoded frames, including nested record frames. Callers may
+raise them explicitly. Import checks assertion order, original history, semantic
+versions and the current values implied by retained effects. Earlier migration
+prefixes remain baseline facts rather than invented historical edits.
+
+Private staging ownership/completion checks support process restart: discard an
+owned unsealed import or promote its unchanged sealed complete store. Unknown
+files, symlinks, altered completion evidence and existing destinations reject.
+Ownership markers and closed-file checksums remain local, without an authenticity
+claim. Recovery runs after the importing process has stopped.
 
 A complete manifest declares source scope, checkpoint identity, anchor, replay
 floor and ordered section/chunk counts/digests, including empty sections. Publish
