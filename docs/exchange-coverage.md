@@ -69,12 +69,16 @@ original/representation aggregates submit atomically and retain their receipts
 after reopen; no media is opened on submission or replay. Fingerprint/dependency
 observations reuse mandatory bases. Activity commands capture native evidence
 before any later same-proposal changes; replay preserves that historical state.
-Job commands and credentials remain unsupported; the full
-authority and replay gates remain pending.
+All seven job commands reuse native authority guards. Local submissions accept
+borrowed leases or private tokens and deliver newly committed active ownership
+separately. Rejected staging closes pending claims and retains observed authority
+time. Recovery precedes clock, expiry and current ownership checks; duplicates
+deliver no new ownership. Public per-job results and the full authority gate
+remain pending.
 Private outcome persistence validates bounded credential bindings. Public lookup
 returns the original result without credentials; submission compares both public
-intent and private context before current-state guards. Worker input/delivery
-surfaces remain pending.
+intent and private context before current-state guards. Installed worker
+input/delivery surfaces remain pending.
 Persisted passive roles reject native transaction opens and token import while
 retaining ordinary reads and coherent sessions. Role tests cover reopen and
 writer-lock enforcement; checkpoint tests cover the production-metadata slice

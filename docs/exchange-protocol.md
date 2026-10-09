@@ -23,7 +23,8 @@ The submission codec currently supports `metadata.append`, `metadata.replace`,
 `locator.retire`, `identifier.add`, `identifier.remove` and
 `resource.observe-file-facts`, `media.import-original`, `representation.add`,
 `resource.observe-fingerprint`, `representation.observe-fingerprint`,
-`dependency.observe-set` and `activity.create`.
+`dependency.observe-set`, `activity.create`, `job.request`, `job.claim`,
+`job.renew`, `job.release`, `job.fail`, `job.complete` and `job.cancel`.
 Prepared aggregates contain scalar asset/representation/resource headers,
 complete structure frames, locators and fingerprint algorithm/version/bytes.
 Their fingerprints cannot supply observation revisions; storage assigns these.
@@ -37,10 +38,13 @@ Nested media facts retain exact checked values;
 retirement supplies only the locator ID. Measured file facts carry no assigned
 revision. Destructive operations keep their native base requirements.
 Proposal requirements are the exact unique lexical set of command codecs
-(`dependencies.v1`, `media.v1`, `metadata.v1`, `provenance.v1` as needed);
+(`dependencies.v1`, `jobs.v1`, `media.v1`, `metadata.v1`, `provenance.v1` as needed);
 an empty proposal retains `metadata.v1`.
-Missing, redundant or reordered declarations reject. Worker commands are not
-yet implemented in submission.
+Missing, redundant or reordered declarations reject. Completion requires
+`jobs.v1`, `media.v1` and `provenance.v1`. Claims/renewals supply whole-microsecond
+durations from 1 µs through 24 hours, with no caller-selected authority time.
+Private leases/tokens enter through a separate local submission argument;
+their normalized binding participates in recovery without entering public wire.
 
 An outcome contains the original scoped request identity and either its own
 accepted receipt (nullable new revision) or a structured terminal domain
