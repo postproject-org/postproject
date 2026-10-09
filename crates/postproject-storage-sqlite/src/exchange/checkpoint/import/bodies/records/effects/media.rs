@@ -38,6 +38,7 @@ impl RetainedEffects {
             connection,
             self.revision,
             self.sequence,
+            self.floor,
             self.total_events,
             header,
             &mut self.expected_events,
@@ -67,6 +68,7 @@ impl RetainedEffects {
                     connection,
                     self.revision,
                     self.sequence,
+                    self.floor,
                     self.total_events,
                     RepresentationCreationStart::from_document(document)?,
                     &mut self.expected_events,
@@ -74,12 +76,14 @@ impl RetainedEffects {
             }
             "identifier.added" | "identifier.removed" => {
                 let change = IdentifierChange::from_document(document)?;
+                self.require_media_target(connection, change.attachment().target())?;
                 identifier_state::change(connection, &change, self.genesis)?;
                 self.expect_observation(connection, &change.observation())?;
                 guard_state::recorded(connection, &change.conflict_key(), self.sequence)?;
             }
             "fingerprint.change" => {
                 let start = FingerprintChangeStart::from_document(document)?;
+                self.require_media_target(connection, start.target())?;
                 fingerprint_state::changed(connection, &start, self.sequence, self.floor)?;
                 match start.target() {
                     ObjectRef::Resource(resource) => {
@@ -148,13 +152,20 @@ impl RetainedEffects {
     fn scalar_media(&self, connection: &Connection, change: &MediaChange) -> ExchangeResult<()> {
         match change {
             MediaChange::ResourceFileFacts { resource_id, facts } => {
+                self.require_media_target(connection, ObjectRef::Resource(*resource_id))?;
                 media_state::changed_facts(connection, *resource_id, *facts, self.genesis)
             }
-            MediaChange::LocatorAdded(locator) => locator_state::added(connection, locator),
+            MediaChange::LocatorAdded(locator) => {
+                self.require_media_target(connection, ObjectRef::Resource(locator.resource_id()))?;
+                locator_state::added(connection, locator)
+            }
             MediaChange::LocatorRetired {
                 locator_id,
                 resource_id,
-            } => locator_state::retired(connection, *locator_id, *resource_id, self.genesis),
+            } => {
+                self.require_media_target(connection, ObjectRef::Resource(*resource_id))?;
+                locator_state::retired(connection, *locator_id, *resource_id, self.genesis)
+            }
             MediaChange::RootRemoved(id) => {
                 let name: Option<Option<String>> = connection
                     .query_row(
@@ -171,5 +182,19 @@ impl RetainedEffects {
             }
             _ => root_state::change(connection, change, self.genesis),
         }
+    }
+
+    pub(super) fn require_media_target(
+        &self,
+        connection: &Connection,
+        target: ObjectRef,
+    ) -> ExchangeResult<()> {
+        if matches!(
+            target,
+            ObjectRef::Asset(_) | ObjectRef::Representation(_) | ObjectRef::Resource(_)
+        ) {
+            media_state::require(connection, target, self.floor)?;
+        }
+        Ok(())
     }
 }

@@ -1,11 +1,47 @@
 use postproject_core::{
     Asset, AssetId, ContentStructure, FileFacts, Locator, LocatorAvailability, LocatorId,
-    OriginalMediaImport, Representation, RepresentationId, RepresentationKind, Resource,
+    ObjectRef, OriginalMediaImport, Representation, RepresentationId, RepresentationKind, Resource,
     ResourceId, Timestamp,
 };
 use postproject_protocol::{RepresentationHeader, ResourceHeader};
 
 use crate::SqliteProduction;
+
+#[test]
+fn final_presence_does_not_allow_future_creations_to_be_treated_as_baseline() {
+    let directory = tempfile::tempdir().unwrap();
+    let mut source =
+        SqliteProduction::create(directory.path().join("presence.pproj"), None).unwrap();
+    let baseline = fixture();
+    let future = fixture();
+    for import in [&baseline, &future] {
+        let mut edit = source.begin_transaction().unwrap();
+        edit.import_original(import).unwrap();
+        edit.commit().unwrap();
+    }
+    let connection = &source.connection;
+    super::create(connection).unwrap();
+    let targets = |import: &OriginalMediaImport| {
+        [
+            ObjectRef::Asset(import.asset().id()),
+            ObjectRef::Representation(import.representation().id()),
+            ObjectRef::Resource(import.resources()[0].id()),
+        ]
+    };
+    for target in targets(&baseline) {
+        assert!(super::require(connection, target, 0).is_err());
+        super::require(connection, target, 1).unwrap();
+    }
+    for target in targets(&future) {
+        assert!(super::require(connection, target, 1).is_err());
+    }
+    audit_creation(connection, &future);
+    for target in targets(&future) {
+        super::require(connection, target, 1).unwrap();
+    }
+    assert!(super::require(connection, ObjectRef::Resource(ResourceId::new()), 1).is_err());
+    super::finish(connection, false).unwrap();
+}
 
 #[test]
 fn authored_creation_checks_immutable_facts_and_only_the_final_measurements() {

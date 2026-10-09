@@ -9,8 +9,11 @@ use crate::{ExchangeResult, sqlite_error};
 
 use super::super::{invalid, media_facts};
 
+mod presence;
 #[cfg(test)]
 mod tests;
+
+pub(super) use presence::require;
 
 pub(super) fn create(connection: &Connection) -> ExchangeResult<()> {
     connection.execute_batch("CREATE TABLE checkpoint_media_created (kind INTEGER NOT NULL, id BLOB NOT NULL, PRIMARY KEY(kind, id)); CREATE TABLE checkpoint_resource_facts (id BLOB PRIMARY KEY, size INTEGER, modified INTEGER);")

@@ -1,4 +1,4 @@
-use postproject_core::{RevisionEventKind, RevisionId};
+use postproject_core::{ObjectRef, RevisionEventKind, RevisionId};
 use postproject_protocol::{CreationDecoder, CreationFact, Document, RepresentationCreationStart};
 use rusqlite::Connection;
 
@@ -25,11 +25,17 @@ impl CreationAudit {
         connection: &Connection,
         revision: RevisionId,
         sequence: u64,
+        floor: u64,
         total: u64,
         header: RepresentationCreationStart,
         events: &mut u64,
     ) -> ExchangeResult<Self> {
         let representation = header.representation();
+        media_state::require(
+            connection,
+            ObjectRef::Asset(representation.asset_id()),
+            floor,
+        )?;
         let base = events.checked_add(1).ok_or_else(invalid)?;
         let end = header
             .resource_count()

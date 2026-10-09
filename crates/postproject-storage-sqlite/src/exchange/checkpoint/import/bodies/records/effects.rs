@@ -98,6 +98,7 @@ impl RetainedEffects {
                 return Err(invalid().into());
             }
             let effect = MetadataEffectStart::from_document(document)?;
+            self.require_media_target(connection, effect.target())?;
             let kind = if effect.value_count() == 0 {
                 RevisionEventKind::MetadataRemoved {
                     target: effect.target(),
