@@ -1,6 +1,7 @@
 //! Validate the complete source body before one atomic passive publication.
 
 mod effects;
+mod facts;
 mod limits;
 
 pub use limits::ReplayLimits;

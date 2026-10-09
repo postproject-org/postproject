@@ -8,8 +8,8 @@ use rusqlite::{Transaction, params};
 use crate::{
     ExchangeResult, encode_metadata_target, metadata_codec, sqlite_error,
     transaction::{
-        delete_metadata_property, encode_conflict_key, ensure_metadata_target_exists,
-        insert_metadata_value, next_metadata_position, persist_revision_event,
+        delete_metadata_property, ensure_metadata_target_exists, insert_metadata_value,
+        next_metadata_position,
     },
 };
 
@@ -18,6 +18,7 @@ pub(super) struct ApplyEffects<'a, 'connection> {
     manifest: &'a RecordManifest,
     effect: Option<(MetadataEffectStart, u64)>,
     effects: u64,
+    expected_events: u64,
     events: u64,
 }
 
@@ -31,6 +32,7 @@ impl<'a, 'connection> ApplyEffects<'a, 'connection> {
             manifest,
             effect: None,
             effects: 0,
+            expected_events: 0,
             events: 0,
         }
     }
@@ -92,13 +94,14 @@ impl<'a, 'connection> ApplyEffects<'a, 'connection> {
                 }
             }
         }
-        let key = encode_conflict_key(&SemanticConflictKey::MetadataProperty {
-            target: effect.target(),
-            property: effect.property().clone(),
-        })?;
-        let revision = self.manifest.revision();
-        self.transaction.execute("INSERT INTO conflict_versions (conflict_key, last_changed_revision_id, last_changed_revision_sequence) VALUES (?1, ?2, ?3) ON CONFLICT(conflict_key) DO UPDATE SET last_changed_revision_id = excluded.last_changed_revision_id, last_changed_revision_sequence = excluded.last_changed_revision_sequence", params![key, revision.id().as_bytes().as_slice(), i64::try_from(revision.sequence()).map_err(|_| invalid())?])
-            .map_err(sqlite_error("persist replayed semantic version"))?;
+        super::facts::changed(
+            self.transaction,
+            self.manifest,
+            &SemanticConflictKey::MetadataProperty {
+                target: effect.target(),
+                property: effect.property().clone(),
+            },
+        )?;
         let event = if effect.value_count() == 0 {
             RevisionEventKind::MetadataRemoved {
                 target: effect.target(),
@@ -110,8 +113,13 @@ impl<'a, 'connection> ApplyEffects<'a, 'connection> {
                 property: effect.property().clone(),
             }
         };
-        let position = u32::try_from(self.effects).map_err(|_| invalid())?;
-        persist_revision_event(self.transaction, revision.id(), i64::from(position), &event)?;
+        super::facts::observation(
+            self.transaction,
+            self.manifest,
+            self.expected_events,
+            &event,
+        )?;
+        self.expected_events += 1;
         self.effects += 1;
         if effect.value_count() > 0 {
             self.effect = Some((effect, 0));
@@ -149,7 +157,7 @@ impl<'a, 'connection> ApplyEffects<'a, 'connection> {
         if self.effect.is_some()
             || self.effects != self.manifest.effect_count()
             || self.events != self.manifest.event_count()
-            || self.effects != self.events
+            || self.expected_events != self.events
         {
             return Err(invalid().into());
         }
@@ -157,7 +165,7 @@ impl<'a, 'connection> ApplyEffects<'a, 'connection> {
     }
 }
 
-fn invalid() -> ProtocolError {
+pub(super) fn invalid() -> ProtocolError {
     ProtocolError::new(
         FailureKind::Integrity,
         "record effects do not match structural state or observations",
