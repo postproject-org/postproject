@@ -101,6 +101,51 @@ impl CheckpointManifest {
         &self.extensions
     }
 
+    /// Starts verification of a nonempty section; empty sections return `None`.
+    #[must_use]
+    pub fn section_chain(&self, section: CheckpointSection) -> Option<crate::CheckpointChunkChain> {
+        self.sections
+            .iter()
+            .find(|summary| summary.section() == section)?
+            .chunks()?;
+        Some(crate::CheckpointChunkChain::new(
+            self.head.scope(),
+            self.id,
+            section,
+        ))
+    }
+
+    /// Checks complete transport integrity against one advertised section.
+    ///
+    /// # Errors
+    /// Rejects a foreign/empty/partial/altered section chain. Section-defined
+    /// item totals and domain invariants still need validation by the importer.
+    pub fn verify_section(
+        &self,
+        section: CheckpointSection,
+        chain: crate::CheckpointChunkChain,
+    ) -> Result<()> {
+        if !chain.belongs_to(self.head.scope(), self.id, section) {
+            return Err(ProtocolError::new(
+                FailureKind::ScopeMismatch,
+                "section chain belongs to another checkpoint",
+            ));
+        }
+        let declared = self
+            .sections
+            .iter()
+            .find(|summary| summary.section() == section)
+            .and_then(|summary| summary.chunks())
+            .ok_or_else(malformed)?;
+        if chain.finish()? != declared {
+            return Err(ProtocolError::new(
+                FailureKind::Integrity,
+                "checkpoint section chunk summary mismatch",
+            ));
+        }
+        Ok(())
+    }
+
     /// Encodes a bounded header with its separate manifest digest.
     ///
     /// # Errors

@@ -1,6 +1,6 @@
 use crate::{ChunkSummary, Result, fields::malformed};
 
-/// Required portable sections in their deterministic dependency order.
+/// Required portable sections in deterministic wire order.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum CheckpointSection {
     /// Source production identity and original header facts.

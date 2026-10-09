@@ -118,3 +118,52 @@ fn missing_reordered_foreign_and_altered_declarations_reject() {
         );
     }
 }
+
+#[test]
+fn manifests_verify_whole_section_commitments_and_reject_prefixes_or_foreign_chains() {
+    use postproject_protocol::{CheckpointChunk, CheckpointChunkChain};
+    let head = anchor();
+    let id = CheckpointId::new();
+    let section = CheckpointSection::Production;
+    let first = CheckpointChunk::new(
+        head.scope(),
+        id,
+        section,
+        0,
+        None,
+        vec![1; 10],
+        Extensions::default(),
+    )
+    .unwrap();
+    let last = CheckpointChunk::new(
+        head.scope(),
+        id,
+        section,
+        1,
+        Some(first.digest().unwrap()),
+        vec![2; 20],
+        Extensions::default(),
+    )
+    .unwrap();
+    let mut chain = CheckpointChunkChain::new(head.scope(), id, section);
+    chain.push(&first).unwrap();
+    let prefix = chain.clone();
+    chain.push(&last).unwrap();
+    let summary = chain.clone().finish().unwrap();
+    let mut sections = summaries();
+    sections[0] = SectionSummary::new(section, 1, Some(summary)).unwrap();
+    let manifest =
+        CheckpointManifest::new(id, head, head, sections, Extensions::default()).unwrap();
+    assert!(
+        manifest
+            .section_chain(CheckpointSection::Metadata)
+            .is_none()
+    );
+    let mut verifier = manifest.section_chain(section).unwrap();
+    verifier.push(&first).unwrap();
+    verifier.push(&last).unwrap();
+    manifest.verify_section(section, verifier).unwrap();
+    assert!(manifest.verify_section(section, prefix).is_err());
+    let foreign = CheckpointChunkChain::new(head.scope(), CheckpointId::new(), section);
+    assert!(manifest.verify_section(section, foreign).is_err());
+}

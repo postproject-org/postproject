@@ -29,7 +29,9 @@ mod scope;
 mod version;
 
 pub use assertion::SnapshotAssertion;
-pub use checkpoint::{CheckpointChunk, CheckpointManifest, CheckpointSection, SectionSummary};
+pub use checkpoint::{
+    CheckpointChunk, CheckpointChunkChain, CheckpointManifest, CheckpointSection, SectionSummary,
+};
 pub use chunk::{
     ChunkSummary, MAX_RECORD_CHUNK_BYTES, MAX_RECORD_CHUNK_PAYLOAD, RecordChunk, RecordChunkChain,
 };

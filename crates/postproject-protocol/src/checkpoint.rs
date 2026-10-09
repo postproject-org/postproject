@@ -8,3 +8,6 @@ pub use section::{CheckpointSection, SectionSummary};
 mod chunk;
 mod wire;
 pub use chunk::CheckpointChunk;
+
+mod chain;
+pub use chain::CheckpointChunkChain;
