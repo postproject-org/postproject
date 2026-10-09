@@ -200,3 +200,6 @@ fn replay(source: &SqliteProduction, mirror: &mut SqliteProduction) {
         );
     }
 }
+
+#[path = "media_submissions/guards.rs"]
+mod guards;
