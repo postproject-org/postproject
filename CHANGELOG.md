@@ -10,6 +10,7 @@ All notable changes to PostProject will be documented here. The project uses
 - Roll back failed media, fingerprint, dependency, activity and job staging while preserving unrelated edits and guards.
 - Preserve activity identifier attachments when capturing native edits.
 - Stream large dependency comparisons and guard unchanged observations against stale bases.
+- Enforce the same JSON resource limits for typed and decoded proposals.
 
 ## 0.7.0-alpha.1 - 2026-10-08
 

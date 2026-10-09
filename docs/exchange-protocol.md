@@ -205,6 +205,8 @@ Defaults: 64 MiB per proposal, 1,000 proposal commands, 32 MiB per encoded chunk
 192 container levels and 1,000,000 JSON nodes per bounded document. Domain limits
 remain authoritative, including metadata's 32 levels and 15 MiB aggregate value.
 Callers may lower codec limits; exceeding them reports `limit_exceeded`.
+Typed proposal construction enforces the same default byte, node and container
+limits before submission; legal domain aggregates can exceed a proposal budget.
 Native transaction size has no proposal-command cap.
 Legacy authored metadata evidence also streams one value at a time into 1 MiB
 storage fragments, preserving the original canonical document bytes. A native

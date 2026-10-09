@@ -31,7 +31,7 @@ impl Proposal {
     /// authority submission so a terminal domain rejection can be retained.
     ///
     /// # Errors
-    /// Rejects mismatched base scope, oversized command lists or encoded bytes.
+    /// Rejects mismatched base scope, oversized commands or JSON bytes/nodes/depth.
     pub fn new(
         scope: Scope,
         client: ClientId,
@@ -59,9 +59,9 @@ impl Proposal {
             commands,
             extensions,
         };
-        if proposal.document()?.canonical_bytes()?.len() > crate::Limits::default().max_bytes() {
-            return Err(crate::fields::limit());
-        }
+        proposal
+            .document()?
+            .bounded_canonical_bytes(crate::Limits::default())?;
         Ok(proposal)
     }
 

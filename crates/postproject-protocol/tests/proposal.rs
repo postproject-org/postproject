@@ -37,6 +37,41 @@ fn command() -> Command {
 }
 
 #[test]
+fn node_budget_rejects_the_same_legal_domain_collection_in_wire_and_typed_proposals() {
+    let original = proposal(vec![]);
+    let command = Command::ReplaceMetadata {
+        target: ObjectRef::Production(original.scope().production()),
+        property: MetadataProperty::new(
+            VocabularyId::new("urn:test").unwrap(),
+            PropertyId::new("many").unwrap(),
+        ),
+        values: vec![MetadataValue::boolean(true); 340_000],
+    };
+    let bytes = command.document().unwrap().canonical_bytes().unwrap();
+    assert!(bytes.len() < Limits::default().max_bytes());
+    assert_eq!(
+        Document::parse(&bytes, Limits::default())
+            .unwrap_err()
+            .kind(),
+        FailureKind::LimitExceeded
+    );
+    assert_eq!(
+        Proposal::new(
+            original.scope(),
+            original.client(),
+            original.request(),
+            None,
+            RevisionContext::default(),
+            vec![command],
+            Extensions::default()
+        )
+        .unwrap_err()
+        .kind(),
+        FailureKind::LimitExceeded
+    );
+}
+
+#[test]
 fn empty_and_ordered_proposals_retain_original_normalized_identity() {
     for value in [proposal(vec![]), proposal(vec![command(), command()])] {
         let encoded = value.document().unwrap().canonical_bytes().unwrap();

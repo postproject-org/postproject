@@ -1,5 +1,6 @@
 //! Bounded JSON framing, with duplicate keys checked before map insertion.
 
+mod bounds;
 mod decode;
 mod encode;
 
@@ -81,6 +82,15 @@ impl Document {
     /// Returns malformed if an internal value cannot use the exact wire profile.
     pub fn canonical_bytes(&self) -> Result<Vec<u8>> {
         encode::canonical(&self.value, false)
+    }
+
+    pub(crate) fn bounded_canonical_bytes(&self, limits: Limits) -> Result<Vec<u8>> {
+        bounds::validate(&self.value, limits)?;
+        let bytes = self.canonical_bytes()?;
+        if bytes.len() > limits.max_bytes() {
+            return Err(crate::fields::limit());
+        }
+        Ok(bytes)
     }
 
     /// Computes integrity, omitting only the object's own top-level `digest`.
