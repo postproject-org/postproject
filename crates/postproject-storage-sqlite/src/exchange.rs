@@ -1,11 +1,13 @@
 //! Private exchange persistence; portable history is independent of read cursors.
 
+mod captured;
 mod checkpoint;
 mod error;
 mod genesis;
 mod outcomes;
 mod records;
 
+pub(crate) use captured::CapturedEffect;
 pub use checkpoint::CheckpointLimits;
 pub(crate) use checkpoint::export as export_checkpoint;
 pub(crate) use checkpoint::import as import_checkpoint;
@@ -28,10 +30,10 @@ use crate::{id_bytes, sqlite_error, stored_u64};
 /// the public chunk envelope and imposes no total native transaction limit.
 const EFFECT_FRAGMENT_BYTES: usize = 1024 * 1024;
 
-pub(crate) fn persist_metadata_effects(
+pub(crate) fn persist_metadata_effects<'a>(
     connection: &Connection,
     revision: RevisionId,
-    effects: &[postproject_protocol::MetadataEffect],
+    effects: impl IntoIterator<Item = &'a postproject_protocol::MetadataEffect>,
 ) -> Result<()> {
     let mut insert = connection
         .prepare(
@@ -39,7 +41,7 @@ pub(crate) fn persist_metadata_effects(
          (revision_id, effect_position, fragment_position, payload) VALUES (?1, ?2, ?3, ?4)",
         )
         .map_err(sqlite_error("prepare authored effect fragments"))?;
-    for (position, effect) in effects.iter().enumerate() {
+    for (position, effect) in effects.into_iter().enumerate() {
         let payload = effect
             .document()
             .and_then(|document| document.canonical_bytes())

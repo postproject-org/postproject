@@ -37,7 +37,7 @@ pub struct SqliteTransaction<'production> {
     production: &'production mut Production,
     revision_context: RevisionContext,
     pending_events: Vec<RevisionEventKind>,
-    pending_metadata_effects: Vec<postproject_protocol::MetadataEffect>,
+    pending_effects: Vec<crate::exchange::CapturedEffect>,
     base_revision: Option<(Option<RevisionId>, u64)>,
     pending_conflict_keys: BTreeMap<Vec<u8>, SemanticConflictKey>,
     pending_changed_keys: BTreeMap<Vec<u8>, SemanticConflictKey>,
@@ -158,7 +158,7 @@ impl<'production> SqliteTransaction<'production> {
             production,
             revision_context: RevisionContext::default(),
             pending_events: Vec::new(),
-            pending_metadata_effects: Vec::new(),
+            pending_effects: Vec::new(),
             base_revision,
             pending_conflict_keys: BTreeMap::new(),
             pending_changed_keys: BTreeMap::new(),
@@ -1083,14 +1083,15 @@ impl<'production> SqliteTransaction<'production> {
                 target,
                 property: property.clone(),
             });
-        self.pending_metadata_effects.push(
+        self.pending_effects.push(
             postproject_protocol::MetadataEffect::appended(
                 target,
                 property.clone(),
                 crate::stored_u64(position, "metadata effect position")?,
                 value.clone(),
             )
-            .map_err(|_| Error::new(ErrorKind::Internal, "invalid authored metadata effect"))?,
+            .map_err(|_| Error::new(ErrorKind::Internal, "invalid authored metadata effect"))?
+            .into(),
         );
         Ok(())
     }
@@ -1147,11 +1148,9 @@ impl<'production> SqliteTransaction<'production> {
                         target,
                         property: property.clone(),
                     });
-                self.pending_metadata_effects
-                    .push(postproject_protocol::MetadataEffect::removed(
-                        target,
-                        property.clone(),
-                    ));
+                self.pending_effects.push(
+                    postproject_protocol::MetadataEffect::removed(target, property.clone()).into(),
+                );
             }
         } else {
             self.record_conflict_key(SemanticConflictKey::MetadataProperty {
@@ -1163,12 +1162,14 @@ impl<'production> SqliteTransaction<'production> {
                     target,
                     property: property.clone(),
                 });
-            self.pending_metadata_effects
-                .push(postproject_protocol::MetadataEffect::replaced(
+            self.pending_effects.push(
+                postproject_protocol::MetadataEffect::replaced(
                     target,
                     property.clone(),
                     values.to_vec(),
-                ));
+                )
+                .into(),
+            );
         }
         Ok(())
     }
@@ -1206,11 +1207,8 @@ impl<'production> SqliteTransaction<'production> {
                 target,
                 property: property.clone(),
             });
-        self.pending_metadata_effects
-            .push(postproject_protocol::MetadataEffect::removed(
-                target,
-                property.clone(),
-            ));
+        self.pending_effects
+            .push(postproject_protocol::MetadataEffect::removed(target, property.clone()).into());
         Ok(())
     }
 
@@ -1758,7 +1756,7 @@ impl<'production> SqliteTransaction<'production> {
 
     fn clear_pending(&mut self) {
         self.pending_events.clear();
-        self.pending_metadata_effects.clear();
+        self.pending_effects.clear();
         self.pending_conflict_keys.clear();
         self.pending_changed_keys.clear();
     }
@@ -1804,7 +1802,9 @@ impl<'production> SqliteTransaction<'production> {
                     Error::new(ErrorKind::Internal, "commit has no SQLite transaction")
                 })?,
                 revision_id,
-                &self.pending_metadata_effects,
+                self.pending_effects
+                    .iter()
+                    .map(crate::exchange::CapturedEffect::metadata),
             )?;
             let committed_revision = Revision::new(
                 revision_id,
@@ -1820,7 +1820,7 @@ impl<'production> SqliteTransaction<'production> {
                 })?,
                 self.production.id(),
                 &committed_revision,
-                &self.pending_metadata_effects,
+                &self.pending_effects,
                 &events,
             )?;
             revision = Some(committed_revision);

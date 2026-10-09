@@ -13,7 +13,7 @@ use postproject_core::{
     Error, ErrorKind, ProductionId, Result, Revision, RevisionEvent, RevisionEventKind,
 };
 use postproject_protocol::{
-    Document, Extensions, Limits, MetadataEffect, Position, RecordManifest, encode_event,
+    Document, Extensions, Limits, Position, RecordManifest, encode_event,
 };
 use rusqlite::{Connection, OptionalExtension, params};
 
@@ -86,7 +86,7 @@ pub(crate) fn capture_metadata(
     connection: &Connection,
     production: ProductionId,
     revision: &Revision,
-    effects: &[MetadataEffect],
+    effects: &[super::CapturedEffect],
     events: &[RevisionEventKind],
 ) -> Result<()> {
     // An incomplete family or predecessor never masquerades as a replay record.
@@ -111,6 +111,7 @@ pub(crate) fn capture_metadata(
     }
     let mut writer = writer::RecordWriter::new(connection, predecessor.scope(), revision.id());
     for effect in effects {
+        let effect = effect.metadata();
         for frame in effect.frames() {
             writer.document(&frame.map_err(|_| encoding())?)?;
         }
