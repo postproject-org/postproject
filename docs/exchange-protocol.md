@@ -287,7 +287,9 @@ target, property, position and typed value. `revision.observation` retains the
 original context/time/transaction. `conflict.version` uses a semantic key;
 `conflict.floor` retains the independent conflict migration baseline. Each
 retained-record item starts with its original manifest, followed by exactly its
-advertised record chunks. Frame and section boundaries must be fully consumed.
+advertised record chunks. A defined structure item contains its header and exact
+member/exception continuations; only the header advances the item count. Frame
+and section boundaries must be fully consumed.
 Root history validates additions, enabled transitions and removals against the
 current section, including removed-root guards. Other domain bodies, pre-floor development fragments and nonempty checkpoint
 envelope extensions reject as unsupported; complete production import is pending.
