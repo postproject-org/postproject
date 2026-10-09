@@ -101,8 +101,10 @@ each `locator.fact`, rather than the content descriptor.
 
 `root.fact` retains configured roots and their historical legacy URI, without
 local directory mappings. `identifier.attachment` retains exact typed targets,
-schemes, values and qualifiers. `fingerprint.snapshot` preserves original bytes
-and nullable observation sequences. `fingerprint.observation` distinguishes
+schemes, values and qualifiers. `identifier.added` and `identifier.removed` retain
+authored transitions, including same-revision removal/re-addition and distinct
+optional qualifiers. `fingerprint.snapshot` preserves original bytes and nullable
+observation sequences. `fingerprint.observation` distinguishes
 current evidence from ordered superseded values, including changes within the
 same revision. `fingerprint.recomputation` records the original marking boundary.
 `fingerprint.change` retains previous/current evidence, original archive position,
@@ -121,7 +123,7 @@ locators. Initial fingerprints retain the original observation revision. Decode
 yields provisional facts individually and verifies exact ownership, order, totals
 and resource/location coverage before completion. The enclosing transaction must
 discard every staged prefix on failure. Rust native capture and passive replay
-now adopt complete original/representation creation, roots, locators and changed
+now adopt complete original/representation creation, roots, locators, identifiers and changed
 resource file facts. Root/locator effects retain additions and intermediate
 enabled/removal states; file-fact effects retain authored sizes/times. Standalone
 fingerprint updates retain exact historical boundaries and recomputation facts.

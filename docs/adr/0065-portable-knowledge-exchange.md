@@ -86,7 +86,7 @@ sets and yields evidence/locators individually, checking exact totals and comple
 coverage before completion. Its facts remain provisional until the enclosing
 transaction validates and commits. Standalone codec support does not establish
 whole-production checkpoint coverage. Native capture and passive replay now
-adopt complete original/representation creation, roots, locators and resource
+adopt complete original/representation creation, roots, locators, exact identifiers and resource
 file-fact and standalone fingerprint updates. Capture retains prepared values at their authored operation;
 it never reconstructs creation from the final transaction state. A media staging
 error rolls back its rows and queued facts while preserving unrelated edits.
