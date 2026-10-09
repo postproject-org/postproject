@@ -8,6 +8,7 @@ mod checkpoint;
 mod chunk;
 mod command;
 mod conflict;
+mod conflict_floor;
 mod digest;
 mod effect;
 mod error;
@@ -37,6 +38,7 @@ pub use chunk::{
 };
 pub use command::Command;
 pub use conflict::{decode_transaction_conflict, encode_transaction_conflict};
+pub use conflict_floor::{decode_conflict_floor, encode_conflict_floor};
 pub use digest::{Digest, DigestDomain};
 pub use effect::{MetadataChange, MetadataEffect, MetadataEffectStart, MetadataOperation};
 pub use error::{FailureKind, ProtocolError, Result};
@@ -49,7 +51,9 @@ pub use outcome::{Outcome, OutcomeStatus};
 pub use position::Position;
 pub use production::ProductionHeader;
 pub use proposal::{MAX_PROPOSAL_COMMANDS, Proposal};
-pub use receipt::{decode_receipt, encode_receipt};
+pub use receipt::{
+    decode_receipt, decode_revision_observation, encode_receipt, encode_revision_observation,
+};
 pub use record::RecordManifest;
 pub use rejection::{Rejection, RejectionKind};
 pub use role::StoreRole;

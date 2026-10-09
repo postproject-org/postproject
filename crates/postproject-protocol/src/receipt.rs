@@ -8,6 +8,28 @@ use crate::{
     fields::{checked, exact, malformed, nullable, object, text},
 };
 
+/// Encodes an original retained revision as a checkpoint body item.
+///
+/// # Errors
+/// Rejects sequences or context outside the supported domain.
+pub fn encode_revision_observation(revision: &Revision) -> Result<Document> {
+    Ok(Document {
+        value: json!({"kind":"revision.observation", "revision":encode_revision(revision)?}),
+    })
+}
+
+/// Decodes original revision facts without allocating a local revision.
+///
+/// # Errors
+/// Rejects unknown fields, kinds and invalid domain values.
+pub fn decode_revision_observation(document: &Document) -> Result<Revision> {
+    let fields = object(&document.value, &["kind", "revision"])?;
+    if text(&fields["kind"])? != "revision.observation" {
+        return Err(crate::fields::unsupported());
+    }
+    decode_revision(&fields["revision"])
+}
+
 /// Encodes this transaction's receipt, including an explicit no-revision result.
 ///
 /// # Errors

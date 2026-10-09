@@ -104,3 +104,49 @@ fn snapshot_assertions_preserve_exact_ordered_values_and_reject_row_ids() {
     );
     assert!(SnapshotAssertion::new(target, property, u64::MAX, value).is_err());
 }
+
+#[test]
+fn checkpoint_history_retains_original_context_and_independent_conflict_floor() {
+    use postproject_core::{DecisionBase, OriginIdentity, Revision, TransactionId};
+    use postproject_protocol::{
+        decode_conflict_floor, decode_revision_observation, encode_conflict_floor,
+        encode_revision_observation,
+    };
+    let production = ProductionId::new();
+    let revision = Revision::new(
+        RevisionId::new(),
+        9_007_199_254_740_993,
+        TransactionId::new(),
+        Timestamp::from_unix_micros(i64::MIN),
+        Some(OriginIdentity::new("Original", Some("1".into()), None).unwrap()),
+        Some("Exact\n名".into()),
+    )
+    .unwrap();
+    let document = encode_revision_observation(&revision).unwrap();
+    assert_eq!(decode_revision_observation(&document).unwrap(), revision);
+    for base in [
+        DecisionBase::new(production, None, 0).unwrap(),
+        DecisionBase::new(production, Some(revision.id()), revision.sequence()).unwrap(),
+    ] {
+        assert_eq!(
+            decode_conflict_floor(&encode_conflict_floor(base)).unwrap(),
+            base
+        );
+    }
+    let mut fields: serde_json::Value =
+        serde_json::from_slice(&document.canonical_bytes().unwrap()).unwrap();
+    fields["row_id"] = "1".into();
+    assert!(
+        decode_revision_observation(
+            &Document::parse(&serde_json::to_vec(&fields).unwrap(), Limits::default()).unwrap()
+        )
+        .is_err()
+    );
+    fields = serde_json::json!({"kind":"conflict.floor", "production":production.to_string(), "revision":null, "sequence":"1"});
+    assert!(
+        decode_conflict_floor(
+            &Document::parse(&serde_json::to_vec(&fields).unwrap(), Limits::default()).unwrap()
+        )
+        .is_err()
+    );
+}
