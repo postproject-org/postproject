@@ -310,3 +310,70 @@ fn semantic_version_sets_accept_earlier_ordering_but_reject_repeated_domain_keys
     );
     assert!(!destination.exists());
 }
+
+#[test]
+fn rehashed_root_state_cannot_resurrect_removed_roots_or_hide_authored_changes() {
+    use postproject_core::{MediaRoot, MediaRootId};
+    use postproject_protocol::encode_root;
+    let directory = tempfile::tempdir().unwrap();
+    let mut source = SqliteProduction::create(directory.path().join("source.pproj"), None).unwrap();
+    let retained = MediaRoot::new(MediaRootId::new(), "Essence", None, None, 2, true).unwrap();
+    let removed = MediaRoot::new(MediaRootId::new(), "Old", None, None, 3, true).unwrap();
+    let mut edit = source.begin_transaction().unwrap();
+    edit.add_media_root(retained.clone()).unwrap();
+    edit.add_media_root(removed.clone()).unwrap();
+    edit.commit().unwrap();
+    drop(edit);
+    let base = source.read_session().unwrap().decision_base();
+    let mut edit = source.begin_edit(base).unwrap();
+    edit.set_media_root_enabled(retained.id(), false).unwrap();
+    edit.remove_media_root(removed.id()).unwrap();
+    edit.commit().unwrap();
+    drop(edit);
+    let mut chunks = Vec::new();
+    let manifest = source
+        .export_checkpoint(|chunk| {
+            chunks.push(chunk);
+            Ok(())
+        })
+        .unwrap();
+    let valid = documents(&chunks, CheckpointSection::Roots);
+    let wrong_label = MediaRoot::new(
+        retained.id(),
+        "Essence",
+        Some("Forged".into()),
+        None,
+        2,
+        false,
+    )
+    .unwrap();
+    let extra = MediaRoot::new(MediaRootId::new(), "Unexplained", None, None, 1, true).unwrap();
+    let cases = [
+        (CheckpointSection::Roots, vec![encode_root(&retained)]),
+        (CheckpointSection::Roots, vec![encode_root(&wrong_label)]),
+        (
+            CheckpointSection::Roots,
+            vec![valid[0].clone(), encode_root(&removed)],
+        ),
+        (
+            CheckpointSection::Roots,
+            vec![valid[0].clone(), encode_root(&extra)],
+        ),
+        (
+            CheckpointSection::Roots,
+            vec![valid[0].clone(), valid[0].clone()],
+        ),
+        (CheckpointSection::Roots, Vec::new()),
+        (CheckpointSection::ConflictVersions, Vec::new()),
+    ];
+    for (section, documents) in cases {
+        let (rewritten, body) = replace_section(&manifest, &chunks, section, &documents);
+        let destination = directory.path().join("rejected-root.pproj");
+        assert!(
+            matches!(SqliteProduction::import_checkpoint(&destination, &rewritten,
+            body.into_iter().map(Ok), CheckpointLimits::default()), Err(postproject_storage_sqlite::ExchangeError::Protocol(error))
+            if error.kind() == postproject_protocol::FailureKind::Integrity)
+        );
+        assert!(!destination.exists());
+    }
+}
