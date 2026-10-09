@@ -5,7 +5,9 @@ use postproject_core::{
     RepresentationFingerprint,
 };
 use postproject_media::prepare_original_media;
-use postproject_protocol::RecordFeature;
+use postproject_protocol::{
+    Document, Extensions, FrameDecoder, Limits, RecordChunk, RecordFeature, RecordManifest,
+};
 use postproject_storage_sqlite::{ReplayLimits, SqliteProduction};
 
 fn dependencies(import: &OriginalMediaImport) -> Vec<Dependency> {
@@ -177,5 +179,166 @@ fn empty_repeated_floating_pinned_and_invalidated_observations_converge() {
                 ReplayLimits::default()
             )
             .unwrap()
+    );
+}
+
+fn frames(source: &SqliteProduction) -> Vec<Document> {
+    let mut reader = source.record_reader(1).unwrap();
+    let mut decoder = FrameDecoder::new(Limits::default());
+    let mut documents = Vec::new();
+    while let Some(chunk) = reader.next_chunk().unwrap() {
+        let mut offset = 0;
+        while offset < chunk.payload().len() {
+            let (read, document) = decoder.consume(&chunk.payload()[offset..]).unwrap();
+            offset += read;
+            if let Some(document) = document {
+                documents.push(document);
+            }
+        }
+    }
+    decoder.finish().unwrap();
+    documents
+}
+
+fn rehashed(original: &RecordManifest, documents: &[Document]) -> (RecordManifest, RecordChunk) {
+    let mut payload = Vec::new();
+    for document in documents {
+        let bytes = document.canonical_bytes().unwrap();
+        payload.extend_from_slice(&u64::try_from(bytes.len()).unwrap().to_be_bytes());
+        payload.extend(bytes);
+    }
+    let chunk = RecordChunk::new(
+        original.predecessor().scope(),
+        original.revision().id(),
+        0,
+        None,
+        payload,
+        Extensions::default(),
+    )
+    .unwrap();
+    let mut chain = original.chunk_chain();
+    chain.push(&chunk).unwrap();
+    let manifest = RecordManifest::new(
+        original.predecessor(),
+        original.revision().clone(),
+        chain.finish().unwrap(),
+        original.effect_count(),
+        original.event_count(),
+        original.extensions().clone(),
+    )
+    .unwrap()
+    .with_required_features(original.required_features())
+    .unwrap();
+    (manifest, chunk)
+}
+
+fn assert_rejected(
+    source: &SqliteProduction,
+    path: &std::path::Path,
+    manifest: &RecordManifest,
+    chunk: RecordChunk,
+) {
+    let mut mirror = SqliteProduction::create_genesis_mirror(
+        path,
+        source.production(),
+        source.exchange_floor().unwrap(),
+    )
+    .unwrap();
+    assert!(
+        mirror
+            .apply_record(manifest, [Ok(chunk)], ReplayLimits::default())
+            .is_err()
+    );
+    assert_eq!(mirror.exchange_head().unwrap().sequence(), 0);
+    drop(mirror);
+    let connection = rusqlite::Connection::open(path).unwrap();
+    for table in [
+        "assets",
+        "representations",
+        "resources",
+        "dependency_sets",
+        "dependencies",
+        "revisions",
+        "revision_events",
+        "conflict_versions",
+        "exchange_records",
+        "exchange_record_chunks",
+    ] {
+        let count: i64 = connection
+            .query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(count, 0, "published prefix in {table}");
+    }
+}
+
+#[test]
+fn rehashed_dependency_contradictions_publish_no_creation_or_history_prefix() {
+    let directory = tempfile::tempdir().unwrap();
+    let (source, _) = source(directory.path());
+    let original = source.record_reader(1).unwrap().manifest().clone();
+    let documents = frames(&source);
+    let foreign = postproject_core::RepresentationId::new().to_string();
+    let contradictions: [(&str, usize, &[&str], &str); 9] = [
+        ("dependency.set", 0, &["recorded_revision_sequence"], "2"),
+        ("dependency.set", 0, &["status"], "needs-extraction"),
+        ("dependency.set", 0, &["source_representation_id"], &foreign),
+        ("dependency.set", 1, &["occurrence_count"], "0"),
+        ("dependency.occurrence", 0, &["position"], "1"),
+        (
+            "dependency.occurrence",
+            0,
+            &["source_representation_id"],
+            &foreign,
+        ),
+        (
+            "dependency.occurrence",
+            0,
+            &["dependency", "source_resource_id"],
+            &foreign,
+        ),
+        (
+            "dependency.occurrence",
+            0,
+            &["dependency", "resolved_representation_id"],
+            &foreign,
+        ),
+        ("dependency.set", 3, &["occurrence_count"], "4"),
+    ];
+    for (index, (kind, position, path, value)) in contradictions.into_iter().enumerate() {
+        let mut altered = documents.clone();
+        let document = altered
+            .iter_mut()
+            .filter(|document| document.kind().unwrap() == kind)
+            .nth(position)
+            .unwrap();
+        let mut text = String::from_utf8(document.canonical_bytes().unwrap()).unwrap();
+        // These fixture fields are unique, unescaped UUID/status/decimal strings.
+        let marker = format!("\"{}\":\"", path.last().unwrap());
+        let start = text.find(&marker).unwrap() + marker.len();
+        let end = start + text[start..].find('"').unwrap();
+        text.replace_range(start..end, value);
+        *document = Document::parse(text.as_bytes(), Limits::default()).unwrap();
+        let (manifest, chunk) = rehashed(&original, &altered);
+        assert_rejected(
+            &source,
+            &directory.path().join(format!("forged-{index}.pproj")),
+            &manifest,
+            chunk,
+        );
+    }
+    let mut missing = documents;
+    let index = missing
+        .iter()
+        .position(|document| document.kind().unwrap() == "dependency.occurrence")
+        .unwrap();
+    missing.remove(index);
+    let (manifest, chunk) = rehashed(&original, &missing);
+    assert_rejected(
+        &source,
+        &directory.path().join("missing.pproj"),
+        &manifest,
+        chunk,
     );
 }
