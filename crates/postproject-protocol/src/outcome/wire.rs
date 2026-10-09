@@ -75,7 +75,7 @@ pub(super) fn decode(document: &Document) -> Result<Outcome> {
             })
             .collect::<Result<Vec<_>>>()?
     };
-    if !legacy && names.contains(&"jobs.v1") != !jobs.is_empty() {
+    if !legacy && names.contains(&"jobs.v1") == jobs.is_empty() {
         return Err(malformed());
     }
     let receipt = Document {
