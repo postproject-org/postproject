@@ -10,6 +10,7 @@ mod chunk;
 mod command;
 mod conflict;
 mod conflict_floor;
+mod creation;
 mod digest;
 mod effect;
 mod error;
@@ -48,6 +49,7 @@ pub use chunk::{
 pub use command::Command;
 pub use conflict::{decode_transaction_conflict, encode_transaction_conflict};
 pub use conflict_floor::{decode_conflict_floor, encode_conflict_floor};
+pub use creation::{RepresentationCreationStart, ResourceCreationStart};
 pub use digest::{Digest, DigestDomain};
 pub use effect::{MetadataChange, MetadataEffect, MetadataEffectStart, MetadataOperation};
 pub use error::{FailureKind, ProtocolError, Result};
