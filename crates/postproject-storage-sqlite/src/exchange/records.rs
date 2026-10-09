@@ -12,7 +12,9 @@ pub(crate) use replay::apply;
 use postproject_core::{
     Error, ErrorKind, ProductionId, Result, Revision, RevisionEvent, RevisionEventKind,
 };
-use postproject_protocol::{Document, Extensions, Limits, Position, RecordManifest, encode_event};
+use postproject_protocol::{
+    Document, Extensions, Limits, Position, RecordFeature, RecordManifest, encode_event,
+};
 use rusqlite::{Connection, OptionalExtension, params};
 
 use crate::sqlite_error;
@@ -101,7 +103,12 @@ pub(crate) fn capture_metadata(
     let Some(predecessor) = position(connection, production, revision.sequence() - 1)? else {
         return Ok(());
     };
-    if effects.is_empty() || effects.len() != events.len() {
+    if effects.is_empty()
+        || effects
+            .iter()
+            .flat_map(super::CapturedEffect::observations)
+            .ne(events.iter().cloned())
+    {
         return Err(Error::new(
             ErrorKind::Internal,
             "metadata capture does not cover every observation",
@@ -109,8 +116,7 @@ pub(crate) fn capture_metadata(
     }
     let mut writer = writer::RecordWriter::new(connection, predecessor.scope(), revision.id());
     for effect in effects {
-        let effect = effect.metadata();
-        for frame in effect.frames() {
+        for frame in effect.frames(revision.sequence()).map_err(|_| encoding())? {
             writer.document(&frame.map_err(|_| encoding())?)?;
         }
     }
@@ -128,6 +134,12 @@ pub(crate) fn capture_metadata(
         u64::try_from(events.len()).map_err(|_| encoding())?,
         Extensions::default(),
     )
+    .and_then(|manifest| {
+        manifest.with_required_features(
+            std::iter::once(RecordFeature::RecordChunks)
+                .chain(effects.iter().map(super::CapturedEffect::feature)),
+        )
+    })
     .and_then(|manifest| manifest.document())
     .and_then(|document| document.canonical_bytes())
     .map_err(|_| encoding())?;

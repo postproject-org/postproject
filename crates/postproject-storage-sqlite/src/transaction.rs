@@ -202,7 +202,15 @@ impl<'production> SqliteTransaction<'production> {
     /// [`ErrorKind::Unsupported`] if the file size exceeds SQLite's signed
     /// integer range, or a storage/conflict error if persistence fails.
     pub fn import_original(&mut self, import: &OriginalMediaImport) -> Result<()> {
-        self.stage_media_atomically(|transaction| transaction.import_original_inner(import))
+        self.stage_media_atomically(|transaction| {
+            transaction.import_original_inner(import)?;
+            transaction
+                .pending_effects
+                .push(crate::exchange::CapturedEffect::OriginalCreated(Box::new(
+                    import.clone(),
+                )));
+            Ok(())
+        })
     }
 
     fn import_original_inner(&mut self, import: &OriginalMediaImport) -> Result<()> {
@@ -238,7 +246,13 @@ impl<'production> SqliteTransaction<'production> {
     /// Returns [`ErrorKind::NotFound`] when the owning asset is absent, or a
     /// storage-domain error when persistence rejects the aggregate.
     pub fn add_representation(&mut self, import: &RepresentationImport) -> Result<()> {
-        self.stage_media_atomically(|transaction| transaction.add_representation_inner(import))
+        self.stage_media_atomically(|transaction| {
+            transaction.add_representation_inner(import)?;
+            transaction.pending_effects.push(
+                crate::exchange::CapturedEffect::RepresentationCreated(Box::new(import.clone())),
+            );
+            Ok(())
+        })
     }
 
     fn add_representation_inner(&mut self, import: &RepresentationImport) -> Result<()> {
@@ -1816,7 +1830,7 @@ impl<'production> SqliteTransaction<'production> {
                 revision_id,
                 self.pending_effects
                     .iter()
-                    .map(crate::exchange::CapturedEffect::metadata),
+                    .filter_map(crate::exchange::CapturedEffect::metadata),
             )?;
             let committed_revision = Revision::new(
                 revision_id,
