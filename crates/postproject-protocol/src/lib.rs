@@ -67,5 +67,7 @@ pub use role::StoreRole;
 pub use scope::{
     CheckpointId, ClientId, HistoryId, MirrorInstanceId, ProtocolBase, RequestId, Scope,
 };
-pub use structure::{SequenceException, StructureHeader, StructureMember};
+pub use structure::{
+    SequenceException, StructureAssembler, StructureHeader, StructureMember, encode_structure,
+};
 pub use version::ConflictVersion;
