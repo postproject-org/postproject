@@ -11,6 +11,7 @@ mod command;
 mod conflict;
 mod conflict_floor;
 mod creation;
+mod dependency;
 mod digest;
 mod effect;
 mod error;
@@ -54,6 +55,7 @@ pub use creation::{
     CreationDecoder, CreationFact, RepresentationCreationStart, ResourceCreationStart,
     decode_original_creation_start, encode_original_creation, encode_representation_creation,
 };
+pub use dependency::DependencySetHeader;
 pub use digest::{Digest, DigestDomain};
 pub use effect::{
     MetadataCanonicalParts, MetadataChange, MetadataEffect, MetadataEffectStart, MetadataOperation,
