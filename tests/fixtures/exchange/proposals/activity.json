@@ -1,0 +1,59 @@
+{
+  "kind": "proposal",
+  "version": "1",
+  "required_features": [
+    "provenance.v1"
+  ],
+  "production": "00000000-0000-4000-8000-000000000001",
+  "history": "00000000-0000-4000-8000-000000000002",
+  "client": "00000000-0000-4000-8000-000000000003",
+  "request": "00000000-0000-4000-8000-000000000068",
+  "base": null,
+  "origin": null,
+  "message": "Fixed independent Python vector",
+  "commands": [
+    {
+      "kind": "activity.create",
+      "header": {
+        "kind": "activity.header",
+        "id": "00000000-0000-4000-8000-000000000009",
+        "activity_kind": "vendor:Build",
+        "started_at_micros": "-9007199254740993",
+        "finished_at_micros": "9007199254740993",
+        "input_count": "2",
+        "output_count": "1",
+        "tool": {
+          "name": "Worker \ud83d\ude00",
+          "version": "Exact",
+          "uri": "urn:vendor:worker"
+        },
+        "agent": null
+      },
+      "inputs": [
+        {
+          "representation_id": "00000000-0000-4000-8000-000000000006",
+          "role": "vendor:source"
+        },
+        {
+          "representation_id": "00000000-0000-4000-8000-000000000007",
+          "role": null
+        }
+      ],
+      "outputs": [
+        {
+          "representation_id": "00000000-0000-4000-8000-00000000000a",
+          "role": null
+        }
+      ]
+    }
+  ],
+  "extensions": {
+    "vendor:exact": {
+      "ordered": [
+        "\u540c",
+        "\u540c",
+        "\ud83d\ude00"
+      ]
+    }
+  }
+}

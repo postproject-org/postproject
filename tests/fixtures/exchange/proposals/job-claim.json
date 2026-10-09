@@ -1,0 +1,36 @@
+{
+  "kind": "proposal",
+  "version": "1",
+  "required_features": [
+    "jobs.v1"
+  ],
+  "production": "00000000-0000-4000-8000-000000000001",
+  "history": "00000000-0000-4000-8000-000000000002",
+  "client": "00000000-0000-4000-8000-000000000003",
+  "request": "00000000-0000-4000-8000-00000000006a",
+  "base": null,
+  "origin": null,
+  "message": "Fixed independent Python vector",
+  "commands": [
+    {
+      "kind": "job.claim",
+      "id": "00000000-0000-4000-8000-00000000000b",
+      "duration_micros": "86400000000",
+      "tool": {
+        "name": "Worker \ud83d\ude00",
+        "version": null,
+        "uri": "urn:vendor:worker"
+      },
+      "agent": null
+    }
+  ],
+  "extensions": {
+    "vendor:exact": {
+      "ordered": [
+        "\u540c",
+        "\u540c",
+        "\ud83d\ude00"
+      ]
+    }
+  }
+}

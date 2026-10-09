@@ -1,0 +1,46 @@
+{
+  "kind": "proposal",
+  "version": "1",
+  "required_features": [
+    "jobs.v1"
+  ],
+  "production": "00000000-0000-4000-8000-000000000001",
+  "history": "00000000-0000-4000-8000-000000000002",
+  "client": "00000000-0000-4000-8000-000000000003",
+  "request": "00000000-0000-4000-8000-000000000069",
+  "base": null,
+  "origin": null,
+  "message": "Fixed independent Python vector",
+  "commands": [
+    {
+      "kind": "job.request",
+      "header": {
+        "kind": "job.header",
+        "id": "00000000-0000-4000-8000-00000000000b",
+        "job_kind": "vendor:Work",
+        "input_count": "2",
+        "requested_output": {
+          "asset_id": "00000000-0000-4000-8000-000000000005",
+          "role": "proxy",
+          "target_root": "plates"
+        },
+        "state": {
+          "kind": "requested"
+        }
+      },
+      "inputs": [
+        "00000000-0000-4000-8000-000000000006",
+        "00000000-0000-4000-8000-000000000007"
+      ]
+    }
+  ],
+  "extensions": {
+    "vendor:exact": {
+      "ordered": [
+        "\u540c",
+        "\u540c",
+        "\ud83d\ude00"
+      ]
+    }
+  }
+}
