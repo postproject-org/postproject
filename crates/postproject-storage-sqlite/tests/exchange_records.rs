@@ -222,16 +222,29 @@ fn missing_or_corrupt_chunks_make_public_readers_terminal() {
 
 #[test]
 fn uncaptured_families_never_advertise_a_complete_replay_head() {
-    use postproject_core::{MediaRoot, MediaRootId};
+    use postproject_core::{Activity, ActivityId, ActivityKind, ActivityOutput};
+    use postproject_media::prepare_original_media;
     use postproject_protocol::FailureKind;
     use postproject_storage_sqlite::ExchangeError;
     let directory = tempfile::tempdir().unwrap();
     let path = directory.path().join("authority.pproj");
     let mut production = SqliteProduction::create(&path, None).unwrap();
     let target = ObjectRef::Production(production.production().id());
+    let media = directory.path().join("fixture.mov");
+    std::fs::write(&media, b"test media").unwrap();
+    let import = prepare_original_media(&media, None, None).unwrap();
     let mut edit = production.begin_transaction().unwrap();
-    edit.add_media_root(MediaRoot::new(MediaRootId::new(), "rushes", None, None, 0, true).unwrap())
-        .unwrap();
+    edit.import_original(&import).unwrap();
+    edit.create_activity(
+        &Activity::new(
+            ActivityId::new(),
+            ActivityKind::new("unknown:activity").unwrap(),
+            Vec::new(),
+            vec![ActivityOutput::new(import.representation().id(), None)],
+        )
+        .unwrap(),
+    )
+    .unwrap();
     edit.commit().unwrap();
     drop(edit);
     assert!(

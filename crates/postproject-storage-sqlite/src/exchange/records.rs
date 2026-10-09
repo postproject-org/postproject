@@ -1,4 +1,4 @@
-//! Atomic capture of the metadata vertical slice; other families remain pending.
+//! Atomic capture of metadata and media; other families remain pending.
 
 pub(super) mod chunks;
 mod reader;
@@ -96,6 +96,15 @@ pub(crate) fn capture_metadata(
             event,
             RevisionEventKind::MetadataAddedOrReplaced { .. }
                 | RevisionEventKind::MetadataRemoved { .. }
+                | RevisionEventKind::AssetImported { .. }
+                | RevisionEventKind::RepresentationAdded { .. }
+                | RevisionEventKind::ResourceAdded { .. }
+                | RevisionEventKind::RepresentationResourceAdded { .. }
+                | RevisionEventKind::LocatorAdded { .. }
+                | RevisionEventKind::LocatorRetired { .. }
+                | RevisionEventKind::MediaRootAdded { .. }
+                | RevisionEventKind::MediaRootEnabledChanged { .. }
+                | RevisionEventKind::MediaRootRemoved { .. }
         )
     }) {
         return Ok(());
@@ -111,7 +120,7 @@ pub(crate) fn capture_metadata(
     {
         return Err(Error::new(
             ErrorKind::Internal,
-            "metadata capture does not cover every observation",
+            "authored capture does not cover every observation",
         ));
     }
     let mut writer = writer::RecordWriter::new(connection, predecessor.scope(), revision.id());
@@ -162,6 +171,6 @@ fn invalid() -> Error {
 fn encoding() -> Error {
     Error::new(
         ErrorKind::Internal,
-        "cannot encode complete metadata record",
+        "cannot encode complete authored record",
     )
 }
