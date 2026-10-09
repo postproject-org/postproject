@@ -124,6 +124,11 @@ requiredness and exact reference text. Native replacement emits current status;
 replay validates references and the original revision without extracting content.
 It rejects equivalent current replacements that would have been native no-ops.
 
+`activity.header` retains assigned identity, exact kind, optional authored times,
+checked tool/agent attribution and native input/output counts. Empty input sets
+are valid; at least one output is required. Complete activity edge/snapshot replay
+remains unsupported.
+
 `original.creation` retains the assigned asset header and is followed by its
 complete original representation. `representation.creation` declares scalar ownership plus resource, locator and
 representation-fingerprint counts. Continuations contain representation evidence,

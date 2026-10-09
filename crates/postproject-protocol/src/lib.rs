@@ -3,6 +3,7 @@
 //! Parsing a JSON document validates framing only. Domain command decoding must
 //! additionally use checked core constructors and current storage guards.
 
+mod activity;
 mod assertion;
 mod asset;
 mod checkpoint;
@@ -40,6 +41,7 @@ mod scope;
 mod structure;
 mod version;
 
+pub use activity::ActivityHeader;
 pub use assertion::SnapshotAssertion;
 pub use asset::{decode_asset, encode_asset};
 pub use checkpoint::{

@@ -5,7 +5,7 @@ All notable changes to PostProject will be documented here. The project uses
 
 ## Unreleased
 
-- Add experimental portable-exchange codecs and exact canonical values for metadata, media facts and original observations (ADR 0065).
+- Add experimental portable-exchange codecs for metadata, media facts, provenance attribution and original observations (ADR 0065).
 - Persist exchange histories, metadata/media/dependency records and durable submission outcomes in schema 24; reconstruct passive metadata checkpoints and replay native authored facts.
 - Roll back failed media, fingerprint, dependency and activity staging while preserving unrelated edits and guards.
 - Preserve activity identifier attachments when capturing native edits.
