@@ -80,7 +80,7 @@ pub use json::{Document, Limits};
 pub use locator::{decode_locator, encode_locator};
 pub use media_change::MediaChange;
 pub use metadata::{decode_metadata, encode_metadata};
-pub use outcome::{Outcome, OutcomeStatus};
+pub use outcome::{JobResult, JobResultState, Outcome, OutcomeStatus};
 pub use position::Position;
 pub use production::ProductionHeader;
 pub use proposal::{MAX_PROPOSAL_COMMANDS, Proposal};

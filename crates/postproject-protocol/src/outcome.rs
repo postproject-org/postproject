@@ -1,6 +1,8 @@
 //! Stable public results for identified decoded proposals.
 
+mod job;
 mod wire;
+pub use job::{JobResult, JobResultState};
 
 use postproject_core::CommitReceipt;
 
