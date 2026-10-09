@@ -28,7 +28,9 @@ members/exceptions, roots, locators, exact identifiers and fingerprint history.
 Creation decoding yields provisional facts individually, checking complete resource
 and location coverage. Original/representation creation, roots, locators and
 exact identifiers, file-fact and standalone fingerprint updates now enter ordered native capture and
-atomic passive replay. Media checkpoint bodies remain pending. Fingerprint replay
+atomic passive replay. Media checkpoint bodies preserve all four content shapes,
+exact attachments, current and historical fingerprints, dirty markers and later
+measurements/locator replacement. Fingerprint replay
 preserves same-revision supersessions and unchanged dirty clears, and rejects
 rehashed contradictory boundaries, markers and incomplete owner coverage.
 Dependency replacement captures complete empty and ordered occurrence sets,
@@ -52,7 +54,8 @@ records atomically, preserving original revision/events and semantic versions.
 All four content shapes converge across distinct files without media I/O.
 Repeated root/locator/file-fact transitions retain authored intermediates.
 Rehashed contradictory creation facts reject without a visible staged prefix.
-Rust checkpoint export/import now reconstructs production metadata, roots, retained
+Rust checkpoint export/import reconstructs media, identifiers, metadata, roots,
+current/historical fingerprint evidence and recomputation, retained
 revisions/events, semantic guards and post-floor records through bounded sections.
 Export pins one view; import checks current assertions against authored effects
 and promotes a closed passive store exclusively. Two distinct checkpoint bases
@@ -60,7 +63,7 @@ converge through a contiguous suffix, including a migrated schema-19 baseline.
 Receiver budgets and iterator cancellation roll back the whole import/apply.
 Process-exit tests cover streaming, private commit and completion sealing;
 restart preserves unrelated files and altered/existing destinations.
-Other domain bodies, pre-floor development fragments and checkpoint envelope
+Activity/dependency/job bodies, pre-floor development fragments and checkpoint envelope
 extensions remain unsupported. Complete production checkpoints remain pending.
 Identified metadata/media submissions retain accepted/no-op/rejected public
 outcomes in the same writer transaction. Root, locator, identifier and file-fact

@@ -39,7 +39,7 @@ fn fingerprint_transport_preserves_both_domains_intermediate_history_and_dirty_e
         );
     }
     assert!(
-        matches!(bodies.document(CheckpointSection::Fingerprints, &documents[0]), Err(crate::ExchangeError::Protocol(error)) if error.kind() == postproject_protocol::FailureKind::Unsupported)
+        matches!(bodies.document(CheckpointSection::Fingerprints, &documents[0]), Err(crate::ExchangeError::Protocol(error)) if error.kind() == postproject_protocol::FailureKind::Integrity)
     );
     drop(bodies);
     transaction.rollback().unwrap();

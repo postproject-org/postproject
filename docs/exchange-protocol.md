@@ -283,8 +283,9 @@ match the source head sequence; record totals match head minus source replay
 floor. A nonempty section declares item count and complete chunk-chain summary;
 an empty section declares zero items and no chunks. Chunks bind source scope,
 checkpoint identity, section, index, predecessor digest and exact payload bytes.
-Rust export/import currently supports production metadata, logical roots and
-their retained history/guards/records. `root.fact` retains configured names,
+Rust export/import supports media identities, all four content shapes, locators,
+identifiers, metadata, roots, current/historical fingerprints and recomputation,
+with their retained history, guards and records. `root.fact` retains configured names,
 labels, fallback URIs, priority and enabled state; local mappings are excluded. Metadata items are `metadata.assertion` frames with exact
 target, property, position and typed value. `revision.observation` retains the
 original context/time/transaction. `conflict.version` uses a semantic key;
@@ -294,8 +295,10 @@ advertised record chunks. A defined structure item contains its header and exact
 member/exception continuations; only the header advances the item count. Frame
 and section boundaries must be fully consumed.
 Root history validates additions, enabled transitions and removals against the
-current section, including removed-root guards. Other domain bodies, pre-floor development fragments and nonempty checkpoint
-envelope extensions reject as unsupported; complete production import is pending.
+current section, including removed-root guards. Retained media creations and
+mutable facts must explain the current sections and original observation order.
+Activity, dependency and job bodies, pre-floor development fragments and nonempty
+checkpoint extensions remain unsupported; complete production import is pending.
 
 Checkpoint receiver defaults are 1 GiB encoded transport, 2 GiB private staging
 disk and 10,000,000 decoded frames, including nested record frames. Callers may

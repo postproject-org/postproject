@@ -86,6 +86,13 @@ impl RetainedEffects {
             }
             "fingerprint.change" => {
                 let start = FingerprintChangeStart::from_document(document)?;
+                if start.dependency_invalidated() {
+                    return Err(postproject_protocol::ProtocolError::new(
+                        postproject_protocol::FailureKind::Unsupported,
+                        "checkpoint dependency invalidation audit is not supported yet",
+                    )
+                    .into());
+                }
                 self.require_media_target(connection, start.target())?;
                 fingerprint_state::changed(connection, &start, self.sequence, self.floor)?;
                 match start.target() {

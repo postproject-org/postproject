@@ -66,24 +66,6 @@ impl<'a, 'connection> Bodies<'a, 'connection> {
         if self.structure.is_some() && section != CheckpointSection::Structures {
             return Err(super::super::invalid().into());
         }
-        // New media staging helpers remain closed until retained-state checks
-        // cover their full domain. A caller must never publish a partial profile.
-        if matches!(
-            section,
-            CheckpointSection::Assets
-                | CheckpointSection::Resources
-                | CheckpointSection::Representations
-                | CheckpointSection::Structures
-                | CheckpointSection::Locators
-                | CheckpointSection::Identifiers
-                | CheckpointSection::Fingerprints
-        ) {
-            return Err(postproject_protocol::ProtocolError::new(
-                postproject_protocol::FailureKind::Unsupported,
-                "checkpoint media evidence validation is not complete yet",
-            )
-            .into());
-        }
         match section {
             CheckpointSection::Production => self.production(document)?,
             CheckpointSection::Locators => self.locator(document)?,

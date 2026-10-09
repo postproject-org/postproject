@@ -112,6 +112,56 @@ fn scalar_and_structural_reads_preserve_all_shapes_without_loading_other_collect
     }
 }
 
+fn assert_checkpoint_round_trip(source: &SqliteProduction, import: &OriginalMediaImport) {
+    let directory = tempfile::tempdir().unwrap();
+    let mut chunks = Vec::new();
+    let manifest = source
+        .export_checkpoint(|chunk| {
+            chunks.push(chunk);
+            Ok(())
+        })
+        .unwrap();
+    let mirror = SqliteProduction::import_checkpoint(
+        directory.path().join("mirror.pproj"),
+        &manifest,
+        chunks.into_iter().map(Ok),
+        crate::CheckpointLimits::default(),
+    )
+    .unwrap();
+    assert_eq!(
+        source.asset(import.asset().id()).unwrap(),
+        mirror.asset(import.asset().id()).unwrap()
+    );
+    let representation = import.representation().id();
+    assert_eq!(
+        source.representation(representation).unwrap(),
+        mirror.representation(representation).unwrap()
+    );
+    assert_eq!(
+        source.resources(representation).unwrap(),
+        mirror.resources(representation).unwrap()
+    );
+    for resource in import.resources() {
+        assert_eq!(
+            source.locators(resource.id()).unwrap(),
+            mirror.locators(resource.id()).unwrap()
+        );
+    }
+    let target = ObjectRef::Asset(import.asset().id());
+    assert_eq!(
+        source.external_identifiers(target).unwrap(),
+        mirror.external_identifiers(target).unwrap()
+    );
+    assert_eq!(
+        source.changes_since(0, 10).unwrap(),
+        mirror.changes_since(0, 10).unwrap()
+    );
+    assert_eq!(
+        source.exchange_head().unwrap(),
+        mirror.exchange_head().unwrap()
+    );
+}
+
 fn assert_staging_round_trip(source: &SqliteProduction, import: &OriginalMediaImport) {
     use super::super::Bodies;
     use crate::exchange::checkpoint::{sections, writer::SectionWriter};
@@ -175,15 +225,10 @@ fn assert_staging_round_trip(source: &SqliteProduction, import: &OriginalMediaIm
         *import.representation().content_structure()
     );
     assert_staged_access(&transaction, import);
-    // Component checks only: public import stays closed until its complete
-    // retained-state validator is implemented.
-    let document = postproject_protocol::encode_asset(import.asset());
-    assert!(
-        matches!(bodies.document(CheckpointSection::Assets, &document), Err(crate::ExchangeError::Protocol(error)) if error.kind() == postproject_protocol::FailureKind::Unsupported)
-    );
     drop(bodies);
     transaction.rollback().unwrap();
     assert_eq!(destination.assets().unwrap(), Vec::new());
+    assert_checkpoint_round_trip(source, import);
 }
 
 fn stage_section(
