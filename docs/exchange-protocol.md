@@ -284,7 +284,8 @@ floor. A nonempty section declares item count and complete chunk-chain summary;
 an empty section declares zero items and no chunks. Chunks bind source scope,
 checkpoint identity, section, index, predecessor digest and exact payload bytes.
 Rust export/import supports media identities, all four content shapes, locators,
-identifiers, metadata, roots, current/historical fingerprints and recomputation,
+identifiers, metadata, roots, activities with original fingerprint snapshots,
+current/historical fingerprints and recomputation,
 with their retained history, guards and records. `root.fact` retains configured names,
 labels, fallback URIs, priority and enabled state; local mappings are excluded. Metadata items are `metadata.assertion` frames with exact
 target, property, position and typed value. `revision.observation` retains the
@@ -297,7 +298,10 @@ and section boundaries must be fully consumed.
 Root history validates additions, enabled transitions and removals against the
 current section, including removed-root guards. Retained media creations and
 mutable facts must explain the current sections and original observation order.
-Activity, dependency and job bodies, pre-floor development fragments and nonempty
+Activity items count only their header; edge and snapshot frames are continuations.
+Retained activity frames must match the current immutable facts and the fingerprints
+available at publication, preserving later staleness and reproducibility results.
+Dependency and job bodies, pre-floor development fragments and nonempty
 checkpoint extensions remain unsupported; complete production import is pending.
 
 Checkpoint receiver defaults are 1 GiB encoded transport, 2 GiB private staging

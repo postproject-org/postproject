@@ -151,6 +151,10 @@ Checkpoint guard export decodes every actual private key through checked domain
 constructors rather than inferring keys from events. Guard frames are a unique
 set; earlier development metadata ordering remains readable. Unsupported domain
 sections still reject explicitly until their checkpoint bodies are available.
+Activity checkpoints retain original attribution, edges and fingerprint snapshots.
+Retained creation records must explain those immutable facts and match fingerprints
+at publication; current observations cannot replace historical evidence.
+Dependency and job checkpoint bodies remain unsupported.
 Logical roots now carry their original configuration and deletion guards. A
 private bounded consistency audit checks retained transitions against current
 roots; unknown migration facts remain baseline facts, never invented additions.
