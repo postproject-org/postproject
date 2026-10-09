@@ -1,8 +1,8 @@
 use postproject_core::{AssetId, RepresentationKind, RevisionEventKind, SemanticConflictKey};
 use postproject_protocol::{
-    Document, FailureKind, FingerprintChangeStart, IdentifierChange, MediaChange,
-    MetadataEffectStart, MetadataOperation, ProtocolError, RecordFeature, RecordManifest,
-    RepresentationCreationStart, decode_event, decode_original_creation_start,
+    DependencySetHeader, Document, FailureKind, FingerprintChangeStart, IdentifierChange,
+    MediaChange, MetadataEffectStart, MetadataOperation, ProtocolError, RecordFeature,
+    RecordManifest, RepresentationCreationStart, decode_event, decode_original_creation_start,
 };
 use rusqlite::{Transaction, params};
 
@@ -28,6 +28,7 @@ enum Pending {
     Original(AssetId),
     Creation(Box<super::creation::CreationApply>),
     Fingerprint(Box<super::fingerprint_change::FingerprintApply>),
+    Dependency(super::dependency::DependencyApply),
 }
 
 impl<'a, 'connection> ApplyEffects<'a, 'connection> {
@@ -51,6 +52,7 @@ impl<'a, 'connection> ApplyEffects<'a, 'connection> {
             Some(Pending::Original(_)) => return self.start_creation(document),
             Some(Pending::Creation(_)) => return self.creation_document(document),
             Some(Pending::Fingerprint(_)) => return self.fingerprint_document(document),
+            Some(Pending::Dependency(_)) => return self.dependency_document(document),
             None => {}
         }
         if self.effects < self.manifest.effect_count() {
@@ -78,6 +80,7 @@ impl<'a, 'connection> ApplyEffects<'a, 'connection> {
                 }
                 "representation.creation" => self.start_creation(document),
                 "fingerprint.change" => self.start_fingerprint(document),
+                "dependency.set" => self.start_dependency(document),
                 "identifier.added" | "identifier.removed" => self.identifier_document(document),
                 "resource.file-facts"
                 | "root.added"
@@ -121,6 +124,43 @@ impl<'a, 'connection> ApplyEffects<'a, 'connection> {
             return Err(invalid().into());
         }
         self.events += 1;
+        Ok(())
+    }
+
+    fn start_dependency(&mut self, document: &Document) -> ExchangeResult<()> {
+        self.require_feature(RecordFeature::Dependencies)?;
+        let header = DependencySetHeader::from_document(document)?;
+        let source = header.source_representation_id();
+        let pending =
+            super::dependency::DependencyApply::begin(self.transaction, self.manifest, header)?;
+        super::facts::changed(
+            self.transaction,
+            self.manifest,
+            &SemanticConflictKey::DependencySet(source),
+        )?;
+        super::facts::observation(
+            self.transaction,
+            self.manifest,
+            self.expected_events,
+            &RevisionEventKind::DependencySetRecorded {
+                representation_id: source,
+            },
+        )?;
+        self.expected_events += 1;
+        self.effects += 1;
+        if header.occurrence_count() != 0 {
+            self.effect = Some(Pending::Dependency(pending));
+        }
+        Ok(())
+    }
+
+    fn dependency_document(&mut self, document: &Document) -> ExchangeResult<()> {
+        let Some(Pending::Dependency(pending)) = self.effect.as_mut() else {
+            return Err(invalid().into());
+        };
+        if pending.push(self.transaction, document)? {
+            self.effect = None;
+        }
         Ok(())
     }
 

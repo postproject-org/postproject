@@ -123,3 +123,32 @@ fn unknown_duplicate_unordered_or_missing_requirements_reject() {
         );
     }
 }
+
+#[test]
+fn dependency_requirements_are_sorted_and_integrity_covered() {
+    let original = metadata_record();
+    let changed = original
+        .clone()
+        .with_required_features([
+            RecordFeature::RecordChunks,
+            RecordFeature::Media,
+            RecordFeature::Dependencies,
+        ])
+        .unwrap();
+    assert_eq!(
+        changed.required_features().collect::<Vec<_>>(),
+        [
+            RecordFeature::Dependencies,
+            RecordFeature::Media,
+            RecordFeature::RecordChunks
+        ]
+    );
+    assert_ne!(
+        changed.record_digest().unwrap(),
+        original.record_digest().unwrap()
+    );
+    assert_eq!(
+        RecordManifest::from_document(&changed.document().unwrap()).unwrap(),
+        changed
+    );
+}

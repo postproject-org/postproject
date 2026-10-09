@@ -10,6 +10,8 @@ use crate::{
 /// The wire names are ordered lexically and covered by the record digest.
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum RecordFeature {
+    /// Complete ordered dependency observations.
+    Dependencies,
     /// Media identity, structures, roots, locators and fingerprint evidence.
     Media,
     /// Typed, ordered metadata changes.
@@ -23,6 +25,7 @@ impl RecordFeature {
     #[must_use]
     pub const fn wire_name(self) -> &'static str {
         match self {
+            Self::Dependencies => "dependencies.v1",
             Self::Media => "media.v1",
             Self::Metadata => "metadata.v1",
             Self::RecordChunks => "record-chunks.v1",
@@ -46,6 +49,7 @@ pub(super) fn decode(value: &serde_json::Value) -> Result<BTreeSet<RecordFeature
             return Err(malformed());
         }
         let feature = match name {
+            "dependencies.v1" => RecordFeature::Dependencies,
             "media.v1" => RecordFeature::Media,
             "metadata.v1" => RecordFeature::Metadata,
             "record-chunks.v1" => RecordFeature::RecordChunks,

@@ -1,6 +1,7 @@
 //! Validate the complete source body before one atomic passive publication.
 
 mod creation;
+mod dependency;
 mod effects;
 mod facts;
 mod fingerprint_change;
