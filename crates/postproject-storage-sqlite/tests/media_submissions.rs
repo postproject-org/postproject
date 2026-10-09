@@ -213,3 +213,6 @@ mod guards;
 
 #[path = "media_submissions/prepared.rs"]
 mod prepared;
+
+#[path = "media_submissions/observations.rs"]
+mod observations;

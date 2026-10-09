@@ -100,6 +100,25 @@ impl SqliteTransaction<'_> {
             match command {
                 Command::ImportOriginal(import) => self.import_original(import)?,
                 Command::AddRepresentation(import) => self.add_representation(import)?,
+                Command::CreateActivity(activity) => self.create_activity(activity)?,
+                Command::RecordDependencySet {
+                    representation_id,
+                    dependencies,
+                } => {
+                    self.record_dependency_set(*representation_id, dependencies)?;
+                }
+                Command::RecordResourceFingerprint {
+                    resource_id,
+                    fingerprint,
+                } => {
+                    self.record_resource_fingerprint(*resource_id, fingerprint)?;
+                }
+                Command::RecordRepresentationFingerprint {
+                    representation_id,
+                    fingerprint,
+                } => {
+                    self.record_representation_fingerprint(*representation_id, fingerprint)?;
+                }
                 Command::AddMediaRoot(root) => self.add_media_root(root.clone())?,
                 Command::SetMediaRootEnabled { root_id, enabled } => {
                     self.set_media_root_enabled(*root_id, *enabled)?;
