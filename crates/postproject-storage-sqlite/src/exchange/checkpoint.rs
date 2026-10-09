@@ -1,6 +1,8 @@
 //! Coherent bounded checkpoint transport; domain coverage grows in checked slices.
 
 mod import;
+#[cfg(test)]
+mod media_facts;
 mod sections;
 mod writer;
 
