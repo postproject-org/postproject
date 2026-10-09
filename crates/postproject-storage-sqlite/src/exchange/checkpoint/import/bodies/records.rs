@@ -42,8 +42,7 @@ impl Bodies<'_, '_> {
         if u64::try_from(events).ok() != Some(manifest.event_count()) {
             return Err(invalid().into());
         }
-        let effects =
-            effects::RetainedEffects::new(&manifest, self.manifest.floor().sequence() == 0);
+        let effects = effects::RetainedEffects::new(&manifest, self.manifest.floor().sequence());
         self.record = Some(ImportedRecord {
             chain: manifest.chunk_chain(),
             manifest,

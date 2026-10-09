@@ -4,6 +4,7 @@ use postproject_protocol::{
 };
 
 use super::RetainedEffects;
+
 use crate::SqliteProduction;
 use crate::exchange::checkpoint::import::{guard_state, root_state};
 
@@ -37,7 +38,7 @@ fn every_retained_observation_needs_an_authored_effect_explanation() {
         let connection = &source.connection;
         root_state::create(connection).unwrap();
         guard_state::create(connection).unwrap();
-        let mut effects = RetainedEffects::new(&manifest, true);
+        let mut effects = RetainedEffects::new(&manifest, 0);
         effects
             .document(
                 connection,

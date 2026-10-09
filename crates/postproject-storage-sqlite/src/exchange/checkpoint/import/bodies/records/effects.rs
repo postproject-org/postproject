@@ -1,6 +1,9 @@
-use postproject_core::{RevisionEventKind, RevisionId, SemanticConflictKey};
+use postproject_core::{AssetId, RevisionEventKind, RevisionId, SemanticConflictKey};
+mod creation;
+mod media;
+
 use postproject_protocol::{
-    Document, MediaChange, MetadataEffectStart, RecordFeature, RecordManifest, decode_event,
+    Document, MetadataEffectStart, RecordFeature, RecordManifest, decode_event,
 };
 use rusqlite::Connection;
 
@@ -24,11 +27,15 @@ pub(super) struct RetainedEffects {
     remaining_values: u64,
     value_index: u64,
     effect: Option<MetadataEffectStart>,
+    creation: Option<creation::CreationAudit>,
+    original: Option<AssetId>,
+    fingerprint: Option<media::PendingFingerprint>,
+    floor: u64,
     genesis: bool,
 }
 
 impl RetainedEffects {
-    pub(super) fn new(manifest: &RecordManifest, genesis: bool) -> Self {
+    pub(super) fn new(manifest: &RecordManifest, floor: u64) -> Self {
         Self {
             revision: manifest.revision().id(),
             sequence: manifest.revision().sequence(),
@@ -46,7 +53,11 @@ impl RetainedEffects {
             remaining_values: 0,
             value_index: 0,
             effect: None,
-            genesis,
+            creation: None,
+            original: None,
+            fingerprint: None,
+            floor,
+            genesis: floor == 0,
         }
     }
 
@@ -55,6 +66,19 @@ impl RetainedEffects {
         connection: &Connection,
         document: &Document,
     ) -> ExchangeResult<()> {
+        if self.original.is_some() {
+            return self.original_representation(connection, document);
+        }
+        if let Some(creation) = self.creation.as_mut() {
+            creation.document(connection, document)?;
+            if creation.is_complete() {
+                self.creation.take().ok_or_else(invalid)?.finish()?;
+            }
+            return Ok(());
+        }
+        if self.fingerprint.is_some() {
+            return self.fingerprint_marker(connection, document);
+        }
         if self.remaining_values != 0 {
             let value = MetadataEffectStart::decode_value(document)?;
             super::super::super::metadata_state::value(
@@ -66,21 +90,7 @@ impl RetainedEffects {
             self.value_index += 1;
             self.remaining_values -= 1;
         } else if self.effects < self.total {
-            if matches!(
-                document.kind()?,
-                "root.added" | "root.enabled" | "root.removed"
-            ) {
-                if !self.media {
-                    return Err(invalid().into());
-                }
-                let change = MediaChange::from_document(document)?;
-                self.expect_observation(connection, &change.observation())?;
-                super::super::super::root_state::change(connection, &change, self.genesis)?;
-                super::super::super::guard_state::recorded(
-                    connection,
-                    &change.conflict_key(),
-                    self.sequence,
-                )?;
+            if self.media && self.media_effect(connection, document)? {
                 self.effects += 1;
                 return Ok(());
             }
@@ -132,6 +142,9 @@ impl RetainedEffects {
             || self.events != self.total_events
             || self.remaining_values != 0
             || self.expected_events != self.total_events
+            || self.creation.is_some()
+            || self.original.is_some()
+            || self.fingerprint.is_some()
         {
             return Err(invalid().into());
         }

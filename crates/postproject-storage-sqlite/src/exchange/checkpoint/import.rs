@@ -2,18 +2,13 @@
 
 mod bodies;
 mod completion;
-#[cfg(test)]
 mod fingerprint_state;
 mod guard_state;
-#[cfg(test)]
 mod identifier_state;
 mod limits;
-#[cfg(test)]
 mod locator_state;
-#[cfg(test)]
 mod media_state;
 mod metadata_state;
-#[cfg(test)]
 mod recomputation_state;
 mod recovery;
 mod root_state;
@@ -59,9 +54,16 @@ pub(crate) fn import(
     metadata_state::create(&transaction)?;
     root_state::create(&transaction)?;
     guard_state::create(&transaction)?;
+    media_state::create(&transaction)?;
+    locator_state::create(&transaction)?;
+    identifier_state::create(&transaction)?;
+    recomputation_state::create(&transaction)?;
     let mut bodies = bodies::Bodies::new(&transaction, manifest, limits);
     let mut chunks = chunks.into_iter();
     for summary in manifest.sections() {
+        if summary.section() == postproject_protocol::CheckpointSection::Records {
+            fingerprint_state::create(&transaction)?;
+        }
         let Some(declared) = summary.chunks() else {
             continue;
         };
@@ -108,6 +110,11 @@ pub(crate) fn import(
         return Err(super::invalid().into());
     }
     bodies.finish()?;
+    media_state::finish(&transaction, manifest.floor().sequence() == 0)?;
+    locator_state::finish(&transaction, manifest.floor().sequence() == 0)?;
+    identifier_state::finish(&transaction, manifest.floor().sequence() == 0)?;
+    fingerprint_state::finish(&transaction, manifest.floor().sequence())?;
+    recomputation_state::finish(&transaction, manifest.floor().sequence())?;
     metadata_state::finish(&transaction, manifest.floor().sequence() == 0)?;
     root_state::finish(&transaction, manifest.floor().sequence() == 0)?;
     guard_state::finish(&transaction, manifest.floor().sequence())?;
