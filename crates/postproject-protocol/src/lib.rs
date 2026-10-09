@@ -54,7 +54,9 @@ pub use creation::{
     encode_representation_creation,
 };
 pub use digest::{Digest, DigestDomain};
-pub use effect::{MetadataChange, MetadataEffect, MetadataEffectStart, MetadataOperation};
+pub use effect::{
+    MetadataCanonicalParts, MetadataChange, MetadataEffect, MetadataEffectStart, MetadataOperation,
+};
 pub use error::{FailureKind, ProtocolError, Result};
 pub use event::{decode_event, encode_event};
 pub use extensions::Extensions;

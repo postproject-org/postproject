@@ -1,7 +1,9 @@
 //! Authoritative facts are distinct from client command intent.
 
+mod canonical;
 mod stream;
 
+pub use canonical::MetadataCanonicalParts;
 pub use stream::{MetadataEffectStart, MetadataOperation};
 
 use postproject_core::{MetadataProperty, MetadataValue, ObjectRef};
@@ -48,6 +50,17 @@ pub enum MetadataChange<'a> {
 }
 
 impl MetadataEffect {
+    /// Streams the same canonical bytes as the complete effect document.
+    ///
+    /// Large replacements encode one metadata value at a time. A caller must
+    /// discard partial output on error; record body framing uses `frames()`.
+    ///
+    /// # Errors
+    /// Rejects unsupported target/value kinds or invalid internal document encoding.
+    pub fn canonical_parts(&self) -> Result<MetadataCanonicalParts<'_>> {
+        MetadataCanonicalParts::new(self)
+    }
+
     /// Records a validated assertion and its authority-assigned storage position.
     ///
     /// # Errors
