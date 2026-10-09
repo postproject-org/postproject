@@ -2,6 +2,8 @@
 
 use std::collections::BTreeMap;
 
+#[cfg(test)]
+mod conflict_key;
 mod dependency_compare;
 pub(crate) mod dependency_persist;
 pub(crate) mod fingerprint_capture;
