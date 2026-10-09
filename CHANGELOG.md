@@ -9,6 +9,7 @@ All notable changes to PostProject will be documented here. The project uses
 - Persist exchange histories, metadata/media records and durable submission outcomes in schema 24; reconstruct passive metadata checkpoints and replay native media facts.
 - Roll back failed media aggregate and fingerprint staging while preserving unrelated edits and guards.
 - Preserve activity identifier attachments when capturing native edits.
+- Stream large dependency comparisons and guard unchanged observations against stale bases.
 
 ## 0.7.0-alpha.1 - 2026-10-08
 

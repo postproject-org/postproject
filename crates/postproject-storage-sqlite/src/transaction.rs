@@ -2,6 +2,7 @@
 
 use std::collections::BTreeMap;
 
+mod dependency_compare;
 pub(crate) mod fingerprint_capture;
 mod job_leases;
 mod media_atomic;
@@ -10,14 +11,14 @@ mod submission;
 
 use postproject_core::{
     Activity, AgentIdentity, CommitReceipt, ContentStructure, ContentStructureKind, DecisionBase,
-    Dependency, DependencySetStatus, DependencyTarget, Error, ErrorKind, ExternalIdentifier,
-    FileFacts, Job, JobClaimId, JobFailure, JobId, JobState, Locator, LocatorAvailability,
-    LocatorId, MAX_DEPENDENCIES_PER_SET, MediaRoot, MediaRootId, MetadataProperty, MetadataValue,
-    ObjectRef, OriginalMediaImport, Production, ProductionStoreTransaction, Representation,
-    RepresentationFingerprint, RepresentationId, RepresentationImport, RepresentationKind,
-    Resource, ResourceFingerprint, ResourceId, Result, Revision, RevisionContext,
-    RevisionEventKind, RevisionId, SemanticConflictKey, SequenceNaming, Timestamp, ToolIdentity,
-    TransactionConflict, TransactionId, TransactionLifecycle, TransactionState,
+    Dependency, DependencyTarget, Error, ErrorKind, ExternalIdentifier, FileFacts, Job, JobClaimId,
+    JobFailure, JobId, JobState, Locator, LocatorAvailability, LocatorId, MAX_DEPENDENCIES_PER_SET,
+    MediaRoot, MediaRootId, MetadataProperty, MetadataValue, ObjectRef, OriginalMediaImport,
+    Production, ProductionStoreTransaction, Representation, RepresentationFingerprint,
+    RepresentationId, RepresentationImport, RepresentationKind, Resource, ResourceFingerprint,
+    ResourceId, Result, Revision, RevisionContext, RevisionEventKind, RevisionId,
+    SemanticConflictKey, SequenceNaming, Timestamp, ToolIdentity, TransactionConflict,
+    TransactionId, TransactionLifecycle, TransactionState,
 };
 use rusqlite::{
     Connection, ErrorCode, OptionalExtension, Transaction, TransactionBehavior, params,
@@ -25,8 +26,7 @@ use rusqlite::{
 
 use crate::{
     dependency_snapshot::persist_dependency_snapshot, encode_identifier_target,
-    encode_metadata_target, load_dependency_set, metadata_codec, revision_wait::RevisionSignal,
-    sqlite_error,
+    encode_metadata_target, metadata_codec, revision_wait::RevisionSignal, sqlite_error,
 };
 
 /// An explicit production mutation transaction.
@@ -1806,6 +1806,16 @@ impl<'production> SqliteTransaction<'production> {
         dependencies: &[Dependency],
     ) -> Result<bool> {
         self.require_decision_base()?;
+        self.stage_media_atomically(|transaction| {
+            transaction.record_dependency_set_inner(representation_id, dependencies)
+        })
+    }
+
+    fn record_dependency_set_inner(
+        &mut self,
+        representation_id: RepresentationId,
+        dependencies: &[Dependency],
+    ) -> Result<bool> {
         if dependencies.len() > MAX_DEPENDENCIES_PER_SET {
             return Err(Error::new(
                 ErrorKind::InvalidArgument,
@@ -1819,28 +1829,15 @@ impl<'production> SqliteTransaction<'production> {
                 "dependency source representation does not exist",
             ));
         }
-        if load_dependency_set(transaction, representation_id)?.is_some_and(|set| {
-            set.status() == DependencySetStatus::Current && set.dependencies() == dependencies
-        }) {
+        if dependency_compare::current_matches(transaction, representation_id, dependencies)? {
+            self.record_observation_guard(SemanticConflictKey::DependencySet(representation_id))?;
             return Ok(false);
         }
         for dependency in dependencies {
             validate_dependency_references(transaction, representation_id, dependency)?;
         }
 
-        transaction
-            .execute_batch("SAVEPOINT record_dependency_set")
-            .map_err(mutation_error("begin dependency-set replacement"))?;
-        let result = persist_dependency_set(transaction, representation_id, dependencies);
-        if let Err(error) = result {
-            transaction
-                .execute_batch("ROLLBACK TO record_dependency_set; RELEASE record_dependency_set")
-                .map_err(mutation_error("roll back dependency-set replacement"))?;
-            return Err(error);
-        }
-        transaction
-            .execute_batch("RELEASE record_dependency_set")
-            .map_err(mutation_error("finish dependency-set replacement"))?;
+        persist_dependency_set(transaction, representation_id, dependencies)?;
         self.pending_events
             .push(RevisionEventKind::DependencySetRecorded { representation_id });
         self.record_conflict_key(SemanticConflictKey::DependencySet(representation_id))?;

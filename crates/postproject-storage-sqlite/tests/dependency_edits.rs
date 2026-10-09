@@ -1,11 +1,31 @@
 //! Complete dependency observations reject unbased and stale replacements.
 
 use postproject_core::{
-    Dependency, DependencyKind, DependencyTarget, ErrorKind, MediaRoot, MediaRootId,
-    SemanticConflictKey, TransactionState,
+    DecisionBase, Dependency, DependencyKind, DependencyTarget, ErrorKind, MediaRoot, MediaRootId,
+    RepresentationId, SemanticConflictKey, TransactionState,
 };
 use postproject_media::prepare_original_media;
 use postproject_storage_sqlite::SqliteProduction;
+
+fn assert_stale_unchanged(
+    production: &mut SqliteProduction,
+    old: DecisionBase,
+    source: RepresentationId,
+    dependency: &Dependency,
+) {
+    let mut stale = production.begin_edit(old).unwrap();
+    assert!(
+        !stale
+            .record_dependency_set(source, std::slice::from_ref(dependency))
+            .unwrap()
+    );
+    let error = stale.commit_with_receipt().unwrap_err();
+    assert_eq!(stale.state(), TransactionState::RolledBack);
+    assert_eq!(
+        error.transaction_conflict_detail().unwrap().key(),
+        &SemanticConflictKey::DependencySet(source)
+    );
+}
 
 #[test]
 fn complete_observations_require_bases_and_preserve_a_newer_set() {
@@ -54,6 +74,7 @@ fn complete_observations_require_bases_and_preserve_a_newer_set() {
         winner.commit().unwrap();
     }
     let head = production.latest_revision().unwrap().unwrap();
+    assert_stale_unchanged(&mut production, old, source, &dependency);
     {
         let mut unbased = production.begin_transaction().unwrap();
         assert_eq!(
@@ -106,5 +127,67 @@ fn complete_observations_require_bases_and_preserve_a_newer_set() {
             .unwrap()
             .revision()
             .is_none()
+    );
+}
+
+#[test]
+fn large_native_dependency_comparison_is_independent_of_public_read_budget() {
+    let directory = tempfile::tempdir().unwrap();
+    let media = directory.path().join("clip.dat");
+    std::fs::write(&media, b"large dependency observation").unwrap();
+    let imported = prepare_original_media(&media, None, None).unwrap();
+    let source = imported.representation().id();
+    let dependency = Dependency::new(
+        None,
+        DependencyKind::new("example:reference").unwrap(),
+        DependencyTarget::Representation(source),
+        None,
+        true,
+        "x".repeat(4096),
+    )
+    .unwrap();
+    let dependencies = vec![dependency; 16_400];
+    let path = directory.path().join("large.pproj");
+    let mut production = SqliteProduction::create(&path, None).unwrap();
+    let base = production.read_session().unwrap().decision_base();
+    let mut transaction = production.begin_edit(base).unwrap();
+    transaction.import_original(&imported).unwrap();
+    assert!(
+        transaction
+            .record_dependency_set(source, &dependencies)
+            .unwrap()
+    );
+    transaction.commit().unwrap();
+    drop(transaction);
+    match production.dependency_set(source) {
+        Err(error) => assert_eq!(error.kind(), ErrorKind::Unsupported),
+        Ok(_) => panic!("public read should exceed 64 MiB"),
+    }
+    let base = production.read_session().unwrap().decision_base();
+    let mut transaction = production.begin_edit(base).unwrap();
+    assert!(
+        !transaction
+            .record_dependency_set(source, &dependencies)
+            .unwrap()
+    );
+    assert!(transaction.commit().unwrap().revision().is_none());
+    drop(transaction);
+    let mut replacement = dependencies;
+    replacement.pop();
+    let mut transaction = production.begin_edit(base).unwrap();
+    assert!(
+        transaction
+            .record_dependency_set(source, &replacement)
+            .unwrap()
+    );
+    assert!(transaction.commit().unwrap().revision().is_some());
+    drop(transaction);
+    let connection = rusqlite::Connection::open(&path).unwrap();
+    assert_eq!(
+        connection
+            .query_row("SELECT COUNT(*) FROM dependencies", [], |row| row
+                .get::<_, i64>(0))
+            .unwrap(),
+        16399
     );
 }

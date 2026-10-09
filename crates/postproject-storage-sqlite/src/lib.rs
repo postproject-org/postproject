@@ -4989,7 +4989,7 @@ fn decode_metadata_target(kind: i64, id: Vec<u8>) -> Result<ObjectRef> {
     }
 }
 
-fn decode_dependency(
+pub(crate) fn decode_dependency(
     source_resource: Option<Vec<u8>>,
     kind: String,
     target_kind: i64,

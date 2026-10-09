@@ -95,6 +95,10 @@ order. Deferred references remain private until complete aggregate validation.
 Fingerprint transitions retain previous evidence, exact archive order and every
 affected recomputation marker. Clearing unchanged dirty evidence preserves its
 original observation boundary; replay checks the recorded dependency invalidation.
+Dependency replacement compares stored occurrences incrementally, independently
+of public collection read budgets. An unchanged observation still guards its
+dependency-set key against the caller's base; it emits no effect or revision.
+Failed replacement rolls back rows, queued facts and newly staged guards.
 
 Record manifests name the required domain codecs in a unique lexical set, covered
 by their integrity commitment. Metadata-only records retain their earlier bytes;
