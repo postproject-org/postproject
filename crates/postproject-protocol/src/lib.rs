@@ -12,6 +12,7 @@ mod error;
 mod event;
 mod extensions;
 mod fields;
+mod frame;
 mod json;
 mod metadata;
 mod outcome;
@@ -33,6 +34,7 @@ pub use effect::{MetadataChange, MetadataEffect, MetadataEffectStart, MetadataOp
 pub use error::{FailureKind, ProtocolError, Result};
 pub use event::{decode_event, encode_event};
 pub use extensions::Extensions;
+pub use frame::FrameDecoder;
 pub use json::{Document, Limits};
 pub use metadata::{decode_metadata, encode_metadata};
 pub use outcome::{Outcome, OutcomeStatus};
