@@ -16,10 +16,19 @@ impl Bodies<'_, '_> {
             }
             return Ok(false);
         }
-        self.activity = Some(ActivityApply::begin_checkpoint(
-            self.transaction,
-            ActivityHeader::from_document(document)?,
-        )?);
+        let header = ActivityHeader::from_document(document)?;
+        let duplicate: bool = self
+            .transaction
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM activities WHERE id = ?1)",
+                [header.id().as_bytes().as_slice()],
+                |row| row.get(0),
+            )
+            .map_err(crate::sqlite_error("validate unique checkpoint activity"))?;
+        if duplicate {
+            return Err(super::super::super::invalid().into());
+        }
+        self.activity = Some(ActivityApply::begin_checkpoint(self.transaction, header)?);
         Ok(true)
     }
 }

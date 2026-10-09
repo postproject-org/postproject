@@ -1,5 +1,7 @@
 //! Check polymorphic ownership as well as SQLite's explicit foreign keys.
 
+mod activities;
+
 use postproject_core::{ObjectRef, RepresentationId, RevisionEventKind, SemanticConflictKey};
 use rusqlite::params;
 
@@ -51,8 +53,12 @@ impl Bodies<'_, '_> {
                 asset_id,
                 representation_id,
             } => {
-                self.target(ObjectRef::Asset(*asset_id))?;
-                self.target(ObjectRef::Representation(*representation_id))
+                let belongs: bool = self.transaction.query_row("SELECT EXISTS(SELECT 1 FROM representations WHERE id = ?1 AND asset_id = ?2)", params![representation_id.as_bytes().as_slice(), asset_id.as_bytes().as_slice()], |row|row.get(0))
+                    .map_err(sqlite_error("validate immutable representation ownership observation"))?;
+                if !belongs {
+                    return Err(invalid().into());
+                }
+                Ok(())
             }
             RevisionEventKind::ResourceAdded { resource_id }
             | RevisionEventKind::LocatorAdded { resource_id, .. }
@@ -83,6 +89,9 @@ impl Bodies<'_, '_> {
             RevisionEventKind::MediaRootAdded { .. }
             | RevisionEventKind::MediaRootEnabledChanged { .. }
             | RevisionEventKind::MediaRootRemoved { .. } => Ok(()),
+            RevisionEventKind::ActivityCreated { .. }
+            | RevisionEventKind::ActivityInputAdded { .. }
+            | RevisionEventKind::ActivityOutputAdded { .. } => self.activity_event(event),
             _ => Err(postproject_protocol::ProtocolError::new(
                 postproject_protocol::FailureKind::Unsupported,
                 "checkpoint observation family is not supported yet",
@@ -92,6 +101,7 @@ impl Bodies<'_, '_> {
     }
 
     pub(super) fn validate_media(&self) -> ExchangeResult<()> {
+        self.validate_activities()?;
         let mut targets = self.transaction.prepare("SELECT DISTINCT target_kind, target_id FROM metadata_assertions UNION SELECT DISTINCT target_kind, target_id FROM external_identifiers")
             .map_err(sqlite_error("prepare checkpoint attachment ownership"))?;
         let mut rows = targets
