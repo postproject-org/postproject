@@ -4,6 +4,9 @@ use base64::{Engine as _, engine::general_purpose::STANDARD};
 use postproject_core::FingerprintSnapshot;
 use serde_json::{Value, json};
 
+mod observation;
+pub use observation::{FingerprintObservation, FingerprintState};
+
 use crate::{
     Document, Result,
     fields::{checked, exact, malformed, nullable, object, text, unsupported},
