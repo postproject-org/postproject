@@ -12,9 +12,7 @@ pub(crate) use replay::apply;
 use postproject_core::{
     Error, ErrorKind, ProductionId, Result, Revision, RevisionEvent, RevisionEventKind,
 };
-use postproject_protocol::{
-    Document, Extensions, Limits, Position, RecordManifest, encode_event,
-};
+use postproject_protocol::{Document, Extensions, Limits, Position, RecordManifest, encode_event};
 use rusqlite::{Connection, OptionalExtension, params};
 
 use crate::sqlite_error;
