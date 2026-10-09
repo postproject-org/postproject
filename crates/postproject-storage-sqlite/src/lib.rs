@@ -18,6 +18,7 @@ mod query_cursor;
 mod read_budget;
 mod read_session;
 mod revision_wait;
+mod submission_result;
 mod transaction;
 
 use std::{
@@ -57,6 +58,7 @@ pub use job_lease::SqliteJobLease;
 pub use migrations::CURRENT_SCHEMA_VERSION;
 pub use read_session::SqliteReadSession;
 pub use revision_wait::{RevisionWaitCanceller, SqliteRevisionWaiter};
+pub use submission_result::LocalSubmissionResult;
 pub use transaction::SqliteTransaction;
 
 use revision_wait::RevisionSignal;

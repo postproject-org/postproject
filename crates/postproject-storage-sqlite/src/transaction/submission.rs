@@ -7,17 +7,31 @@ use rusqlite::OptionalExtension;
 use super::SqliteTransaction;
 use crate::{ExchangeError, ExchangeResult, SqliteProduction, sqlite_error, stored_u64};
 
+mod capabilities;
+mod jobs;
+use crate::{LocalSubmissionResult, SqliteJobLease};
+use capabilities::CapabilityInput;
+use jobs::StagedCapabilities;
+
 impl SqliteTransaction<'_> {
-    pub(crate) fn submit(&mut self, proposal: &Proposal) -> ExchangeResult<Outcome> {
+    fn submit(
+        &mut self,
+        proposal: &Proposal,
+        input: &CapabilityInput<'_>,
+    ) -> ExchangeResult<LocalSubmissionResult> {
         self.lifecycle.ensure_open()?;
-        let result = self.submit_open(proposal);
+        let result = self.submit_open(proposal, input);
         if result.is_err() {
             self.abort_failed_commit()?;
         }
         result
     }
 
-    fn submit_open(&mut self, proposal: &Proposal) -> ExchangeResult<Outcome> {
+    fn submit_open(
+        &mut self,
+        proposal: &Proposal,
+        input: &CapabilityInput<'_>,
+    ) -> ExchangeResult<LocalSubmissionResult> {
         // The writer lock is already held. Identity recovery precedes every
         // current-base/domain guard, including for retained terminal rejection.
         if let Some(outcome) = crate::exchange::lookup_for_submission(
@@ -26,17 +40,18 @@ impl SqliteTransaction<'_> {
             proposal.client(),
             proposal.request(),
             proposal.digest()?,
-            None,
+            input.binding(),
         )? {
             self.rollback()?;
-            return Ok(outcome);
+            return Ok(LocalSubmissionResult::new(outcome, vec![]));
         }
         self.open_transaction()?
             .execute_batch("SAVEPOINT submission_body")
             .map_err(sqlite_error("begin submission staging"))?;
+        let mut capabilities = StagedCapabilities::new(input);
         let rejection = if self.select_submission_base(proposal)? {
             match self
-                .stage_proposal(proposal)
+                .stage_proposal(proposal, input, &mut capabilities)
                 .and_then(|()| self.prepare_commit())
             {
                 Ok(receipt) => {
@@ -44,8 +59,8 @@ impl SqliteTransaction<'_> {
                     self.open_transaction()?
                         .execute_batch("RELEASE submission_body")
                         .map_err(sqlite_error("finish submission staging"))?;
-                    self.finish_commit(receipt, Some(&outcome), None)?;
-                    return Ok(outcome);
+                    self.finish_commit(receipt, Some(&outcome), input.binding())?;
+                    return capabilities.finish(outcome).map_err(Into::into);
                 }
                 Err(error) => Rejection::domain(&error).map_err(|_| ExchangeError::Store(error))?,
             }
@@ -56,10 +71,14 @@ impl SqliteTransaction<'_> {
             .execute_batch("ROLLBACK TO submission_body; RELEASE submission_body")
             .map_err(sqlite_error("discard rejected submission staging"))?;
         self.clear_pending();
+        self.finish_leases(false);
+        if let Some(high_water) = self.lease_high_water {
+            crate::job_clock::persist(self.open_transaction()?, high_water)?;
+        }
         let outcome = Outcome::rejected(proposal, rejection)?;
         let receipt = CommitReceipt::new(self.production.id(), None);
-        self.finish_commit(receipt, Some(&outcome), None)?;
-        Ok(outcome)
+        self.finish_commit(receipt, Some(&outcome), input.binding())?;
+        Ok(LocalSubmissionResult::new(outcome, vec![]))
     }
 
     fn select_submission_base(&mut self, proposal: &Proposal) -> Result<bool> {
@@ -88,10 +107,19 @@ impl SqliteTransaction<'_> {
         Ok(true)
     }
 
-    fn stage_proposal(&mut self, proposal: &Proposal) -> Result<()> {
+    fn stage_proposal(
+        &mut self,
+        proposal: &Proposal,
+        input: &CapabilityInput<'_>,
+        capabilities: &mut StagedCapabilities<'_, '_>,
+    ) -> Result<()> {
+        input.validate_scope(self.production.id())?;
         self.set_revision_context(proposal.context().clone())?;
         self.record_extensions = proposal.extensions().clone();
         for command in proposal.commands() {
+            if jobs::stage(self, command, capabilities)? {
+                continue;
+            }
             match command {
                 Command::ImportOriginal(import) => self.import_original(import)?,
                 Command::AddRepresentation(import) => self.add_representation(import)?,
@@ -159,13 +187,36 @@ impl SqliteProduction {
     /// Submits identified metadata/media intent through native atomic staging.
     ///
     /// Equivalent retries return the original accepted/no-op/rejected result
-    /// before checking current state. Credential-bearing job commands remain
-    /// outside this development submission slice.
+    /// before checking current state. Newly claimed ownership is deliberately
+    /// discarded by this public-outcome facade; use the local result method
+    /// when a worker needs delivery.
     ///
     /// # Errors
     /// Rejects mismatched scope/request identity and passive roles; storage
     /// failures require lookup or retry with the same request identity.
     pub fn submit_proposal(&mut self, proposal: &Proposal) -> ExchangeResult<Outcome> {
+        self.submit_proposal_with_capabilities(proposal, &[], &[])
+            .map(|result| result.into_parts().0)
+    }
+
+    /// Submits trusted local intent with private borrowed leases or token input.
+    ///
+    /// At most 1,000 distinct job capabilities may be supplied. Neither tokens
+    /// nor private bindings enter the proposal, public result or records.
+    /// Equivalent retries return their original outcome with no new leases,
+    /// without reevaluating current ownership. Fresh requests keep all native
+    /// clock, expiry, input and publication guards.
+    ///
+    /// # Errors
+    /// Rejects malformed/duplicate private context and mismatched identities or
+    /// passive roles. Recover uncertain storage results using the same identity.
+    pub fn submit_proposal_with_capabilities(
+        &mut self,
+        proposal: &Proposal,
+        leases: &[&SqliteJobLease],
+        tokens: &[&str],
+    ) -> ExchangeResult<LocalSubmissionResult> {
+        let input = CapabilityInput::new(leases, tokens)?;
         let mut edit = self.begin_transaction().map_err(|error| {
             if error.kind() == ErrorKind::Unsupported {
                 ExchangeError::Protocol(ProtocolError::new(
@@ -176,6 +227,6 @@ impl SqliteProduction {
                 ExchangeError::Store(error)
             }
         })?;
-        edit.submit(proposal)
+        edit.submit(proposal, &input)
     }
 }
