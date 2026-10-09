@@ -2,13 +2,14 @@
 
 use libfuzzer_sys::fuzz_target;
 use postproject_protocol::{
-    Command, Document, Limits, MetadataEffect, MetadataEffectStart, Outcome, Position, Proposal,
-    RecordChunk, RecordManifest, Rejection, decode_event, decode_metadata, decode_receipt,
-    encode_event, encode_metadata, encode_receipt,
+    Command, ConflictVersion, Document, FrameDecoder, Limits, MetadataEffect, MetadataEffectStart,
+    Outcome, Position, ProductionHeader, Proposal, RecordChunk, RecordManifest, Rejection,
+    decode_event, decode_metadata, decode_receipt, encode_event, encode_metadata, encode_receipt,
 };
 
 fuzz_target!(|bytes: &[u8]| {
     let limits = Limits::new(64 * 1024, 192, 8192).unwrap();
+    frames(bytes, limits);
     let Ok(document) = Document::parse(bytes, limits) else {
         return;
     };
@@ -75,7 +76,45 @@ fuzz_target!(|bytes: &[u8]| {
     if let Ok(event) = decode_event(&document) {
         assert_eq!(decode_event(&encode_event(&event).unwrap()).unwrap(), event);
     }
+    if let Ok(header) = ProductionHeader::from_document(&document) {
+        assert_eq!(
+            ProductionHeader::from_document(&header.document()).unwrap(),
+            header
+        );
+    }
+    if let Ok(version) = ConflictVersion::from_document(&document) {
+        assert_eq!(
+            ConflictVersion::from_document(&version.document().unwrap()).unwrap(),
+            version
+        );
+    }
     // Headers and individual values also undergo the same checked constructors.
     let _ = MetadataEffectStart::from_document(&document);
     let _ = MetadataEffectStart::decode_value(&document);
 });
+
+fn frames(bytes: &[u8], limits: Limits) {
+    let mut decoder = FrameDecoder::new(limits);
+    let size = usize::from(bytes.first().copied().unwrap_or(0) % 31) + 1;
+    for input in bytes.chunks(size) {
+        let mut position = 0;
+        while position < input.len() {
+            match decoder.consume(&input[position..]) {
+                Ok((count, document)) => {
+                    assert!(count > 0 && count <= input.len() - position);
+                    position += count;
+                    if let Some(document) = document {
+                        let canonical = document.canonical_bytes().unwrap();
+                        assert_eq!(Document::parse(&canonical, limits).unwrap(), document);
+                    }
+                }
+                Err(_) => {
+                    assert!(decoder.consume(&[]).is_err());
+                    return;
+                }
+            }
+        }
+    }
+    let _ = decoder.finish();
+    assert!(decoder.consume(&[]).is_err());
+}
