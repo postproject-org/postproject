@@ -2,6 +2,7 @@
 
 mod access;
 mod facts;
+mod fingerprints;
 mod history;
 mod media;
 mod records;
@@ -20,6 +21,8 @@ pub(super) struct Bodies<'a, 'connection> {
     event_position: u64,
     metadata_key: Option<(i64, Vec<u8>, String, String)>,
     metadata_position: u64,
+    fingerprint_history_key: Option<(i64, Vec<u8>, String, u16)>,
+    fingerprint_history_position: u64,
     record: Option<records::ImportedRecord>,
     record_head: postproject_protocol::Position,
     record_document_limits: postproject_protocol::Limits,
@@ -41,6 +44,8 @@ impl<'a, 'connection> Bodies<'a, 'connection> {
             event_position: 0,
             metadata_key: None,
             metadata_position: 0,
+            fingerprint_history_key: None,
+            fingerprint_history_position: 0,
             record: None,
             record_head: manifest.floor(),
             record_document_limits: limits.document,
@@ -70,6 +75,7 @@ impl<'a, 'connection> Bodies<'a, 'connection> {
                 | CheckpointSection::Structures
                 | CheckpointSection::Locators
                 | CheckpointSection::Identifiers
+                | CheckpointSection::Fingerprints
         ) {
             return Err(postproject_protocol::ProtocolError::new(
                 postproject_protocol::FailureKind::Unsupported,
@@ -81,6 +87,7 @@ impl<'a, 'connection> Bodies<'a, 'connection> {
             CheckpointSection::Production => self.production(document)?,
             CheckpointSection::Locators => self.locator(document)?,
             CheckpointSection::Identifiers => self.identifier(document)?,
+            CheckpointSection::Fingerprints => self.fingerprint(document)?,
             CheckpointSection::Assets => self.asset(document)?,
             CheckpointSection::Resources => self.resource(document)?,
             CheckpointSection::Representations => self.representation(document)?,
@@ -112,6 +119,7 @@ impl<'a, 'connection> Bodies<'a, 'connection> {
         {
             return Err(super::super::invalid().into());
         }
+        self.validate_fingerprints()?;
         self.validate_boundaries()
     }
 }
