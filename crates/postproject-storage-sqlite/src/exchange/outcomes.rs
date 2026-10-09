@@ -1,11 +1,14 @@
 use postproject_core::{Error, ErrorKind};
 use postproject_protocol::{
-    ClientId, Document, FailureKind, Limits, Outcome, ProtocolError, RequestId, Scope,
+    ClientId, Digest, Document, FailureKind, Limits, Outcome, ProtocolError, RequestId, Scope,
 };
 use rusqlite::{Connection, OptionalExtension, params};
 
 use super::ExchangeResult;
 use crate::{SqliteProduction, sqlite_error};
+
+#[cfg(test)]
+mod tests;
 
 pub(crate) fn validate_scope(connection: &Connection, expected: Scope) -> ExchangeResult<()> {
     if super::scope(connection, crate::load_production(connection)?.id())? != expected {
@@ -24,6 +27,38 @@ pub(crate) fn lookup(
     client: ClientId,
     request: RequestId,
 ) -> ExchangeResult<Option<Outcome>> {
+    read(connection, scope, client, request).map(|stored| stored.map(|(outcome, _)| outcome))
+}
+
+pub(crate) fn lookup_for_submission(
+    connection: &Connection,
+    scope: Scope,
+    client: ClientId,
+    request: RequestId,
+    digest: Digest,
+    binding: Option<&[u8; 32]>,
+) -> ExchangeResult<Option<Outcome>> {
+    let Some((outcome, stored_binding)) = read(connection, scope, client, request)? else {
+        return Ok(None);
+    };
+    if outcome.request_digest() != digest || stored_binding.as_ref() != binding {
+        return Err(ProtocolError::new(
+            FailureKind::RequestIdentityMismatch,
+            "request identity has different normalized intent or private context",
+        )
+        .into());
+    }
+    Ok(Some(outcome))
+}
+
+type StoredOutcome = (Outcome, Option<[u8; 32]>);
+
+fn read(
+    connection: &Connection,
+    scope: Scope,
+    client: ClientId,
+    request: RequestId,
+) -> ExchangeResult<Option<StoredOutcome>> {
     validate_scope(connection, scope)?;
     let stored = connection
         .query_row(
@@ -47,11 +82,13 @@ pub(crate) fn lookup(
     let Some((digest, binding, bytes)) = stored else {
         return Ok(None);
     };
-    // No supported command in this slice uses a credential. Never recover a
-    // capability-bearing request by treating its private binding as absent.
-    if binding.is_some() {
-        return Err(Error::new(ErrorKind::Storage, "unsupported stored capability binding").into());
-    }
+    let binding = binding
+        .map(|bytes| {
+            bytes
+                .try_into()
+                .map_err(|_| Error::new(ErrorKind::Storage, "invalid stored capability binding"))
+        })
+        .transpose()?;
     let limits = Limits::new(128 * 1024, 192, 8192)?;
     let outcome = Document::parse(&bytes, limits)
         .and_then(|document| Outcome::from_document(&document))
@@ -63,18 +100,22 @@ pub(crate) fn lookup(
     {
         return Err(Error::new(ErrorKind::Storage, "stored submission identity differs").into());
     }
-    Ok(Some(outcome))
+    Ok(Some((outcome, binding)))
 }
 
-pub(crate) fn persist(connection: &Connection, outcome: &Outcome) -> postproject_core::Result<()> {
+pub(crate) fn persist(
+    connection: &Connection,
+    outcome: &Outcome,
+    binding: Option<&[u8; 32]>,
+) -> postproject_core::Result<()> {
     let bytes = outcome
         .document()
         .and_then(|document| document.canonical_bytes())
         .map_err(|_| Error::new(ErrorKind::Internal, "cannot encode submission outcome"))?;
     connection.execute(
-        "INSERT INTO exchange_outcomes (history_id, client_id, request_id, request_digest, outcome)
-         VALUES (?1, ?2, ?3, ?4, ?5)",
-        params![outcome.scope().history().as_bytes().as_slice(), outcome.client().as_bytes().as_slice(), outcome.request().as_bytes().as_slice(), outcome.request_digest().as_bytes().as_slice(), bytes],
+        "INSERT INTO exchange_outcomes (history_id, client_id, request_id, request_digest, outcome, capability_binding)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        params![outcome.scope().history().as_bytes().as_slice(), outcome.client().as_bytes().as_slice(), outcome.request().as_bytes().as_slice(), outcome.request_digest().as_bytes().as_slice(), bytes, binding.map(<[u8; 32]>::as_slice)],
     ).map_err(sqlite_error("retain submission outcome"))?;
     Ok(())
 }

@@ -18,7 +18,7 @@ pub(crate) use checkpoint::recover as recover_checkpoint_import;
 pub use error::{ExchangeError, ExchangeResult};
 pub(crate) use fragments::persist_metadata_effects;
 pub(crate) use genesis::create as create_genesis_mirror;
-pub(crate) use outcomes::{lookup, persist};
+pub(crate) use outcomes::{lookup_for_submission, persist};
 pub(crate) use records::apply;
 pub(crate) use records::capture_records;
 pub(crate) use records::position;

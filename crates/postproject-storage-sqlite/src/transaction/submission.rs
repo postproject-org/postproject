@@ -20,19 +20,14 @@ impl SqliteTransaction<'_> {
     fn submit_open(&mut self, proposal: &Proposal) -> ExchangeResult<Outcome> {
         // The writer lock is already held. Identity recovery precedes every
         // current-base/domain guard, including for retained terminal rejection.
-        if let Some(outcome) = crate::exchange::lookup(
+        if let Some(outcome) = crate::exchange::lookup_for_submission(
             self.open_transaction()?,
             proposal.scope(),
             proposal.client(),
             proposal.request(),
+            proposal.digest()?,
+            None,
         )? {
-            if outcome.request_digest() != proposal.digest()? {
-                return Err(ProtocolError::new(
-                    FailureKind::RequestIdentityMismatch,
-                    "request identity has different normalized intent",
-                )
-                .into());
-            }
             self.rollback()?;
             return Ok(outcome);
         }
@@ -49,7 +44,7 @@ impl SqliteTransaction<'_> {
                     self.open_transaction()?
                         .execute_batch("RELEASE submission_body")
                         .map_err(sqlite_error("finish submission staging"))?;
-                    self.finish_commit(receipt, Some(&outcome))?;
+                    self.finish_commit(receipt, Some(&outcome), None)?;
                     return Ok(outcome);
                 }
                 Err(error) => Rejection::domain(&error).map_err(|_| ExchangeError::Store(error))?,
@@ -63,7 +58,7 @@ impl SqliteTransaction<'_> {
         self.clear_pending();
         let outcome = Outcome::rejected(proposal, rejection)?;
         let receipt = CommitReceipt::new(self.production.id(), None);
-        self.finish_commit(receipt, Some(&outcome))?;
+        self.finish_commit(receipt, Some(&outcome), None)?;
         Ok(outcome)
     }
 

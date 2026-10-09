@@ -71,6 +71,10 @@ observations reuse mandatory bases. Activity commands capture native evidence
 before any later same-proposal changes; replay preserves that historical state.
 Job commands and credentials remain unsupported; the full
 authority and replay gates remain pending.
+Private outcome persistence validates bounded credential bindings. Public lookup
+returns the original result without credentials; submission compares both public
+intent and private context before current-state guards. Worker input/delivery
+surfaces remain pending.
 Persisted passive roles reject native transaction opens and token import while
 retaining ordinary reads and coherent sessions. Role tests cover reopen and
 writer-lock enforcement; checkpoint tests cover the production-metadata slice

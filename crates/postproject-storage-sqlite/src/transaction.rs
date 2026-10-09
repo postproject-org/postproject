@@ -1899,7 +1899,7 @@ impl<'production> SqliteTransaction<'production> {
 
     fn commit_open(&mut self) -> Result<CommitReceipt> {
         let receipt = self.prepare_commit()?;
-        self.finish_commit(receipt, None)
+        self.finish_commit(receipt, None, None)
     }
 
     fn abort_failed_commit(&mut self) -> Result<()> {
@@ -1999,9 +1999,10 @@ impl<'production> SqliteTransaction<'production> {
         &mut self,
         receipt: CommitReceipt,
         outcome: Option<&postproject_protocol::Outcome>,
+        capability_binding: Option<&[u8; 32]>,
     ) -> Result<CommitReceipt> {
         if let Some(outcome) = outcome {
-            crate::exchange::persist(self.open_transaction()?, outcome)?;
+            crate::exchange::persist(self.open_transaction()?, outcome, capability_binding)?;
         }
         let transaction = self.take_transaction()?;
         if let Err(error) = transaction.commit() {
