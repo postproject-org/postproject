@@ -15,6 +15,9 @@ use postproject_protocol::{
 };
 use postproject_storage_sqlite::SqliteProduction;
 
+#[path = "submission_races/replacements.rs"]
+mod replacements;
+
 const PRODUCTION: &str = "POSTPROJECT_TEST_SUBMISSION_PRODUCTION";
 const REQUEST: &str = "POSTPROJECT_TEST_SUBMISSION_REQUEST";
 const RESULT: &str = "POSTPROJECT_TEST_SUBMISSION_RESULT";
