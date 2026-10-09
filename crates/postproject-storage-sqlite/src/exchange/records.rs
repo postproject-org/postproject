@@ -109,6 +109,13 @@ pub(crate) fn capture_records(
                 | RevisionEventKind::ActivityCreated { .. }
                 | RevisionEventKind::ActivityInputAdded { .. }
                 | RevisionEventKind::ActivityOutputAdded { .. }
+                | RevisionEventKind::JobRequested { .. }
+                | RevisionEventKind::JobClaimed { .. }
+                | RevisionEventKind::JobClaimRenewed { .. }
+                | RevisionEventKind::JobClaimReleased { .. }
+                | RevisionEventKind::JobSucceeded { .. }
+                | RevisionEventKind::JobFailed { .. }
+                | RevisionEventKind::JobCancelled { .. }
                 | RevisionEventKind::RepresentationResourceAdded { .. }
                 | RevisionEventKind::LocatorAdded { .. }
                 | RevisionEventKind::LocatorRetired { .. }

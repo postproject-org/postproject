@@ -221,14 +221,12 @@ fn missing_or_corrupt_chunks_make_public_readers_terminal() {
 }
 
 #[test]
-fn uncaptured_families_never_advertise_a_complete_replay_head() {
+fn mixed_media_activity_and_job_records_form_a_complete_replay_head() {
     use postproject_core::{
         Activity, ActivityId, ActivityKind, ActivityOutput, Job, JobId, JobKind,
         RepresentationKind, RequestedJobOutput,
     };
     use postproject_media::prepare_original_media;
-    use postproject_protocol::FailureKind;
-    use postproject_storage_sqlite::ExchangeError;
     let directory = tempfile::tempdir().unwrap();
     let path = directory.path().join("authority.pproj");
     let mut production = SqliteProduction::create(&path, None).unwrap();
@@ -248,7 +246,7 @@ fn uncaptured_families_never_advertise_a_complete_replay_head() {
         .unwrap(),
     )
     .unwrap();
-    // Supported creation and activity effects must not hide an uncaptured job.
+    // Every existing mutation family must participate in complete capture.
     edit.request_job(
         &Job::new(
             JobId::new(),
@@ -261,16 +259,20 @@ fn uncaptured_families_never_advertise_a_complete_replay_head() {
     .unwrap();
     edit.commit().unwrap();
     drop(edit);
-    assert!(
-        matches!(production.exchange_head(), Err(ExchangeError::Protocol(error)) if error.kind() == FailureKind::HistoryGap)
-    );
+    assert_eq!(production.exchange_head().unwrap().sequence(), 1);
     let mut edit = production.begin_transaction().unwrap();
     edit.add_metadata_value(target, &property(), &MetadataValue::i64(1))
         .unwrap();
     edit.commit().unwrap();
     drop(edit);
-    assert!(
-        matches!(production.record_reader(2), Err(ExchangeError::Protocol(error)) if error.kind() == FailureKind::HistoryGap)
+    assert_eq!(
+        production
+            .record_reader(2)
+            .unwrap()
+            .manifest()
+            .predecessor()
+            .sequence(),
+        1
     );
     assert_eq!(
         production.metadata_values(target, &property()).unwrap(),

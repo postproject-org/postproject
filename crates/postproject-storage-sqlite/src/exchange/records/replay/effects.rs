@@ -1,9 +1,9 @@
 use postproject_core::{AssetId, RepresentationKind, RevisionEventKind, SemanticConflictKey};
 use postproject_protocol::{
     ActivityHeader, DependencySetHeader, Document, FailureKind, FingerprintChangeStart,
-    IdentifierChange, MediaChange, MetadataEffectStart, MetadataOperation, ProtocolError,
-    RecordFeature, RecordManifest, RepresentationCreationStart, decode_event,
-    decode_original_creation_start,
+    IdentifierChange, JobHeader, JobInput, JobTransition, MediaChange, MetadataEffectStart,
+    MetadataOperation, ProtocolError, RecordFeature, RecordManifest, RepresentationCreationStart,
+    decode_event, decode_original_creation_start,
 };
 use rusqlite::{Transaction, params};
 
@@ -25,6 +25,7 @@ pub(super) struct ApplyEffects<'a, 'connection> {
 }
 
 enum Pending {
+    Job(super::job::JobApply),
     Activity(Box<super::activity::ActivityApply>),
     Metadata(MetadataEffectStart, u64),
     Original(AssetId),
@@ -50,6 +51,7 @@ impl<'a, 'connection> ApplyEffects<'a, 'connection> {
 
     pub(super) fn document(&mut self, document: &Document) -> ExchangeResult<()> {
         match self.effect.as_ref() {
+            Some(Pending::Job(_)) => return self.job_input(document),
             Some(Pending::Activity(_)) => return self.activity_document(document),
             Some(Pending::Metadata(..)) => return self.value(document),
             Some(Pending::Original(_)) => return self.start_creation(document),
@@ -60,6 +62,7 @@ impl<'a, 'connection> ApplyEffects<'a, 'connection> {
         }
         if self.effects < self.manifest.effect_count() {
             return match document.kind()? {
+                "job.header" | "job.transition" => self.job_document(document),
                 "activity.header" => {
                     self.require_feature(RecordFeature::Provenance)?;
                     let pending = super::activity::ActivityApply::begin(
@@ -139,6 +142,48 @@ impl<'a, 'connection> ApplyEffects<'a, 'connection> {
             return Err(invalid().into());
         }
         self.events += 1;
+        Ok(())
+    }
+
+    fn job_document(&mut self, document: &Document) -> ExchangeResult<()> {
+        match document.kind()? {
+            "job.header" => {
+                self.require_feature(RecordFeature::Jobs)?;
+                self.effect = super::job::JobApply::begin(
+                    self.transaction,
+                    self.manifest,
+                    JobHeader::from_document(document)?,
+                    &mut self.expected_events,
+                )?
+                .map(Pending::Job);
+                self.effects += 1;
+                Ok(())
+            }
+            "job.transition" => {
+                self.require_feature(RecordFeature::Jobs)?;
+                let change = JobTransition::from_document(document)?;
+                super::job::transition(self.transaction, self.manifest, &change)?;
+                super::facts::observation(
+                    self.transaction,
+                    self.manifest,
+                    self.expected_events,
+                    &change.observation(),
+                )?;
+                self.expected_events += 1;
+                self.effects += 1;
+                Ok(())
+            }
+            _ => Err(invalid().into()),
+        }
+    }
+
+    fn job_input(&mut self, document: &Document) -> ExchangeResult<()> {
+        let Some(Pending::Job(pending)) = self.effect.as_mut() else {
+            return Err(invalid().into());
+        };
+        if pending.input(self.transaction, JobInput::from_document(document)?)? {
+            self.effect = None;
+        }
         Ok(())
     }
 
