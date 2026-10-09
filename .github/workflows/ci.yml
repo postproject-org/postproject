@@ -135,7 +135,7 @@ jobs:
     runs-on: ubuntu-latest
     # The wrapper is compiled by each host's own compiler; check the newest
     # GCC and Clang, which warn about more than the runner's default compiler.
-    container: archlinux:latest
+    container: ghcr.io/archlinux/archlinux:latest
     steps:
       - run: pacman -Syu --noconfirm --needed gcc clang python
       - uses: actions/checkout@v7
