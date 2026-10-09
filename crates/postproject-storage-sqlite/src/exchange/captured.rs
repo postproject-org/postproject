@@ -1,12 +1,13 @@
 //! Ordered authored operations, retained before their original atomic commit.
 
 use postproject_core::{
-    Locator, OriginalMediaImport, Representation, RepresentationImport, Resource, RevisionEventKind,
+    Dependency, DependencySetStatus, Locator, OriginalMediaImport, Representation,
+    RepresentationId, RepresentationImport, Resource, RevisionEventKind,
 };
 use postproject_protocol::{
-    Document, FingerprintChangeStart, FingerprintRecomputation, IdentifierChange, MediaChange,
-    MetadataChange, MetadataEffect, RecordFeature, encode_original_creation,
-    encode_representation_creation,
+    DependencyOccurrence, DependencySetHeader, Document, FingerprintChangeStart,
+    FingerprintRecomputation, IdentifierChange, MediaChange, MetadataChange, MetadataEffect,
+    RecordFeature, encode_original_creation, encode_representation_creation,
 };
 
 pub(crate) struct CapturedFingerprint {
@@ -21,6 +22,10 @@ pub(crate) enum CapturedEffect {
     MediaChanged(MediaChange),
     FingerprintChanged(Box<CapturedFingerprint>),
     IdentifierChanged(IdentifierChange),
+    DependencyRecorded {
+        source: RepresentationId,
+        dependencies: Vec<Dependency>,
+    },
 }
 
 impl From<MetadataEffect> for CapturedEffect {
@@ -37,13 +42,15 @@ impl CapturedEffect {
             | Self::RepresentationCreated(_)
             | Self::MediaChanged(_)
             | Self::FingerprintChanged(_)
-            | Self::IdentifierChanged(_) => None,
+            | Self::IdentifierChanged(_)
+            | Self::DependencyRecorded { .. } => None,
         }
     }
 
     pub(crate) const fn feature(&self) -> RecordFeature {
         match self {
             Self::Metadata(_) => RecordFeature::Metadata,
+            Self::DependencyRecorded { .. } => RecordFeature::Dependencies,
             Self::OriginalCreated(_)
             | Self::RepresentationCreated(_)
             | Self::MediaChanged(_)
@@ -60,6 +67,31 @@ impl CapturedEffect {
     > {
         Ok(match self {
             Self::Metadata(effect) => Box::new(effect.frames()),
+            Self::DependencyRecorded {
+                source,
+                dependencies,
+            } => Box::new(
+                std::iter::once(Ok(DependencySetHeader::new(
+                    *source,
+                    sequence,
+                    DependencySetStatus::Current,
+                    u64::try_from(dependencies.len()).expect("core dependency bound"),
+                )?
+                .document()))
+                .chain(
+                    dependencies
+                        .iter()
+                        .enumerate()
+                        .map(move |(position, dependency)| {
+                            DependencyOccurrence::new(
+                                *source,
+                                u64::try_from(position).expect("core dependency bound"),
+                                dependency.clone(),
+                            )?
+                            .document()
+                        }),
+                ),
+            ),
             Self::OriginalCreated(import) => Box::new(encode_original_creation(import, sequence)?),
             Self::RepresentationCreated(import) => {
                 Box::new(encode_representation_creation(import, sequence)?)
@@ -75,6 +107,11 @@ impl CapturedEffect {
 
     pub(crate) fn observations(&self) -> Box<dyn Iterator<Item = RevisionEventKind> + '_> {
         match self {
+            Self::DependencyRecorded { source, .. } => {
+                Box::new(std::iter::once(RevisionEventKind::DependencySetRecorded {
+                    representation_id: *source,
+                }))
+            }
             Self::IdentifierChanged(change) => Box::new(std::iter::once(change.observation())),
             Self::FingerprintChanged(change) => {
                 Box::new(std::iter::once(change.start.observation()))

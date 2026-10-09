@@ -1842,6 +1842,11 @@ impl<'production> SqliteTransaction<'production> {
         self.pending_events
             .push(RevisionEventKind::DependencySetRecorded { representation_id });
         self.record_conflict_key(SemanticConflictKey::DependencySet(representation_id))?;
+        self.pending_effects
+            .push(crate::exchange::CapturedEffect::DependencyRecorded {
+                source: representation_id,
+                dependencies: dependencies.to_vec(),
+            });
         Ok(true)
     }
 
@@ -2769,7 +2774,7 @@ fn resource_exists(transaction: &Transaction<'_>, resource_id: ResourceId) -> Re
         .map_err(sqlite_error("check fingerprint resource"))
 }
 
-fn representation_exists(
+pub(crate) fn representation_exists(
     transaction: &Transaction<'_>,
     representation_id: RepresentationId,
 ) -> Result<bool> {
