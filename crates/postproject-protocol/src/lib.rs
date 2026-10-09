@@ -26,6 +26,7 @@ mod proposal;
 mod receipt;
 mod record;
 mod rejection;
+mod representation;
 mod resource;
 mod role;
 mod scope;
@@ -59,6 +60,7 @@ pub use receipt::{
 };
 pub use record::RecordManifest;
 pub use rejection::{Rejection, RejectionKind};
+pub use representation::RepresentationHeader;
 pub use resource::ResourceHeader;
 pub use role::StoreRole;
 pub use scope::{
