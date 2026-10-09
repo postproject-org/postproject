@@ -9,6 +9,8 @@ use crate::{ExchangeError, ExchangeResult, SqliteProduction, sqlite_error, store
 
 mod capabilities;
 mod jobs;
+#[cfg(test)]
+mod tests;
 use crate::{LocalSubmissionResult, SqliteJobLease};
 use capabilities::CapabilityInput;
 use jobs::StagedCapabilities;
