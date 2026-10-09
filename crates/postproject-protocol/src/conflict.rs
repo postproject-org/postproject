@@ -93,7 +93,7 @@ fn decode_identifier(value: &Value) -> Result<ExternalIdentifier> {
     ))
 }
 
-fn encode_key(key: &SemanticConflictKey) -> Result<Value> {
+pub(crate) fn encode_key(key: &SemanticConflictKey) -> Result<Value> {
     let kind = key.kind().as_str();
     Ok(match key {
         SemanticConflictKey::LocatorSet(id) | SemanticConflictKey::ResourceFileFacts(id) => {
@@ -133,7 +133,7 @@ fn validate_domain(algorithm: &str, version: u16) -> Result<()> {
     checked(ResourceFingerprint::new(algorithm, version, vec![0])).map(|_| ())
 }
 
-fn decode_key(value: &Value) -> Result<SemanticConflictKey> {
+pub(crate) fn decode_key(value: &Value) -> Result<SemanticConflictKey> {
     let kind = text(value.get("kind").ok_or_else(malformed)?)?;
     Ok(match kind {
         "locator_set" | "resource_file_facts" => {

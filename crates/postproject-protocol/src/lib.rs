@@ -17,12 +17,14 @@ mod json;
 mod metadata;
 mod outcome;
 mod position;
+mod production;
 mod proposal;
 mod receipt;
 mod record;
 mod rejection;
 mod role;
 mod scope;
+mod version;
 
 pub use chunk::{
     ChunkSummary, MAX_RECORD_CHUNK_BYTES, MAX_RECORD_CHUNK_PAYLOAD, RecordChunk, RecordChunkChain,
@@ -39,6 +41,7 @@ pub use json::{Document, Limits};
 pub use metadata::{decode_metadata, encode_metadata};
 pub use outcome::{Outcome, OutcomeStatus};
 pub use position::Position;
+pub use production::ProductionHeader;
 pub use proposal::{MAX_PROPOSAL_COMMANDS, Proposal};
 pub use receipt::{decode_receipt, encode_receipt};
 pub use record::RecordManifest;
@@ -47,3 +50,4 @@ pub use role::StoreRole;
 pub use scope::{
     CheckpointId, ClientId, HistoryId, MirrorInstanceId, ProtocolBase, RequestId, Scope,
 };
+pub use version::ConflictVersion;
