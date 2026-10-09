@@ -75,7 +75,7 @@ pub use fingerprint::{
 };
 pub use frame::FrameDecoder;
 pub use identifier::{IdentifierAttachment, IdentifierChange};
-pub use job::{JobHeader, JobInput};
+pub use job::{JobHeader, JobInput, JobOperation, JobTransition};
 pub use json::{Document, Limits};
 pub use locator::{decode_locator, encode_locator};
 pub use media_change::MediaChange;

@@ -2,8 +2,10 @@
 
 mod input;
 mod state;
+mod transition;
 mod wire;
 pub use input::JobInput;
+pub use transition::{JobOperation, JobTransition};
 
 use postproject_core::{Job, JobId, JobKind, JobState, MAX_JOB_INPUTS, RequestedJobOutput};
 

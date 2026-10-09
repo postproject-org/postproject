@@ -12,6 +12,8 @@ use crate::{
 pub enum RecordFeature {
     /// Complete ordered dependency observations.
     Dependencies,
+    /// Public work requests and inert lifecycle observations.
+    Jobs,
     /// Media identity, structures, roots, locators and fingerprint evidence.
     Media,
     /// Typed, ordered metadata changes.
@@ -28,6 +30,7 @@ impl RecordFeature {
     pub const fn wire_name(self) -> &'static str {
         match self {
             Self::Dependencies => "dependencies.v1",
+            Self::Jobs => "jobs.v1",
             Self::Media => "media.v1",
             Self::Metadata => "metadata.v1",
             Self::Provenance => "provenance.v1",
@@ -53,6 +56,7 @@ pub(super) fn decode(value: &serde_json::Value) -> Result<BTreeSet<RecordFeature
         }
         let feature = match name {
             "dependencies.v1" => RecordFeature::Dependencies,
+            "jobs.v1" => RecordFeature::Jobs,
             "media.v1" => RecordFeature::Media,
             "metadata.v1" => RecordFeature::Metadata,
             "provenance.v1" => RecordFeature::Provenance,
