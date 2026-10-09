@@ -1,6 +1,8 @@
 //! Retained transitions must explain exact archive positions and final evidence.
 
 mod lookup;
+mod snapshots;
+pub(super) use snapshots::{snapshot, snapshot_count};
 #[cfg(test)]
 mod tests;
 

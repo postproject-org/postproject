@@ -1,4 +1,5 @@
 use postproject_core::{AssetId, RevisionEventKind, RevisionId, SemanticConflictKey};
+mod activity;
 mod creation;
 mod media;
 
@@ -19,8 +20,7 @@ pub(super) struct RetainedEffects {
     sequence: u64,
     total: u64,
     total_events: u64,
-    media: bool,
-    metadata: bool,
+    features: std::collections::BTreeSet<RecordFeature>,
     effects: u64,
     expected_events: u64,
     events: u64,
@@ -28,6 +28,7 @@ pub(super) struct RetainedEffects {
     value_index: u64,
     effect: Option<MetadataEffectStart>,
     creation: Option<creation::CreationAudit>,
+    activity: Option<activity::ActivityAudit>,
     original: Option<AssetId>,
     fingerprint: Option<media::PendingFingerprint>,
     floor: u64,
@@ -41,12 +42,7 @@ impl RetainedEffects {
             sequence: manifest.revision().sequence(),
             total: manifest.effect_count(),
             total_events: manifest.event_count(),
-            media: manifest
-                .required_features()
-                .any(|feature| feature == RecordFeature::Media),
-            metadata: manifest
-                .required_features()
-                .any(|feature| feature == RecordFeature::Metadata),
+            features: manifest.required_features().collect(),
             effects: 0,
             expected_events: 0,
             events: 0,
@@ -54,6 +50,7 @@ impl RetainedEffects {
             value_index: 0,
             effect: None,
             creation: None,
+            activity: None,
             original: None,
             fingerprint: None,
             floor,
@@ -79,6 +76,16 @@ impl RetainedEffects {
         if self.fingerprint.is_some() {
             return self.fingerprint_marker(connection, document);
         }
+        if let Some(activity) = self.activity.as_mut() {
+            let (complete, event) = activity.document(connection, document)?;
+            if let Some(event) = event {
+                self.expect_observation(connection, &event)?;
+            }
+            if complete {
+                self.activity = None;
+            }
+            return Ok(());
+        }
         if self.remaining_values != 0 {
             let value = MetadataEffectStart::decode_value(document)?;
             super::super::super::metadata_state::value(
@@ -90,11 +97,20 @@ impl RetainedEffects {
             self.value_index += 1;
             self.remaining_values -= 1;
         } else if self.effects < self.total {
-            if self.media && self.media_effect(connection, document)? {
+            if self.features.contains(&RecordFeature::Provenance)
+                && document.kind()? == "activity.header"
+            {
+                self.start_activity(connection, document)?;
                 self.effects += 1;
                 return Ok(());
             }
-            if !self.metadata {
+            if self.features.contains(&RecordFeature::Media)
+                && self.media_effect(connection, document)?
+            {
+                self.effects += 1;
+                return Ok(());
+            }
+            if !self.features.contains(&RecordFeature::Metadata) {
                 return Err(invalid().into());
             }
             let effect = MetadataEffectStart::from_document(document)?;
@@ -146,6 +162,7 @@ impl RetainedEffects {
             || self.creation.is_some()
             || self.original.is_some()
             || self.fingerprint.is_some()
+            || self.activity.is_some()
         {
             return Err(invalid().into());
         }

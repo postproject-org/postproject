@@ -222,6 +222,9 @@ impl RetainedEffects {
         ) {
             media_state::require(connection, target, self.floor)?;
         }
+        crate::exchange::checkpoint::import::activity_state::require(
+            connection, target, self.floor,
+        )?;
         Ok(())
     }
 }

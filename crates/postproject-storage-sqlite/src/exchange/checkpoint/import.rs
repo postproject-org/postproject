@@ -1,5 +1,6 @@
 //! Only a fully checked private transaction can reach the destination name.
 
+mod activity_state;
 mod bodies;
 mod completion;
 mod fingerprint_state;
@@ -63,6 +64,9 @@ pub(crate) fn import(
     for summary in manifest.sections() {
         if summary.section() == postproject_protocol::CheckpointSection::Records {
             fingerprint_state::create(&transaction)?;
+            activity_state::create(&transaction, limits.frames, || {
+                stage.check_disk(limits.disk_bytes)
+            })?;
         }
         let Some(declared) = summary.chunks() else {
             continue;
@@ -110,6 +114,7 @@ pub(crate) fn import(
         return Err(super::invalid().into());
     }
     bodies.finish()?;
+    activity_state::finish(&transaction, manifest.floor().sequence())?;
     media_state::finish(&transaction, manifest.floor().sequence() == 0)?;
     locator_state::finish(&transaction, manifest.floor().sequence() == 0)?;
     identifier_state::finish(&transaction, manifest.floor().sequence() == 0)?;
