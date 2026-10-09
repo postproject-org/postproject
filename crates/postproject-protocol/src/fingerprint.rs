@@ -5,6 +5,7 @@ use postproject_core::FingerprintSnapshot;
 use serde_json::{Value, json};
 
 mod change;
+mod change_wire;
 mod observation;
 mod recompute;
 pub use change::FingerprintChangeStart;
