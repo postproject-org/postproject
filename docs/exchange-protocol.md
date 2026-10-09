@@ -138,7 +138,10 @@ these are independent of the proposal-command cap. Sequence naming belongs to
 each `locator.fact`, rather than the content descriptor.
 
 `root.fact` retains configured roots and their historical legacy URI, without
-local directory mappings. `identifier.attachment` retains asset, representation,
+local directory mappings. New `root.removed-facts` effects retain the pre-deletion
+configuration, including the name whose locator associations are cleared.
+Earlier ID-only `root.removed` development effects remain readable.
+`identifier.attachment` retains asset, representation,
 resource and activity targets,
 schemes, values and qualifiers. `identifier.added` and `identifier.removed` retain
 authored transitions, including same-revision removal/re-addition and distinct

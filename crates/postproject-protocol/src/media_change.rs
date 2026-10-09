@@ -32,6 +32,9 @@ pub enum MediaChange {
     },
     /// Removal of an existing configured root.
     RootRemoved(MediaRootId),
+    /// Removal retaining the exact pre-deletion configuration, including the
+    /// logical name whose locator associations are cleared implicitly.
+    RootRemovedWithFacts(MediaRoot),
     /// Complete original locator facts, including per-copy sequence naming.
     LocatorAdded(Locator),
     /// Retirement of one existing locator from its resource.
@@ -61,6 +64,9 @@ impl MediaChange {
                     json!({"kind":"root.enabled", "id":root_id.to_string(), "enabled":enabled})
                 }
                 Self::RootRemoved(id) => json!({"kind":"root.removed", "id":id.to_string()}),
+                Self::RootRemovedWithFacts(root) => {
+                    json!({"kind":"root.removed-facts", "root":encode_root(root).value})
+                }
                 Self::LocatorAdded(locator) => {
                     json!({"kind":"locator.added", "locator":encode_locator(locator)?.value})
                 }
@@ -107,6 +113,12 @@ impl MediaChange {
                 let fields = object(&document.value, &["kind", "id"])?;
                 Self::RootRemoved(exact(&fields["id"])?)
             }
+            "root.removed-facts" => {
+                let fields = object(&document.value, &["kind", "root"])?;
+                Self::RootRemovedWithFacts(decode_root(&Document {
+                    value: fields["root"].clone(),
+                })?)
+            }
             "locator.added" => {
                 let fields = object(&document.value, &["kind", "locator"])?;
                 Self::LocatorAdded(decode_locator(&Document {
@@ -143,6 +155,9 @@ impl MediaChange {
             Self::RootRemoved(root_id) => RevisionEventKind::MediaRootRemoved {
                 media_root_id: *root_id,
             },
+            Self::RootRemovedWithFacts(root) => RevisionEventKind::MediaRootRemoved {
+                media_root_id: root.id(),
+            },
             Self::LocatorAdded(locator) => RevisionEventKind::LocatorAdded {
                 resource_id: locator.resource_id(),
                 locator_id: locator.id(),
@@ -164,7 +179,9 @@ impl MediaChange {
             Self::ResourceFileFacts { resource_id, .. } => {
                 SemanticConflictKey::ResourceFileFacts(*resource_id)
             }
-            Self::RootAdded(root) => SemanticConflictKey::MediaRoot(root.id()),
+            Self::RootAdded(root) | Self::RootRemovedWithFacts(root) => {
+                SemanticConflictKey::MediaRoot(root.id())
+            }
             Self::RootEnabled { root_id, .. } | Self::RootRemoved(root_id) => {
                 SemanticConflictKey::MediaRoot(*root_id)
             }

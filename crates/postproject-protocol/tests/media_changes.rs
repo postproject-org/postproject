@@ -37,6 +37,7 @@ fn every_change_retains_exact_facts_observation_and_semantic_key() {
             enabled: true,
         },
         MediaChange::RootRemoved(root.id()),
+        MediaChange::RootRemovedWithFacts(root.clone()),
         MediaChange::LocatorAdded(locator.clone()),
         MediaChange::LocatorRetired {
             locator_id: locator.id(),

@@ -5,7 +5,7 @@ use rusqlite::Connection;
 use crate::{
     ExchangeResult,
     exchange::checkpoint::import::{
-        fingerprint_state, locator_state, media_state, recomputation_state,
+        fingerprint_state, locator_state, media_state, recomputation_state, root_state,
     },
 };
 
@@ -18,6 +18,7 @@ pub(super) struct CreationAudit {
     base: u64,
     resources: u64,
     locators: u64,
+    genesis: bool,
 }
 
 impl CreationAudit {
@@ -65,6 +66,7 @@ impl CreationAudit {
             base,
             resources: 0,
             locators: 0,
+            genesis: floor == 0,
         })
     }
 
@@ -108,6 +110,9 @@ impl CreationAudit {
                 self.resources += 1;
             }
             Some(CreationFact::Locator(locator)) => {
+                if let Some(name) = locator.media_root() {
+                    root_state::require_name(connection, name, self.genesis)?;
+                }
                 locator_state::added(connection, &locator)?;
                 expect(
                     connection,

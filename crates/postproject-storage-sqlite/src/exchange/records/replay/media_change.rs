@@ -28,6 +28,10 @@ pub(super) fn apply(transaction: &Transaction<'_>, change: &MediaChange) -> Exch
         MediaChange::RootRemoved(root_id) => structural(transaction.execute(
             "DELETE FROM media_roots WHERE id = ?1", [root_id.as_bytes().as_slice()],
         ).map_err(mutation_error("stage replayed root removal")))?,
+        MediaChange::RootRemovedWithFacts(root) => structural(transaction.execute(
+            "DELETE FROM media_roots WHERE id = ?1 AND name = ?2 AND label IS ?3 AND legacy_uri IS ?4 AND priority = ?5 AND enabled = ?6",
+            params![root.id().as_bytes().as_slice(), root.name(), root.label(), root.legacy_uri(), root.priority(), root.is_enabled()],
+        ).map_err(mutation_error("stage replayed root removal with original facts")))?,
         MediaChange::LocatorAdded(locator) => {
             structural(ensure_metadata_target_exists(transaction, 3, locator.resource_id().as_bytes()))?;
             structural(persist_locator(transaction, locator))?;

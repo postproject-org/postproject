@@ -1,6 +1,7 @@
 //! Validate retained root transitions and their final state without replaying
 //! them against today's roots. A migration may start with unknown root facts.
 
+use postproject_core::MediaRoot;
 use postproject_protocol::MediaChange;
 use rusqlite::{Connection, OptionalExtension, params};
 
@@ -20,7 +21,7 @@ pub(super) fn change(
     genesis: bool,
 ) -> ExchangeResult<()> {
     let id = match change {
-        MediaChange::RootAdded(root) => root.id(),
+        MediaChange::RootAdded(root) | MediaChange::RootRemovedWithFacts(root) => root.id(),
         MediaChange::RootEnabled { root_id, .. } | MediaChange::RootRemoved(root_id) => *root_id,
         _ => return Err(invalid().into()),
     };
@@ -39,6 +40,7 @@ pub(super) fn change(
             if previous.is_some_and(|(removed, _)| !removed) {
                 return Err(invalid().into());
             }
+            unique_name(connection, root)?;
             connection.execute("INSERT INTO checkpoint_root_state (id, name, label, legacy_uri, priority, enabled, removed) VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0) ON CONFLICT(id) DO UPDATE SET name = excluded.name, label = excluded.label, legacy_uri = excluded.legacy_uri, priority = excluded.priority, enabled = excluded.enabled, removed = 0", params![id.as_bytes().as_slice(), root.name(), root.label(), root.legacy_uri(), root.priority(), root.is_enabled()])
                 .map_err(sqlite_error("stage authored root addition"))?;
         }
@@ -51,14 +53,47 @@ pub(super) fn change(
             connection.execute("INSERT INTO checkpoint_root_state (id, enabled, removed) VALUES (?1, ?2, 0) ON CONFLICT(id) DO UPDATE SET enabled = excluded.enabled", params![id.as_bytes().as_slice(), enabled])
                 .map_err(sqlite_error("stage authored root state"))?;
         }
-        MediaChange::RootRemoved(_) => {
+        MediaChange::RootRemoved(_) | MediaChange::RootRemovedWithFacts(_) => {
             if previous.is_some_and(|(removed, _)| removed) || previous.is_none() && genesis {
                 return Err(invalid().into());
             }
-            connection.execute("INSERT INTO checkpoint_root_state (id, removed) VALUES (?1, 1) ON CONFLICT(id) DO UPDATE SET removed = 1", [id.as_bytes().as_slice()])
-                .map_err(sqlite_error("stage authored root removal"))?;
+            if let MediaChange::RootRemovedWithFacts(root) = change {
+                unique_name(connection, root)?;
+                let differs: bool = connection.query_row("SELECT EXISTS(SELECT 1 FROM checkpoint_root_state WHERE id = ?1 AND ((name IS NOT NULL AND (name IS NOT ?2 OR label IS NOT ?3 OR legacy_uri IS NOT ?4 OR priority IS NOT ?5)) OR (enabled IS NOT NULL AND enabled IS NOT ?6)))", params![id.as_bytes().as_slice(), root.name(), root.label(), root.legacy_uri(), root.priority(), root.is_enabled()], |row| row.get(0))
+                    .map_err(sqlite_error("validate removed root configuration"))?;
+                if differs {
+                    return Err(invalid().into());
+                }
+                connection.execute("INSERT INTO checkpoint_root_state (id, name, label, legacy_uri, priority, enabled, removed) VALUES (?1, ?2, ?3, ?4, ?5, ?6, 1) ON CONFLICT(id) DO UPDATE SET name = excluded.name, label = excluded.label, legacy_uri = excluded.legacy_uri, priority = excluded.priority, enabled = excluded.enabled, removed = 1", params![id.as_bytes().as_slice(), root.name(), root.label(), root.legacy_uri(), root.priority(), root.is_enabled()])
+                    .map_err(sqlite_error("stage removed root configuration"))?;
+            } else {
+                connection.execute("INSERT INTO checkpoint_root_state (id, removed) VALUES (?1, 1) ON CONFLICT(id) DO UPDATE SET removed = 1", [id.as_bytes().as_slice()])
+                    .map_err(sqlite_error("stage authored root removal"))?;
+            }
         }
         _ => return Err(invalid().into()),
+    }
+    Ok(())
+}
+
+fn unique_name(connection: &Connection, root: &MediaRoot) -> ExchangeResult<()> {
+    let duplicate: bool = connection.query_row("SELECT EXISTS(SELECT 1 FROM checkpoint_root_state WHERE name = ?1 AND id <> ?2 AND removed = 0)", params![root.name(), root.id().as_bytes().as_slice()], |row| row.get(0))
+        .map_err(sqlite_error("check authored root name ownership"))?;
+    if duplicate {
+        return Err(invalid().into());
+    }
+    Ok(())
+}
+
+pub(super) fn require_name(
+    connection: &Connection,
+    name: &str,
+    genesis: bool,
+) -> ExchangeResult<()> {
+    let (live, removed): (bool, bool) = connection.query_row("SELECT EXISTS(SELECT 1 FROM checkpoint_root_state WHERE name = ?1 AND removed = 0), EXISTS(SELECT 1 FROM checkpoint_root_state WHERE name = ?1 AND removed = 1)", [name], |row| Ok((row.get(0)?, row.get(1)?)))
+        .map_err(sqlite_error("check root association before locator addition"))?;
+    if !live && (genesis || removed) {
+        return Err(invalid().into());
     }
     Ok(())
 }

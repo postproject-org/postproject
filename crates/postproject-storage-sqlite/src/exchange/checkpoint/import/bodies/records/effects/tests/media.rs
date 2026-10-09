@@ -1,8 +1,9 @@
 use postproject_core::{
     Asset, AssetId, ContentStructure, ExternalIdentifier, FileFacts, IdentifierScheme, Locator,
-    LocatorAvailability, LocatorId, MetadataProperty, MetadataValue, ObjectRef,
-    OriginalMediaImport, PropertyId, Representation, RepresentationFingerprint, RepresentationId,
-    RepresentationKind, Resource, ResourceFingerprint, ResourceId, Timestamp, VocabularyId,
+    LocatorAvailability, LocatorId, MediaRoot, MediaRootId, MetadataProperty, MetadataValue,
+    ObjectRef, OriginalMediaImport, PropertyId, Representation, RepresentationFingerprint,
+    RepresentationId, RepresentationKind, Resource, ResourceFingerprint, ResourceId, Timestamp,
+    VocabularyId,
 };
 use postproject_protocol::{FrameDecoder, Limits};
 
@@ -19,7 +20,29 @@ use crate::{
 fn complete_native_media_records_explain_later_state_without_reconstructing_creation() {
     let directory = tempfile::tempdir().unwrap();
     let mut source = SqliteProduction::create(directory.path().join("source.pproj"), None).unwrap();
-    populate(&mut source);
+    populate(&mut source, None);
+    audit(&source, 0, 2);
+}
+
+#[test]
+fn removal_retains_pre_floor_root_name_and_clears_later_locator_associations() {
+    let directory = tempfile::tempdir().unwrap();
+    let mut source = SqliteProduction::create(directory.path().join("roots.pproj"), None).unwrap();
+    let root = MediaRoot::new(MediaRootId::new(), "Exact:名", None, None, -5, false).unwrap();
+    let mut edit = source.begin_transaction().unwrap();
+    edit.add_media_root(root.clone()).unwrap();
+    edit.commit().unwrap();
+    drop(edit);
+    populate(&mut source, Some(root.name()));
+    let base = source.read_session().unwrap().decision_base();
+    let mut edit = source.begin_edit(base).unwrap();
+    edit.remove_media_root(root.id()).unwrap();
+    edit.commit().unwrap();
+    drop(edit);
+    audit(&source, 1, 4);
+}
+
+fn audit(source: &SqliteProduction, floor: u64, head: u64) {
     let connection = &source.connection;
     metadata_state::create(connection).unwrap();
     root_state::create(connection).unwrap();
@@ -29,13 +52,13 @@ fn complete_native_media_records_explain_later_state_without_reconstructing_crea
     identifier_state::create(connection).unwrap();
     fingerprint_state::create(connection).unwrap();
     recomputation_state::create(connection).unwrap();
-    for sequence in 1..=2 {
+    for sequence in floor + 1..=head {
         let revision = source.changes_since(sequence - 1, 1).unwrap().remove(0);
         for event in source.events_for_revision(revision.id()).unwrap() {
             guard_state::observed(connection, &event, sequence).unwrap();
         }
         let mut reader = source.record_reader(sequence).unwrap();
-        let mut effects = RetainedEffects::new(reader.manifest(), 0);
+        let mut effects = RetainedEffects::new(reader.manifest(), floor);
         let mut decoder = FrameDecoder::new(Limits::default());
         while let Some(chunk) = reader.next_chunk().unwrap() {
             let mut offset = 0;
@@ -50,14 +73,14 @@ fn complete_native_media_records_explain_later_state_without_reconstructing_crea
         decoder.finish().unwrap();
         effects.finish().unwrap();
     }
-    media_state::finish(connection, true).unwrap();
-    locator_state::finish(connection, true).unwrap();
-    identifier_state::finish(connection, true).unwrap();
-    fingerprint_state::finish(connection, 0).unwrap();
-    recomputation_state::finish(connection, 0).unwrap();
-    metadata_state::finish(connection, true).unwrap();
-    root_state::finish(connection, true).unwrap();
-    guard_state::finish(connection, 0).unwrap();
+    media_state::finish(connection, floor == 0).unwrap();
+    locator_state::finish(connection, floor == 0).unwrap();
+    identifier_state::finish(connection, floor == 0).unwrap();
+    fingerprint_state::finish(connection, floor).unwrap();
+    recomputation_state::finish(connection, floor).unwrap();
+    metadata_state::finish(connection, floor == 0).unwrap();
+    root_state::finish(connection, floor == 0).unwrap();
+    guard_state::finish(connection, floor).unwrap();
     let leftovers: i64 = connection
         .query_row(
             "SELECT count(*) FROM sqlite_schema WHERE name LIKE 'checkpoint_%'",
@@ -68,7 +91,7 @@ fn complete_native_media_records_explain_later_state_without_reconstructing_crea
     assert_eq!(leftovers, 0);
 }
 
-fn populate(source: &mut SqliteProduction) {
+fn populate(source: &mut SqliteProduction, root: Option<&str>) {
     let asset = Asset::new(AssetId::new(), Timestamp::from_unix_micros(-1), None, None);
     let resource = Resource::new(
         ResourceId::new(),
@@ -90,6 +113,10 @@ fn populate(source: &mut SqliteProduction) {
         LocatorAvailability::Offline,
     )
     .unwrap();
+    let locator = match root {
+        Some(name) => locator.with_media_root(name).unwrap(),
+        None => locator,
+    };
     let identifier = ExternalIdentifier::new(
         IdentifierScheme::new("unknown:CASE").unwrap(),
         "Exact 名",
@@ -141,16 +168,18 @@ fn populate(source: &mut SqliteProduction) {
     edit.remove_external_identifier(target, &identifier)
         .unwrap();
     edit.retire_locator(import.locators()[0].id()).unwrap();
-    edit.add_locator(
-        &Locator::new(
-            import.locators()[0].id(),
-            resource,
-            "file:///replacement.mov",
-            None,
-            LocatorAvailability::Unknown,
-        )
-        .unwrap(),
+    let replacement = Locator::new(
+        import.locators()[0].id(),
+        resource,
+        "file:///replacement.mov",
+        None,
+        LocatorAvailability::Unknown,
     )
     .unwrap();
+    let replacement = match root {
+        Some(name) => replacement.with_media_root(name).unwrap(),
+        None => replacement,
+    };
+    edit.add_locator(&replacement).unwrap();
     edit.commit().unwrap();
 }

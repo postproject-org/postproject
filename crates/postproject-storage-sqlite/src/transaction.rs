@@ -1004,6 +1004,25 @@ impl<'production> SqliteTransaction<'production> {
     /// transaction/storage error.
     pub fn remove_media_root(&mut self, root_id: MediaRootId) -> Result<()> {
         self.require_decision_base()?;
+        let stored = self
+            .open_transaction()?
+            .query_row(
+                "SELECT name, label, legacy_uri, priority, enabled FROM media_roots WHERE id = ?1",
+                [root_id.as_bytes().as_slice()],
+                |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, Option<String>>(1)?,
+                        row.get::<_, Option<String>>(2)?,
+                        row.get::<_, i32>(3)?,
+                        row.get::<_, bool>(4)?,
+                    ))
+                },
+            )
+            .optional()
+            .map_err(sqlite_error("read removed root facts"))?
+            .ok_or_else(|| Error::new(ErrorKind::NotFound, "media root does not exist"))?;
+        let root = MediaRoot::new(root_id, stored.0, stored.1, stored.2, stored.3, stored.4)?;
         let changed = self
             .open_transaction()?
             .execute(
@@ -1021,7 +1040,7 @@ impl<'production> SqliteTransaction<'production> {
             });
         self.pending_effects
             .push(crate::exchange::CapturedEffect::MediaChanged(
-                postproject_protocol::MediaChange::RootRemoved(root_id),
+                postproject_protocol::MediaChange::RootRemovedWithFacts(root),
             ));
         Ok(())
     }

@@ -1,4 +1,6 @@
-use postproject_core::{ObjectRef, RepresentationKind, ResourceId, RevisionEventKind};
+use postproject_core::{
+    ObjectRef, RepresentationId, RepresentationKind, ResourceId, RevisionEventKind,
+};
 use postproject_protocol::{
     Document, FingerprintChangeStart, FingerprintRecomputation, IdentifierChange, MediaChange,
     RepresentationCreationStart, decode_original_creation_start,
@@ -20,6 +22,7 @@ pub(super) struct PendingFingerprint {
     resource: ResourceId,
     remaining: u64,
     total: u64,
+    last_owner: Option<RepresentationId>,
 }
 
 impl RetainedEffects {
@@ -97,6 +100,7 @@ impl RetainedEffects {
                                 resource,
                                 remaining: start.marker_count(),
                                 total: start.marker_count(),
+                                last_owner: None,
                             });
                         }
                     }
@@ -116,6 +120,7 @@ impl RetainedEffects {
             "root.added"
             | "root.enabled"
             | "root.removed"
+            | "root.removed-facts"
             | "resource.file-facts"
             | "locator.added"
             | "locator.retired" => {
@@ -135,12 +140,20 @@ impl RetainedEffects {
         document: &Document,
     ) -> ExchangeResult<()> {
         let pending = self.fingerprint.as_mut().ok_or_else(invalid)?;
-        recomputation_state::marked(
+        let marker = FingerprintRecomputation::from_document(document)?;
+        if pending
+            .last_owner
+            .is_some_and(|previous| previous >= marker.representation_id())
+        {
+            return Err(invalid().into());
+        }
+        media_state::require(
             connection,
-            FingerprintRecomputation::from_document(document)?,
-            pending.resource,
-            self.sequence,
+            ObjectRef::Representation(marker.representation_id()),
+            self.floor,
         )?;
+        pending.last_owner = Some(marker.representation_id());
+        recomputation_state::marked(connection, marker, pending.resource, self.sequence)?;
         pending.remaining = pending.remaining.checked_sub(1).ok_or_else(invalid)?;
         if pending.remaining == 0 {
             recomputation_state::resource_finish(connection, pending.total)?;
@@ -157,6 +170,9 @@ impl RetainedEffects {
             }
             MediaChange::LocatorAdded(locator) => {
                 self.require_media_target(connection, ObjectRef::Resource(locator.resource_id()))?;
+                if let Some(name) = locator.media_root() {
+                    root_state::require_name(connection, name, self.genesis)?;
+                }
                 locator_state::added(connection, locator)
             }
             MediaChange::LocatorRetired {
@@ -178,6 +194,10 @@ impl RetainedEffects {
                 if let Some(name) = name.flatten() {
                     locator_state::clear_known_root(connection, &name)?;
                 }
+                root_state::change(connection, change, self.genesis)
+            }
+            MediaChange::RootRemovedWithFacts(root) => {
+                locator_state::clear_known_root(connection, root.name())?;
                 root_state::change(connection, change, self.genesis)
             }
             _ => root_state::change(connection, change, self.genesis),

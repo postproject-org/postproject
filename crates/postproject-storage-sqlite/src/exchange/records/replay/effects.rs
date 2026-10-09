@@ -104,6 +104,7 @@ impl<'a, 'connection> ApplyEffects<'a, 'connection> {
                 | "root.added"
                 | "root.enabled"
                 | "root.removed"
+                | "root.removed-facts"
                 | "locator.added"
                 | "locator.retired" => {
                     self.require_feature(RecordFeature::Media)?;

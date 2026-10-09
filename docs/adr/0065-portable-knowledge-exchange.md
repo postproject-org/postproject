@@ -158,6 +158,11 @@ Semantic guards must match original observations and the exact authored key set
 above the replay floor. Initial creation locators do not invent changed guards.
 Scalar ownership and content headers can be built without loading fingerprint
 or locator collections. Transport continues to use the existing domain checks.
+New root removals retain the original configuration so implicit locator-root
+clearing can be checked even when the root predates the replay floor. Earlier
+ID-only development removal records remain readable. Checkpoint media references
+must follow creation effects; final existence cannot stand in for an unknown
+migration baseline when observation history records a later creation.
 Legacy metadata evidence is encoded incrementally without a whole replacement
 document allocation or a proposal-sized cap on native replacements.
 
