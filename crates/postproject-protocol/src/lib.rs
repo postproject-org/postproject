@@ -55,7 +55,7 @@ pub use creation::{
     CreationDecoder, CreationFact, RepresentationCreationStart, ResourceCreationStart,
     decode_original_creation_start, encode_original_creation, encode_representation_creation,
 };
-pub use dependency::DependencySetHeader;
+pub use dependency::{DependencyOccurrence, DependencySetHeader};
 pub use digest::{Digest, DigestDomain};
 pub use effect::{
     MetadataCanonicalParts, MetadataChange, MetadataEffect, MetadataEffectStart, MetadataOperation,

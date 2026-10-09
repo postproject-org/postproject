@@ -1,5 +1,8 @@
 //! Complete dependency observations, streamed in authored occurrence order.
 
+mod occurrence;
+pub use occurrence::DependencyOccurrence;
+
 use postproject_core::{
     DependencySet, DependencySetStatus, MAX_DEPENDENCIES_PER_SET, RepresentationId,
 };
