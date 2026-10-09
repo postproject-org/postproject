@@ -13,6 +13,8 @@ mod locator_state;
 #[cfg(test)]
 mod media_state;
 mod metadata_state;
+#[cfg(test)]
+mod recomputation_state;
 mod recovery;
 mod root_state;
 mod staging;
