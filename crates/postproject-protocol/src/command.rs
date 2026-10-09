@@ -2,7 +2,7 @@
 
 use postproject_core::{
     FileFacts, Locator, LocatorId, MediaRoot, MediaRootId, MetadataProperty, MetadataValue,
-    ObjectRef, PropertyId, ResourceId, VocabularyId,
+    ObjectRef, OriginalMediaImport, PropertyId, RepresentationImport, ResourceId, VocabularyId,
 };
 use serde_json::{Value, json};
 
@@ -14,12 +14,18 @@ use crate::{
     metadata,
 };
 
+mod evidence;
 mod media;
+mod prepared;
 
 /// A checked domain command offered by the current development codec.
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum Command {
+    /// Imports a complete checked aggregate measured before submission.
+    ImportOriginal(OriginalMediaImport),
+    /// Adds a complete prepared representation to an existing asset.
+    AddRepresentation(RepresentationImport),
     /// Adds complete logical root configuration, without a local mapping.
     AddMediaRoot(MediaRoot),
     /// Changes an existing root under its native decision guard.
@@ -81,7 +87,9 @@ impl Command {
             Self::AppendMetadata { .. }
             | Self::ReplaceMetadata { .. }
             | Self::RemoveMetadata { .. } => RecordFeature::Metadata,
-            Self::AddMediaRoot(_)
+            Self::ImportOriginal(_)
+            | Self::AddRepresentation(_)
+            | Self::AddMediaRoot(_)
             | Self::SetMediaRootEnabled { .. }
             | Self::RemoveMediaRoot(_)
             | Self::AddLocator(_)
@@ -141,6 +149,7 @@ pub(crate) fn encode(command: &Command) -> Result<Value> {
         Command::RemoveMetadata { target, property } => {
             json!({"kind":"metadata.remove","target":encode_reference(*target)?,"property":encode_property(property)})
         }
+        Command::ImportOriginal(_) | Command::AddRepresentation(_) => prepared::encode(command)?,
         other => media::encode(other)?,
     })
 }
@@ -151,6 +160,7 @@ pub(crate) fn decode(value: &Value) -> Result<Command> {
         "metadata.append" => &["kind", "target", "property", "value"][..],
         "metadata.replace" => &["kind", "target", "property", "values"][..],
         "metadata.remove" => &["kind", "target", "property"][..],
+        "media.import-original" | "representation.add" => return prepared::decode(kind, value),
         _ => return media::decode(kind, value),
     };
     let fields = object(value, keys)?;
