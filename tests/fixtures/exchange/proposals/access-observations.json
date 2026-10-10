@@ -1,0 +1,101 @@
+{
+  "kind": "proposal",
+  "version": "1",
+  "required_features": [
+    "media.v1"
+  ],
+  "production": "00000000-0000-4000-8000-000000000001",
+  "history": "00000000-0000-4000-8000-000000000002",
+  "client": "00000000-0000-4000-8000-000000000003",
+  "request": "00000000-0000-4000-8000-00000000006d",
+  "base": null,
+  "origin": null,
+  "message": "Fixed independent Python vector",
+  "commands": [
+    {
+      "kind": "root.set-enabled",
+      "id": "00000000-0000-4000-8000-000000000004",
+      "enabled": false
+    },
+    {
+      "kind": "root.remove",
+      "id": "00000000-0000-4000-8000-000000000004"
+    },
+    {
+      "kind": "locator.add",
+      "locator": {
+        "kind": "locator.fact",
+        "id": "00000000-0000-4000-8000-000000000070",
+        "resource_id": "00000000-0000-4000-8000-00000000000c",
+        "uri": "file:///missing/Exact.mov",
+        "last_seen_micros": null,
+        "availability": "offline",
+        "media_root": null,
+        "sequence_naming": null
+      }
+    },
+    {
+      "kind": "locator.retire",
+      "id": "00000000-0000-4000-8000-000000000070"
+    },
+    {
+      "kind": "identifier.add",
+      "attachment": {
+        "kind": "identifier.attachment",
+        "target": {
+          "kind": "asset",
+          "id": "00000000-0000-4000-8000-000000000005"
+        },
+        "identifier": {
+          "scheme": "urn:vendor:EXACT",
+          "value": "  \u540c/\ud83d\ude00  ",
+          "qualifier": "vendor:Original"
+        }
+      }
+    },
+    {
+      "kind": "identifier.remove",
+      "attachment": {
+        "kind": "identifier.attachment",
+        "target": {
+          "kind": "asset",
+          "id": "00000000-0000-4000-8000-000000000005"
+        },
+        "identifier": {
+          "scheme": "urn:vendor:EXACT",
+          "value": "  \u540c/\ud83d\ude00  ",
+          "qualifier": "vendor:Original"
+        }
+      }
+    },
+    {
+      "kind": "resource.observe-file-facts",
+      "resource": {
+        "kind": "resource.header",
+        "id": "00000000-0000-4000-8000-000000000008",
+        "file_facts": {
+          "size_bytes": "18446744073709551615",
+          "modified_at_micros": "-9223372036854775808"
+        }
+      }
+    },
+    {
+      "kind": "representation.observe-fingerprint",
+      "id": "00000000-0000-4000-8000-000000000006",
+      "fingerprint": {
+        "algorithm": "EXACT_unknown",
+        "version": "65535",
+        "value": "/wAB"
+      }
+    }
+  ],
+  "extensions": {
+    "vendor:exact": {
+      "ordered": [
+        "\u540c",
+        "\u540c",
+        "\ud83d\ude00"
+      ]
+    }
+  }
+}
