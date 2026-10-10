@@ -3,9 +3,10 @@
 mod error;
 mod outcome;
 mod prepare;
+mod state;
+mod submission;
 #[cfg(test)]
 mod submission_tests;
-mod submission;
 #[cfg(test)]
 mod tests;
 
@@ -15,6 +16,7 @@ use postproject_protocol::{
 use postproject_storage_sqlite::ExchangeResult;
 
 pub use outcome::PpOutcome;
+pub use state::{PpExchangeLimits, PpExchangePosition, PpExchangeState};
 pub use submission::{PpPrivateLeaseToken, PpSubmission};
 
 use crate::{

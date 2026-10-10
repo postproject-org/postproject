@@ -158,6 +158,54 @@ typedef struct pp_protocol_base {
   pp_history_id_t history_id;
 } pp_protocol_base_t;
 
+typedef struct pp_exchange_position {
+  pp_protocol_base_t base;
+  uint8_t digest[32];
+} pp_exchange_position_t;
+
+/* Receiver-controlled positive budgets. Depth is 1..192. State inspection
+ * returns defaults: 1 GiB file, 2 GiB private database/journal, 10 million
+ * frames/traversal work, 64 MiB document and 1 million document nodes. */
+typedef struct pp_exchange_limits {
+  uint64_t file_bytes;
+  uint64_t disk_bytes;
+  uint64_t frames;
+  uint64_t document_bytes;
+  uint32_t document_depth;
+  uint64_t document_nodes;
+} pp_exchange_limits_t;
+
+#define PP_EXCHANGE_AUTHORITY UINT32_C(1)
+#define PP_EXCHANGE_PASSIVE_MIRROR UINT32_C(2)
+/* Supported versioned codecs; wire names and protocol major remain independent
+ * of package/C ABI. Unknown required wire features reject explicitly. */
+#define PP_EXCHANGE_METADATA UINT64_C(1)
+#define PP_EXCHANGE_MEDIA UINT64_C(2)
+#define PP_EXCHANGE_PROVENANCE UINT64_C(4)
+#define PP_EXCHANGE_DEPENDENCIES UINT64_C(8)
+#define PP_EXCHANGE_JOBS UINT64_C(16)
+#define PP_EXCHANGE_RECORD_CHUNKS UINT64_C(32)
+#define PP_EXCHANGE_CHECKPOINTS UINT64_C(64)
+#define PP_EXCHANGE_OUTCOMES UINT64_C(128)
+#define PP_EXCHANGE_CHECKPOINT_ARCHIVES UINT64_C(256)
+
+/* One coherent copied view. has_head=0 identifies incomplete development
+ * capture; observed_base remains the actual native decision, head is zero.
+ * Other corruption/storage failures return errors, without implicit recovery. */
+typedef struct pp_exchange_state {
+  uint32_t protocol_version;
+  uint32_t role;
+  uint64_t supported_features;
+  pp_protocol_base_t observed_base;
+  pp_exchange_position_t floor;
+  uint8_t has_head;
+  pp_exchange_position_t head;
+  pp_exchange_limits_t limits;
+} pp_exchange_state_t;
+PP_API uint32_t pp_production_exchange_state(
+    const pp_production_t *production, pp_exchange_state_t *out_state,
+    pp_error_t **out_error);
+
 /* Complete public lookup scope; preserve every field after response loss. */
 typedef struct pp_request_identity {
   pp_production_id_t production_id;

@@ -209,6 +209,18 @@ class ProtocolBase(ctypes.Structure):
     pass
 
 
+class ExchangePosition(ctypes.Structure):
+    pass
+
+
+class ExchangeLimits(ctypes.Structure):
+    pass
+
+
+class ExchangeState(ctypes.Structure):
+    pass
+
+
 class RequestIdentity(ctypes.Structure):
     pass
 
@@ -302,6 +314,17 @@ ContentObservation = ctypes.c_uint32
 
 PP_COMMIT_NO_CHANGE = 0
 PP_COMMIT_REVISION_CREATED = 1
+PP_EXCHANGE_AUTHORITY = 1
+PP_EXCHANGE_PASSIVE_MIRROR = 2
+PP_EXCHANGE_METADATA = 1
+PP_EXCHANGE_MEDIA = 2
+PP_EXCHANGE_PROVENANCE = 4
+PP_EXCHANGE_DEPENDENCIES = 8
+PP_EXCHANGE_JOBS = 16
+PP_EXCHANGE_RECORD_CHUNKS = 32
+PP_EXCHANGE_CHECKPOINTS = 64
+PP_EXCHANGE_OUTCOMES = 128
+PP_EXCHANGE_CHECKPOINT_ARCHIVES = 256
 PP_OUTCOME_ACCEPTED = 1
 PP_OUTCOME_REJECTED = 2
 PP_OBJECT_PRODUCTION = 1
@@ -553,6 +576,31 @@ ProtocolBase._fields_ = [
     ("history_id", HistoryId),
 ]
 
+ExchangePosition._fields_ = [
+    ("base", ProtocolBase),
+    ("digest", ctypes.c_uint8 * 32),
+]
+
+ExchangeLimits._fields_ = [
+    ("file_bytes", ctypes.c_uint64),
+    ("disk_bytes", ctypes.c_uint64),
+    ("frames", ctypes.c_uint64),
+    ("document_bytes", ctypes.c_uint64),
+    ("document_depth", ctypes.c_uint32),
+    ("document_nodes", ctypes.c_uint64),
+]
+
+ExchangeState._fields_ = [
+    ("protocol_version", ctypes.c_uint32),
+    ("role", ctypes.c_uint32),
+    ("supported_features", ctypes.c_uint64),
+    ("observed_base", ProtocolBase),
+    ("floor", ExchangePosition),
+    ("has_head", ctypes.c_uint8),
+    ("head", ExchangePosition),
+    ("limits", ExchangeLimits),
+]
+
 RequestIdentity._fields_ = [
     ("production_id", ProductionId),
     ("history_id", HistoryId),
@@ -739,6 +787,9 @@ PUBLIC_STRUCTS = {
     "pp_client_id_t": (ClientId, ("bytes",)),
     "pp_request_id_t": (RequestId, ("bytes",)),
     "pp_protocol_base_t": (ProtocolBase, ("decision", "history_id")),
+    "pp_exchange_position_t": (ExchangePosition, ("base", "digest")),
+    "pp_exchange_limits_t": (ExchangeLimits, ("file_bytes", "disk_bytes", "frames", "document_bytes", "document_depth", "document_nodes")),
+    "pp_exchange_state_t": (ExchangeState, ("protocol_version", "role", "supported_features", "observed_base", "floor", "has_head", "head", "limits")),
     "pp_request_identity_t": (RequestIdentity, ("production_id", "history_id", "client_id", "request_id")),
     "pp_private_lease_token_t": (PrivateLeaseToken, ("bytes", "length")),
     "pp_object_ref_t": (ObjectRef, ("kind", "id")),
@@ -924,6 +975,7 @@ EXPORTED_SYMBOLS = (
     "pp_production_dependency_set",
     "pp_production_dependents",
     "pp_production_evaluate_artifact",
+    "pp_production_exchange_state",
     "pp_production_external_identifiers",
     "pp_production_find_by_external_identifier",
     "pp_production_find_known_media_by_fingerprint",
@@ -1103,6 +1155,8 @@ EXPORTED_SYMBOLS = (
 def configure_api(lib: ctypes.CDLL) -> None:
     """Configure every function declared by the public C header."""
 
+    lib.pp_production_exchange_state.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(ExchangeState), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_production_exchange_state.restype = ctypes.c_uint32
     lib.pp_transaction_prepare_proposal.argtypes = [ctypes.POINTER(Transaction), ClientId, RequestId, ctypes.POINTER(ProtocolBase), ctypes.POINTER(ctypes.POINTER(Proposal)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_transaction_prepare_proposal.restype = ctypes.c_uint32
     lib.pp_proposal_document.argtypes = [ctypes.POINTER(Proposal), ctypes.POINTER(ctypes.POINTER(ctypes.c_uint8)), ctypes.POINTER(ctypes.c_uint64), ctypes.POINTER(ctypes.POINTER(Error))]

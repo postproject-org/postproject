@@ -20,6 +20,7 @@ int main(int argc, char **argv) {
   CHECK(pp_production_create(path, "Authority", &production, &error));
   /* [exchange-prepare] */
   pp_decision_base_t base;
+  pp_exchange_state_t state;
   pp_object_ref_t target;
   pp_media_root_id_t root;
   const uint8_t *bytes;
@@ -27,6 +28,8 @@ int main(int argc, char **argv) {
   /* Application-generated identities are retained for this complete intent. */
   pp_client_id_t client = {{1}};
   pp_request_id_t request = {{2}};
+  CHECK(pp_production_exchange_state(production, &state, &error));
+  if (state.protocol_version != 1 || state.role != PP_EXCHANGE_AUTHORITY || !state.has_head || state.floor.base.decision.revision_sequence != 0) goto cleanup;
   CHECK(pp_production_read_session(production, &view, &error));
   CHECK(pp_read_session_decision_base(view, &base, &error));
   CHECK(pp_production_begin_edit(production, &base, &edit, &error));
@@ -35,7 +38,7 @@ int main(int argc, char **argv) {
   CHECK(pp_metadata_input_create_u64(UINT64_MAX, &value, &error));
   CHECK(pp_transaction_add_metadata_value(edit, &target, "example:Exact", "count", value, &error));
   CHECK(pp_transaction_add_media_root(edit, "rushes", NULL, -5, &root, &error));
-  CHECK(pp_transaction_prepare_proposal(edit, client, request, NULL, &proposal, &error));
+  CHECK(pp_transaction_prepare_proposal(edit, client, request, &state.observed_base, &proposal, &error));
   CHECK(pp_proposal_document(proposal, &bytes, &length, &error));
   if (length == 0 || bytes[0] != '{') goto cleanup;
   /* bytes are borrowed public transport, with exact integers and prepared IDs. */

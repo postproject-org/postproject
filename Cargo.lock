@@ -708,6 +708,7 @@ dependencies = [
  "postproject-media",
  "postproject-protocol",
  "postproject-storage-sqlite",
+ "rusqlite",
  "tempfile",
 ]
 

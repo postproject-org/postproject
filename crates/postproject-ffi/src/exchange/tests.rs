@@ -199,3 +199,66 @@ fn rejected_preparation_keeps_edit_and_guard_with_cleared_output() {
         );
     }
 }
+
+#[test]
+fn inspection_reports_incomplete_head_without_hiding_corruption() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("authority.pproj");
+    let mut source = SqliteProduction::create(&path, None).unwrap();
+    let mut edit = source.begin_transaction().unwrap();
+    edit.add_media_root(make_root("rushes", 0)).unwrap();
+    edit.commit().unwrap();
+    drop(edit);
+    let production = production_handle(source);
+    let mut output = std::mem::MaybeUninit::<PpExchangeState>::uninit();
+    // SAFETY: Production remains live, output writable and inspected after OK.
+    unsafe {
+        assert_eq!(
+            state::pp_production_exchange_state(
+                &raw const production,
+                output.as_mut_ptr(),
+                ptr::null_mut()
+            ),
+            crate::PP_OK
+        );
+        let mut state = output.assume_init();
+        assert_eq!(state.role, 1);
+        assert_eq!(state.head.base.decision.revision_sequence, 1);
+        assert_eq!(state.has_head, 1);
+        assert_eq!(state.floor.base.decision.revision_sequence, 0);
+        assert_eq!(state.limits.document_bytes, 64 << 20);
+        let connection = rusqlite::Connection::open(&path).unwrap();
+        connection
+            .execute("DELETE FROM exchange_records WHERE sequence = 1", [])
+            .unwrap();
+        assert_eq!(
+            state::pp_production_exchange_state(
+                &raw const production,
+                &raw mut state,
+                ptr::null_mut()
+            ),
+            crate::PP_OK
+        );
+        assert_eq!(state.has_head, 0);
+        assert_eq!(state.observed_base.decision.revision_sequence, 1);
+        assert_eq!(state.head.digest, [0; 32]);
+        assert_eq!(state.head.base.decision.production_id.bytes, [0; 16]);
+        connection
+            .execute(
+                "UPDATE exchange_history SET anchor_digest = zeroblob(32)",
+                [],
+            )
+            .unwrap();
+        assert_eq!(
+            state::pp_production_exchange_state(
+                &raw const production,
+                &raw mut state,
+                ptr::null_mut()
+            ),
+            crate::PP_ERROR_STORAGE
+        );
+        assert_eq!(state.protocol_version, 0);
+        assert_eq!(state.limits.file_bytes, 0);
+        assert_eq!(state.observed_base.decision.revision_sequence, 0);
+    }
+}

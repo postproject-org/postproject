@@ -2,11 +2,11 @@
 use postproject::{
     PpActivityEdge, PpActivityId, PpArtifactDependencyPathSegment, PpArtifactReason,
     PpArtifactReproducibilityIssue, PpAssetId, PpClientId, PpCommitReceipt, PpDecisionBase,
-    PpDependency, PpDependencyMatch, PpFileResourceInput, PpHistoryId, PpJob, PpJobClaim,
-    PpJobCompletion, PpJobId, PpLocatorId, PpMediaRootId, PpObjectRef, PpPrivateLeaseToken,
-    PpProductionId, PpProtocolBase, PpRepresentationId, PpRequestId, PpRequestIdentity,
-    PpResourceId, PpRevisionEvent, PpRevisionId, PpSequenceNaming, PpTransactionConflict,
-    PpTransactionId, PpUuid,
+    PpDependency, PpDependencyMatch, PpExchangeLimits, PpExchangePosition, PpExchangeState,
+    PpFileResourceInput, PpHistoryId, PpJob, PpJobClaim, PpJobCompletion, PpJobId, PpLocatorId,
+    PpMediaRootId, PpObjectRef, PpPrivateLeaseToken, PpProductionId, PpProtocolBase,
+    PpRepresentationId, PpRequestId, PpRequestIdentity, PpResourceId, PpRevisionEvent,
+    PpRevisionId, PpSequenceNaming, PpTransactionConflict, PpTransactionId, PpUuid,
 };
 use std::mem::{align_of, offset_of, size_of};
 
@@ -53,6 +53,29 @@ fn main() {
     layout!(PpClientId, "pp_client_id_t", bytes);
     layout!(PpRequestId, "pp_request_id_t", bytes);
     layout!(PpProtocolBase, "pp_protocol_base_t", decision, history_id);
+    layout!(PpExchangePosition, "pp_exchange_position_t", base, digest);
+    layout!(
+        PpExchangeLimits,
+        "pp_exchange_limits_t",
+        file_bytes,
+        disk_bytes,
+        frames,
+        document_bytes,
+        document_depth,
+        document_nodes
+    );
+    layout!(
+        PpExchangeState,
+        "pp_exchange_state_t",
+        protocol_version,
+        role,
+        supported_features,
+        observed_base,
+        floor,
+        has_head,
+        head,
+        limits
+    );
     layout!(
         PpRequestIdentity,
         "pp_request_identity_t",
