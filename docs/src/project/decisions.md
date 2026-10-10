@@ -82,6 +82,7 @@ Read the relevant ADR before changing an invariant, a boundary, or a public cont
 - {doc}`ADR 0064 — Binding boundary errors </adr/0064-binding-boundary-error-categories>`
 - {doc}`ADR 0065 — Portable knowledge exchange </adr/0065-portable-knowledge-exchange>`
 - {doc}`ADR 0066 — Development history resynchronization </adr/0066-development-history-resynchronization>`
+- {doc}`ADR 0067 — Native portable exchange projection </adr/0067-native-portable-exchange-projection>`
 
 ```{toctree}
 :hidden:
@@ -152,4 +153,5 @@ Read the relevant ADR before changing an invariant, a boundary, or a public cont
 /adr/0064-binding-boundary-error-categories
 /adr/0065-portable-knowledge-exchange
 /adr/0066-development-history-resynchronization
+/adr/0067-native-portable-exchange-projection
 ```

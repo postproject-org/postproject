@@ -26,6 +26,13 @@ must never be rebound by discarding its history. Immutable proposals can also
 be transported through bounded canonical bytes, but normal native commands use
 the typed staging inputs rather than JSON.
 
+Python additionally accepts ordered collections of typed local command values.
+A builder reuses native staging validators and returns typed prepared IDs for
+later commands. Paths and owning leases are local preparation inputs only;
+portable intent contains measured facts and public job identity. Closing a
+builder discards staging. After a staging failure, discard it before making a
+new decision. Submission still needs explicit private context.
+
 Public outcomes and fresh private lease delivery remain separate. Duplicate
 submission checks the original private ownership binding before current-time
 authorization and returns no new ownership. Public lookup never returns a
