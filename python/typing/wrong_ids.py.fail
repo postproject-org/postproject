@@ -1,6 +1,9 @@
-"""Must fail an installed-package type check for all nine annotated calls."""
+"""Must fail an installed-package type check for all twelve annotated calls."""
 
-from postproject import ActivityRef, AssetId, AssetRef, Production, RepresentationId, Transaction
+from postproject import (
+    ActivityRef, AssetId, AssetRef, ClientId, DecisionBase, Production,
+    ProtocolBase, RepresentationId, RequestId, Transaction,
+)
 
 
 def wrong_kinds(production: Production, transaction: Transaction, asset: AssetId, representation: RepresentationId) -> None:
@@ -13,3 +16,10 @@ def wrong_kinds(production: Production, transaction: Transaction, asset: AssetId
     production.job(asset)
     transaction.cancel_job(representation)
     ActivityRef(asset)
+
+
+def wrong_exchange(transaction: Transaction, client: ClientId,
+    request: RequestId, decision: DecisionBase) -> None:
+    transaction.prepare_proposal(request, request)
+    transaction.prepare_proposal(client, client)
+    ProtocolBase(decision, client)

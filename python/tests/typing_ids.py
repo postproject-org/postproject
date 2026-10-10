@@ -9,12 +9,18 @@ from postproject import (
     ActivitySpec,
     AssetId,
     AssetRef,
+    ClientId,
+    HistoryId,
     JobId,
     JobRef,
     LocatorId,
     MediaRootId,
     Production,
+    Proposal,
+    ProtocolBase,
     RepresentationId,
+    RequestId,
+    RequestIdentity,
     Transaction,
     parse_id,
 )
@@ -46,3 +52,20 @@ def correct_kinds(
     assert_type(
         transaction.create_activity(ActivitySpec("com.example:record", ())), ActivityId
     )
+
+
+def correct_exchange(
+    transaction: Transaction,
+    client: ClientId,
+    request: RequestId,
+    history: HistoryId,
+    proposal: Proposal,
+    base: ProtocolBase,
+) -> None:
+    assert_type(transaction.prepare_proposal(client, request), Proposal)
+    assert_type(proposal.identity, RequestIdentity)
+    assert_type(proposal.identity.history_id, HistoryId)
+    assert_type(proposal.identity.client_id, ClientId)
+    assert_type(proposal.identity.request_id, RequestId)
+    assert_type(parse_id(str(history), HistoryId), HistoryId)
+    assert_type(base.history_id, HistoryId)
