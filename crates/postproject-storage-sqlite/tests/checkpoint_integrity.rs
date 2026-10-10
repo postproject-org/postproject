@@ -2,6 +2,8 @@
 
 #[path = "checkpoint_integrity/activity.rs"]
 mod activity;
+#[path = "checkpoint_integrity/archives.rs"]
+mod archives;
 #[path = "checkpoint_integrity/dependencies.rs"]
 mod dependencies;
 #[path = "checkpoint_integrity/jobs.rs"]
