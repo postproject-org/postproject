@@ -1,6 +1,7 @@
 //! Native projection of checked public exchange values and ownership.
 
 mod error;
+mod files;
 mod outcome;
 mod prepare;
 mod state;

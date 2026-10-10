@@ -11,9 +11,6 @@ same complete domain checks in temporary private storage. Existing destinations
 and incomplete streams reject without publishing a partial mirror.
 
 ````{code-variants} exchange-checkpoint
-```{no-variant} c
-The native exchange projection is not yet available. Use the development CLI.
-```
 ```{no-variant} cpp
 The C++ exchange projection is not yet available. Use the development CLI.
 ```

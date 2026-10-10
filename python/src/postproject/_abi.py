@@ -842,6 +842,8 @@ EXPORTED_SYMBOLS = (
     "pp_cancel_token_cancel",
     "pp_cancel_token_create",
     "pp_cancel_token_release",
+    "pp_checkpoint_import_file",
+    "pp_checkpoint_validate_file",
     "pp_decision_base_format",
     "pp_decision_base_parse",
     "pp_dependency_query_set_count",
@@ -976,6 +978,7 @@ EXPORTED_SYMBOLS = (
     "pp_production_dependents",
     "pp_production_evaluate_artifact",
     "pp_production_exchange_state",
+    "pp_production_export_checkpoint",
     "pp_production_external_identifiers",
     "pp_production_find_by_external_identifier",
     "pp_production_find_known_media_by_fingerprint",
@@ -1157,6 +1160,12 @@ def configure_api(lib: ctypes.CDLL) -> None:
 
     lib.pp_production_exchange_state.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(ExchangeState), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_production_exchange_state.restype = ctypes.c_uint32
+    lib.pp_production_export_checkpoint.argtypes = [ctypes.POINTER(Production), ctypes.c_char_p, ctypes.POINTER(ExchangePosition), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_production_export_checkpoint.restype = ctypes.c_uint32
+    lib.pp_checkpoint_validate_file.argtypes = [ctypes.c_char_p, ctypes.POINTER(ExchangeLimits), ctypes.POINTER(ExchangePosition), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_checkpoint_validate_file.restype = ctypes.c_uint32
+    lib.pp_checkpoint_import_file.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.POINTER(ExchangeLimits), ctypes.POINTER(ctypes.POINTER(Production)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_checkpoint_import_file.restype = ctypes.c_uint32
     lib.pp_transaction_prepare_proposal.argtypes = [ctypes.POINTER(Transaction), ClientId, RequestId, ctypes.POINTER(ProtocolBase), ctypes.POINTER(ctypes.POINTER(Proposal)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_transaction_prepare_proposal.restype = ctypes.c_uint32
     lib.pp_proposal_document.argtypes = [ctypes.POINTER(Proposal), ctypes.POINTER(ctypes.POINTER(ctypes.c_uint8)), ctypes.POINTER(ctypes.c_uint64), ctypes.POINTER(ctypes.POINTER(Error))]

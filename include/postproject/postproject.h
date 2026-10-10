@@ -205,6 +205,19 @@ typedef struct pp_exchange_state {
 PP_API uint32_t pp_production_exchange_state(
     const pp_production_t *production, pp_exchange_state_t *out_state,
     pp_error_t **out_error);
+/* Export publishes an exclusive new file only after a complete seal/flush.
+ * Validation performs all domain checks in private temporary storage. Import
+ * creates a new passive file; existing destinations are never overwritten.
+ * Null receiver limits selects the defaults reported by state inspection. */
+PP_API uint32_t pp_production_export_checkpoint(
+    const pp_production_t *production, const char *path,
+    pp_exchange_position_t *out_position, pp_error_t **out_error);
+PP_API uint32_t pp_checkpoint_validate_file(
+    const char *path, const pp_exchange_limits_t *limits,
+    pp_exchange_position_t *out_position, pp_error_t **out_error);
+PP_API uint32_t pp_checkpoint_import_file(
+    const char *path, const char *destination, const pp_exchange_limits_t *limits,
+    pp_production_t **out_production, pp_error_t **out_error);
 
 /* Complete public lookup scope; preserve every field after response loss. */
 typedef struct pp_request_identity {

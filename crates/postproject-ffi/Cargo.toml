@@ -19,10 +19,10 @@ postproject-core = { version = "0.7.0-alpha.1", path = "../postproject-core" }
 postproject-media = { version = "0.7.0-alpha.1", path = "../postproject-media" }
 postproject-protocol = { version = "0.7.0-alpha.1", path = "../postproject-protocol" }
 postproject-storage-sqlite = { version = "0.7.0-alpha.1", path = "../postproject-storage-sqlite" }
+tempfile = "3"
 
 [dev-dependencies]
 rusqlite = { version = "0.40.2", default-features = false, features = ["bundled"] }
-tempfile = "3"
 
 [lints.rust]
 missing_docs = "warn"

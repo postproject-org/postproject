@@ -4,9 +4,11 @@
 #include <string.h>
 
 int main(int argc, char **argv) {
-  char path[4096];
+  char path[4096], checkpoint[4096], mirror_path[4096];
   if (argc != 2 || snprintf(path, sizeof path, "%s/authority.pproj", argv[1]) >= (int)sizeof path) return 2;
+  if (snprintf(checkpoint, sizeof checkpoint, "%s/checkpoint.ppxc", argv[1]) >= (int)sizeof checkpoint || snprintf(mirror_path, sizeof mirror_path, "%s/mirror.pproj", argv[1]) >= (int)sizeof mirror_path) return 2;
   pp_production_t *production = NULL;
+  pp_production_t *mirror = NULL;
   pp_read_session_t *view = NULL;
   pp_transaction_t *edit = NULL, *next = NULL;
   pp_proposal_t *proposal = NULL, *transported = NULL;
@@ -18,6 +20,23 @@ int main(int argc, char **argv) {
   int result = 1;
 #define CHECK(call) do { if ((call) != PP_OK) goto cleanup; } while (0)
   CHECK(pp_production_create(path, "Authority", &production, &error));
+  /* [exchange-checkpoint] */
+  pp_exchange_position_t saved, validated;
+  pp_exchange_state_t mirror_state;
+  CHECK(pp_production_export_checkpoint(production, checkpoint, &saved, &error));
+  CHECK(pp_checkpoint_validate_file(checkpoint, NULL, &validated, &error));
+  if (memcmp(saved.digest, validated.digest, sizeof saved.digest)) goto cleanup;
+  CHECK(pp_checkpoint_import_file(checkpoint, mirror_path, NULL, &mirror, &error));
+  CHECK(pp_production_exchange_state(mirror, &mirror_state, &error));
+  if (mirror_state.role != PP_EXCHANGE_PASSIVE_MIRROR || !mirror_state.has_head || memcmp(mirror_state.head.digest, saved.digest, sizeof saved.digest)) goto cleanup;
+  /* [/exchange-checkpoint] */
+  pp_transaction_t *forbidden = NULL;
+  if (pp_production_begin_transaction(mirror, &forbidden, NULL) != PP_ERROR_UNSUPPORTED || forbidden != NULL) goto cleanup;
+  if (pp_production_begin_edit(mirror, &mirror_state.observed_base.decision, &forbidden, NULL) != PP_ERROR_UNSUPPORTED || forbidden != NULL) goto cleanup;
+  pp_exchange_limits_t tiny = mirror_state.limits;
+  tiny.file_bytes = 1;
+  if (pp_checkpoint_validate_file(checkpoint, &tiny, &validated, NULL) != PP_ERROR_LIMIT_EXCEEDED || validated.base.decision.revision_sequence != 0) goto cleanup;
+  if (pp_production_export_checkpoint(production, checkpoint, &validated, NULL) != PP_ERROR_ALREADY_EXISTS) goto cleanup;
   /* [exchange-prepare] */
   pp_decision_base_t base;
   pp_exchange_state_t state;
@@ -104,6 +123,7 @@ cleanup:
   pp_transaction_release(next);
   pp_read_session_release(view);
   pp_production_release(production);
+  pp_production_release(mirror);
   return result;
 #undef CHECK
 }
