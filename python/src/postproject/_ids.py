@@ -15,6 +15,9 @@ JobId = NewType("JobId", UUID)
 JobClaimId = NewType("JobClaimId", UUID)
 RevisionId = NewType("RevisionId", UUID)
 TransactionId = NewType("TransactionId", UUID)
+HistoryId = NewType("HistoryId", UUID)
+ClientId = NewType("ClientId", UUID)
+RequestId = NewType("RequestId", UUID)
 
 Identity = TypeVar("Identity", bound=UUID)
 
