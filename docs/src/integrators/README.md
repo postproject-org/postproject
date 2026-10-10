@@ -79,6 +79,7 @@ Use the pieces that solve real host problems:
 - {doc}`reference-executor` as an example of the execution boundary, not as a requirement;
 - {doc}`bounded-queries` for scalable enumeration and traversal;
 - {doc}`revision-feed` for reacting to changes, including changes made by other processes;
+- {doc}`portable-exchange` for development checkpoint and passive catch-up workflows;
 - {doc}`openassetio-publishing` when an OpenAssetIO host publishes rendered media through the PostProject Manager.
 
 ## Every guide shows every surface
@@ -159,6 +160,7 @@ jobs-and-workers
 reference-executor
 bounded-queries
 revision-feed
+portable-exchange
 coherent-reads
 semantic-conflicts
 shared-productions
