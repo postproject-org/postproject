@@ -6,6 +6,7 @@ mod replay;
 mod writer;
 
 pub use reader::RecordReader;
+pub(crate) use reader::export_range;
 pub use replay::ReplayLimits;
 pub(in crate::exchange) use replay::activity::ActivityApply;
 pub(crate) use replay::apply;

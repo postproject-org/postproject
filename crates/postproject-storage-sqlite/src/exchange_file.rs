@@ -4,7 +4,10 @@
 //! locate that bounded manifest without loading the body. A file's integrity
 //! still needs the ordinary checkpoint importer or atomic record application.
 
+mod changes;
 mod framing;
+
+pub use changes::apply_changes;
 
 use std::{
     io::{Read, Seek, Write},
@@ -109,6 +112,28 @@ pub fn write_record(
     Ok(manifest)
 }
 
+/// Streams all complete records after `from` through one pinned source head.
+///
+/// The final seal advertises that exact head, including an empty range. Native
+/// writes during export do not enter the stream. Failed output is unpublished.
+///
+/// # Errors
+/// Rejects foreign/forged positions, pre-floor gaps, corrupt records and I/O.
+pub fn write_changes(
+    source: &SqliteProduction,
+    from: postproject_protocol::Position,
+    mut writer: impl Write,
+) -> ExchangeResult<postproject_protocol::Position> {
+    writer
+        .write_all(framing::CHANGES)
+        .map_err(framing::io_error)?;
+    let through = crate::exchange::export_range(source, from, |document| {
+        framing::write(&mut writer, document).map(|_| ())
+    })?;
+    seal(&mut writer, &through.document())?;
+    Ok(through)
+}
+
 fn seal(writer: &mut impl Write, document: &Document) -> ExchangeResult<()> {
     let length = framing::write(writer, document)?;
     writer
@@ -125,6 +150,8 @@ pub enum FileManifest {
     Checkpoint(Box<CheckpointManifest>),
     /// One complete authored revision and its immediate predecessor.
     Record(Box<RecordManifest>),
+    /// The fixed source head sealing a contiguous range of complete records.
+    Changes(postproject_protocol::Position),
 }
 
 /// Receiver-controlled file and individual envelope byte budgets.

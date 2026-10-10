@@ -23,6 +23,18 @@ chunk chains and domain state. Writers flush only after sealing the manifest.
 Callers publish a new file after success and their durable flush; a partial file
 is never advertised. Default receiver file budget is 1 GiB and can be raised.
 
+A change-range file uses `PPXD 00 00 00 01`. Its first body frame is the source
+`from` position, followed by each complete record manifest and its declared
+number of chunk frames, in sequence order. The final seal contains the `through`
+position from the pinned view. Positions use their existing exact fields and
+chain digests. An empty range still carries both equal positions. Foreign,
+forged, pre-floor and missing boundaries reject; exports never invent a suffix.
+The receiver validates the predecessor and every record chain and commits one
+complete record at a time. Earlier complete records survive a later failure;
+reopen, inspect the applied head and retry the same file. Verified duplicates
+add no revision. No partial record advances the head. A whole range succeeds
+only when its final position matches the seal and no body frames remain.
+
 ### Authority and proposal identities
 
 An authority has a production UUID and persistent history-generation UUID. A

@@ -1,9 +1,90 @@
 use postproject_core::{Error, ErrorKind};
 use postproject_protocol::{
-    FailureKind, ProtocolError, RecordChunk, RecordChunkChain, RecordManifest,
+    Document, FailureKind, Position, ProtocolError, RecordChunk, RecordChunkChain, RecordManifest,
 };
 
 use crate::{ExchangeResult, SqliteProduction, sqlite_error};
+
+pub(crate) fn export_range(
+    source: &SqliteProduction,
+    from: Position,
+    mut sink: impl FnMut(&Document) -> ExchangeResult<()>,
+) -> ExchangeResult<Position> {
+    let session = source.read_session()?;
+    let sequence = session.decision_base().sequence();
+    let view = session.into_read_only();
+    let floor = super::super::floor(&view.connection, view.production.id())?;
+    if from.scope() != floor.scope() {
+        return Err(ProtocolError::new(
+            FailureKind::ScopeMismatch,
+            "change stream belongs to another source history",
+        )
+        .into());
+    }
+    if from.sequence() < floor.sequence() {
+        return Err(ProtocolError::new(
+            FailureKind::HistoryGap,
+            "change stream requires a current checkpoint",
+        )
+        .into());
+    }
+    if from.sequence() > sequence
+        || super::position(&view.connection, view.production.id(), from.sequence())? != Some(from)
+    {
+        return Err(ProtocolError::new(
+            FailureKind::InvalidBase,
+            "change stream position is not a retained source boundary",
+        )
+        .into());
+    }
+    sink(&from.document())?;
+    let mut previous = from;
+    for sequence in from.sequence() + 1..=sequence {
+        let manifest =
+            super::manifest(&view.connection, view.production.id(), sequence)?.ok_or_else(gap)?;
+        if manifest.predecessor() != previous
+            || view.changes_since(sequence - 1, 1)?.first() != Some(manifest.revision())
+        {
+            return Err(super::invalid().into());
+        }
+        sink(&manifest.document()?)?;
+        let mut chain = manifest.chunk_chain();
+        for index in 0..manifest.chunks().count() {
+            let chunk = super::chunks::load(&view.connection, manifest.revision().id(), index)?
+                .ok_or_else(gap)?;
+            chain.push(&chunk)?;
+            sink(&chunk.document()?)?;
+        }
+        manifest.verify_chain(chain)?;
+        validate_chunk_count(&view, &manifest)?;
+        previous = manifest.head()?;
+    }
+    Ok(previous)
+}
+
+fn gap() -> ProtocolError {
+    ProtocolError::new(
+        FailureKind::HistoryGap,
+        "complete change stream record is unavailable",
+    )
+}
+
+fn validate_chunk_count(view: &SqliteProduction, manifest: &RecordManifest) -> ExchangeResult<()> {
+    let count: i64 = view
+        .connection
+        .query_row(
+            "SELECT count(DISTINCT position) FROM exchange_record_chunks WHERE revision_id = ?1",
+            [manifest.revision().id().as_bytes().as_slice()],
+            |row| row.get(0),
+        )
+        .map_err(sqlite_error("verify committed record chunk count"))?;
+    if u64::try_from(count).ok() != Some(manifest.chunks().count()) {
+        return Err(
+            ProtocolError::new(FailureKind::Integrity, "record has unadvertised chunks").into(),
+        );
+    }
+    Ok(())
+}
 
 /// Streams one committed record through an independently pinned read view.
 ///
@@ -100,21 +181,7 @@ impl RecordReader {
             .push(&chunk)?;
         self.next = self.next.checked_add(1).ok_or_else(super::invalid)?;
         if self.next == self.manifest.chunks().count() {
-            let count: i64 = view
-                .connection
-                .query_row(
-                    "SELECT count(DISTINCT position) FROM exchange_record_chunks WHERE revision_id = ?1",
-                    [revision.as_bytes().as_slice()],
-                    |row| row.get(0),
-                )
-                .map_err(sqlite_error("verify committed record chunk count"))?;
-            if u64::try_from(count).ok() != Some(self.next) {
-                return Err(ProtocolError::new(
-                    FailureKind::Integrity,
-                    "record has unadvertised chunks",
-                )
-                .into());
-            }
+            validate_chunk_count(view, &self.manifest)?;
             self.manifest
                 .verify_chain(self.chain.take().ok_or_else(super::invalid)?)?;
             self.complete = true;

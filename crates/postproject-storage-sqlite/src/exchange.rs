@@ -22,6 +22,7 @@ pub(crate) use genesis::create as create_genesis_mirror;
 pub(crate) use outcomes::{lookup_for_submission, persist};
 pub(crate) use records::apply;
 pub(crate) use records::capture_records;
+pub(crate) use records::export_range;
 pub(crate) use records::position;
 pub use records::{RecordReader, ReplayLimits};
 pub use resynchronization::ResynchronizationLimits;

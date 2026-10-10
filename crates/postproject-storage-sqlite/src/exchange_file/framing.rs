@@ -10,6 +10,7 @@ use crate::ExchangeResult;
 
 pub(super) const CHECKPOINT: &[u8; 8] = b"PPXC\0\0\0\x01";
 pub(super) const RECORD: &[u8; 8] = b"PPXR\0\0\0\x01";
+pub(super) const CHANGES: &[u8; 8] = b"PPXD\0\0\0\x01";
 const MANIFEST_BYTES: u64 = 512 * 1024;
 
 pub(super) fn open<R: Read + Seek>(
@@ -48,6 +49,7 @@ pub(super) fn open<R: Read + Seek>(
             FileManifest::Checkpoint(Box::new(CheckpointManifest::from_document(&document)?))
         }
         RECORD => FileManifest::Record(Box::new(RecordManifest::from_document(&document)?)),
+        CHANGES => FileManifest::Changes(postproject_protocol::Position::from_document(&document)?),
         _ => {
             return Err(ProtocolError::new(
                 FailureKind::Unsupported,
