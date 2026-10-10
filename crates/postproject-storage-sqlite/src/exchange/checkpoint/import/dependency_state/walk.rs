@@ -1,4 +1,4 @@
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 
 use postproject_core::{DependencySet, DependencySetStatus, Error, ErrorKind, RepresentationId};
 use rusqlite::Connection;
@@ -20,6 +20,7 @@ fn available(
     owner: RepresentationId,
     floor: u64,
 ) -> ExchangeResult<Knowledge> {
+    super::charge(connection, 1)?;
     let state = baseline::ensure(connection, owner, floor)?;
     if state.present == Some(false) {
         return Ok(Knowledge::Known(None));
@@ -34,6 +35,10 @@ fn available(
     };
     let mut dependencies = Vec::new();
     let mut budget = crate::read_budget::ReadBudget::default();
+    super::charge(
+        connection,
+        crate::stored_u64(count, "authored dependency count")?,
+    )?;
     for position in 0..crate::stored_u64(count, "authored dependency count")? {
         let value = occurrence::prior(connection, owner, position)?.ok_or_else(invalid)?;
         let dependency = value.dependency();
@@ -68,6 +73,7 @@ pub(in crate::exchange::checkpoint::import) fn validate_paths(
     floor: u64,
 ) -> ExchangeResult<()> {
     let unknown = Cell::new(false);
+    let failure = RefCell::new(None);
     let load = |owner| match available(connection, owner, floor) {
         Ok(Knowledge::Known(set)) => Ok(set),
         Ok(Knowledge::Unknown) => {
@@ -78,12 +84,19 @@ pub(in crate::exchange::checkpoint::import) fn validate_paths(
             ))
         }
         Err(ExchangeError::Store(error)) => Err(error),
-        Err(ExchangeError::Protocol(_)) => Err(Error::new(
-            ErrorKind::InvalidArgument,
-            "invalid authored dependency evidence",
-        )),
+        Err(ExchangeError::Protocol(error)) => {
+            *failure.borrow_mut() = Some(error);
+            Err(Error::new(
+                ErrorKind::InvalidArgument,
+                "invalid authored dependency evidence",
+            ))
+        }
     };
-    match validate_dependency_paths_with(connection, input, owner, &load) {
+    let result = validate_dependency_paths_with(connection, input, owner, &load);
+    if let Some(error) = failure.into_inner() {
+        return Err(error.into());
+    }
+    match result {
         Ok(()) => Ok(()),
         // Only our explicit unavailable-prefix sentinel permits partial checks.
         // Every available segment and fingerprint is still checked separately.

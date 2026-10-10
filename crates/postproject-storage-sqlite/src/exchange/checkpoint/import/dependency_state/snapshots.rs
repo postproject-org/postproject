@@ -61,6 +61,10 @@ pub(in crate::exchange::checkpoint::import) fn subject(
                     return Err(invalid().into());
                 }
                 if let Some(count) = state.count {
+                    super::charge(
+                        connection,
+                        crate::stored_u64(count, "authored dependency count")?,
+                    )?;
                     let mut required = false;
                     for position in 0..crate::stored_u64(count, "authored dependency count")? {
                         required |= occurrence::prior(connection, owner, position)?

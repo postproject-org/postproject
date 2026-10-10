@@ -60,7 +60,7 @@ pub(crate) fn import(
     locator_state::create(&transaction)?;
     identifier_state::create(&transaction)?;
     recomputation_state::create(&transaction)?;
-    dependency_state::create(&transaction)?;
+    dependency_state::create(&transaction, limits.frames)?;
     let mut bodies = bodies::Bodies::new(&transaction, manifest, limits);
     let mut chunks = chunks.into_iter();
     for summary in manifest.sections() {

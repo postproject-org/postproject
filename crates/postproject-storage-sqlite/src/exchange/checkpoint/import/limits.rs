@@ -15,6 +15,9 @@ pub struct CheckpointLimits {
 impl CheckpointLimits {
     /// Constructs explicit positive receiver budgets.
     ///
+    /// `frames` also independently bounds dependency traversal visits and
+    /// examined occurrences, preventing repeated walks from multiplying work.
+    ///
     /// # Errors
     /// Rejects zero byte or work budgets.
     pub fn new(

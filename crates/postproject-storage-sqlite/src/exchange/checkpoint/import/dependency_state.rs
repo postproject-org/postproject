@@ -19,9 +19,28 @@ use crate::{ExchangeResult, sqlite_error};
 
 use super::super::invalid;
 
-pub(super) fn create(connection: &Connection) -> ExchangeResult<()> {
+pub(super) fn create(connection: &Connection, work: u64) -> ExchangeResult<()> {
     connection.execute_batch("CREATE TABLE checkpoint_dependency_state (owner BLOB PRIMARY KEY NOT NULL, present INTEGER, dirty INTEGER, recorded INTEGER, count INTEGER, baseline INTEGER NOT NULL); CREATE TABLE checkpoint_dependency_occurrences (owner BLOB NOT NULL, position INTEGER NOT NULL, document BLOB NOT NULL, PRIMARY KEY(owner, position));")
         .map_err(sqlite_error("create private dependency expectations"))?;
+    connection
+        .execute_batch("CREATE TABLE checkpoint_dependency_budget (remaining INTEGER NOT NULL);")
+        .map_err(sqlite_error("create private dependency work budget"))?;
+    connection
+        .execute(
+            "INSERT INTO checkpoint_dependency_budget (remaining) VALUES (?1)",
+            [i64::try_from(work).unwrap_or(i64::MAX)],
+        )
+        .map_err(sqlite_error("initialize dependency work budget"))?;
+    Ok(())
+}
+
+fn charge(connection: &Connection, work: u64) -> ExchangeResult<()> {
+    let work = i64::try_from(work).map_err(|_| super::limits::budget())?;
+    let changed = connection.execute("UPDATE checkpoint_dependency_budget SET remaining = remaining - ?1 WHERE remaining >= ?1", [work])
+        .map_err(sqlite_error("charge dependency traversal work"))?;
+    if changed != 1 {
+        return Err(super::limits::budget().into());
+    }
     Ok(())
 }
 
@@ -76,7 +95,7 @@ pub(super) fn finish(connection: &Connection, floor: u64) -> ExchangeResult<()> 
     occurrence::finish(connection)?;
     connection
         .execute_batch(
-            "DROP TABLE checkpoint_dependency_occurrences; DROP TABLE checkpoint_dependency_state;",
+            "DROP TABLE checkpoint_dependency_occurrences; DROP TABLE checkpoint_dependency_state; DROP TABLE checkpoint_dependency_budget;",
         )
         .map_err(sqlite_error("discard private dependency expectations"))?;
     Ok(())

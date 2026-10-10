@@ -53,7 +53,7 @@ pub(super) fn audit(source: &SqliteProduction, floor: u64, head: u64) {
     fingerprint_state::create(connection).unwrap();
     activity_state::create(connection, 10_000_000, || Ok(())).unwrap();
     recomputation_state::create(connection).unwrap();
-    dependency_state::create(connection).unwrap();
+    dependency_state::create(connection, 10_000_000).unwrap();
     for sequence in 1..=head {
         let revision = source.changes_since(sequence - 1, 1).unwrap().remove(0);
         for event in source.events_for_revision(revision.id()).unwrap() {

@@ -60,7 +60,7 @@ fn fixture(directory: &std::path::Path) -> (SqliteProduction, RepresentationId, 
 
 fn initialize(connection: &rusqlite::Connection) {
     super::super::media_state::create(connection).unwrap();
-    create(connection).unwrap();
+    create(connection, 10_000_000).unwrap();
 }
 
 fn replacement(connection: &rusqlite::Connection, owner: RepresentationId, dependency: Dependency) {
@@ -180,4 +180,25 @@ fn known_paths_require_full_coverage_and_baseline_segments_narrow_available_stat
     .unwrap();
     assert!(super::segment(&transaction, &forged, 2).is_err());
     transaction.rollback().unwrap();
+}
+
+#[test]
+fn dependency_walk_budget_returns_limit_exceeded_without_changing_native_state() {
+    let directory = tempfile::tempdir().unwrap();
+    let (source, owner, dependency) = fixture(directory.path());
+    let transaction = source.connection.unchecked_transaction().unwrap();
+    initialize(&transaction);
+    replacement(&transaction, owner, dependency);
+    transaction
+        .execute("UPDATE checkpoint_dependency_budget SET remaining = 1", [])
+        .unwrap();
+    let error = super::validate_paths(&transaction, -1, owner, 1).unwrap_err();
+    assert!(
+        matches!(error, crate::ExchangeError::Protocol(error) if error.kind() == postproject_protocol::FailureKind::LimitExceeded)
+    );
+    transaction.rollback().unwrap();
+    assert_eq!(
+        source.dependency_set(owner).unwrap().unwrap().status(),
+        DependencySetStatus::Current
+    );
 }
