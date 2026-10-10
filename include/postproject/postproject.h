@@ -218,6 +218,26 @@ PP_API uint32_t pp_checkpoint_validate_file(
 PP_API uint32_t pp_checkpoint_import_file(
     const char *path, const char *destination, const pp_exchange_limits_t *limits,
     pp_production_t **out_production, pp_error_t **out_error);
+/* Exact continuation, including source history/digest; export pins its through
+ * boundary and exclusively publishes a sealed file. Apply accepts only passive
+ * stores. Failure can retain an earlier complete prefix: inspect after reopen
+ * and retry the same file. Verified duplicate records create no revision. */
+PP_API uint32_t pp_production_export_changes(
+    const pp_production_t *production, const pp_exchange_position_t *from,
+    const char *path, pp_exchange_position_t *out_position,
+    pp_error_t **out_error);
+PP_API uint32_t pp_production_apply_changes(
+    const pp_production_t *production, const char *path,
+    const pp_exchange_limits_t *limits, pp_exchange_position_t *out_position,
+    pp_error_t **out_error);
+/* Explicit authority recovery for incomplete development history, with a fresh
+ * scoped head and positive retained-record/evidence budgets. Preserves original
+ * evidence/outcomes; complete chains keep their floor. Affected mirrors need a
+ * new checkpoint. Never promotes a mirror or invents missing history. */
+PP_API uint32_t pp_production_resynchronize_history(
+    const pp_production_t *production, const pp_protocol_base_t *base,
+    uint64_t records, uint64_t encoded_bytes, pp_exchange_position_t *out_floor,
+    pp_error_t **out_error);
 
 /* Complete public lookup scope; preserve every field after response loss. */
 typedef struct pp_request_identity {

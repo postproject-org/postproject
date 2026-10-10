@@ -4,9 +4,10 @@
 #include <string.h>
 
 int main(int argc, char **argv) {
-  char path[4096], checkpoint[4096], mirror_path[4096];
+  char path[4096], checkpoint[4096], mirror_path[4096], changes[4096];
   if (argc != 2 || snprintf(path, sizeof path, "%s/authority.pproj", argv[1]) >= (int)sizeof path) return 2;
   if (snprintf(checkpoint, sizeof checkpoint, "%s/checkpoint.ppxc", argv[1]) >= (int)sizeof checkpoint || snprintf(mirror_path, sizeof mirror_path, "%s/mirror.pproj", argv[1]) >= (int)sizeof mirror_path) return 2;
+  if (snprintf(changes, sizeof changes, "%s/changes.ppxd", argv[1]) >= (int)sizeof changes) return 2;
   pp_production_t *production = NULL;
   pp_production_t *mirror = NULL;
   pp_read_session_t *view = NULL;
@@ -15,6 +16,7 @@ int main(int argc, char **argv) {
   pp_submission_t *submission = NULL, *duplicate = NULL;
   pp_outcome_t *outcome = NULL, *recovered = NULL;
   pp_metadata_input_t *value = NULL;
+  pp_metadata_set_t *metadata = NULL;
   pp_media_root_set_t *roots = NULL;
   pp_error_t *error = NULL, *rejection = NULL;
   int result = 1;
@@ -106,6 +108,36 @@ int main(int argc, char **argv) {
   if (receipt.revision_sequence != 1) goto cleanup;
   pp_outcome_release(recovered); recovered = NULL;
   /* [/exchange-submit] */
+  /* [exchange-catch-up] */
+  pp_exchange_position_t through, applied;
+  CHECK(pp_production_export_changes(production, &saved, changes, &through, &error));
+  CHECK(pp_production_apply_changes(mirror, changes, NULL, &applied, &error));
+  if (applied.base.decision.revision_sequence != 1 || memcmp(through.digest, applied.digest, sizeof applied.digest)) goto cleanup;
+  pp_production_release(mirror); mirror = NULL;
+  CHECK(pp_production_open(mirror_path, &mirror, &error));
+  CHECK(pp_production_apply_changes(mirror, changes, NULL, &applied, &error));
+  CHECK(pp_production_exchange_state(mirror, &mirror_state, &error));
+  if (mirror_state.head.base.decision.revision_sequence != 1 || memcmp(mirror_state.head.digest, through.digest, sizeof through.digest)) goto cleanup;
+  /* Ordinary read APIs see the authority's exact copied knowledge. */
+  pp_media_root_set_release(roots); roots = NULL;
+  CHECK(pp_production_media_roots(mirror, &roots, &error));
+  if (pp_media_root_set_count(roots) != 1) goto cleanup;
+  CHECK(pp_production_metadata(mirror, &target, &metadata, &error));
+  pp_object_ref_t copied_target;
+  const pp_metadata_value_t *copied;
+  const char *vocabulary, *property;
+  uint64_t exact;
+  CHECK(pp_metadata_set_get(metadata, 0, &copied_target, &vocabulary, &property, &copied, &error));
+  CHECK(pp_metadata_value_get_u64(copied, &exact, &error));
+  if (copied_target.kind != PP_OBJECT_PRODUCTION || memcmp(copied_target.id.bytes, target.id.bytes, sizeof target.id.bytes) || strcmp(vocabulary, "example:Exact") || strcmp(property, "count")) goto cleanup;
+  pp_metadata_set_release(metadata); metadata = NULL;
+  if (exact != UINT64_MAX) goto cleanup;
+  /* [/exchange-catch-up] */
+  if (pp_production_apply_changes(production, changes, NULL, &validated, NULL) != PP_ERROR_MIRROR_READ_ONLY) goto cleanup;
+  CHECK(pp_production_exchange_state(production, &state, &error));
+  CHECK(pp_production_resynchronize_history(production, &state.observed_base, 100, UINT64_C(1048576), &validated, &error));
+  if (validated.base.decision.revision_sequence != 0) goto cleanup;
+  if (pp_production_resynchronize_history(mirror, &mirror_state.observed_base, 100, UINT64_C(1048576), &validated, NULL) != PP_ERROR_MIRROR_READ_ONLY) goto cleanup;
   result = 0;
 cleanup:
   if (error) fprintf(stderr, "%s\n", pp_error_message(error));
@@ -117,6 +149,7 @@ cleanup:
   pp_submission_release(duplicate);
   pp_media_root_set_release(roots);
   pp_metadata_input_release(value);
+  pp_metadata_set_release(metadata);
   pp_proposal_release(proposal);
   pp_proposal_release(transported);
   pp_transaction_release(edit);

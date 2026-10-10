@@ -962,6 +962,7 @@ EXPORTED_SYMBOLS = (
     "pp_production_activities_consuming_page",
     "pp_production_activities_producing",
     "pp_production_activities_producing_page",
+    "pp_production_apply_changes",
     "pp_production_artifact_reproducibility",
     "pp_production_asset",
     "pp_production_asset_exists",
@@ -978,6 +979,7 @@ EXPORTED_SYMBOLS = (
     "pp_production_dependents",
     "pp_production_evaluate_artifact",
     "pp_production_exchange_state",
+    "pp_production_export_changes",
     "pp_production_export_checkpoint",
     "pp_production_external_identifiers",
     "pp_production_find_by_external_identifier",
@@ -1014,6 +1016,7 @@ EXPORTED_SYMBOLS = (
     "pp_production_representations_using_resource",
     "pp_production_resolve_assets",
     "pp_production_resources_page",
+    "pp_production_resynchronize_history",
     "pp_production_revision_events",
     "pp_production_revision_events_page",
     "pp_production_stale_artifacts",
@@ -1166,6 +1169,12 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_checkpoint_validate_file.restype = ctypes.c_uint32
     lib.pp_checkpoint_import_file.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.POINTER(ExchangeLimits), ctypes.POINTER(ctypes.POINTER(Production)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_checkpoint_import_file.restype = ctypes.c_uint32
+    lib.pp_production_export_changes.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(ExchangePosition), ctypes.c_char_p, ctypes.POINTER(ExchangePosition), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_production_export_changes.restype = ctypes.c_uint32
+    lib.pp_production_apply_changes.argtypes = [ctypes.POINTER(Production), ctypes.c_char_p, ctypes.POINTER(ExchangeLimits), ctypes.POINTER(ExchangePosition), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_production_apply_changes.restype = ctypes.c_uint32
+    lib.pp_production_resynchronize_history.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(ProtocolBase), ctypes.c_uint64, ctypes.c_uint64, ctypes.POINTER(ExchangePosition), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_production_resynchronize_history.restype = ctypes.c_uint32
     lib.pp_transaction_prepare_proposal.argtypes = [ctypes.POINTER(Transaction), ClientId, RequestId, ctypes.POINTER(ProtocolBase), ctypes.POINTER(ctypes.POINTER(Proposal)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_transaction_prepare_proposal.restype = ctypes.c_uint32
     lib.pp_proposal_document.argtypes = [ctypes.POINTER(Proposal), ctypes.POINTER(ctypes.POINTER(ctypes.c_uint8)), ctypes.POINTER(ctypes.c_uint64), ctypes.POINTER(ctypes.POINTER(Error))]

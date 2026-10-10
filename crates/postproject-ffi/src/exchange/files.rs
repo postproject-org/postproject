@@ -45,7 +45,7 @@ pub(super) fn budgets(
     ))
 }
 
-fn io(error: &std::io::Error, message: &'static str) -> crate::Error {
+pub(super) fn io(error: &std::io::Error, message: &'static str) -> crate::Error {
     let kind = if error.kind() == std::io::ErrorKind::AlreadyExists {
         crate::ErrorKind::AlreadyExists
     } else {

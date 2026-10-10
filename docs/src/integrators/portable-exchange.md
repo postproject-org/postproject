@@ -62,9 +62,6 @@ Positions retain production, history, revision, sequence and digest. Observation
 feed cursors and connection-local query cursors cannot substitute for them.
 
 ````{code-variants} exchange-catch-up
-```{no-variant} c
-The native catch-up projection is not yet available. Use the development CLI.
-```
 ```{no-variant} cpp
 The C++ catch-up projection is not yet available. Use the development CLI.
 ```
