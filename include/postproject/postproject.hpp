@@ -41,6 +41,15 @@ enum class ErrorCode : std::uint32_t {
   fingerprint = PP_ERROR_FINGERPRINT,
   unsupported = PP_ERROR_UNSUPPORTED,
   cancelled = PP_ERROR_CANCELLED,
+  malformed = PP_ERROR_MALFORMED,
+  limit_exceeded = PP_ERROR_LIMIT_EXCEEDED,
+  scope_mismatch = PP_ERROR_SCOPE_MISMATCH,
+  invalid_base = PP_ERROR_INVALID_BASE,
+  request_identity_mismatch = PP_ERROR_REQUEST_IDENTITY_MISMATCH,
+  history_gap = PP_ERROR_HISTORY_GAP,
+  integrity = PP_ERROR_INTEGRITY,
+  divergence = PP_ERROR_DIVERGENCE,
+  mirror_read_only = PP_ERROR_MIRROR_READ_ONLY,
   internal = PP_ERROR_INTERNAL,
 };
 

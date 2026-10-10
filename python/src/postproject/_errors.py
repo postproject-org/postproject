@@ -109,6 +109,29 @@ class InternalError(PostProjectError):
     """The native library reported an internal invariant failure."""
 
 
+class ExchangeFailure(IntEnum):
+    """Stable checked protocol failure, independent of diagnostic wording."""
+
+    MALFORMED = 12
+    LIMIT_EXCEEDED = 13
+    SCOPE_MISMATCH = 14
+    INVALID_BASE = 15
+    REQUEST_IDENTITY_MISMATCH = 16
+    HISTORY_GAP = 17
+    INTEGRITY = 18
+    DIVERGENCE = 19
+    MIRROR_READ_ONLY = 20
+
+
+class ExchangeError(PostProjectError):
+    """Portable framing, scope, identity, replay or role check failed."""
+
+    @property
+    def kind(self) -> ExchangeFailure:
+        """Return the checked category without parsing a diagnostic."""
+        return ExchangeFailure(self.code)
+
+
 ERROR_TYPES: dict[int, type[PostProjectError]] = {
     1: InvalidArgumentError,
     2: NotFoundError,
@@ -121,5 +144,6 @@ ERROR_TYPES: dict[int, type[PostProjectError]] = {
     9: FingerprintError,
     10: UnsupportedError,
     11: CancelledError,
+    **{int(kind): ExchangeError for kind in ExchangeFailure},
     255: InternalError,
 }
