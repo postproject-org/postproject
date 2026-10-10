@@ -54,7 +54,10 @@ fn schema_twenty_five_outcomes_keep_exact_bytes_and_bindings_with_larger_bounds(
             )
             .is_err()
     );
-    assert_eq!(schema_version(&connection).unwrap(), 26);
+    assert_eq!(
+        schema_version(&connection).unwrap(),
+        super::CURRENT_SCHEMA_VERSION
+    );
 }
 
 #[test]
@@ -98,5 +101,8 @@ fn late_failure_rolls_back_outcome_parent_replacement_and_migration_history() {
         .execute_batch("DROP TRIGGER reject_version")
         .unwrap();
     migrate(&mut connection).unwrap();
-    assert_eq!(schema_version(&connection).unwrap(), 26);
+    assert_eq!(
+        schema_version(&connection).unwrap(),
+        super::CURRENT_SCHEMA_VERSION
+    );
 }

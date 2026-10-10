@@ -33,7 +33,8 @@ fn migrated_baseline_and_unknown_prefix_survive_checkpoint_and_suffix() {
     drop(source);
     let connection = rusqlite::Connection::open(&path).unwrap();
     // Recreate the released schema-19 layout with its native facts/history.
-    connection.execute_batch("DROP TABLE exchange_record_chunks; DROP TABLE exchange_records; DROP TABLE exchange_outcomes; DROP TABLE exchange_effect_fragments; DROP TABLE exchange_history; DELETE FROM schema_migrations WHERE version >= 20; UPDATE productions SET schema_version = 19; PRAGMA user_version = 19;").unwrap();
+    connection.execute_batch("DROP TABLE exchange_record_chunks; DROP TABLE exchange_records; DROP TABLE exchange_outcomes; DROP TABLE exchange_effect_fragments; DROP TABLE exchange_prior_anchors;
+         DROP TABLE exchange_history; DELETE FROM schema_migrations WHERE version >= 20; UPDATE productions SET schema_version = 19; PRAGMA user_version = 19;").unwrap();
     drop(connection);
     let mut source = SqliteProduction::open(&path).unwrap();
     let floor = source.exchange_floor().unwrap();
@@ -121,7 +122,8 @@ fn migrated_roots_keep_unknown_header_facts_and_recorded_removal_boundaries() {
     drop(edit);
     drop(source);
     let connection = rusqlite::Connection::open(&path).unwrap();
-    connection.execute_batch("DROP TABLE exchange_record_chunks; DROP TABLE exchange_records; DROP TABLE exchange_outcomes; DROP TABLE exchange_effect_fragments; DROP TABLE exchange_history; DELETE FROM schema_migrations WHERE version >= 20; UPDATE productions SET schema_version = 19; PRAGMA user_version = 19;").unwrap();
+    connection.execute_batch("DROP TABLE exchange_record_chunks; DROP TABLE exchange_records; DROP TABLE exchange_outcomes; DROP TABLE exchange_effect_fragments; DROP TABLE exchange_prior_anchors;
+         DROP TABLE exchange_history; DELETE FROM schema_migrations WHERE version >= 20; UPDATE productions SET schema_version = 19; PRAGMA user_version = 19;").unwrap();
     drop(connection);
     let mut source = SqliteProduction::open(&path).unwrap();
     let floor = source.exchange_floor().unwrap();

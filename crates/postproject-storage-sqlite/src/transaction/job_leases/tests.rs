@@ -429,6 +429,7 @@ fn schema_eighteen_claims_expire_without_losing_attribution_or_requests() {
          DROP TABLE exchange_records;
          DROP TABLE exchange_effect_fragments;
          DROP TABLE exchange_outcomes;
+         DROP TABLE exchange_prior_anchors;
          DROP TABLE exchange_history;
          DELETE FROM schema_migrations WHERE version >= 19;
          UPDATE productions SET schema_version = 18;
