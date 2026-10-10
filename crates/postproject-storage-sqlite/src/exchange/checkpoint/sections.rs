@@ -2,6 +2,7 @@
 
 mod access;
 mod activities;
+mod dependencies;
 mod fingerprints;
 mod history;
 mod media;
@@ -10,6 +11,7 @@ mod versions;
 
 pub(super) use access::{identifiers, locators};
 pub(super) use activities::activities;
+pub(super) use dependencies::dependencies;
 pub(super) use fingerprints::fingerprints;
 pub(super) use history::{events, records, revisions};
 pub(super) use media::media;

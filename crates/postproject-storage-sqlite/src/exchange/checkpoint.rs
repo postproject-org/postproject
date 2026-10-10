@@ -1,6 +1,7 @@
 //! Coherent bounded checkpoint transport; domain coverage grows in checked slices.
 
 mod activity_facts;
+mod dependency_facts;
 mod import;
 mod media_facts;
 mod sections;
@@ -75,13 +76,16 @@ pub(crate) fn export(
             CheckpointSection::Fingerprints => sections::fingerprints(&view, &mut writer)?,
             CheckpointSection::Metadata => sections::metadata(&view, &mut writer)?,
             CheckpointSection::Activities => sections::activities(&view, &mut writer)?,
+            CheckpointSection::Dependencies => {
+                sections::dependencies(&view, &mut writer, head.sequence())?;
+            }
             CheckpointSection::Roots => sections::roots(&view, &mut writer)?,
             CheckpointSection::Revisions => sections::revisions(&view, &mut writer)?,
             CheckpointSection::Events => sections::events(&view, &mut writer)?,
             CheckpointSection::ConflictVersions => sections::versions(&view, &mut writer)?,
             CheckpointSection::ConflictFloor => sections::conflict_floor(&view, &mut writer)?,
             CheckpointSection::Records => sections::records(&view, floor, head, &mut writer)?,
-            _ => (),
+            CheckpointSection::Jobs => (),
         }
         summaries.push(writer.finish()?);
     }
