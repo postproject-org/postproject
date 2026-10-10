@@ -4,6 +4,9 @@ use rusqlite::Connection;
 
 use crate::{ExchangeResult, sqlite_error};
 
+#[cfg(test)]
+mod tests;
+
 pub(super) fn header(
     connection: &Connection,
     owner: RepresentationId,
