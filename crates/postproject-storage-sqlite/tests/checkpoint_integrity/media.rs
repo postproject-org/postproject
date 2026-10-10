@@ -132,7 +132,7 @@ fn identifier(value: &str) -> ExternalIdentifier {
     .unwrap()
 }
 
-fn fixture(path: &std::path::Path) -> (SqliteProduction, OriginalMediaImport) {
+pub(super) fn fixture(path: &std::path::Path) -> (SqliteProduction, OriginalMediaImport) {
     let mut source = SqliteProduction::create(path, None).unwrap();
     let asset = Asset::new(AssetId::new(), Timestamp::from_unix_micros(-1), None, None);
     let resource = Resource::new(

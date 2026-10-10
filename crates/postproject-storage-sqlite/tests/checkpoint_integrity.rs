@@ -2,6 +2,8 @@
 
 #[path = "checkpoint_integrity/activity.rs"]
 mod activity;
+#[path = "checkpoint_integrity/dependencies.rs"]
+mod dependencies;
 #[path = "checkpoint_integrity/media.rs"]
 mod media;
 
@@ -49,9 +51,10 @@ fn replace_section(
         section,
         documents
             .iter()
-            .filter(|document| {
-                section != CheckpointSection::Activities
-                    || document.kind().unwrap() == "activity.header"
+            .filter(|document| match section {
+                CheckpointSection::Activities => document.kind().unwrap() == "activity.header",
+                CheckpointSection::Dependencies => document.kind().unwrap() == "dependency.set",
+                _ => true,
             })
             .count() as u64,
         if replacement.is_empty() {
