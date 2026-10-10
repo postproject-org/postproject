@@ -429,6 +429,93 @@ private:
   Uuid value_;
 };
 
+class HistoryId final {
+public:
+  constexpr explicit HistoryId(Uuid value) noexcept : value_(value) {}
+  constexpr explicit HistoryId(Uuid::Bytes bytes) noexcept : value_(bytes) {}
+
+  [[nodiscard]] constexpr Uuid asUuid() const noexcept { return value_; }
+  [[nodiscard]] constexpr const Uuid::Bytes &bytes() const noexcept {
+    return value_.bytes();
+  }
+  [[nodiscard]] static Result<HistoryId> fromString(std::string_view text);
+  [[nodiscard]] Result<std::string> toString() const;
+
+  friend constexpr bool operator==(const HistoryId &left,
+                                   const HistoryId &right) noexcept {
+    return left.value_ == right.value_;
+  }
+  friend constexpr bool operator!=(const HistoryId &left,
+                                   const HistoryId &right) noexcept {
+    return !(left == right);
+  }
+  friend bool operator<(const HistoryId &left,
+                        const HistoryId &right) noexcept {
+    return left.bytes() < right.bytes();
+  }
+
+private:
+  Uuid value_;
+};
+
+class ClientId final {
+public:
+  constexpr explicit ClientId(Uuid value) noexcept : value_(value) {}
+  constexpr explicit ClientId(Uuid::Bytes bytes) noexcept : value_(bytes) {}
+
+  [[nodiscard]] constexpr Uuid asUuid() const noexcept { return value_; }
+  [[nodiscard]] constexpr const Uuid::Bytes &bytes() const noexcept {
+    return value_.bytes();
+  }
+  [[nodiscard]] static Result<ClientId> fromString(std::string_view text);
+  [[nodiscard]] Result<std::string> toString() const;
+
+  friend constexpr bool operator==(const ClientId &left,
+                                   const ClientId &right) noexcept {
+    return left.value_ == right.value_;
+  }
+  friend constexpr bool operator!=(const ClientId &left,
+                                   const ClientId &right) noexcept {
+    return !(left == right);
+  }
+  friend bool operator<(const ClientId &left,
+                        const ClientId &right) noexcept {
+    return left.bytes() < right.bytes();
+  }
+
+private:
+  Uuid value_;
+};
+
+class RequestId final {
+public:
+  constexpr explicit RequestId(Uuid value) noexcept : value_(value) {}
+  constexpr explicit RequestId(Uuid::Bytes bytes) noexcept : value_(bytes) {}
+
+  [[nodiscard]] constexpr Uuid asUuid() const noexcept { return value_; }
+  [[nodiscard]] constexpr const Uuid::Bytes &bytes() const noexcept {
+    return value_.bytes();
+  }
+  [[nodiscard]] static Result<RequestId> fromString(std::string_view text);
+  [[nodiscard]] Result<std::string> toString() const;
+
+  friend constexpr bool operator==(const RequestId &left,
+                                   const RequestId &right) noexcept {
+    return left.value_ == right.value_;
+  }
+  friend constexpr bool operator!=(const RequestId &left,
+                                   const RequestId &right) noexcept {
+    return !(left == right);
+  }
+  friend bool operator<(const RequestId &left,
+                        const RequestId &right) noexcept {
+    return left.bytes() < right.bytes();
+  }
+
+private:
+  Uuid value_;
+};
+
 class AssetId final {
 public:
   constexpr explicit AssetId(Uuid value) noexcept : value_(value) {}
@@ -1318,6 +1405,43 @@ struct DecisionBase final {
 struct CommitReceipt final {
   ProductionId production_id;
   std::optional<CommittedRevision> revision;
+};
+
+// Detached exchange values keep the original source history across file handoff.
+struct ProtocolBase final {
+  DecisionBase decision;
+  HistoryId history_id;
+};
+struct ExchangePosition final {
+  ProtocolBase base;
+  std::array<std::uint8_t, 32> digest;
+};
+struct RequestIdentity final {
+  ProductionId production_id;
+  HistoryId history_id;
+  ClientId client_id;
+  RequestId request_id;
+};
+struct ExchangeLimits final {
+  std::uint64_t file_bytes = UINT64_C(1073741824);
+  std::uint64_t disk_bytes = UINT64_C(2147483648);
+  std::uint64_t frames = UINT64_C(10000000);
+  std::uint64_t document_bytes = UINT64_C(67108864);
+  std::uint32_t document_depth = 192;
+  std::uint64_t document_nodes = UINT64_C(1000000);
+};
+enum class ExchangeRole : std::uint32_t {
+  authority = PP_EXCHANGE_AUTHORITY,
+  passive_mirror = PP_EXCHANGE_PASSIVE_MIRROR,
+};
+struct ExchangeState final {
+  std::uint32_t protocol_version;
+  ExchangeRole role;
+  std::uint64_t supported_features;
+  ProtocolBase observed_base;
+  ExchangePosition floor;
+  std::optional<ExchangePosition> head;
+  ExchangeLimits limits;
 };
 
 struct AssetImportedEvent final {
@@ -3984,7 +4108,77 @@ inline DecisionBase decision_base(const pp_decision_base_t &base) {
   return result;
 }
 
+
+template <typename Native, typename Id>
+inline Native native_exchange_id(const Id &value) {
+  Native native{};
+  std::copy(value.bytes().begin(), value.bytes().end(), native.bytes);
+  return native;
+}
+template <typename Id, typename Native>
+inline Id exchange_id(const Native &value) {
+  Uuid::Bytes bytes{};
+  std::copy(std::begin(value.bytes), std::end(value.bytes), bytes.begin());
+  return Id(bytes);
+}
+inline pp_protocol_base_t native_protocol_base(const ProtocolBase &base) {
+  return {native_decision_base(base.decision),
+          native_exchange_id<pp_history_id_t>(base.history_id)};
+}
+inline ProtocolBase protocol_base(const pp_protocol_base_t &base) {
+  return {decision_base(base.decision), exchange_id<HistoryId>(base.history_id)};
+}
+inline pp_exchange_position_t native_exchange_position(const ExchangePosition &position) {
+  pp_exchange_position_t native{};
+  native.base = native_protocol_base(position.base);
+  std::copy(position.digest.begin(), position.digest.end(), native.digest);
+  return native;
+}
+inline ExchangePosition exchange_position(const pp_exchange_position_t &position) {
+  std::array<std::uint8_t, 32> digest{};
+  std::copy(std::begin(position.digest), std::end(position.digest), digest.begin());
+  return {protocol_base(position.base), digest};
+}
+inline pp_exchange_limits_t native_exchange_limits(const ExchangeLimits &limits) {
+  return {limits.file_bytes, limits.disk_bytes, limits.frames,
+          limits.document_bytes, limits.document_depth, limits.document_nodes};
+}
+inline RequestIdentity request_identity(const pp_request_identity_t &identity) {
+  return {production_id(identity.production_id), exchange_id<HistoryId>(identity.history_id),
+          exchange_id<ClientId>(identity.client_id), exchange_id<RequestId>(identity.request_id)};
+}
+inline pp_request_identity_t native_request_identity(const RequestIdentity &identity) {
+  return {native_production_id(identity.production_id),
+          native_exchange_id<pp_history_id_t>(identity.history_id),
+          native_exchange_id<pp_client_id_t>(identity.client_id),
+          native_exchange_id<pp_request_id_t>(identity.request_id)};
+}
+
 } // namespace detail
+
+inline Result<HistoryId> HistoryId::fromString(std::string_view text) {
+  POSTPROJECT_TRY_ASSIGN(auto id, ProductionId::fromString(text));
+  return HistoryId(id.asUuid());
+}
+inline Result<std::string> HistoryId::toString() const {
+  return ProductionId(value_).toString();
+}
+
+inline Result<ClientId> ClientId::fromString(std::string_view text) {
+  POSTPROJECT_TRY_ASSIGN(auto id, ProductionId::fromString(text));
+  return ClientId(id.asUuid());
+}
+inline Result<std::string> ClientId::toString() const {
+  return ProductionId(value_).toString();
+}
+
+inline Result<RequestId> RequestId::fromString(std::string_view text) {
+  POSTPROJECT_TRY_ASSIGN(auto id, ProductionId::fromString(text));
+  return RequestId(id.asUuid());
+}
+inline Result<std::string> RequestId::toString() const {
+  return ProductionId(value_).toString();
+}
 
 inline Result<DecisionBase> DecisionBase::fromToken(std::string_view token) {
   POSTPROJECT_TRY_ASSIGN(const std::string text,
@@ -5178,8 +5372,69 @@ private:
   pp_job_lease_t *lease_ = nullptr;
 };
 
+// Immutable prepared intent. Destruction never submits or commits it.
+class Proposal final {
+public:
+  Proposal(const Proposal &) = delete;
+  Proposal &operator=(const Proposal &) = delete;
+  Proposal(Proposal &&other) noexcept : proposal_(std::exchange(other.proposal_, nullptr)) {}
+  Proposal &operator=(Proposal &&other) noexcept {
+    if (this != &other) {
+      pp_proposal_release(proposal_);
+      proposal_ = std::exchange(other.proposal_, nullptr);
+    }
+    return *this;
+  }
+  ~Proposal() { pp_proposal_release(proposal_); }
+  [[nodiscard]] static Result<Proposal> parse(const std::vector<std::uint8_t> &bytes) {
+    pp_proposal_t *proposal = nullptr;
+    pp_error_t *error = nullptr;
+    const auto status = pp_proposal_parse(bytes.data(), bytes.size(), &proposal, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    return Proposal(proposal);
+  }
+  [[nodiscard]] Result<RequestIdentity> identity() const {
+    pp_request_identity_t identity{};
+    pp_error_t *error = nullptr;
+    const auto status = pp_proposal_identity(proposal_, &identity, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    return detail::request_identity(identity);
+  }
+  [[nodiscard]] Result<std::vector<std::uint8_t>> document() const {
+    const std::uint8_t *bytes = nullptr;
+    std::uint64_t length = 0;
+    pp_error_t *error = nullptr;
+    const auto status = pp_proposal_document(proposal_, &bytes, &length, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    return std::vector<std::uint8_t>(bytes, bytes + length);
+  }
+private:
+  friend class Transaction;
+  friend class Production;
+  explicit Proposal(pp_proposal_t *proposal) : proposal_(proposal) {}
+  pp_proposal_t *proposal_ = nullptr;
+};
+
 class Transaction final {
 public:
+  // Success closes staging without a domain revision; failure leaves it open.
+  // Keep the complete base when the decision came from a mirror.
+  [[nodiscard]] Result<Proposal> prepareProposal(
+      const ClientId &client, const RequestId &request,
+      const std::optional<ProtocolBase> &base = std::nullopt) {
+    const auto native_base = base
+        ? std::optional<pp_protocol_base_t>(detail::native_protocol_base(*base))
+        : std::nullopt;
+    pp_proposal_t *proposal = nullptr;
+    pp_error_t *error = nullptr;
+    const auto status = pp_transaction_prepare_proposal(transaction_,
+        detail::native_exchange_id<pp_client_id_t>(client),
+        detail::native_exchange_id<pp_request_id_t>(request),
+        native_base ? &*native_base : nullptr, &proposal, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    return Proposal(proposal);
+  }
+
   Result<void> setRevisionContext(const RevisionContext &context) {
     std::optional<std::string> origin_name;
     if (context.origin.has_value()) {
