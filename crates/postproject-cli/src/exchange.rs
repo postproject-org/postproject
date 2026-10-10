@@ -1,5 +1,8 @@
 //! Trusted local files and durable metadata submission outcomes.
 
+mod checkpoint;
+mod files;
+
 use std::{
     fmt,
     fs::File,
@@ -25,7 +28,22 @@ pub(crate) struct ExchangeArgs {
 enum ExchangeCommand {
     /// Inspect source scope, passive role and retained replay floor.
     Inspect { production: PathBuf },
-    /// Submit a bounded portable metadata proposal; retry the same file/identity.
+    /// Save the exact current source continuation for a later changes export.
+    Position {
+        production: PathBuf,
+        output: PathBuf,
+    },
+    /// Export or apply complete contiguous records from a scoped position.
+    Changes {
+        #[command(subcommand)]
+        command: files::ChangesCommand,
+    },
+    /// Export, validate or import a complete portable checkpoint.
+    Checkpoint {
+        #[command(subcommand)]
+        command: checkpoint::CheckpointCommand,
+    },
+    /// Submit a bounded portable proposal; retry the same file/identity.
     Submit {
         production: PathBuf,
         proposal: PathBuf,
@@ -91,12 +109,23 @@ fn inspect(production: &Path, json: bool) -> Result<()> {
         StoreRole::PassiveMirror => "passive_mirror",
     };
     let revision = view.latest_revision()?;
+    let head = match view.exchange_head() {
+        Ok(head) => Some(head),
+        Err(postproject_storage_sqlite::ExchangeError::Protocol(error))
+            if error.kind() == postproject_protocol::FailureKind::HistoryGap =>
+        {
+            None
+        }
+        Err(error) => return Err(error.into()),
+    };
     if json {
         super::print_json(&serde_json::json!({
             "scope":{"production":scope.production().to_string(),"history":scope.history().to_string()},
-            "role":role,"protocol_version":"1","required_features":["metadata.v1"],
+            "role":role,"protocol_version":"1","supported_features":["checkpoint-archives.v1", "checkpoints.v1", "dependencies.v1", "jobs.v1", "media.v1", "metadata.v1", "outcomes.v1", "provenance.v1", "record-chunks.v1"],
             "limits":{"proposal_bytes":Limits::default().max_bytes().to_string(),"proposal_commands":postproject_protocol::MAX_PROPOSAL_COMMANDS.to_string()},
             "floor":{"revision":floor.revision().map(|id| id.to_string()),"sequence":floor.sequence().to_string(),"digest":floor.digest().to_string()},
+            "head":head.map(|head| files::document(&head.document())).transpose()?,
+            "replay_status":if head.is_some() {"available"} else {"history_gap"},
             "observed_head":{"revision":revision.as_ref().map(|revision| revision.id().to_string()),"sequence":revision.as_ref().map_or(0, postproject_core::Revision::sequence).to_string()}
         }))?;
     } else {
@@ -116,6 +145,11 @@ pub(crate) fn execute(args: ExchangeArgs, json: bool, has_external_base: bool) -
     }
     match args.command {
         ExchangeCommand::Inspect { production } => inspect(&production, json),
+        ExchangeCommand::Position { production, output } => {
+            files::position(&production, &output, json)
+        }
+        ExchangeCommand::Changes { command } => files::changes(command, json),
+        ExchangeCommand::Checkpoint { command } => checkpoint::execute(command, json),
         ExchangeCommand::Submit {
             production,
             proposal,
