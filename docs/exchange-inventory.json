@@ -18,6 +18,7 @@
     {"table": "dependency_sets","classification": "portable","columns": ["source_representation_id","recorded_revision_sequence","needs_extraction"],"exclude": []},
     {"table": "external_identifiers","classification": "portable","columns": ["id","target_kind","target_id","scheme","value","qualifier"],"exclude": ["id"]},
     {"table": "exchange_effect_fragments","classification": "portable","columns": ["revision_id","effect_position","fragment_position","payload"],"exclude": ["fragment_position"]},
+    {"table": "exchange_prior_anchors","classification": "portable","columns": ["floor_sequence","floor_revision_id","anchor_digest"],"exclude": []},
     {"table": "exchange_history","classification": "portable","columns": ["singleton","history_id","instance_id","role","floor_revision_id","floor_sequence","anchor_digest"],"exclude": ["singleton","instance_id","role"]},
     {"table": "exchange_outcomes","classification": "private","columns": ["history_id","client_id","request_id","request_digest","capability_binding","outcome"],"exclude": []},
     {"table": "exchange_record_chunks","classification": "portable","columns": ["revision_id","position","fragment_position","document"],"exclude": ["fragment_position"]},

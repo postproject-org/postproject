@@ -53,7 +53,10 @@ use rusqlite::{
     Connection, OpenFlags, OptionalExtension, limits::Limit, params, params_from_iter, types::Value,
 };
 
-pub use exchange::{CheckpointLimits, ExchangeError, ExchangeResult, RecordReader, ReplayLimits};
+pub use exchange::{
+    CheckpointLimits, ExchangeError, ExchangeResult, RecordReader, ReplayLimits,
+    ResynchronizationLimits,
+};
 pub use job_lease::SqliteJobLease;
 pub use migrations::CURRENT_SCHEMA_VERSION;
 pub use read_session::SqliteReadSession;
@@ -298,6 +301,25 @@ impl SqliteProduction {
     /// Returns storage errors for an invalid or unavailable anchor.
     pub fn exchange_floor(&self) -> Result<postproject_protocol::Position> {
         exchange::floor(&self.connection, self.production.id())
+    }
+
+    /// Establishes a checkpoint floor for an incomplete development history.
+    ///
+    /// Requires a fresh scoped native head base. Complete chains retain their
+    /// floor; incomplete chains retain earlier evidence and establish an anchor
+    /// at the head. Existing mirrors behind that floor need a new checkpoint.
+    /// This preserves history identity and private outcomes, and creates no
+    /// domain revision. Ordinary opens and commits never perform this recovery.
+    ///
+    /// # Errors
+    /// Rejects mirrors, pinned views, stale/foreign bases and corrupt evidence.
+    /// Returns storage failures without publishing a partial floor change.
+    pub fn resynchronize_exchange_history(
+        &mut self,
+        base: postproject_protocol::ProtocolBase,
+        limits: ResynchronizationLimits,
+    ) -> ExchangeResult<postproject_protocol::Position> {
+        exchange::establish_floor(self, base, limits)
     }
 
     /// Creates a new production file and persists its identity atomically.

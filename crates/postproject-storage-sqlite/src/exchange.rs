@@ -9,6 +9,7 @@ mod genesis;
 pub(crate) mod job_capture;
 mod outcomes;
 mod records;
+mod resynchronization;
 
 pub(crate) use captured::{CapturedEffect, CapturedFingerprint};
 pub use checkpoint::CheckpointLimits;
@@ -23,6 +24,8 @@ pub(crate) use records::apply;
 pub(crate) use records::capture_records;
 pub(crate) use records::position;
 pub use records::{RecordReader, ReplayLimits};
+pub use resynchronization::ResynchronizationLimits;
+pub(crate) use resynchronization::establish_floor;
 
 use postproject_core::{DecisionBase, Error, ErrorKind, ProductionId, Result, RevisionId};
 use postproject_protocol::{Digest, HistoryId, Position, ProtocolBase, Scope, StoreRole};

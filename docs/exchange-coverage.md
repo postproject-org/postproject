@@ -14,7 +14,7 @@ historical Shotcut scaffold has no remote and is outside qualification.
 [Repository inputs](exchange-repositories.json) record exact starting commits
 and preexisting untracked builds. Candidate qualification has **not** run.
 
-Development schema 26 retains one persistent history generation and a deterministic
+Development schema 27 retains one persistent history generation and a deterministic
 genesis/migration-floor anchor. Existing revisions remain intact. The codec now
 covers strict framing, every metadata value kind, metadata/scalar media proposal intent,
 media fact/creation bodies and all existing original observation kinds;
@@ -46,8 +46,8 @@ legal large values; a 65 MiB native replacement also commits and replays as one
 revision without assembling a whole evidence document. Metadata/media suffixes have bounded record manifests,
 ordered chunk chains and independently pinned Rust readers. Records retain the
 original revision/context, same-key history and observation events. Every current
-native mutation family is captured. Older incomplete development histories still
-need an explicit migration/resynchronization policy. Readers report `history_gap`;
+native mutation family is captured. Explicit bounded resynchronization establishes a new floor for incomplete
+development histories while retaining earlier evidence and durable outcomes. Readers report `history_gap`;
 native changing commits with a missing predecessor fail and roll back.
 Whole checkpoints and installed exchange projections remain pending. Rust passive application validates metadata/media
 records atomically, preserving original revision/events and semantic versions.
