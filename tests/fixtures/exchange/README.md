@@ -2,8 +2,9 @@
 
 `canonical-json.json` tests the exact JSON profile. `proposal-vectors.json` binds
 the files under `proposals/` to fixed canonical bytes and request digests.
-These cover metadata, roots, fingerprints, repeated dependencies, provenance,
-work requests/claims and mixed required features.
+These cover all 24 command alternatives, including prepared media, exact access
+facts, destructive metadata edits and the complete worker lifecycle. They check
+decoding and feature declarations; individual proposals are not execution scripts.
 
 Expected bytes were authored with Python's standard-library JSON encoder, without
 the PostProject codec or bindings. Digests used `blake3==1.0.10`, checked against

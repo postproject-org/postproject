@@ -12,6 +12,8 @@ import base64
 import json
 from pathlib import Path
 
+from exchange_proposal_vectors import FIELDS, check_proposal
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -110,9 +112,14 @@ def main() -> int:
     proposals = json.loads(
         (ROOT / "tests/fixtures/exchange/proposal-vectors.json").read_text()
     )
+    operations = set()
     for vector in proposals:
         path = ROOT / "tests/fixtures/exchange" / vector["file"]
         assert canonical(path.read_text()) == vector["canonical"].encode("utf-8")
+        operations.update(check_proposal(json.loads(path.read_text())))
+    assert operations == set(FIELDS), (
+        "fixed proposals must cover every current operation"
+    )
     streams = json.loads(
         (ROOT / "tests/fixtures/exchange/stream-vectors.json").read_text()
     )
