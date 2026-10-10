@@ -14,6 +14,25 @@ def dependency(name, kind=None, **options):
 
 
 class ArchitectureTests(unittest.TestCase):
+    def test_ffi_can_project_protocol_without_reversing_the_edge(self):
+        self.assertEqual(
+            dependency_violations(
+                [
+                    package("postproject-ffi", dependency("postproject-protocol")),
+                    package("postproject-protocol"),
+                ]
+            ),
+            [],
+        )
+        self.assertTrue(
+            dependency_violations(
+                [
+                    package("postproject-protocol", dependency("postproject-ffi")),
+                    package("postproject-ffi"),
+                ]
+            )
+        )
+
     def test_protocol_cannot_depend_on_storage_or_media(self):
         for target in ("postproject-storage-sqlite", "postproject-media"):
             with self.subTest(target=target):

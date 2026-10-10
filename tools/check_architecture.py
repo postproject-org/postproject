@@ -19,6 +19,7 @@ ALLOWED = {
     "postproject-ffi": {
         "postproject-core",
         "postproject-media",
+        "postproject-protocol",
         "postproject-storage-sqlite",
         "postproject-ffi-macros",
     },

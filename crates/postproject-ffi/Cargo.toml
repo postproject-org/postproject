@@ -17,6 +17,7 @@ crate-type = ["cdylib", "staticlib", "rlib"]
 postproject-ffi-macros = { version = "0.7.0-alpha.1", path = "../postproject-ffi-macros" }
 postproject-core = { version = "0.7.0-alpha.1", path = "../postproject-core" }
 postproject-media = { version = "0.7.0-alpha.1", path = "../postproject-media" }
+postproject-protocol = { version = "0.7.0-alpha.1", path = "../postproject-protocol" }
 postproject-storage-sqlite = { version = "0.7.0-alpha.1", path = "../postproject-storage-sqlite" }
 
 [dev-dependencies]

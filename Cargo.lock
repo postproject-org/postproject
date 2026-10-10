@@ -706,6 +706,7 @@ dependencies = [
  "postproject-core",
  "postproject-ffi-macros",
  "postproject-media",
+ "postproject-protocol",
  "postproject-storage-sqlite",
  "tempfile",
 ]
