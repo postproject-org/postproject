@@ -22,6 +22,7 @@ extern "C" {
 typedef struct pp_production pp_production_t;
 typedef struct pp_read_session pp_read_session_t;
 typedef struct pp_transaction pp_transaction_t;
+typedef struct pp_proposal pp_proposal_t;
 typedef struct pp_job_lease pp_job_lease_t;
 typedef struct pp_asset_set pp_asset_set_t;
 typedef struct pp_media_root_set pp_media_root_set_t;
@@ -154,6 +155,21 @@ typedef struct pp_protocol_base {
   pp_decision_base_t decision;
   pp_history_id_t history_id;
 } pp_protocol_base_t;
+
+/* Prepare immutable ordered intent using ordinary typed transaction staging.
+ * Success closes the edit and pending claims, with no domain revision. Failure
+ * leaves it open. Optional base retains source history and must match the edit;
+ * null binds an ordinary local decision to the opened source history. Legacy
+ * revision-only edits cannot be converted. Caller owns the returned proposal. */
+PP_API uint32_t pp_transaction_prepare_proposal(
+    pp_transaction_t *transaction, pp_client_id_t client_id,
+    pp_request_id_t request_id, const pp_protocol_base_t *base,
+    pp_proposal_t **out_proposal, pp_error_t **out_error);
+/* Borrowed canonical bytes, valid until proposal release; no private capability. */
+PP_API uint32_t pp_proposal_document(
+    const pp_proposal_t *proposal, const uint8_t **out_bytes,
+    uint64_t *out_length, pp_error_t **out_error);
+PP_API void pp_proposal_release(pp_proposal_t *proposal);
 typedef uint32_t pp_object_kind_t;
 
 #define PP_OBJECT_PRODUCTION UINT32_C(1)
@@ -507,6 +523,15 @@ typedef uint32_t pp_error_code_t;
 #define PP_ERROR_FINGERPRINT UINT32_C(9)
 #define PP_ERROR_UNSUPPORTED UINT32_C(10)
 #define PP_ERROR_CANCELLED UINT32_C(11)
+#define PP_ERROR_MALFORMED UINT32_C(12)
+#define PP_ERROR_LIMIT_EXCEEDED UINT32_C(13)
+#define PP_ERROR_SCOPE_MISMATCH UINT32_C(14)
+#define PP_ERROR_INVALID_BASE UINT32_C(15)
+#define PP_ERROR_REQUEST_IDENTITY_MISMATCH UINT32_C(16)
+#define PP_ERROR_HISTORY_GAP UINT32_C(17)
+#define PP_ERROR_INTEGRITY UINT32_C(18)
+#define PP_ERROR_DIVERGENCE UINT32_C(19)
+#define PP_ERROR_MIRROR_READ_ONLY UINT32_C(20)
 #define PP_ERROR_INTERNAL UINT32_C(255)
 
 typedef uint32_t pp_representation_availability_t;

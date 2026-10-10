@@ -17,6 +17,10 @@ class Transaction(ctypes.Structure):
     pass
 
 
+class Proposal(ctypes.Structure):
+    pass
+
+
 class JobLease(ctypes.Structure):
     pass
 
@@ -405,6 +409,15 @@ PP_ERROR_AMBIGUOUS_RESOLUTION = 8
 PP_ERROR_FINGERPRINT = 9
 PP_ERROR_UNSUPPORTED = 10
 PP_ERROR_CANCELLED = 11
+PP_ERROR_MALFORMED = 12
+PP_ERROR_LIMIT_EXCEEDED = 13
+PP_ERROR_SCOPE_MISMATCH = 14
+PP_ERROR_INVALID_BASE = 15
+PP_ERROR_REQUEST_IDENTITY_MISMATCH = 16
+PP_ERROR_HISTORY_GAP = 17
+PP_ERROR_INTEGRITY = 18
+PP_ERROR_DIVERGENCE = 19
+PP_ERROR_MIRROR_READ_ONLY = 20
 PP_ERROR_INTERNAL = 255
 PP_AVAILABILITY_ONLINE = 1
 PP_AVAILABILITY_PARTIAL = 2
@@ -914,6 +927,8 @@ EXPORTED_SYMBOLS = (
     "pp_production_stale_artifacts",
     "pp_production_unresolved_media",
     "pp_production_verify_resource",
+    "pp_proposal_document",
+    "pp_proposal_release",
     "pp_read_session_activities_consuming_page",
     "pp_read_session_activities_producing_page",
     "pp_read_session_artifact_reproducibility",
@@ -1022,6 +1037,7 @@ EXPORTED_SYMBOLS = (
     "pp_transaction_id_parse",
     "pp_transaction_import_media",
     "pp_transaction_observe_resource_content",
+    "pp_transaction_prepare_proposal",
     "pp_transaction_record_dependency_set",
     "pp_transaction_record_representation_fingerprint",
     "pp_transaction_record_resource_fingerprint",
@@ -1042,6 +1058,12 @@ EXPORTED_SYMBOLS = (
 def configure_api(lib: ctypes.CDLL) -> None:
     """Configure every function declared by the public C header."""
 
+    lib.pp_transaction_prepare_proposal.argtypes = [ctypes.POINTER(Transaction), ClientId, RequestId, ctypes.POINTER(ProtocolBase), ctypes.POINTER(ctypes.POINTER(Proposal)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_transaction_prepare_proposal.restype = ctypes.c_uint32
+    lib.pp_proposal_document.argtypes = [ctypes.POINTER(Proposal), ctypes.POINTER(ctypes.POINTER(ctypes.c_uint8)), ctypes.POINTER(ctypes.c_uint64), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_proposal_document.restype = ctypes.c_uint32
+    lib.pp_proposal_release.argtypes = [ctypes.POINTER(Proposal)]
+    lib.pp_proposal_release.restype = None
     lib.pp_decision_base_parse.argtypes = [ctypes.c_char_p, ctypes.POINTER(DecisionBase), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_decision_base_parse.restype = ErrorCode
     lib.pp_decision_base_format.argtypes = [ctypes.POINTER(DecisionBase), ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.POINTER(Error))]
