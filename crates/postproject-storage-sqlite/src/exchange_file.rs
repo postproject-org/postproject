@@ -6,11 +6,68 @@
 
 mod framing;
 
-use std::io::{Read, Seek, Write};
+use std::{
+    io::{Read, Seek, Write},
+    path::Path,
+};
 
-use postproject_protocol::{CheckpointManifest, Document, RecordManifest};
+use postproject_protocol::{
+    CheckpointChunk, CheckpointManifest, Document, RecordChunk, RecordManifest,
+};
 
-use crate::{ExchangeResult, RecordReader, SqliteProduction};
+use crate::{CheckpointLimits, ExchangeResult, RecordReader, ReplayLimits, SqliteProduction};
+
+/// Imports a sealed checkpoint into a new passive production file.
+///
+/// Uses the ordinary checked private staging and exclusive promotion path.
+/// The input is seekable; no whole checkpoint is held in memory.
+///
+/// # Errors
+/// Rejects a record file, framing/domain/integrity failures, exhausted budgets
+/// or an existing destination. No failed import publishes a partial mirror.
+pub fn import_checkpoint(
+    destination: impl AsRef<Path>,
+    source: impl Read + Seek,
+    file_limits: FileLimits,
+    checkpoint_limits: CheckpointLimits,
+) -> ExchangeResult<SqliteProduction> {
+    let mut reader = FileReader::open(source, file_limits)?;
+    let FileManifest::Checkpoint(manifest) = reader.manifest().clone() else {
+        return Err(framing::invalid().into());
+    };
+    let chunks = std::iter::from_fn(|| {
+        reader.next_document().transpose().map(|document| {
+            document.and_then(|document| Ok(CheckpointChunk::from_document(&document)?))
+        })
+    });
+    SqliteProduction::import_checkpoint(destination, &manifest, chunks, checkpoint_limits)
+}
+
+/// Applies one sealed source record atomically to a passive mirror.
+///
+/// Returns `false` for a verified exact duplicate. Input errors leave the
+/// mirror's durable position unchanged; retry the same file after reopening.
+///
+/// # Errors
+/// Rejects a checkpoint file, authority writes, foreign scope, gaps, divergence,
+/// framing/domain/integrity failures and exhausted receiver budgets.
+pub fn apply_record(
+    destination: &mut SqliteProduction,
+    source: impl Read + Seek,
+    file_limits: FileLimits,
+    replay_limits: ReplayLimits,
+) -> ExchangeResult<bool> {
+    let mut reader = FileReader::open(source, file_limits)?;
+    let FileManifest::Record(manifest) = reader.manifest().clone() else {
+        return Err(framing::invalid().into());
+    };
+    let chunks = std::iter::from_fn(|| {
+        reader.next_document().transpose().map(|document| {
+            document.and_then(|document| Ok(RecordChunk::from_document(&document)?))
+        })
+    });
+    destination.apply_record(&manifest, chunks, replay_limits)
+}
 
 /// Streams a pinned checkpoint and seals its manifest only after every chunk.
 ///
