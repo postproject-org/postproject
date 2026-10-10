@@ -6,6 +6,7 @@ mod dependencies;
 mod facts;
 mod fingerprints;
 mod history;
+mod jobs;
 mod media;
 mod records;
 mod references;
@@ -20,6 +21,7 @@ pub(super) struct Bodies<'a, 'connection> {
     structure: Option<media::PendingStructure>,
     activity: Option<crate::exchange::records::ActivityApply>,
     dependency: Option<crate::exchange::records::DependencyApply>,
+    job: Option<crate::exchange::records::JobApply>,
     manifest: &'a CheckpointManifest,
     revisions: u64,
     event_sequence: u64,
@@ -45,6 +47,7 @@ impl<'a, 'connection> Bodies<'a, 'connection> {
             structure: None,
             activity: None,
             dependency: None,
+            job: None,
             manifest,
             revisions: 0,
             event_sequence: 0,
@@ -65,6 +68,13 @@ impl<'a, 'connection> Bodies<'a, 'connection> {
         section: CheckpointSection,
         document: &Document,
     ) -> ExchangeResult<bool> {
+        if section == CheckpointSection::Jobs {
+            return Err(postproject_protocol::ProtocolError::new(
+                postproject_protocol::FailureKind::Unsupported,
+                "checkpoint job history audit is not supported yet",
+            )
+            .into());
+        }
         self.remaining_frames = self
             .remaining_frames
             .checked_sub(1)
@@ -76,6 +86,9 @@ impl<'a, 'connection> Bodies<'a, 'connection> {
             return Err(super::super::invalid().into());
         }
         if self.dependency.is_some() && section != CheckpointSection::Dependencies {
+            return Err(super::super::invalid().into());
+        }
+        if self.job.is_some() && section != CheckpointSection::Jobs {
             return Err(super::super::invalid().into());
         }
         match section {
@@ -96,13 +109,7 @@ impl<'a, 'connection> Bodies<'a, 'connection> {
             CheckpointSection::ConflictVersions => self.version(document)?,
             CheckpointSection::ConflictFloor => self.conflict_floor(document)?,
             CheckpointSection::Records => return self.record(document),
-            CheckpointSection::Jobs => {
-                return Err(postproject_protocol::ProtocolError::new(
-                    postproject_protocol::FailureKind::Unsupported,
-                    "checkpoint section is not supported yet",
-                )
-                .into());
-            }
+            CheckpointSection::Jobs => return self.job(document),
         }
         Ok(true)
     }
@@ -114,6 +121,7 @@ impl<'a, 'connection> Bodies<'a, 'connection> {
             || self.structure.is_some()
             || self.activity.is_some()
             || self.dependency.is_some()
+            || self.job.is_some()
             || self.record_head != self.manifest.head()
         {
             return Err(super::super::invalid().into());

@@ -81,7 +81,7 @@ pub(crate) fn export(
             CheckpointSection::ConflictVersions => sections::versions(&view, &mut writer)?,
             CheckpointSection::ConflictFloor => sections::conflict_floor(&view, &mut writer)?,
             CheckpointSection::Records => sections::records(&view, floor, head, &mut writer)?,
-            CheckpointSection::Jobs => (),
+            CheckpointSection::Jobs => sections::jobs(&view, &mut writer)?,
         }
         summaries.push(writer.finish()?);
     }
