@@ -1,3 +1,5 @@
+mod integrity;
+
 use std::{sync::Arc, time::Duration};
 
 use postproject_core::{
