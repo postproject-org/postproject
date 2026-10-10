@@ -7,7 +7,7 @@ mod effects;
 mod facts;
 mod fingerprint_change;
 mod identifier_change;
-mod job;
+pub(super) mod job;
 mod limits;
 mod media_change;
 

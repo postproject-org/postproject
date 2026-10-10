@@ -10,6 +10,7 @@ pub use replay::ReplayLimits;
 pub(in crate::exchange) use replay::activity::ActivityApply;
 pub(crate) use replay::apply;
 pub(in crate::exchange) use replay::dependency::DependencyApply;
+pub(in crate::exchange) use replay::job::JobApply;
 
 use postproject_core::{
     Error, ErrorKind, ProductionId, Result, Revision, RevisionEvent, RevisionEventKind,

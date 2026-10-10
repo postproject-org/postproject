@@ -1,4 +1,5 @@
 //! Faithful passive work observations, never worker authorization.
+mod request;
 
 use postproject_core::{JobState, RepresentationId, RevisionEventKind};
 use postproject_protocol::{JobHeader, JobInput, JobOperation, JobTransition, RecordManifest};
@@ -9,7 +10,7 @@ use crate::{
     ExchangeResult, exchange::job_capture, sqlite_error, transaction::encode_representation_kind,
 };
 
-pub(super) struct JobApply {
+pub(in crate::exchange) struct JobApply {
     header: JobHeader,
     inputs: u64,
     previous: Option<RepresentationId>,
@@ -25,23 +26,7 @@ impl JobApply {
         if !matches!(header.state(), JobState::Requested) {
             return Err(invalid().into());
         }
-        let output = header.requested_output();
-        if let Some(root) = output.target_root() {
-            let exists: bool = transaction
-                .query_row(
-                    "SELECT EXISTS(SELECT 1 FROM media_roots WHERE name = ?1)",
-                    [root],
-                    |row| row.get(0),
-                )
-                .map_err(sqlite_error("validate replayed job target root"))?;
-            if !exists {
-                return Err(invalid().into());
-            }
-        }
-        transaction.execute("INSERT INTO jobs (id, kind, output_asset_id, output_representation_kind, target_root, state)
-            VALUES (?1, ?2, ?3, ?4, ?5, 1)", params![header.id().as_bytes().as_slice(), header.kind().as_str(),
-            output.asset_id().as_bytes().as_slice(), encode_representation_kind(output.representation_kind())?, output.target_root()])
-            .map_err(sqlite_error("stage replayed job request"))?;
+        request::insert(transaction, &header, true)?;
         facts::observation(
             transaction,
             manifest,
@@ -58,7 +43,7 @@ impl JobApply {
         }))
     }
 
-    pub(super) fn input(
+    pub(in crate::exchange) fn input(
         &mut self,
         transaction: &Transaction<'_>,
         input: JobInput,
@@ -68,6 +53,7 @@ impl JobApply {
             || input.position() != self.inputs
             || self.inputs >= self.header.input_count()
             || self.previous.is_some_and(|old| old >= representation)
+            || !crate::transaction::representation_exists(transaction, representation)?
         {
             return Err(invalid().into());
         }
@@ -84,6 +70,19 @@ impl JobApply {
         self.previous = Some(representation);
         self.inputs += 1;
         Ok(self.inputs == self.header.input_count())
+    }
+
+    pub(in crate::exchange) fn begin_checkpoint(
+        transaction: &Transaction<'_>,
+        header: JobHeader,
+    ) -> ExchangeResult<Option<Self>> {
+        request::insert(transaction, &header, false)?;
+        persist_state(transaction, header.id(), header.state())?;
+        Ok((header.input_count() > 0).then_some(Self {
+            header,
+            inputs: 0,
+            previous: None,
+        }))
     }
 }
 

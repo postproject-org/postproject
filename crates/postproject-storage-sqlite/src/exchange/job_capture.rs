@@ -48,11 +48,11 @@ pub(crate) fn header(connection: &Connection, job: JobId) -> Result<JobHeader> {
     .map_err(|_| invalid())
 }
 
-pub(crate) fn write(
+pub(crate) fn write<E: From<Error>>(
     connection: &Connection,
     header: &JobHeader,
-    mut write: impl FnMut(&Document) -> Result<()>,
-) -> Result<()> {
+    mut write: impl FnMut(&Document) -> std::result::Result<(), E>,
+) -> std::result::Result<(), E> {
     write(&header.document().map_err(|_| invalid())?)?;
     let mut statement = connection.prepare("SELECT position, representation_id FROM job_inputs WHERE job_id = ?1 ORDER BY position")
         .map_err(sqlite_error("prepare captured job inputs"))?;
@@ -77,7 +77,7 @@ pub(crate) fn write(
             || count >= header.input_count()
             || previous.is_some_and(|id| id >= representation)
         {
-            return Err(invalid());
+            return Err(invalid().into());
         }
         write(
             &JobInput::new(header.id(), count, representation)
@@ -88,7 +88,7 @@ pub(crate) fn write(
         previous = Some(representation);
     }
     if count != header.input_count() {
-        return Err(invalid());
+        return Err(invalid().into());
     }
     Ok(())
 }
