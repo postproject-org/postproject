@@ -156,6 +156,14 @@ typedef struct pp_protocol_base {
   pp_history_id_t history_id;
 } pp_protocol_base_t;
 
+/* Complete public lookup scope; preserve every field after response loss. */
+typedef struct pp_request_identity {
+  pp_production_id_t production_id;
+  pp_history_id_t history_id;
+  pp_client_id_t client_id;
+  pp_request_id_t request_id;
+} pp_request_identity_t;
+
 /* Prepare immutable ordered intent using ordinary typed transaction staging.
  * Success closes the edit and pending claims, with no domain revision. Failure
  * leaves it open. Optional base retains source history and must match the edit;
@@ -170,6 +178,14 @@ PP_API uint32_t pp_proposal_document(
     const pp_proposal_t *proposal, const uint8_t **out_bytes,
     uint64_t *out_length, pp_error_t **out_error);
 PP_API void pp_proposal_release(pp_proposal_t *proposal);
+/* Bounded portable transport; normal native commands use typed staging. */
+PP_API uint32_t pp_proposal_parse(
+    const uint8_t *bytes, uint64_t length, pp_proposal_t **out_proposal,
+    pp_error_t **out_error);
+PP_API uint32_t pp_proposal_identity(
+    const pp_proposal_t *proposal, pp_request_identity_t *out_identity,
+    pp_error_t **out_error);
+
 typedef uint32_t pp_object_kind_t;
 
 #define PP_OBJECT_PRODUCTION UINT32_C(1)

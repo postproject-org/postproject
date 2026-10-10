@@ -49,6 +49,31 @@ pub struct PpProtocolBase {
     pub history_id: PpHistoryId,
 }
 
+/// Complete public request identity for durable outcome recovery.
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct PpRequestIdentity {
+    /// Original source production, not a destination file identity.
+    pub production_id: crate::PpProductionId,
+    /// Original source-history generation.
+    pub history_id: PpHistoryId,
+    /// Stable submitting client.
+    pub client_id: PpClientId,
+    /// Stable complete-intent request.
+    pub request_id: PpRequestId,
+}
+
+impl PpRequestIdentity {
+    fn empty() -> Self {
+        Self {
+            production_id: crate::PpProductionId { bytes: [0; 16] },
+            history_id: PpHistoryId { bytes: [0; 16] },
+            client_id: PpClientId { bytes: [0; 16] },
+            request_id: PpRequestId { bytes: [0; 16] },
+        }
+    }
+}
+
 /// Immutable checked public intent, owning its exact transport bytes.
 pub struct PpProposal {
     pub(crate) proposal: Proposal,
@@ -63,6 +88,83 @@ impl PpProposal {
         };
         result.bytes = result.proposal.document()?.canonical_bytes()?;
         Ok(result)
+    }
+}
+
+/// Parses bounded portable intent; ordinary native commands use typed staging.
+///
+/// # Safety
+/// Bytes readable for the accepted length, output writable, error optional.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_proposal_parse(
+    bytes: *const u8,
+    length: u64,
+    out_proposal: *mut *mut PpProposal,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: Bound length before constructing a borrowed caller slice.
+    unsafe {
+        initialize_output(out_proposal);
+        error::call(out_error, || {
+            require_output(out_proposal, "out_proposal")?;
+            let limits = postproject_protocol::Limits::default();
+            let length = usize::try_from(length)
+                .ok()
+                .filter(|length| *length <= limits.max_bytes())
+                .ok_or_else(|| {
+                    ProtocolError::new(
+                        FailureKind::LimitExceeded,
+                        "proposal input exceeds document limit",
+                    )
+                })?;
+            if bytes.is_null() {
+                return Err(invalid_argument("proposal bytes must not be null").into());
+            }
+            let document = postproject_protocol::Document::parse(
+                std::slice::from_raw_parts(bytes, length),
+                limits,
+            )?;
+            let proposal = PpProposal::new(Proposal::from_document(&document)?)?;
+            out_proposal.write(Box::into_raw(Box::new(proposal)));
+            Ok(())
+        })
+    }
+}
+
+/// Copies the complete public recovery identity; no credential is returned.
+///
+/// # Safety
+/// Proposal live, output writable, error optional.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_proposal_identity(
+    proposal: *const PpProposal,
+    out_identity: *mut PpRequestIdentity,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: Clear copied output before borrowing the nullable handle.
+    unsafe {
+        initialize_value(out_identity, PpRequestIdentity::empty());
+        crate::ffi_call(out_error, || {
+            require_output(out_identity, "out_identity")?;
+            let proposal = proposal
+                .as_ref()
+                .ok_or_else(|| invalid_argument("proposal must not be null"))?;
+            out_identity.write(PpRequestIdentity {
+                production_id: crate::PpProductionId {
+                    bytes: proposal.proposal.scope().production().into_bytes(),
+                },
+                history_id: PpHistoryId {
+                    bytes: *proposal.proposal.scope().history().as_bytes(),
+                },
+                client_id: PpClientId {
+                    bytes: *proposal.proposal.client().as_bytes(),
+                },
+                request_id: PpRequestId {
+                    bytes: *proposal.proposal.request().as_bytes(),
+                },
+            });
+            Ok(())
+        })
     }
 }
 

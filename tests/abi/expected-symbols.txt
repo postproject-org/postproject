@@ -199,6 +199,8 @@ pp_production_stale_artifacts
 pp_production_unresolved_media
 pp_production_verify_resource
 pp_proposal_document
+pp_proposal_identity
+pp_proposal_parse
 pp_proposal_release
 pp_read_session_activities_consuming_page
 pp_read_session_activities_producing_page

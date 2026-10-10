@@ -4,8 +4,9 @@ use postproject::{
     PpArtifactReproducibilityIssue, PpAssetId, PpClientId, PpCommitReceipt, PpDecisionBase,
     PpDependency, PpDependencyMatch, PpFileResourceInput, PpHistoryId, PpJob, PpJobClaim,
     PpJobCompletion, PpJobId, PpLocatorId, PpMediaRootId, PpObjectRef, PpProductionId,
-    PpProtocolBase, PpRepresentationId, PpRequestId, PpResourceId, PpRevisionEvent, PpRevisionId,
-    PpSequenceNaming, PpTransactionConflict, PpTransactionId, PpUuid,
+    PpProtocolBase, PpRepresentationId, PpRequestId, PpRequestIdentity, PpResourceId,
+    PpRevisionEvent, PpRevisionId, PpSequenceNaming, PpTransactionConflict, PpTransactionId,
+    PpUuid,
 };
 use std::mem::{align_of, offset_of, size_of};
 
@@ -52,6 +53,14 @@ fn main() {
     layout!(PpClientId, "pp_client_id_t", bytes);
     layout!(PpRequestId, "pp_request_id_t", bytes);
     layout!(PpProtocolBase, "pp_protocol_base_t", decision, history_id);
+    layout!(
+        PpRequestIdentity,
+        "pp_request_identity_t",
+        production_id,
+        history_id,
+        client_id,
+        request_id
+    );
     layout!(PpObjectRef, "pp_object_ref_t", kind, id);
     layout!(
         PpTransactionConflict,

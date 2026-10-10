@@ -201,6 +201,10 @@ class ProtocolBase(ctypes.Structure):
     pass
 
 
+class RequestIdentity(ctypes.Structure):
+    pass
+
+
 class ObjectRef(ctypes.Structure):
     pass
 
@@ -535,6 +539,13 @@ ProtocolBase._fields_ = [
     ("history_id", HistoryId),
 ]
 
+RequestIdentity._fields_ = [
+    ("production_id", ProductionId),
+    ("history_id", HistoryId),
+    ("client_id", ClientId),
+    ("request_id", RequestId),
+]
+
 ObjectRef._fields_ = [
     ("kind", ObjectKind),
     ("id", Uuid),
@@ -709,6 +720,7 @@ PUBLIC_STRUCTS = {
     "pp_client_id_t": (ClientId, ("bytes",)),
     "pp_request_id_t": (RequestId, ("bytes",)),
     "pp_protocol_base_t": (ProtocolBase, ("decision", "history_id")),
+    "pp_request_identity_t": (RequestIdentity, ("production_id", "history_id", "client_id", "request_id")),
     "pp_object_ref_t": (ObjectRef, ("kind", "id")),
     "pp_transaction_conflict_t": (TransactionConflict, ("kind", "target", "media_root_id", "namespace_name", "local_name", "qualifier", "version", "has_base_revision", "base_revision_id", "base_revision_sequence", "superseding_revision_id", "superseding_revision_sequence")),
     "pp_dependency_match_t": (DependencyMatch, ("target", "depth")),
@@ -928,6 +940,8 @@ EXPORTED_SYMBOLS = (
     "pp_production_unresolved_media",
     "pp_production_verify_resource",
     "pp_proposal_document",
+    "pp_proposal_identity",
+    "pp_proposal_parse",
     "pp_proposal_release",
     "pp_read_session_activities_consuming_page",
     "pp_read_session_activities_producing_page",
@@ -1064,6 +1078,10 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_proposal_document.restype = ctypes.c_uint32
     lib.pp_proposal_release.argtypes = [ctypes.POINTER(Proposal)]
     lib.pp_proposal_release.restype = None
+    lib.pp_proposal_parse.argtypes = [ctypes.POINTER(ctypes.c_uint8), ctypes.c_uint64, ctypes.POINTER(ctypes.POINTER(Proposal)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_proposal_parse.restype = ctypes.c_uint32
+    lib.pp_proposal_identity.argtypes = [ctypes.POINTER(Proposal), ctypes.POINTER(RequestIdentity), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_proposal_identity.restype = ctypes.c_uint32
     lib.pp_decision_base_parse.argtypes = [ctypes.c_char_p, ctypes.POINTER(DecisionBase), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_decision_base_parse.restype = ErrorCode
     lib.pp_decision_base_format.argtypes = [ctypes.POINTER(DecisionBase), ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.POINTER(Error))]
