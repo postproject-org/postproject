@@ -119,6 +119,10 @@ pub(super) fn position(production: &Path, output: &Path, json: bool) -> Result<(
 }
 
 pub(super) fn load_position(path: &Path) -> Result<Position> {
+    Ok(Position::from_document(&load_document(path)?)?)
+}
+
+pub(super) fn load_document(path: &Path) -> Result<Document> {
     use std::io::Read;
     let limits = Limits::new(4096, 8, 64)?;
     let mut bytes = Vec::new();
@@ -127,5 +131,5 @@ pub(super) fn load_position(path: &Path) -> Result<Position> {
         .take(4097)
         .read_to_end(&mut bytes)
         .context("read bounded scoped position")?;
-    Ok(Position::from_document(&Document::parse(&bytes, limits)?)?)
+    Ok(Document::parse(&bytes, limits)?)
 }

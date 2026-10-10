@@ -2,6 +2,7 @@
 
 mod checkpoint;
 mod files;
+mod history;
 mod worker;
 
 use std::{
@@ -43,6 +44,11 @@ enum ExchangeCommand {
     Checkpoint {
         #[command(subcommand)]
         command: checkpoint::CheckpointCommand,
+    },
+    /// Preserve incomplete development history through explicit scoped recovery.
+    History {
+        #[command(subcommand)]
+        command: history::HistoryCommand,
     },
     /// Submit a bounded portable proposal; retry the same file/identity.
     Submit {
@@ -153,6 +159,7 @@ pub(crate) fn execute(args: ExchangeArgs, json: bool, has_external_base: bool) -
         }
         ExchangeCommand::Changes { command } => files::changes(command, json),
         ExchangeCommand::Checkpoint { command } => checkpoint::execute(command, json),
+        ExchangeCommand::History { command } => history::execute(command, json),
         ExchangeCommand::Submit {
             production,
             proposal,
