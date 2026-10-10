@@ -181,6 +181,22 @@ class DecisionBase(ctypes.Structure):
     pass
 
 
+class HistoryId(ctypes.Structure):
+    pass
+
+
+class ClientId(ctypes.Structure):
+    pass
+
+
+class RequestId(ctypes.Structure):
+    pass
+
+
+class ProtocolBase(ctypes.Structure):
+    pass
+
+
 class ObjectRef(ctypes.Structure):
     pass
 
@@ -489,6 +505,23 @@ DecisionBase._fields_ = [
     ("revision_sequence", ctypes.c_uint64),
 ]
 
+HistoryId._fields_ = [
+    ("bytes", ctypes.c_uint8 * 16),
+]
+
+ClientId._fields_ = [
+    ("bytes", ctypes.c_uint8 * 16),
+]
+
+RequestId._fields_ = [
+    ("bytes", ctypes.c_uint8 * 16),
+]
+
+ProtocolBase._fields_ = [
+    ("decision", DecisionBase),
+    ("history_id", HistoryId),
+]
+
 ObjectRef._fields_ = [
     ("kind", ObjectKind),
     ("id", Uuid),
@@ -659,6 +692,10 @@ PUBLIC_STRUCTS = {
     "pp_resource_id_t": (ResourceId, ("bytes",)),
     "pp_commit_receipt_t": (CommitReceipt, ("production_id", "outcome", "revision_id", "revision_sequence")),
     "pp_decision_base_t": (DecisionBase, ("production_id", "has_revision", "revision_id", "revision_sequence")),
+    "pp_history_id_t": (HistoryId, ("bytes",)),
+    "pp_client_id_t": (ClientId, ("bytes",)),
+    "pp_request_id_t": (RequestId, ("bytes",)),
+    "pp_protocol_base_t": (ProtocolBase, ("decision", "history_id")),
     "pp_object_ref_t": (ObjectRef, ("kind", "id")),
     "pp_transaction_conflict_t": (TransactionConflict, ("kind", "target", "media_root_id", "namespace_name", "local_name", "qualifier", "version", "has_base_revision", "base_revision_id", "base_revision_sequence", "superseding_revision_id", "superseding_revision_sequence")),
     "pp_dependency_match_t": (DependencyMatch, ("target", "depth")),

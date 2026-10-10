@@ -135,6 +135,25 @@ typedef struct pp_decision_base {
   pp_revision_id_t revision_id;
   uint64_t revision_sequence;
 } pp_decision_base_t;
+
+/* Exchange identities retain UUID bytes but have distinct semantic types.
+ * Neither client nor request identity authenticates a caller. */
+typedef struct pp_history_id_value {
+  uint8_t bytes[16];
+} pp_history_id_t;
+typedef struct pp_client_id_value {
+  uint8_t bytes[16];
+} pp_client_id_t;
+typedef struct pp_request_id_value {
+  uint8_t bytes[16];
+} pp_request_id_t;
+
+/* Detached decision with original source history. Keep this complete scope
+ * when passing a decision between authority and mirror files. */
+typedef struct pp_protocol_base {
+  pp_decision_base_t decision;
+  pp_history_id_t history_id;
+} pp_protocol_base_t;
 typedef uint32_t pp_object_kind_t;
 
 #define PP_OBJECT_PRODUCTION UINT32_C(1)

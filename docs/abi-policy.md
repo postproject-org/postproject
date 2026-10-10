@@ -1,6 +1,6 @@
 # ABI policy
 
-ABI version 51 is pre-release and may change during the 0.x series, with every
+ABI version 52 is pre-release and may change during the 0.x series, with every
 change recorded in the changelog and ABI tests. `pp_abi_version()` reports the
 implemented version. Exported symbol names are unversioned until the first stable
 release, but removals or signature changes require an explicit ABI-version bump.
@@ -12,7 +12,8 @@ family is named. The released 0.6 promise below remains intact.
 Current development migrates local files to schema 27 for persistent exchange
 history, inert job observations, bounded outcomes and retained prior anchors
 (ADRs 0065 and 0066). The released 0.7 baseline remains schema 19.
-Exchange implementation and projections are incomplete; this is not a new
+Development ABI 52 adds source-scoped exchange types (ADR 0067). Exchange
+implementation and projections are incomplete; this is not a new
 package release or a stable protocol/ABI promise.
 
 Release 0.6 names the C++17 `cpp-result-propagation` family (ADR 0020).

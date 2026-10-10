@@ -1,11 +1,11 @@
 //! Generated implementation layout probe; do not edit manually.
 use postproject::{
     PpActivityEdge, PpActivityId, PpArtifactDependencyPathSegment, PpArtifactReason,
-    PpArtifactReproducibilityIssue, PpAssetId, PpCommitReceipt, PpDecisionBase, PpDependency,
-    PpDependencyMatch, PpFileResourceInput, PpJob, PpJobClaim, PpJobCompletion, PpJobId,
-    PpLocatorId, PpMediaRootId, PpObjectRef, PpProductionId, PpRepresentationId, PpResourceId,
-    PpRevisionEvent, PpRevisionId, PpSequenceNaming, PpTransactionConflict, PpTransactionId,
-    PpUuid,
+    PpArtifactReproducibilityIssue, PpAssetId, PpClientId, PpCommitReceipt, PpDecisionBase,
+    PpDependency, PpDependencyMatch, PpFileResourceInput, PpHistoryId, PpJob, PpJobClaim,
+    PpJobCompletion, PpJobId, PpLocatorId, PpMediaRootId, PpObjectRef, PpProductionId,
+    PpProtocolBase, PpRepresentationId, PpRequestId, PpResourceId, PpRevisionEvent, PpRevisionId,
+    PpSequenceNaming, PpTransactionConflict, PpTransactionId, PpUuid,
 };
 use std::mem::{align_of, offset_of, size_of};
 
@@ -48,6 +48,10 @@ fn main() {
         revision_id,
         revision_sequence
     );
+    layout!(PpHistoryId, "pp_history_id_t", bytes);
+    layout!(PpClientId, "pp_client_id_t", bytes);
+    layout!(PpRequestId, "pp_request_id_t", bytes);
+    layout!(PpProtocolBase, "pp_protocol_base_t", decision, history_id);
     layout!(PpObjectRef, "pp_object_ref_t", kind, id);
     layout!(
         PpTransactionConflict,

@@ -10,6 +10,7 @@ mod artifact;
 mod artifact_payload_tests;
 mod content;
 mod dependency;
+mod exchange;
 mod identities;
 mod job_leases;
 mod job_state;
@@ -74,6 +75,7 @@ pub use artifact::{
 };
 pub use content::PpFingerprint;
 pub use dependency::{PpDependency, PpDependencyMatch, PpDependencyQuerySet, PpDependencySet};
+pub use exchange::{PpClientId, PpHistoryId, PpProtocolBase, PpRequestId};
 pub use identities::{
     PpActivityId, PpAssetId, PpJobId, PpLocatorId, PpMediaRootId, PpProductionId,
     PpRepresentationId, PpResourceId, PpRevisionId, PpTransactionId,
@@ -196,7 +198,7 @@ const PP_REVISION_JOB_FAILED: u32 = 25;
 const PP_REVISION_JOB_CANCELLED: u32 = 26;
 
 /// Current pre-1.0 ABI version.
-pub const ABI_VERSION: u32 = 51;
+pub const ABI_VERSION: u32 = 52;
 
 /// Fixed-layout UUID-compatible public identifier.
 #[repr(C)]

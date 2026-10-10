@@ -409,7 +409,7 @@ int main(int argc, char **argv) {
     return 64;
   }
   (void)remove(argv[1]);
-  if (pp_abi_version() != UINT32_C(51)) {
+  if (pp_abi_version() != UINT32_C(52)) {
     return 1;
   }
   pp_error_code_t status =
