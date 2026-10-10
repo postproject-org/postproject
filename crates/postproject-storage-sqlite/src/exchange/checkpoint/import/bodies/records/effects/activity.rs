@@ -1,12 +1,16 @@
-use postproject_core::{ActivityId, ObjectRef, RepresentationId, RevisionEventKind};
+use postproject_core::{ActivityId, ActivityRole, ObjectRef, RepresentationId, RevisionEventKind};
 use postproject_protocol::{
-    ActivityEdgeHeader, ActivityEdgeSide, ActivityHeader, Document, decode_fingerprint_snapshot,
+    ActivityEdgeHeader, ActivityEdgeSide, ActivityHeader, ActivityPathHeader, ActivityPathSegment,
+    ActivityPathStatus, Document, decode_fingerprint_snapshot,
 };
 use rusqlite::Connection;
 
 use crate::{
     ExchangeResult,
-    exchange::checkpoint::import::{activity_state, fingerprint_state, media_state},
+    exchange::checkpoint::import::{
+        activity_state, dependency_state, fingerprint_state, media_state,
+    },
+    sqlite_error,
 };
 
 use super::invalid;
@@ -41,6 +45,7 @@ pub(super) struct ActivityAudit {
     floor: u64,
     position: u64,
     owner: Option<RepresentationId>,
+    input: Option<(RepresentationId, Option<ActivityRole>)>,
 }
 
 impl ActivityAudit {
@@ -61,6 +66,7 @@ impl ActivityAudit {
             floor,
             position: 1,
             owner: None,
+            input: None,
         })
     }
 
@@ -73,16 +79,16 @@ impl ActivityAudit {
         self.position = self.position.checked_add(1).ok_or_else(invalid)?;
         let observation = match document.kind()? {
             "activity.edge" => {
+                self.finish_input(connection)?;
                 let edge = ActivityEdgeHeader::from_document(document)?;
                 if edge.snapshot_revision_sequence() != Some(self.sequence) {
                     return Err(invalid().into());
                 }
-                if edge.dependency_path_count() != 0 {
-                    return Err(postproject_protocol::ProtocolError::new(
-                        postproject_protocol::FailureKind::Unsupported,
-                        "checkpoint retained dependency-path audit is not supported yet",
-                    )
-                    .into());
+                if edge.side() == ActivityEdgeSide::Input {
+                    if !edge.has_dependency_snapshot() {
+                        return Err(invalid().into());
+                    }
+                    self.input = Some((edge.representation_id(), edge.role().cloned()));
                 }
                 media_state::require(
                     connection,
@@ -118,8 +124,44 @@ impl ActivityAudit {
                 )?;
                 None
             }
+            "activity.dependency-path" => {
+                let path = ActivityPathHeader::from_document(document)?;
+                let subject = path.subject_representation_id();
+                media_state::require(connection, ObjectRef::Representation(subject), self.floor)?;
+                dependency_state::subject(connection, subject, path.status(), self.floor)?;
+                if path.status() == ActivityPathStatus::Recorded {
+                    fingerprint_state::snapshot_count(
+                        connection,
+                        subject,
+                        path.fingerprint_count(),
+                        self.floor,
+                    )?;
+                }
+                self.owner = Some(subject);
+                None
+            }
+            "activity.dependency-segment" => {
+                dependency_state::segment(
+                    connection,
+                    &ActivityPathSegment::from_document(document)?,
+                    self.floor,
+                )?;
+                None
+            }
             _ => return Err(invalid().into()),
         };
+        if complete {
+            self.finish_input(connection)?;
+        }
         Ok((complete, observation))
+    }
+
+    fn finish_input(&mut self, connection: &Connection) -> ExchangeResult<()> {
+        if let Some((owner, role)) = self.input.take() {
+            let input = connection.query_row("SELECT id FROM activity_inputs WHERE activity_id = ?1 AND representation_id = ?2 AND role IS ?3", rusqlite::params![self.id.as_bytes().as_slice(), owner.as_bytes().as_slice(), role.as_ref().map(ActivityRole::as_str)], |row| row.get(0))
+                .map_err(sqlite_error("read original activity input identity"))?;
+            dependency_state::validate_paths(connection, input, owner, self.floor)?;
+        }
+        Ok(())
     }
 }
