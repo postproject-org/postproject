@@ -2,6 +2,7 @@ use postproject_core::{AssetId, RevisionEventKind, RevisionId, SemanticConflictK
 mod activity;
 mod creation;
 mod dependency;
+mod job;
 mod media;
 
 use postproject_protocol::{
@@ -31,6 +32,7 @@ pub(super) struct RetainedEffects {
     creation: Option<creation::CreationAudit>,
     activity: Option<activity::ActivityAudit>,
     dependency: Option<super::super::super::dependency_state::Replacement>,
+    job: Option<super::super::super::job_state::Request>,
     original: Option<AssetId>,
     fingerprint: Option<media::PendingFingerprint>,
     floor: u64,
@@ -54,6 +56,7 @@ impl RetainedEffects {
             creation: None,
             activity: None,
             dependency: None,
+            job: None,
             original: None,
             fingerprint: None,
             floor,
@@ -111,6 +114,15 @@ impl RetainedEffects {
             }
             return Ok(true);
         }
+        if let Some(job) = self.job.as_mut() {
+            if job.input(
+                connection,
+                postproject_protocol::JobInput::from_document(document)?,
+            )? {
+                self.job = None;
+            }
+            return Ok(true);
+        }
         Ok(false)
     }
 
@@ -130,6 +142,12 @@ impl RetainedEffects {
             self.value_index += 1;
             self.remaining_values -= 1;
         } else if self.effects < self.total {
+            if self.features.contains(&RecordFeature::Jobs)
+                && self.job_effect(connection, document)?
+            {
+                self.effects += 1;
+                return Ok(());
+            }
             if self.features.contains(&RecordFeature::Dependencies)
                 && document.kind()? == "dependency.set"
             {
@@ -204,6 +222,7 @@ impl RetainedEffects {
             || self.fingerprint.is_some()
             || self.activity.is_some()
             || self.dependency.is_some()
+            || self.job.is_some()
         {
             return Err(invalid().into());
         }

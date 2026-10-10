@@ -2,6 +2,7 @@
 
 mod activities;
 mod dependencies;
+mod jobs;
 
 use postproject_core::{ObjectRef, RepresentationId, RevisionEventKind, SemanticConflictKey};
 use rusqlite::params;
@@ -96,6 +97,13 @@ impl Bodies<'_, '_> {
             RevisionEventKind::ActivityCreated { .. }
             | RevisionEventKind::ActivityInputAdded { .. }
             | RevisionEventKind::ActivityOutputAdded { .. } => self.activity_event(event),
+            RevisionEventKind::JobRequested { job_id }
+            | RevisionEventKind::JobClaimed { job_id }
+            | RevisionEventKind::JobClaimRenewed { job_id }
+            | RevisionEventKind::JobClaimReleased { job_id }
+            | RevisionEventKind::JobSucceeded { job_id }
+            | RevisionEventKind::JobFailed { job_id }
+            | RevisionEventKind::JobCancelled { job_id } => self.target(ObjectRef::Job(*job_id)),
             _ => Err(postproject_protocol::ProtocolError::new(
                 postproject_protocol::FailureKind::Unsupported,
                 "checkpoint observation family is not supported yet",
@@ -107,6 +115,7 @@ impl Bodies<'_, '_> {
     pub(super) fn validate_media(&self) -> ExchangeResult<()> {
         self.validate_activities()?;
         self.validate_dependencies()?;
+        self.validate_jobs()?;
         let mut targets = self.transaction.prepare("SELECT DISTINCT target_kind, target_id FROM metadata_assertions UNION SELECT DISTINCT target_kind, target_id FROM external_identifiers")
             .map_err(sqlite_error("prepare checkpoint attachment ownership"))?;
         let mut rows = targets

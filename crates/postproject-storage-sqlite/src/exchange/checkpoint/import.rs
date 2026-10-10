@@ -7,6 +7,7 @@ mod dependency_state;
 mod fingerprint_state;
 mod guard_state;
 mod identifier_state;
+mod job_state;
 mod limits;
 mod locator_state;
 mod media_state;
@@ -59,6 +60,7 @@ pub(crate) fn import(
     media_state::create(&transaction)?;
     locator_state::create(&transaction)?;
     identifier_state::create(&transaction)?;
+    job_state::create(&transaction)?;
     recomputation_state::create(&transaction)?;
     dependency_state::create(&transaction, limits.frames)?;
     let mut bodies = bodies::Bodies::new(&transaction, manifest, limits);
@@ -116,6 +118,7 @@ pub(crate) fn import(
         return Err(super::invalid().into());
     }
     bodies.finish()?;
+    job_state::finish(&transaction, manifest.floor().sequence())?;
     activity_state::finish(&transaction, manifest.floor().sequence())?;
     dependency_state::finish(&transaction, manifest.floor().sequence())?;
     media_state::finish(&transaction, manifest.floor().sequence() == 0)?;
