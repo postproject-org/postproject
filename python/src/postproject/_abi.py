@@ -25,6 +25,10 @@ class Outcome(ctypes.Structure):
     pass
 
 
+class Submission(ctypes.Structure):
+    pass
+
+
 class JobLease(ctypes.Structure):
     pass
 
@@ -206,6 +210,10 @@ class ProtocolBase(ctypes.Structure):
 
 
 class RequestIdentity(ctypes.Structure):
+    pass
+
+
+class PrivateLeaseToken(ctypes.Structure):
     pass
 
 
@@ -552,6 +560,11 @@ RequestIdentity._fields_ = [
     ("request_id", RequestId),
 ]
 
+PrivateLeaseToken._fields_ = [
+    ("bytes", ctypes.POINTER(ctypes.c_uint8)),
+    ("length", ctypes.c_uint64),
+]
+
 ObjectRef._fields_ = [
     ("kind", ObjectKind),
     ("id", Uuid),
@@ -727,6 +740,7 @@ PUBLIC_STRUCTS = {
     "pp_request_id_t": (RequestId, ("bytes",)),
     "pp_protocol_base_t": (ProtocolBase, ("decision", "history_id")),
     "pp_request_identity_t": (RequestIdentity, ("production_id", "history_id", "client_id", "request_id")),
+    "pp_private_lease_token_t": (PrivateLeaseToken, ("bytes", "length")),
     "pp_object_ref_t": (ObjectRef, ("kind", "id")),
     "pp_transaction_conflict_t": (TransactionConflict, ("kind", "target", "media_root_id", "namespace_name", "local_name", "qualifier", "version", "has_base_revision", "base_revision_id", "base_revision_sequence", "superseding_revision_id", "superseding_revision_sequence")),
     "pp_dependency_match_t": (DependencyMatch, ("target", "depth")),
@@ -949,6 +963,7 @@ EXPORTED_SYMBOLS = (
     "pp_production_revision_events_page",
     "pp_production_stale_artifacts",
     "pp_production_submission_outcome",
+    "pp_production_submit_proposal",
     "pp_production_unresolved_media",
     "pp_production_verify_resource",
     "pp_proposal_document",
@@ -1047,6 +1062,10 @@ EXPORTED_SYMBOLS = (
     "pp_revision_waiter_release",
     "pp_revision_waiter_wait",
     "pp_string_release",
+    "pp_submission_lease_count",
+    "pp_submission_outcome",
+    "pp_submission_release",
+    "pp_submission_take_lease",
     "pp_transaction_add_external_identifier",
     "pp_transaction_add_media_root",
     "pp_transaction_add_metadata_value",
@@ -1094,6 +1113,16 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_proposal_parse.restype = ctypes.c_uint32
     lib.pp_proposal_identity.argtypes = [ctypes.POINTER(Proposal), ctypes.POINTER(RequestIdentity), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_proposal_identity.restype = ctypes.c_uint32
+    lib.pp_production_submit_proposal.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(Proposal), ctypes.POINTER(ctypes.POINTER(JobLease)), ctypes.c_uint64, ctypes.POINTER(PrivateLeaseToken), ctypes.c_uint64, ctypes.POINTER(ctypes.POINTER(Submission)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_production_submit_proposal.restype = ctypes.c_uint32
+    lib.pp_submission_outcome.argtypes = [ctypes.POINTER(Submission), ctypes.POINTER(ctypes.POINTER(Outcome)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_submission_outcome.restype = ctypes.c_uint32
+    lib.pp_submission_lease_count.argtypes = [ctypes.POINTER(Submission)]
+    lib.pp_submission_lease_count.restype = ctypes.c_uint64
+    lib.pp_submission_take_lease.argtypes = [ctypes.POINTER(Submission), ctypes.c_uint64, ctypes.POINTER(ctypes.POINTER(JobLease)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_submission_take_lease.restype = ctypes.c_uint32
+    lib.pp_submission_release.argtypes = [ctypes.POINTER(Submission)]
+    lib.pp_submission_release.restype = None
     lib.pp_production_submission_outcome.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(RequestIdentity), ctypes.POINTER(ctypes.POINTER(Outcome)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_production_submission_outcome.restype = ctypes.c_uint32
     lib.pp_outcome_status.argtypes = [ctypes.POINTER(Outcome), ctypes.POINTER(ctypes.c_uint32), ctypes.POINTER(ctypes.POINTER(Error))]

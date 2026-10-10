@@ -202,6 +202,7 @@ pp_production_revision_events
 pp_production_revision_events_page
 pp_production_stale_artifacts
 pp_production_submission_outcome
+pp_production_submit_proposal
 pp_production_unresolved_media
 pp_production_verify_resource
 pp_proposal_document
@@ -300,6 +301,10 @@ pp_revision_waiter_create
 pp_revision_waiter_release
 pp_revision_waiter_wait
 pp_string_release
+pp_submission_lease_count
+pp_submission_outcome
+pp_submission_release
+pp_submission_take_lease
 pp_transaction_add_external_identifier
 pp_transaction_add_media_root
 pp_transaction_add_metadata_value

@@ -24,6 +24,7 @@ typedef struct pp_read_session pp_read_session_t;
 typedef struct pp_transaction pp_transaction_t;
 typedef struct pp_proposal pp_proposal_t;
 typedef struct pp_outcome pp_outcome_t;
+typedef struct pp_submission pp_submission_t;
 typedef struct pp_job_lease pp_job_lease_t;
 typedef struct pp_asset_set pp_asset_set_t;
 typedef struct pp_media_root_set pp_media_root_set_t;
@@ -165,6 +166,12 @@ typedef struct pp_request_identity {
   pp_request_id_t request_id;
 } pp_request_identity_t;
 
+/* Private borrowed transport, distinct from public proposal bytes. */
+typedef struct pp_private_lease_token {
+  const uint8_t *bytes;
+  uint64_t length;
+} pp_private_lease_token_t;
+
 #define PP_OUTCOME_ACCEPTED UINT32_C(1)
 #define PP_OUTCOME_REJECTED UINT32_C(2)
 
@@ -189,6 +196,30 @@ PP_API uint32_t pp_proposal_parse(
 PP_API uint32_t pp_proposal_identity(
     const pp_proposal_t *proposal, pp_request_identity_t *out_identity,
     pp_error_t **out_error);
+
+/* Trusted local submission. Arrays have at most 1000 combined entries, null
+ * only with zero count. Each token has exactly 115 readable bytes. Handles are
+ * borrowed and never consumed. Retained retries check the original private
+ * binding without current-time authorization, and return no fresh ownership.
+ * An open native edit on this production returns conflict. A durable domain
+ * rejection returns OK plus a rejected public outcome. Storage failure may be
+ * uncertain: recover with the original identity. Caller owns the delivery. */
+PP_API uint32_t pp_production_submit_proposal(
+    const pp_production_t *production, const pp_proposal_t *proposal,
+    const pp_job_lease_t *const *leases, uint64_t lease_count,
+    const pp_private_lease_token_t *tokens, uint64_t token_count,
+    pp_submission_t **out_submission, pp_error_t **out_error);
+/* Copies public facts without duplicating any worker ownership. */
+PP_API uint32_t pp_submission_outcome(
+    const pp_submission_t *submission, pp_outcome_t **out_outcome,
+    pp_error_t **out_error);
+/* Stable slots; a taken slot stays counted but cannot be taken twice. */
+PP_API uint64_t pp_submission_lease_count(const pp_submission_t *submission);
+PP_API uint32_t pp_submission_take_lease(
+    pp_submission_t *submission, uint64_t index, pp_job_lease_t **out_lease,
+    pp_error_t **out_error);
+/* Release never cancels or releases a durable worker claim. */
+PP_API void pp_submission_release(pp_submission_t *submission);
 
 /* Public recovery never checks or returns private ownership. Absent request
  * returns NotFound. Caller owns the returned outcome independently of store. */

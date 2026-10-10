@@ -3,10 +3,10 @@ use postproject::{
     PpActivityEdge, PpActivityId, PpArtifactDependencyPathSegment, PpArtifactReason,
     PpArtifactReproducibilityIssue, PpAssetId, PpClientId, PpCommitReceipt, PpDecisionBase,
     PpDependency, PpDependencyMatch, PpFileResourceInput, PpHistoryId, PpJob, PpJobClaim,
-    PpJobCompletion, PpJobId, PpLocatorId, PpMediaRootId, PpObjectRef, PpProductionId,
-    PpProtocolBase, PpRepresentationId, PpRequestId, PpRequestIdentity, PpResourceId,
-    PpRevisionEvent, PpRevisionId, PpSequenceNaming, PpTransactionConflict, PpTransactionId,
-    PpUuid,
+    PpJobCompletion, PpJobId, PpLocatorId, PpMediaRootId, PpObjectRef, PpPrivateLeaseToken,
+    PpProductionId, PpProtocolBase, PpRepresentationId, PpRequestId, PpRequestIdentity,
+    PpResourceId, PpRevisionEvent, PpRevisionId, PpSequenceNaming, PpTransactionConflict,
+    PpTransactionId, PpUuid,
 };
 use std::mem::{align_of, offset_of, size_of};
 
@@ -60,6 +60,12 @@ fn main() {
         history_id,
         client_id,
         request_id
+    );
+    layout!(
+        PpPrivateLeaseToken,
+        "pp_private_lease_token_t",
+        bytes,
+        length
     );
     layout!(PpObjectRef, "pp_object_ref_t", kind, id);
     layout!(

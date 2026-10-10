@@ -1,12 +1,12 @@
 //! Shared native lease ownership across lazy transaction staging.
 
-mod api;
+pub(crate) mod api;
 #[cfg(test)]
 mod tests;
-mod transitions;
+pub(crate) mod transitions;
 
 use std::{
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, MutexGuard},
     time::Duration,
 };
 
@@ -35,6 +35,18 @@ enum LeaseOwner {
     Closed,
 }
 
+/// Borrows committed ownership for identity recovery without reauthorization.
+pub(crate) struct SubmissionLease<'a>(MutexGuard<'a, LeaseOwner>);
+
+impl SubmissionLease<'_> {
+    pub fn native(&self) -> &SqliteJobLease {
+        let LeaseOwner::Ready(lease) = &*self.0 else {
+            unreachable!("submission ownership checked while taking its guard");
+        };
+        lease
+    }
+}
+
 pub(crate) enum LeaseMutation {
     Claim {
         lease: Arc<SharedLease>,
@@ -53,6 +65,18 @@ pub(crate) enum LeaseMutation {
 }
 
 impl SharedLease {
+    pub fn borrow_for_submission(&self) -> Result<SubmissionLease<'_>, Error> {
+        let owner = self.inner.lock().map_err(|_| ownership_error())?;
+        if !matches!(&*owner, LeaseOwner::Ready(_)) {
+            return Err(invalid_argument(
+                "submission needs committed private ownership",
+            ));
+        }
+        // The underlying handle retains its original private binding after
+        // expiry/release; only a fresh storage submission checks current state.
+        Ok(SubmissionLease(owner))
+    }
+
     pub fn pending(transaction: &PpTransaction, job: JobId) -> Arc<Self> {
         Arc::new(Self {
             production: lock_production(&transaction.state).production().id(),
