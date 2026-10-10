@@ -2,6 +2,7 @@
 
 mod checkpoint;
 mod files;
+mod worker;
 
 use std::{
     fmt,
@@ -47,6 +48,8 @@ enum ExchangeCommand {
     Submit {
         production: PathBuf,
         proposal: PathBuf,
+        #[command(flatten)]
+        worker: worker::WorkerArgs,
     },
     /// Recover a retained public outcome without reapplying the request.
     Outcome {
@@ -153,9 +156,11 @@ pub(crate) fn execute(args: ExchangeArgs, json: bool, has_external_base: bool) -
         ExchangeCommand::Submit {
             production,
             proposal,
+            worker,
         } => {
             let proposal = load_proposal(&proposal)?;
-            let outcome = SqliteProduction::open(production)?.submit_proposal(&proposal)?;
+            let outcome =
+                worker::submit(&mut SqliteProduction::open(production)?, &proposal, worker)?;
             if matches!(outcome.status(), OutcomeStatus::Rejected(_)) {
                 return Err(RejectedOutcome(outcome).into());
             }

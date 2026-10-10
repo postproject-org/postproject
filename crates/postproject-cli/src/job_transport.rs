@@ -13,9 +13,22 @@ use std::{
 pub(super) struct TokenInput {
     pub token: String,
     pub production: ProductionId,
+    pub job: JobId,
 }
 
 pub(super) fn read_token(path: &Path, expected_job: JobId) -> Result<TokenInput> {
+    let input = read_scoped_token(path)?;
+    if input.job != expected_job {
+        return Err(Error::new(
+            ErrorKind::InvalidArgument,
+            "lease token belongs to another job",
+        )
+        .into());
+    }
+    Ok(input)
+}
+
+pub(super) fn read_scoped_token(path: &Path) -> Result<TokenInput> {
     let reader: Box<dyn Read> = if path == Path::new("-") {
         Box::new(io::stdin())
     } else {
@@ -35,16 +48,10 @@ pub(super) fn read_token(path: &Path, expected_job: JobId) -> Result<TokenInput>
     let invalid = || Error::new(ErrorKind::InvalidArgument, "invalid scoped job lease token");
     let token = std::str::from_utf8(&bytes).map_err(|_| invalid())?;
     let (production, job) = SqliteJobLease::token_scope(token)?;
-    if job != expected_job {
-        return Err(Error::new(
-            ErrorKind::InvalidArgument,
-            "lease token belongs to another job",
-        )
-        .into());
-    }
     Ok(TokenInput {
         token: token.to_owned(),
         production,
+        job,
     })
 }
 
