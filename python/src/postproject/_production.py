@@ -82,15 +82,22 @@ from ._errors import (
     ExchangeError,
     InternalError,
     InvalidArgumentError,
+    PostProjectError,
     UnsupportedError,
 )
 from ._exchange import (
+    ClaimedJobResult,
     ExchangeLimits,
     ExchangePosition,
     ExchangeRole,
     ExchangeState,
+    FailedJobResult,
+    JobResult,
+    JobResultStatus,
     ProtocolBase,
     RequestIdentity,
+    SubmissionOutcome,
+    SubmissionResult,
 )
 from ._ids import ClientId, HistoryId, RequestId
 from ._model import (
@@ -406,6 +413,101 @@ class Production:
         self._finalizer = weakref.finalize(
             self, native.lib.pp_production_release, handle
         )
+
+    def submit_proposal(
+        self,
+        proposal: Proposal,
+        *,
+        leases: Iterable[JobLease] = (),
+        private_tokens: Iterable[str] = (),
+    ) -> SubmissionResult:
+        """Submit once; recover public facts separately from fresh worker delivery.
+
+        Private context is borrowed explicitly, without exporting a token or
+        checking current ownership before the retained native request lookup.
+        """
+        self._require_open()
+        native_proposal = proposal._for_native(self._native)
+        borrowed = list(islice(leases, 1001))
+        tokens = list(islice(private_tokens, max(0, 1001 - len(borrowed))))
+        if len(borrowed) + len(tokens) > 1000:
+            raise ExchangeError(
+                _abi.PP_ERROR_LIMIT_EXCEEDED, "too many private submission entries"
+            )
+        handles = (ctypes.POINTER(_abi.JobLease) * len(borrowed))(
+            *(_job_lease_handle(lease, self._native) for lease in borrowed)
+        )
+        buffers = []
+        for token in tokens:
+            if not isinstance(token, str) or len(token) != 115 or not token.isascii():
+                raise InvalidArgumentError(
+                    _abi.PP_ERROR_INVALID_ARGUMENT, "invalid private lease token"
+                )
+            buffers.append(
+                (ctypes.c_uint8 * 115).from_buffer_copy(token.encode("ascii"))
+            )
+        native_tokens = (_abi.PrivateLeaseToken * len(buffers))(
+            *(_abi.PrivateLeaseToken(buffer, 115) for buffer in buffers)
+        )
+        handle = ctypes.POINTER(_abi.Submission)()
+        error = ctypes.POINTER(Error)()
+        status = self._native.lib.pp_production_submit_proposal(
+            self._handle,
+            native_proposal,
+            handles,
+            len(handles),
+            native_tokens,
+            len(native_tokens),
+            ctypes.byref(handle),
+            ctypes.byref(error),
+        )
+        self._native.check(status, error)
+        delivered: list[JobLease] = []
+        try:
+            outcome = ctypes.POINTER(_abi.Outcome)()
+            status = self._native.lib.pp_submission_outcome(
+                handle, ctypes.byref(outcome), ctypes.byref(error)
+            )
+            self._native.check(status, error)
+            facts = _submission_outcome(self._native, outcome)
+            count = int(self._native.lib.pp_submission_lease_count(handle))
+            if count > 1000:
+                raise InternalError(
+                    _abi.PP_ERROR_INTERNAL, "invalid delivered lease count"
+                )
+            for index in range(count):
+                lease = ctypes.POINTER(_abi.JobLease)()
+                status = self._native.lib.pp_submission_take_lease(
+                    handle, index, ctypes.byref(lease), ctypes.byref(error)
+                )
+                self._native.check(status, error)
+                delivered.append(JobLease(self._native, lease))
+            return SubmissionResult(facts, delivered)
+        except BaseException:
+            for lease in delivered:
+                lease.close()
+            raise
+        finally:
+            self._native.lib.pp_submission_release(handle)
+
+    def submission_outcome(self, identity: RequestIdentity) -> SubmissionOutcome:
+        """Copy the original public result; absent request raises NotFoundError."""
+        self._require_open()
+        value = _abi.RequestIdentity()
+        value.production_id = _native_production_id(identity.production_id)
+        value.history_id.bytes = _native_uuid(identity.history_id).bytes
+        value.client_id.bytes = _native_uuid(identity.client_id).bytes
+        value.request_id.bytes = _native_uuid(identity.request_id).bytes
+        outcome = ctypes.POINTER(_abi.Outcome)()
+        error = ctypes.POINTER(Error)()
+        status = self._native.lib.pp_production_submission_outcome(
+            self._handle,
+            ctypes.byref(value),
+            ctypes.byref(outcome),
+            ctypes.byref(error),
+        )
+        self._native.check(status, error)
+        return _submission_outcome(self._native, outcome)
 
     @property
     def exchange_state(self) -> ExchangeState:
@@ -1980,6 +2082,129 @@ def _read_jobs(
         )
     finally:
         native.lib.pp_job_set_release(handle)
+
+
+def _submission_outcome(
+    native: NativeLibrary, handle: _Pointer[_abi.Outcome]
+) -> SubmissionOutcome:
+    """Copy complete public facts and release the native outcome on every path."""
+    try:
+        state = ctypes.c_uint32()
+        error = ctypes.POINTER(Error)()
+        native.check(
+            native.lib.pp_outcome_status(
+                handle, ctypes.byref(state), ctypes.byref(error)
+            ),
+            error,
+        )
+        terminal: CommitReceipt | PostProjectError
+        if state.value == _abi.PP_OUTCOME_ACCEPTED:
+            receipt = _abi.CommitReceipt()
+            native.check(
+                native.lib.pp_outcome_receipt(
+                    handle, ctypes.byref(receipt), ctypes.byref(error)
+                ),
+                error,
+            )
+            if receipt.outcome not in (
+                _abi.PP_COMMIT_NO_CHANGE,
+                _abi.PP_COMMIT_REVISION_CREATED,
+            ):
+                raise UnsupportedError(
+                    _abi.PP_ERROR_UNSUPPORTED, "unknown submission receipt"
+                )
+            terminal = CommitReceipt(
+                ProductionId(_uuid(receipt.production_id)),
+                CommittedRevision(
+                    RevisionId(_uuid(receipt.revision_id)), receipt.revision_sequence
+                )
+                if receipt.outcome == _abi.PP_COMMIT_REVISION_CREATED
+                else None,
+            )
+        elif state.value == _abi.PP_OUTCOME_REJECTED:
+            rejection = ctypes.POINTER(Error)()
+            native.check(
+                native.lib.pp_outcome_rejection(
+                    handle, ctypes.byref(rejection), ctypes.byref(error)
+                ),
+                error,
+            )
+            if not rejection:
+                raise InternalError(
+                    _abi.PP_ERROR_INTERNAL, "rejected outcome has no rejection"
+                )
+            try:
+                native.check(native.lib.pp_error_code(rejection), rejection)
+            except PostProjectError as rejected:
+                terminal = rejected
+            else:
+                raise InternalError(
+                    _abi.PP_ERROR_INTERNAL, "rejected outcome has no error code"
+                )
+        else:
+            raise UnsupportedError(
+                _abi.PP_ERROR_UNSUPPORTED, "unknown submission outcome"
+            )
+        jobs = []
+        count = int(native.lib.pp_outcome_job_count(handle))
+        if count > 1000:
+            raise InternalError(_abi.PP_ERROR_INTERNAL, "invalid outcome job count")
+        for index in range(count):
+            identifier, job_state = _abi.JobId(), ctypes.c_uint32()
+            native.check(
+                native.lib.pp_outcome_job_get(
+                    handle,
+                    index,
+                    ctypes.byref(identifier),
+                    ctypes.byref(job_state),
+                    ctypes.byref(error),
+                ),
+                error,
+            )
+            observed: JobResultStatus
+            if job_state.value == _abi.PP_JOB_CLAIMED:
+                expiry = ctypes.c_int64()
+                native.check(
+                    native.lib.pp_outcome_job_expiry(
+                        handle, index, ctypes.byref(expiry), ctypes.byref(error)
+                    ),
+                    error,
+                )
+                observed = ClaimedJobResult(expiry.value)
+            elif job_state.value == _abi.PP_JOB_SUCCEEDED:
+                completion = _abi.JobCompletion()
+                native.check(
+                    native.lib.pp_outcome_job_completion(
+                        handle, index, ctypes.byref(completion), ctypes.byref(error)
+                    ),
+                    error,
+                )
+                observed = JobCompletion(
+                    ActivityId(_uuid(completion.activity_id)),
+                    RepresentationId(_uuid(completion.representation_id)),
+                )
+            elif job_state.value == _abi.PP_JOB_REQUESTED:
+                observed = JobRequested()
+            elif job_state.value == _abi.PP_JOB_FAILED:
+                observed = FailedJobResult()
+            elif job_state.value == _abi.PP_JOB_CANCELLED:
+                observed = JobCancelled()
+            else:
+                raise UnsupportedError(
+                    _abi.PP_ERROR_UNSUPPORTED, "unknown outcome job state"
+                )
+            jobs.append(JobResult(JobId(_uuid(identifier)), observed))
+        data = ctypes.POINTER(ctypes.c_uint8)()
+        length = ctypes.c_uint64()
+        native.check(
+            native.lib.pp_outcome_document(
+                handle, ctypes.byref(data), ctypes.byref(length), ctypes.byref(error)
+            ),
+            error,
+        )
+        return SubmissionOutcome(terminal, jobs, ctypes.string_at(data, length.value))
+    finally:
+        native.lib.pp_outcome_release(handle)
 
 
 def _protocol_base(value: _abi.ProtocolBase) -> ProtocolBase:

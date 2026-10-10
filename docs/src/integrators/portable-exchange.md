@@ -36,9 +36,6 @@ Submit a portable proposal file, as shown below.
 ````
 
 ````{code-variants} exchange-submit
-```{no-variant} python
-The Python proposal builder is not yet available. Use the development CLI.
-```
 ````
 
 Catch-up exports every complete record after a saved source position through one

@@ -6,6 +6,7 @@ from uuid import uuid4
 
 from postproject import (
     ClientId,
+    CommitReceipt,
     ExchangeLimits,
     ExchangeRole,
     InvalidArgumentError,
@@ -49,13 +50,26 @@ def exercise(work: Path) -> None:
             )
             edit.add_media_root("rushes", priority=-5)
             proposal = edit.prepare_proposal(client, request)
+        # [/exchange-prepare]
+        assert production.latest_revision is None
+        assert not production.media_roots
+        # [exchange-submit]
         with proposal, Proposal.parse(proposal.document) as transported:
             identity = proposal.identity
             assert transported.identity == identity
             assert identity.client_id == client and identity.request_id == request
-        # [/exchange-prepare]
-        assert production.latest_revision is None
-        assert not production.media_roots
+            submitted = production.submit_proposal(transported)
+            assert isinstance(submitted.outcome.status, CommitReceipt)
+            assert submitted.outcome.status.revision is not None
+            assert submitted.outcome.status.revision.sequence == 1
+            assert not submitted.leases
+            with Production.open(work / "authority.pproj") as reopened:
+                recovered = reopened.submission_outcome(identity)
+                duplicate = reopened.submit_proposal(proposal)
+                assert recovered.document == submitted.outcome.document
+                assert duplicate.outcome.document == recovered.document
+                assert not duplicate.leases
+        # [/exchange-submit]
         # [exchange-catch-up]
         changes = work / "changes.ppxd"
         through = production.export_changes(saved, changes)
@@ -64,6 +78,10 @@ def exercise(work: Path) -> None:
         with Production.open(mirror_path) as mirror:
             assert mirror.apply_changes(changes) == through
             assert mirror.exchange_state.head == through
+            assert mirror.metadata[ProductionRef(mirror.id)][0].value == MetadataU64(
+                2**64 - 1
+            )
+            assert len(mirror.media_roots) == 1
         # [/exchange-catch-up]
         assert (
             production.resynchronize_history(

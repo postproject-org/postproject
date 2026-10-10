@@ -10,14 +10,20 @@ from uuid import UUID, uuid4
 from postproject import (
     AlreadyExistsError,
     ClientId,
+    CommitReceipt,
+    ConflictError,
     ExchangeError,
     ExchangeFailure,
     ExchangeLimits,
     ExchangeRole,
     HistoryId,
     InvalidArgumentError,
+    MetadataProperty,
+    MetadataU64,
+    NotFoundError,
     PostProjectError,
     Production,
+    ProductionRef,
     Proposal,
     ProtocolBase,
     RequestId,
@@ -26,6 +32,61 @@ from postproject import (
 
 
 class ExchangeTests(unittest.TestCase):
+    def test_copied_original_receipt_and_conflict_survive_reopen(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "authority.pproj"
+            client, request = ClientId(uuid4()), RequestId(uuid4())
+            with Production.create(path) as production:
+                target = ProductionRef(production.id)
+                property = MetadataProperty("unknown:Exact名", "count")
+                with production.transaction() as edit:
+                    edit.add_metadata(target, property, MetadataU64(2**64 - 1))
+                    proposal = edit.prepare_proposal(client, request)
+                with self.assertRaises(NotFoundError):
+                    production.submission_outcome(proposal.identity)
+                result = production.submit_proposal(proposal)
+                self.assertIsInstance(result.outcome.status, CommitReceipt)
+                assert isinstance(result.outcome.status, CommitReceipt)
+                assert result.outcome.status.revision is not None
+                self.assertEqual(result.outcome.status.revision.sequence, 1)
+                state = production.exchange_state
+                with production.edit(state.observed_base.decision) as edit:
+                    edit.remove_metadata_property(target, property)
+                    destructive = edit.prepare_proposal(
+                        client, RequestId(uuid4()), state.observed_base
+                    )
+                with production.transaction() as later:
+                    later.add_metadata(target, property, MetadataU64(7))
+                    later.commit()
+                rejected = production.submit_proposal(destructive)
+                self.assertIsInstance(rejected.outcome.status, ConflictError)
+                assert isinstance(rejected.outcome.status, ConflictError)
+                self.assertIsNotNone(rejected.outcome.status.conflict)
+            with Production.open(path) as reopened, proposal, destructive:
+                recovered = reopened.submission_outcome(proposal.identity)
+                self.assertEqual(recovered.document, result.outcome.document)
+                duplicate = reopened.submit_proposal(proposal)
+                self.assertEqual(duplicate.outcome.document, result.outcome.document)
+                self.assertEqual(duplicate.leases, [])
+                conflict = reopened.submission_outcome(destructive.identity)
+                self.assertEqual(conflict.document, rejected.outcome.document)
+                assert isinstance(conflict.status, ConflictError)
+                self.assertEqual(
+                    conflict.status.conflict, rejected.outcome.status.conflict
+                )
+                self.assertEqual(
+                    reopened.metadata[target][0].value, MetadataU64(2**64 - 1)
+                )
+                latest = reopened.latest_revision
+                assert latest is not None
+                self.assertEqual(latest.sequence, 2)
+                with reopened.transaction() as noop:
+                    unchanged = noop.prepare_proposal(client, RequestId(uuid4()))
+                with unchanged:
+                    accepted = reopened.submit_proposal(unchanged).outcome.status
+                    assert isinstance(accepted, CommitReceipt)
+                    self.assertIsNone(accepted.revision)
+
     def test_passive_files_reopen_after_failed_record_and_duplicate_retry(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             work = Path(directory)
