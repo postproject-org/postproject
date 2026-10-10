@@ -1,3 +1,5 @@
+mod integrity;
+
 use std::time::Duration;
 
 use postproject_core::{
