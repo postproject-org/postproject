@@ -10,21 +10,33 @@ from uuid import uuid4
 from postproject import (
     ActivityEdge,
     ActivitySpec,
+    AddRepresentationCommand,
+    CancelJobCommand,
     ClaimedJobResult,
+    ClaimJobCommand,
     ClientId,
     ClosedJobLease,
+    CompleteJobCommand,
+    CreateActivityCommand,
     ExchangeError,
     ExchangeFailure,
     FailedJobResult,
+    FailJobCommand,
     InvalidArgumentError,
     JobCancelled,
     JobCompletion,
     JobLease,
     JobRequest,
     JobRequested,
+    PreparedActivity,
+    PreparedJob,
+    PreparedRepresentation,
     Production,
+    ReleaseJobCommand,
+    RenewJobCommand,
     RepresentationKind,
     RequestId,
+    RequestJobCommand,
     ToolIdentity,
 )
 
@@ -45,24 +57,36 @@ class ExchangeJobTests(unittest.TestCase):
             self.asset = setup.import_media(self.media)
             setup.commit()
         self.input = self.production.representations[self.asset][0].id
-        with self.production.transaction() as edit:
-            self.job = edit.request_job(
-                JobRequest(
-                    "example:proxy", (self.input,), self.asset, RepresentationKind.PROXY
-                )
-            )
-            proposal = edit.prepare_proposal(self.client, RequestId(uuid4()))
+        with self.production.proposal_builder(
+            self.client, RequestId(uuid4())
+        ) as builder:
+            requested = builder.stage(
+                [
+                    RequestJobCommand(
+                        JobRequest(
+                            "example:proxy",
+                            (self.input,),
+                            self.asset,
+                            RepresentationKind.PROXY,
+                        )
+                    )
+                ]
+            )[0]
+            assert isinstance(requested, PreparedJob)
+            self.job = requested.job_id
+            proposal = builder.prepare()
         with proposal:
             result = self.production.submit_proposal(proposal)
             self.assertEqual(result.outcome.jobs[0].job_id, self.job)
             self.assertIsInstance(result.outcome.jobs[0].status, JobRequested)
 
     def claim(self) -> JobLease:
-        with self.production.transaction() as edit:
-            pending = edit.claim_job_lease(self.job, self.tool, timedelta(minutes=1))
-            proposal = edit.prepare_proposal(self.client, RequestId(uuid4()))
-        with pending, proposal:
-            self.assertIsInstance(pending.state, ClosedJobLease)
+        with self.production.proposal_builder(
+            self.client, RequestId(uuid4())
+        ) as builder:
+            builder.stage([ClaimJobCommand(self.job, self.tool, timedelta(minutes=1))])
+            proposal = builder.prepare()
+        with proposal:
             result = self.production.submit_proposal(proposal)
             duplicate = self.production.submit_proposal(proposal)
             self.assertEqual(duplicate.leases, [])
@@ -75,14 +99,21 @@ class ExchangeJobTests(unittest.TestCase):
     def test_recovery_after_release_checks_original_private_binding(self) -> None:
         lease = self.claim()
         token = lease.export_token()
-        with self.production.transaction() as edit:
-            edit.renew_job_lease(lease, timedelta(minutes=2))
-            renewal = edit.prepare_proposal(self.client, RequestId(uuid4()))
+        with self.production.proposal_builder(
+            self.client, RequestId(uuid4())
+        ) as builder:
+            builder.stage([RenewJobCommand(lease, timedelta(minutes=2))])
+            renewal = builder.prepare()
         with renewal:
             renewed = self.production.submit_proposal(renewal, leases=[lease])
-            with self.production.transaction() as release:
-                release.release_job_lease(lease)
-                release.commit()
+            with self.production.proposal_builder(
+                self.client, RequestId(uuid4())
+            ) as builder:
+                builder.stage([ReleaseJobCommand(lease)])
+                release = builder.prepare()
+            with release:
+                released = self.production.submit_proposal(release, leases=[lease])
+                self.assertIsInstance(released.outcome.jobs[0].status, JobRequested)
             self.assertIsInstance(lease.state, ClosedJobLease)
             with Production.open(self.path) as reopened:
                 by_handle = reopened.submit_proposal(renewal, leases=[lease])
@@ -108,24 +139,34 @@ class ExchangeJobTests(unittest.TestCase):
 
     def test_public_terminal_job_alternatives_do_not_grant_ownership(self) -> None:
         lease = self.claim()
-        with self.production.transaction() as edit:
-            edit.fail_job_lease(lease, "exact failure 名")
-            failed = edit.prepare_proposal(self.client, RequestId(uuid4()))
+        with self.production.proposal_builder(
+            self.client, RequestId(uuid4())
+        ) as builder:
+            builder.stage([FailJobCommand(lease, "exact failure 名")])
+            failed = builder.prepare()
         with failed:
             result = self.production.submit_proposal(failed, leases=[lease])
             self.assertIsInstance(result.outcome.jobs[0].status, FailedJobResult)
             self.assertEqual(result.leases, [])
-        with self.production.transaction() as edit:
-            cancelled_job = edit.request_job(
-                JobRequest(
-                    "example:cancel",
-                    (self.input,),
-                    self.asset,
-                    RepresentationKind.PROXY,
-                )
-            )
-            edit.cancel_job(cancelled_job)
-            cancelled = edit.prepare_proposal(self.client, RequestId(uuid4()))
+        with self.production.proposal_builder(
+            self.client, RequestId(uuid4())
+        ) as builder:
+            requested = builder.stage(
+                [
+                    RequestJobCommand(
+                        JobRequest(
+                            "example:cancel",
+                            (self.input,),
+                            self.asset,
+                            RepresentationKind.PROXY,
+                        )
+                    )
+                ]
+            )[0]
+            assert isinstance(requested, PreparedJob)
+            cancelled_job = requested.job_id
+            builder.stage([CancelJobCommand(cancelled_job)])
+            cancelled = builder.prepare()
         with cancelled:
             result = self.production.submit_proposal(cancelled)
             self.assertEqual(result.outcome.jobs[0].job_id, cancelled_job)
@@ -133,20 +174,34 @@ class ExchangeJobTests(unittest.TestCase):
 
     def test_completion_copies_original_publication_ids_after_reopen(self) -> None:
         lease = self.claim()
-        with self.production.transaction() as edit:
-            output = edit.add_representation(
-                self.asset, RepresentationKind.PROXY, self.media
-            )
-            activity = edit.create_activity(
-                ActivitySpec(
-                    "example:publish",
-                    (ActivityEdge(output),),
-                    (ActivityEdge(self.input),),
-                    tool=self.tool,
-                )
-            )
-            edit.complete_job_lease(lease, output, activity)
-            completed = edit.prepare_proposal(self.client, RequestId(uuid4()))
+        with self.production.proposal_builder(
+            self.client, RequestId(uuid4())
+        ) as builder:
+            representation = builder.stage(
+                [
+                    AddRepresentationCommand(
+                        self.asset, RepresentationKind.PROXY, self.media
+                    )
+                ]
+            )[0]
+            assert isinstance(representation, PreparedRepresentation)
+            output = representation.representation_id
+            created = builder.stage(
+                [
+                    CreateActivityCommand(
+                        ActivitySpec(
+                            "example:publish",
+                            (ActivityEdge(output),),
+                            (ActivityEdge(self.input),),
+                            tool=self.tool,
+                        )
+                    )
+                ]
+            )[0]
+            assert isinstance(created, PreparedActivity)
+            activity = created.activity_id
+            builder.stage([CompleteJobCommand(lease, output, activity)])
+            completed = builder.prepare()
         with completed:
             result = self.production.submit_proposal(completed, leases=[lease])
             self.assertEqual(
