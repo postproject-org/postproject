@@ -2,6 +2,8 @@
 
 #[path = "job_replay/atomic.rs"]
 mod atomic;
+#[path = "job_replay/checkpoint.rs"]
+mod checkpoint;
 #[path = "job_replay/integrity.rs"]
 mod integrity;
 #[path = "activity_replay/support.rs"]
