@@ -10,8 +10,8 @@ use rusqlite::{Connection, OptionalExtension};
 use crate::{
     ExchangeResult,
     exchange::checkpoint::import::{
-        fingerprint_state, guard_state, identifier_state, locator_state, media_state,
-        recomputation_state, root_state,
+        dependency_state, fingerprint_state, guard_state, identifier_state, locator_state,
+        media_state, recomputation_state, root_state,
     },
     sqlite_error,
 };
@@ -86,13 +86,6 @@ impl RetainedEffects {
             }
             "fingerprint.change" => {
                 let start = FingerprintChangeStart::from_document(document)?;
-                if start.dependency_invalidated() {
-                    return Err(postproject_protocol::ProtocolError::new(
-                        postproject_protocol::FailureKind::Unsupported,
-                        "checkpoint dependency invalidation audit is not supported yet",
-                    )
-                    .into());
-                }
                 self.require_media_target(connection, start.target())?;
                 fingerprint_state::changed(connection, &start, self.sequence, self.floor)?;
                 match start.target() {
@@ -111,7 +104,13 @@ impl RetainedEffects {
                             });
                         }
                     }
-                    ObjectRef::Representation(_) => {
+                    ObjectRef::Representation(owner) => {
+                        dependency_state::invalidated(
+                            connection,
+                            owner,
+                            start.dependency_invalidated(),
+                            self.floor,
+                        )?;
                         recomputation_state::cleared(
                             connection,
                             &start,

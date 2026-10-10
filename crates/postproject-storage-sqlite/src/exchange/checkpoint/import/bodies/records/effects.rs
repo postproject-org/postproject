@@ -1,6 +1,7 @@
 use postproject_core::{AssetId, RevisionEventKind, RevisionId, SemanticConflictKey};
 mod activity;
 mod creation;
+mod dependency;
 mod media;
 
 use postproject_protocol::{
@@ -29,6 +30,7 @@ pub(super) struct RetainedEffects {
     effect: Option<MetadataEffectStart>,
     creation: Option<creation::CreationAudit>,
     activity: Option<activity::ActivityAudit>,
+    dependency: Option<super::super::super::dependency_state::Replacement>,
     original: Option<AssetId>,
     fingerprint: Option<media::PendingFingerprint>,
     floor: u64,
@@ -51,6 +53,7 @@ impl RetainedEffects {
             effect: None,
             creation: None,
             activity: None,
+            dependency: None,
             original: None,
             fingerprint: None,
             floor,
@@ -63,18 +66,31 @@ impl RetainedEffects {
         connection: &Connection,
         document: &Document,
     ) -> ExchangeResult<()> {
+        if self.continuation(connection, document)? {
+            return Ok(());
+        }
+        self.next_document(connection, document)
+    }
+
+    fn continuation(
+        &mut self,
+        connection: &Connection,
+        document: &Document,
+    ) -> ExchangeResult<bool> {
         if self.original.is_some() {
-            return self.original_representation(connection, document);
+            self.original_representation(connection, document)?;
+            return Ok(true);
         }
         if let Some(creation) = self.creation.as_mut() {
             creation.document(connection, document)?;
             if creation.is_complete() {
                 self.creation.take().ok_or_else(invalid)?.finish()?;
             }
-            return Ok(());
+            return Ok(true);
         }
         if self.fingerprint.is_some() {
-            return self.fingerprint_marker(connection, document);
+            self.fingerprint_marker(connection, document)?;
+            return Ok(true);
         }
         if let Some(activity) = self.activity.as_mut() {
             let (complete, event) = activity.document(connection, document)?;
@@ -84,8 +100,25 @@ impl RetainedEffects {
             if complete {
                 self.activity = None;
             }
-            return Ok(());
+            return Ok(true);
         }
+        if let Some(dependency) = self.dependency.as_mut() {
+            if dependency.push(connection, document)? {
+                self.dependency
+                    .take()
+                    .ok_or_else(invalid)?
+                    .finish(connection)?;
+            }
+            return Ok(true);
+        }
+        Ok(false)
+    }
+
+    fn next_document(
+        &mut self,
+        connection: &Connection,
+        document: &Document,
+    ) -> ExchangeResult<()> {
         if self.remaining_values != 0 {
             let value = MetadataEffectStart::decode_value(document)?;
             super::super::super::metadata_state::value(
@@ -97,6 +130,13 @@ impl RetainedEffects {
             self.value_index += 1;
             self.remaining_values -= 1;
         } else if self.effects < self.total {
+            if self.features.contains(&RecordFeature::Dependencies)
+                && document.kind()? == "dependency.set"
+            {
+                self.start_dependency(connection, document)?;
+                self.effects += 1;
+                return Ok(());
+            }
             if self.features.contains(&RecordFeature::Provenance)
                 && document.kind()? == "activity.header"
             {
@@ -163,6 +203,7 @@ impl RetainedEffects {
             || self.original.is_some()
             || self.fingerprint.is_some()
             || self.activity.is_some()
+            || self.dependency.is_some()
         {
             return Err(invalid().into());
         }

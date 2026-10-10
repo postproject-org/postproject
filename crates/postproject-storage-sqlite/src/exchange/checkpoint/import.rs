@@ -3,6 +3,7 @@
 mod activity_state;
 mod bodies;
 mod completion;
+mod dependency_state;
 mod fingerprint_state;
 mod guard_state;
 mod identifier_state;
@@ -59,6 +60,7 @@ pub(crate) fn import(
     locator_state::create(&transaction)?;
     identifier_state::create(&transaction)?;
     recomputation_state::create(&transaction)?;
+    dependency_state::create(&transaction)?;
     let mut bodies = bodies::Bodies::new(&transaction, manifest, limits);
     let mut chunks = chunks.into_iter();
     for summary in manifest.sections() {
@@ -115,6 +117,7 @@ pub(crate) fn import(
     }
     bodies.finish()?;
     activity_state::finish(&transaction, manifest.floor().sequence())?;
+    dependency_state::finish(&transaction, manifest.floor().sequence())?;
     media_state::finish(&transaction, manifest.floor().sequence() == 0)?;
     locator_state::finish(&transaction, manifest.floor().sequence() == 0)?;
     identifier_state::finish(&transaction, manifest.floor().sequence() == 0)?;

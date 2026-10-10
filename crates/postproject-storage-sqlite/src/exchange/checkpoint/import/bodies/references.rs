@@ -1,6 +1,7 @@
 //! Check polymorphic ownership as well as SQLite's explicit foreign keys.
 
 mod activities;
+mod dependencies;
 
 use postproject_core::{ObjectRef, RepresentationId, RevisionEventKind, SemanticConflictKey};
 use rusqlite::params;
@@ -82,6 +83,9 @@ impl Bodies<'_, '_> {
             RevisionEventKind::RepresentationFingerprintObserved {
                 representation_id, ..
             } => self.target(ObjectRef::Representation(*representation_id)),
+            RevisionEventKind::DependencySetRecorded { representation_id } => {
+                self.target(ObjectRef::Representation(*representation_id))
+            }
             RevisionEventKind::ExternalIdentifierAdded { target, .. }
             | RevisionEventKind::ExternalIdentifierRemoved { target, .. }
             | RevisionEventKind::MetadataAddedOrReplaced { target, .. }
@@ -102,6 +106,7 @@ impl Bodies<'_, '_> {
 
     pub(super) fn validate_media(&self) -> ExchangeResult<()> {
         self.validate_activities()?;
+        self.validate_dependencies()?;
         let mut targets = self.transaction.prepare("SELECT DISTINCT target_kind, target_id FROM metadata_assertions UNION SELECT DISTINCT target_kind, target_id FROM external_identifiers")
             .map_err(sqlite_error("prepare checkpoint attachment ownership"))?;
         let mut rows = targets
