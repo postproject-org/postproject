@@ -78,7 +78,14 @@ from ._abi import (
     Transaction as NativeTransaction,
 )
 from ._artifact import read_evaluation, read_reproducibility
-from ._errors import InternalError, InvalidArgumentError, UnsupportedError
+from ._errors import (
+    ExchangeError,
+    InternalError,
+    InvalidArgumentError,
+    UnsupportedError,
+)
+from ._exchange import ProtocolBase, RequestIdentity
+from ._ids import ClientId, HistoryId, RequestId
 from ._model import (
     ActiveJobLease,
     Activity,
@@ -1812,6 +1819,13 @@ def _read_jobs(
         )
     finally:
         native.lib.pp_job_set_release(handle)
+
+
+def _native_protocol_base(base: ProtocolBase) -> _abi.ProtocolBase:
+    value = _abi.ProtocolBase()
+    value.decision = _native_decision_base(base.decision)
+    value.history_id.bytes = _native_uuid(base.history_id).bytes
+    return value
 
 
 def _native_decision_base(base: DecisionBase) -> _abi.DecisionBase:
@@ -3905,6 +3919,37 @@ class Transaction:
         )
         self._native.check(status, error)
 
+    def prepare_proposal(
+        self,
+        client_id: ClientId,
+        request_id: RequestId,
+        base: ProtocolBase | None = None,
+    ) -> Proposal:
+        """Close staged intent without committing; retain its original identities.
+
+        Failure leaves the edit open. A mirror-derived decision needs its full
+        protocol base. Only a fresh successful submission delivers owning leases.
+        """
+        self._require_open()
+        native_base = None if base is None else _native_protocol_base(base)
+        client = _abi.ClientId()
+        client.bytes = _native_uuid(client_id).bytes
+        request = _abi.RequestId()
+        request.bytes = _native_uuid(request_id).bytes
+        proposal = ctypes.POINTER(_abi.Proposal)()
+        error = ctypes.POINTER(Error)()
+        status = self._native.lib.pp_transaction_prepare_proposal(
+            self._handle,
+            client,
+            request,
+            None if native_base is None else ctypes.byref(native_base),
+            ctypes.byref(proposal),
+            ctypes.byref(error),
+        )
+        self._native.check(status, error)
+        self._finished = True
+        return Proposal(self._native, proposal)
+
     def commit(self) -> CommitReceipt:
         """Persist staged mutations and return this commit's atomic receipt.
 
@@ -4005,6 +4050,103 @@ class Transaction:
             raise InvalidArgumentError(
                 _abi.PP_ERROR_INVALID_ARGUMENT, "transaction is already finished"
             )
+
+
+class Proposal:
+    """Own immutable prepared intent; closing never submits or commits it."""
+
+    def __init__(self, native: NativeLibrary, handle: _Pointer[_abi.Proposal]) -> None:
+        if not handle:
+            raise InternalError(
+                _abi.PP_ERROR_INTERNAL, "native preparation returned no proposal"
+            )
+        self._native = native
+        self._handle = handle
+        self._finalizer = weakref.finalize(self, native.lib.pp_proposal_release, handle)
+
+    @classmethod
+    def parse(
+        cls,
+        document: bytes,
+        *,
+        library_path: str | os.PathLike[str] | None = None,
+    ) -> Self:
+        """Read bounded public transport; ordinary commands use typed staging."""
+        if not isinstance(document, bytes):
+            raise TypeError("proposal document must be bytes")
+        if len(document) > 64 << 20:
+            raise ExchangeError(
+                _abi.PP_ERROR_LIMIT_EXCEEDED, "proposal document exceeds 64 MiB"
+            )
+        native = NativeLibrary(library_path)
+        buffer = (ctypes.c_uint8 * len(document)).from_buffer_copy(document)
+        handle = ctypes.POINTER(_abi.Proposal)()
+        error = ctypes.POINTER(Error)()
+        status = native.lib.pp_proposal_parse(
+            buffer, len(document), ctypes.byref(handle), ctypes.byref(error)
+        )
+        native.check(status, error)
+        return cls(native, handle)
+
+    @property
+    def identity(self) -> RequestIdentity:
+        """Copy the complete public recovery scope, independently of this handle."""
+        self._require_open()
+        value = _abi.RequestIdentity()
+        error = ctypes.POINTER(Error)()
+        status = self._native.lib.pp_proposal_identity(
+            self._handle, ctypes.byref(value), ctypes.byref(error)
+        )
+        self._native.check(status, error)
+        return RequestIdentity(
+            ProductionId(_uuid(value.production_id)),
+            HistoryId(UUID(bytes=bytes(value.history_id.bytes))),
+            ClientId(UUID(bytes=bytes(value.client_id.bytes))),
+            RequestId(UUID(bytes=bytes(value.request_id.bytes))),
+        )
+
+    @property
+    def document(self) -> bytes:
+        """Copy canonical portable bytes containing no private capability."""
+        self._require_open()
+        data = ctypes.POINTER(ctypes.c_uint8)()
+        length = ctypes.c_uint64()
+        error = ctypes.POINTER(Error)()
+        status = self._native.lib.pp_proposal_document(
+            self._handle, ctypes.byref(data), ctypes.byref(length), ctypes.byref(error)
+        )
+        self._native.check(status, error)
+        return ctypes.string_at(data, length.value)
+
+    def close(self) -> None:
+        """Release local immutable intent; repeated calls are harmless."""
+        self._finalizer()
+        self._handle = ctypes.POINTER(_abi.Proposal)()
+
+    def _require_open(self) -> None:
+        if not self._finalizer.alive:
+            raise InvalidArgumentError(
+                _abi.PP_ERROR_INVALID_ARGUMENT, "proposal is closed"
+            )
+
+    def _for_native(self, native: NativeLibrary) -> _Pointer[_abi.Proposal]:
+        self._require_open()
+        if self._native.lib._handle != native.lib._handle:
+            raise ValueError("proposal belongs to another native library")
+        return self._handle
+
+    def __copy__(self) -> Self:
+        raise TypeError("an owning proposal cannot be copied; transport its document")
+
+    def __deepcopy__(self, memo: dict[int, object]) -> Self:
+        raise TypeError("an owning proposal cannot be copied; transport its document")
+
+    def __enter__(self) -> Self:
+        self._require_open()
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        self.close()
 
 
 class JobLease:

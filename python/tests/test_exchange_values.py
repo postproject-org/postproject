@@ -31,7 +31,7 @@ class ExchangeValueTests(unittest.TestCase):
         self.assertIs(position.base, base)
         for digest in (b"", bytes(31), bytes(33), bytearray(32)):
             with self.assertRaises(ValueError):
-                ExchangePosition(base, digest)  # type: ignore[arg-type]
+                ExchangePosition(base, digest)  # ty: ignore[invalid-argument-type]
 
     def test_receiver_budgets_reject_zero_overflow_boolean_and_fraction(self) -> None:
         defaults = ExchangeLimits()

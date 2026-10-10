@@ -24,7 +24,7 @@ The CLI example submits a no-op; the Rust and C examples append an exact integer
 Changed intent needs a new request. Destructive operations need a scoped decision
 base; a stale conflict requires a fresh read and a new decision.
 
-C can prepare immutable public intent using the existing typed transaction
+C, C++ and Python prepare immutable public intent using typed transaction
 staging calls. Successful preparation closes the edit without writing a domain
 revision. Failed preparation leaves it open. Keep the returned proposal for
 submission and retries; pending native claims close during preparation.
@@ -32,9 +32,6 @@ submission and retries; pending native claims close during preparation.
 ````{code-variants} exchange-prepare
 ```{no-variant} rust
 Construct checked Command values directly, as shown below.
-```
-```{no-variant} python
-The Python proposal wrapper is being implemented.
 ```
 ```{no-variant} cli
 Submit a portable proposal file, as shown below.
