@@ -11,9 +11,6 @@ same complete domain checks in temporary private storage. Existing destinations
 and incomplete streams reject without publishing a partial mirror.
 
 ````{code-variants} exchange-checkpoint
-```{no-variant} python
-The Python exchange projection is not yet available. Use the development CLI.
-```
 ````
 
 A proposal has stable client/request identities and ordered semantic commands.
@@ -50,9 +47,6 @@ Positions retain production, history, revision, sequence and digest. Observation
 feed cursors and connection-local query cursors cannot substitute for them.
 
 ````{code-variants} exchange-catch-up
-```{no-variant} python
-The Python catch-up projection is not yet available. Use the development CLI.
-```
 ````
 
 Each applied record is atomic. If later input fails or the process stops, earlier

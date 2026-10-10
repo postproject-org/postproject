@@ -84,7 +84,14 @@ from ._errors import (
     InvalidArgumentError,
     UnsupportedError,
 )
-from ._exchange import ProtocolBase, RequestIdentity
+from ._exchange import (
+    ExchangeLimits,
+    ExchangePosition,
+    ExchangeRole,
+    ExchangeState,
+    ProtocolBase,
+    RequestIdentity,
+)
 from ._ids import ClientId, HistoryId, RequestId
 from ._model import (
     ActiveJobLease,
@@ -399,6 +406,160 @@ class Production:
         self._finalizer = weakref.finalize(
             self, native.lib.pp_production_release, handle
         )
+
+    @property
+    def exchange_state(self) -> ExchangeState:
+        """Copy coherent role, source scope, limits, floor and available head."""
+        self._require_open()
+        state = _abi.ExchangeState()
+        error = ctypes.POINTER(Error)()
+        status = self._native.lib.pp_production_exchange_state(
+            self._handle, ctypes.byref(state), ctypes.byref(error)
+        )
+        self._native.check(status, error)
+        try:
+            role = ExchangeRole(state.role)
+        except ValueError as error:
+            raise UnsupportedError(
+                _abi.PP_ERROR_UNSUPPORTED, "unknown exchange role"
+            ) from error
+        if state.has_head not in (0, 1):
+            raise UnsupportedError(
+                _abi.PP_ERROR_UNSUPPORTED, "unknown exchange head presence"
+            )
+        limits = state.limits
+        return ExchangeState(
+            state.protocol_version,
+            role,
+            state.supported_features,
+            _protocol_base(state.observed_base),
+            _exchange_position(state.floor),
+            _exchange_position(state.head) if state.has_head else None,
+            ExchangeLimits(
+                limits.file_bytes,
+                limits.disk_bytes,
+                limits.frames,
+                limits.document_bytes,
+                limits.document_depth,
+                limits.document_nodes,
+            ),
+        )
+
+    def export_checkpoint(self, path: str | os.PathLike[str]) -> ExchangePosition:
+        """Exclusively publish a sealed checkpoint from one pinned view."""
+        self._require_open()
+        position = _abi.ExchangePosition()
+        error = ctypes.POINTER(Error)()
+        status = self._native.lib.pp_production_export_checkpoint(
+            self._handle, _path_bytes(path), ctypes.byref(position), ctypes.byref(error)
+        )
+        self._native.check(status, error)
+        return _exchange_position(position)
+
+    @classmethod
+    def validate_checkpoint(
+        cls,
+        path: str | os.PathLike[str],
+        limits: ExchangeLimits | None = None,
+        *,
+        library_path: str | os.PathLike[str] | None = None,
+    ) -> ExchangePosition:
+        """Validate all domain facts in private temporary storage."""
+        native = NativeLibrary(library_path)
+        native_limits = _native_exchange_limits(limits)
+        position = _abi.ExchangePosition()
+        error = ctypes.POINTER(Error)()
+        status = native.lib.pp_checkpoint_validate_file(
+            _path_bytes(path),
+            None if native_limits is None else ctypes.byref(native_limits),
+            ctypes.byref(position),
+            ctypes.byref(error),
+        )
+        native.check(status, error)
+        return _exchange_position(position)
+
+    @classmethod
+    def import_checkpoint(
+        cls,
+        path: str | os.PathLike[str],
+        destination: str | os.PathLike[str],
+        limits: ExchangeLimits | None = None,
+        *,
+        library_path: str | os.PathLike[str] | None = None,
+    ) -> Self:
+        """Create a passive mirror without overwriting an existing destination."""
+        native = NativeLibrary(library_path)
+        native_limits = _native_exchange_limits(limits)
+        handle = ctypes.POINTER(NativeProduction)()
+        error = ctypes.POINTER(Error)()
+        status = native.lib.pp_checkpoint_import_file(
+            _path_bytes(path),
+            _path_bytes(destination),
+            None if native_limits is None else ctypes.byref(native_limits),
+            ctypes.byref(handle),
+            ctypes.byref(error),
+        )
+        native.check(status, error)
+        return cls(native, handle)
+
+    def export_changes(
+        self, position: ExchangePosition, path: str | os.PathLike[str]
+    ) -> ExchangePosition:
+        """Publish exact complete records through one pinned source head."""
+        self._require_open()
+        native_from = _native_exchange_position(position)
+        through = _abi.ExchangePosition()
+        error = ctypes.POINTER(Error)()
+        status = self._native.lib.pp_production_export_changes(
+            self._handle,
+            ctypes.byref(native_from),
+            _path_bytes(path),
+            ctypes.byref(through),
+            ctypes.byref(error),
+        )
+        self._native.check(status, error)
+        return _exchange_position(through)
+
+    def apply_changes(
+        self, path: str | os.PathLike[str], limits: ExchangeLimits | None = None
+    ) -> ExchangePosition:
+        """Apply atomic records to a passive mirror; explicitly retry after loss.
+
+        Failure may retain an earlier complete prefix. Inspect after reopening
+        and retry the same sealed file; verified duplicates create no revision.
+        """
+        self._require_open()
+        native_limits = _native_exchange_limits(limits)
+        through = _abi.ExchangePosition()
+        error = ctypes.POINTER(Error)()
+        status = self._native.lib.pp_production_apply_changes(
+            self._handle,
+            _path_bytes(path),
+            None if native_limits is None else ctypes.byref(native_limits),
+            ctypes.byref(through),
+            ctypes.byref(error),
+        )
+        self._native.check(status, error)
+        return _exchange_position(through)
+
+    def resynchronize_history(
+        self, base: ProtocolBase, *, records: int, encoded_bytes: int
+    ) -> ExchangePosition:
+        """Explicitly recover incomplete authority history, preserving old evidence."""
+        self._require_open()
+        native_base = _native_protocol_base(base)
+        floor = _abi.ExchangePosition()
+        error = ctypes.POINTER(Error)()
+        status = self._native.lib.pp_production_resynchronize_history(
+            self._handle,
+            ctypes.byref(native_base),
+            _unsigned(records, 64, "records"),
+            _unsigned(encoded_bytes, 64, "encoded_bytes"),
+            ctypes.byref(floor),
+            ctypes.byref(error),
+        )
+        self._native.check(status, error)
+        return _exchange_position(floor)
 
     @classmethod
     def create(
@@ -1819,6 +1980,41 @@ def _read_jobs(
         )
     finally:
         native.lib.pp_job_set_release(handle)
+
+
+def _protocol_base(value: _abi.ProtocolBase) -> ProtocolBase:
+    return ProtocolBase(
+        _decision_base(value.decision),
+        HistoryId(UUID(bytes=bytes(value.history_id.bytes))),
+    )
+
+
+def _exchange_position(value: _abi.ExchangePosition) -> ExchangePosition:
+    return ExchangePosition(_protocol_base(value.base), bytes(value.digest))
+
+
+def _native_exchange_position(position: ExchangePosition) -> _abi.ExchangePosition:
+    value = _abi.ExchangePosition()
+    value.base = _native_protocol_base(position.base)
+    value.digest[:] = position.digest
+    return value
+
+
+def _native_exchange_limits(
+    limits: ExchangeLimits | None,
+) -> _abi.ExchangeLimits | None:
+    if limits is None:
+        return None
+    if not isinstance(limits, ExchangeLimits):
+        raise TypeError("receiver limits must be ExchangeLimits")
+    return _abi.ExchangeLimits(
+        limits.file_bytes,
+        limits.disk_bytes,
+        limits.frames,
+        limits.document_bytes,
+        limits.document_depth,
+        limits.document_nodes,
+    )
 
 
 def _native_protocol_base(base: ProtocolBase) -> _abi.ProtocolBase:
