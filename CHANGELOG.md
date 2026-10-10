@@ -5,7 +5,7 @@ All notable changes to PostProject will be documented here. The project uses
 
 ## Unreleased
 
-- Add experimental portable-exchange codecs for metadata/media/dependency/activity/job intent, authored facts (including removed root configuration) and original observations (ADR 0065).
+- Add experimental portable-exchange codecs for domain intent, authored facts and observations, with Rust/CLI checkpoint and catch-up file workflows (ADR 0065).
 - Persist exchange histories, metadata/media/dependency/activity/job records and privately bound submission outcomes and compact job results in schema 27; reconstruct passive media/metadata/root/activity/dependency/job checkpoints and replay native authored facts.
 - Add explicit, bounded development-history resynchronization that preserves earlier evidence and durable outcomes (ADR 0066).
 - Roll back failed media, fingerprint, dependency, activity and job staging while preserving unrelated edits and guards.
