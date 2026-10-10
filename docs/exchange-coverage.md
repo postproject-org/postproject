@@ -56,7 +56,7 @@ Repeated root/locator/file-fact transitions retain authored intermediates.
 Rehashed contradictory creation facts reject without a visible staged prefix.
 Rust checkpoint export/import reconstructs media, identifiers, metadata, roots,
 current/historical fingerprint evidence and recomputation, activities with original
-fingerprint snapshots, retained
+fingerprint/dependency snapshots, ordered dependency sets and extraction state, retained
 revisions/events, semantic guards and post-floor records through bounded sections.
 Export pins one view; import checks current assertions against authored effects
 and promotes a closed passive store exclusively. Two distinct checkpoint bases
@@ -67,7 +67,7 @@ restart preserves unrelated files and altered/existing destinations.
 Activity checkpoint-plus-suffix routes retain original snapshots, exact attachments
 and ordinary artifact/staleness results after later observations and reopen.
 Rehashed activity contradictions reject without a destination or staging leftovers.
-Dependency/job bodies, pre-floor development fragments and checkpoint envelope
+Job bodies, pre-floor development fragments and checkpoint envelope
 extensions remain unsupported. Complete production checkpoints remain pending.
 Identified metadata/media submissions retain accepted/no-op/rejected public
 outcomes in the same writer transaction. Root, locator, identifier and file-fact

@@ -65,10 +65,7 @@ fn complete_dependency_stream_preserves_repeated_occurrences_empty_sets_and_dirt
         );
     }
     transaction.rollback().unwrap();
-    assert!(
-        source.export_checkpoint(|_| Ok(())).is_err(),
-        "public dependency profile is still gated"
-    );
+    source.export_checkpoint(|_| Ok(())).unwrap();
 }
 
 fn frames(source: &SqliteProduction) -> Vec<Document> {

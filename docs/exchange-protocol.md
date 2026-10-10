@@ -301,11 +301,18 @@ mutable facts must explain the current sections and original observation order.
 Activity items count only their header; edge and snapshot frames are continuations.
 Retained activity frames must match the current immutable facts and the fingerprints
 available at publication, preserving later staleness and reproducibility results.
-Dependency and job bodies, pre-floor development fragments and nonempty
+Dependency items count only the set header, followed by ordered occurrences.
+Retained replacements and fingerprint invalidations explain current sets, including
+empty observations and extraction state. Historical paths and fingerprints are
+checked against their authored prefix. Erased pre-floor sets remain unknown;
+available baseline rows and captured segments still constrain later transitions.
+Job bodies, pre-floor development fragments and nonempty
 checkpoint extensions remain unsupported; complete production import is pending.
 
 Checkpoint receiver defaults are 1 GiB encoded transport, 2 GiB private staging
-disk and 10,000,000 decoded frames, including nested record frames. Callers may
+disk and 10,000,000 decoded frames, including nested record frames. The same work
+budget independently caps dependency traversal visits and examined occurrences.
+Callers may
 raise them explicitly. Import checks assertion order, original history, semantic
 versions and the current values implied by retained effects. Earlier migration
 prefixes remain baseline facts rather than invented historical edits.

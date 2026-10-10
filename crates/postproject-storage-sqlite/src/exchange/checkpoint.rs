@@ -36,16 +36,12 @@ pub(crate) fn export(
     // Do not silently omit unsupported current objects in this vertical slice.
     let unsupported: bool = view
         .connection
-        .query_row(
-            "SELECT EXISTS(SELECT 1 FROM jobs UNION ALL SELECT 1 FROM dependency_sets)",
-            [],
-            |row| row.get(0),
-        )
+        .query_row("SELECT EXISTS(SELECT 1 FROM jobs)", [], |row| row.get(0))
         .map_err(sqlite_error("check checkpoint domain coverage"))?;
     if unsupported {
         return Err(ProtocolError::new(
             FailureKind::Unsupported,
-            "checkpoint dependency and job evidence is not supported yet",
+            "checkpoint job evidence is not supported yet",
         )
         .into());
     }

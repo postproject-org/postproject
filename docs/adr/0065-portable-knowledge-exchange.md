@@ -154,7 +154,12 @@ sections still reject explicitly until their checkpoint bodies are available.
 Activity checkpoints retain original attribution, edges and fingerprint snapshots.
 Retained creation records must explain those immutable facts and match fingerprints
 at publication; current observations cannot replace historical evidence.
-Dependency and job checkpoint bodies remain unsupported.
+Dependency checkpoints retain ordered replacements, empty observations and dirty
+state. Retained effects explain current sets and original observation boundaries;
+activity paths use the bounded native walk against their authored prefix. Available
+baseline rows and captured segments constrain partial knowledge; erased pre-floor
+contents remain unknown, never inferred from today's replacement. Job checkpoint
+bodies remain unsupported.
 Logical roots now carry their original configuration and deletion guards. A
 private bounded consistency audit checks retained transitions against current
 roots; unknown migration facts remain baseline facts, never invented additions.
