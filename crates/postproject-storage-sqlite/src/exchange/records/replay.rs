@@ -2,7 +2,7 @@
 
 pub(super) mod activity;
 mod creation;
-mod dependency;
+pub(super) mod dependency;
 mod effects;
 mod facts;
 mod fingerprint_change;

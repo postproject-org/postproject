@@ -8,10 +8,11 @@ use crate::{
     transaction::{dependency_persist, representation_exists, validate_dependency_references},
 };
 
-pub(super) struct DependencyApply {
+pub(in crate::exchange) struct DependencyApply {
     header: DependencySetHeader,
     position: u64,
     unchanged: bool,
+    checkpoint: bool,
 }
 
 impl DependencyApply {
@@ -42,6 +43,7 @@ impl DependencyApply {
             header,
             position: 0,
             unchanged,
+            checkpoint: false,
         };
         if header.occurrence_count() == 0 {
             state.finish(transaction)?;
@@ -49,7 +51,7 @@ impl DependencyApply {
         Ok(state)
     }
 
-    pub(super) fn push(
+    pub(in crate::exchange) fn push(
         &mut self,
         transaction: &Transaction<'_>,
         document: &Document,
@@ -72,12 +74,14 @@ impl DependencyApply {
             self.unchanged = prior_occurrence(transaction, source, position)?.as_ref()
                 == Some(occurrence.dependency());
         }
-        transaction
+        if !self.checkpoint {
+            transaction
             .execute(
                 "DELETE FROM dependencies WHERE source_representation_id = ?1 AND position = ?2",
                 params![source.as_bytes().as_slice(), position],
             )
             .map_err(sqlite_error("replace authored dependency occurrence"))?;
+        }
         dependency_persist::occurrence(transaction, source, position, occurrence.dependency())?;
         self.position += 1;
         let complete = self.position == self.header.occurrence_count();
@@ -101,6 +105,30 @@ impl DependencyApply {
             )
             .map_err(sqlite_error("finish authored dependency replacement"))?;
         Ok(())
+    }
+
+    pub(in crate::exchange) fn begin_checkpoint(
+        transaction: &Transaction<'_>,
+        head: u64,
+        header: DependencySetHeader,
+    ) -> ExchangeResult<Self> {
+        if header.recorded_at_revision() > head
+            || !representation_exists(transaction, header.source_representation_id())?
+        {
+            return Err(invalid().into());
+        }
+        transaction.execute("INSERT INTO dependency_sets (source_representation_id, recorded_revision_sequence, needs_extraction) VALUES (?1, ?2, ?3)", params![header.source_representation_id().as_bytes().as_slice(), i64::try_from(header.recorded_at_revision()).map_err(|_|invalid())?, header.status() == DependencySetStatus::NeedsExtraction])
+            .map_err(sqlite_error("stage checkpoint dependency header"))?;
+        let state = Self {
+            header,
+            position: 0,
+            unchanged: false,
+            checkpoint: true,
+        };
+        if header.occurrence_count() == 0 {
+            state.finish(transaction)?;
+        }
+        Ok(state)
     }
 }
 

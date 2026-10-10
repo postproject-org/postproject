@@ -2,6 +2,7 @@
 
 mod access;
 mod activities;
+mod dependencies;
 mod facts;
 mod fingerprints;
 mod history;
@@ -18,6 +19,7 @@ pub(super) struct Bodies<'a, 'connection> {
     transaction: &'a Transaction<'connection>,
     structure: Option<media::PendingStructure>,
     activity: Option<crate::exchange::records::ActivityApply>,
+    dependency: Option<crate::exchange::records::DependencyApply>,
     manifest: &'a CheckpointManifest,
     revisions: u64,
     event_sequence: u64,
@@ -42,6 +44,7 @@ impl<'a, 'connection> Bodies<'a, 'connection> {
             transaction,
             structure: None,
             activity: None,
+            dependency: None,
             manifest,
             revisions: 0,
             event_sequence: 0,
@@ -72,6 +75,9 @@ impl<'a, 'connection> Bodies<'a, 'connection> {
         if self.activity.is_some() && section != CheckpointSection::Activities {
             return Err(super::super::invalid().into());
         }
+        if self.dependency.is_some() && section != CheckpointSection::Dependencies {
+            return Err(super::super::invalid().into());
+        }
         match section {
             CheckpointSection::Production => self.production(document)?,
             CheckpointSection::Locators => self.locator(document)?,
@@ -82,6 +88,7 @@ impl<'a, 'connection> Bodies<'a, 'connection> {
             CheckpointSection::Representations => self.representation(document)?,
             CheckpointSection::Structures => return self.structure(document),
             CheckpointSection::Activities => return self.activity(document),
+            CheckpointSection::Dependencies => return self.dependency(document),
             CheckpointSection::Metadata => self.metadata(document)?,
             CheckpointSection::Roots => self.root(document)?,
             CheckpointSection::Revisions => self.revision(document)?,
@@ -89,7 +96,7 @@ impl<'a, 'connection> Bodies<'a, 'connection> {
             CheckpointSection::ConflictVersions => self.version(document)?,
             CheckpointSection::ConflictFloor => self.conflict_floor(document)?,
             CheckpointSection::Records => return self.record(document),
-            _ => {
+            CheckpointSection::Jobs => {
                 return Err(postproject_protocol::ProtocolError::new(
                     postproject_protocol::FailureKind::Unsupported,
                     "checkpoint section is not supported yet",
@@ -106,6 +113,7 @@ impl<'a, 'connection> Bodies<'a, 'connection> {
             || self.record.is_some()
             || self.structure.is_some()
             || self.activity.is_some()
+            || self.dependency.is_some()
             || self.record_head != self.manifest.head()
         {
             return Err(super::super::invalid().into());
