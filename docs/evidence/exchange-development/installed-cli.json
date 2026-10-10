@@ -1,0 +1,30 @@
+{
+  "source_commit": "6022fe17fe6dcd0a85fa0b3258bb45381b61bb47",
+  "qualification": "development Rust and CLI exchange; native projections pending",
+  "package": "0.7.0-alpha.1",
+  "abi": 51,
+  "schema": 27,
+  "platform": "Linux x86_64",
+  "rustc": "1.98.1 (48a229cea 2026-09-01)",
+  "installed_files_sha256": {
+    "bin/postproject": "ae18eb68043d904226c997df03b4dfacb76a723afa6e748735cbf8aa5d230979",
+    "lib/libpostproject.so": "01720a41ca75d274eaf4e96e6c46c2e7aaa6a23297e846fd14dda375136abf0c",
+    "lib/libpostproject.a": "79d083874bdb8bff4c97ce2ac32c49106696007f6e88815f8dd6526fc6324fa3"
+  },
+  "checks": [
+    {"command": "cargo build --release --locked -p postproject-cli -p postproject-ffi", "result": "passed"},
+    {"command": "ctest --test-dir target/exchange-files-installed-examples -R '^cli-exchange' --output-on-failure", "result": "passed; installed CLI recipe and preparation"},
+    {"command": "cargo clippy --workspace --all-targets --all-features -- -D warnings", "result": "passed"},
+    {"command": "cargo doc --workspace --all-features --no-deps", "result": "passed"},
+    {"command": "cargo deny check", "result": "passed"},
+    {"command": "cargo test -p postproject-protocol --test scope --test proposal --test proposal_vectors", "result": "passed"},
+    {"command": "cargo test -p postproject-cli --test exchange_cli --test exchange_files_cli --test exchange_worker_cli --test exchange_history_cli", "result": "passed; nine tests"},
+    {"command": "Sphinx with docs/requirements.txt; formatting, architecture, exchange inventory, example coverage and independent byte vectors", "result": "passed"}
+  ],
+  "earlier_full_workspace_gate": {
+    "source_commit": "8d1be11",
+    "command": "cargo test --workspace --all-features",
+    "result": "passed, including doctests; later changes checked separately above"
+  },
+  "limits": "Not an installed release candidate or complete ecosystem qualification. C, C++ and Python exchange recipes, remaining conformance campaigns and repository qualification are pending."
+}
