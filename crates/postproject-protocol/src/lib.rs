@@ -4,6 +4,7 @@
 //! additionally use checked core constructors and current storage guards.
 
 mod activity;
+mod archive;
 mod assertion;
 mod asset;
 mod checkpoint;
@@ -46,6 +47,7 @@ pub use activity::{
     ActivityEdgeHeader, ActivityEdgeSide, ActivityHeader, ActivityPathHeader, ActivityPathSegment,
     ActivityPathStatus,
 };
+pub use archive::{ArchiveEvidence, ArchiveFamily};
 pub use assertion::SnapshotAssertion;
 pub use asset::{decode_asset, encode_asset};
 pub use checkpoint::{
