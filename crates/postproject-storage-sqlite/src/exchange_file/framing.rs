@@ -26,16 +26,19 @@ pub(super) fn open<R: Read + Seek>(
     }
     source.seek(SeekFrom::Start(end - 8)).map_err(io_error)?;
     let length = read_length(&mut source)?;
-    if length == 0
-        || length > MANIFEST_BYTES
+    let body_end = end
+        .checked_sub(length)
+        .and_then(|offset| offset.checked_sub(16))
+        .filter(|offset| *offset >= 8)
+        .ok_or_else(invalid)?;
+    if length == 0 {
+        return Err(invalid().into());
+    }
+    if length > MANIFEST_BYTES
         || length > u64::try_from(limits.document.max_bytes()).map_err(|_| budget())?
     {
         return Err(budget().into());
     }
-    let body_end = end
-        .checked_sub(length + 16)
-        .filter(|offset| *offset >= 8)
-        .ok_or_else(invalid)?;
     source.seek(SeekFrom::Start(body_end)).map_err(io_error)?;
     if read_length(&mut source)? != length {
         return Err(invalid().into());
