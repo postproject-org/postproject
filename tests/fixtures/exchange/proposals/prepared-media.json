@@ -1,0 +1,120 @@
+{
+  "kind": "proposal",
+  "version": "1",
+  "required_features": [
+    "media.v1"
+  ],
+  "production": "00000000-0000-4000-8000-000000000001",
+  "history": "00000000-0000-4000-8000-000000000002",
+  "client": "00000000-0000-4000-8000-000000000003",
+  "request": "00000000-0000-4000-8000-00000000006c",
+  "base": null,
+  "origin": null,
+  "message": "Fixed independent Python vector",
+  "commands": [
+    {
+      "kind": "media.import-original",
+      "asset": {
+        "kind": "asset.header",
+        "id": "00000000-0000-4000-8000-000000000005",
+        "created_at_micros": "-9223372036854775808",
+        "display_name": "\u540c \ud83d\ude00",
+        "import_source": "Exact"
+      },
+      "media": {
+        "header": {
+          "kind": "representation.header",
+          "id": "00000000-0000-4000-8000-000000000006",
+          "asset_id": "00000000-0000-4000-8000-000000000005",
+          "role": "original"
+        },
+        "structure": [
+          {
+            "kind": "structure.header",
+            "representation_id": "00000000-0000-4000-8000-000000000006",
+            "content": {
+              "shape": "single",
+              "resource_id": "00000000-0000-4000-8000-000000000008"
+            }
+          }
+        ],
+        "fingerprints": [],
+        "resources": [
+          {
+            "header": {
+              "kind": "resource.header",
+              "id": "00000000-0000-4000-8000-000000000008",
+              "file_facts": null
+            },
+            "fingerprints": []
+          }
+        ],
+        "locators": [
+          {
+            "kind": "locator.fact",
+            "id": "00000000-0000-4000-8000-00000000006c",
+            "resource_id": "00000000-0000-4000-8000-000000000008",
+            "uri": "file:///missing/Exact.mov",
+            "last_seen_micros": null,
+            "availability": "offline",
+            "media_root": null,
+            "sequence_naming": null
+          }
+        ]
+      }
+    },
+    {
+      "kind": "representation.add",
+      "media": {
+        "header": {
+          "kind": "representation.header",
+          "id": "00000000-0000-4000-8000-00000000000a",
+          "asset_id": "00000000-0000-4000-8000-000000000005",
+          "role": "proxy"
+        },
+        "structure": [
+          {
+            "kind": "structure.header",
+            "representation_id": "00000000-0000-4000-8000-00000000000a",
+            "content": {
+              "shape": "single",
+              "resource_id": "00000000-0000-4000-8000-00000000000c"
+            }
+          }
+        ],
+        "fingerprints": [],
+        "resources": [
+          {
+            "header": {
+              "kind": "resource.header",
+              "id": "00000000-0000-4000-8000-00000000000c",
+              "file_facts": null
+            },
+            "fingerprints": []
+          }
+        ],
+        "locators": [
+          {
+            "kind": "locator.fact",
+            "id": "00000000-0000-4000-8000-000000000070",
+            "resource_id": "00000000-0000-4000-8000-00000000000c",
+            "uri": "file:///missing/Exact.mov",
+            "last_seen_micros": null,
+            "availability": "offline",
+            "media_root": null,
+            "sequence_naming": null
+          }
+        ]
+      }
+    }
+  ],
+  "extensions": {
+    "vendor:exact": {
+      "ordered": [
+        "\u540c",
+        "\u540c",
+        "\ud83d\ude00"
+      ]
+    }
+  }
+}
