@@ -18,7 +18,7 @@ fn anchor() -> Position {
     .unwrap()
 }
 
-fn summaries() -> [SectionSummary; 18] {
+fn summaries() -> [SectionSummary; CheckpointSection::ALL.len()] {
     let chunk = ChunkSummary::new(1, 100, Digest::from_bytes([7; 32])).unwrap();
     CheckpointSection::ALL.map(|section| {
         if matches!(

@@ -25,7 +25,8 @@ fn every_section_has_a_unique_stable_identity_and_explicit_emptiness() {
         assert_eq!(summary.items(), 1);
         assert_eq!(summary.chunks(), Some(chunk));
     }
-    assert_eq!(names.len(), 18);
+    assert_eq!(names.len(), 19);
+    assert!(names.contains("archives"));
 }
 
 #[test]

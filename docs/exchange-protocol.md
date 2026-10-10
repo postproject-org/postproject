@@ -213,7 +213,7 @@ now adopt complete original/representation creation, roots, locators, identifier
 resource file facts. Root/locator effects retain additions and intermediate
 enabled/removal states; file-fact effects retain authored sizes/times. Standalone
 fingerprint updates retain exact historical boundaries and recomputation facts.
-Whole-production checkpoint bodies remain incomplete.
+Installed exchange projections remain incomplete.
 
 ## Bounds, checkpoints and replay
 
@@ -274,10 +274,10 @@ actual guard rows in deterministic key order; the private index encoding stays
 inside storage. Import accepts earlier metadata ordering but rejects duplicates,
 missing versions and boundaries inconsistent with retained observations.
 
-Checkpoint framing declares all 18 sections, including explicit empty ones, in
+Checkpoint framing declares all 19 sections, including explicit empty ones, in
 this order: production, assets, resources, representations, structures, roots,
 locators, identifiers, metadata, activities, dependencies, fingerprints, jobs,
-revisions, events, conflict versions, conflict floor and retained records.
+revisions, events, conflict versions, conflict floor, retained records and archives.
 Production and conflict floor each contain one item. Retained revision totals
 match the source head sequence; record totals match head minus source replay
 floor. A nonempty section declares item count and complete chunk-chain summary;
@@ -310,8 +310,26 @@ Job items count their header; canonical input frames are continuations. Retained
 requests and transitions explain current immutable requests and lifecycle states.
 Completion validates the original claim boundary and exact publication graph.
 Claimed observations remain inert, including expired claims and removed target
-roots; no clock authority or worker secret is imported. Pre-floor development
-fragments and nonempty checkpoint extensions remain unsupported.
+roots; no clock authority or worker secret is imported. Nonempty checkpoint
+extensions remain unsupported.
+
+The `checkpoint-archives.v1` feature requires the final archive section. Its
+`history.archive` frames retain earlier manifests, chunk/effect byte fragments
+and prior anchors with exact family, revision, sequence, item/fragment positions
+and padded base64 payloads of at most 1 MiB. Coordinates are ordered and unique;
+missing earlier pieces stay missing. Archives reference retained revisions at or
+below the replay floor and grant no replay or worker authority. Prior anchors
+retain their deterministic scoped digests. Private outcomes are excluded.
+
+Explicit authority resynchronization requires a fresh scoped native head base.
+A complete chain keeps its existing floor. A gap establishes a deterministic
+anchor at the head while preserving earlier bytes, observations, history identity
+and private outcomes. A failed update rolls back the new floor and prior-anchor
+row together. Reopening and changing commits never recover automatically.
+Mirrors behind the new floor need a new checkpoint. Validation defaults to
+10,000,000 records and 1 GiB encoded evidence; callers may raise those budgets.
+Corrupt evidence returns an error rather than silently changing a complete floor.
+See [ADR 0066](adr/0066-development-history-resynchronization.md).
 
 Checkpoint receiver defaults are 1 GiB encoded transport, 2 GiB private staging
 disk and 10,000,000 decoded frames, including nested record frames. The same work

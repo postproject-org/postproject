@@ -2,6 +2,7 @@
 
 mod access;
 mod activities;
+mod archives;
 mod dependencies;
 mod facts;
 mod fingerprints;
@@ -34,6 +35,7 @@ pub(super) struct Bodies<'a, 'connection> {
     record_head: postproject_protocol::Position,
     record_document_limits: postproject_protocol::Limits,
     remaining_frames: u64,
+    archive_previous: Option<(u8, u64, u64, u64)>,
 }
 
 impl<'a, 'connection> Bodies<'a, 'connection> {
@@ -60,6 +62,7 @@ impl<'a, 'connection> Bodies<'a, 'connection> {
             record_head: manifest.floor(),
             record_document_limits: limits.document,
             remaining_frames: limits.frames,
+            archive_previous: None,
         }
     }
 
@@ -103,6 +106,7 @@ impl<'a, 'connection> Bodies<'a, 'connection> {
             CheckpointSection::ConflictFloor => self.conflict_floor(document)?,
             CheckpointSection::Records => return self.record(document),
             CheckpointSection::Jobs => return self.job(document),
+            CheckpointSection::Archives => self.archive(document)?,
         }
         Ok(true)
     }

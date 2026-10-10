@@ -16,7 +16,7 @@ pub struct CheckpointManifest {
     id: CheckpointId,
     head: Position,
     floor: Position,
-    sections: [SectionSummary; 18],
+    sections: [SectionSummary; CheckpointSection::ALL.len()],
     extensions: Extensions,
 }
 
@@ -31,7 +31,7 @@ impl CheckpointManifest {
         id: CheckpointId,
         head: Position,
         floor: Position,
-        sections: [SectionSummary; 18],
+        sections: [SectionSummary; CheckpointSection::ALL.len()],
         extensions: Extensions,
     ) -> Result<Self> {
         if head.scope() != floor.scope() {
@@ -92,7 +92,7 @@ impl CheckpointManifest {
     }
     /// Returns every ordered section, including explicit empty sections.
     #[must_use]
-    pub const fn sections(&self) -> &[SectionSummary; 18] {
+    pub const fn sections(&self) -> &[SectionSummary; CheckpointSection::ALL.len()] {
         &self.sections
     }
     /// Returns preserved noncritical facts included in integrity.
@@ -156,7 +156,7 @@ impl CheckpointManifest {
             json!({"section":summary.section().as_str(), "items":summary.items().to_string(), "chunks":chunks})
         }).collect();
         let mut document = Document {
-            value: json!({"kind":"checkpoint.manifest", "version":"1", "required_features":["checkpoints.v1"], "checkpoint":self.id.to_string(), "head":self.head.document().value, "floor":self.floor.document().value, "sections":sections, "extensions":self.extensions.document().value}),
+            value: json!({"kind":"checkpoint.manifest", "version":"1", "required_features":["checkpoint-archives.v1", "checkpoints.v1"], "checkpoint":self.id.to_string(), "head":self.head.document().value, "floor":self.floor.document().value, "sections":sections, "extensions":self.extensions.document().value}),
         };
         document.value["digest"] = document.digest(DigestDomain::Manifest)?.to_string().into();
         Ok(document)
@@ -189,7 +189,10 @@ impl CheckpointManifest {
             return Err(unsupported());
         }
         let features = array(&fields["required_features"], 64)?;
-        if features.len() != 1 || text(&features[0])? != "checkpoints.v1" {
+        if features.len() != 2
+            || text(&features[0])? != "checkpoint-archives.v1"
+            || text(&features[1])? != "checkpoints.v1"
+        {
             return Err(unsupported());
         }
         let sections = array(&fields["sections"], CheckpointSection::ALL.len())?

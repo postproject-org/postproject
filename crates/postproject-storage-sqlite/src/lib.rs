@@ -201,7 +201,8 @@ impl SqliteProduction {
 
     /// Streams a checkpoint from one pinned view and returns its final manifest.
     ///
-    /// Currently supports production metadata, logical roots and their retained history.
+    /// Preserves portable media, metadata, roots, provenance, dependencies, jobs
+    /// and retained history; excludes private authority and local cache state.
     /// The sink receives bounded chunks in section order. Publish the returned
     /// manifest only after saving every chunk; failure produces no manifest.
     /// Dropping or failing the sink releases the view. Long exports can retain WAL.

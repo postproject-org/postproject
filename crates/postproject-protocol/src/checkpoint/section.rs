@@ -39,11 +39,13 @@ pub enum CheckpointSection {
     ConflictFloor,
     /// Complete retained records, without private submission outcomes.
     Records,
+    /// Earlier bounded evidence, explicitly outside the replayable suffix.
+    Archives,
 }
 
 impl CheckpointSection {
     /// Every required section, including those with no facts at this head.
-    pub const ALL: [Self; 18] = [
+    pub const ALL: [Self; 19] = [
         Self::Production,
         Self::Assets,
         Self::Resources,
@@ -62,6 +64,7 @@ impl CheckpointSection {
         Self::ConflictVersions,
         Self::ConflictFloor,
         Self::Records,
+        Self::Archives,
     ];
 
     /// Returns the exact wire section identity.
@@ -86,6 +89,7 @@ impl CheckpointSection {
             Self::ConflictVersions => "conflict_versions",
             Self::ConflictFloor => "conflict_floor",
             Self::Records => "records",
+            Self::Archives => "archives",
         }
     }
 }

@@ -16,7 +16,7 @@ use postproject_protocol::{
     ProductionHeader, ProtocolError, SectionSummary,
 };
 
-use crate::{ExchangeResult, SqliteProduction, sqlite_error};
+use crate::{ExchangeResult, SqliteProduction};
 
 pub(crate) fn export(
     source: &SqliteProduction,
@@ -33,15 +33,6 @@ pub(crate) fn export(
                 "checkpoint head lacks complete capture",
             )
         })?;
-    let partial_history: bool = view.connection.query_row("SELECT EXISTS(SELECT 1 FROM exchange_effect_fragments e JOIN revisions r ON r.id = e.revision_id WHERE r.sequence <= ?1)", [i64::try_from(floor.sequence()).map_err(|_| invalid())?], |row| row.get(0))
-        .map_err(sqlite_error("check earlier development effect evidence"))?;
-    if partial_history {
-        return Err(ProtocolError::new(
-            FailureKind::Unsupported,
-            "checkpoint cannot yet transport pre-floor development effect evidence",
-        )
-        .into());
-    }
     let id = CheckpointId::new();
     let mut summaries = Vec::with_capacity(CheckpointSection::ALL.len());
     for section in CheckpointSection::ALL {
@@ -70,10 +61,12 @@ pub(crate) fn export(
             CheckpointSection::ConflictFloor => sections::conflict_floor(&view, &mut writer)?,
             CheckpointSection::Records => sections::records(&view, floor, head, &mut writer)?,
             CheckpointSection::Jobs => sections::jobs(&view, &mut writer)?,
+            CheckpointSection::Archives => sections::archives(&view, floor, &mut writer)?,
         }
         summaries.push(writer.finish()?);
     }
-    let summaries: [SectionSummary; 18] = summaries.try_into().map_err(|_| invalid())?;
+    let summaries: [SectionSummary; CheckpointSection::ALL.len()] =
+        summaries.try_into().map_err(|_| invalid())?;
     Ok(CheckpointManifest::new(
         id,
         head,

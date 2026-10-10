@@ -49,14 +49,15 @@ original revision/context, same-key history and observation events. Every curren
 native mutation family is captured. Explicit bounded resynchronization establishes a new floor for incomplete
 development histories while retaining earlier evidence and durable outcomes. Readers report `history_gap`;
 native changing commits with a missing predecessor fail and roll back.
-Whole checkpoints and installed exchange projections remain pending. Rust passive application validates metadata/media
+Installed exchange projections remain pending. Rust passive application validates metadata/media
 records atomically, preserving original revision/events and semantic versions.
 All four content shapes converge across distinct files without media I/O.
 Repeated root/locator/file-fact transitions retain authored intermediates.
 Rehashed contradictory creation facts reject without a visible staged prefix.
 Rust checkpoint export/import reconstructs media, identifiers, metadata, roots,
 current/historical fingerprint evidence and recomputation, activities with original
-fingerprint/dependency snapshots, ordered dependency sets and extraction state, retained
+fingerprint/dependency snapshots, ordered dependency sets and extraction state, inert public jobs with original
+completion/input evidence, earlier archives, retained
 revisions/events, semantic guards and post-floor records through bounded sections.
 Export pins one view; import checks current assertions against authored effects
 and promotes a closed passive store exclusively. Two distinct checkpoint bases

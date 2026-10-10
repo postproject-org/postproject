@@ -45,7 +45,7 @@ fn checkpoint_pins_all_sections_and_preserves_original_history_and_versions() {
     assert_eq!(manifest.head(), head);
     assert_eq!(source.exchange_head().unwrap().sequence(), 2);
     assert_ne!(manifest.head(), source.exchange_head().unwrap());
-    assert_eq!(manifest.sections().len(), 18);
+    assert_eq!(manifest.sections().len(), CheckpointSection::ALL.len());
     for summary in manifest.sections() {
         let selected: Vec<_> = chunks
             .iter()
