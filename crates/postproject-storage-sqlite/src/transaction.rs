@@ -5,6 +5,8 @@ use std::collections::BTreeMap;
 mod conflict_key;
 mod dependency_compare;
 pub(crate) use conflict_key::decode as decode_conflict_key;
+#[cfg(test)]
+mod commit_crash;
 pub(crate) mod dependency_persist;
 pub(crate) mod fingerprint_capture;
 mod job_capture;
@@ -2026,11 +2028,15 @@ impl<'production> SqliteTransaction<'production> {
         if let Some(outcome) = outcome {
             crate::exchange::persist(self.open_transaction()?, outcome, capability_binding)?;
         }
+        #[cfg(test)]
+        commit_crash::boundary("before");
         let transaction = self.take_transaction()?;
         if let Err(error) = transaction.commit() {
             self.lifecycle.mark_rolled_back()?;
             return Err(sqlite_error("commit domain transaction")(error));
         }
+        #[cfg(test)]
+        commit_crash::boundary("after");
         self.lifecycle.mark_committed()?;
         self.finish_leases(true);
         if !self.pending_events.is_empty() {
