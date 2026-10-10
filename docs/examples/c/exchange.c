@@ -108,6 +108,15 @@ int main(int argc, char **argv) {
   if (receipt.revision_sequence != 1) goto cleanup;
   pp_outcome_release(recovered); recovered = NULL;
   /* [/exchange-submit] */
+  if (pp_outcome_job_count(outcome) != 0) goto cleanup;
+  pp_job_id_t observed_job = {{1}};
+  uint32_t observed_state = 99;
+  int64_t observed_expiry = 99;
+  pp_job_completion_t observed_completion;
+  memset(&observed_completion, 1, sizeof observed_completion);
+  if (pp_outcome_job_get(outcome, 0, &observed_job, &observed_state, NULL) != PP_ERROR_INVALID_ARGUMENT || observed_state != 0 || observed_job.bytes[0] != 0) goto cleanup;
+  if (pp_outcome_job_expiry(outcome, 0, &observed_expiry, NULL) != PP_ERROR_INVALID_ARGUMENT || observed_expiry != 0) goto cleanup;
+  if (pp_outcome_job_completion(outcome, 0, &observed_completion, NULL) != PP_ERROR_INVALID_ARGUMENT || observed_completion.activity_id.bytes[0] != 0) goto cleanup;
   /* [exchange-catch-up] */
   pp_exchange_position_t through, applied;
   CHECK(pp_production_export_changes(production, &saved, changes, &through, &error));

@@ -953,6 +953,10 @@ EXPORTED_SYMBOLS = (
     "pp_object_ref_set_get",
     "pp_object_ref_set_release",
     "pp_outcome_document",
+    "pp_outcome_job_completion",
+    "pp_outcome_job_count",
+    "pp_outcome_job_expiry",
+    "pp_outcome_job_get",
     "pp_outcome_receipt",
     "pp_outcome_rejection",
     "pp_outcome_release",
@@ -1207,6 +1211,14 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_outcome_document.restype = ctypes.c_uint32
     lib.pp_outcome_release.argtypes = [ctypes.POINTER(Outcome)]
     lib.pp_outcome_release.restype = None
+    lib.pp_outcome_job_count.argtypes = [ctypes.POINTER(Outcome)]
+    lib.pp_outcome_job_count.restype = ctypes.c_uint64
+    lib.pp_outcome_job_get.argtypes = [ctypes.POINTER(Outcome), ctypes.c_uint64, ctypes.POINTER(JobId), ctypes.POINTER(ctypes.c_uint32), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_outcome_job_get.restype = ctypes.c_uint32
+    lib.pp_outcome_job_expiry.argtypes = [ctypes.POINTER(Outcome), ctypes.c_uint64, ctypes.POINTER(ctypes.c_int64), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_outcome_job_expiry.restype = ctypes.c_uint32
+    lib.pp_outcome_job_completion.argtypes = [ctypes.POINTER(Outcome), ctypes.c_uint64, ctypes.POINTER(JobCompletion), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_outcome_job_completion.restype = ctypes.c_uint32
     lib.pp_decision_base_parse.argtypes = [ctypes.c_char_p, ctypes.POINTER(DecisionBase), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_decision_base_parse.restype = ErrorCode
     lib.pp_decision_base_format.argtypes = [ctypes.POINTER(DecisionBase), ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.POINTER(Error))]

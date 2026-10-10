@@ -141,6 +141,10 @@ pp_object_ref_set_count
 pp_object_ref_set_get
 pp_object_ref_set_release
 pp_outcome_document
+pp_outcome_job_completion
+pp_outcome_job_count
+pp_outcome_job_expiry
+pp_outcome_job_get
 pp_outcome_receipt
 pp_outcome_rejection
 pp_outcome_release

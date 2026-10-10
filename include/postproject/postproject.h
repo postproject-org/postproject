@@ -588,6 +588,20 @@ typedef struct pp_job_completion {
   pp_representation_id_t representation_id;
 } pp_job_completion_t;
 
+/* Original submission-boundary observations, never worker capabilities.
+ * Count accepts null; indexed access clears outputs on failure. State uses
+ * PP_JOB_* tags. Expiry/completion reject any other lifecycle alternative. */
+PP_API uint64_t pp_outcome_job_count(const pp_outcome_t *outcome);
+PP_API uint32_t pp_outcome_job_get(
+    const pp_outcome_t *outcome, uint64_t index, pp_job_id_t *out_job,
+    uint32_t *out_state, pp_error_t **out_error);
+PP_API uint32_t pp_outcome_job_expiry(
+    const pp_outcome_t *outcome, uint64_t index, int64_t *out_expiry,
+    pp_error_t **out_error);
+PP_API uint32_t pp_outcome_job_completion(
+    const pp_outcome_t *outcome, uint64_t index,
+    pp_job_completion_t *out_completion, pp_error_t **out_error);
+
 /* Input strings are borrowed for a transaction call. Output strings borrow
  * the owning pp_dependency_set_t. */
 typedef struct pp_dependency {

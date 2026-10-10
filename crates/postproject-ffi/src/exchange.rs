@@ -4,6 +4,9 @@ mod changes;
 mod error;
 mod files;
 mod outcome;
+mod outcome_jobs;
+#[cfg(test)]
+mod outcome_jobs_tests;
 mod prepare;
 mod state;
 mod submission;
