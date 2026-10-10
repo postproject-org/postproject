@@ -1,0 +1,201 @@
+//! Native preparation preserves public intent and staging ownership boundaries.
+
+use std::ptr;
+
+use postproject_core::{
+    DecisionBase, MediaRoot, MetadataProperty, MetadataValue, ObjectRef, PropertyId, VocabularyId,
+};
+use postproject_protocol::{Command, Document, HistoryId, Limits, OutcomeStatus};
+
+use super::*;
+use crate::{SqliteProduction, StagedMutation, begin_transaction_handle, production_handle};
+
+fn make_root(name: &str, priority: i32) -> MediaRoot {
+    MediaRoot::new(crate::MediaRootId::new(), name, None, None, priority, true).unwrap()
+}
+
+fn ids() -> (PpClientId, PpRequestId) {
+    (
+        PpClientId { bytes: [1; 16] },
+        PpRequestId { bytes: [2; 16] },
+    )
+}
+
+#[test]
+fn preparation_preserves_order_exact_values_and_lost_reply_identity() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("authority.pproj");
+    let production = production_handle(SqliteProduction::create(&path, None).unwrap());
+    let base = lock_production(&production.state)
+        .read_session()
+        .unwrap()
+        .decision_base();
+    let root = make_root("rushes", -5);
+    let property = MetadataProperty::new(
+        VocabularyId::new("unknown:Exact名").unwrap(),
+        PropertyId::new("count").unwrap(),
+    );
+    let (client, request) = ids();
+    // SAFETY: Fixture owns all handles and serialized writable outputs.
+    unsafe {
+        let edit = begin_transaction_handle(&production.state, None, Some(base)).unwrap();
+        (*edit)
+            .mutations
+            .push(StagedMutation::MediaRoot(root.clone()));
+        (*edit).mutations.push(StagedMutation::AddMetadataValue(
+            ObjectRef::Production(base.production_id()),
+            property.clone(),
+            MetadataValue::u64(u64::MAX),
+        ));
+        let mut proposal = ptr::null_mut();
+        assert_eq!(
+            pp_transaction_prepare_proposal(
+                edit,
+                client,
+                request,
+                ptr::null(),
+                &raw mut proposal,
+                ptr::null_mut()
+            ),
+            crate::PP_OK
+        );
+        assert!((*edit).lifecycle.ensure_open().is_err());
+        assert!(
+            lock_production(&production.state)
+                .latest_revision()
+                .unwrap()
+                .is_none()
+        );
+        assert_eq!(
+            (*proposal).proposal.commands(),
+            &[
+                Command::AddMediaRoot(root.clone()),
+                Command::AppendMetadata {
+                    target: ObjectRef::Production(base.production_id()),
+                    property,
+                    value: MetadataValue::u64(u64::MAX)
+                },
+            ]
+        );
+        let mut bytes = ptr::null();
+        let mut length = 0;
+        assert_eq!(
+            pp_proposal_document(proposal, &raw mut bytes, &raw mut length, ptr::null_mut()),
+            crate::PP_OK
+        );
+        let document = Document::parse(
+            std::slice::from_raw_parts(bytes, usize::try_from(length).unwrap()),
+            Limits::default(),
+        )
+        .unwrap();
+        assert_eq!(
+            Proposal::from_document(&document).unwrap(),
+            (*proposal).proposal
+        );
+        let outcome = lock_production(&production.state)
+            .submit_proposal(&(*proposal).proposal)
+            .unwrap();
+        assert!(
+            matches!(outcome.status(), OutcomeStatus::Accepted(receipt) if receipt.revision().unwrap().sequence() == 1)
+        );
+        let next = begin_transaction_handle(&production.state, None, None).unwrap();
+        crate::pp_transaction_release(edit);
+        assert!(begin_transaction_handle(&production.state, None, None).is_err());
+        crate::pp_transaction_release(next);
+        let mut reopened = SqliteProduction::open(&path).unwrap();
+        let mut later = reopened.begin_transaction().unwrap();
+        later.add_media_root(make_root("later", 0)).unwrap();
+        later.commit().unwrap();
+        drop(later);
+        assert_eq!(
+            reopened.submit_proposal(&(*proposal).proposal).unwrap(),
+            outcome
+        );
+        assert_eq!(reopened.latest_revision().unwrap().unwrap().sequence(), 2);
+        pp_proposal_release(proposal);
+    }
+}
+
+#[test]
+fn rejected_preparation_keeps_edit_and_guard_with_cleared_output() {
+    let directory = tempfile::tempdir().unwrap();
+    let production = production_handle(
+        SqliteProduction::create(directory.path().join("authority.pproj"), None).unwrap(),
+    );
+    let view = lock_production(&production.state).read_session().unwrap();
+    let base = view.decision_base();
+    let scope = view.into_read_only().exchange_scope().unwrap();
+    let (client, request) = ids();
+    // SAFETY: All pointers refer to live exclusively owned fixture values.
+    unsafe {
+        let edit = begin_transaction_handle(&production.state, None, Some(base)).unwrap();
+        let mut proposal = ptr::dangling_mut();
+        let foreign = PpProtocolBase {
+            decision: base.into(),
+            history_id: PpHistoryId {
+                bytes: *HistoryId::new().as_bytes(),
+            },
+        };
+        assert_eq!(
+            pp_transaction_prepare_proposal(
+                edit,
+                client,
+                request,
+                &raw const foreign,
+                &raw mut proposal,
+                ptr::null_mut()
+            ),
+            14
+        );
+        assert!(proposal.is_null());
+        (*edit).lifecycle.ensure_open().unwrap();
+        assert!(begin_transaction_handle(&production.state, None, None).is_err());
+        let mut wrong = PpProtocolBase {
+            decision: base.into(),
+            history_id: PpHistoryId {
+                bytes: *scope.history().as_bytes(),
+            },
+        };
+        wrong.decision = DecisionBase::new(base.production_id(), Some(crate::RevisionId::new()), 1)
+            .unwrap()
+            .into();
+        assert_eq!(
+            pp_transaction_prepare_proposal(
+                edit,
+                client,
+                request,
+                &raw const wrong,
+                &raw mut proposal,
+                ptr::null_mut()
+            ),
+            15
+        );
+        for _ in 0..=postproject_protocol::MAX_PROPOSAL_COMMANDS {
+            (*edit)
+                .mutations
+                .push(StagedMutation::MediaRoot(make_root("bounded", 0)));
+        }
+        assert_eq!(
+            pp_transaction_prepare_proposal(
+                edit,
+                client,
+                request,
+                ptr::null(),
+                &raw mut proposal,
+                ptr::null_mut()
+            ),
+            13
+        );
+        assert!(proposal.is_null());
+        (*edit).lifecycle.ensure_open().unwrap();
+        crate::pp_transaction_release(edit);
+        let next = begin_transaction_handle(&production.state, None, None).unwrap();
+        crate::pp_transaction_release(next);
+        assert!(
+            lock_production(&production.state)
+                .latest_revision()
+                .unwrap()
+                .is_none()
+        );
+    }
+}
