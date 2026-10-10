@@ -37,7 +37,7 @@ from ._model import (
 )
 
 if TYPE_CHECKING:
-    from ._production import JobLease
+    from ._production import JobLease, Transaction
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,7 +56,7 @@ class AddRepresentationCommand:
 @dataclass(frozen=True, slots=True)
 class AddMediaRootCommand:
     name: str
-    display_name: str | None = None
+    label: str | None = None
     priority: int = 0
 
 
@@ -250,3 +250,92 @@ StagedValue: TypeAlias = (
     | ContentObservationOutcome
     | None
 )
+
+
+def _stage(transaction: Transaction, command: ProposalCommand) -> StagedValue:
+    """Reuse typed native validators; earlier staging remains on later failure."""
+    if isinstance(command, ImportMediaCommand):
+        return PreparedAsset(
+            transaction.import_media(command.source, command.display_name)
+        )
+    if isinstance(command, AddRepresentationCommand):
+        return PreparedRepresentation(
+            transaction.add_representation(
+                command.asset_id, command.kind, command.source
+            )
+        )
+    if isinstance(command, AddMediaRootCommand):
+        return PreparedMediaRoot(
+            transaction.add_media_root(
+                command.name,
+                label=command.label,
+                priority=command.priority,
+            )
+        )
+    if isinstance(command, SetMediaRootEnabledCommand):
+        transaction.set_media_root_enabled(command.root_id, command.enabled)
+    elif isinstance(command, RemoveMediaRootCommand):
+        transaction.remove_media_root(command.root_id)
+    elif isinstance(command, ConfirmLocatorCommand):
+        transaction.confirm_locator(
+            command.resource_id,
+            command.uri,
+            media_root=command.media_root,
+            sequence_naming=command.sequence_naming,
+        )
+    elif isinstance(command, RetireLocatorCommand):
+        transaction.retire_locator(command.locator_id)
+    elif isinstance(command, RecordResourceFingerprintCommand):
+        transaction.record_resource_fingerprint(
+            command.resource_id, command.fingerprint
+        )
+    elif isinstance(command, RecordRepresentationFingerprintCommand):
+        transaction.record_representation_fingerprint(
+            command.representation_id, command.fingerprint
+        )
+    elif isinstance(command, ObserveResourceContentCommand):
+        return transaction.observe_resource_content(
+            command.resource_id, command.path, sequence_naming=command.sequence_naming
+        )
+    elif isinstance(command, RecordDependencySetCommand):
+        transaction.record_dependency_set(
+            command.representation_id, tuple(command.dependencies)
+        )
+    elif isinstance(command, AddIdentifierCommand):
+        transaction.add_external_identifier(command.target, command.identifier)
+    elif isinstance(command, RemoveIdentifierCommand):
+        transaction.remove_external_identifier(command.target, command.identifier)
+    elif isinstance(command, AppendMetadataCommand):
+        transaction.add_metadata(command.target, command.property, command.value)
+    elif isinstance(command, ReplaceMetadataCommand):
+        transaction.remove_metadata_property(command.target, command.property)
+        for value in command.values:
+            transaction.add_metadata(command.target, command.property, value)
+    elif isinstance(command, RemoveMetadataCommand):
+        transaction.remove_metadata_property(command.target, command.property)
+    elif isinstance(command, CreateActivityCommand):
+        return PreparedActivity(transaction.create_activity(command.spec))
+    elif isinstance(command, RequestJobCommand):
+        return PreparedJob(transaction.request_job(command.request))
+    elif isinstance(command, ClaimJobCommand):
+        # Pending staging grants no worker ownership. Only fresh submission
+        # delivers a new owning capability; discard this temporary local handle.
+        with transaction.claim_job_lease(
+            command.job_id, command.tool, command.duration, agent=command.agent
+        ):
+            pass
+    elif isinstance(command, RenewJobCommand):
+        transaction.renew_job_lease(command.lease, command.duration)
+    elif isinstance(command, ReleaseJobCommand):
+        transaction.release_job_lease(command.lease)
+    elif isinstance(command, FailJobCommand):
+        transaction.fail_job_lease(command.lease, command.diagnostic)
+    elif isinstance(command, CompleteJobCommand):
+        transaction.complete_job_lease(
+            command.lease, command.output_representation_id, command.activity_id
+        )
+    elif isinstance(command, CancelJobCommand):
+        transaction.cancel_job(command.job_id)
+    else:
+        raise TypeError("unknown typed proposal command")
+    return None

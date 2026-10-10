@@ -254,6 +254,7 @@ from ._model import (
     VerificationMode,
 )
 from ._native import NativeLibrary
+from ._proposal_commands import ProposalCommand, StagedValue, _stage
 
 _ObjectQueryItem = TypeVar("_ObjectQueryItem")
 
@@ -413,6 +414,29 @@ class Production:
         self._finalizer = weakref.finalize(
             self, native.lib.pp_production_release, handle
         )
+
+    def proposal_builder(
+        self,
+        client_id: ClientId,
+        request_id: RequestId,
+        *,
+        base: DecisionBase | ProtocolBase | None = None,
+        context: RevisionContext | None = None,
+    ) -> ProposalBuilder:
+        """Stage typed command collections; closing never writes a revision."""
+        if isinstance(base, ProtocolBase):
+            full_base = base
+            transaction = self.edit(base.decision)
+        else:
+            full_base = None
+            transaction = self.transaction() if base is None else self.edit(base)
+        try:
+            if context is not None:
+                transaction.set_revision_context(context)
+            return ProposalBuilder(transaction, client_id, request_id, full_base)
+        except BaseException:
+            transaction.close()
+            raise
 
     def submit_proposal(
         self,
@@ -4471,6 +4495,58 @@ class Transaction:
             raise InvalidArgumentError(
                 _abi.PP_ERROR_INVALID_ARGUMENT, "transaction is already finished"
             )
+
+
+class ProposalBuilder:
+    """Caller-serialized staging for typed local commands and exact prepared IDs.
+
+    Preparation closes staging without a commit. Closing/discarding the builder
+    never submits. If staging fails, discard it before deciding on a new intent.
+    """
+
+    def __init__(
+        self,
+        transaction: Transaction,
+        client: ClientId,
+        request: RequestId,
+        base: ProtocolBase | None,
+    ) -> None:
+        self._transaction = transaction
+        self._client = client
+        self._request = request
+        self._base = base
+        self._staged = 0
+
+    def stage(self, commands: Iterable[ProposalCommand]) -> list[StagedValue]:
+        """Stage an ordered collection; copy checked values and return prepared IDs."""
+        self._transaction._require_open()
+        bounded = list(islice(commands, 1001 - self._staged))
+        if len(bounded) + self._staged > 1000:
+            raise ExchangeError(
+                _abi.PP_ERROR_LIMIT_EXCEEDED, "too many proposal commands"
+            )
+        result = []
+        for command in bounded:
+            result.append(_stage(self._transaction, command))
+            self._staged += 1
+        return result
+
+    def prepare(self) -> Proposal:
+        """Freeze checked ordered intent; failure leaves native staging open."""
+        return self._transaction.prepare_proposal(
+            self._client, self._request, self._base
+        )
+
+    def close(self) -> None:
+        """Discard local staging only; repeated calls are harmless."""
+        self._transaction.close()
+
+    def __enter__(self) -> Self:
+        self._transaction._require_open()
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        self.close()
 
 
 class Proposal:

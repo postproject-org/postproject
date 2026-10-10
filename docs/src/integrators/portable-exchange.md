@@ -38,6 +38,26 @@ Submit a portable proposal file, as shown below.
 ````{code-variants} exchange-submit
 ````
 
+Python also accepts ordered command collections. Staging returns typed prepared
+IDs for later commands. Paths and leases are local inputs; prepared portable
+intent contains measured facts and public identities. After a staging failure,
+discard the builder before making a new decision.
+
+````{code-variants} exchange-command-collection
+```{no-variant} rust
+Construct checked Command values directly.
+```
+```{no-variant} c
+Stage commands with the typed transaction calls shown above.
+```
+```{no-variant} cpp
+Stage commands with the typed transaction methods shown above.
+```
+```{no-variant} cli
+Submit a portable proposal file.
+```
+````
+
 Catch-up exports every complete record after a saved source position through one
 pinned head. Ordinary native transactions enter that history automatically.
 Positions retain production, history, revision, sequence and digest. Observation

@@ -5,6 +5,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from postproject import (
+    AddMediaRootCommand,
     ClientId,
     CommitReceipt,
     ExchangeLimits,
@@ -12,6 +13,7 @@ from postproject import (
     InvalidArgumentError,
     MetadataProperty,
     MetadataU64,
+    PreparedMediaRoot,
     Production,
     ProductionRef,
     Proposal,
@@ -40,6 +42,19 @@ def exercise(work: Path) -> None:
                 pass
             else:
                 raise AssertionError("passive ordinary edits must reject")
+        # [exchange-command-collection]
+        with production.proposal_builder(
+            ClientId(uuid4()),
+            RequestId(uuid4()),
+            base=state.observed_base,
+        ) as builder:
+            results = builder.stage([AddMediaRootCommand("discarded")])
+            assert isinstance(results[0], PreparedMediaRoot)
+            with builder.prepare() as discarded:
+                assert discarded.identity.history_id == state.observed_base.history_id
+            builder.close()
+        assert not production.media_roots  # Preparation/discard never commits.
+        # [/exchange-command-collection]
         # [exchange-prepare]
         client, request = ClientId(uuid4()), RequestId(uuid4())
         with production.read_session() as view, view.edit() as edit:
