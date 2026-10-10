@@ -33,18 +33,6 @@ pub(crate) fn export(
                 "checkpoint head lacks complete capture",
             )
         })?;
-    // Do not silently omit unsupported current objects in this vertical slice.
-    let unsupported: bool = view
-        .connection
-        .query_row("SELECT EXISTS(SELECT 1 FROM jobs)", [], |row| row.get(0))
-        .map_err(sqlite_error("check checkpoint domain coverage"))?;
-    if unsupported {
-        return Err(ProtocolError::new(
-            FailureKind::Unsupported,
-            "checkpoint job evidence is not supported yet",
-        )
-        .into());
-    }
     let partial_history: bool = view.connection.query_row("SELECT EXISTS(SELECT 1 FROM exchange_effect_fragments e JOIN revisions r ON r.id = e.revision_id WHERE r.sequence <= ?1)", [i64::try_from(floor.sequence()).map_err(|_| invalid())?], |row| row.get(0))
         .map_err(sqlite_error("check earlier development effect evidence"))?;
     if partial_history {

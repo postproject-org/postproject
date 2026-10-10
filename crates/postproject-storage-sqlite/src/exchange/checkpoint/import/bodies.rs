@@ -68,13 +68,6 @@ impl<'a, 'connection> Bodies<'a, 'connection> {
         section: CheckpointSection,
         document: &Document,
     ) -> ExchangeResult<bool> {
-        if section == CheckpointSection::Jobs {
-            return Err(postproject_protocol::ProtocolError::new(
-                postproject_protocol::FailureKind::Unsupported,
-                "checkpoint job history audit is not supported yet",
-            )
-            .into());
-        }
         self.remaining_frames = self
             .remaining_frames
             .checked_sub(1)

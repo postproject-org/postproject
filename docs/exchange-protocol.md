@@ -306,8 +306,12 @@ Retained replacements and fingerprint invalidations explain current sets, includ
 empty observations and extraction state. Historical paths and fingerprints are
 checked against their authored prefix. Erased pre-floor sets remain unknown;
 available baseline rows and captured segments still constrain later transitions.
-Job bodies, pre-floor development fragments and nonempty
-checkpoint extensions remain unsupported; complete production import is pending.
+Job items count their header; canonical input frames are continuations. Retained
+requests and transitions explain current immutable requests and lifecycle states.
+Completion validates the original claim boundary and exact publication graph.
+Claimed observations remain inert, including expired claims and removed target
+roots; no clock authority or worker secret is imported. Pre-floor development
+fragments and nonempty checkpoint extensions remain unsupported.
 
 Checkpoint receiver defaults are 1 GiB encoded transport, 2 GiB private staging
 disk and 10,000,000 decoded frames, including nested record frames. The same work

@@ -99,10 +99,25 @@ fn current_job_stream_is_bounded_and_claims_are_inert_without_clock_or_secret() 
     assert_eq!(private, (None, true));
     transaction.rollback().unwrap();
     assert!(destination.import_job_lease(&token).is_err());
-    assert!(
-        source.export_checkpoint(|_| Ok(())).is_err(),
-        "job profile remains gated"
-    );
+    let mut chunks = Vec::new();
+    let manifest = source
+        .export_checkpoint(|chunk| {
+            chunks.push(chunk);
+            Ok(())
+        })
+        .unwrap();
+    let mut mirror = SqliteProduction::import_checkpoint(
+        directory.path().join("full.pproj"),
+        &manifest,
+        chunks.into_iter().map(Ok),
+        crate::CheckpointLimits::default(),
+    )
+    .unwrap();
+    mirror.job_clock = Arc::new(UnavailableClock);
+    for job in &jobs {
+        assert_eq!(source.job(job.id()).unwrap(), mirror.job(job.id()).unwrap());
+    }
+    assert!(mirror.import_job_lease(&token).is_err());
 }
 
 pub(in crate::exchange::checkpoint) fn fixture(
