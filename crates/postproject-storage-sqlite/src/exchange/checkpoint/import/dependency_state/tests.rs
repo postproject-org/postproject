@@ -43,7 +43,7 @@ fn fixture(directory: &std::path::Path) -> (SqliteProduction, RepresentationId, 
     let dependency = Dependency::new(
         Some(resource),
         DependencyKind::new("unknown:Exact").unwrap(),
-        DependencyTarget::Representation(owner),
+        DependencyTarget::Asset(asset.id()),
         None,
         true,
         "  名/EXACT  ",
@@ -138,4 +138,46 @@ fn changed_authored_text_and_missing_replacement_evidence_reject_final_current_s
         assert!(finish(&transaction, 1).is_err());
         transaction.rollback().unwrap();
     }
+}
+
+#[test]
+fn known_paths_require_full_coverage_and_baseline_segments_narrow_available_status() {
+    let directory = tempfile::tempdir().unwrap();
+    let (source, owner, dependency) = fixture(directory.path());
+    let transaction = source.connection.unchecked_transaction().unwrap();
+    initialize(&transaction);
+    replacement(&transaction, owner, dependency.clone());
+    assert!(
+        super::validate_paths(&transaction, -1, owner, 1).is_err(),
+        "missing required unresolved path"
+    );
+    transaction.rollback().unwrap();
+    let transaction = source.connection.unchecked_transaction().unwrap();
+    initialize(&transaction);
+    // The pre-floor dirty status is initially unavailable. This is partial
+    // knowledge, not an assertion that the snapshot has zero required paths.
+    super::validate_paths(&transaction, -1, owner, 2).unwrap();
+    let segment = postproject_protocol::ActivityPathSegment::new(
+        0,
+        DependencyOccurrence::new(owner, 0, dependency).unwrap(),
+    )
+    .unwrap();
+    super::segment(&transaction, &segment, 2).unwrap();
+    assert!(super::validate_paths(&transaction, -1, owner, 2).is_err());
+    let changed = Dependency::new(
+        segment.occurrence().dependency().source_resource_id(),
+        segment.occurrence().dependency().kind().clone(),
+        segment.occurrence().dependency().target(),
+        None,
+        true,
+        "different",
+    )
+    .unwrap();
+    let forged = postproject_protocol::ActivityPathSegment::new(
+        0,
+        DependencyOccurrence::new(owner, 0, changed).unwrap(),
+    )
+    .unwrap();
+    assert!(super::segment(&transaction, &forged, 2).is_err());
+    transaction.rollback().unwrap();
 }
