@@ -1,4 +1,6 @@
-use postproject_protocol::{ActivityEdgeHeader, ActivityEdgeSide, Document};
+use postproject_protocol::{
+    ActivityEdgeHeader, ActivityEdgeSide, ActivityPathHeader, ActivityPathStatus, Document,
+};
 use rusqlite::{Transaction, params};
 
 use super::super::effects::invalid;
@@ -15,6 +17,7 @@ pub(super) struct EdgeApply {
     previous_domain: Option<(String, u16)>,
     paths: u64,
     path: Option<PathApply>,
+    visited: std::collections::BTreeSet<postproject_core::RepresentationId>,
 }
 
 impl EdgeApply {
@@ -66,6 +69,7 @@ impl EdgeApply {
                 header.representation_id(),
             ))?;
         }
+        let root = header.representation_id();
         Ok(Self {
             id,
             header,
@@ -73,6 +77,7 @@ impl EdgeApply {
             previous_domain: None,
             paths: 0,
             path: None,
+            visited: std::collections::BTreeSet::from([root]),
         })
     }
 
@@ -112,6 +117,28 @@ impl EdgeApply {
                 self.path = None;
             }
         } else if self.paths < self.header.dependency_path_count() {
+            let header = ActivityPathHeader::from_document(document)?;
+            if header.status() == ActivityPathStatus::RepresentationsTruncated
+                && (self.visited.len() != 1001
+                    || self.visited.contains(&header.subject_representation_id()))
+            {
+                return Err(invalid().into());
+            }
+            if matches!(
+                header.status(),
+                ActivityPathStatus::Recorded
+                    | ActivityPathStatus::NeedsExtraction
+                    | ActivityPathStatus::DepthTruncated
+            ) && !(header.status() == ActivityPathStatus::NeedsExtraction
+                && header.segment_count() == 0
+                && self.paths == 0)
+                && !self.visited.insert(header.subject_representation_id())
+            {
+                return Err(invalid().into());
+            }
+            if self.visited.len() > 1001 {
+                return Err(invalid().into());
+            }
             let path = PathApply::begin(
                 transaction,
                 context,

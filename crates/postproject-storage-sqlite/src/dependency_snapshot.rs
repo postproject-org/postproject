@@ -5,9 +5,10 @@ mod validate;
 use std::collections::BTreeSet;
 
 use postproject_core::{
-    Dependency, DependencySetStatus, DependencyTarget, Error, ErrorKind, RepresentationId, Result,
+    Dependency, DependencySet, DependencySetStatus, DependencyTarget, Error, ErrorKind,
+    RepresentationId, Result,
 };
-use rusqlite::{Transaction, params};
+use rusqlite::{Connection, Transaction, params};
 
 use crate::load_dependency_set;
 
@@ -21,13 +22,36 @@ struct PathEdge {
     dependency: Dependency,
 }
 
-struct CaptureContext<'transaction, 'connection> {
-    transaction: &'transaction Transaction<'connection>,
+struct CaptureContext<'connection> {
+    transaction: &'connection Connection,
+    load: &'connection dyn Fn(RepresentationId) -> Result<Option<WalkSet>>,
     activity_input_id: i64,
     next_path_position: i64,
     visited: BTreeSet<RepresentationId>,
     dependency_count: usize,
     validate_only: bool,
+}
+
+/// Traversal needs status and ordered values, not a fabricated observation ID.
+pub(crate) enum WalkSet {
+    Known(DependencySet),
+    NeedsExtraction,
+}
+
+impl WalkSet {
+    fn needs_extraction(&self) -> bool {
+        match self {
+            Self::Known(set) => set.status() == DependencySetStatus::NeedsExtraction,
+            Self::NeedsExtraction => true,
+        }
+    }
+
+    fn dependencies(&self) -> &[Dependency] {
+        match self {
+            Self::Known(set) => set.dependencies(),
+            Self::NeedsExtraction => &[],
+        }
+    }
 }
 
 pub(crate) fn persist_dependency_snapshot(
@@ -41,8 +65,10 @@ pub(crate) fn persist_dependency_snapshot(
             [activity_input_id],
         )
         .map_err(snapshot_error("persist dependency snapshot marker"))?;
+    let load = |owner| load_dependency_set(transaction, owner).map(|set| set.map(WalkSet::Known));
     let mut context = CaptureContext {
         transaction,
+        load: &load,
         activity_input_id,
         next_path_position: 0,
         visited: BTreeSet::from([input_representation_id]),
@@ -59,8 +85,24 @@ pub(crate) fn validate_dependency_paths(
     activity_input_id: i64,
     input_representation_id: RepresentationId,
 ) -> Result<()> {
+    validate_dependency_paths_with(
+        transaction,
+        activity_input_id,
+        input_representation_id,
+        &|owner| load_dependency_set(transaction, owner).map(|set| set.map(WalkSet::Known)),
+    )
+}
+
+/// Validates the same bounded walk using an explicitly supplied authored prefix.
+pub(crate) fn validate_dependency_paths_with(
+    transaction: &Connection,
+    activity_input_id: i64,
+    input_representation_id: RepresentationId,
+    load: &dyn Fn(RepresentationId) -> Result<Option<WalkSet>>,
+) -> Result<()> {
     let mut context = CaptureContext {
         transaction,
+        load,
         activity_input_id,
         next_path_position: 0,
         visited: BTreeSet::from([input_representation_id]),
@@ -82,14 +124,14 @@ pub(crate) fn validate_dependency_paths(
 }
 
 fn capture_from(
-    context: &mut CaptureContext<'_, '_>,
+    context: &mut CaptureContext<'_>,
     source_representation_id: RepresentationId,
     path: &[PathEdge],
 ) -> Result<()> {
-    let Some(set) = load_dependency_set(context.transaction, source_representation_id)? else {
+    let Some(set) = (context.load)(source_representation_id)? else {
         return Ok(());
     };
-    if set.status() == DependencySetStatus::NeedsExtraction {
+    if set.needs_extraction() {
         persist_path(context, 1, source_representation_id, path, false)?;
         return Ok(());
     }
@@ -129,11 +171,8 @@ fn capture_from(
         context.visited.insert(target);
         context.dependency_count += 1;
 
-        let target_set = load_dependency_set(context.transaction, target)?;
-        if target_set
-            .as_ref()
-            .is_some_and(|set| set.status() == DependencySetStatus::NeedsExtraction)
-        {
+        let target_set = (context.load)(target)?;
+        if target_set.as_ref().is_some_and(WalkSet::needs_extraction) {
             persist_path(context, 1, target, &next_path, false)?;
             continue;
         }
@@ -151,7 +190,7 @@ fn capture_from(
 }
 
 fn persist_path(
-    context: &mut CaptureContext<'_, '_>,
+    context: &mut CaptureContext<'_>,
     status: i64,
     subject_representation_id: RepresentationId,
     path: &[PathEdge],
@@ -201,7 +240,7 @@ fn persist_path(
 }
 
 fn persist_path_edge(
-    transaction: &Transaction<'_>,
+    transaction: &Connection,
     path_id: i64,
     position: usize,
     edge: &PathEdge,

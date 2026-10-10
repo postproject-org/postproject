@@ -5,7 +5,7 @@ use super::{CaptureContext, PathEdge, snapshot_error};
 use crate::{decode_dependency, id_bytes};
 
 pub(super) fn path(
-    context: &CaptureContext<'_, '_>,
+    context: &CaptureContext<'_>,
     status: i64,
     subject: RepresentationId,
     path: &[PathEdge],

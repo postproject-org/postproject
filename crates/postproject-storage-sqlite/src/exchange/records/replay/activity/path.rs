@@ -16,6 +16,7 @@ pub(super) struct PathApply {
     last_source: RepresentationId,
     fingerprints: u64,
     previous_domain: Option<(String, u16)>,
+    visited: std::collections::BTreeSet<RepresentationId>,
 }
 
 impl PathApply {
@@ -56,6 +57,7 @@ impl PathApply {
             last_source: root,
             fingerprints: 0,
             previous_domain: None,
+            visited: std::collections::BTreeSet::from([root]),
         };
         if state.header.segment_count() == 0 {
             state.validate_subject(transaction, context)?;
@@ -86,6 +88,12 @@ impl PathApply {
                 }
                 _ => return Err(invalid().into()),
             };
+            if self
+                .next_source
+                .is_some_and(|target| !self.visited.insert(target))
+            {
+                return Err(invalid().into());
+            }
             self.segments += 1;
             if self.segments == self.header.segment_count() {
                 self.validate_subject(transaction, context)?;
