@@ -1,6 +1,7 @@
 //! Native projection of checked public exchange values and ownership.
 
 mod error;
+mod outcome;
 mod prepare;
 #[cfg(test)]
 mod tests;
@@ -9,6 +10,8 @@ use postproject_protocol::{
     ClientId, Extensions, FailureKind, Proposal, ProtocolBase, ProtocolError, RequestId, Scope,
 };
 use postproject_storage_sqlite::ExchangeResult;
+
+pub use outcome::PpOutcome;
 
 use crate::{
     PpError, PpTransaction, initialize_output, initialize_value, invalid_argument, lock_production,

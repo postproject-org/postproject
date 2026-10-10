@@ -21,6 +21,10 @@ class Proposal(ctypes.Structure):
     pass
 
 
+class Outcome(ctypes.Structure):
+    pass
+
+
 class JobLease(ctypes.Structure):
     pass
 
@@ -290,6 +294,8 @@ ContentObservation = ctypes.c_uint32
 
 PP_COMMIT_NO_CHANGE = 0
 PP_COMMIT_REVISION_CREATED = 1
+PP_OUTCOME_ACCEPTED = 1
+PP_OUTCOME_REJECTED = 2
 PP_OBJECT_PRODUCTION = 1
 PP_OBJECT_ASSET = 2
 PP_OBJECT_REPRESENTATION = 3
@@ -879,6 +885,11 @@ EXPORTED_SYMBOLS = (
     "pp_object_ref_set_count",
     "pp_object_ref_set_get",
     "pp_object_ref_set_release",
+    "pp_outcome_document",
+    "pp_outcome_receipt",
+    "pp_outcome_rejection",
+    "pp_outcome_release",
+    "pp_outcome_status",
     "pp_production_activities",
     "pp_production_activities_consuming",
     "pp_production_activities_consuming_page",
@@ -937,6 +948,7 @@ EXPORTED_SYMBOLS = (
     "pp_production_revision_events",
     "pp_production_revision_events_page",
     "pp_production_stale_artifacts",
+    "pp_production_submission_outcome",
     "pp_production_unresolved_media",
     "pp_production_verify_resource",
     "pp_proposal_document",
@@ -1082,6 +1094,18 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_proposal_parse.restype = ctypes.c_uint32
     lib.pp_proposal_identity.argtypes = [ctypes.POINTER(Proposal), ctypes.POINTER(RequestIdentity), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_proposal_identity.restype = ctypes.c_uint32
+    lib.pp_production_submission_outcome.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(RequestIdentity), ctypes.POINTER(ctypes.POINTER(Outcome)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_production_submission_outcome.restype = ctypes.c_uint32
+    lib.pp_outcome_status.argtypes = [ctypes.POINTER(Outcome), ctypes.POINTER(ctypes.c_uint32), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_outcome_status.restype = ctypes.c_uint32
+    lib.pp_outcome_receipt.argtypes = [ctypes.POINTER(Outcome), ctypes.POINTER(CommitReceipt), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_outcome_receipt.restype = ctypes.c_uint32
+    lib.pp_outcome_rejection.argtypes = [ctypes.POINTER(Outcome), ctypes.POINTER(ctypes.POINTER(Error)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_outcome_rejection.restype = ctypes.c_uint32
+    lib.pp_outcome_document.argtypes = [ctypes.POINTER(Outcome), ctypes.POINTER(ctypes.POINTER(ctypes.c_uint8)), ctypes.POINTER(ctypes.c_uint64), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_outcome_document.restype = ctypes.c_uint32
+    lib.pp_outcome_release.argtypes = [ctypes.POINTER(Outcome)]
+    lib.pp_outcome_release.restype = None
     lib.pp_decision_base_parse.argtypes = [ctypes.c_char_p, ctypes.POINTER(DecisionBase), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_decision_base_parse.restype = ErrorCode
     lib.pp_decision_base_format.argtypes = [ctypes.POINTER(DecisionBase), ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.POINTER(Error))]

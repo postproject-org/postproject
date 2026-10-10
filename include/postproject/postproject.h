@@ -23,6 +23,7 @@ typedef struct pp_production pp_production_t;
 typedef struct pp_read_session pp_read_session_t;
 typedef struct pp_transaction pp_transaction_t;
 typedef struct pp_proposal pp_proposal_t;
+typedef struct pp_outcome pp_outcome_t;
 typedef struct pp_job_lease pp_job_lease_t;
 typedef struct pp_asset_set pp_asset_set_t;
 typedef struct pp_media_root_set pp_media_root_set_t;
@@ -164,6 +165,9 @@ typedef struct pp_request_identity {
   pp_request_id_t request_id;
 } pp_request_identity_t;
 
+#define PP_OUTCOME_ACCEPTED UINT32_C(1)
+#define PP_OUTCOME_REJECTED UINT32_C(2)
+
 /* Prepare immutable ordered intent using ordinary typed transaction staging.
  * Success closes the edit and pending claims, with no domain revision. Failure
  * leaves it open. Optional base retains source history and must match the edit;
@@ -186,6 +190,28 @@ PP_API uint32_t pp_proposal_identity(
     const pp_proposal_t *proposal, pp_request_identity_t *out_identity,
     pp_error_t **out_error);
 
+/* Public recovery never checks or returns private ownership. Absent request
+ * returns NotFound. Caller owns the returned outcome independently of store. */
+PP_API uint32_t pp_production_submission_outcome(
+    const pp_production_t *production, const pp_request_identity_t *identity,
+    pp_outcome_t **out_outcome, pp_error_t **out_error);
+PP_API uint32_t pp_outcome_status(
+    const pp_outcome_t *outcome, uint32_t *out_status, pp_error_t **out_error);
+/* Requires accepted alternative; returns this request's own receipt. */
+PP_API uint32_t pp_outcome_receipt(
+    const pp_outcome_t *outcome, pp_commit_receipt_t *out_receipt,
+    pp_error_t **out_error);
+/* OK with owned rejection error, or null for accepted. Conflict detail and
+ * release use ordinary error APIs; this successful inspection is distinct from
+ * the rejection's numeric code. */
+PP_API uint32_t pp_outcome_rejection(
+    const pp_outcome_t *outcome, pp_error_t **out_rejection,
+    pp_error_t **out_error);
+/* Borrowed canonical public bytes until outcome release. */
+PP_API uint32_t pp_outcome_document(
+    const pp_outcome_t *outcome, const uint8_t **out_bytes, uint64_t *out_length,
+    pp_error_t **out_error);
+PP_API void pp_outcome_release(pp_outcome_t *outcome);
 typedef uint32_t pp_object_kind_t;
 
 #define PP_OBJECT_PRODUCTION UINT32_C(1)

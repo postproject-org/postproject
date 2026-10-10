@@ -76,7 +76,7 @@ pub use artifact::{
 pub use content::PpFingerprint;
 pub use dependency::{PpDependency, PpDependencyMatch, PpDependencyQuerySet, PpDependencySet};
 pub use exchange::{
-    PpClientId, PpHistoryId, PpProposal, PpProtocolBase, PpRequestId, PpRequestIdentity,
+    PpClientId, PpHistoryId, PpOutcome, PpProposal, PpProtocolBase, PpRequestId, PpRequestIdentity,
 };
 pub use identities::{
     PpActivityId, PpAssetId, PpJobId, PpLocatorId, PpMediaRootId, PpProductionId,
