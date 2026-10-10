@@ -4,6 +4,8 @@ use postproject_protocol::CheckpointChunk;
 use crate::{ExchangeResult, SqliteProduction, exchange::job_capture, sqlite_error};
 
 use super::super::writer::SectionWriter;
+#[cfg(test)]
+mod tests;
 
 pub(in crate::exchange::checkpoint) fn jobs<Sink: FnMut(CheckpointChunk) -> ExchangeResult<()>>(
     view: &SqliteProduction,
