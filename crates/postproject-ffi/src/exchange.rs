@@ -3,6 +3,8 @@
 mod error;
 mod outcome;
 mod prepare;
+#[cfg(test)]
+mod submission_tests;
 mod submission;
 #[cfg(test)]
 mod tests;

@@ -26,7 +26,7 @@ A proposal has stable client/request identities and ordered semantic commands.
 Keep those identities and prepared new-object IDs when retrying. Recover a lost
 reply by lookup or by submitting the same intent again. The returned receipt
 identifies that request's own revision; an accepted no-op has no new revision.
-The CLI example submits a no-op; the Rust example appends an exact integer.
+The CLI example submits a no-op; the Rust and C examples append an exact integer.
 Changed intent needs a new request. Destructive operations need a scoped decision
 base; a stale conflict requires a fresh read and a new decision.
 
@@ -51,9 +51,6 @@ Submit a portable proposal file, as shown below.
 ````
 
 ````{code-variants} exchange-submit
-```{no-variant} c
-The native proposal builder is not yet available. Use the development CLI.
-```
 ```{no-variant} cpp
 The C++ proposal builder is not yet available. Use the development CLI.
 ```
