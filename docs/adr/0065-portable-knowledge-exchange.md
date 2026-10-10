@@ -137,8 +137,11 @@ roll back their domain rows and queued observations while preserving unrelated
 edits. Job submissions reuse native operations and accept separately bound
 local ownership. Recovery precedes clock/claim checks and never reissues a lease.
 Job checkpoints preserve canonical requests and inert lifecycle observations,
-checking retained claim boundaries and original completion provenance. Installed
-submission projections remain pending.
+checking retained claim boundaries and original completion provenance. CLI
+submissions use explicit private files/stdin and reserve claim destinations before
+fresh staging. Retained recovery compares the original intent/private binding
+without reserving files or delivering ownership again. Native/Python projections
+remain pending.
 Public accepted outcomes retain one final summary per lifecycle-affected job,
 sorted by UUID: state, claimed expiry or successful publication IDs. Full request,
 attribution, diagnostic and input evidence remains in the receipt's effects.

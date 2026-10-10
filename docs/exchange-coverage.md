@@ -49,7 +49,11 @@ original revision/context, same-key history and observation events. Every curren
 native mutation family is captured. Explicit bounded resynchronization establishes a new floor for incomplete
 development histories while retaining earlier evidence and durable outcomes. Readers report `history_gap`;
 native changing commits with a missing predecessor fail and roll back.
-Installed exchange projections remain pending. Rust passive application validates metadata/media
+Rust and CLI file workflows now export, import and catch up through checked
+bounded readers. Source-built process tests cover native media writes, private
+worker delivery, exact duplicate recovery and explicit history resynchronization.
+Native/Python exchange projections and installed-candidate qualification remain
+pending. Rust passive application validates metadata/media
 records atomically, preserving original revision/events and semantic versions.
 All four content shapes converge across distinct files without media I/O.
 Repeated root/locator/file-fact transitions retain authored intermediates.

@@ -85,3 +85,13 @@ reserving or reissuing claim files, including after release or expiry. Lost
 delivery needs expiry or coordinator cancellation. A delivery error after commit
 uses `post_commit_failure` and the original receipt; recover the public outcome
 using the request identity. Mirror observations cannot authorize these actions.
+
+For incomplete early development history, `exchange history decision
+production.pproj decision.json` saves a fresh scoped mutation base without a
+replay digest. `exchange history resynchronize production.pproj --base
+decision.json` explicitly establishes a checked head floor when the chain has
+gaps. It preserves history identity, revisions, earlier evidence and private
+outcomes; complete chains retain their floor. Stale/foreign bases and mirrors
+reject. Optional `--max-records` and `--max-encoded-bytes` bound the audit.
+Success reports `floor`, never a newly authored revision. Export a new checkpoint
+for mirrors behind that floor. Ordinary opens and commits never perform recovery.

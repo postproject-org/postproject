@@ -65,6 +65,14 @@ same stream; verified duplicates create no revision. A missing predecessor or
 pre-floor position reports `history_gap` and requires a checkpoint. Unsupported
 required features reject; old histories are never guessed or merged.
 
+Incomplete early development history requires an explicit authority recovery:
+save `exchange history decision authority.pproj decision.json`, then run
+`exchange history resynchronize authority.pproj --base decision.json`.
+The operation checks a fresh scoped head, preserves earlier bytes, revisions and
+private outcomes, and establishes a new checkpoint floor only when necessary.
+Complete histories keep their floor. Export a new checkpoint for affected
+mirrors; recovery cannot promote a mirror or reconstruct missing bytes.
+
 Files carry bounded chunks, not media bytes. Defaults allow 1 GiB encoded input;
 checkpoint import also allows 2 GiB private database/journal space and 10 million
 frames/traversal operations. Raise receiver budgets explicitly for larger
