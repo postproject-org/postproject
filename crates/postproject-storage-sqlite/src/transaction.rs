@@ -2795,7 +2795,7 @@ pub(crate) fn encode_representation_kind(value: RepresentationKind) -> Result<i6
 }
 
 pub(crate) fn asset_exists(
-    transaction: &Transaction<'_>,
+    transaction: &Connection,
     asset_id: postproject_core::AssetId,
 ) -> Result<bool> {
     transaction
@@ -2818,7 +2818,7 @@ fn resource_exists(transaction: &Transaction<'_>, resource_id: ResourceId) -> Re
 }
 
 pub(crate) fn representation_exists(
-    transaction: &Transaction<'_>,
+    transaction: &Connection,
     representation_id: RepresentationId,
 ) -> Result<bool> {
     transaction
@@ -2889,7 +2889,7 @@ fn stored_job_invariant(message: &'static str) -> Error {
 }
 
 pub(crate) fn validate_dependency_references(
-    transaction: &Transaction<'_>,
+    transaction: &Connection,
     source_representation_id: RepresentationId,
     dependency: &Dependency,
 ) -> Result<()> {
