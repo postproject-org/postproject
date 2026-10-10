@@ -11,6 +11,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <exception>
+#include <filesystem>
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -6927,6 +6928,95 @@ private:
 
 class Production final {
 public:
+  [[nodiscard]] Result<ExchangeState> exchangeState() const {
+    pp_exchange_state_t state{};
+    pp_error_t *error = nullptr;
+    const auto status = pp_production_exchange_state(production_, &state, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    POSTPROJECT_TRY(detail::native_tag(state.role, PP_EXCHANGE_AUTHORITY,
+        PP_EXCHANGE_PASSIVE_MIRROR, "exchange role"));
+    if (state.has_head > 1)
+      return Error(ErrorCode::unsupported, "unknown exchange head presence");
+    const auto &limits = state.limits;
+    return ExchangeState{state.protocol_version, static_cast<ExchangeRole>(state.role),
+        state.supported_features, detail::protocol_base(state.observed_base),
+        detail::exchange_position(state.floor), state.has_head
+            ? std::optional<ExchangePosition>(detail::exchange_position(state.head)) : std::nullopt,
+        {limits.file_bytes, limits.disk_bytes, limits.frames, limits.document_bytes,
+         limits.document_depth, limits.document_nodes}};
+  }
+
+  [[nodiscard]] Result<ExchangePosition> exportCheckpoint(const std::filesystem::path &path) const {
+    POSTPROJECT_TRY_ASSIGN(auto text, detail::checked_string(path.u8string(), "checkpoint path"));
+    pp_exchange_position_t position{};
+    pp_error_t *error = nullptr;
+    const auto status = pp_production_export_checkpoint(production_, text.c_str(), &position, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    return detail::exchange_position(position);
+  }
+
+  [[nodiscard]] static Result<ExchangePosition> validateCheckpoint(
+      const std::filesystem::path &path, const ExchangeLimits &limits = {}) {
+    POSTPROJECT_TRY_ASSIGN(auto text, detail::checked_string(path.u8string(), "checkpoint path"));
+    const auto native_limits = detail::native_exchange_limits(limits);
+    pp_exchange_position_t position{};
+    pp_error_t *error = nullptr;
+    const auto status = pp_checkpoint_validate_file(text.c_str(), &native_limits, &position, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    return detail::exchange_position(position);
+  }
+
+  [[nodiscard]] static Result<Production> importCheckpoint(
+      const std::filesystem::path &path, const std::filesystem::path &destination,
+      const ExchangeLimits &limits = {}) {
+    POSTPROJECT_TRY_ASSIGN(auto text, detail::checked_string(path.u8string(), "checkpoint path"));
+    POSTPROJECT_TRY_ASSIGN(auto target, detail::checked_string(destination.u8string(), "mirror path"));
+    const auto native_limits = detail::native_exchange_limits(limits);
+    pp_production_t *production = nullptr;
+    pp_error_t *error = nullptr;
+    const auto status = pp_checkpoint_import_file(text.c_str(), target.c_str(),
+        &native_limits, &production, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    return Production(production);
+  }
+
+  [[nodiscard]] Result<ExchangePosition> exportChanges(
+      const ExchangePosition &from, const std::filesystem::path &path) const {
+    POSTPROJECT_TRY_ASSIGN(auto text, detail::checked_string(path.u8string(), "changes path"));
+    const auto native_from = detail::native_exchange_position(from);
+    pp_exchange_position_t through{};
+    pp_error_t *error = nullptr;
+    const auto status = pp_production_export_changes(production_, &native_from,
+        text.c_str(), &through, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    return detail::exchange_position(through);
+  }
+
+  // A failed apply may retain a complete prefix. Inspect after reopening and
+  // explicitly retry the same sealed file; verified duplicates are harmless.
+  [[nodiscard]] Result<ExchangePosition> applyChanges(
+      const std::filesystem::path &path, const ExchangeLimits &limits = {}) const {
+    POSTPROJECT_TRY_ASSIGN(auto text, detail::checked_string(path.u8string(), "changes path"));
+    const auto native_limits = detail::native_exchange_limits(limits);
+    pp_exchange_position_t through{};
+    pp_error_t *error = nullptr;
+    const auto status = pp_production_apply_changes(production_, text.c_str(),
+        &native_limits, &through, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    return detail::exchange_position(through);
+  }
+
+  [[nodiscard]] Result<ExchangePosition> resynchronizeHistory(
+      const ProtocolBase &base, std::uint64_t records, std::uint64_t encoded_bytes) const {
+    const auto native_base = detail::native_protocol_base(base);
+    pp_exchange_position_t floor{};
+    pp_error_t *error = nullptr;
+    const auto status = pp_production_resynchronize_history(production_, &native_base,
+        records, encoded_bytes, &floor, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    return detail::exchange_position(floor);
+  }
+
   [[nodiscard]] Result<QueryPage<RevisionEvent>>
   revisionEvents(const RevisionId &revision_id, std::uint32_t limit,
                  std::optional<std::string_view> cursor = std::nullopt) const {
