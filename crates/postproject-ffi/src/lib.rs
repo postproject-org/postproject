@@ -7195,14 +7195,14 @@ fn begin_transaction_handle(
 ) -> Result<*mut PpTransaction, Error> {
     {
         let production = lock_production(state);
-        if production.is_read_only() {
-            return Err(invalid_argument("a pinned read view cannot begin a write"));
-        }
         if production.exchange_role() == postproject_protocol::StoreRole::PassiveMirror {
             return Err(Error::new(
                 ErrorKind::Unsupported,
                 "passive mirror rejects native edits",
             ));
+        }
+        if production.is_read_only() {
+            return Err(invalid_argument("a pinned read view cannot begin a write"));
         }
     }
     if let Some(base_revision) = base_revision {
