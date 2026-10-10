@@ -105,7 +105,9 @@ fn current_job_stream_is_bounded_and_claims_are_inert_without_clock_or_secret() 
     );
 }
 
-fn fixture(path: &std::path::Path) -> (SqliteProduction, Vec<Job>, String) {
+pub(in crate::exchange::checkpoint) fn fixture(
+    path: &std::path::Path,
+) -> (SqliteProduction, Vec<Job>, String) {
     let mut source = SqliteProduction::create(path, None).unwrap();
     source.job_clock = Arc::new(FixedClock);
     let imports = [media(), media()];

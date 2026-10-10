@@ -5,7 +5,7 @@ mod activities;
 mod dependencies;
 mod fingerprints;
 mod history;
-mod jobs;
+pub(in crate::exchange::checkpoint) mod jobs;
 mod media;
 mod roots;
 mod versions;

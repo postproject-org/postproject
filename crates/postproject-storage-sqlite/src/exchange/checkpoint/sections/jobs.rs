@@ -5,7 +5,7 @@ use crate::{ExchangeResult, SqliteProduction, exchange::job_capture, sqlite_erro
 
 use super::super::writer::SectionWriter;
 #[cfg(test)]
-mod tests;
+pub(in crate::exchange::checkpoint) mod tests;
 
 pub(in crate::exchange::checkpoint) fn jobs<Sink: FnMut(CheckpointChunk) -> ExchangeResult<()>>(
     view: &SqliteProduction,

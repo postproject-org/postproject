@@ -1,3 +1,4 @@
+use postproject_core::QueryPageRequest;
 use postproject_core::{
     Asset, AssetId, ContentStructure, ExternalIdentifier, FileFacts, IdentifierScheme, Locator,
     LocatorAvailability, LocatorId, MediaRoot, MediaRootId, MetadataProperty, MetadataValue,
@@ -12,7 +13,7 @@ use crate::{
     SqliteProduction,
     exchange::checkpoint::import::{
         activity_state, dependency_state, fingerprint_state, guard_state, identifier_state,
-        locator_state, media_state, metadata_state, recomputation_state, root_state,
+        job_state, locator_state, media_state, metadata_state, recomputation_state, root_state,
     },
 };
 
@@ -50,14 +51,28 @@ pub(super) fn audit(source: &SqliteProduction, floor: u64, head: u64) {
     media_state::create(connection).unwrap();
     locator_state::create(connection).unwrap();
     identifier_state::create(connection).unwrap();
+    job_state::create(connection).unwrap();
     fingerprint_state::create(connection).unwrap();
     activity_state::create(connection, 10_000_000, || Ok(())).unwrap();
     recomputation_state::create(connection).unwrap();
     dependency_state::create(connection, 10_000_000).unwrap();
     for sequence in 1..=head {
         let revision = source.changes_since(sequence - 1, 1).unwrap().remove(0);
-        for event in source.events_for_revision(revision.id()).unwrap() {
-            guard_state::observed(connection, &event, sequence).unwrap();
+        let mut cursor = None;
+        loop {
+            let page = source
+                .events_for_revision_page(
+                    revision.id(),
+                    &QueryPageRequest::new(1000, cursor).unwrap(),
+                )
+                .unwrap();
+            for event in page.items() {
+                guard_state::observed(connection, event, sequence).unwrap();
+            }
+            let Some(next) = page.next_cursor() else {
+                break;
+            };
+            cursor = Some(next.clone());
         }
     }
     for sequence in floor + 1..=head {
@@ -78,6 +93,7 @@ pub(super) fn audit(source: &SqliteProduction, floor: u64, head: u64) {
         effects.finish().unwrap();
     }
     activity_state::finish(connection, floor).unwrap();
+    job_state::finish(connection, floor).unwrap();
     dependency_state::finish(connection, floor).unwrap();
     media_state::finish(connection, floor == 0).unwrap();
     locator_state::finish(connection, floor == 0).unwrap();
