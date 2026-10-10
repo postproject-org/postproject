@@ -1,4 +1,4 @@
-use postproject_core::{DecisionBase, OriginIdentity, RevisionContext};
+use postproject_core::{OriginIdentity, RevisionContext};
 use serde_json::{Value, json};
 
 use crate::{
@@ -8,10 +8,7 @@ use crate::{
 };
 
 pub(super) fn encode(proposal: &Proposal) -> Result<Value> {
-    let base = proposal.base().map(|base| json!({
-        "production":base.scope().production().to_string(),"history":base.scope().history().to_string(),
-        "revision":base.decision().revision_id().map(|id| id.to_string()),"sequence":base.decision().sequence().to_string()
-    }));
+    let base = proposal.base().map(|base| base.document().value);
     let origin = proposal
         .context()
         .origin()
@@ -77,14 +74,9 @@ pub(super) fn decode(value: &Value) -> Result<Proposal> {
     let client: ClientId = exact(&fields["client"])?;
     let request: RequestId = exact(&fields["request"])?;
     let base = nullable(&fields["base"], |value| {
-        let fields = object(value, &["production", "history", "revision", "sequence"])?;
-        let base_scope = Scope::new(exact(&fields["production"])?, exact(&fields["history"])?);
-        let decision = checked(DecisionBase::new(
-            base_scope.production(),
-            nullable(&fields["revision"], exact)?,
-            exact(&fields["sequence"])?,
-        ))?;
-        ProtocolBase::new(base_scope, decision)
+        ProtocolBase::from_document(&Document {
+            value: value.clone(),
+        })
     })?;
     let origin = nullable(&fields["origin"], |value| {
         let fields = object(value, &["name", "version", "uri"])?;

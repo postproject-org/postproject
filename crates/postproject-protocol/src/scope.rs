@@ -5,7 +5,7 @@ use std::{fmt, str::FromStr};
 use postproject_core::{DecisionBase, ProductionId};
 use uuid::Uuid;
 
-use crate::{FailureKind, ProtocolError, Result};
+use crate::{Document, FailureKind, ProtocolError, Result};
 
 macro_rules! identity {
     ($(#[$doc:meta])* $name:ident) => {
@@ -95,6 +95,37 @@ pub struct ProtocolBase {
 }
 
 impl ProtocolBase {
+    /// Encodes a detached decision without inventing a replay digest.
+    #[must_use]
+    pub fn document(self) -> Document {
+        Document {
+            value: serde_json::json!({
+                "production":self.scope.production().to_string(), "history":self.scope.history().to_string(),
+                "revision":self.decision.revision_id().map(|id| id.to_string()), "sequence":self.decision.sequence().to_string()
+            }),
+        }
+    }
+
+    /// Decodes exact source scope and checked revision/sequence fields.
+    ///
+    /// # Errors
+    /// Rejects unknown fields, malformed identities/integers and inconsistent
+    /// decisions. Storage still verifies history and revision membership.
+    pub fn from_document(document: &Document) -> Result<Self> {
+        use crate::fields::{checked, exact, nullable, object};
+        let fields = object(
+            &document.value,
+            &["production", "history", "revision", "sequence"],
+        )?;
+        let scope = Scope::new(exact(&fields["production"])?, exact(&fields["history"])?);
+        let decision = checked(DecisionBase::new(
+            scope.production(),
+            nullable(&fields["revision"], exact)?,
+            exact(&fields["sequence"])?,
+        ))?;
+        Self::new(scope, decision)
+    }
+
     /// Binds a detached decision without discarding source-history scope.
     ///
     /// # Errors
