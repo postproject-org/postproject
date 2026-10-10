@@ -3,6 +3,8 @@
 mod baseline;
 mod occurrence;
 mod replacement;
+#[cfg(test)]
+mod tests;
 
 pub(super) use replacement::Replacement;
 

@@ -74,4 +74,5 @@ fn every_retained_observation_needs_an_authored_effect_explanation() {
     }
 }
 mod activity;
+mod dependency;
 mod media;
