@@ -262,3 +262,38 @@ fn inspection_reports_incomplete_head_without_hiding_corruption() {
         assert_eq!(state.observed_base.decision.revision_sequence, 0);
     }
 }
+
+#[test]
+fn proposal_parser_bounds_lengths_before_reading_and_clears_failed_outputs() {
+    let mut output = ptr::dangling_mut();
+    // SAFETY: Oversized input is rejected before dereferencing the deliberately
+    // unreadable pointer; all accepted-length fixtures are live byte slices.
+    unsafe {
+        assert_eq!(
+            pp_proposal_parse(ptr::dangling(), u64::MAX, &raw mut output, ptr::null_mut()),
+            13
+        );
+        assert!(output.is_null());
+        for bytes in [
+            b"{}".as_slice(),
+            b"{\"kind\":\"proposal\",\"kind\":\"proposal\"}".as_slice(),
+            &[0xff],
+        ] {
+            assert_eq!(
+                pp_proposal_parse(
+                    bytes.as_ptr(),
+                    u64::try_from(bytes.len()).unwrap(),
+                    &raw mut output,
+                    ptr::null_mut()
+                ),
+                12
+            );
+            assert!(output.is_null());
+        }
+        assert_eq!(
+            pp_proposal_parse(ptr::null(), 0, &raw mut output, ptr::null_mut()),
+            crate::PP_ERROR_INVALID_ARGUMENT
+        );
+        assert!(output.is_null());
+    }
+}

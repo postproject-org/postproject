@@ -179,10 +179,66 @@ fn fresh_claim(production: &PpProduction, job: PpJobId) -> *mut crate::PpJobLeas
     }
 }
 
+fn private_token(lease: *const crate::PpJobLease) -> Vec<u8> {
+    let mut token = ptr::null_mut();
+    // SAFETY: Test keeps ownership live while copying explicit private transport.
+    unsafe {
+        assert_eq!(
+            pp_job_lease_export_token(lease, &raw mut token, ptr::null_mut()),
+            crate::PP_OK
+        );
+        let bytes = CStr::from_ptr(token).to_bytes().to_vec();
+        crate::pp_string_release(token);
+        bytes
+    }
+}
+
+fn assert_token_recovery(
+    directory: &tempfile::TempDir,
+    proposal: *const PpProposal,
+    original: *const PpOutcome,
+    token: &[u8],
+) {
+    let reopened = production_handle(
+        SqliteProduction::open(directory.path().join("authority.pproj")).unwrap(),
+    );
+    let input = PpPrivateLeaseToken {
+        bytes: token.as_ptr(),
+        length: u64::try_from(token.len()).unwrap(),
+    };
+    let mut delivery = ptr::null_mut();
+    let mut outcome = ptr::null_mut();
+    // SAFETY: All caller arrays, private bytes and serialized handles stay live.
+    unsafe {
+        assert_eq!(
+            pp_production_submit_proposal(
+                &raw const reopened,
+                proposal,
+                ptr::null(),
+                0,
+                &raw const input,
+                1,
+                &raw mut delivery,
+                ptr::null_mut()
+            ),
+            crate::PP_OK
+        );
+        assert_eq!(pp_submission_lease_count(delivery), 0);
+        assert_eq!(
+            pp_submission_outcome(delivery, &raw mut outcome, ptr::null_mut()),
+            crate::PP_OK
+        );
+        assert_eq!(document(outcome), document(original));
+        pp_outcome_release(outcome);
+        pp_submission_release(delivery);
+    }
+}
+
 #[test]
 fn private_native_handle_recovery_precedes_current_ownership_checks() {
-    let (_directory, production, job) = authority();
+    let (directory, production, job) = authority();
     let lease = fresh_claim(&production, job);
+    let token = private_token(lease);
     // SAFETY: All pointers remain live and serialized; every allocation freed once.
     unsafe {
         let edit = begin_transaction_handle(&production.state, None, None).unwrap();
@@ -212,6 +268,7 @@ fn private_native_handle_recovery_precedes_current_ownership_checks() {
             (*lease).shared.state().unwrap(),
             postproject_core::JobLeaseState::Closed
         );
+        assert_token_recovery(&directory, proposal, original, &token);
         let recovered = submit(&production, proposal, &[lease]);
         assert_eq!(pp_submission_lease_count(recovered), 0);
         let mut outcome = ptr::null_mut();
