@@ -693,6 +693,7 @@ version = "0.7.0-alpha.1"
 dependencies = [
  "postproject-core",
  "postproject-media",
+ "postproject-protocol",
  "postproject-storage-sqlite",
  "tempfile",
 ]

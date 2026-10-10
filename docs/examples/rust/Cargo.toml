@@ -14,6 +14,7 @@ publish = false
 [dev-dependencies]
 postproject-core = { version = "0.7.0-alpha.1", path = "../../../crates/postproject-core" }
 postproject-media = { version = "0.7.0-alpha.1", path = "../../../crates/postproject-media" }
+postproject-protocol = { version = "0.7.0-alpha.1", path = "../../../crates/postproject-protocol" }
 postproject-storage-sqlite = { version = "0.7.0-alpha.1", path = "../../../crates/postproject-storage-sqlite" }
 tempfile = "3"
 
