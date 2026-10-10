@@ -1,0 +1,32 @@
+{
+  "qualification": "Development exchange projections; not release candidate acceptance",
+  "package": "0.7.0-alpha.1",
+  "python": "0.7.0a1",
+  "abi": 52,
+  "exports": 349,
+  "public_structs": 36,
+  "schema": 27,
+  "platform": "Linux x86_64",
+  "sources": {
+    "linked_rust": "016297a5ef3072fe532cf8b56acba7bf62374948",
+    "installed_cpp": "541544b63c582b1e77f00fb5b9bed884ec627d06",
+    "wheel_and_final_checks": "9b89f0736f4195a765c9260725ab8cc570fd19f5"
+  },
+  "sha256": {
+    "libpostproject.so": "84880892e536363e472b5bc7931d2c1729d45b6c426631486fbc350e19b7254e",
+    "libpostproject.a": "7ba9d0b4738f9b8c4341460632d6cd9718c3ec65abc0e0db2fb59b1245d2c230",
+    "postproject-0.7.0a1-py3-none-linux_x86_64.whl": "d15225f7af18557ea37b5e32c0fb786019683fdec34c5d144326930e3bcc1835"
+  },
+  "checks": [
+    "Full workspace/all-feature tests and doctests, including 38 FFI tests; strict lint and Rustdoc",
+    "Rust 1.85.0 workspace/all-target/all-feature locked check using checksum-verified official tools",
+    "349 release exports and 36 C/Rust/ctypes size, alignment and field-offset layouts",
+    "Nine installed ABI consumer checks; exact C11 and C++17",
+    "Eight installed C, C++, no-exceptions C++ and Python exchange recipe checks",
+    "Six C/C++ exchange preparation/recipe checks under AddressSanitizer and UndefinedBehaviorSanitizer",
+    "Installed Python 3.11.15 and 3.14.7 wheels: 133 tests, one skip each",
+    "Installed recipe typing and twelve negative wrong-ID static checks",
+    "Dependency policy, architecture, inventory, example coverage, Doxygen coverage and Sphinx"
+  ],
+  "limits": "Local Linux evidence. Rust shared library was not sanitizer-instrumented. LeakSanitizer required execution outside the traced sandbox. Wheel has a Linux tag, not a manylinux claim. Remaining conformance, ecosystem, handoff and platform qualification is pending."
+}
