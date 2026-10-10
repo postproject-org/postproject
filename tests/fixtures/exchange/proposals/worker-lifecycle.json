@@ -1,0 +1,124 @@
+{
+  "kind": "proposal",
+  "version": "1",
+  "required_features": [
+    "jobs.v1",
+    "media.v1",
+    "provenance.v1"
+  ],
+  "production": "00000000-0000-4000-8000-000000000001",
+  "history": "00000000-0000-4000-8000-000000000002",
+  "client": "00000000-0000-4000-8000-000000000003",
+  "request": "00000000-0000-4000-8000-00000000006f",
+  "base": null,
+  "origin": null,
+  "message": "Fixed independent Python vector",
+  "commands": [
+    {
+      "kind": "job.renew",
+      "id": "00000000-0000-4000-8000-00000000000b",
+      "duration_micros": "1"
+    },
+    {
+      "kind": "job.release",
+      "id": "00000000-0000-4000-8000-00000000000b"
+    },
+    {
+      "kind": "job.fail",
+      "id": "00000000-0000-4000-8000-00000000000b",
+      "diagnostic": "  Exact \u540c \ud83d\ude00  "
+    },
+    {
+      "kind": "job.complete",
+      "id": "00000000-0000-4000-8000-00000000000b",
+      "output": {
+        "header": {
+          "kind": "representation.header",
+          "id": "00000000-0000-4000-8000-00000000000a",
+          "asset_id": "00000000-0000-4000-8000-000000000005",
+          "role": "proxy"
+        },
+        "structure": [
+          {
+            "kind": "structure.header",
+            "representation_id": "00000000-0000-4000-8000-00000000000a",
+            "content": {
+              "shape": "single",
+              "resource_id": "00000000-0000-4000-8000-00000000000c"
+            }
+          }
+        ],
+        "fingerprints": [],
+        "resources": [
+          {
+            "header": {
+              "kind": "resource.header",
+              "id": "00000000-0000-4000-8000-00000000000c",
+              "file_facts": null
+            },
+            "fingerprints": []
+          }
+        ],
+        "locators": [
+          {
+            "kind": "locator.fact",
+            "id": "00000000-0000-4000-8000-000000000070",
+            "resource_id": "00000000-0000-4000-8000-00000000000c",
+            "uri": "file:///missing/Exact.mov",
+            "last_seen_micros": null,
+            "availability": "offline",
+            "media_root": null,
+            "sequence_naming": null
+          }
+        ]
+      },
+      "activity": {
+        "kind": "activity.create",
+        "header": {
+          "kind": "activity.header",
+          "id": "00000000-0000-4000-8000-000000000009",
+          "activity_kind": "vendor:Build",
+          "started_at_micros": "-9007199254740993",
+          "finished_at_micros": "9007199254740993",
+          "input_count": "2",
+          "output_count": "1",
+          "tool": {
+            "name": "Worker \ud83d\ude00",
+            "version": "Exact",
+            "uri": "urn:vendor:worker"
+          },
+          "agent": null
+        },
+        "inputs": [
+          {
+            "representation_id": "00000000-0000-4000-8000-000000000006",
+            "role": "vendor:source"
+          },
+          {
+            "representation_id": "00000000-0000-4000-8000-000000000007",
+            "role": null
+          }
+        ],
+        "outputs": [
+          {
+            "representation_id": "00000000-0000-4000-8000-00000000000a",
+            "role": null
+          }
+        ]
+      }
+    },
+    {
+      "kind": "job.cancel",
+      "id": "00000000-0000-4000-8000-00000000000b"
+    }
+  ],
+  "extensions": {
+    "vendor:exact": {
+      "ordered": [
+        "\u540c",
+        "\u540c",
+        "\ud83d\ude00"
+      ]
+    }
+  }
+}
