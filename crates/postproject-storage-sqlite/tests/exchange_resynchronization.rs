@@ -1,5 +1,8 @@
 //! Explicit recovery preserves evidence; complete histories retain their floor.
 
+#[path = "exchange_resynchronization/checkpoint.rs"]
+mod checkpoint;
+
 use postproject_core::{
     MetadataProperty, MetadataValue, ObjectRef, PropertyId, RevisionContext, VocabularyId,
 };
