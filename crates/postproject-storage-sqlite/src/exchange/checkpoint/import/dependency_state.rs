@@ -3,10 +3,14 @@
 mod baseline;
 mod occurrence;
 mod replacement;
+mod snapshots;
 #[cfg(test)]
 mod tests;
+mod walk;
 
 pub(super) use replacement::Replacement;
+pub(super) use snapshots::{segment, subject};
+pub(super) use walk::validate_paths;
 
 use postproject_core::RepresentationId;
 use rusqlite::{Connection, OptionalExtension, params};
