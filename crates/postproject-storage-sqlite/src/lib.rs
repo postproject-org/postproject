@@ -269,10 +269,18 @@ impl SqliteProduction {
     /// Returns `history_gap` when the native head has incomplete effect capture,
     /// or storage failures for an invalid persisted boundary.
     pub fn exchange_head(&self) -> ExchangeResult<postproject_protocol::Position> {
+        if self.read_scope.is_some() {
+            return self.exchange_head_from_view();
+        }
         let view = self.read_session()?;
-        let sequence = view.decision_base().sequence();
-        let reader = view.into_read_only();
-        exchange::position(&reader.connection, reader.production.id(), sequence)?.ok_or_else(|| {
+        view.into_read_only().exchange_head_from_view()
+    }
+
+    fn exchange_head_from_view(&self) -> ExchangeResult<postproject_protocol::Position> {
+        let sequence = self
+            .latest_revision()?
+            .map_or(0, |revision| revision.sequence());
+        exchange::position(&self.connection, self.production.id(), sequence)?.ok_or_else(|| {
             postproject_protocol::ProtocolError::new(
                 postproject_protocol::FailureKind::HistoryGap,
                 "native head has no complete replay boundary",
