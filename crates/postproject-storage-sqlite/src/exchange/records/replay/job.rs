@@ -3,7 +3,7 @@ mod request;
 
 use postproject_core::{JobState, RepresentationId, RevisionEventKind};
 use postproject_protocol::{JobHeader, JobInput, JobOperation, JobTransition, RecordManifest};
-use rusqlite::{Transaction, params};
+use rusqlite::{Connection, Transaction, params};
 
 use super::{effects::invalid, facts};
 use crate::{
@@ -100,7 +100,7 @@ pub(super) fn transition(
         return Err(invalid().into());
     }
     if let JobState::Succeeded(completion) = change.state() {
-        completion_valid(transaction, manifest, &header, completion)?;
+        completion_valid(transaction, manifest.revision().id(), &header, completion)?;
     }
     if change.operation() == JobOperation::Complete {
         let latest: Option<i64> = transaction
@@ -155,25 +155,27 @@ fn persist_state(
     Ok(())
 }
 
-fn completion_valid(
-    transaction: &Transaction<'_>,
-    manifest: &RecordManifest,
+pub(in crate::exchange) fn completion_valid(
+    transaction: &Connection,
+    revision: postproject_core::RevisionId,
     header: &JobHeader,
     completion: &postproject_core::JobCompletion,
 ) -> ExchangeResult<()> {
     let output = header.requested_output();
     let valid: bool = transaction.query_row("SELECT
         EXISTS(SELECT 1 FROM representations WHERE id = ?1 AND asset_id = ?2 AND kind = ?3)
-        AND EXISTS(SELECT 1 FROM revision_events WHERE revision_id = ?4 AND kind = 2 AND primary_id = ?1)
-        AND EXISTS(SELECT 1 FROM revision_events WHERE revision_id = ?4 AND kind = 11 AND primary_id = ?5)
+        AND EXISTS(SELECT 1 FROM revision_events WHERE revision_id = ?4 AND kind = ?7 AND primary_id = ?1)
+        AND EXISTS(SELECT 1 FROM revision_events WHERE revision_id = ?4 AND kind = ?8 AND primary_id = ?5)
         AND (SELECT count(*) FROM activity_outputs WHERE activity_id = ?5) = 1
         AND EXISTS(SELECT 1 FROM activity_outputs WHERE activity_id = ?5 AND representation_id = ?1)
         AND (SELECT count(*) FROM activity_inputs WHERE activity_id = ?5) = (SELECT count(*) FROM job_inputs WHERE job_id = ?6)
         AND NOT EXISTS(SELECT 1 FROM job_inputs j WHERE j.job_id = ?6 AND
             (SELECT count(*) FROM activity_inputs a WHERE a.activity_id = ?5 AND a.representation_id = j.representation_id) != 1)",
         params![completion.representation_id().as_bytes().as_slice(), output.asset_id().as_bytes().as_slice(),
-            encode_representation_kind(output.representation_kind())?, manifest.revision().id().as_bytes().as_slice(),
-            completion.activity_id().as_bytes().as_slice(), header.id().as_bytes().as_slice()], |row| row.get(0))
+            encode_representation_kind(output.representation_kind())?, revision.as_bytes().as_slice(),
+            completion.activity_id().as_bytes().as_slice(), header.id().as_bytes().as_slice(),
+            crate::stored_revision_event_kind(postproject_core::RevisionEventType::RepresentationAdded)?,
+            crate::stored_revision_event_kind(postproject_core::RevisionEventType::ActivityCreated)?], |row| row.get(0))
         .map_err(sqlite_error("validate replayed job publication"))?;
     if !valid {
         return Err(invalid().into());
