@@ -26,9 +26,9 @@ Schema 24 fragments canonical chunk envelopes below SQLite's value bound while
 retaining their exact bytes, identities and digests. Metadata/media replay uses
 that storage in one writer transaction, with explicit receiver budgets and
 original event cross-checks. Genesis initialization creates an empty passive
-file with the source header and anchor. Production-metadata checkpoints retain
-current assertions, original history, semantic guards and complete post-floor
-records. Other domain sections and earlier development fragments remain unsupported.
+file with the source header and anchor. Checkpoints retain all portable domain
+sections, original history, semantic guards and complete post-floor records.
+Earlier development evidence travels separately under ADR 0066.
 
 Import uses an owned private directory on the destination filesystem, one SQL
 transaction and explicit byte, disk and decoding-work budgets. The production
@@ -160,8 +160,10 @@ Dependency checkpoints retain ordered replacements, empty observations and dirty
 state. Retained effects explain current sets and original observation boundaries;
 activity paths use the bounded native walk against their authored prefix. Available
 baseline rows and captured segments constrain partial knowledge; erased pre-floor
-contents remain unknown, never inferred from today's replacement. Job checkpoint
-bodies remain unsupported.
+contents remain unknown, never inferred from today's replacement. Job checkpoints
+retain immutable requests, canonical inputs and inert lifecycle observations.
+Retained transitions validate original claim and completion input boundaries,
+output ownership and provenance; no destination clock authorizes execution.
 Logical roots now carry their original configuration and deletion guards. A
 private bounded consistency audit checks retained transitions against current
 roots; unknown migration facts remain baseline facts, never invented additions.

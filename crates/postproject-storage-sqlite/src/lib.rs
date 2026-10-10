@@ -179,7 +179,7 @@ impl SqliteProduction {
         )
     }
 
-    /// Validates a metadata checkpoint and creates a new passive mirror.
+    /// Validates a complete portable checkpoint and creates a new passive mirror.
     ///
     /// Uses private staging on the destination filesystem and publishes only
     /// after completeness, domain, history and digest checks. Existing files

@@ -68,8 +68,9 @@ restart preserves unrelated files and altered/existing destinations.
 Activity checkpoint-plus-suffix routes retain original snapshots, exact attachments
 and ordinary artifact/staleness results after later observations and reopen.
 Rehashed activity contradictions reject without a destination or staging leftovers.
-Job bodies, pre-floor development fragments and checkpoint envelope
-extensions remain unsupported. Complete production checkpoints remain pending.
+Earlier development evidence travels in bounded, non-executable archive bodies.
+Checkpoint envelope extensions remain unsupported. Installed whole-production
+recipes and final qualification remain pending.
 Identified metadata/media submissions retain accepted/no-op/rejected public
 outcomes in the same writer transaction. Root, locator, identifier and file-fact
 commands reuse native bases and guards; reopen recovery precedes reevaluation,
@@ -91,8 +92,8 @@ intent and private context before current-state guards. Installed worker
 input/delivery surfaces remain pending.
 Persisted passive roles reject native transaction opens and token import while
 retaining ordinary reads and coherent sessions. Role tests cover reopen and
-writer-lock enforcement; checkpoint tests cover the production-metadata slice
-rather than the full portable inventory.
+writer-lock enforcement; checkpoint tests cover all portable domain sections,
+including historical evidence and inert jobs. Installed role checks remain pending.
 
 ## Mutations and effect requirements
 
