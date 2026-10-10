@@ -11,9 +11,6 @@ same complete domain checks in temporary private storage. Existing destinations
 and incomplete streams reject without publishing a partial mirror.
 
 ````{code-variants} exchange-checkpoint
-```{no-variant} cpp
-The C++ exchange projection is not yet available. Use the development CLI.
-```
 ```{no-variant} python
 The Python exchange projection is not yet available. Use the development CLI.
 ```
@@ -36,9 +33,6 @@ submission and retries; pending native claims close during preparation.
 ```{no-variant} rust
 Construct checked Command values directly, as shown below.
 ```
-```{no-variant} cpp
-The C++ proposal wrapper is being implemented.
-```
 ```{no-variant} python
 The Python proposal wrapper is being implemented.
 ```
@@ -48,9 +42,6 @@ Submit a portable proposal file, as shown below.
 ````
 
 ````{code-variants} exchange-submit
-```{no-variant} cpp
-The C++ proposal builder is not yet available. Use the development CLI.
-```
 ```{no-variant} python
 The Python proposal builder is not yet available. Use the development CLI.
 ```
@@ -62,9 +53,6 @@ Positions retain production, history, revision, sequence and digest. Observation
 feed cursors and connection-local query cursors cannot substitute for them.
 
 ````{code-variants} exchange-catch-up
-```{no-variant} cpp
-The C++ catch-up projection is not yet available. Use the development CLI.
-```
 ```{no-variant} python
 The Python catch-up projection is not yet available. Use the development CLI.
 ```

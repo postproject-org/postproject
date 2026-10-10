@@ -1923,6 +1923,21 @@ struct JobCancelled final {};
 using JobStatus = std::variant<JobRequested, JobClaim, JobCompletion, JobFailure,
                                JobCancelled>;
 
+// Public observations at the original receipt, without execution authority.
+struct ClaimedJobResult final { std::int64_t expires_at_unix_micros; };
+struct FailedJobResult final {};
+using JobResultStatus = std::variant<JobRequested, ClaimedJobResult, JobCompletion,
+                                     FailedJobResult, JobCancelled>;
+struct JobResult final {
+  JobId job_id;
+  JobResultStatus status;
+};
+struct SubmissionOutcome final {
+  std::variant<CommitReceipt, Error> status;
+  std::vector<JobResult> jobs;
+  std::vector<std::uint8_t> document;
+};
+
 struct Job final {
   JobId id;
   std::string kind;
@@ -4110,6 +4125,67 @@ inline DecisionBase decision_base(const pp_decision_base_t &base) {
 }
 
 
+inline Result<std::string> exchange_path(const std::filesystem::path &path, const char *label) {
+  const auto encoded = path.u8string();
+  return checked_string(std::string_view(reinterpret_cast<const char *>(encoded.data()),
+      encoded.size()), label);
+}
+
+inline Result<SubmissionOutcome> submission_outcome(pp_outcome_t *raw) {
+  const std::unique_ptr<pp_outcome_t, decltype(&pp_outcome_release)> owned(raw, pp_outcome_release);
+  std::uint32_t status = 0;
+  pp_error_t *error = nullptr;
+  POSTPROJECT_TRY(check(pp_outcome_status(raw, &status, &error), error));
+  POSTPROJECT_TRY(native_tag(status, PP_OUTCOME_ACCEPTED, PP_OUTCOME_REJECTED, "submission outcome"));
+  auto terminal = [&]() -> Result<std::variant<CommitReceipt, Error>> {
+    if (status == PP_OUTCOME_ACCEPTED) {
+      pp_commit_receipt_t receipt{};
+      POSTPROJECT_TRY(check(pp_outcome_receipt(raw, &receipt, &error), error));
+      POSTPROJECT_TRY(native_tag(receipt.outcome, PP_COMMIT_NO_CHANGE,
+          PP_COMMIT_REVISION_CREATED, "commit outcome"));
+      CommitReceipt value{production_id(receipt.production_id), std::nullopt};
+      if (receipt.outcome == PP_COMMIT_REVISION_CREATED)
+        value.revision = CommittedRevision{revision_id(receipt.revision_id), receipt.revision_sequence};
+      return std::variant<CommitReceipt, Error>(std::move(value));
+    }
+    pp_error_t *rejection = nullptr;
+    POSTPROJECT_TRY(check(pp_outcome_rejection(raw, &rejection, &error), error));
+    if (!rejection) return Error(ErrorCode::internal, "rejected outcome has no rejection");
+    const auto rejected = check(pp_error_code(rejection), rejection);
+    if (rejected) return Error(ErrorCode::internal, "rejected outcome has no rejection");
+    return std::variant<CommitReceipt, Error>(rejected.error());
+  };
+  POSTPROJECT_TRY_ASSIGN(auto selected, terminal());
+  std::vector<JobResult> jobs;
+  const auto count = pp_outcome_job_count(raw);
+  jobs.reserve(static_cast<std::size_t>(count));
+  for (std::uint64_t index = 0; index < count; ++index) {
+    pp_job_id_t id{};
+    std::uint32_t state = 0;
+    POSTPROJECT_TRY(check(pp_outcome_job_get(raw, index, &id, &state, &error), error));
+    POSTPROJECT_TRY(native_tag(state, PP_JOB_REQUESTED, PP_JOB_CANCELLED, "job result"));
+    JobResultStatus observed;
+    if (state == PP_JOB_CLAIMED) {
+      std::int64_t expiry = 0;
+      POSTPROJECT_TRY(check(pp_outcome_job_expiry(raw, index, &expiry, &error), error));
+      observed = ClaimedJobResult{expiry};
+    } else if (state == PP_JOB_SUCCEEDED) {
+      pp_job_completion_t completion{};
+      POSTPROJECT_TRY(check(pp_outcome_job_completion(raw, index, &completion, &error), error));
+      observed = JobCompletion{activity_id(completion.activity_id),
+          representation_id(completion.representation_id)};
+    } else if (state == PP_JOB_FAILED) observed = FailedJobResult{};
+    else if (state == PP_JOB_CANCELLED) observed = JobCancelled{};
+    else observed = JobRequested{};
+    jobs.push_back({job_id(id), std::move(observed)});
+  }
+  const std::uint8_t *bytes = nullptr;
+  std::uint64_t length = 0;
+  POSTPROJECT_TRY(check(pp_outcome_document(raw, &bytes, &length, &error), error));
+  return SubmissionOutcome{std::move(selected), std::move(jobs),
+      std::vector<std::uint8_t>(bytes, bytes + length)};
+}
+
 template <typename Native, typename Id>
 inline Native native_exchange_id(const Id &value) {
   Native native{};
@@ -5371,6 +5447,17 @@ private:
     return Info{detail::production_id(production), detail::job_id(job), std::move(ownership)};
   }
   pp_job_lease_t *lease_ = nullptr;
+};
+
+struct SubmissionResult final {
+  SubmissionResult(SubmissionOutcome facts, std::vector<JobLease> ownership)
+      : outcome(std::move(facts)), leases(std::move(ownership)) {}
+  SubmissionResult(const SubmissionResult &) = delete;
+  SubmissionResult &operator=(const SubmissionResult &) = delete;
+  SubmissionResult(SubmissionResult &&) noexcept = default;
+  SubmissionResult &operator=(SubmissionResult &&) noexcept = default;
+  SubmissionOutcome outcome;
+  std::vector<JobLease> leases;
 };
 
 // Immutable prepared intent. Destruction never submits or commits it.
@@ -6928,6 +7015,52 @@ private:
 
 class Production final {
 public:
+  // Private handles/tokens are borrowed explicitly; retained retries do not
+  // export a token or reauthorize current ownership before the native lookup.
+  [[nodiscard]] Result<SubmissionResult> submitProposal(const Proposal &proposal,
+      const std::vector<std::reference_wrapper<const JobLease>> &leases = {},
+      const std::vector<std::string> &private_tokens = {}) const {
+    if (leases.size() > 1000 || private_tokens.size() > 1000 - leases.size())
+      return Error(ErrorCode::limit_exceeded, "too many private submission entries");
+    std::vector<const pp_job_lease_t *> native_leases;
+    native_leases.reserve(leases.size());
+    for (const auto &lease : leases) {
+      POSTPROJECT_TRY(lease.get().require_open());
+      native_leases.push_back(lease.get().lease_);
+    }
+    std::vector<pp_private_lease_token_t> native_tokens;
+    native_tokens.reserve(private_tokens.size());
+    for (const auto &token : private_tokens)
+      native_tokens.push_back({reinterpret_cast<const std::uint8_t *>(token.data()), token.size()});
+    pp_submission_t *raw = nullptr;
+    pp_error_t *error = nullptr;
+    const auto status = pp_production_submit_proposal(production_, proposal.proposal_,
+        native_leases.data(), native_leases.size(), native_tokens.data(), native_tokens.size(), &raw, &error);
+    const std::unique_ptr<pp_submission_t, decltype(&pp_submission_release)> owned(raw, pp_submission_release);
+    POSTPROJECT_TRY(detail::check(status, error));
+    pp_outcome_t *outcome = nullptr;
+    POSTPROJECT_TRY(detail::check(pp_submission_outcome(raw, &outcome, &error), error));
+    POSTPROJECT_TRY_ASSIGN(auto facts, detail::submission_outcome(outcome));
+    std::vector<JobLease> delivered;
+    const auto count = pp_submission_lease_count(raw);
+    delivered.reserve(static_cast<std::size_t>(count));
+    for (std::uint64_t index = 0; index < count; ++index) {
+      pp_job_lease_t *lease = nullptr;
+      POSTPROJECT_TRY(detail::check(pp_submission_take_lease(raw, index, &lease, &error), error));
+      delivered.push_back(JobLease(lease));
+    }
+    return SubmissionResult{std::move(facts), std::move(delivered)};
+  }
+
+  [[nodiscard]] Result<SubmissionOutcome> submissionOutcome(const RequestIdentity &identity) const {
+    const auto native = detail::native_request_identity(identity);
+    pp_outcome_t *outcome = nullptr;
+    pp_error_t *error = nullptr;
+    const auto status = pp_production_submission_outcome(production_, &native, &outcome, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    return detail::submission_outcome(outcome);
+  }
+
   [[nodiscard]] Result<ExchangeState> exchangeState() const {
     pp_exchange_state_t state{};
     pp_error_t *error = nullptr;
@@ -6947,7 +7080,7 @@ public:
   }
 
   [[nodiscard]] Result<ExchangePosition> exportCheckpoint(const std::filesystem::path &path) const {
-    POSTPROJECT_TRY_ASSIGN(auto text, detail::checked_string(path.u8string(), "checkpoint path"));
+    POSTPROJECT_TRY_ASSIGN(auto text, detail::exchange_path(path, "checkpoint path"));
     pp_exchange_position_t position{};
     pp_error_t *error = nullptr;
     const auto status = pp_production_export_checkpoint(production_, text.c_str(), &position, &error);
@@ -6957,7 +7090,7 @@ public:
 
   [[nodiscard]] static Result<ExchangePosition> validateCheckpoint(
       const std::filesystem::path &path, const ExchangeLimits &limits = {}) {
-    POSTPROJECT_TRY_ASSIGN(auto text, detail::checked_string(path.u8string(), "checkpoint path"));
+    POSTPROJECT_TRY_ASSIGN(auto text, detail::exchange_path(path, "checkpoint path"));
     const auto native_limits = detail::native_exchange_limits(limits);
     pp_exchange_position_t position{};
     pp_error_t *error = nullptr;
@@ -6969,8 +7102,8 @@ public:
   [[nodiscard]] static Result<Production> importCheckpoint(
       const std::filesystem::path &path, const std::filesystem::path &destination,
       const ExchangeLimits &limits = {}) {
-    POSTPROJECT_TRY_ASSIGN(auto text, detail::checked_string(path.u8string(), "checkpoint path"));
-    POSTPROJECT_TRY_ASSIGN(auto target, detail::checked_string(destination.u8string(), "mirror path"));
+    POSTPROJECT_TRY_ASSIGN(auto text, detail::exchange_path(path, "checkpoint path"));
+    POSTPROJECT_TRY_ASSIGN(auto target, detail::exchange_path(destination, "mirror path"));
     const auto native_limits = detail::native_exchange_limits(limits);
     pp_production_t *production = nullptr;
     pp_error_t *error = nullptr;
@@ -6982,7 +7115,7 @@ public:
 
   [[nodiscard]] Result<ExchangePosition> exportChanges(
       const ExchangePosition &from, const std::filesystem::path &path) const {
-    POSTPROJECT_TRY_ASSIGN(auto text, detail::checked_string(path.u8string(), "changes path"));
+    POSTPROJECT_TRY_ASSIGN(auto text, detail::exchange_path(path, "changes path"));
     const auto native_from = detail::native_exchange_position(from);
     pp_exchange_position_t through{};
     pp_error_t *error = nullptr;
@@ -6996,7 +7129,7 @@ public:
   // explicitly retry the same sealed file; verified duplicates are harmless.
   [[nodiscard]] Result<ExchangePosition> applyChanges(
       const std::filesystem::path &path, const ExchangeLimits &limits = {}) const {
-    POSTPROJECT_TRY_ASSIGN(auto text, detail::checked_string(path.u8string(), "changes path"));
+    POSTPROJECT_TRY_ASSIGN(auto text, detail::exchange_path(path, "changes path"));
     const auto native_limits = detail::native_exchange_limits(limits);
     pp_exchange_position_t through{};
     pp_error_t *error = nullptr;
