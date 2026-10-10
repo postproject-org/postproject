@@ -10,6 +10,7 @@ mod artifact_reasons;
 mod dependency_evaluation;
 mod dependency_snapshot;
 mod exchange;
+pub mod exchange_file;
 mod job_clock;
 mod job_lease;
 mod metadata_codec;

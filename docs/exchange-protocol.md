@@ -6,6 +6,25 @@ these workflows. See [ADR 0065](adr/0065-portable-knowledge-exchange.md).
 
 ## Scope and lifecycle
 
+### Seekable exchange files
+
+The development Rust file helpers package existing canonical JSON envelopes.
+A checkpoint starts with the eight bytes `PPXC 00 00 00 01`; a single record
+uses `PPXR 00 00 00 01` (the spaces separate bytes, not file contents).
+Every chunk is an unsigned eight-byte big-endian length followed by exactly
+that many canonical UTF-8 bytes. The final manifest uses the same framing,
+followed by its length again as an eight-byte trailer. EOF follows the trailer.
+No compression, media bytes, filesystem paths or credentials are introduced.
+
+Readers locate the manifest from the trailer, enforce its 512 KiB maximum and
+the configured file/document budgets before allocation, then stream the body.
+The manifest is a completeness declaration; ordinary import/apply still checks
+chunk chains and domain state. Writers flush only after sealing the manifest.
+Callers publish a new file after success and their durable flush; a partial file
+is never advertised. Default receiver file budget is 1 GiB and can be raised.
+
+### Authority and proposal identities
+
 An authority has a production UUID and persistent history-generation UUID. A
 mirror has those source identities and a separate local instance UUID. A base is
 the scoped revision UUID/sequence, or explicit genesis with no UUID and sequence
