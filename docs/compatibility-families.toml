@@ -409,3 +409,84 @@ last_changed_abi = 52
 c_operations = ["pp_production_import_job_lease", "pp_job_lease_export_token", "pp_job_lease_get", "pp_string_release", "pp_job_lease_free"]
 cpp_operations = ["Production::importJobLease", "JobLease::exportToken"]
 python_operations = ["Production.import_job_lease", "JobLease.export_token"]
+
+[[families]]
+id = "exchange-inspection"
+dependencies = ["production-lifecycle"]
+introduced_release = "0.8.0-alpha.1"
+last_changed_release = "0.8.0-alpha.1"
+last_changed_abi = 52
+c_operations = ["pp_production_exchange_state"]
+cpp_operations = ["Production::exchangeState"]
+python_operations = ["Production.exchange_state"]
+
+[[families]]
+id = "proposal-preparation"
+dependencies = ["transaction-lifecycle", "detached-decision-edit", "exchange-inspection"]
+introduced_release = "0.8.0-alpha.1"
+last_changed_release = "0.8.0-alpha.1"
+last_changed_abi = 52
+c_operations = [
+  "pp_transaction_prepare_proposal", "pp_proposal_parse", "pp_proposal_identity",
+  "pp_proposal_document", "pp_proposal_release",
+]
+cpp_operations = ["Transaction::prepareProposal", "Proposal::parse", "Proposal::identity", "Proposal::document"]
+python_operations = ["Transaction.prepare_proposal", "Proposal.parse", "Proposal.identity", "Proposal.document", "Proposal.close"]
+
+[[families]]
+id = "submission-outcome-recovery"
+dependencies = ["exchange-inspection", "job-identity", "activity-identity", "representation-identity"]
+introduced_release = "0.8.0-alpha.1"
+last_changed_release = "0.8.0-alpha.1"
+last_changed_abi = 52
+c_operations = [
+  "pp_production_submission_outcome", "pp_outcome_status", "pp_outcome_receipt",
+  "pp_outcome_rejection", "pp_outcome_document", "pp_outcome_release",
+  "pp_outcome_job_count", "pp_outcome_job_get", "pp_outcome_job_expiry",
+  "pp_outcome_job_completion",
+]
+cpp_operations = ["Production::submissionOutcome", "SubmissionOutcome::status", "SubmissionOutcome::jobs", "SubmissionOutcome::document"]
+python_operations = ["Production.submission_outcome", "SubmissionOutcome.receipt", "SubmissionOutcome.rejection", "SubmissionOutcome.jobs", "SubmissionOutcome.document"]
+
+[[families]]
+id = "proposal-submission-delivery"
+dependencies = ["proposal-preparation", "submission-outcome-recovery", "job-lease-private-transport"]
+introduced_release = "0.8.0-alpha.1"
+last_changed_release = "0.8.0-alpha.1"
+last_changed_abi = 52
+c_operations = [
+  "pp_production_submit_proposal", "pp_submission_outcome", "pp_submission_lease_count",
+  "pp_submission_take_lease", "pp_submission_release",
+]
+cpp_operations = ["Production::submitProposal", "SubmissionResult::outcome", "SubmissionResult::leases"]
+python_operations = ["Production.submit_proposal", "SubmissionResult.outcome", "SubmissionResult.leases"]
+
+[[families]]
+id = "checkpoint-exchange"
+dependencies = ["exchange-inspection"]
+introduced_release = "0.8.0-alpha.1"
+last_changed_release = "0.8.0-alpha.1"
+last_changed_abi = 52
+c_operations = ["pp_production_export_checkpoint", "pp_checkpoint_validate_file", "pp_checkpoint_import_file"]
+cpp_operations = ["Production::exportCheckpoint", "Production::validateCheckpoint", "Production::importCheckpoint"]
+python_operations = ["Production.export_checkpoint", "Production.validate_checkpoint", "Production.import_checkpoint"]
+
+[[families]]
+id = "change-stream-exchange"
+dependencies = ["checkpoint-exchange"]
+introduced_release = "0.8.0-alpha.1"
+last_changed_release = "0.8.0-alpha.1"
+last_changed_abi = 52
+c_operations = ["pp_production_export_changes", "pp_production_apply_changes"]
+cpp_operations = ["Production::exportChanges", "Production::applyChanges"]
+python_operations = ["Production.export_changes", "Production.apply_changes"]
+
+[[families]]
+id = "authority-history-resynchronization"
+dependencies = ["exchange-inspection", "coherent-read-edit"]
+introduced_release = "0.8.0-alpha.1"
+last_changed_release = "0.8.0-alpha.1"
+last_changed_abi = 52
+c_operations = ["pp_production_resynchronize_history"]
+cpp_operations = ["Production::resynchronizeHistory"]
+python_operations = ["Production.resynchronize_history"]
