@@ -48,7 +48,7 @@ def sources(root: Path) -> tuple[pp.MediaSource, ...]:
     )
 
 
-def exact_metadata() -> pp.MetadataValue:
+def exact_metadata(target: pp.ObjectReference) -> pp.MetadataValue:
     return pp.MetadataStruct(
         (
             pp.MetadataStructField(
@@ -61,6 +61,14 @@ def exact_metadata() -> pp.MetadataValue:
             pp.MetadataStructField("decimal", pp.MetadataDecimal(-(2**127), 3)),
             pp.MetadataStructField("ratio", pp.MetadataRational(-(2**63), 2**64 - 1)),
             pp.MetadataStructField("opaque", pp.MetadataBytes(b"\0\xff")),
+            pp.MetadataStructField("signed", pp.MetadataI64(-(2**63))),
+            pp.MetadataStructField(
+                "language", pp.MetadataLanguageString("同", "x-Exact")
+            ),
+            pp.MetadataStructField("boolean", pp.MetadataBool(True)),
+            pp.MetadataStructField("time", pp.MetadataTimestamp(-(2**63))),
+            pp.MetadataStructField("uri", pp.MetadataUri("unknown:Exact%2fCase")),
+            pp.MetadataStructField("reference", pp.MetadataReference(target)),
         )
     )
 
@@ -107,12 +115,12 @@ def prepare(
                 pp.AppendMetadataCommand(
                     pp.AssetRef(original.asset_id),
                     pp.MetadataProperty("urn:vendor:Unknown", "ordered"),
-                    exact_metadata(),
+                    exact_metadata(pp.AssetRef(original.asset_id)),
                 ),
                 pp.AppendMetadataCommand(
                     pp.AssetRef(original.asset_id),
                     pp.MetadataProperty("urn:vendor:Unknown", "ordered"),
-                    exact_metadata(),
+                    exact_metadata(pp.AssetRef(original.asset_id)),
                 ),
                 pp.AddIdentifierCommand(
                     pp.AssetRef(original.asset_id),
