@@ -1,0 +1,106 @@
+{
+  "observed_on": "2026-10-11",
+  "scope": "Individual job conclusions; in_progress is not a passing result",
+  "optional_failure": "Blender 5.3-alpha download: no daily Linux build available",
+  "runs": [
+    {
+      "repository": "postproject",
+      "run": 38146446727,
+      "head_sha": "a5417522789909489c6fe4085f02e84a49c9f786",
+      "status": "completed",
+      "workflow_conclusion": "success",
+      "jobs": [
+        {"conclusion":"success","name":"Formatting, lints, and documentation"},
+        {"conclusion":"success","name":"Test (windows-latest)"},
+        {"conclusion":"success","name":"Test (macos-latest)"},
+        {"conclusion":"success","name":"Native package (windows-latest)"},
+        {"conclusion":"success","name":"Python wheel"},
+        {"conclusion":"success","name":"Test (ubuntu-latest)"},
+        {"conclusion":"success","name":"Dependency policy"},
+        {"conclusion":"success","name":"Reference executor (real FFmpeg)"},
+        {"conclusion":"success","name":"Native package (macos-latest)"},
+        {"conclusion":"success","name":"Unified documentation and links"},
+        {"conclusion":"success","name":"Native ASan and UBSan"},
+        {"conclusion":"success","name":"C ABI smoke test"},
+        {"conclusion":"success","name":"Minimum Rust 1.85"},
+        {"conclusion":"success","name":"C++ header with current compilers"},
+        {"conclusion":"success","name":"Linux platform wheel (glibc 2.28)"},
+        {"conclusion":"success","name":"Native package (ubuntu-latest)"}
+      ]
+    },
+    {
+      "repository": "postproject",
+      "run": 38146446746,
+      "head_sha": "a5417522789909489c6fe4085f02e84a49c9f786",
+      "status": "completed",
+      "workflow_conclusion": "success",
+      "jobs": [
+        {"conclusion":"success","name":"build"},
+        {"conclusion":"success","name":"deploy"}
+      ]
+    },
+    {
+      "repository": "postproject",
+      "run": 38146447281,
+      "head_sha": "a5417522789909489c6fe4085f02e84a49c9f786",
+      "status": "in_progress",
+      "workflow_conclusion": "",
+      "jobs": [
+        {"conclusion":"success","name":"python-host / test"},
+        {"conclusion":"","name":"ardour / Ardour without PostProject"},
+        {"conclusion":"success","name":"openassetio-publishing / test (bundled-nuke-17)"},
+        {"conclusion":"success","name":"openassetio-manager / test"},
+        {"conclusion":"success","name":"ardour / Installed pkg-config resolver on macOS"},
+        {"conclusion":"success","name":"natron / contract"},
+        {"conclusion":"success","name":"openassetio-publishing / test (current)"},
+        {"conclusion":"","name":"ardour / Ardour with PostProject"},
+        {"conclusion":"success","name":"otio-openassetio / test"},
+        {"conclusion":"success","name":"cpp-nle / test"},
+        {"conclusion":"success","name":"obs / contract"}
+      ]
+    },
+    {
+      "repository": "postproject",
+      "run": 38146446748,
+      "head_sha": "a5417522789909489c6fe4085f02e84a49c9f786",
+      "status": "completed",
+      "workflow_conclusion": "success",
+      "jobs": [
+        {"conclusion":"success","name":"Module on the KDE 6.10 SDK"}
+      ]
+    },
+    {
+      "repository": "postproject",
+      "run": 38146450999,
+      "head_sha": "a5417522789909489c6fe4085f02e84a49c9f786",
+      "status": "completed",
+      "workflow_conclusion": "success",
+      "jobs": [
+        {"conclusion":"success","name":"update-pip-graph"}
+      ]
+    },
+    {
+      "repository": "postproject",
+      "run": 38146602706,
+      "head_sha": "a5417522789909489c6fe4085f02e84a49c9f786",
+      "status": "completed",
+      "workflow_conclusion": "success",
+      "jobs": [
+        {"conclusion":"success","name":"blender / lint"},
+        {"conclusion":"failure","name":"blender / Blender 5.3-alpha"},
+        {"conclusion":"success","name":"blender / Blender 5.2.2"}
+      ]
+    },
+    {
+      "repository": "postproject",
+      "run": 38147503366,
+      "head_sha": "a5417522789909489c6fe4085f02e84a49c9f786",
+      "status": "in_progress",
+      "workflow_conclusion": "",
+      "jobs": [
+        {"conclusion":"","name":"kdenlive / Kdenlive without PostProject"},
+        {"conclusion":"","name":"kdenlive / Kdenlive with PostProject"}
+      ]
+    }
+  ]
+}
