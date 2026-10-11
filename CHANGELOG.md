@@ -5,6 +5,8 @@ All notable changes to PostProject will be documented here. The project uses
 
 ## Unreleased
 
+- Start the `0.8.0-alpha.1` candidate series (Python `0.8.0a1`, C ABI 52, schema 27).
+
 - Add experimental native portable exchange projections and passive edit guards (C ABI 52).
 
 - Add experimental portable-exchange codecs for domain intent, authored facts and observations, with Rust/CLI checkpoint and catch-up file workflows (ADR 0065).

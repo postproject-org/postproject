@@ -367,7 +367,7 @@ checksum = "f6b464fbc74e149a392436b17d523f769e057cb6877f6a5c4618bc6f11800548"
 
 [[package]]
 name = "postproject-core"
-version = "0.7.0-alpha.1"
+version = "0.8.0-alpha.1"
 dependencies = [
  "thiserror",
  "url",
@@ -376,7 +376,7 @@ dependencies = [
 
 [[package]]
 name = "postproject-ffi"
-version = "0.7.0-alpha.1"
+version = "0.8.0-alpha.1"
 dependencies = [
  "postproject-core",
  "postproject-ffi-macros",
@@ -388,7 +388,7 @@ dependencies = [
 
 [[package]]
 name = "postproject-ffi-macros"
-version = "0.7.0-alpha.1"
+version = "0.8.0-alpha.1"
 dependencies = [
  "quote",
  "syn 2.0.119",
@@ -409,7 +409,7 @@ dependencies = [
 
 [[package]]
 name = "postproject-media"
-version = "0.7.0-alpha.1"
+version = "0.8.0-alpha.1"
 dependencies = [
  "blake3",
  "postproject-core",
@@ -422,7 +422,7 @@ dependencies = [
 
 [[package]]
 name = "postproject-protocol"
-version = "0.7.0-alpha.1"
+version = "0.8.0-alpha.1"
 dependencies = [
  "base64",
  "blake3",
@@ -434,7 +434,7 @@ dependencies = [
 
 [[package]]
 name = "postproject-storage-sqlite"
-version = "0.7.0-alpha.1"
+version = "0.8.0-alpha.1"
 dependencies = [
  "blake3",
  "postproject-core",
