@@ -1,0 +1,80 @@
+{
+  "sdk_commit": "a5417522789909489c6fe4085f02e84a49c9f786",
+  "package": "0.8.0-alpha.1",
+  "python": "0.8.0a1",
+  "abi": 52,
+  "schema": 27,
+  "exports": 349,
+  "public_structs": 36,
+  "platform": "Linux x86_64",
+  "artifacts_sha256": {
+    "lib/libpostproject.so": "66efb075275af31fd24a96d8f6e57aaf741c32c071fc468880bab72cc7fa69ae",
+    "lib/libpostproject.a": "897a581a67c33f32b10c35b5d8b437a1069ff3d706dac5881a4e7ad77f0a5e5f",
+    "bin/postproject": "5c1318a8c3c5adf039c415c8ebcaf72c410e7663dec45a3f50845e04966e6e6c",
+    "include/postproject/postproject.h": "490b49140c1b103bb7c7d481f2022c76c1e109a6a1a5b5d2aaf21640565ccec6",
+    "include/postproject/postproject.hpp": "3a9326db3a6c49f71a3c77ad388f9af728dd38d81436fb198cd3aff46cd5803d",
+    "postproject-0.8.0a1-py3-none-any.whl": "fe443727651608610188a60a18f5bab54b4ce0da16cf22a0110469604b1060c4",
+    "postproject-0.8.0a1-py3-none-linux_x86_64.whl": "d93471a73f47463fc91ea6dde17d458cfb879bfb8e1621e868bc76f3c2f9ef99"
+  },
+  "publication": "not tagged or published",
+  "wheel_source_commit": "8d05e6f85afab32fa37df26f7ece5b91dbb9bc59",
+  "headers_commit": "a5417522789909489c6fe4085f02e84a49c9f786",
+  "native_implementation_commit": "016297a5ef3072fe532cf8b56acba7bf62374948",
+  "scope": "Installed Linux candidate qualification; hosted ecosystem qualification remains in progress",
+  "wheel_platform": "Local linux_x86_64; no manylinux qualification implied",
+  "checks": [
+    {
+      "command": "cargo fmt --check; cargo clippy --workspace --all-targets --all-features -- -D warnings",
+      "result": "passed"
+    },
+    {
+      "command": "cargo test --workspace --all-features",
+      "result": "passed, including doctests"
+    },
+    {
+      "command": "cargo doc --workspace --all-features --no-deps; cargo deny check",
+      "result": "passed; advisory-cache lock required execution outside the read-only sandbox"
+    },
+    {
+      "command": "python3 tools/check_architecture.py; python3 tools/check_exchange_inventory.py; python3 tools/check_example_coverage.py",
+      "result": "passed"
+    },
+    {
+      "command": "ctest --test-dir /tmp/postproject-08-abi --output-on-failure",
+      "result": "9 passed against installed headers/library"
+    },
+    {
+      "command": "ctest --test-dir /tmp/postproject-08-examples --output-on-failure",
+      "result": "82 passed after the complete build"
+    },
+    {
+      "command": "Installed Python 3.11.15 / 3.14.7 pytest python/tests",
+      "result": "132 passed, 1 skipped, 146 subtests on each interpreter; explicit installed native library"
+    },
+    {
+      "command": "tools/check_python_id_typing.py with ty 0.0.82 and each installed interpreter",
+      "result": "positive hints passed; twelve expected wrong-kind failures each"
+    },
+    {
+      "command": "tools/check_exchange_storage_mutations.py with installed candidate wheel",
+      "result": "14 record and 9 checkpoint rehashed rejection cases passed"
+    },
+    {
+      "command": "Installed symbol inventory and Rust/C/ctypes layouts",
+      "result": "349 exports and 36 layouts match"
+    },
+    {
+      "command": "sphinx-build --fail-on-warning --keep-going -b html docs",
+      "result": "passed"
+    },
+    {
+      "command": "Bundled wheel library SHA256 and py.typed",
+      "result": "verified"
+    }
+  ],
+  "limitations": [
+    "No release tag or publication.",
+    "Native library is not sanitizer-instrumented by these local checks.",
+    "Commercial host execution is separate from license-independent preparation."
+  ]
+}
