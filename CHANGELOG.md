@@ -6,6 +6,7 @@ All notable changes to PostProject will be documented here. The project uses
 ## Unreleased
 
 - Start the `0.8.0-alpha.1` candidate series (Python `0.8.0a1`, C ABI 52, schema 27).
+- Keep C++ representation reads warning-free without exceptions on GCC 16.
 
 - Add experimental native portable exchange projections and passive edit guards (C ABI 52).
 

@@ -31,7 +31,7 @@ the required complete evidence from two independent hosts (ADR 0040).
 
 ## Types and ownership
 
-The 0.7 candidate uses distinct native IDs, checked content/state payloads,
+Since 0.7, the SDK uses distinct native IDs, checked content/state payloads,
 coherent read sessions, production-scoped decision bases and atomic commit
 receipts. Use the receipt-returning commit for ordinary writes. Every commit
 attempt is terminal; no-change commits create no revision. Read results own

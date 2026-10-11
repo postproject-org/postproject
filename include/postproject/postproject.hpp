@@ -7349,9 +7349,10 @@ public:
         pp_representation_set_count(representations.get());
     result.reserve(static_cast<std::size_t>(count));
     for (std::uint64_t index = 0; index < count; ++index) {
-      POSTPROJECT_TRY_ASSIGN(
-          auto item_10, detail::representation(representations.get(), index));
-      result.push_back(std::move(item_10));
+      auto item = detail::representation(representations.get(), index);
+      if (!item)
+        return item.error();
+      result.push_back(*std::move(item));
     }
     return result;
   }
