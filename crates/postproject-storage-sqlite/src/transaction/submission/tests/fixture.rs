@@ -21,6 +21,13 @@ pub(super) struct Clock {
 }
 
 impl Clock {
+    pub fn new(now: i64) -> Self {
+        Self {
+            now: AtomicI64::new(now),
+            unavailable: AtomicBool::new(false),
+        }
+    }
+
     pub fn set(&self, now: i64) {
         self.now.store(now, Ordering::SeqCst);
     }
@@ -80,10 +87,7 @@ impl Fixture {
         let directory = tempfile::tempdir().unwrap();
         let mut source =
             SqliteProduction::create(directory.path().join("source.pproj"), None).unwrap();
-        let clock = Arc::new(Clock {
-            now: AtomicI64::new(100),
-            unavailable: AtomicBool::new(false),
-        });
+        let clock = Arc::new(Clock::new(100));
         source.job_clock = clock.clone();
         let asset = Asset::new(AssetId::new(), Timestamp::from_unix_micros(0), None, None);
         let (representation, resources, locators) =
