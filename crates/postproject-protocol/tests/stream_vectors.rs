@@ -9,8 +9,9 @@ use postproject_protocol::{
     FingerprintRecomputation, FrameDecoder, IdentifierChange, JobHeader, JobInput, JobTransition,
     Limits, MediaChange, MetadataEffect, MetadataEffectStart, MetadataOperation, Position,
     ProtocolBase, RecordChunk, RecordManifest, RepresentationCreationStart, ResourceCreationStart,
-    StructureHeader, decode_asset, decode_event, decode_fingerprint_snapshot, decode_locator,
-    encode_asset, encode_event, encode_fingerprint_snapshot, encode_locator,
+    SequenceException, StructureHeader, StructureMember, decode_asset, decode_event,
+    decode_fingerprint_snapshot, decode_locator, encode_asset, encode_event,
+    encode_fingerprint_snapshot, encode_locator,
 };
 
 fn document(value: &serde_json::Value) -> Document {
@@ -61,7 +62,7 @@ fn independent_split_stream_preserves_exact_authored_frames_and_both_digests() {
         if frames[0].kind().unwrap() == "metadata.effect" {
             check_metadata_frames(&frames);
         } else if frames[0].kind().unwrap() == "original.creation" {
-            check_media_frames(&frames, expected);
+            check_media_frames(&frames, expected, manifest.revision().sequence());
         } else {
             for frame in frames
                 .iter()
@@ -114,25 +115,40 @@ fn check_metadata_frames(frames: &[Document]) {
     );
 }
 
-fn check_media_frames(frames: &[Document], expected: &[serde_json::Value]) {
-    let asset = document(&expected[0]["asset"]);
-    assert_eq!(encode_asset(&decode_asset(&asset).unwrap()), asset);
-    for offset in [1, 5] {
+fn check_media_frames(frames: &[Document], expected: &[serde_json::Value], sequence: u64) {
+    let mut offset = 0;
+    while frames[offset].kind().unwrap() != "observation" {
+        if frames[offset].kind().unwrap() == "original.creation" {
+            let asset = document(&expected[offset]["asset"]);
+            assert_eq!(encode_asset(&decode_asset(&asset).unwrap()), asset);
+            offset += 1;
+        }
         let start = RepresentationCreationStart::from_document(&frames[offset]).unwrap();
         assert_eq!(start.document().unwrap(), frames[offset]);
-        let mut decoder = CreationDecoder::new(start, 1).unwrap();
-        for frame in &frames[offset + 1..offset + 4] {
-            match decoder.push(frame).unwrap().unwrap() {
-                CreationFact::Resource(header) => {
-                    let original = document(&expected[offset + 2]["resource"]);
+        let resources = start.resource_count();
+        let mut decoder = CreationDecoder::new(start, sequence).unwrap();
+        offset += 1;
+        while !matches!(
+            frames[offset].kind().unwrap(),
+            "original.creation" | "representation.creation" | "observation"
+        ) {
+            let frame = &frames[offset];
+            assert_eq!(round_trip_fact(frame), *frame);
+            match decoder.push(frame).unwrap() {
+                Some(CreationFact::Resource(header)) => {
+                    let original = document(&expected[offset]["resource"]);
                     assert_eq!(header.document(), original);
                 }
-                CreationFact::Locator(locator) => {
+                Some(CreationFact::Locator(locator)) => {
                     assert_eq!(encode_locator(&locator).unwrap(), *frame);
                 }
-                CreationFact::Structure(content) => assert_eq!(content.resource_ids().len(), 1),
+                Some(CreationFact::Structure(content)) => {
+                    assert_eq!(content.resource_ids().len() as u64, resources)
+                }
+                None => {}
                 other => panic!("unexpected creation fact {other:?}"),
             }
+            offset += 1;
         }
         decoder.finish().unwrap();
     }
@@ -182,6 +198,8 @@ fn round_trip_fact(frame: &Document) -> Document {
             .unwrap()
             .document(),
         "structure.header" => StructureHeader::from_document(frame).unwrap().document(),
+        "structure.member" => StructureMember::from_document(frame).unwrap().document(),
+        "structure.exception" => SequenceException::from_document(frame).unwrap().document(),
         "locator.fact" => encode_locator(&decode_locator(frame).unwrap()).unwrap(),
         "job.header" => JobHeader::from_document(frame).unwrap().document().unwrap(),
         "job.input" => JobInput::from_document(frame).unwrap().document(),
