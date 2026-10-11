@@ -98,6 +98,89 @@ def check_stream(vector: dict, stream: dict, digests: bool = False) -> None:
         assert digest(unsigned, "record") == vector["record_digest"]
 
 
+def check_checkpoint(vector: dict, snapshot: dict, digests: bool) -> None:
+    def encoded(value: object) -> bytes:
+        return canonical(json.dumps(value, ensure_ascii=False))
+
+    manifest = snapshot["manifest"]
+    assert encoded(manifest) == vector["canonical_manifest"].encode()
+    assert manifest["digest"] == vector["manifest_digest"]
+    assert manifest["floor"] == manifest["head"]
+    assert manifest["floor"]["digest"] == vector["anchor_digest"]
+    assert [section["section"] for section in manifest["sections"]] == [
+        "production",
+        "assets",
+        "resources",
+        "representations",
+        "structures",
+        "roots",
+        "locators",
+        "identifiers",
+        "metadata",
+        "activities",
+        "dependencies",
+        "fingerprints",
+        "jobs",
+        "revisions",
+        "events",
+        "conflict_versions",
+        "conflict_floor",
+        "records",
+        "archives",
+    ]
+    chunks = snapshot["chunks"]
+    assert len(chunks) == len(vector["canonical_chunks"])
+    offset = 0
+    for summary in manifest["sections"]:
+        section = summary["section"]
+        items = snapshot["bodies"].get(section, [])
+        assert summary["items"] == str(len(items))
+        if not items:
+            assert summary["chunks"] is None
+            continue
+        count = int(summary["chunks"]["count"])
+        payload = bytearray()
+        previous = None
+        for index, chunk in enumerate(chunks[offset : offset + count]):
+            assert encoded(chunk) == vector["canonical_chunks"][offset + index].encode()
+            assert chunk["index"] == str(index) and chunk["previous"] == previous
+            assert (
+                chunk["section"] == section
+                and chunk["checkpoint"] == manifest["checkpoint"]
+            )
+            assert chunk["production"] == manifest["floor"]["production"]
+            assert chunk["history"] == manifest["floor"]["history"]
+            raw = base64.b64decode(chunk["payload"], validate=True)
+            assert base64.b64encode(raw).decode() == chunk["payload"]
+            payload.extend(raw)
+            previous = chunk["digest"]
+        offset += count
+        assert summary["chunks"]["payload_bytes"] == str(len(payload))
+        assert summary["chunks"]["last_digest"] == previous
+        assert payload == b"".join(
+            len(encoded(item)).to_bytes(8, "big") + encoded(item) for item in items
+        )
+    assert offset == len(chunks)
+    if digests:
+        from blake3 import blake3
+
+        def digest(value: dict, domain: str) -> str:
+            return blake3(
+                encoded(value), derive_key_context=f"postproject.exchange.v1.{domain}"
+            ).hexdigest()
+
+        assert digest(snapshot["anchor"], "anchor") == vector["anchor_digest"]
+        assert (
+            digest({k: v for k, v in manifest.items() if k != "digest"}, "manifest")
+            == manifest["digest"]
+        )
+        for chunk in chunks:
+            assert (
+                digest({k: v for k, v in chunk.items() if k != "digest"}, "chunk")
+                == chunk["digest"]
+            )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -126,6 +209,12 @@ def main() -> int:
     for vector in streams:
         path = ROOT / "tests/fixtures/exchange" / vector["file"]
         check_stream(vector, json.loads(path.read_text()), options.digests)
+    checkpoints = json.loads(
+        (ROOT / "tests/fixtures/exchange/checkpoint-vectors.json").read_text()
+    )
+    for vector in checkpoints:
+        path = ROOT / "tests/fixtures/exchange" / vector["file"]
+        check_checkpoint(vector, json.loads(path.read_text()), options.digests)
     if options.digests:
         from blake3 import blake3
 
@@ -154,11 +243,13 @@ def main() -> int:
             continue
         raise AssertionError("negative vector accepted")
     print(
-        f"{len(vectors)} framing, {len(proposals)} proposal and {len(streams)} stream vectors checked"
+        f"{len(vectors)} framing, {len(proposals)} proposal, {len(streams)} stream "
+        f"and {len(checkpoints)} checkpoint vectors checked"
     )
     if options.digests:
         print(
-            f"{len(proposals)} proposal and {len(streams)} stream digests plus upstream BLAKE3 vectors checked"
+            f"{len(proposals)} proposal, {len(streams)} stream and {len(checkpoints)} "
+            "checkpoint digests plus upstream BLAKE3 vectors checked"
         )
     return 0
 

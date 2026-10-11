@@ -17,8 +17,8 @@ fn independently_authored_family_proposals_have_exact_canonical_bytes_and_digest
         let document = Document::parse(&input, Limits::default()).unwrap();
         let expected = vector["canonical"].as_str().unwrap().as_bytes();
         assert_eq!(document.canonical_bytes().unwrap(), expected, "{family}");
-        let proposal = Proposal::from_document(&document)
-            .unwrap_or_else(|error| panic!("{family}: {error}"));
+        let proposal =
+            Proposal::from_document(&document).unwrap_or_else(|error| panic!("{family}: {error}"));
         assert_eq!(
             proposal.document().unwrap().canonical_bytes().unwrap(),
             expected,
