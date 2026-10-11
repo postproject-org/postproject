@@ -1,5 +1,6 @@
 //! Typed job helpers shared by hermetic and actual-host qualification.
 
+mod host_fixture;
 mod lifecycle;
 mod secrets;
 

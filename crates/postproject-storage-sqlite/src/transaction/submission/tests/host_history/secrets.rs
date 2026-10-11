@@ -11,9 +11,12 @@ pub(super) fn assert_public_secrets_absent(scenario: &Scenario<'_>, tokens: &[St
         })
         .unwrap();
     let mut public = manifest.document().unwrap().canonical_bytes().unwrap();
+    let mut bodies = vec![];
     for chunk in &chunks {
         public.extend(chunk.document().unwrap().canonical_bytes().unwrap());
+        bodies.extend_from_slice(chunk.payload());
     }
+    public.extend(bodies);
     let directory = tempfile::tempdir().unwrap();
     let destination = directory.path().join("mirror.pproj");
     let mirror = SqliteProduction::import_checkpoint(
