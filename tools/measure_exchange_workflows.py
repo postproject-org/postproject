@@ -63,7 +63,9 @@ def main() -> None:
         "samples": [],
     }
 
-    def measure(sample: int | str, phase: str, binary: Path, arguments: list[str]) -> None:
+    def measure(
+        sample: int | str, phase: str, binary: Path, arguments: list[str]
+    ) -> None:
         output = root / f"{sample}-{phase}.tsv"
         values = run(binary, arguments, output)
         results["samples"].append({"sample": sample, "phase": phase, **values})
