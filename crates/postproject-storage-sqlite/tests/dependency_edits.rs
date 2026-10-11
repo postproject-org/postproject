@@ -121,13 +121,7 @@ fn complete_observations_require_bases_and_preserve_a_newer_set() {
             .record_dependency_set(source, std::slice::from_ref(&dependency))
             .unwrap()
     );
-    assert!(
-        unchanged
-            .commit()
-            .unwrap()
-            .revision()
-            .is_none()
-    );
+    assert!(unchanged.commit().unwrap().revision().is_none());
 }
 
 #[test]

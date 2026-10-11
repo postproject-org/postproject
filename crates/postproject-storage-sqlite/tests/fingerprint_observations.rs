@@ -192,9 +192,7 @@ fn file_facts_are_recorded_with_an_observation() {
                 .record_resource_file_facts(ResourceId::from_bytes([9; 16]), facts)
                 .is_err()
         );
-        let receipt = transaction
-            .commit()
-            .expect("commit observation");
+        let receipt = transaction.commit().expect("commit observation");
         let revision = receipt.revision().expect("facts-only revision");
         drop(transaction);
         assert_eq!(revision.sequence(), 2);

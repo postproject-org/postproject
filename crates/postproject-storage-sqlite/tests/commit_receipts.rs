@@ -115,12 +115,5 @@ fn journal_preparation_failure_is_terminal_and_rolls_back_facts() {
         .unwrap();
     let mut next = production.begin_transaction().unwrap();
     next.add_media_root(root("accepted")).unwrap();
-    assert_eq!(
-        next.commit()
-            .unwrap()
-            .revision()
-            .unwrap()
-            .sequence(),
-        1
-    );
+    assert_eq!(next.commit().unwrap().revision().unwrap().sequence(), 1);
 }

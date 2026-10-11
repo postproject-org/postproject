@@ -39,9 +39,7 @@ fn appends_merge_but_stale_replacement_and_removal_roll_back() {
             edit.replace_metadata_values(target, &property, &[])
                 .unwrap();
         }
-        let error = edit
-            .commit()
-            .expect_err("append invalidated decision");
+        let error = edit.commit().expect_err("append invalidated decision");
         assert_eq!(error.kind(), ErrorKind::Conflict);
         assert_eq!(edit.state(), TransactionState::RolledBack);
         let conflict = error.transaction_conflict_detail().unwrap();
