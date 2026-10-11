@@ -84,12 +84,34 @@ fn independent_records_preserve_original_media_identities_and_public_observation
             check_media(&mirror);
         } else if vector["file"] == "streams/access.json" {
             check_access(&mirror);
+        } else if vector["file"] == "streams/knowledge.json" {
+            check_knowledge(&mirror);
         }
         assert_eq!(
             mirror.begin_transaction().err().unwrap().kind(),
             ErrorKind::Unsupported
         );
     }
+}
+
+fn check_knowledge(mirror: &SqliteProduction) {
+    let representation = "00000000-0000-4000-8000-000000000006".parse().unwrap();
+    let current = mirror.representation(representation).unwrap();
+    assert_eq!(current.fingerprints().len(), 1);
+    let fingerprint = &current.fingerprints()[0];
+    assert_eq!(fingerprint.algorithm(), "vendor-Exact");
+    assert_eq!(fingerprint.version(), u16::MAX);
+    assert_eq!(fingerprint.value(), b"\0B\xfe");
+    let resources = mirror.resources(representation).unwrap();
+    assert_eq!(resources[0].fingerprints().len(), 1);
+    assert_eq!(resources[0].fingerprints()[0].value(), b"\0C\xfd");
+    let dependencies = mirror.dependency_set(representation).unwrap().unwrap();
+    assert_eq!(dependencies.recorded_at_revision(), 3);
+    assert_eq!(
+        dependencies.status(),
+        postproject_core::DependencySetStatus::Current
+    );
+    assert_eq!(dependencies.dependencies(), []);
 }
 
 fn apply_prefix(mirror: &mut SqliteProduction, fixture: &serde_json::Value) {
