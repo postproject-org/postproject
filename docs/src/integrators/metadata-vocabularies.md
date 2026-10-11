@@ -56,6 +56,13 @@ output emits. Decimal coefficients are strings so JSON consumers do not lose
 precision, binary values use hexadecimal text, and lists and structure fields
 are recursive and ordered.
 
+Python common inputs use `(vocabulary, property)` keys and native `str`,
+`bool`, signed `int`, `bytes` and `Fraction` values. Mixed children in
+`MetadataList` and `MetadataStruct` follow the same checked conversion.
+Unsigned integers, decimals, timestamps, URIs, language-tagged strings and
+references keep explicit tags. Floats, `None` and plain dictionaries are
+rejected. Reads retain typed values and exact property keys.
+
 ## Remove a property
 
 Removal deletes every value of one property from one target in a read-bound
