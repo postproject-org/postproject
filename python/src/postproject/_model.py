@@ -1038,13 +1038,6 @@ class FileResourceInput:
 
 
 @dataclass(frozen=True, slots=True)
-class FileSource:
-    """Media source for one regular file."""
-
-    path: str | os.PathLike[str]
-
-
-@dataclass(frozen=True, slots=True)
 class ImageSequenceSource:
     """Media source for one compact image sequence in a directory.
 
@@ -1076,7 +1069,7 @@ class PackageSource:
 
 
 MediaSource: TypeAlias = (
-    FileSource | ImageSequenceSource | OrderedPartsSource | PackageSource
+    str | os.PathLike[str] | ImageSequenceSource | OrderedPartsSource | PackageSource
 )
 """Content structure of a representation at its present location."""
 

@@ -25,7 +25,6 @@ from postproject import (
     ContentVerification,
     EvidenceKind,
     FileResourceInput,
-    FileSource,
     Fingerprint,
     ImageSequenceContent,
     ImageSequenceSource,
@@ -88,7 +87,7 @@ def add_proxy(
     # A plain path is a single-file source too.
     with production.edit() as transaction:
         proxy_id = transaction.add_representation(
-            asset_id, RepresentationKind.PROXY, FileSource(proxy)
+            asset_id, RepresentationKind.PROXY, proxy
         )
         transaction.commit()
     return proxy_id

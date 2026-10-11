@@ -42,7 +42,7 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True, slots=True)
 class ImportMediaCommand:
-    source: MediaSource | str | os.PathLike[str]
+    source: MediaSource
     display_name: str | None = None
 
 
@@ -50,7 +50,7 @@ class ImportMediaCommand:
 class AddRepresentationCommand:
     asset_id: AssetId
     kind: RepresentationKind
-    source: MediaSource | str | os.PathLike[str]
+    source: MediaSource
 
 
 @dataclass(frozen=True, slots=True)

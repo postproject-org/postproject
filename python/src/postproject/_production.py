@@ -138,7 +138,6 @@ from ._model import (
     ExternalIdentifier,
     ExternalIdentifierAddedEvent,
     ExternalIdentifierRemovedEvent,
-    FileSource,
     FilteredRevisionPage,
     Fingerprint,
     FingerprintSnapshot,
@@ -3891,7 +3890,7 @@ class Edit:
 
     def import_media(
         self,
-        source: MediaSource | str | os.PathLike[str],
+        source: MediaSource,
         display_name: str | None = None,
     ) -> AssetId:
         """Stage a new asset whose original representation has the source's
@@ -3899,23 +3898,32 @@ class Edit:
 
         self._require_open()
         asset_id = _abi.AssetId()
-        with _NativeMediaSource(self._native, source) as native_source:
-            error = ctypes.POINTER(Error)()
-            status = self._native.lib.pp_transaction_import_media(
+        error = ctypes.POINTER(Error)()
+        if isinstance(source, (str, os.PathLike)):
+            status = self._native.lib.pp_transaction_import_file(
                 self._handle,
-                native_source.handle,
+                _path_bytes(source),
                 _optional_text(display_name),
                 ctypes.byref(asset_id),
                 ctypes.byref(error),
             )
-            self._native.check(status, error)
+        else:
+            with _NativeMediaSource(self._native, source) as native_source:
+                status = self._native.lib.pp_transaction_import_media(
+                    self._handle,
+                    native_source.handle,
+                    _optional_text(display_name),
+                    ctypes.byref(asset_id),
+                    ctypes.byref(error),
+                )
+        self._native.check(status, error)
         return AssetId(_uuid(asset_id))
 
     def add_representation(
         self,
         asset_id: AssetId,
         kind: RepresentationKind,
-        source: MediaSource | str | os.PathLike[str],
+        source: MediaSource,
     ) -> RepresentationId:
         """Stage a representation of ``kind`` with the source's structure for an
         existing asset. A path adds a single file."""
@@ -3923,17 +3931,28 @@ class Edit:
         self._require_open()
         native_asset_id = _native_asset_id(asset_id)
         representation_id = _abi.RepresentationId()
-        with _NativeMediaSource(self._native, source) as native_source:
-            error = ctypes.POINTER(Error)()
-            status = self._native.lib.pp_transaction_add_representation(
+        native_kind = _native_representation_kind(kind)
+        error = ctypes.POINTER(Error)()
+        if isinstance(source, (str, os.PathLike)):
+            status = self._native.lib.pp_transaction_add_file_representation(
                 self._handle,
                 native_asset_id,
-                _native_representation_kind(kind),
-                native_source.handle,
+                native_kind,
+                _path_bytes(source),
                 ctypes.byref(representation_id),
                 ctypes.byref(error),
             )
-            self._native.check(status, error)
+        else:
+            with _NativeMediaSource(self._native, source) as native_source:
+                status = self._native.lib.pp_transaction_add_representation(
+                    self._handle,
+                    native_asset_id,
+                    native_kind,
+                    native_source.handle,
+                    ctypes.byref(representation_id),
+                    ctypes.byref(error),
+                )
+        self._native.check(status, error)
         return RepresentationId(_uuid(representation_id))
 
     def add_media_root(
@@ -4877,18 +4896,12 @@ class _NativeMediaSource:
     def __init__(
         self,
         native: NativeLibrary,
-        source: MediaSource | str | os.PathLike[str],
+        source: MediaSource,
     ) -> None:
         self._native = native
         self.handle = ctypes.POINTER(NativeMediaSource)()
         error = ctypes.POINTER(Error)()
-        if isinstance(source, (str, os.PathLike)):
-            source = FileSource(source)
-        if isinstance(source, FileSource):
-            status = native.lib.pp_media_source_create_file(
-                _path_bytes(source.path), ctypes.byref(self.handle), ctypes.byref(error)
-            )
-        elif isinstance(source, ImageSequenceSource):
+        if isinstance(source, ImageSequenceSource):
             if not isinstance(source.rate, Fraction):
                 raise TypeError("sequence rate must be fractions.Fraction")
             missing_type = ctypes.c_int64 * len(source.missing_frames)

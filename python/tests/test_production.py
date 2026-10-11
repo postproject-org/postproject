@@ -41,7 +41,6 @@ from postproject import (
     ExternalIdentifierAddedEvent,
     ExternalIdentifierRemovedEvent,
     FileResourceInput,
-    FileSource,
     Fingerprint,
     HostObjectBinding,
     ImageSequenceSource,
@@ -646,7 +645,7 @@ class ProductionTests(unittest.TestCase):
                 proxy_id = transaction.add_representation(
                     asset_id,
                     RepresentationKind.PROXY,
-                    FileSource(self.second_media_path),
+                    self.second_media_path,
                 )
                 sequence_id = transaction.add_representation(
                     asset_id,

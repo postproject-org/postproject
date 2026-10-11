@@ -85,8 +85,8 @@ locator retirement, and explicit
 candidate confirmation are transactional through `add_media_root()`,
 `set_media_root_enabled()`, `remove_media_root()`, `retire_locator()`,
 and `confirm_locator()`, which also records the logical root a candidate was
-found under and, for an image sequence, the `SequenceNaming` of its files. A media source — `FileSource`,
-`ImageSequenceSource`, `OrderedPartsSource`, or `PackageSource` — describes a
+found under and, for an image sequence, the `SequenceNaming` of its files. A compound source — `ImageSequenceSource`, `OrderedPartsSource`, or
+`PackageSource` — describes a
 representation's content structure: `import_media()` creates an asset whose
 original has that structure, and `add_representation()` adds a representation
 of a chosen kind to an existing asset. Both also accept a plain path as a
