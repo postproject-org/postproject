@@ -1,0 +1,46 @@
+{
+  "qualification": "Development native Blender writes reconstructed through installed exchange APIs",
+  "host": "Blender 5.2.2 LTS, d13f752e3b9c; automated background execution",
+  "host_commit": "652003949ce41ed2b6f8a8362ba0c0886d04ba6d",
+  "comparison_tools_commit": "b1f6dd337c493f476a3f80aabfce8ecacc99898e",
+  "sdk_wheel_source": "9b89f0736f4195a765c9260725ab8cc570fd19f5",
+  "package": "0.7.0-alpha.1",
+  "python": "0.7.0a1",
+  "abi": 52,
+  "schema": 27,
+  "platform": "Linux x86_64",
+  "extension_sha256": "4edde95296acdc69d601b58f09c3a7a6a4d72a52b9d300b96b617ad66ea02232",
+  "actions": "Normal save adopts FFV1 movie and strip identity; render publishes derived output/provenance; confirmed relocation changes locator. No wire protocol added to the maintained host adapter.",
+  "host_result": "passed; original/derived identity, current artifact, canonical strip reference and plugin-free save/reopen",
+  "regression_suite": "passed: 24 tests, one skip, using the same installed wheel",
+  "comparison": {
+    "head": {
+      "type": "ExchangePosition",
+      "base": {
+        "type": "ProtocolBase",
+        "decision": {
+          "type": "DecisionBase",
+          "production_id": "3abda8a7-c985-470e-b2bf-4652a7744c00",
+          "revision": {
+            "type": "CommittedRevision",
+            "id": "3f9e65ff-8e87-46ed-b028-36bb65c99d39",
+            "sequence": {
+              "integer": "3"
+            }
+          }
+        },
+        "history_id": "f41f7b24-6966-74dc-8c62-237a429073f4"
+      },
+      "digest": {
+        "bytes": "LqpfAMFkT7vUq6jv/jRpuLp8EzV/BkpON4xNfuYWMSk="
+      }
+    },
+    "portable_section_sha256": "ccf241d2556aeb7c4bddcbc1bd484631dec2be9b738a37a8ab848159209c8459",
+    "assets": 1,
+    "activities": 1,
+    "routes": "two independent passive processes; duplicate apply and reopen passed",
+    "observations": "exact bodies, domain values, metadata/identifiers, dependency evidence, artifact results and revisions/events agree"
+  },
+  "receiver_python": "Installed Python 3.11.15 wheel; two separate passive worker processes",
+  "limits": "Development artifact, not release-candidate acceptance. One real host; passive helpers are not independent applications. Three host revisions cover this save/render/relink slice. Complete all-family convergence, both maintained cross-host handoffs and platform qualification remain separate gates."
+}

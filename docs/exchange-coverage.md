@@ -41,7 +41,9 @@ consumer recipes, wheel typing and tests; it is not installed release-candidate
 acceptance. Fixed independent vectors cover all 24 command alternatives, a split
 metadata record and a complete genesis checkpoint. Nonempty checkpoint/other record
 vectors, complete cross-process convergence, real-host handoffs and final ecosystem
-and platform qualification remain pending.
+and platform qualification remain pending. [Blender native replay evidence](
+evidence/exchange-development/blender-native-replay.json) covers actual background
+save/render/relink commits and two distinct passive checkpoint/suffix routes.
 
 ## Mutations and effect requirements
 
