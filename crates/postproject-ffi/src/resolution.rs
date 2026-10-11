@@ -563,6 +563,103 @@ mod tests {
     }
 
     #[test]
+    fn config_arrays_and_late_failures_leave_no_partial_owner() {
+        let fixture = tempfile::tempdir().expect("directory fixture");
+        let name = std::ffi::CString::new("rushes").expect("name");
+        let directory = std::ffi::CString::new(fixture.path().to_str().expect("UTF-8"))
+            .expect("directory");
+        let empty = std::ffi::CString::new("").expect("empty");
+        let mappings = [
+            PpRootMapping {
+                name: name.as_ptr(),
+                directory: directory.as_ptr(),
+            },
+            PpRootMapping {
+                name: empty.as_ptr(),
+                directory: directory.as_ptr(),
+            },
+        ];
+        let directories = [empty.as_ptr()];
+        let configs = [
+            PpResolutionConfig {
+                root_mappings: mappings.as_ptr(),
+                root_mapping_count: 2,
+                ..PpResolutionConfig::default()
+            },
+            PpResolutionConfig {
+                root_mapping_count: 1,
+                ..PpResolutionConfig::default()
+            },
+            PpResolutionConfig {
+                root_mapping_count: 100_001,
+                ..PpResolutionConfig::default()
+            },
+            PpResolutionConfig {
+                search_directories: directories.as_ptr(),
+                search_directory_count: 1,
+                ..PpResolutionConfig::default()
+            },
+            PpResolutionConfig {
+                search_directory_count: 1,
+                ..PpResolutionConfig::default()
+            },
+            PpResolutionConfig {
+                search_directory_count: u64::MAX,
+                ..PpResolutionConfig::default()
+            },
+            PpResolutionConfig {
+                verification: 0,
+                ..PpResolutionConfig::default()
+            },
+            PpResolutionConfig {
+                max_entries_per_directory: 0,
+                ..PpResolutionConfig::default()
+            },
+        ];
+        for config in configs {
+            let mut options = ptr::dangling_mut();
+            let mut error = ptr::null_mut();
+            // SAFETY: Arrays and strings are live; oversized counts reject
+            // before any array access. Outputs are writable.
+            let status = unsafe {
+                pp_resolution_options_create(&raw const config, &raw mut options, &raw mut error)
+            };
+            assert_eq!(status, PP_ERROR_INVALID_ARGUMENT);
+            assert!(options.is_null());
+            // SAFETY: Release the owned error exactly once.
+            unsafe { crate::pp_error_release(error) };
+        }
+    }
+
+    #[test]
+    fn config_copies_inputs_and_retains_the_cancellation_flag() {
+        let directory = std::ffi::CString::new("/tmp").expect("directory");
+        let directories = [directory.as_ptr()];
+        let token = PpCancelToken {
+            token: CancellationToken::new(),
+        };
+        let config = PpResolutionConfig {
+            search_directories: directories.as_ptr(),
+            search_directory_count: 1,
+            cancel_token: &raw const token,
+            ..PpResolutionConfig::default()
+        };
+        // SAFETY: Borrowed config inputs remain live during checked creation.
+        let options = unsafe { options_from_config(&config) }.expect("valid config");
+        drop(directory);
+        token.token.cancel();
+        drop(token);
+        assert_eq!(options.search_directories, [PathBuf::from("/tmp")]);
+        assert!(
+            options
+                .resolver
+                .cancellation
+                .expect("retained token")
+                .is_cancelled()
+        );
+    }
+
+    #[test]
     fn resolution_rejects_unaddressable_arrays_and_accepts_empty_input() {
         let directory = tempfile::tempdir().expect("create directory");
         let production = production_handle(
