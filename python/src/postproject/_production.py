@@ -413,7 +413,7 @@ class Production:
             transaction = self.edit(base.decision)
         else:
             full_base = None
-            transaction = self.transaction() if base is None else self.edit(base)
+            transaction = self.edit(base)
         try:
             if context is not None:
                 transaction.set_revision_context(context)
@@ -1896,60 +1896,41 @@ class Production:
         self._native.check(status, error)
         return ReadSession(self._native, handle)
 
-    def edit(self, base: DecisionBase) -> Edit:
-        """Begin an explicit-commit edit from detached production-scoped context."""
-        self._require_open()
-        value = _native_decision_base(base)
-        handle = ctypes.POINTER(NativeTransaction)()
-        error = ctypes.POINTER(Error)()
-        status = self._native.lib.pp_production_begin_edit(
-            self._handle, ctypes.byref(value), ctypes.byref(handle), ctypes.byref(error)
-        )
-        self._native.check(status, error)
-        return Edit(self._native, handle)
-
-    def transaction(
+    def edit(
         self,
+        base: DecisionBase | None = None,
         *,
-        base_revision: RevisionId | None = None,
         origin: OriginIdentity | str | None = None,
         message: str | None = None,
-    ) -> Transaction:
-        """Begin a transaction requiring explicit commit.
+    ) -> Edit:
+        """Begin an additive or detached decision edit requiring explicit commit.
 
-        A context rolls back uncommitted work on every exit, including normal
-        exit. Use the returned commit receipt to identify durable changes.
-
-        ``base_revision`` identifies the durable production state from which
-        the caller made its decisions. A stale non-mergeable write raises
-        :class:`postproject.ConflictError` with structured ``conflict`` detail.
+        Omit ``base`` for additive writes. Pass the ``decision_base`` copied
+        from a read session for decisions after closing that view. Use
+        ``view.edit()`` when staging needs the exact retained knowledge.
+        Uncommitted context exit rolls back; a failed commit is terminal.
         """
-
         self._require_open()
         handle = ctypes.POINTER(NativeTransaction)()
         error = ctypes.POINTER(Error)()
-        if base_revision is None:
+        if base is None:
             status = self._native.lib.pp_production_begin_transaction(
                 self._handle, ctypes.byref(handle), ctypes.byref(error)
             )
         else:
-            native_base = _native_revision_id(base_revision)
-            status = self._native.lib.pp_production_begin_transaction_at(
+            value = _native_decision_base(base)
+            status = self._native.lib.pp_production_begin_edit(
                 self._handle,
-                native_base,
+                ctypes.byref(value),
                 ctypes.byref(handle),
                 ctypes.byref(error),
             )
         self._native.check(status, error)
         if not handle:
             raise InternalError(
-                _abi.PP_ERROR_INTERNAL, "native transaction creation returned no handle"
+                _abi.PP_ERROR_INTERNAL, "native edit creation returned no handle"
             )
-        transaction = Transaction(self._native, handle)
-        if origin is not None or message is not None:
-            identity = OriginIdentity(origin) if isinstance(origin, str) else origin
-            transaction.set_revision_context(RevisionContext(identity, message))
-        return transaction
+        return Edit(self._native, handle)._with_context(origin, message)
 
     def close(self) -> None:
         """Release the native handle. Repeated calls are harmless."""
@@ -3147,8 +3128,13 @@ class ReadSession:
         self._native.check(status, error)
         return _decision_base(value)
 
-    def edit(self) -> Edit:
-        """Create an explicit-commit edit carrying this view's base."""
+    def edit(
+        self,
+        *,
+        origin: OriginIdentity | str | None = None,
+        message: str | None = None,
+    ) -> Edit:
+        """Begin a decision edit retaining this view's exact read knowledge."""
         self._require_open()
         handle = ctypes.POINTER(NativeTransaction)()
         error = ctypes.POINTER(Error)()
@@ -3156,7 +3142,7 @@ class ReadSession:
             self._handle, ctypes.byref(handle), ctypes.byref(error)
         )
         self._native.check(status, error)
-        return Edit(self._native, handle)
+        return Edit(self._native, handle)._with_context(origin, message)
 
     def asset(self, asset_id: AssetId) -> Asset:
         """Return one asset, raising ``NotFoundError`` when it is absent."""
@@ -3823,8 +3809,8 @@ class RevisionObserver:
         self._callback(revision, self._production.revision_events[revision.id])
 
 
-class Transaction:
-    """A caller-serialized transaction; uncommitted context work rolls back."""
+class Edit:
+    """A caller-serialized edit; uncommitted context work rolls back."""
 
     def __init__(
         self,
@@ -3837,6 +3823,20 @@ class Transaction:
         self._finalizer = weakref.finalize(
             self, native.lib.pp_transaction_release, handle
         )
+
+    def _with_context(
+        self, origin: OriginIdentity | str | None, message: str | None
+    ) -> Self:
+        try:
+            if origin is not None and not isinstance(origin, (str, OriginIdentity)):
+                raise TypeError("origin must be a string or OriginIdentity")
+            if origin is not None or message is not None:
+                identity = OriginIdentity(origin) if isinstance(origin, str) else origin
+                self.set_revision_context(RevisionContext(identity, message))
+            return self
+        except BaseException:
+            self.close()
+            raise
 
     def set_revision_context(self, context: RevisionContext) -> None:
         """Set optional origin and message fields for the future revision."""
@@ -4488,7 +4488,7 @@ class ProposalBuilder:
 
     def __init__(
         self,
-        transaction: Transaction,
+        transaction: Edit,
         client: ClientId,
         request: RequestId,
         base: ProtocolBase | None,
@@ -4766,10 +4766,6 @@ def _job_lease_handle(
     if not isinstance(lease, JobLease):
         raise TypeError("worker transition requires a JobLease")
     return lease._for_native(native)
-
-
-class Edit(Transaction):
-    """A read-bound edit. Explicit commit is required; exit rolls back otherwise."""
 
 
 def fingerprint_file(

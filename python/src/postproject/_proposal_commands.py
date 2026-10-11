@@ -37,7 +37,7 @@ from ._model import (
 )
 
 if TYPE_CHECKING:
-    from ._production import JobLease, Transaction
+    from ._production import Edit, JobLease
 
 
 @dataclass(frozen=True, slots=True)
@@ -252,7 +252,7 @@ StagedValue: TypeAlias = (
 )
 
 
-def _stage(transaction: Transaction, command: ProposalCommand) -> StagedValue:
+def _stage(transaction: Edit, command: ProposalCommand) -> StagedValue:
     """Reuse typed native validators; earlier staging remains on later failure."""
     if isinstance(command, ImportMediaCommand):
         return PreparedAsset(

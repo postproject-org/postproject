@@ -43,6 +43,7 @@ Read the relevant ADR before changing an invariant, a boundary, or a public cont
 
 ## Public surfaces, persistence, and compatibility
 
+- {doc}`ADR 0070 — Unified Python edits </adr/0070-python-unified-edits>`
 - {doc}`ADR 0068 — Python coherent asset scans </adr/0068-python-coherent-asset-scans>`
 - {doc}`ADR 0069 — Atomic C++ resolution configuration </adr/0069-atomic-cpp-resolution-configuration>`
 - {doc}`ADR 0008 — Python binding over the C ABI </adr/0008-python-binding-over-c-abi>`
@@ -158,4 +159,5 @@ Read the relevant ADR before changing an invariant, a boundary, or a public cont
 /adr/0067-native-portable-exchange-projection
 /adr/0068-python-coherent-asset-scans
 /adr/0069-atomic-cpp-resolution-configuration
+/adr/0070-python-unified-edits
 ```
