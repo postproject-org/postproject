@@ -1,0 +1,89 @@
+{
+  "scope": "Installed 0.8 candidate; actual Blender plus explicitly synthetic helpers and two passive processes",
+  "date": "2026-10-11",
+  "sources": {
+    "sdk_wheel": "8d05e6f85afab32fa37df26f7ece5b91dbb9bc59",
+    "native_library": "016297a",
+    "blender_fixture": "807dfa7db7fbf93f65976c2ef97f77eb138bdee4",
+    "job_helpers": "81599f3",
+    "race_helper": "9b5f09f",
+    "mapping_and_comparison": "ffd370b",
+    "knowledge_helper": "1cc2842",
+    "installed_cpp": "a5417522789909489c6fe4085f02e84a49c9f786"
+  },
+  "runtime": {
+    "blender": "5.2.2 LTS d13f752e3b9c",
+    "python": "3.11.15 for installed helpers; Blender embedded Python for host",
+    "package": "0.8.0a1",
+    "abi": 52,
+    "schema": 27
+  },
+  "comparison": {
+    "head": {
+      "type": "ExchangePosition",
+      "base": {
+        "type": "ProtocolBase",
+        "decision": {
+          "type": "DecisionBase",
+          "production_id": "2b503420-c243-427e-88b4-c0bf0b7bbef3",
+          "revision": {
+            "type": "CommittedRevision",
+            "id": "24a7a5e3-18bb-4958-ab33-a8a1a1504e1f",
+            "sequence": {
+              "integer": "27"
+            }
+          }
+        },
+        "history_id": "30461d04-444a-26bc-c191-4150abcf2ac7"
+      },
+      "digest": {
+        "bytes": "z+zuz1seWfW2OP2xWr2DgUlUL3txW7mEV1TYowXE+5k="
+      }
+    },
+    "portable_section_sha256": "4eadf2676746c3540f61cf8148e18155dadc0d60161c0aeb63c13c02e7ae703b",
+    "assets": 3,
+    "activities": 3,
+    "jobs": 7,
+    "distinct_local_mappings": true,
+    "routes": "two independent passive processes; duplicate apply and reopen passed",
+    "observations": "exact bodies, domain values, metadata/identifiers, dependency evidence, artifact results and revisions/events agree"
+  },
+  "checks": [
+    "Actual Blender save adopts movie; actual render publishes output/activity; normal relink records relocated source; plugin-free native reopen retains strip reference",
+    "Same authority history extended through typed proposals with all four content shapes, all metadata value kinds, exact numeric/Unicode/nested/repeated values, identifiers, roots and historical fingerprint/dependency/activity evidence",
+    "Ordinary native job requests plus identified claims/renew/release/failure/completion/cancellation preserve all five states; stale input and replaced claim reject",
+    "Original changing/rejected outcomes recover after reopen with disabled test clock; duplicate claim has no credential delivery",
+    "Text and binary lease identities absent from decoded checkpoint section payloads and imported mirror database",
+    "Two writer processes prepare from the same base and merge appends; stale removal rejects; each own receipt remains original",
+    "Genesis and nonempty checkpoint routes catch up through complete native/protocol suffix in separate passive processes; duplicate replay and reopen preserve head",
+    "Authority and passive readers resolve same bytes through three distinct caller-supplied directory mappings without recording those mappings",
+    "Exact portable section bodies and ordinary public queries, including jobs and artifact evaluation, agree"
+  ],
+  "local_logs": [
+    "target/exchange-candidate-host-blender.log",
+    "target/exchange-candidate-host-knowledge.log",
+    "target/exchange-candidate-host-jobs.log",
+    "target/exchange-candidate-host-race.log",
+    "target/exchange-candidate-host-comparison-final.log"
+  ],
+  "limits": [
+    "Private deterministic clock exists only in the storage test binary.",
+    "Helpers do not count as another independent host or worker application.",
+    "No commercial host execution or cross-series binary replacement qualification."
+  ],
+  "verification": {
+    "workspace": "all-feature tests and doctests passed",
+    "actual_host_test": "passed against the new 0.8 fixture",
+    "typing": "positive and twelve negative cases passed on installed Python 3.11 and 3.14",
+    "sphinx": "strict build passed"
+  },
+  "artifacts": {
+    "lib/libpostproject.so": "66efb075275af31fd24a96d8f6e57aaf741c32c071fc468880bab72cc7fa69ae",
+    "lib/libpostproject.a": "897a581a67c33f32b10c35b5d8b437a1069ff3d706dac5881a4e7ad77f0a5e5f",
+    "bin/postproject": "5c1318a8c3c5adf039c415c8ebcaf72c410e7663dec45a3f50845e04966e6e6c",
+    "include/postproject/postproject.h": "490b49140c1b103bb7c7d481f2022c76c1e109a6a1a5b5d2aaf21640565ccec6",
+    "include/postproject/postproject.hpp": "3a9326db3a6c49f71a3c77ad388f9af728dd38d81436fb198cd3aff46cd5803d",
+    "postproject-0.8.0a1-py3-none-any.whl": "fe443727651608610188a60a18f5bab54b4ce0da16cf22a0110469604b1060c4",
+    "postproject-0.8.0a1-py3-none-linux_x86_64.whl": "d93471a73f47463fc91ea6dde17d458cfb879bfb8e1621e868bc76f3c2f9ef99"
+  }
+}
