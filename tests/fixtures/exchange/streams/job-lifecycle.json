@@ -1,0 +1,174 @@
+{
+  "anchor": {
+  "kind": "anchor",
+  "version": "1",
+  "production": "00000000-0000-4000-8000-000000000001",
+  "history": "00000000-0000-4000-8000-000000000002",
+  "revision": null,
+  "sequence": "0"
+},
+  "floor": {
+  "production": "00000000-0000-4000-8000-000000000001",
+  "history": "00000000-0000-4000-8000-000000000002",
+  "revision": null,
+  "sequence": "0",
+  "digest": "bee5f938e8af5b92fbf9a176cc0fe4c2b7dc52a779f8ebbc2c43e9df65d16ad1"
+},
+  "predecessor": {
+  "production": "00000000-0000-4000-8000-000000000001",
+  "history": "00000000-0000-4000-8000-000000000002",
+  "revision": "00000000-0000-4000-8000-000000000712",
+  "sequence": "5",
+  "digest": "5854914e83d29b03b26ae44eee415eb6db99d141505140d76f66c6027d0b36bc"
+},
+  "prefix": [
+  "streams/media.json",
+  "streams/access.json",
+  "streams/knowledge.json",
+  "streams/provenance.json",
+  "streams/job-requests.json"
+],
+  "body": [
+    {"kind": "job.transition", "job_id": "00000000-0000-4000-8000-000000000709", "operation": "claim", "previous": {"kind": "requested"}, "state": {"tool": {"name": "Exact 同 😀", "version": "65535", "uri": "unknown:Exact%2fCase"}, "agent": null, "kind": "claimed", "expires_at_micros": "9223372036854775807"}, "authority_time_micros": "9223372036854774807", "input_boundary": "5"},
+    {"kind": "job.transition", "job_id": "00000000-0000-4000-8000-00000000070a", "operation": "claim", "previous": {"kind": "requested"}, "state": {"tool": {"name": "Exact 同 😀", "version": "65535", "uri": "unknown:Exact%2fCase"}, "agent": null, "kind": "claimed", "expires_at_micros": "1100"}, "authority_time_micros": "100", "input_boundary": "5"},
+    {"kind": "job.transition", "job_id": "00000000-0000-4000-8000-00000000070a", "operation": "renew", "previous": {"tool": {"name": "Exact 同 😀", "version": "65535", "uri": "unknown:Exact%2fCase"}, "agent": null, "kind": "claimed", "expires_at_micros": "1100"}, "state": {"tool": {"name": "Exact 同 😀", "version": "65535", "uri": "unknown:Exact%2fCase"}, "agent": null, "kind": "claimed", "expires_at_micros": "2200"}, "authority_time_micros": "200", "input_boundary": null},
+    {"kind": "job.transition", "job_id": "00000000-0000-4000-8000-00000000070a", "operation": "release", "previous": {"tool": {"name": "Exact 同 😀", "version": "65535", "uri": "unknown:Exact%2fCase"}, "agent": null, "kind": "claimed", "expires_at_micros": "2200"}, "state": {"kind": "requested"}, "authority_time_micros": "300", "input_boundary": null},
+    {"kind": "job.transition", "job_id": "00000000-0000-4000-8000-00000000070a", "operation": "claim", "previous": {"kind": "requested"}, "state": {"tool": {"name": "Exact 同 😀", "version": "65535", "uri": "unknown:Exact%2fCase"}, "agent": null, "kind": "claimed", "expires_at_micros": "1400"}, "authority_time_micros": "400", "input_boundary": "5"},
+    {"kind": "job.transition", "job_id": "00000000-0000-4000-8000-00000000070a", "operation": "fail", "previous": {"tool": {"name": "Exact 同 😀", "version": "65535", "uri": "unknown:Exact%2fCase"}, "agent": null, "kind": "claimed", "expires_at_micros": "1400"}, "state": {"kind": "failed", "diagnostic": "  vendor:Failure 同 😀\n  "}, "authority_time_micros": "500", "input_boundary": null},
+    {"kind": "job.transition", "job_id": "00000000-0000-4000-8000-00000000070b", "operation": "cancel", "previous": {"kind": "requested"}, "state": {"kind": "cancelled"}, "authority_time_micros": null, "input_boundary": null},
+    {"kind": "job.transition", "job_id": "00000000-0000-4000-8000-00000000070c", "operation": "claim", "previous": {"kind": "requested"}, "state": {"tool": {"name": "Exact 同 😀", "version": "65535", "uri": "unknown:Exact%2fCase"}, "agent": null, "kind": "claimed", "expires_at_micros": "1100"}, "authority_time_micros": "100", "input_boundary": "5"},
+    {"kind": "observation", "revision": "00000000-0000-4000-8000-00000000071c", "position": "0", "event": {"kind": "job_claimed", "job_id": "00000000-0000-4000-8000-000000000709"}},
+    {"kind": "observation", "revision": "00000000-0000-4000-8000-00000000071c", "position": "1", "event": {"kind": "job_claimed", "job_id": "00000000-0000-4000-8000-00000000070a"}},
+    {"kind": "observation", "revision": "00000000-0000-4000-8000-00000000071c", "position": "2", "event": {"kind": "job_claim_renewed", "job_id": "00000000-0000-4000-8000-00000000070a"}},
+    {"kind": "observation", "revision": "00000000-0000-4000-8000-00000000071c", "position": "3", "event": {"kind": "job_claim_released", "job_id": "00000000-0000-4000-8000-00000000070a"}},
+    {"kind": "observation", "revision": "00000000-0000-4000-8000-00000000071c", "position": "4", "event": {"kind": "job_claimed", "job_id": "00000000-0000-4000-8000-00000000070a"}},
+    {"kind": "observation", "revision": "00000000-0000-4000-8000-00000000071c", "position": "5", "event": {"kind": "job_failed", "job_id": "00000000-0000-4000-8000-00000000070a"}},
+    {"kind": "observation", "revision": "00000000-0000-4000-8000-00000000071c", "position": "6", "event": {"kind": "job_cancelled", "job_id": "00000000-0000-4000-8000-00000000070b"}},
+    {"kind": "observation", "revision": "00000000-0000-4000-8000-00000000071c", "position": "7", "event": {"kind": "job_claimed", "job_id": "00000000-0000-4000-8000-00000000070c"}}
+  ],
+  "chunks": [
+  {
+    "kind": "record.chunk",
+    "version": "1",
+    "required_features": [
+      "record-chunks.v1"
+    ],
+    "production": "00000000-0000-4000-8000-000000000001",
+    "history": "00000000-0000-4000-8000-000000000002",
+    "revision": "00000000-0000-4000-8000-00000000071c",
+    "index": "0",
+    "previous": null,
+    "payload": "AAAAAAAAAQ==",
+    "extensions": {
+      "vendor:exact": {
+        "ordered": [
+          "同",
+          "同",
+          "😀"
+        ]
+      }
+    },
+    "digest": "79090571012d68c54eefd86d3dce3dadeb8d4cc53809818fc36ce43e81750cf2"
+  },
+  {
+    "kind": "record.chunk",
+    "version": "1",
+    "required_features": [
+      "record-chunks.v1"
+    ],
+    "production": "00000000-0000-4000-8000-000000000001",
+    "history": "00000000-0000-4000-8000-000000000002",
+    "revision": "00000000-0000-4000-8000-00000000071c",
+    "index": "1",
+    "previous": "79090571012d68c54eefd86d3dce3dadeb8d4cc53809818fc36ce43e81750cf2",
+    "payload": "YnsiYXV0aG9yaXR5X3RpbWVfbWljcm9zIjoiOTIyMzM3MjAzNjg1NDc3NDgwNyIsImlucHV0X2JvdW5kYXJ5IjoiNSIsImpvYl9pZCI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDcwOSIsImtpbmQiOiJqb2IudHJhbnNpdGlvbiIsIm9wZXJhdGlvbiI6ImNsYWltIiwicHJldmlvdXMiOnsia2luZCI6InJlcXVlc3RlZCJ9LCJzdGF0ZSI6eyJhZ2VudCI6bnVsbCwiZXhwaXJlc19hdF9taWNyb3MiOiI5MjIzMzcyMDM2ODU0Nzc1ODA3Iiwia2luZCI6ImNsYWltZWQiLCJ0b29sIjp7Im5hbWUiOiJFeGFjdCDlkIwg8A==",
+    "extensions": {
+      "vendor:exact": {
+        "ordered": [
+          "同",
+          "同",
+          "😀"
+        ]
+      }
+    },
+    "digest": "9041ed436c9b5a92e9830af4ccbc616d883607852cc165172f2ff9c24f7bcd67"
+  },
+  {
+    "kind": "record.chunk",
+    "version": "1",
+    "required_features": [
+      "record-chunks.v1"
+    ],
+    "production": "00000000-0000-4000-8000-000000000001",
+    "history": "00000000-0000-4000-8000-000000000002",
+    "revision": "00000000-0000-4000-8000-00000000071c",
+    "index": "2",
+    "previous": "9041ed436c9b5a92e9830af4ccbc616d883607852cc165172f2ff9c24f7bcd67",
+    "payload": "n5iAIiwidXJpIjoidW5rbm93bjpFeGFjdCUyZkNhc2UiLCJ2ZXJzaW9uIjoiNjU1MzUifX19AAAAAAAAAUN7ImF1dGhvcml0eV90aW1lX21pY3JvcyI6IjEwMCIsImlucHV0X2JvdW5kYXJ5IjoiNSIsImpvYl9pZCI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDcwYSIsImtpbmQiOiJqb2IudHJhbnNpdGlvbiIsIm9wZXJhdGlvbiI6ImNsYWltIiwicHJldmlvdXMiOnsia2luZCI6InJlcXVlc3RlZCJ9LCJzdGF0ZSI6eyJhZ2VudCI6bnVsbCwiZXhwaXJlc19hdF9taWNyb3MiOiIxMTAwIiwia2luZCI6ImNsYWltZWQiLCJ0b29sIjp7Im5hbWUiOiJFeGFjdCDlkIwg8J+YgCIsInVyaSI6InVua25vd246RXhhY3QlMmZDYXNlIiwidmVyc2lvbiI6IjY1NTM1In19fQAAAAAAAAG6eyJhdXRob3JpdHlfdGltZV9taWNyb3MiOiIyMDAiLCJpbnB1dF9ib3VuZGFyeSI6bnVsbCwiam9iX2lkIjoiMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwNzBhIiwia2luZCI6ImpvYi50cmFuc2l0aW9uIiwib3BlcmF0aW9uIjoicmVuZXciLCJwcmV2aW91cyI6eyJhZ2VudCI6bnVsbCwiZXhwaXJlc19hdF9taWNyb3MiOiIxMTAwIiwia2luZCI6ImNsYWltZWQiLCJ0b29sIjp7Im5hbWUiOiJFeGFjdCDlkIwg8J+YgCIsInVyaSI6InVua25vd246RXhhY3QlMmZDYXNlIiwidmVyc2lvbiI6IjY1NTM1In19LCJzdGF0ZSI6eyJhZ2VudCI6bnVsbCwiZXhwaXJlc19hdF9taWNyb3MiOiIyMjAwIiwia2luZCI6ImNsYWltZWQiLCJ0b29sIjp7Im5hbWUiOiJFeGFjdCDlkIwg8J+YgCIsInVyaSI6InVua25vd246RXhhY3QlMmZDYXNlIiwidmVyc2lvbiI6IjY1NTM1In19fQAAAAAAAAFGeyJhdXRob3JpdHlfdGltZV9taWNyb3MiOiIzMDAiLCJpbnB1dF9ib3VuZGFyeSI6bnVsbCwiam9iX2lkIjoiMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwNzBhIiwia2luZCI6ImpvYi50cmFuc2l0aW9uIiwib3BlcmF0aW9uIjoicmVsZWFzZSIsInByZXZpb3VzIjp7ImFnZW50IjpudWxsLCJleHBpcmVzX2F0X21pY3JvcyI6IjIyMDAiLCJraW5kIjoiY2xhaW1lZCIsInRvb2wiOnsibmFtZSI6IkV4YWN0IOWQjCDwn5iAIiwidXJpIjoidW5rbm93bjpFeGFjdCUyZkNhc2UiLCJ2ZXJzaW9uIjoiNjU1MzUifX0sInN0YXRlIjp7ImtpbmQiOiJyZXF1ZXN0ZWQifX0AAAAAAAABQ3siYXV0aG9yaXR5X3RpbWVfbWljcm9zIjoiNDAwIiwiaW5wdXRfYm91bmRhcnkiOiI1Iiwiam9iX2lkIjoiMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwNzBhIiwia2luZCI6ImpvYi50cmFuc2l0aW9uIiwib3BlcmF0aW9uIjoiY2xhaW0iLCJwcmV2aW91cyI6eyJraW5kIjoicmVxdWVzdGVkIn0sInN0YXRlIjp7ImFnZW50IjpudWxsLCJleHBpcmVzX2F0X21pY3JvcyI6IjE0MDAiLCJraW5kIjoiY2xhaW1lZCIsInRvb2wiOnsibmFtZSI6IkV4YWN0IOWQjCDwn5iAIiwidXJpIjoidW5rbm93bjpFeGFjdCUyZkNhc2UiLCJ2ZXJzaW9uIjoiNjU1MzUifX19AAAAAAAAAW17ImF1dGhvcml0eV90aW1lX21pY3JvcyI6IjUwMCIsImlucHV0X2JvdW5kYXJ5IjpudWxsLCJqb2JfaWQiOiIwMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDA3MGEiLCJraW5kIjoiam9iLnRyYW5zaXRpb24iLCJvcGVyYXRpb24iOiJmYWlsIiwicHJldmlvdXMiOnsiYWdlbnQiOm51bGwsImV4cGlyZXNfYXRfbWljcm9zIjoiMTQwMCIsImtpbmQiOiJjbGFpbWVkIiwidG9vbCI6eyJuYW1lIjoiRXhhY3Qg5ZCMIPCfmIAiLCJ1cmkiOiJ1bmtub3duOkV4YWN0JTJmQ2FzZSIsInZlcnNpb24iOiI2NTUzNSJ9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",
+    "extensions": {
+      "vendor:exact": {
+        "ordered": [
+          "同",
+          "同",
+          "😀"
+        ]
+      }
+    },
+    "digest": "b4881d1022a7e0d044608885d694b9637954a71f7ee7699358cc5c8bb6eeb5cc"
+  }
+],
+  "manifest": {
+  "kind": "record.manifest",
+  "version": "1",
+  "required_features": [
+    "jobs.v1",
+    "record-chunks.v1"
+  ],
+  "predecessor": {
+    "production": "00000000-0000-4000-8000-000000000001",
+    "history": "00000000-0000-4000-8000-000000000002",
+    "revision": "00000000-0000-4000-8000-000000000712",
+    "sequence": "5",
+    "digest": "5854914e83d29b03b26ae44eee415eb6db99d141505140d76f66c6027d0b36bc"
+  },
+  "revision": {
+    "id": "00000000-0000-4000-8000-00000000071c",
+    "transaction": "00000000-0000-4000-8000-00000000071d",
+    "sequence": "6",
+    "committed_at": "9223372036854775807",
+    "context": {
+      "origin": {
+        "name": "vendor:Exact",
+        "version": "65535",
+        "uri": "unknown:Exact%2fCase"
+      },
+      "message": "Independent job lifecycle"
+    }
+  },
+  "chunks": {
+    "count": "3",
+    "payload_bytes": "4132",
+    "last_digest": "b4881d1022a7e0d044608885d694b9637954a71f7ee7699358cc5c8bb6eeb5cc"
+  },
+  "effects": "8",
+  "events": "8",
+  "extensions": {
+    "vendor:exact": {
+      "ordered": [
+        "同",
+        "同",
+        "😀"
+      ]
+    }
+  },
+  "record_digest": "0a82045aff63325bcec722474041a5b66384a59a8e24ad6f75a2300fc5b3a890",
+  "digest": "a50b14ec683a17a5d25352c6b5f4cfbbb267a66b92d87700ece1de22acef61fa"
+},
+  "head": {
+  "production": "00000000-0000-4000-8000-000000000001",
+  "history": "00000000-0000-4000-8000-000000000002",
+  "revision": "00000000-0000-4000-8000-00000000071c",
+  "sequence": "6",
+  "digest": "0a82045aff63325bcec722474041a5b66384a59a8e24ad6f75a2300fc5b3a890"
+}
+}
