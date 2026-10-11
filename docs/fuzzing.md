@@ -12,7 +12,10 @@ Boundary-heavy inputs have dedicated `cargo-fuzz` targets:
 - `id_parsing` exercises all strong-ID text parsers;
 - `exchange_document` checks strict JSON/framing, proposals, outcomes and
   portable media, metadata, provenance, dependency and job values, including
-  checkpoint manifests/chunks and retained history evidence.
+  checkpoint manifests/chunks and retained history evidence;
+- `exchange_files` imports sealed checkpoint files and atomically applies record
+  files to real passive stores, checking failed-import cleanup, unchanged heads
+  after rejection, reopen, reexport and passive write rejection.
 
 Install `cargo-fuzz`, then run one target with a nightly Rust toolchain:
 
@@ -45,3 +48,7 @@ replay and checkpoint import are outside their scope.
 The [schema-27 protocol campaigns](evidence/schema-27/protocol-decoder-fuzz.json)
 add all current portable value families and independently authored proposal and
 genesis-checkpoint seeds. Their input and storage limits remain explicit.
+The [schema-27 storage campaigns](evidence/schema-27/exchange-storage-fuzz.json)
+exercise file decoding and SQLite reconstruction with fixed nonempty checkpoints
+and a complete Blender/job history seed. Inputs are bounded to 2 MiB; these
+campaigns do not qualify maximum legal values or scale workloads.

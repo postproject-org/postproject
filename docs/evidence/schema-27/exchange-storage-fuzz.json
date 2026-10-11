@@ -1,0 +1,42 @@
+{
+  "scope": "Sealed checkpoint import and atomic record-file application to real passive SQLite stores",
+  "target_source": "f4ceec2",
+  "target_sha256": "48f8cd62f67b4aa02cf16be84a255a55c4138da49cba3af87f1c017836ee15fd",
+  "compiler": "rustc 1.98.1 (48a229cea 2026-09-01)",
+  "tool": "cargo-fuzz 0.13.2; libfuzzer-sys 0.4.13",
+  "configuration": "AddressSanitizer; RUSTC_BOOTSTRAP=1 enables sanitizer compiler flags locally",
+  "command": "cargo-fuzz run exchange_files -- -max_total_time=60 -max_len=2097153 -rss_limit_mb=1024 -timeout=10 -print_final_stats=1",
+  "campaigns": [
+    {
+      "fixtures": "Independent genesis/media checkpoints and metadata/media/access records, including truncated and trailing-byte variants",
+      "target_sha256": "b0b5c7feb1a390b4655264e0c9575fa30983161e6c9d5ff45a3b7d50ca58a2e0",
+      "source_difference": "Before the final assertion of the precise Unsupported error for passive transactions",
+      "seed": 295083299,
+      "initial_inputs": 18,
+      "largest_seed_bytes": 27416,
+      "executions": 266,
+      "seconds": 61,
+      "reported_peak_rss_mib": 345,
+      "result": "passed"
+    },
+    {
+      "fixtures": "Adds independent access checkpoint and actual Blender head-27 checkpoint with metadata, provenance, dependencies and all public job states; includes prior mutations",
+      "seed": 629619351,
+      "initial_inputs": 46,
+      "largest_seed_bytes": 259391,
+      "executions": 204,
+      "seconds": 61,
+      "reported_peak_rss_mib": 361,
+      "result": "passed"
+    }
+  ],
+  "assertions": [
+    "A failed checkpoint import publishes no destination",
+    "A rejected record leaves the mirror head unchanged",
+    "Every resulting mirror reexports its complete portable checkpoint and reopens at the same head",
+    "Every reopened store is passive and native transactions return Unsupported"
+  ],
+  "bounds": {"file_bytes": 2097152, "checkpoint_disk_bytes": 33554432, "checkpoint_work_items": 10000},
+  "execution_note": "Both campaigns ran outside the traced sandbox and exited successfully. Initial sandbox attempts encountered LeakSanitizer ptrace restrictions.",
+  "limits": "Local Linux bounded campaigns, not exhaustive conformance, maximum-value or scale qualification. Raw mutations usually fail integrity before domain reconstruction; valid seeds exercise storage. Bundled SQLite C was not separately sanitizer-instrumented. No nightly-toolchain or platform qualification claim. Corpora and artifacts remain local."
+}
