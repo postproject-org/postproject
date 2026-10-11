@@ -42,3 +42,6 @@ incremental frame decoding and passive replay.
 The [incremental-frame campaigns](evidence/schema-24/frame-decoder-fuzz.json)
 also exercise raw framed bodies and portable production/version headers; storage
 replay and checkpoint import are outside their scope.
+The [schema-27 protocol campaigns](evidence/schema-27/protocol-decoder-fuzz.json)
+add all current portable value families and independently authored proposal and
+genesis-checkpoint seeds. Their input and storage limits remain explicit.

@@ -1,0 +1,32 @@
+{
+  "scope": "Protocol value decoding, canonical round trips and incremental framing",
+  "target_source": "45c32f9",
+  "target_sha256": "a08355e3d91005c729edcd07142b6b7d77c1192fad35f71e4e5a03959692ab3a",
+  "compiler": "rustc 1.98.1 (48a229cea 2026-09-01)",
+  "tool": "cargo-fuzz 0.13.2; libfuzzer-sys 0.4.13",
+  "configuration": "AddressSanitizer; RUSTC_BOOTSTRAP=1 enables sanitizer compiler flags locally",
+  "command": "cargo-fuzz run exchange_document -- -max_total_time=60 -max_len=65536",
+  "campaigns": [
+    {
+      "fixtures": "All 24 command alternatives through a1865bd",
+      "seed": 456801218,
+      "initial_inputs": 4791,
+      "executions": 543433,
+      "seconds": 61,
+      "reported_peak_rss_mib": 504,
+      "result": "passed"
+    },
+    {
+      "fixtures": "Includes independently authored complete genesis checkpoint 4158be6",
+      "seed": 2517273893,
+      "initial_inputs": 5759,
+      "executions": 195389,
+      "seconds": 61,
+      "reported_peak_rss_mib": 469,
+      "result": "passed"
+    }
+  ],
+  "additional_checks": "Fuzz locked build, strict Clippy, format and isolated dependency policy passed",
+  "execution_note": "Initial sandbox run completed its time limit but LeakSanitizer failed under ptrace. Both reported campaigns ran outside the traced sandbox and exited successfully.",
+  "limits": "Local Linux decoder campaigns, not complete conformance or exhaustive coverage. Storage replay/import and filesystem recovery are tested separately. No nightly-toolchain or platform qualification claim. Maximum configured input is 64 KiB; this does not qualify all legal large native values. Corpus and artifacts remain local."
+}
