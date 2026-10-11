@@ -1,0 +1,132 @@
+{
+  "baseline": {
+    "tag": "v0.8.0-alpha.1",
+    "commit": "7e097bdb8949ef7ae3fe478594a12fbdf7517f9d",
+    "package": "0.8.0-alpha.1",
+    "python": "0.8.0a1",
+    "abi": 52,
+    "schema": 27,
+    "protocol_major": 1
+  },
+  "repositories": [
+    {
+      "repository": "postproject",
+      "baseline_commit": "7e097bdb8949ef7ae3fe478594a12fbdf7517f9d",
+      "branch": "main",
+      "initial_untracked": [
+        "?? python/build/"
+      ],
+      "migration_commit": null,
+      "qualification": "not run"
+    },
+    {
+      "repository": "postproject-ardour",
+      "baseline_commit": "babc18bfdbb6e8ec8e43341d8aad7b5219daa604",
+      "branch": "main",
+      "initial_untracked": [],
+      "migration_commit": null,
+      "qualification": "not run"
+    },
+    {
+      "repository": "postproject-blender",
+      "baseline_commit": "e7002e2d682cc6cdf430646eaf4f42098c3faad5",
+      "branch": "main",
+      "initial_untracked": [],
+      "migration_commit": null,
+      "qualification": "not run"
+    },
+    {
+      "repository": "postproject-cpp-nle",
+      "baseline_commit": "8d2933a8db4d945801272282f316808807c61584",
+      "branch": "main",
+      "initial_untracked": [],
+      "migration_commit": null,
+      "qualification": "not run"
+    },
+    {
+      "repository": "postproject-kdenlive",
+      "baseline_commit": "c20cbf1f6346b8915c4b461e524539e6e74ee884",
+      "branch": "main",
+      "initial_untracked": [],
+      "migration_commit": null,
+      "qualification": "not run"
+    },
+    {
+      "repository": "postproject-natron",
+      "baseline_commit": "37b7ffce392c499570ad5ca000800e33c663e372",
+      "branch": "main",
+      "initial_untracked": [
+        "?? build-api-safety-guards/",
+        "?? build-content-values/",
+        "?? build-qualification-abi51/",
+        "?? build-resolution-values/"
+      ],
+      "migration_commit": null,
+      "qualification": "not run"
+    },
+    {
+      "repository": "postproject-obs",
+      "baseline_commit": "3b699b8e0ba15b64f66c4829ecadaaf3279c4a7e",
+      "branch": "main",
+      "initial_untracked": [
+        "?? build-qualification-abi51/"
+      ],
+      "migration_commit": null,
+      "qualification": "not run"
+    },
+    {
+      "repository": "postproject-openassetio",
+      "baseline_commit": "457b04382c5f6ca02123b0a13bcbbeba8620a045",
+      "branch": "main",
+      "initial_untracked": [
+        "?? build/"
+      ],
+      "migration_commit": null,
+      "qualification": "not run"
+    },
+    {
+      "repository": "postproject-openassetio-manager",
+      "baseline_commit": "638ce5b69f39e7286667cc604df35b1d11b106f0",
+      "branch": "main",
+      "initial_untracked": [
+        "?? build/"
+      ],
+      "migration_commit": null,
+      "qualification": "not run"
+    },
+    {
+      "repository": "postproject-otio-demo",
+      "baseline_commit": "0275e8dc1bdc98646027eacd93dc765ddb6f9497",
+      "branch": "main",
+      "initial_untracked": [
+        "?? build/"
+      ],
+      "migration_commit": null,
+      "qualification": "not run"
+    },
+    {
+      "repository": "postproject-otio-openassetio",
+      "baseline_commit": "4b3a40278dde2bf91f3a55fd5c1446de14f0e71d",
+      "branch": "main",
+      "initial_untracked": [],
+      "migration_commit": null,
+      "qualification": "not run"
+    },
+    {
+      "repository": "postproject-python-host",
+      "baseline_commit": "2e6ad4de93b04d27ab4109ad872b3e29095c49d9",
+      "branch": "main",
+      "initial_untracked": [],
+      "migration_commit": null,
+      "qualification": "not run"
+    },
+    {
+      "repository": "postproject.org",
+      "baseline_commit": "61793494237231ee2e1b3c2b9df691116475fd27",
+      "branch": "main",
+      "initial_untracked": [],
+      "migration_commit": null,
+      "qualification": "not run"
+    }
+  ]
+}

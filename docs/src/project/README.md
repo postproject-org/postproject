@@ -35,6 +35,8 @@ Use these pages when the implementation itself is relevant:
   experimental exchange contract and its implementation coverage.
 - {doc}`../../commercial-host-feasibility` records the reviewed commercial
   integration routes and their runtime limits.
+- {doc}`../../api-ergonomics-audit` records the current API redesign and
+  consumer migration status.
 
 These are engineering references. Application integrators should prefer the integrator and concept guides unless they are diagnosing implementation behavior.
 
@@ -76,6 +78,7 @@ When a change touches an area that maps to an external standard, consult the sta
 /exchange-protocol
 /exchange-coverage
 /commercial-host-feasibility
+/api-ergonomics-audit
 releases
 decisions
 ```
