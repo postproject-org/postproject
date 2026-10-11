@@ -145,6 +145,7 @@ def check_checkpoint(vector: dict, snapshot: dict, digests: bool) -> None:
             "structures": "structure.header",
             "activities": "activity.header",
             "dependencies": "dependency.set",
+            "jobs": "job.header",
             "records": "record.manifest",
         }
         logical_count = (

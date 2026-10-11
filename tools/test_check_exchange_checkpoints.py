@@ -136,6 +136,28 @@ class CheckpointChecks(unittest.TestCase):
 
         self.altered(count_snapshots)
 
+    def test_job_inputs_are_continuations_of_their_headers(self):
+        directory = ROOT / "tests/fixtures/exchange"
+        self.vector = next(
+            vector
+            for vector in json.loads(
+                (directory / "checkpoint-vectors.json").read_text()
+            )
+            if vector["file"] == "checkpoints/jobs.json"
+        )
+        self.snapshot = json.loads((directory / self.vector["file"]).read_text())
+        check_checkpoint(self.vector, self.snapshot, False)
+        self.assertEqual(len(self.snapshot["bodies"]["jobs"]), 10)
+
+        def count_inputs(snapshot):
+            next(
+                section
+                for section in snapshot["manifest"]["sections"]
+                if section["section"] == "jobs"
+            )["items"] = "10"
+
+        self.altered(count_inputs)
+
 
 if __name__ == "__main__":
     unittest.main()
