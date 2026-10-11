@@ -38,14 +38,14 @@ checkpoint exchange, catch-up and scoped inspection. Development ABI 52 has 349
 exports and 36 checked public layouts. [Installed native evidence](
 evidence/exchange-development/installed-native.json) records local compiler floors,
 consumer recipes, wheel typing and tests; it is not installed release-candidate
-acceptance. Fixed independent vectors cover all 24 command alternatives, nine
-records and seven checkpoints, including exact metadata edits, fingerprint history,
+acceptance. Fixed independent vectors cover all 24 command alternatives, ten
+records and nine checkpoints, including exact metadata edits, fingerprint history,
 dependency replacements, historical activities and all public job states. Imports
 reexport identical portable section bodies. [Rehashed storage cases](
 evidence/schema-27/rehashed-storage-files.json) qualify installed rejection and
-atomicity beyond hash checking. Compound-media/archive fixed profiles, remaining limit
-qualification, maintained handoffs and final ecosystem/platform qualification
-remain pending. [Measured scale and local overhead](schema-27-exchange-measurements.md)
+atomicity beyond hash checking, including compound validation and archived floor
+boundaries. Remaining limit qualification, maintained handoffs and final
+ecosystem/platform qualification remain pending. [Measured scale and local overhead](schema-27-exchange-measurements.md)
 cover native 10,000-asset capture, streaming, maximum binary metadata and outcome
 growth. [Blender native replay evidence](
 evidence/exchange-development/blender-native-replay.json) covers actual background

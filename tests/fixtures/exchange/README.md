@@ -27,7 +27,11 @@ The metadata-edit profile preserves all 13 value kinds, repeated ordered values,
 replacement and removal. Activity snapshots retain earlier fingerprint and path
 facts after later edits. Jobs preserve all five public states, exact lifecycle
 decisions and an atomic output/activity publication, without capability fields.
-Compound-media and archived-history fixed profiles remain incomplete.
+Compound profiles retain negative stepped sequence frames, sparse exceptions,
+exact rates/naming, ordered required spans and required/optional packages. The
+archive profile preserves a prior genesis anchor, earlier manifest/chunk bytes
+and split opaque partial effects below a nonzero replay floor. Those bytes never
+become executable records.
 
 Run `python3 tools/check_exchange_vectors.py` for canonical checks, or
 `uv run --no-project --with blake3==1.0.10 python3 tools/check_exchange_vectors.py --digests`

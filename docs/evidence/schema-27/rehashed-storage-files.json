@@ -1,10 +1,10 @@
 {
   "scope": "Installed passive checkpoint reconstruction and atomic record rejection with independently rehashed domain facts",
   "sources": {
-    "file_author": "adfba30",
-    "cases": "08f33a5",
+    "file_author": "48b744d",
+    "cases": "304de72",
     "controller": "83e9566",
-    "fixed_vectors": "da4ec76",
+    "fixed_vectors": "af73e14",
     "native_implementation": "016297a",
     "wheel_bindings": "9b89f07"
   },
@@ -16,7 +16,7 @@
   },
   "installed_wheel_sha256": "d15225f7af18557ea37b5e32c0fb786019683fdec34c5d144326930e3bcc1835",
   "bundled_library_sha256": "84880892e536363e472b5bc7931d2c1729d45b6c426631486fbc350e19b7254e",
-  "command": "python tools/check_exchange_storage_mutations.py --output target/exchange-storage-mutations-controls.json",
+  "command": "python tools/check_exchange_storage_mutations.py --output target/exchange-storage-mutations-complete.json",
   "bounds": "Each authored file and fixture is at most 2 MiB; existing native receiver budgets apply",
   "controls": "Each record has a fresh valid application control. Each checkpoint has a successful original import with ordinary public reads.",
   "records": [
@@ -79,6 +79,16 @@
       "case": "forged predecessor",
       "failure_code": 17,
       "unchanged_after_reopen": true
+    },
+    {
+      "case": "exception outside stepped domain",
+      "failure_code": 12,
+      "unchanged_after_reopen": true
+    },
+    {
+      "case": "late package without required essence",
+      "failure_code": 12,
+      "unchanged_after_reopen": true
     }
   ],
   "checkpoints": [
@@ -114,6 +124,16 @@
     },
     {
       "case": "false current metadata",
+      "failure_code": 18,
+      "destination_absent": true
+    },
+    {
+      "case": "forged prior anchor",
+      "failure_code": 18,
+      "destination_absent": true
+    },
+    {
+      "case": "archive after replay floor",
       "failure_code": 18,
       "destination_absent": true
     }
