@@ -15,7 +15,7 @@ class AssetIterationTests(unittest.TestCase):
             media = Path(directory) / "clip.mov"
             media.write_bytes(b"fixture")
             with Production.create(path) as production:
-                with production.transaction() as edit:
+                with production.edit() as edit:
                     expected = [edit.import_media(media) for _ in range(5)]
                     edit.commit()
                 with production.read_session() as view:
@@ -28,7 +28,7 @@ class AssetIterationTests(unittest.TestCase):
                         self.assertIn(first.id, expected)
                         self.assertEqual(page.call_count, 1)
                         with Production.open(path) as writer:
-                            with writer.transaction() as edit:
+                            with writer.edit() as edit:
                                 late = edit.import_media(media)
                                 edit.commit()
                         rest = list(assets)
@@ -54,7 +54,7 @@ class AssetIterationTests(unittest.TestCase):
             media = Path(directory) / "clip.mov"
             media.write_bytes(b"fixture")
             with Production.create(path) as production:
-                with production.transaction() as edit:
+                with production.edit() as edit:
                     edit.import_media(media, "first")
                     edit.import_media(media, "second")
                     edit.commit()

@@ -37,7 +37,7 @@ class JobLeaseTests(unittest.TestCase):
         self.media.write_bytes(b"media")
         self.production = Production.create(self.root / "production.pproj")
         self.addCleanup(self.production.close)
-        with self.production.transaction() as edit:
+        with self.production.edit() as edit:
             self.asset = edit.import_media(self.media)
             self.job = edit.request_job(
                 JobRequest(
@@ -48,7 +48,7 @@ class JobLeaseTests(unittest.TestCase):
         self.tool = ToolIdentity("worker")
 
     def claim(self) -> JobLease:
-        with self.production.transaction() as edit:
+        with self.production.edit() as edit:
             lease = edit.claim_job_lease(self.job, self.tool, timedelta(minutes=1))
             self.addCleanup(lease.close)
             self.assertIsInstance(lease.state, PendingJobLease)
@@ -65,7 +65,7 @@ class JobLeaseTests(unittest.TestCase):
         token = lease.export_token()
         imported = self.production.import_job_lease(token)
         self.addCleanup(imported.close)
-        with self.production.transaction() as edit:
+        with self.production.edit() as edit:
             edit.renew_job_lease(lease, timedelta(minutes=2))
             edit.commit()
         active = lease.state
@@ -76,13 +76,13 @@ class JobLeaseTests(unittest.TestCase):
             active.expires_at_unix_micros,
             claim.expires_at_unix_micros,
         )
-        with self.production.transaction() as edit:
+        with self.production.edit() as edit:
             edit.release_job_lease(lease)
             edit.commit()
         self.assertIsInstance(lease.state, ClosedJobLease)
         with self.assertRaises(ConflictError):
             self.production.import_job_lease(token)
-        with self.production.transaction() as edit:
+        with self.production.edit() as edit:
             edit.fail_job_lease(imported, "late failure")
             with self.assertRaises(ConflictError):
                 edit.commit()
@@ -93,7 +93,7 @@ class JobLeaseTests(unittest.TestCase):
         self.assertEqual(caught.exception.code, 1)
 
     def test_pending_claim_and_metadata_publication_commit_together(self) -> None:
-        with self.production.transaction() as edit:
+        with self.production.edit() as edit:
             lease = edit.claim_job_lease(self.job, self.tool, timedelta(minutes=1))
             self.addCleanup(lease.close)
             output = edit.add_representation(
@@ -114,7 +114,7 @@ class JobLeaseTests(unittest.TestCase):
         )
 
     def test_duration_validation_and_discard_leave_requested_job(self) -> None:
-        with self.production.transaction() as edit:
+        with self.production.edit() as edit:
             for invalid in [timedelta(0), timedelta(microseconds=-1), timedelta.max]:
                 with self.assertRaises(ValueError):
                     edit.claim_job_lease(self.job, self.tool, invalid)
@@ -131,7 +131,7 @@ class JobLeaseTests(unittest.TestCase):
     def test_pending_completion_rejects_misordered_output_without_mutating_edit(
         self,
     ) -> None:
-        with self.production.transaction() as edit:
+        with self.production.edit() as edit:
             output = edit.add_representation(
                 self.asset, RepresentationKind.DERIVED, self.media
             )
@@ -151,7 +151,7 @@ class JobLeaseTests(unittest.TestCase):
         with Production.create(self.root / "other.pproj") as other:
             with self.assertRaises(InvalidArgumentError):
                 other.import_job_lease(lease.export_token())
-            with other.transaction() as edit:
+            with other.edit() as edit:
                 with self.assertRaises(InvalidArgumentError):
                     edit.release_job_lease(lease)
                 self.assertIsNone(edit.commit().revision)
@@ -161,7 +161,7 @@ class JobLeaseTests(unittest.TestCase):
 
     def test_changed_input_rolls_back_publication_without_closing_lease(self) -> None:
         source = self.production.representations[self.asset][0]
-        with self.production.transaction() as edit:
+        with self.production.edit() as edit:
             job = edit.request_job(
                 JobRequest(
                     "example:publish",
@@ -184,7 +184,7 @@ class JobLeaseTests(unittest.TestCase):
                 source.resources[0].id, Fingerprint("example-content", 1, b"changed")
             )
             changed = edit.commit()
-        with self.production.transaction() as edit:
+        with self.production.edit() as edit:
             output = edit.add_representation(
                 self.asset, RepresentationKind.DERIVED, self.media
             )
@@ -205,7 +205,7 @@ class JobLeaseTests(unittest.TestCase):
         self.assertEqual(len(self.production.representations[self.asset]), 1)
         self.assertEqual(self.production.job(job).state, JobState.CLAIMED)
         self.assertIsInstance(imported.state, ActiveJobLease)
-        with self.production.transaction() as edit:
+        with self.production.edit() as edit:
             edit.release_job_lease(imported)
             edit.commit()
         self.assertIsInstance(imported.state, ClosedJobLease)

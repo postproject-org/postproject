@@ -14,11 +14,11 @@ class CommitReceiptTests(unittest.TestCase):
     def test_uncommitted_normal_exit_rolls_back_and_releases_the_guard(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             with Production.create(Path(directory) / "explicit.pproj") as production:
-                with production.transaction() as discarded:
+                with production.edit() as discarded:
                     discarded.add_media_root("discarded")
                 self.assertEqual(production.media_roots, ())
                 self.assertIsNone(production.latest_revision)
-                with production.transaction() as committed:
+                with production.edit() as committed:
                     committed.add_media_root("durable")
                     receipt = committed.commit()
                 self.assertIsNotNone(receipt.revision)
@@ -29,10 +29,10 @@ class CommitReceiptTests(unittest.TestCase):
     def test_explicit_close_and_rollback_inside_context_are_terminal(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             with Production.create(Path(directory) / "closed.pproj") as production:
-                with production.transaction() as closed:
+                with production.edit() as closed:
                     closed.add_media_root("closed")
                     closed.close()
-                with production.transaction() as rolled_back:
+                with production.edit() as rolled_back:
                     rolled_back.add_media_root("rolled-back")
                     rolled_back.rollback()
                 self.assertEqual(production.media_roots, ())
@@ -42,10 +42,10 @@ class CommitReceiptTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "production.pproj"
             with Production.create(path) as first, Production.open(path) as second:
-                with first.transaction() as a:
+                with first.edit() as a:
                     a.add_media_root("rushes")
                     receipt = a.commit()
-                with second.transaction() as b:
+                with second.edit() as b:
                     b.add_media_root("renders")
                     other = b.commit()
                 self.assertEqual(receipt.production_id, first.id)
@@ -53,7 +53,7 @@ class CommitReceiptTests(unittest.TestCase):
                 self.assertEqual(receipt.revision.sequence, 1)
                 self.assertEqual(other.revision.sequence, 2)
                 self.assertNotEqual(receipt.revision.id, other.revision.id)
-                with first.transaction() as noop:
+                with first.edit() as noop:
                     empty = noop.commit()
                 self.assertIsNone(empty.revision)
                 head = first.latest_revision
@@ -63,13 +63,13 @@ class CommitReceiptTests(unittest.TestCase):
     def test_failed_commit_context_does_not_attempt_a_second_commit(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             with Production.create(Path(directory) / "failure.pproj") as production:
-                with production.transaction() as edit:
+                with production.edit() as edit:
                     edit.confirm_locator(ResourceId(UUID(int=1)), "file:///absent")
                     with self.assertRaises(AlreadyExistsError):
                         edit.commit()
                     # The original operation failure is preserved; exiting this
                     # context must not raise a second closed-transaction error.
                 self.assertIsNone(production.latest_revision)
-                with production.transaction() as next_edit:
+                with production.edit() as next_edit:
                     next_edit.add_media_root("usable")
                     self.assertIsNotNone(next_edit.commit().revision)

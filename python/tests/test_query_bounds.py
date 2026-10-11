@@ -35,7 +35,7 @@ class QueryBoundsTests(unittest.TestCase):
             media = root / "media.mov"
             media.write_bytes(b"truncated search fixture")
             with Production.create(root / "production.pproj") as production:
-                with production.transaction() as edit:
+                with production.edit() as edit:
                     asset = edit.import_media(media)
                     edit.commit()
                 search = root / "search"
@@ -66,7 +66,7 @@ class QueryBoundsTests(unittest.TestCase):
             media = root / "media.mov"
             media.write_bytes(b"activity timestamp fixture")
             with Production.create(root / "production.pproj") as production:
-                with production.transaction() as edit:
+                with production.edit() as edit:
                     asset = edit.import_media(media)
                     edit.commit()
                 representation = production.representations[asset][0].id
@@ -74,7 +74,7 @@ class QueryBoundsTests(unittest.TestCase):
                 spec = ActivitySpec(
                     "org.example:render", (ActivityEdge(representation),)
                 )
-                with production.transaction() as edit:
+                with production.edit() as edit:
                     for timestamp in (-(2**63) - 1, 2**64 + 1):
                         with self.assertRaises(InvalidArgumentError):
                             edit.create_activity(
@@ -91,7 +91,7 @@ class QueryBoundsTests(unittest.TestCase):
                     self.assertIsNone(edit.commit().revision)
                 self.assertEqual(production.latest_revision, head)
                 self.assertEqual(production.activities, ())
-                with production.transaction() as edit:
+                with production.edit() as edit:
                     activity = edit.create_activity(
                         replace(spec, started_at_unix_micros=-(2**63))
                     )
@@ -116,7 +116,7 @@ class QueryBoundsTests(unittest.TestCase):
                     MetadataRational(2**64 + 1, 1),
                     MetadataRational(1, 2**64 + 1),
                 )
-                with production.transaction() as edit:
+                with production.edit() as edit:
                     for value in invalid_values:
                         with self.subTest(value=value):
                             with self.assertRaises(InvalidArgumentError):
@@ -135,7 +135,7 @@ class QueryBoundsTests(unittest.TestCase):
                     MetadataTimestamp(2**63 - 1),
                     MetadataRational(-(2**63), 2**64 - 1),
                 )
-                with production.transaction() as edit:
+                with production.edit() as edit:
                     for value in valid_values:
                         edit.add_metadata(target, property, value)
                     edit.commit()
@@ -163,7 +163,7 @@ class QueryBoundsTests(unittest.TestCase):
                 replace(source, naming=SequenceNaming("frame", ".exr", 260)),
             )
             with Production.create(root / "production.pproj") as production:
-                with production.transaction() as edit:
+                with production.edit() as edit:
                     for invalid in invalid_sources:
                         with self.subTest(source=invalid):
                             with self.assertRaises(InvalidArgumentError):
@@ -176,7 +176,7 @@ class QueryBoundsTests(unittest.TestCase):
                     self.assertIsNone(edit.commit().revision)
                 self.assertEqual(production.assets_page(limit=1).items, ())
                 self.assertIsNone(production.latest_revision)
-                with production.transaction() as edit:
+                with production.edit() as edit:
                     asset = edit.import_media(source)
                     edit.commit()
                 sequence = production.representations[asset][0].image_sequence
@@ -189,7 +189,7 @@ class QueryBoundsTests(unittest.TestCase):
             media = root / "media.mov"
             media.write_bytes(b"fingerprint integer fixture")
             with Production.create(root / "production.pproj") as production:
-                with production.transaction() as edit:
+                with production.edit() as edit:
                     asset = edit.import_media(media)
                     edit.commit()
                 representation = production.representations[asset][0]
@@ -230,7 +230,7 @@ class QueryBoundsTests(unittest.TestCase):
             media = root / "media.mov"
             media.write_bytes(b"query bounds fixture")
             with Production.create(root / "production.pproj") as production:
-                with production.transaction() as edit:
+                with production.edit() as edit:
                     asset = edit.import_media(media)
                     edit.commit()
                 representation = production.representations[asset][0].id
@@ -290,7 +290,7 @@ class QueryBoundsTests(unittest.TestCase):
             media = root / "media.mov"
             media.write_bytes(b"bounded query fixture")
             with Production.create(root / "production.pproj") as production:
-                with production.transaction() as edit:
+                with production.edit() as edit:
                     asset = edit.import_media(media)
                     edit.add_media_root("media")
                     receipt = edit.commit()

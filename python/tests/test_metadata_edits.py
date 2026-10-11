@@ -21,10 +21,10 @@ class MetadataEditTests(unittest.TestCase):
             with Production.create(Path(directory) / "metadata.pproj") as production:
                 target = ProductionRef(production.id)
                 property = MetadataProperty("com.example.editor", "keywords")
-                with production.transaction() as transaction:
+                with production.edit() as transaction:
                     transaction.add_metadata(target, property, MetadataString("first"))
                     transaction.commit()
-                with production.transaction() as transaction:
+                with production.edit() as transaction:
                     with self.assertRaises(InvalidArgumentError):
                         transaction.remove_metadata_property(target, property)
                     transaction.add_metadata(target, property, MetadataString("second"))

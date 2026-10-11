@@ -45,7 +45,7 @@ class ReadSessionTests(unittest.TestCase):
             path = Path(directory) / "production.pproj"
             with Production.create(path) as writer, Production.open(path) as reader:
                 with reader.read_session() as empty:
-                    with writer.transaction() as edit:
+                    with writer.edit() as edit:
                         first = edit.add_media_root("first", priority=-1)
                         second = edit.add_media_root("second")
                         edit.commit()
@@ -96,11 +96,11 @@ class ReadSessionTests(unittest.TestCase):
             media = root / "clip.dat"
             media.write_bytes(b"dependency decision fixture")
             with Production.create(root / "production.pproj") as production:
-                with production.transaction() as edit:
+                with production.edit() as edit:
                     asset = edit.import_media(media)
                     edit.commit()
                 source = production.representations[asset][0].id
-                with production.transaction() as unbased:
+                with production.edit() as unbased:
                     with self.assertRaises(InvalidArgumentError):
                         unbased.record_dependency_set(source, ())
                     unbased.add_media_root("retained")
@@ -146,11 +146,11 @@ class ReadSessionTests(unittest.TestCase):
             media.write_bytes(b"identifier decision fixture")
             with Production.create(root / "production.pproj") as production:
                 identifier = ExternalIdentifier("com.example.clip", "observed", "reel")
-                with production.transaction() as edit:
+                with production.edit() as edit:
                     target = AssetRef(edit.import_media(media))
                     edit.add_external_identifier(target, identifier)
                     edit.commit()
-                with production.transaction() as unbased:
+                with production.edit() as unbased:
                     with self.assertRaises(InvalidArgumentError):
                         unbased.remove_external_identifier(target, identifier)
                     unbased.add_media_root("retained")
@@ -185,12 +185,12 @@ class ReadSessionTests(unittest.TestCase):
             media = root / "clip.dat"
             media.write_bytes(b"locator decision fixture")
             with Production.create(root / "production.pproj") as production:
-                with production.transaction() as edit:
+                with production.edit() as edit:
                     asset = edit.import_media(media)
                     edit.commit()
                 resource = production.representations[asset][0].resources[0]
                 locator = resource.locators[0].id
-                with production.transaction() as edit:
+                with production.edit() as edit:
                     with self.assertRaises(InvalidArgumentError):
                         edit.retire_locator(locator)
                     edit.add_media_root("retained")
@@ -202,7 +202,7 @@ class ReadSessionTests(unittest.TestCase):
                     base = retained.decision_base
                 replacement = root / "replacement.dat"
                 replacement.write_bytes(b"replacement locator fixture")
-                with production.transaction() as winner:
+                with production.edit() as winner:
                     winner.confirm_locator(resource.id, file_locator(replacement))
                     head = winner.commit().revision
                 assert head is not None
@@ -996,7 +996,7 @@ class ReadSessionTests(unittest.TestCase):
             media = Path(directory) / "camera.mov"
             media.write_bytes(b"coherent lookup fixture")
             with Production.create(Path(directory) / "lookup.pproj") as production:
-                with production.transaction() as transaction:
+                with production.edit() as transaction:
                     asset = transaction.import_media(media)
                     transaction.commit()
                 target = AssetRef(asset)

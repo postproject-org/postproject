@@ -59,7 +59,7 @@ class IdentityTests(unittest.TestCase):
                 Production.create(root / "first.pproj") as first,
                 Production.create(root / "second.pproj") as second,
             ):
-                with first.transaction() as edit:
+                with first.edit() as edit:
                     asset = edit.import_media(media)
                     edit.commit()
                 resource = first.representations[asset][0].resources[0].id
@@ -106,7 +106,7 @@ class IdentityTests(unittest.TestCase):
                 Production.create(root / "first.pproj") as first,
                 Production.create(root / "second.pproj") as second,
             ):
-                with first.transaction() as edit:
+                with first.edit() as edit:
                     asset = edit.import_media(media)
                     edit.commit()
                 representation = first.representations[asset][0].id
@@ -150,11 +150,11 @@ class IdentityTests(unittest.TestCase):
             ):
                 media = root / "media.dat"
                 media.write_bytes(b"scoped activity")
-                with first.transaction() as edit:
+                with first.edit() as edit:
                     asset = edit.import_media(media)
                     edit.commit()
                 representation = first.representations[asset][0].id
-                with first.transaction() as edit:
+                with first.edit() as edit:
                     activity = edit.create_activity(
                         ActivitySpec(
                             "com.example:record", (ActivityEdge(representation),)
@@ -172,7 +172,7 @@ class IdentityTests(unittest.TestCase):
                         activity,
                     )
                 for identifier in (activity, ActivityId(UUID(int=0))):
-                    with second.transaction() as edit:
+                    with second.edit() as edit:
                         edit.add_metadata(
                             ActivityRef(identifier),
                             MetadataProperty("com.example", "label"),
@@ -209,11 +209,11 @@ class IdentityTests(unittest.TestCase):
                 Production.create(root / "first.pproj") as first,
                 Production.create(root / "second.pproj") as second,
             ):
-                with first.transaction() as edit:
+                with first.edit() as edit:
                     asset = edit.import_media(media)
                     edit.commit()
                 representation = first.representations[asset][0]
-                with first.transaction() as edit:
+                with first.edit() as edit:
                     job = edit.request_job(
                         JobRequest(
                             "com.example:proxy",
@@ -239,7 +239,7 @@ class IdentityTests(unittest.TestCase):
                                 edit.commit()
                         self.assertIsNone(second.latest_revision)
                 untyped: Any = "invalid"
-                with first.transaction() as edit:
+                with first.edit() as edit:
                     with self.assertRaises(TypeError):
                         edit.cancel_job(untyped)
                 with self.assertRaises(TypeError):
@@ -264,7 +264,7 @@ class IdentityTests(unittest.TestCase):
                 Production.create(root / "first.pproj") as first,
                 Production.create(root / "second.pproj") as second,
             ):
-                with first.transaction() as edit:
+                with first.edit() as edit:
                     asset = edit.import_media(media)
                     edit.commit()
                 resource = first.representations[asset][0].resources[0]
@@ -310,7 +310,7 @@ class IdentityTests(unittest.TestCase):
                 Production.create(root / "first.pproj") as first,
                 Production.create(root / "second.pproj") as second,
             ):
-                with first.transaction() as edit:
+                with first.edit() as edit:
                     root_id = edit.add_media_root("rushes")
                     edit.commit()
                 self.assertIsInstance(root_id, UUID)
@@ -404,7 +404,7 @@ class IdentityTests(unittest.TestCase):
                 Production.create(root / "first.pproj") as first,
                 Production.create(root / "second.pproj") as second,
             ):
-                with first.transaction() as edit:
+                with first.edit() as edit:
                     asset = edit.import_media(media)
                     edit.commit()
                 with second.read_session() as view:
@@ -423,7 +423,7 @@ class IdentityTests(unittest.TestCase):
             media = Path(directory) / "media.dat"
             media.write_bytes(b"public UUID boundary")
             with Production.create(path) as production:
-                with production.transaction() as edit:
+                with production.edit() as edit:
                     asset = edit.import_media(media)
                     edit.commit()
                 self.assertIsInstance(asset, UUID)

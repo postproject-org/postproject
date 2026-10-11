@@ -26,7 +26,7 @@ class ContentObservationTests(unittest.TestCase):
         os.utime(self.media, (1, 1))
         self.production = Production.create(self.path)
         self.addCleanup(self.production.close)
-        with self.production.transaction() as edit:
+        with self.production.edit() as edit:
             self.asset = edit.import_media(self.media)
             edit.commit()
         self.representation = self.production.representations[self.asset][0]
@@ -34,7 +34,7 @@ class ContentObservationTests(unittest.TestCase):
 
     def test_missing_base_rejects_before_file_access_and_leaves_edit_open(self) -> None:
         head = self.production.latest_revision
-        with self.production.transaction() as edit:
+        with self.production.edit() as edit:
             with self.assertRaises(InvalidArgumentError):
                 edit.observe_resource_content(
                     self.resource, self.media.with_name("absent")

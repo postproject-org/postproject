@@ -47,10 +47,10 @@ class ChangeDeliveryTests(unittest.TestCase):
         media = self.root / "A001.mov"
         media.write_bytes(b"filtered page fixture")
         with self._create() as production:
-            with production.transaction() as transaction:
+            with production.edit() as transaction:
                 transaction.import_media(media)
                 transaction.commit()
-            with production.transaction() as transaction:
+            with production.edit() as transaction:
                 transaction.add_media_root("media")
                 transaction.commit()
             page = production.changes_since_filtered(0, [MediaRootAddedEvent])
@@ -69,7 +69,7 @@ class ChangeDeliveryTests(unittest.TestCase):
                 self.assertIs(
                     waiter.wait(0, timeout=0).result, RevisionWaitResult.TIMED_OUT
                 )
-                with production.transaction() as transaction:
+                with production.edit() as transaction:
                     transaction.add_media_root("media")
                     transaction.commit()
                 wait = waiter.wait(0, timeout=0)
@@ -103,7 +103,7 @@ class ChangeDeliveryTests(unittest.TestCase):
             with RevisionObserver(
                 production, record, kinds=[MediaRootAddedEvent]
             ) as observer:
-                with production.transaction() as transaction:
+                with production.edit() as transaction:
                     transaction.add_media_root("media")
                     transaction.commit()
                 self.assertTrue(received.wait(timeout=60))

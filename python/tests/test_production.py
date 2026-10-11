@@ -147,7 +147,7 @@ class ProductionTests(unittest.TestCase):
             library_path=LIBRARY_PATH,
         ) as production:
             production_id = production.id
-            with production.transaction(
+            with production.edit(
                 origin=OriginIdentity(
                     "python-test", "1.0", "https://example.com/python-test"
                 ),
@@ -174,7 +174,7 @@ class ProductionTests(unittest.TestCase):
         with Production.create(
             self.production_path, library_path=LIBRARY_PATH
         ) as production:
-            with production.transaction() as transaction:
+            with production.edit() as transaction:
                 asset_id = transaction.import_media(self.media_path, "Camera A")
                 transaction.commit()
             representation = production.representations[asset_id][0]
@@ -202,11 +202,11 @@ class ProductionTests(unittest.TestCase):
         with Production.create(
             self.production_path, library_path=LIBRARY_PATH
         ) as production:
-            with production.transaction() as transaction:
+            with production.edit() as transaction:
                 asset_id = transaction.import_media(self.media_path)
                 transaction.commit()
             source_id = production.representations[asset_id][0].id
-            with production.transaction() as transaction:
+            with production.edit() as transaction:
                 job_id = transaction.request_job(
                     JobRequest(
                         "org.postproject:generate-proxy",
@@ -239,7 +239,7 @@ class ProductionTests(unittest.TestCase):
             agent = AgentIdentity(
                 "operator", ExternalIdentifier("com.example.worker", "worker-1")
             )
-            with production.transaction() as transaction:
+            with production.edit() as transaction:
                 lease = transaction.claim_job_lease(
                     job_id, worker, timedelta(minutes=1), agent=agent
                 )
@@ -253,7 +253,7 @@ class ProductionTests(unittest.TestCase):
             self.assertEqual(claimed.claim.agent, agent)
             self.assertGreater(claimed.claim.expires_at_unix_micros, 0)
 
-            with production.transaction() as transaction:
+            with production.edit() as transaction:
                 transaction.renew_job_lease(lease, timedelta(minutes=2))
                 transaction.commit()
             renewed = production.jobs(limit=1000).items[0]
@@ -264,24 +264,24 @@ class ProductionTests(unittest.TestCase):
                 claimed.claim.expires_at_unix_micros,
             )
 
-            with production.transaction() as transaction:
+            with production.edit() as transaction:
                 transaction.release_job_lease(lease)
                 transaction.commit()
             self.assertEqual(
                 production.jobs(limit=1000).items[0].state, JobState.REQUESTED
             )
 
-            with production.transaction() as transaction:
+            with production.edit() as transaction:
                 second_lease = transaction.claim_job_lease(
                     job_id, worker, timedelta(minutes=1)
                 )
                 self.addCleanup(second_lease.close)
                 transaction.commit()
-            with production.transaction() as transaction:
+            with production.edit() as transaction:
                 transaction.fail_job_lease(second_lease, "encoder exited")
                 transaction.commit()
 
-            with production.transaction() as transaction:
+            with production.edit() as transaction:
                 cancelled_job_id = transaction.request_job(
                     JobRequest(
                         "org.postproject:generate-thumbnail",
@@ -291,7 +291,7 @@ class ProductionTests(unittest.TestCase):
                     )
                 )
                 transaction.commit()
-            with production.transaction() as transaction:
+            with production.edit() as transaction:
                 transaction.cancel_job(cancelled_job_id)
                 transaction.commit()
 
@@ -301,7 +301,7 @@ class ProductionTests(unittest.TestCase):
             self.assertEqual(final_jobs[job_id].failure_diagnostic, "encoder exited")
             self.assertEqual(final_jobs[cancelled_job_id].state, JobState.CANCELLED)
 
-            with production.transaction() as transaction:
+            with production.edit() as transaction:
                 completed_job_id = transaction.request_job(
                     JobRequest(
                         "org.postproject:generate-proxy",
@@ -311,13 +311,13 @@ class ProductionTests(unittest.TestCase):
                     )
                 )
                 transaction.commit()
-            with production.transaction() as transaction:
+            with production.edit() as transaction:
                 completion_lease = transaction.claim_job_lease(
                     completed_job_id, worker, timedelta(minutes=1)
                 )
                 self.addCleanup(completion_lease.close)
                 transaction.commit()
-            with production.transaction() as transaction:
+            with production.edit() as transaction:
                 completed_representation_id = transaction.add_representation(
                     asset_id, RepresentationKind.PROXY, self.second_media_path
                 )
@@ -399,7 +399,7 @@ class ProductionTests(unittest.TestCase):
         with Production.create(
             self.production_path, library_path=LIBRARY_PATH
         ) as production:
-            with production.transaction() as transaction:
+            with production.edit() as transaction:
                 asset_id = transaction.import_media(self.media_path)
                 transaction.commit()
             representations = production.representations[asset_id]
@@ -448,7 +448,7 @@ class ProductionTests(unittest.TestCase):
         with Production.create(
             self.production_path, library_path=LIBRARY_PATH
         ) as production:
-            with production.transaction() as transaction:
+            with production.edit() as transaction:
                 first_asset_id = transaction.import_media(self.media_path)
                 second_asset_id = transaction.import_media(self.media_path)
                 transaction.commit()
@@ -484,7 +484,7 @@ class ProductionTests(unittest.TestCase):
         with Production.create(
             self.production_path, library_path=LIBRARY_PATH
         ) as production:
-            with production.transaction() as transaction:
+            with production.edit() as transaction:
                 asset_id = transaction.import_media(self.media_path)
                 transaction.commit()
             representation = production.representations[asset_id][0]
@@ -527,7 +527,7 @@ class ProductionTests(unittest.TestCase):
         with Production.create(
             self.production_path, library_path=LIBRARY_PATH
         ) as production:
-            with production.transaction() as transaction:
+            with production.edit() as transaction:
                 asset_id = transaction.import_media(self.media_path)
                 transaction.commit()
             representation = production.representations[asset_id][0]
@@ -585,7 +585,7 @@ class ProductionTests(unittest.TestCase):
         with Production.create(
             self.production_path, library_path=LIBRARY_PATH
         ) as production:
-            with production.transaction() as transaction:
+            with production.edit() as transaction:
                 asset_id = transaction.import_media(self.media_path)
                 root_id = transaction.add_media_root("media", "Media", 4)
                 transaction.commit()
@@ -638,11 +638,11 @@ class ProductionTests(unittest.TestCase):
         with Production.create(
             self.production_path, library_path=LIBRARY_PATH
         ) as production:
-            with production.transaction() as transaction:
+            with production.edit() as transaction:
                 asset_id = transaction.import_media(self.media_path)
                 transaction.commit()
 
-            with production.transaction() as transaction:
+            with production.edit() as transaction:
                 proxy_id = transaction.add_representation(
                     asset_id,
                     RepresentationKind.PROXY,
@@ -736,7 +736,7 @@ class ProductionTests(unittest.TestCase):
         with Production.create(
             self.production_path, library_path=LIBRARY_PATH
         ) as production:
-            with production.transaction() as transaction:
+            with production.edit() as transaction:
                 asset_id = transaction.import_media(
                     ImageSequenceSource(
                         self.root,
@@ -782,7 +782,7 @@ class ProductionTests(unittest.TestCase):
         with Production.create(
             self.production_path, library_path=LIBRARY_PATH
         ) as production:
-            with production.transaction() as transaction:
+            with production.edit() as transaction:
                 asset_id = transaction.import_media(
                     ImageSequenceSource(plates, original, 1, 3, 1, Fraction(24)), "Shot"
                 )
@@ -813,7 +813,7 @@ class ProductionTests(unittest.TestCase):
             self.assertIn(EvidenceKind.PARTIAL_FINGERPRINT_MATCH, kinds)
             self.assertNotIn(EvidenceKind.FILE_NAME_MATCH, kinds)
 
-            with production.transaction() as transaction:
+            with production.edit() as transaction:
                 transaction.confirm_locator(
                     resource.resource_id,
                     candidate.uri,
@@ -849,7 +849,7 @@ class ProductionTests(unittest.TestCase):
             self.assertEqual(len(ambiguous.resources[0].candidates), 2)
 
             with self.assertRaises(InvalidArgumentError):
-                with production.transaction() as transaction:
+                with production.edit() as transaction:
                     transaction.confirm_locator(resource.resource_id, candidate.uri)
                     transaction.commit()
 
@@ -859,11 +859,11 @@ class ProductionTests(unittest.TestCase):
         with Production.create(
             self.production_path, library_path=LIBRARY_PATH
         ) as production:
-            with production.transaction() as transaction:
+            with production.edit() as transaction:
                 asset_id = transaction.import_media(self.media_path)
                 transaction.commit()
             original = production.representations[asset_id][0]
-            with production.transaction() as transaction:
+            with production.edit() as transaction:
                 proxy_id = transaction.add_representation(
                     asset_id, RepresentationKind.PROXY, self.second_media_path
                 )
@@ -935,7 +935,7 @@ class ProductionTests(unittest.TestCase):
         with Production.create(
             self.production_path, library_path=LIBRARY_PATH
         ) as production:
-            with production.transaction() as transaction:
+            with production.edit() as transaction:
                 asset_id = transaction.import_media(self.media_path)
                 transaction.commit()
 
@@ -953,19 +953,19 @@ class ProductionTests(unittest.TestCase):
             self.production_path, library_path=LIBRARY_PATH
         ) as production:
             with self.assertRaisesRegex(RuntimeError, "abort"):
-                with production.transaction() as transaction:
+                with production.edit() as transaction:
                     exception_asset = transaction.import_media(self.media_path)
                     raise RuntimeError("abort")
             self.assertFalse(production.asset_exists(exception_asset))
 
-            with production.transaction() as transaction:
+            with production.edit() as transaction:
                 explicit_asset = transaction.import_media(self.media_path)
                 transaction.rollback()
             self.assertFalse(production.asset_exists(explicit_asset))
 
     def test_close_is_idempotent_and_closed_handles_are_rejected(self) -> None:
         production = Production.create(self.production_path, library_path=LIBRARY_PATH)
-        transaction = production.transaction()
+        transaction = production.edit()
         transaction.close()
         transaction.close()
         with self.assertRaisesRegex(
@@ -986,13 +986,13 @@ class ProductionTests(unittest.TestCase):
         with Production.create(
             self.production_path, library_path=LIBRARY_PATH
         ) as production:
-            transaction = production.transaction()
+            transaction = production.edit()
             reference = weakref.ref(transaction)
             del transaction
             gc.collect()
             self.assertIsNone(reference())
 
-            with production.transaction() as replacement:
+            with production.edit() as replacement:
                 replacement.rollback()
 
     def test_embedded_nul_is_rejected_before_native_call(self) -> None:
@@ -1004,7 +1004,7 @@ class ProductionTests(unittest.TestCase):
             self.production_path, library_path=LIBRARY_PATH
         ) as production:
             self.assertIsNone(production.latest_revision)
-            with production.transaction(
+            with production.edit(
                 origin=OriginIdentity("python-test", "1.0"),
                 message="First import",
             ) as transaction:
@@ -1018,7 +1018,7 @@ class ProductionTests(unittest.TestCase):
             self.assertEqual(first.message, "First import")
             self.assertEqual(first.origin, OriginIdentity("python-test", "1.0"))
 
-            with production.transaction() as transaction:
+            with production.edit() as transaction:
                 transaction.import_media(self.media_path, "Second")
                 transaction.commit()
 
@@ -1037,21 +1037,21 @@ class ProductionTests(unittest.TestCase):
         with Production.create(
             self.production_path, library_path=LIBRARY_PATH
         ) as production:
-            with production.transaction() as transaction:
+            with production.edit() as transaction:
                 asset_id = transaction.import_media(self.media_path)
                 transaction.commit()
 
-            base = production.latest_revision
-            assert base is not None
+            with production.read_session() as view:
+                base = view.decision_base
             resource_id = production.representations[asset_id][0].resources[0].id
 
-            with production.transaction(base_revision=base.id) as transaction:
+            with production.edit(base) as transaction:
                 transaction.confirm_locator(resource_id, "file:///first.mov")
                 transaction.commit()
 
             superseding = production.latest_revision
             assert superseding is not None
-            stale = production.transaction(base_revision=base.id)
+            stale = production.edit(base)
             try:
                 stale.confirm_locator(resource_id, "file:///stale.mov")
                 with self.assertRaises(ConflictError) as raised:
@@ -1063,8 +1063,8 @@ class ProductionTests(unittest.TestCase):
             assert conflict is not None
             self.assertEqual(conflict.key.kind, ConflictKeyKind.LOCATOR_SET)
             self.assertEqual(conflict.key.target, ResourceRef(resource_id))
-            self.assertEqual(conflict.base_revision_id, base.id)
-            self.assertEqual(conflict.base_revision_sequence, base.sequence)
+            self.assertEqual(conflict.base_revision_id, base.revision.id)
+            self.assertEqual(conflict.base_revision_sequence, base.revision.sequence)
             self.assertEqual(conflict.superseding_revision_id, superseding.id)
             self.assertEqual(
                 conflict.superseding_revision_sequence, superseding.sequence
@@ -1074,7 +1074,7 @@ class ProductionTests(unittest.TestCase):
         with Production.create(
             self.production_path, library_path=LIBRARY_PATH
         ) as production:
-            with production.transaction() as transaction:
+            with production.edit() as transaction:
                 asset_id = transaction.import_media(self.media_path)
                 transaction.commit()
 
@@ -1110,11 +1110,11 @@ class ProductionTests(unittest.TestCase):
         with Production.create(
             self.production_path, library_path=LIBRARY_PATH
         ) as production:
-            with production.transaction() as transaction:
+            with production.edit() as transaction:
                 asset_id = transaction.import_media(self.media_path)
                 transaction.commit()
 
-            with production.transaction() as transaction:
+            with production.edit() as transaction:
                 transaction.add_external_identifier(AssetRef(asset_id), camera_id)
                 transaction.add_external_identifier(AssetRef(asset_id), umid)
                 transaction.commit()
@@ -1177,7 +1177,7 @@ class ProductionTests(unittest.TestCase):
         with Production.create(
             self.production_path, library_path=LIBRARY_PATH
         ) as production:
-            with production.transaction() as transaction:
+            with production.edit() as transaction:
                 asset_id = transaction.import_media(self.media_path)
                 transaction.commit()
 
@@ -1210,7 +1210,7 @@ class ProductionTests(unittest.TestCase):
         with Production.create(
             self.production_path, library_path=LIBRARY_PATH
         ) as production:
-            with production.transaction() as transaction:
+            with production.edit() as transaction:
                 asset_id = transaction.import_media(self.media_path)
                 transaction.commit()
             moved = nearby / self.media_path.name
@@ -1243,7 +1243,7 @@ class ProductionTests(unittest.TestCase):
         with Production.create(
             self.production_path, library_path=LIBRARY_PATH
         ) as production:
-            with production.transaction() as transaction:
+            with production.edit() as transaction:
                 asset_id = transaction.import_media(self.media_path)
                 transaction.add_media_root("relocated", "Relocated")
                 transaction.commit()
@@ -1270,7 +1270,7 @@ class ProductionTests(unittest.TestCase):
                 AvailabilityIssueKind.AMBIGUOUS_RESOURCE,
             )
 
-            with production.transaction() as transaction:
+            with production.edit() as transaction:
                 transaction.confirm_locator(
                     resource.resource_id, resource.candidates[0].uri
                 )
@@ -1290,7 +1290,7 @@ class ProductionTests(unittest.TestCase):
             ) as production,
             self.assertRaisesRegex(ValueError, "NUL"),
         ):
-            with production.transaction() as transaction:
+            with production.edit() as transaction:
                 transaction.add_external_identifier(
                     ProductionRef(production.id),
                     ExternalIdentifier("invalid\0scheme", "value"),
@@ -1304,11 +1304,11 @@ class ProductionTests(unittest.TestCase):
         with Production.create(
             self.production_path, library_path=LIBRARY_PATH
         ) as production:
-            with production.transaction() as transaction:
+            with production.edit() as transaction:
                 asset_id = transaction.import_media(self.media_path)
                 transaction.commit()
 
-            with production.transaction() as transaction:
+            with production.edit() as transaction:
                 transaction.add_metadata(AssetRef(asset_id), title, plain)
                 transaction.add_metadata(AssetRef(asset_id), title, localized)
                 transaction.commit()
@@ -1349,7 +1349,7 @@ class ProductionTests(unittest.TestCase):
         with Production.create(
             self.production_path, library_path=LIBRARY_PATH
         ) as production:
-            with production.transaction() as transaction:
+            with production.edit() as transaction:
                 asset_id = transaction.import_media(self.media_path)
                 transaction.commit()
 
@@ -1379,7 +1379,7 @@ class ProductionTests(unittest.TestCase):
                     ),
                 )
             )
-            with production.transaction() as transaction:
+            with production.edit() as transaction:
                 transaction.add_metadata(AssetRef(asset_id), property, value)
                 transaction.commit()
 
@@ -1392,7 +1392,7 @@ class ProductionTests(unittest.TestCase):
         with Production.create(
             self.production_path, library_path=LIBRARY_PATH
         ) as production:
-            with production.transaction() as transaction:
+            with production.edit() as transaction:
                 transaction.import_media(self.media_path)
                 transaction.commit()
             revision = production.latest_revision
@@ -1403,7 +1403,7 @@ class ProductionTests(unittest.TestCase):
                 if isinstance(event.payload, RepresentationAddedEvent)
             )
 
-            with production.transaction() as transaction:
+            with production.edit() as transaction:
                 transaction.import_media(self.second_media_path)
                 transaction.commit()
             revision = production.latest_revision
@@ -1432,7 +1432,7 @@ class ProductionTests(unittest.TestCase):
                     ExternalIdentifier("com.example.worker", "worker-1"),
                 ),
             )
-            with production.transaction() as transaction:
+            with production.edit() as transaction:
                 activity_id = transaction.create_activity(spec)
                 transaction.commit()
 
@@ -1490,14 +1490,14 @@ class ProductionTests(unittest.TestCase):
         with Production.create(
             self.production_path, library_path=LIBRARY_PATH
         ) as production:
-            with production.transaction() as transaction:
+            with production.edit() as transaction:
                 source_asset = transaction.import_media(self.media_path)
                 output_asset = transaction.import_media(self.second_media_path)
                 transaction.commit()
             source = production.representations[source_asset][0]
             output = production.representations[output_asset][0]
 
-            with production.transaction() as transaction:
+            with production.edit() as transaction:
                 activity_id = transaction.create_activity(
                     ActivitySpec(
                         "org.postproject:transcode",
@@ -1553,7 +1553,7 @@ class ProductionTests(unittest.TestCase):
         with Production.create(
             self.production_path, library_path=LIBRARY_PATH
         ) as production:
-            with production.transaction() as transaction:
+            with production.edit() as transaction:
                 first_asset = transaction.import_media(self.media_path)
                 second_asset = transaction.import_media(self.second_media_path)
                 transaction.add_media_root("media", "Media", 1)
@@ -1611,7 +1611,7 @@ class ProductionTests(unittest.TestCase):
                 production.locators_page(resource.id, limit=1000).items, ()
             )
 
-            with production.transaction() as transaction:
+            with production.edit() as transaction:
                 transaction.confirm_locator(
                     resource.id, locator.uri, media_root="media"
                 )
@@ -1651,7 +1651,7 @@ class ProductionTests(unittest.TestCase):
             with self.assertRaises(InvalidArgumentError):
                 production.representations_under_media_root("", limit=1)
             with self.assertRaises(ValueError):
-                with production.transaction() as transaction:
+                with production.edit() as transaction:
                     transaction.confirm_locator(
                         resource.id, "file:///nul", media_root="bad\0root"
                     )
@@ -1662,11 +1662,11 @@ class ProductionTests(unittest.TestCase):
         with Production.create(
             self.production_path, library_path=LIBRARY_PATH
         ) as production:
-            with production.transaction() as transaction:
+            with production.edit() as transaction:
                 first_asset = transaction.import_media(self.media_path)
                 second_asset = transaction.import_media(self.second_media_path)
                 transaction.commit()
-            with production.transaction() as transaction:
+            with production.edit() as transaction:
                 transaction.add_metadata(
                     AssetRef(first_asset), scene, MetadataString("12A")
                 )
@@ -1725,13 +1725,13 @@ class ProductionTests(unittest.TestCase):
         with Production.create(
             self.production_path, library_path=LIBRARY_PATH
         ) as production:
-            with production.transaction() as transaction:
+            with production.edit() as transaction:
                 source_asset = transaction.import_media(self.media_path)
                 output_asset = transaction.import_media(self.second_media_path)
                 transaction.commit()
             source = production.representations[source_asset][0]
             output = production.representations[output_asset][0]
-            with production.transaction() as transaction:
+            with production.edit() as transaction:
                 transaction.create_activity(
                     ActivitySpec(
                         "org.postproject:transcode",
@@ -1836,13 +1836,13 @@ class ProductionTests(unittest.TestCase):
         with Production.create(
             self.production_path, library_path=LIBRARY_PATH
         ) as production:
-            with production.transaction() as transaction:
+            with production.edit() as transaction:
                 source_asset = transaction.import_media(self.media_path)
                 output_asset = transaction.import_media(self.second_media_path)
                 transaction.commit()
             source = production.representations[source_asset][0]
             output = production.representations[output_asset][0]
-            with production.transaction() as transaction:
+            with production.edit() as transaction:
                 activity_id = transaction.create_activity(
                     ActivitySpec(
                         "org.postproject:transcode",

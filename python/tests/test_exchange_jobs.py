@@ -53,7 +53,7 @@ class ExchangeJobTests(unittest.TestCase):
         self.addCleanup(self.production.close)
         self.client = ClientId(uuid4())
         self.tool = ToolIdentity("Worker")
-        with self.production.transaction() as setup:
+        with self.production.edit() as setup:
             self.asset = setup.import_media(self.media)
             setup.commit()
         self.input = self.production.representations[self.asset][0].id

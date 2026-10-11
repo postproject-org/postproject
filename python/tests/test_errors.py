@@ -39,7 +39,7 @@ class ErrorMappingTests(unittest.TestCase):
                 return 0
 
             native.lib.pp_transaction_commit_with_receipt.side_effect = commit
-            edit = object.__new__(_production.Transaction)
+            edit = object.__new__(_production.Edit)
             edit._native = native
             edit._handle = ctypes.POINTER(_abi.Transaction)()
             edit._finalizer = mock.Mock(alive=True)

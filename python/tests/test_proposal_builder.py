@@ -126,7 +126,7 @@ class ProposalBuilderTests(unittest.TestCase):
     def test_prepared_evidence_uses_native_checks_and_copies_into_passive_store(
         self,
     ) -> None:
-        with self.production.transaction() as edit:
+        with self.production.edit() as edit:
             asset = edit.import_media(self.media)
             edit.commit()
         original = self.production.representations[asset][0]

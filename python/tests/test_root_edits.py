@@ -12,7 +12,7 @@ class RootEditTests(unittest.TestCase):
     def test_root_inputs_reject_native_wrapping_and_preserve_valid_values(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             with Production.create(Path(directory) / "values.pproj") as production:
-                with production.transaction() as setup:
+                with production.edit() as setup:
                     root = setup.add_media_root("first", priority=-(1 << 31))
                     setup.commit()
                 with production.read_session() as view, view.edit() as edit:
@@ -37,7 +37,7 @@ class RootEditTests(unittest.TestCase):
     ) -> None:
         with tempfile.TemporaryDirectory() as directory:
             with Production.create(Path(directory) / "roots.pproj") as production:
-                with production.transaction() as additive:
+                with production.edit() as additive:
                     root = additive.add_media_root("rushes")
                     for enabled in (True, False):
                         with self.assertRaises(InvalidArgumentError):

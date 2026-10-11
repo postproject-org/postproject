@@ -39,7 +39,7 @@ class ExchangeTests(unittest.TestCase):
             with Production.create(path) as production:
                 target = ProductionRef(production.id)
                 property = MetadataProperty("unknown:Exact名", "count")
-                with production.transaction() as edit:
+                with production.edit() as edit:
                     edit.add_metadata(target, property, MetadataU64(2**64 - 1))
                     proposal = edit.prepare_proposal(client, request)
                 with self.assertRaises(NotFoundError):
@@ -55,7 +55,7 @@ class ExchangeTests(unittest.TestCase):
                     destructive = edit.prepare_proposal(
                         client, RequestId(uuid4()), state.observed_base
                     )
-                with production.transaction() as later:
+                with production.edit() as later:
                     later.add_metadata(target, property, MetadataU64(7))
                     later.commit()
                 rejected = production.submit_proposal(destructive)
@@ -80,7 +80,7 @@ class ExchangeTests(unittest.TestCase):
                 latest = reopened.latest_revision
                 assert latest is not None
                 self.assertEqual(latest.sequence, 2)
-                with reopened.transaction() as noop:
+                with reopened.edit() as noop:
                     unchanged = noop.prepare_proposal(client, RequestId(uuid4()))
                 with unchanged:
                     accepted = reopened.submit_proposal(unchanged).outcome.status
@@ -119,7 +119,7 @@ class ExchangeTests(unittest.TestCase):
                 with self.assertRaises(AlreadyExistsError):
                     Production.import_checkpoint(checkpoint, mirror_path)
                 for name in ("first", "second"):
-                    with authority.transaction() as edit:
+                    with authority.edit() as edit:
                         edit.add_media_root(name)
                         edit.commit()
                     if name == "first":
@@ -159,7 +159,7 @@ class ExchangeTests(unittest.TestCase):
     def test_preparation_is_terminal_only_after_success_and_never_commits(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             with Production.create(Path(directory) / "authority.pproj") as production:
-                with production.transaction() as edit:
+                with production.edit() as edit:
                     edit.add_media_root("first")
                     proposal = edit.prepare_proposal(
                         ClientId(uuid4()), RequestId(uuid4())

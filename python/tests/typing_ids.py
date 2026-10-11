@@ -21,14 +21,14 @@ from postproject import (
     RepresentationId,
     RequestId,
     RequestIdentity,
-    Transaction,
+    Edit,
     parse_id,
 )
 
 
 def correct_kinds(
     production: Production,
-    transaction: Transaction,
+    transaction: Edit,
     asset: AssetId,
     representation: RepresentationId,
     root: MediaRootId,
@@ -55,7 +55,7 @@ def correct_kinds(
 
 
 def correct_exchange(
-    transaction: Transaction,
+    transaction: Edit,
     client: ClientId,
     request: RequestId,
     history: HistoryId,
