@@ -825,11 +825,9 @@ static pp_error_code_t verify_contents(const pp_production_t *production,
   pp_resolution_set_t *resolutions = NULL;
   /* Content mode re-fingerprints files at known locators instead of trusting
    * their presence. */
-  pp_error_code_t status = pp_resolution_options_create(&options, error);
-  if (status == PP_OK) {
-    status = pp_resolution_options_set_verification(options, PP_VERIFY_CONTENT,
-                                                    error);
-  }
+  pp_resolution_config_t config = PP_RESOLUTION_CONFIG_INIT;
+  config.verification = PP_VERIFY_CONTENT;
+  pp_error_code_t status = pp_resolution_options_create(&config, &options, error);
   if (status == PP_OK) {
     status = pp_production_resolve_assets(production, asset_id, 1, options,
                                           &resolutions, error);
@@ -879,25 +877,15 @@ static pp_error_code_t find_nearby(const pp_production_t *production,
   pp_resolution_set_t *resolutions = NULL;
   /* A search directory is an unnamed, machine-local place such as the
    * project folder or where the media used to be; it is never recorded. */
-  pp_error_code_t status = pp_resolution_options_create(&options, error);
-  if (status == PP_OK) {
-    status =
-        pp_resolution_options_add_search_directory(options, directory, error);
-  }
-  if (status == PP_OK) {
-    status = pp_resolution_options_set_verification(options,
-                                                    PP_VERIFY_PRESENCE, error);
-  }
-  if (status == PP_OK) {
-    /* Each searched directory has its own budget; an oversized one is
-     * searched partially and reported as PP_EVIDENCE_SEARCH_TRUNCATED. */
-    status = pp_resolution_options_set_limits(options, 16, 50000, error);
-  }
-  if (status == PP_OK) {
-    /* Another thread may call pp_cancel_token_cancel() to stop the scan. */
-    status =
-        pp_resolution_options_set_cancel_token(options, cancel_token, error);
-  }
+  pp_resolution_config_t config = PP_RESOLUTION_CONFIG_INIT;
+  config.search_directories = &directory;
+  config.search_directory_count = 1;
+  config.max_depth = 16;
+  config.max_entries_per_directory = 50000;
+  config.cancel_token = cancel_token;
+  /* Another thread may cancel the token. Each search directory has its own
+   * budget; a partial search reports PP_EVIDENCE_SEARCH_TRUNCATED. */
+  pp_error_code_t status = pp_resolution_options_create(&config, &options, error);
   if (status == PP_OK) {
     /* All assets are resolved together; each directory is scanned once. */
     status = pp_production_resolve_assets(production, asset_ids, asset_count,
@@ -1070,11 +1058,10 @@ static pp_error_code_t relink_renamed_sequence(pp_production_t *production,
   pp_resolution_set_t *resolutions = NULL;
   pp_transaction_t *transaction = NULL;
   *out_relinked = 0;
-  pp_error_code_t status = pp_resolution_options_create(&options, error);
-  if (status == PP_OK) {
-    status = pp_resolution_options_add_search_directory(options, directory,
-                                                        error);
-  }
+  pp_resolution_config_t config = PP_RESOLUTION_CONFIG_INIT;
+  config.search_directories = &directory;
+  config.search_directory_count = 1;
+  pp_error_code_t status = pp_resolution_options_create(&config, &options, error);
   if (status == PP_OK) {
     status = pp_production_resolve_assets(production, asset_id, 1, options,
                                           &resolutions, error);

@@ -111,11 +111,10 @@ static pp_error_code_t resolve_in(pp_production_t *production,
                                   uint64_t *out_candidates,
                                   pp_error_t **out_error) {
   pp_resolution_options_t *options = NULL;
-  pp_error_code_t status = pp_resolution_options_create(&options, out_error);
-  if (status == PP_OK) {
-    status =
-        pp_resolution_options_add_search_directory(options, directory, out_error);
-  }
+  pp_resolution_config_t config = PP_RESOLUTION_CONFIG_INIT;
+  config.search_directories = &directory;
+  config.search_directory_count = 1;
+  pp_error_code_t status = pp_resolution_options_create(&config, &options, out_error);
   if (status == PP_OK) {
     status = pp_production_resolve_assets(production, asset_id, 1, options,
                                           out_resolutions, out_error);
@@ -409,7 +408,7 @@ int main(int argc, char **argv) {
     return 64;
   }
   (void)remove(argv[1]);
-  if (pp_abi_version() != UINT32_C(52)) {
+  if (pp_abi_version() != UINT32_C(53)) {
     return 1;
   }
   pp_error_code_t status =
@@ -1109,29 +1108,18 @@ int main(int argc, char **argv) {
   pp_resolution_set_t *resolutions = NULL;
   pp_resolution_options_t *resolution_options = NULL;
   pp_cancel_token_t *cancel_token = NULL;
-  status = pp_resolution_options_create(&resolution_options, &error);
+  const pp_root_mapping_t mapping = {"fixtures", argv[2]};
+  const char *search_directory = argv[2];
+  pp_resolution_config_t config = PP_RESOLUTION_CONFIG_INIT;
+  config.root_mappings = &mapping;
+  config.root_mapping_count = 1;
+  config.search_directories = &search_directory;
+  config.search_directory_count = 1;
+  config.max_entries_per_directory = UINT64_C(1000000);
+  status = pp_cancel_token_create(&cancel_token, &error);
   if (status == PP_OK) {
-    status = pp_resolution_options_add_root_mapping(resolution_options,
-                                                    "fixtures", argv[2], &error);
-  }
-  if (status == PP_OK) {
-    status = pp_resolution_options_add_search_directory(resolution_options,
-                                                        argv[2], &error);
-  }
-  if (status == PP_OK) {
-    status = pp_resolution_options_set_verification(
-        resolution_options, PP_VERIFY_PRESENCE, &error);
-  }
-  if (status == PP_OK) {
-    status = pp_resolution_options_set_limits(resolution_options, 64,
-                                              UINT64_C(1000000), &error);
-  }
-  if (status == PP_OK) {
-    status = pp_cancel_token_create(&cancel_token, &error);
-  }
-  if (status == PP_OK) {
-    status = pp_resolution_options_set_cancel_token(resolution_options,
-                                                    cancel_token, &error);
+    config.cancel_token = cancel_token;
+    status = pp_resolution_options_create(&config, &resolution_options, &error);
   }
   if (status == PP_OK) {
     status = pp_production_resolve_assets(production, &asset_id, UINT64_C(1),

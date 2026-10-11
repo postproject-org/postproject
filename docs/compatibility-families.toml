@@ -1,5 +1,5 @@
 format_version = 1
-baseline_release = "0.7.0-alpha.1"
+baseline_release = "0.8.0-alpha.1"
 candidate_release = "0.9.0-alpha.1"
 release_order = [
   "0.1.0-alpha.1",
@@ -11,12 +11,13 @@ release_order = [
   "0.6.0-alpha.1",
   "0.7.0-alpha.1",
   "0.8.0-alpha.1",
+  "0.9.0-alpha.1",
 ]
 
 # Families describe evidence units, not compatibility promises. A family is
 # eligible only as a whole, and the release decision remains an ADR change.
-# The 0.8 window includes complete native capture, passive execution guards and
-# atomic staging fixes. Earlier release reports retain their original window.
+# The 0.9 window includes unified Python edits and atomic native configuration.
+# Earlier release reports retain their original window.
 # Unchanged signatures alone do not establish unchanged workflow semantics.
 
 [[families]]
@@ -37,8 +38,8 @@ python_operations = ["Production.create", "Production.open", "Production.id"]
 id = "transaction-lifecycle"
 dependencies = ["production-lifecycle"]
 introduced_release = "0.1.0-alpha.1"
-last_changed_release = "0.8.0-alpha.1"
-last_changed_abi = 52
+last_changed_release = "0.9.0-alpha.1"
+last_changed_abi = 53
 c_operations = [
   "pp_production_begin_transaction",
   "pp_transaction_set_revision_context",
@@ -53,10 +54,10 @@ cpp_operations = [
   "Transaction::rollback",
 ]
 python_operations = [
-  "Production.transaction",
-  "Transaction.set_revision_context",
-  "Transaction.commit",
-  "Transaction.rollback",
+  "Production.edit",
+  "Edit.set_revision_context",
+  "Edit.commit",
+  "Edit.rollback",
 ]
 
 [[families]]
@@ -78,8 +79,8 @@ python_operations = ["Production.asset"]
 id = "external-identifiers"
 dependencies = ["production-lifecycle", "transaction-lifecycle"]
 introduced_release = "0.2.0-alpha.1"
-last_changed_release = "0.8.0-alpha.1"
-last_changed_abi = 52
+last_changed_release = "0.9.0-alpha.1"
+last_changed_abi = 53
 c_operations = [
   "pp_production_external_identifiers",
   "pp_production_find_by_external_identifier",
@@ -99,7 +100,7 @@ cpp_operations = [
 python_operations = [
   "Production.external_identifiers",
   "Production.objects_by_external_identifier",
-  "Transaction.add_external_identifier",
+  "Edit.add_external_identifier",
 ]
 
 [[families]]
@@ -122,11 +123,10 @@ python_operations = ["Production.locators_page"]
 id = "resolution"
 dependencies = ["resource-identity", "production-lifecycle", "asset-identity", "representation-identity"]
 introduced_release = "0.1.0-alpha.1"
-last_changed_release = "0.7.0-alpha.1"
-last_changed_abi = 51
+last_changed_release = "0.9.0-alpha.1"
+last_changed_abi = 53
 c_operations = [
   "pp_resolution_options_create",
-  "pp_resolution_options_add_search_directory",
   "pp_resolution_options_release",
   "pp_production_resolve_assets",
   "pp_resolution_set_representation_count",
@@ -138,7 +138,7 @@ c_operations = [
   "pp_resolution_set_release",
 ]
 cpp_operations = [
-  "ResolutionOptions::addSearchDirectory",
+  "ResolutionOptions::create",
   "Production::resolveAssets",
 ]
 python_operations = ["Production.resolve"]
@@ -225,8 +225,8 @@ python_operations = ["Production.find_known_media_by_locator", "Production.find_
 id = "base-revision-conflicts"
 dependencies = ["production-lifecycle", "transaction-lifecycle"]
 introduced_release = "0.5.0-alpha.1"
-last_changed_release = "0.8.0-alpha.1"
-last_changed_abi = 52
+last_changed_release = "0.9.0-alpha.1"
+last_changed_abi = 53
 c_operations = [
   "pp_production_begin_transaction_at",
   "pp_transaction_commit_with_receipt",
@@ -235,7 +235,7 @@ c_operations = [
   "pp_error_release",
 ]
 cpp_operations = ["Production::beginTransaction", "Error::transactionConflict"]
-python_operations = ["Production.transaction", "ConflictError.conflict"]
+python_operations = ["Production.edit", "ConflictError.conflict"]
 
 [[families]]
 id = "asset-identity"
@@ -256,8 +256,8 @@ python_operations = ["parse_id"]
 id = "media-root-identity"
 dependencies = ["production-lifecycle", "transaction-lifecycle"]
 introduced_release = "0.7.0-alpha.1"
-last_changed_release = "0.7.0-alpha.1"
-last_changed_abi = 51
+last_changed_release = "0.9.0-alpha.1"
+last_changed_abi = 53
 c_operations = [
   "pp_media_root_id_parse",
   "pp_media_root_id_format",
@@ -270,7 +270,7 @@ c_operations = [
   "pp_media_root_set_release",
 ]
 cpp_operations = ["MediaRootId::fromString", "MediaRootId::toString", "Transaction::addMediaRoot", "Transaction::setMediaRootEnabled", "Transaction::removeMediaRoot", "Production::mediaRoots"]
-python_operations = ["parse_id", "Transaction.add_media_root", "Transaction.set_media_root_enabled", "Transaction.remove_media_root", "Production.media_roots"]
+python_operations = ["parse_id", "Edit.add_media_root", "Edit.set_media_root_enabled", "Edit.remove_media_root", "Production.media_roots"]
 
 [[families]]
 id = "locator-identity"
@@ -285,11 +285,11 @@ python_operations = ["parse_id"]
 id = "locator-retirement"
 dependencies = ["transaction-lifecycle", "locator-inspection", "locator-identity"]
 introduced_release = "0.3.0-alpha.1"
-last_changed_release = "0.8.0-alpha.1"
-last_changed_abi = 52
+last_changed_release = "0.9.0-alpha.1"
+last_changed_abi = 53
 c_operations = ["pp_transaction_retire_locator"]
 cpp_operations = ["Transaction::retireLocator"]
-python_operations = ["Transaction.retire_locator"]
+python_operations = ["Edit.retire_locator"]
 
 [[families]]
 id = "job-identity"
@@ -331,21 +331,21 @@ python_operations = ["parse_id"]
 id = "external-identifier-removal"
 dependencies = ["transaction-lifecycle", "external-identifiers"]
 introduced_release = "0.2.0-alpha.1"
-last_changed_release = "0.8.0-alpha.1"
-last_changed_abi = 52
+last_changed_release = "0.9.0-alpha.1"
+last_changed_abi = 53
 c_operations = ["pp_transaction_remove_external_identifier"]
 cpp_operations = ["Transaction::removeExternalIdentifier"]
-python_operations = ["Transaction.remove_external_identifier"]
+python_operations = ["Edit.remove_external_identifier"]
 
 [[families]]
 id = "dependency-observation"
 dependencies = ["transaction-lifecycle", "representation-identity"]
 introduced_release = "0.4.0-alpha.1"
-last_changed_release = "0.8.0-alpha.1"
-last_changed_abi = 52
+last_changed_release = "0.9.0-alpha.1"
+last_changed_abi = 53
 c_operations = ["pp_production_dependency_set", "pp_read_session_dependency_set", "pp_dependency_set_get", "pp_dependency_set_get_dependency", "pp_dependency_set_release", "pp_transaction_record_dependency_set"]
 cpp_operations = ["Production::dependencySet", "ReadSession::dependencySet", "Transaction::recordDependencySet"]
-python_operations = ["Production.dependency_set", "ReadSession.dependency_set", "Transaction.record_dependency_set"]
+python_operations = ["Production.dependency_set", "ReadSession.dependency_set", "Edit.record_dependency_set"]
 
 [[families]]
 id = "media-root-pages"
@@ -384,21 +384,21 @@ python_operations = ["DecisionBase.to_token", "DecisionBase.from_token", "Produc
 id = "job-lease-completion"
 dependencies = ["transaction-lifecycle", "job-identity", "representation-identity", "activity-identity"]
 introduced_release = "0.7.0-alpha.1"
-last_changed_release = "0.8.0-alpha.1"
-last_changed_abi = 52
+last_changed_release = "0.9.0-alpha.1"
+last_changed_abi = 53
 c_operations = ["pp_transaction_claim_job_lease", "pp_transaction_complete_job_lease", "pp_job_lease_free"]
 cpp_operations = ["Transaction::claimJobLease", "Transaction::completeJobLease"]
-python_operations = ["Transaction.claim_job_lease", "Transaction.complete_job_lease", "JobLease.close"]
+python_operations = ["Edit.claim_job_lease", "Edit.complete_job_lease", "JobLease.close"]
 
 [[families]]
 id = "job-lease-renewal-failure-cancellation"
 dependencies = ["job-lease-completion"]
 introduced_release = "0.7.0-alpha.1"
-last_changed_release = "0.8.0-alpha.1"
-last_changed_abi = 52
+last_changed_release = "0.9.0-alpha.1"
+last_changed_abi = 53
 c_operations = ["pp_transaction_renew_job_lease", "pp_transaction_fail_job_lease", "pp_transaction_cancel_job"]
 cpp_operations = ["Transaction::renewJobLease", "Transaction::failJobLease", "Transaction::cancelJob"]
-python_operations = ["Transaction.renew_job_lease", "Transaction.fail_job_lease", "Transaction.cancel_job"]
+python_operations = ["Edit.renew_job_lease", "Edit.fail_job_lease", "Edit.cancel_job"]
 
 [[families]]
 id = "job-lease-private-transport"
@@ -424,14 +424,14 @@ python_operations = ["Production.exchange_state"]
 id = "proposal-preparation"
 dependencies = ["transaction-lifecycle", "detached-decision-edit", "exchange-inspection"]
 introduced_release = "0.8.0-alpha.1"
-last_changed_release = "0.8.0-alpha.1"
-last_changed_abi = 52
+last_changed_release = "0.9.0-alpha.1"
+last_changed_abi = 53
 c_operations = [
   "pp_transaction_prepare_proposal", "pp_proposal_parse", "pp_proposal_identity",
   "pp_proposal_document", "pp_proposal_release",
 ]
 cpp_operations = ["Transaction::prepareProposal", "Proposal::parse", "Proposal::identity", "Proposal::document"]
-python_operations = ["Transaction.prepare_proposal", "Proposal.parse", "Proposal.identity", "Proposal.document", "Proposal.close"]
+python_operations = ["Edit.prepare_proposal", "Proposal.parse", "Proposal.identity", "Proposal.document", "Proposal.close"]
 
 [[families]]
 id = "submission-outcome-recovery"

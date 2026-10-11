@@ -201,11 +201,11 @@ static pp_error_code_t resolve_asset(const pp_production_t *production,
   pp_resolution_set_t *resolutions = NULL;
 
   /* The mapping locates the logical root on this machine for this call only. */
-  pp_error_code_t status = pp_resolution_options_create(&options, error);
-  if (status == PP_OK) {
-    status = pp_resolution_options_add_root_mapping(options, "rushes",
-                                                    rushes_directory, error);
-  }
+  const pp_root_mapping_t mapping = {"rushes", rushes_directory};
+  pp_resolution_config_t config = PP_RESOLUTION_CONFIG_INIT;
+  config.root_mappings = &mapping;
+  config.root_mapping_count = 1;
+  pp_error_code_t status = pp_resolution_options_create(&config, &options, error);
   if (status == PP_OK) {
     status = pp_production_resolve_assets(production, asset_id, 1, options,
                                           &resolutions, error);
