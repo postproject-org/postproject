@@ -1,6 +1,6 @@
 # ABI policy
 
-ABI version 52 is pre-release and may change during the 0.x series, with every
+ABI version 53 is pre-release and may change during the 0.x series, with every
 change recorded in the changelog and ABI tests. `pp_abi_version()` reports the
 implemented version. Exported symbol names are unversioned until the first stable
 release, but removals or signature changes require an explicit ABI-version bump.
@@ -14,6 +14,10 @@ exchange history, inert job observations, bounded outcomes and retained prior an
 (ADRs 0065 and 0066). Release 0.7 uses schema 19.
 C ABI 52 adds source-scoped exchange types and native preparation,
 submission, outcome recovery, checkpoint and catch-up operations (ADR 0067).
+ABI 53 replaces incremental resolution-option setters with a complete
+`pp_resolution_config_t` input to checked creation. It has 344 exports and
+38 public layouts; old ABI 52 bindings must reject this library before use.
+Schema 27 and protocol major 1 remain unchanged (ADR 0072).
 Protocol major 1 remains experimental. The {doc}`release-0.8-report` records
 qualification evidence and limits.
 
@@ -173,7 +177,7 @@ lock, then releases that lock before filesystem discovery and fingerprinting.
 
 Logical media-root names are production knowledge. Root mappings and search
 directories in `pp_resolution_options_t` are machine-local; the library copies
-and validates them when they are added and never records them. A null options
+and validates them during atomic creation and never records them. A null options
 pointer means the defaults, and a null asset array is valid only with a zero
 count. Cancellation tokens may be cancelled from any thread. Root summaries expose an optional
 legacy absolute URI solely for lossless migration from schema versions before 6.

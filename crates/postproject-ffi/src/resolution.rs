@@ -1,4 +1,5 @@
 use std::{
+    collections::BTreeSet,
     os::raw::c_char,
     panic::{AssertUnwindSafe, catch_unwind},
     path::{Path, PathBuf},
@@ -28,6 +29,51 @@ pub struct PpResolutionOptions {
     root_mappings: Vec<MediaRootMapping>,
     search_directories: Vec<PathBuf>,
     resolver: ResolverOptions,
+}
+
+/// One machine-local root mapping, borrowed only during checked construction.
+#[repr(C)]
+pub struct PpRootMapping {
+    /// NUL-terminated UTF-8 portable root name.
+    pub name: *const c_char,
+    /// NUL-terminated UTF-8 local directory.
+    pub directory: *const c_char,
+}
+
+/// Complete borrowed inputs for atomic resolution options construction.
+#[repr(C)]
+pub struct PpResolutionConfig {
+    /// Array of named mappings, or null with zero count.
+    pub root_mappings: *const PpRootMapping,
+    /// Number of mappings, at most 100000.
+    pub root_mapping_count: u64,
+    /// Array of NUL-terminated UTF-8 directory strings.
+    pub search_directories: *const *const c_char,
+    /// Number of directories, at most 100000.
+    pub search_directory_count: u64,
+    /// Presence (1) or content (2) verification.
+    pub verification: u32,
+    /// Search depth, in 1..=64.
+    pub max_depth: u32,
+    /// Positive entry budget per searched directory.
+    pub max_entries_per_directory: u64,
+    /// Optional live token; construction retains its shared flag.
+    pub cancel_token: *const PpCancelToken,
+}
+
+impl Default for PpResolutionConfig {
+    fn default() -> Self {
+        Self {
+            root_mappings: std::ptr::null(),
+            root_mapping_count: 0,
+            search_directories: std::ptr::null(),
+            search_directory_count: 0,
+            verification: PP_VERIFY_PRESENCE,
+            max_depth: 64,
+            max_entries_per_directory: 100_000,
+            cancel_token: std::ptr::null(),
+        }
+    }
 }
 
 /// Creates a cancellation token that is not cancelled.
@@ -84,26 +130,122 @@ pub unsafe extern "C" fn pp_cancel_token_release(token: *mut PpCancelToken) {
     }));
 }
 
-/// Creates resolution options with presence verification, default limits,
-/// no mappings, no search directories, and no cancellation token.
+/// Creates immutable options from complete inputs, or defaults for null config.
 ///
 /// # Safety
 ///
-/// `out_options` must be writable; `out_error` may be null or writable.
+/// Config and its arrays/strings/token must be null as permitted or live for
+/// this call; outputs must be writable. No borrowed input is retained.
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_resolution_options_create(
+    config: *const PpResolutionConfig,
     out_options: *mut *mut PpResolutionOptions,
     out_error: *mut *mut PpError,
 ) -> u32 {
-    // SAFETY: The output is validated before it is written.
+    // SAFETY: Outputs are checked and inputs are copied under the caller contract.
     unsafe {
         initialize_output(out_options);
         ffi_call(out_error, || {
             require_output(out_options, "out_options")?;
-            out_options.write(Box::into_raw(Box::default()));
+            let options = match config.as_ref() {
+                Some(config) => options_from_config(config)?,
+                None => PpResolutionOptions::default(),
+            };
+            out_options.write(Box::into_raw(Box::new(options)));
             Ok(())
         })
     }
+}
+
+// SAFETY: The caller guarantees readable arrays/strings and a live optional token.
+unsafe fn options_from_config(config: &PpResolutionConfig) -> Result<PpResolutionOptions, Error> {
+    if !(1..=64).contains(&config.max_depth) || config.max_entries_per_directory == 0 {
+        return Err(invalid_argument(
+            "resolution depth must be in 1..=64 and the entry limit must be positive",
+        ));
+    }
+    let verification = match config.verification {
+        PP_VERIFY_PRESENCE => VerificationMode::Presence,
+        PP_VERIFY_CONTENT => VerificationMode::Content,
+        _ => return Err(invalid_argument("unknown verification mode")),
+    };
+    let resolver = ResolverOptions {
+        verification,
+        max_depth: usize::try_from(config.max_depth)
+            .map_err(|_| invalid_argument("max_depth is too large"))?,
+        max_entries_per_directory: usize::try_from(config.max_entries_per_directory)
+            .map_err(|_| invalid_argument("max_entries_per_directory is too large"))?,
+        // SAFETY: A non-null token is live during this call; clone retains its flag.
+        cancellation: unsafe { config.cancel_token.as_ref() }.map(|token| token.token.clone()),
+    };
+    // SAFETY: The caller guarantees readable arrays for allowed lengths.
+    let (mappings, directories) = unsafe {
+        (
+            config_slice(
+                config.root_mappings,
+                config.root_mapping_count,
+                "root mappings",
+            )?,
+            config_slice(
+                config.search_directories,
+                config.search_directory_count,
+                "search directories",
+            )?,
+        )
+    };
+    let mut root_mappings = Vec::with_capacity(mappings.len());
+    let mut names = BTreeSet::new();
+    for mapping in mappings {
+        // SAFETY: Both strings are NUL-terminated and live during construction.
+        let mapping = unsafe {
+            MediaRootMapping::new(
+                required_utf8(mapping.name, "root mapping name")?,
+                Path::new(required_utf8(mapping.directory, "root mapping directory")?),
+            )?
+        };
+        if !names.insert(mapping.name().to_owned()) {
+            return Err(Error::new(
+                ErrorKind::AlreadyExists,
+                "media root is already mapped",
+            ));
+        }
+        root_mappings.push(mapping);
+    }
+    let mut search_directories = Vec::with_capacity(directories.len());
+    for directory in directories {
+        // SAFETY: Each directory is NUL-terminated and live during construction.
+        let directory = unsafe { required_utf8(*directory, "search directory") }?;
+        if directory.is_empty() {
+            return Err(invalid_argument("search directory must not be empty"));
+        }
+        search_directories.push(PathBuf::from(directory));
+    }
+    Ok(PpResolutionOptions {
+        root_mappings,
+        search_directories,
+        resolver,
+    })
+}
+
+// SAFETY: The caller guarantees readable elements when an allowed count is nonzero.
+unsafe fn config_slice<'a, T>(
+    pointer: *const T,
+    count: u64,
+    label: &str,
+) -> Result<&'a [T], Error> {
+    let count = usize::try_from(count)
+        .map_err(|_| invalid_argument(format!("{label} count is too large")))?;
+    if count > 100_000 || count > (isize::MAX as usize) / size_of::<T>() {
+        return Err(invalid_argument(format!("{label} count exceeds its bound")));
+    }
+    if count == 0 {
+        return Ok(&[]);
+    }
+    if pointer.is_null() {
+        return Err(invalid_argument(format!("{label} must not be null")));
+    }
+    // SAFETY: The bounded, non-null array is readable by the caller contract.
+    Ok(unsafe { std::slice::from_raw_parts(pointer, count) })
 }
 
 /// Releases resolution options. Null is a no-op.
@@ -120,156 +262,6 @@ pub unsafe extern "C" fn pp_resolution_options_release(options: *mut PpResolutio
         // SAFETY: Ownership of a live allocation is transferred exactly once.
         drop(unsafe { Box::from_raw(options) });
     }));
-}
-
-/// Maps a logical media root to an existing directory on this machine.
-///
-/// # Safety
-///
-/// `options` must be live; `name` and `directory` must be NUL-terminated UTF-8.
-#[postproject_ffi_macros::ffi_export]
-pub unsafe extern "C" fn pp_resolution_options_add_root_mapping(
-    options: *mut PpResolutionOptions,
-    name: *const c_char,
-    directory: *const c_char,
-    out_error: *mut *mut PpError,
-) -> u32 {
-    // SAFETY: Pointers are checked before dereference; strings are copied.
-    unsafe {
-        ffi_call(out_error, || {
-            let options = options
-                .as_mut()
-                .ok_or_else(|| invalid_argument("options must not be null"))?;
-            let mapping = MediaRootMapping::new(
-                required_utf8(name, "root mapping name")?,
-                Path::new(required_utf8(directory, "root mapping directory")?),
-            )?;
-            if options
-                .root_mappings
-                .iter()
-                .any(|existing| existing.name() == mapping.name())
-            {
-                return Err(Error::new(
-                    ErrorKind::AlreadyExists,
-                    format!("media root {} is already mapped", mapping.name()),
-                ));
-            }
-            options.root_mappings.push(mapping);
-            Ok(())
-        })
-    }
-}
-
-/// Adds an unnamed, machine-local directory searched after the mapped roots.
-///
-/// # Safety
-///
-/// `options` must be live; `directory` must be NUL-terminated UTF-8.
-#[postproject_ffi_macros::ffi_export]
-pub unsafe extern "C" fn pp_resolution_options_add_search_directory(
-    options: *mut PpResolutionOptions,
-    directory: *const c_char,
-    out_error: *mut *mut PpError,
-) -> u32 {
-    // SAFETY: Pointers are checked before dereference; strings are copied.
-    unsafe {
-        ffi_call(out_error, || {
-            let options = options
-                .as_mut()
-                .ok_or_else(|| invalid_argument("options must not be null"))?;
-            let directory = required_utf8(directory, "search directory")?;
-            if directory.is_empty() {
-                return Err(invalid_argument("search directory must not be empty"));
-            }
-            options.search_directories.push(PathBuf::from(directory));
-            Ok(())
-        })
-    }
-}
-
-/// Selects presence or content verification for resources at known locators.
-///
-/// # Safety
-///
-/// `options` must be live.
-#[postproject_ffi_macros::ffi_export]
-pub unsafe extern "C" fn pp_resolution_options_set_verification(
-    options: *mut PpResolutionOptions,
-    verification: u32,
-    out_error: *mut *mut PpError,
-) -> u32 {
-    // SAFETY: Pointers are checked before dereference.
-    unsafe {
-        ffi_call(out_error, || {
-            let options = options
-                .as_mut()
-                .ok_or_else(|| invalid_argument("options must not be null"))?;
-            options.resolver.verification = match verification {
-                PP_VERIFY_PRESENCE => VerificationMode::Presence,
-                PP_VERIFY_CONTENT => VerificationMode::Content,
-                _ => return Err(invalid_argument("unknown verification mode")),
-            };
-            Ok(())
-        })
-    }
-}
-
-/// Sets the depth and entry budget applied to each searched directory.
-///
-/// # Safety
-///
-/// `options` must be live.
-#[postproject_ffi_macros::ffi_export]
-pub unsafe extern "C" fn pp_resolution_options_set_limits(
-    options: *mut PpResolutionOptions,
-    max_depth: u32,
-    max_entries_per_directory: u64,
-    out_error: *mut *mut PpError,
-) -> u32 {
-    // SAFETY: Pointers are checked before dereference.
-    unsafe {
-        ffi_call(out_error, || {
-            let options = options
-                .as_mut()
-                .ok_or_else(|| invalid_argument("options must not be null"))?;
-            if !(1..=64).contains(&max_depth) || max_entries_per_directory == 0 {
-                return Err(invalid_argument(
-                    "resolution depth must be in 1..=64 and the entry limit must be positive",
-                ));
-            }
-            let max_depth = usize::try_from(max_depth)
-                .map_err(|_| invalid_argument("max_depth is too large"))?;
-            let max_entries_per_directory = usize::try_from(max_entries_per_directory)
-                .map_err(|_| invalid_argument("max_entries_per_directory is too large"))?;
-            options.resolver.max_depth = max_depth;
-            options.resolver.max_entries_per_directory = max_entries_per_directory;
-            Ok(())
-        })
-    }
-}
-
-/// Observes a cancellation token; a null token removes it. The options share
-/// the token's flag, so the token may be released independently.
-///
-/// # Safety
-///
-/// `options` must be live; `token` must be null or live for this call.
-#[postproject_ffi_macros::ffi_export]
-pub unsafe extern "C" fn pp_resolution_options_set_cancel_token(
-    options: *mut PpResolutionOptions,
-    token: *const PpCancelToken,
-    out_error: *mut *mut PpError,
-) -> u32 {
-    // SAFETY: Pointers are checked before dereference.
-    unsafe {
-        ffi_call(out_error, || {
-            let options = options
-                .as_mut()
-                .ok_or_else(|| invalid_argument("options must not be null"))?;
-            options.resolver.cancellation = token.as_ref().map(|token| token.token.clone());
-            Ok(())
-        })
-    }
 }
 
 /// Resolves every representation of each asset with one scan of the scope.
@@ -553,15 +545,19 @@ mod tests {
     }
 
     #[test]
-    fn excessive_depth_rejects_without_poisoning_options() {
-        let mut options = PpResolutionOptions::default();
+    fn excessive_depth_rejects_without_an_options_owner() {
+        let config = PpResolutionConfig {
+            max_depth: 65,
+            ..PpResolutionConfig::default()
+        };
+        let mut options = ptr::dangling_mut();
         let mut error = ptr::null_mut();
-        // SAFETY: Options remain live and the error output is writable.
-        let status =
-            unsafe { pp_resolution_options_set_limits(&raw mut options, 65, 100, &raw mut error) };
+        // SAFETY: Config and output pointers remain live during construction.
+        let status = unsafe {
+            pp_resolution_options_create(&raw const config, &raw mut options, &raw mut error)
+        };
         assert_eq!(status, PP_ERROR_INVALID_ARGUMENT);
-        assert_eq!(options.resolver.max_depth, 64);
-        assert_eq!(options.resolver.max_entries_per_directory, 100_000);
+        assert!(options.is_null());
         // SAFETY: Release the owned error exactly once.
         unsafe { crate::pp_error_release(error) };
     }

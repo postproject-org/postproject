@@ -94,7 +94,7 @@ pub use provenance::PpActivitySet;
 use provenance::{AbiActivityEdge, AbiActivityEdgeSnapshot, AbiFingerprintSnapshot};
 pub use read_session::{PpDecisionBase, PpReadSession};
 pub use representations::PpRepresentationSet;
-pub use resolution::{PpCancelToken, PpResolutionOptions};
+pub use resolution::{PpCancelToken, PpResolutionConfig, PpResolutionOptions, PpRootMapping};
 pub use revision_events::PpRevisionEventSet;
 pub use revision_waits::PpRevisionWaiter;
 pub use revisions::PpRevisionSet;
@@ -201,7 +201,7 @@ const PP_REVISION_JOB_FAILED: u32 = 25;
 const PP_REVISION_JOB_CANCELLED: u32 = 26;
 
 /// Current pre-1.0 ABI version.
-pub const ABI_VERSION: u32 = 52;
+pub const ABI_VERSION: u32 = 53;
 
 /// Fixed-layout UUID-compatible public identifier.
 #[repr(C)]

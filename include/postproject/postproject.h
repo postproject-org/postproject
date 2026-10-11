@@ -1731,37 +1731,39 @@ PP_API pp_error_code_t pp_cancel_token_create(pp_cancel_token_t **out_token,
                                               pp_error_t **out_error);
 PP_API void pp_cancel_token_cancel(const pp_cancel_token_t *token);
 PP_API void pp_cancel_token_release(pp_cancel_token_t *token);
-/* Resolution options are caller-owned and caller-serialized; one options
- * handle may serve many calls. Defaults: presence verification, depth 64,
- * 100000 entries per searched directory, no mappings or search directories,
- * and no cancellation token. Inputs are copied. */
+/* Machine-local inputs borrowed only during options creation. Names and
+ * paths are NUL-terminated UTF-8; no mapping is recorded in the production. */
+typedef struct pp_root_mapping {
+  const char *name;
+  const char *directory;
+} pp_root_mapping_t;
+
+typedef struct pp_resolution_config {
+  const pp_root_mapping_t *root_mappings;
+  uint64_t root_mapping_count;
+  const char *const *search_directories;
+  uint64_t search_directory_count;
+  pp_verification_mode_t verification;
+  uint32_t max_depth;
+  uint64_t max_entries_per_directory;
+  const pp_cancel_token_t *cancel_token;
+} pp_resolution_config_t;
+
+/* Presence verification, depth 64, 100000 entries per searched directory,
+ * no mappings/directories/token. Override fields before checked creation. */
+#define PP_RESOLUTION_CONFIG_INIT {NULL, 0, NULL, 0, PP_VERIFY_PRESENCE, 64, 100000, NULL}
+
+/* Creates one validated immutable options owner, or clears out_options on
+ * failure. NULL config selects defaults. Arrays have at most 100000 entries;
+ * NULL arrays are allowed only with zero count. All strings/paths are copied.
+ * Duplicate root names fail. Depth is 1..64; the entry budget is positive.
+ * A directory exceeding its budget is searched partially and reported with
+ * PP_EVIDENCE_SEARCH_TRUNCATED; resolution continues. Options retain the
+ * token's flag, so the caller may release its token independently. */
 PP_API pp_error_code_t pp_resolution_options_create(
+    const pp_resolution_config_t *config,
     pp_resolution_options_t **out_options, pp_error_t **out_error);
 PP_API void pp_resolution_options_release(pp_resolution_options_t *options);
-/* Maps a logical media root to an existing directory on this machine. The
- * mapping is never recorded in the production. */
-PP_API pp_error_code_t pp_resolution_options_add_root_mapping(
-    pp_resolution_options_t *options, const char *name, const char *directory,
-    pp_error_t **out_error);
-/* Adds an unnamed, machine-local directory searched after the mapped roots.
- * Candidates found only there have no media root. */
-PP_API pp_error_code_t pp_resolution_options_add_search_directory(
-    pp_resolution_options_t *options, const char *directory,
-    pp_error_t **out_error);
-PP_API pp_error_code_t pp_resolution_options_set_verification(
-    pp_resolution_options_t *options, pp_verification_mode_t verification,
-    pp_error_t **out_error);
-/* Depth is 1..64; the entry budget is positive. Aggregate overflow returns
- * PP_ERROR_UNSUPPORTED. A directory exceeding its entry budget is searched partially and reported
- * with PP_EVIDENCE_SEARCH_TRUNCATED; resolution continues. */
-PP_API pp_error_code_t pp_resolution_options_set_limits(
-    pp_resolution_options_t *options, uint32_t max_depth,
-    uint64_t max_entries_per_directory, pp_error_t **out_error);
-/* NULL removes the token. The options share the token's flag, so the token
- * handle may be released independently. */
-PP_API pp_error_code_t pp_resolution_options_set_cancel_token(
-    pp_resolution_options_t *options, const pp_cancel_token_t *token,
-    pp_error_t **out_error);
 /* Resolution is read-only. It resolves every representation of each asset,
  * in asset order, walking each searched directory at most once for the whole
  * call. NULL options mean the defaults. Borrowed candidate URI, media-root,

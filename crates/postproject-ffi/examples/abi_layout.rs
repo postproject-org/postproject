@@ -5,8 +5,9 @@ use postproject::{
     PpDependency, PpDependencyMatch, PpExchangeLimits, PpExchangePosition, PpExchangeState,
     PpFileResourceInput, PpHistoryId, PpJob, PpJobClaim, PpJobCompletion, PpJobId, PpLocatorId,
     PpMediaRootId, PpObjectRef, PpPrivateLeaseToken, PpProductionId, PpProtocolBase,
-    PpRepresentationId, PpRequestId, PpRequestIdentity, PpResourceId, PpRevisionEvent,
-    PpRevisionId, PpSequenceNaming, PpTransactionConflict, PpTransactionId, PpUuid,
+    PpRepresentationId, PpRequestId, PpRequestIdentity, PpResolutionConfig, PpResourceId,
+    PpRevisionEvent, PpRevisionId, PpRootMapping, PpSequenceNaming, PpTransactionConflict,
+    PpTransactionId, PpUuid,
 };
 use std::mem::{align_of, offset_of, size_of};
 
@@ -248,5 +249,18 @@ fn main() {
         prefix,
         suffix,
         padding
+    );
+    layout!(PpRootMapping, "pp_root_mapping_t", name, directory);
+    layout!(
+        PpResolutionConfig,
+        "pp_resolution_config_t",
+        root_mappings,
+        root_mapping_count,
+        search_directories,
+        search_directory_count,
+        verification,
+        max_depth,
+        max_entries_per_directory,
+        cancel_token
     );
 }
