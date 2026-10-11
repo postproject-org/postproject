@@ -51,7 +51,7 @@ fn retirement_rejects_unbased_work_and_stale_locator_sets_atomically() {
                 MediaRoot::new(MediaRootId::new(), "discarded", None, None, 0, true).unwrap(),
             )
             .unwrap();
-        let error = stale.commit_with_receipt().unwrap_err();
+        let error = stale.commit().unwrap_err();
         assert_eq!(stale.state(), TransactionState::RolledBack);
         let conflict = error.transaction_conflict_detail().unwrap();
         assert_eq!(conflict.key(), &SemanticConflictKey::LocatorSet(resource));

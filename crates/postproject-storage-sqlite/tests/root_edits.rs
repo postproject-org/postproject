@@ -41,7 +41,7 @@ fn root_edits_require_bases_and_reject_intervening_changes_atomically() {
     {
         let mut stale = production.begin_edit(old_base).unwrap();
         stale.remove_media_root(root_id).unwrap();
-        let error = stale.commit_with_receipt().unwrap_err();
+        let error = stale.commit().unwrap_err();
         assert_eq!(stale.state(), TransactionState::RolledBack);
         let conflict = error.transaction_conflict_detail().unwrap();
         assert_eq!(conflict.key(), &SemanticConflictKey::MediaRoot(root_id));

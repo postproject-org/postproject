@@ -220,13 +220,13 @@ fn detached_bases_check_scope_pairing_empty_conflicts_and_additive_merge() {
         let mut edit = view.edit(&mut writer).unwrap();
         edit.add_media_root(MediaRoot::new(root_id, "rushes", None, None, 0, true).unwrap())
             .unwrap();
-        edit.commit_with_receipt().unwrap();
+        edit.commit().unwrap();
     }
     drop(view);
     {
         let mut stale = writer.begin_edit(empty).unwrap();
         stale.set_media_root_enabled(root_id, false).unwrap();
-        let error = stale.commit_with_receipt().unwrap_err();
+        let error = stale.commit().unwrap_err();
         let conflict = error.transaction_conflict_detail().unwrap();
         assert_eq!(conflict.base_revision(), None);
         assert_eq!(conflict.base_sequence(), 0);
@@ -239,7 +239,7 @@ fn detached_bases_check_scope_pairing_empty_conflicts_and_additive_merge() {
                 MediaRoot::new(MediaRootId::new(), "renders", None, None, 0, true).unwrap(),
             )
             .unwrap();
-        additive.commit_with_receipt().unwrap();
+        additive.commit().unwrap();
     }
     let current = writer.read_session().unwrap().decision_base();
     let mut other = SqliteProduction::create(directory.path().join("other.pproj"), None).unwrap();
@@ -269,7 +269,7 @@ fn detached_bases_check_scope_pairing_empty_conflicts_and_additive_merge() {
         writer
             .begin_edit(current)
             .unwrap()
-            .commit_with_receipt()
+            .commit()
             .unwrap()
             .revision()
             .is_none()
@@ -352,7 +352,7 @@ fn adapter_facade_stays_pinned_and_rejects_write_and_live_operations() {
     let mut edit = writer.begin_edit(base).unwrap();
     edit.add_media_root(MediaRoot::new(MediaRootId::new(), "rushes", None, None, 0, true).unwrap())
         .unwrap();
-    let receipt = edit.commit_with_receipt().unwrap();
+    let receipt = edit.commit().unwrap();
     drop(edit);
     assert!(reader.latest_revision().unwrap().is_none());
     assert_eq!(

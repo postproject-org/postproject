@@ -66,7 +66,7 @@ fn large_atomic_revision_requires_event_pages() {
             )
             .unwrap();
     }
-    let receipt = transaction.commit_with_receipt().unwrap();
+    let receipt = transaction.commit().unwrap();
     drop(transaction);
     let revision = receipt.revision().unwrap().id();
     assert_eq!(

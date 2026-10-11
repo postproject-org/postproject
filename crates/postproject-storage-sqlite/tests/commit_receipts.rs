@@ -27,14 +27,14 @@ fn receipt_survives_a_later_writer_and_matches_durable_context() {
             )
             .unwrap();
         transaction.add_media_root(root("rushes")).unwrap();
-        let receipt = transaction.commit_with_receipt().unwrap();
+        let receipt = transaction.commit().unwrap();
         assert_eq!(
             receipt.revision().unwrap().transaction_id(),
             transaction.id()
         );
         assert_eq!(transaction.state(), TransactionState::Committed);
         assert_eq!(
-            transaction.commit_with_receipt().unwrap_err().kind(),
+            transaction.commit().unwrap_err().kind(),
             ErrorKind::Conflict
         );
         receipt
@@ -42,7 +42,7 @@ fn receipt_survives_a_later_writer_and_matches_durable_context() {
     {
         let mut transaction = second.begin_transaction().unwrap();
         transaction.add_media_root(root("renders")).unwrap();
-        transaction.commit_with_receipt().unwrap();
+        transaction.commit().unwrap();
     }
     assert_eq!(receipt.production_id(), first.production().id());
     assert_eq!(receipt.revision().unwrap().sequence(), 1);
@@ -68,7 +68,7 @@ fn no_change_never_claims_the_existing_head() {
         let head = production.latest_revision().unwrap();
         {
             let mut transaction = production.begin_transaction().unwrap();
-            let receipt = transaction.commit_with_receipt().unwrap();
+            let receipt = transaction.commit().unwrap();
             assert_eq!(receipt.production_id(), id);
             assert!(receipt.revision().is_none());
         }
@@ -91,7 +91,7 @@ fn journal_preparation_failure_is_terminal_and_rolls_back_facts() {
     {
         let mut transaction = production.begin_transaction().unwrap();
         transaction.add_media_root(root("rejected")).unwrap();
-        assert!(transaction.commit_with_receipt().is_err());
+        assert!(transaction.commit().is_err());
         assert_eq!(transaction.state(), TransactionState::RolledBack);
         assert_eq!(
             transaction.rollback().unwrap_err().kind(),
@@ -116,7 +116,7 @@ fn journal_preparation_failure_is_terminal_and_rolls_back_facts() {
     let mut next = production.begin_transaction().unwrap();
     next.add_media_root(root("accepted")).unwrap();
     assert_eq!(
-        next.commit_with_receipt()
+        next.commit()
             .unwrap()
             .revision()
             .unwrap()

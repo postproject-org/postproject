@@ -19,7 +19,7 @@ fn update_from_a_base_revision(
     let receipt = {
         let mut first_writer = production.begin_transaction_at(base.id())?;
         first_writer.set_media_root_enabled(root_id, false)?;
-        first_writer.commit_with_receipt()?
+        first_writer.commit()?
     };
     assert_eq!(receipt.production_id(), production.production().id());
     let superseding = receipt.revision().expect("first update");

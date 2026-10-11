@@ -14,7 +14,7 @@ fn read_then_edit(production: &mut SqliteProduction, media: &Path) -> Result<()>
     let receipt = {
         let mut edit = empty.edit(production)?;
         edit.import_original(&prepared)?;
-        edit.commit_with_receipt()?
+        edit.commit()?
     };
     assert_eq!(receipt.revision().expect("import revision").sequence(), 1);
     assert_eq!(
@@ -51,7 +51,7 @@ fn read_then_edit(production: &mut SqliteProduction, media: &Path) -> Result<()>
     let base = view.decision_base();
     drop(view);
     let mut edit = production.begin_edit(base)?;
-    assert!(edit.commit_with_receipt()?.revision().is_none());
+    assert!(edit.commit()?.revision().is_none());
     assert_eq!(copied.id(), asset_id);
     assert_eq!(representation.asset_id(), asset_id);
     Ok(())

@@ -69,7 +69,7 @@ fn identifier_removal_rejects_unbased_work_and_stale_reattachments() {
                 MediaRoot::new(MediaRootId::new(), "discarded", None, None, 0, true).unwrap(),
             )
             .unwrap();
-        let error = stale.commit_with_receipt().unwrap_err();
+        let error = stale.commit().unwrap_err();
         assert_eq!(stale.state(), TransactionState::RolledBack);
         assert_eq!(
             error.transaction_conflict_detail().unwrap().key(),

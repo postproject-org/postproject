@@ -193,7 +193,7 @@ fn file_facts_are_recorded_with_an_observation() {
                 .is_err()
         );
         let receipt = transaction
-            .commit_with_receipt()
+            .commit()
             .expect("commit observation");
         let revision = receipt.revision().expect("facts-only revision");
         drop(transaction);
@@ -211,7 +211,7 @@ fn file_facts_are_recorded_with_an_observation() {
     let base = production.read_session().unwrap().decision_base();
     let mut edit = production.begin_edit(base).unwrap();
     assert!(!edit.record_resource_file_facts(resource_id, facts).unwrap());
-    assert!(edit.commit_with_receipt().unwrap().revision().is_none());
+    assert!(edit.commit().unwrap().revision().is_none());
 }
 
 #[test]
@@ -266,7 +266,7 @@ fn stale_file_facts_roll_back_all_staged_observations_and_additive_work() {
     let newer = FileFacts::new(42, Some(Timestamp::from_unix_micros(8)));
     let mut edit = writer.begin_edit(base).unwrap();
     edit.record_resource_file_facts(resource_id, newer).unwrap();
-    let receipt = edit.commit_with_receipt().unwrap();
+    let receipt = edit.commit().unwrap();
     let superseding = receipt.revision().unwrap();
     let unrelated = media(2, RepresentationKind::Original);
     let mut stale = production.begin_edit(base).unwrap();
@@ -280,7 +280,7 @@ fn stale_file_facts_roll_back_all_staged_observations_and_additive_work() {
             &ResourceFingerprint::new("content", 1, vec![9]).unwrap(),
         )
         .unwrap();
-    let error = stale.commit_with_receipt().unwrap_err();
+    let error = stale.commit().unwrap_err();
     assert_eq!(error.kind(), ErrorKind::Conflict);
     let detail = error.transaction_conflict_detail().unwrap();
     assert_eq!(
@@ -344,7 +344,7 @@ fn unchanged_observations_still_check_intervening_changes() {
         }
         .unwrap();
         assert!(!changed);
-        let error = stale.commit_with_receipt().unwrap_err();
+        let error = stale.commit().unwrap_err();
         assert_eq!(error.kind(), ErrorKind::Conflict);
         assert_eq!(
             error

@@ -228,7 +228,7 @@ fn expiry_and_reacquisition_fence_every_old_worker_transition() {
             .is_err()
     );
     assert!(edit.complete_job_lease(&old, &output, &activity).is_err());
-    assert!(edit.commit_with_receipt().unwrap().revision().is_none());
+    assert!(edit.commit().unwrap().revision().is_none());
     drop(edit);
     assert!(fixture.store.import_job_lease(&token).is_err());
     assert!(
@@ -263,7 +263,7 @@ fn claim_and_publication_share_one_commit_and_terminal_ownership() {
         .claim_job_lease(fixture.job, &tool(), None, Duration::from_micros(100))
         .unwrap();
     edit.complete_job_lease(&lease, &output, &activity).unwrap();
-    let receipt = edit.commit_with_receipt().unwrap();
+    let receipt = edit.commit().unwrap();
     assert!(receipt.revision().is_some());
     assert_eq!(lease.state().unwrap(), JobLeaseState::Closed);
     drop(edit);
@@ -393,7 +393,7 @@ fn wrong_scopes_and_coordinator_cancellation_cannot_publish() {
     drop(edit);
     let mut edit = fixture.store.begin_transaction().unwrap();
     assert!(edit.complete_job_lease(&lease, &output, &activity).is_err());
-    assert!(edit.commit_with_receipt().unwrap().revision().is_none());
+    assert!(edit.commit().unwrap().revision().is_none());
     drop(edit);
     assert!(
         fixture
@@ -492,7 +492,7 @@ fn changed_input_fingerprints_and_dependencies_reject_publication_after_reopen()
                 edit.record_dependency_set(fixture.input, &[]).unwrap();
             }
         }
-        let changed = edit.commit_with_receipt().unwrap();
+        let changed = edit.commit().unwrap();
         drop(edit);
         let (output, _) = fixture.output();
         let activity = Activity::new(

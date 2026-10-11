@@ -2252,7 +2252,7 @@ fn media_add(
             .context("stage technical metadata")?;
     }
     let receipt = transaction
-        .commit_with_receipt()
+        .commit()
         .context("commit media import")?;
 
     if json {
@@ -2407,7 +2407,7 @@ fn representation_add(
         .add_representation(&prepared)
         .context("stage representation")?;
     let receipt = transaction
-        .commit_with_receipt()
+        .commit()
         .context("commit representation")?;
 
     if json {
@@ -2458,7 +2458,7 @@ fn media_fingerprint(
             .context("stage representation fingerprint")?;
     }
     let receipt = transaction
-        .commit_with_receipt()
+        .commit()
         .context("commit fingerprints")?;
 
     let view = FingerprintObservationView {
@@ -2883,7 +2883,7 @@ fn root_add(args: RootAddArgs, json: bool, base_revision: Option<CliDecisionBase
         .add_media_root(root)
         .context("stage media root")?;
     let receipt = transaction
-        .commit_with_receipt()
+        .commit()
         .context("commit media root")?;
 
     if json {
@@ -2987,7 +2987,7 @@ fn root_set_enabled(
         .set_media_root_enabled(root_id, enabled)
         .context("stage media-root state change")?;
     let receipt = transaction
-        .commit_with_receipt()
+        .commit()
         .context("commit media-root state change")?;
 
     if json {
@@ -3018,7 +3018,7 @@ fn root_remove(
         .remove_media_root(root_id)
         .context("stage media-root removal")?;
     let receipt = transaction
-        .commit_with_receipt()
+        .commit()
         .context("commit media-root removal")?;
 
     if json {
@@ -3056,7 +3056,7 @@ fn locator_retire(
         .retire_locator(locator_id)
         .context("stage locator retirement")?;
     let receipt = transaction
-        .commit_with_receipt()
+        .commit()
         .context("commit locator retirement")?;
 
     if json {
@@ -3107,7 +3107,7 @@ fn identifier_mutate(
             .context("stage external identifier attachment")?;
     }
     let receipt = transaction
-        .commit_with_receipt()
+        .commit()
         .context("commit external identifier mutation")?;
 
     if json {
@@ -3192,7 +3192,7 @@ fn metadata_add_text(
         .add_metadata_value(target, &property, &value)
         .context("stage metadata value")?;
     let receipt = transaction
-        .commit_with_receipt()
+        .commit()
         .context("commit metadata value")?;
 
     if json {
@@ -3224,7 +3224,7 @@ fn metadata_add(
         .add_metadata_value(target, &property, &value)
         .context("stage metadata value")?;
     let receipt = transaction
-        .commit_with_receipt()
+        .commit()
         .context("commit metadata value")?;
 
     if json {
@@ -3275,7 +3275,7 @@ fn metadata_remove(
         .remove_metadata_property(target, &property)
         .context("stage metadata property removal")?;
     let receipt = transaction
-        .commit_with_receipt()
+        .commit()
         .context("commit metadata property removal")?;
 
     if json {
@@ -3467,7 +3467,7 @@ fn dependency_record(
             .collect::<Result<Vec<_>>>()?,
     };
     let receipt = transaction
-        .commit_with_receipt()
+        .commit()
         .context("commit dependency set")?;
     if json {
         print_json_with_receipt(&view, &receipt)
@@ -3701,7 +3701,7 @@ fn activity_add(
         .create_activity(&activity)
         .context("stage activity")?;
     let receipt = transaction
-        .commit_with_receipt()
+        .commit()
         .context("commit activity")?;
     drop(transaction);
     let stored_activity = production
@@ -3804,7 +3804,7 @@ fn job_request(
             .context("record executor profile")?;
     }
     let receipt = transaction
-        .commit_with_receipt()
+        .commit()
         .context("commit job request")?;
 
     let view = job_view(&job);
@@ -3909,7 +3909,7 @@ fn job_claim(args: JobClaimArgs, json: bool, base_revision: Option<CliDecisionBa
         .claim_job_lease(job_id, &tool, agent.as_ref(), args.lease)
         .context("claim job")?;
     let receipt = transaction
-        .commit_with_receipt()
+        .commit()
         .context("commit job claim")?;
     let delivery = (|| -> Result<()> {
         view.state = "claimed";
@@ -3939,7 +3939,7 @@ fn job_renew(
         .renew_job_lease(&lease, args.lease)
         .context("renew job lease")?;
     let receipt = transaction
-        .commit_with_receipt()
+        .commit()
         .context("commit job claim renewal")?;
     drop(transaction);
     set_claim_expiry(&mut view, &lease)?;
@@ -3961,7 +3961,7 @@ fn job_release(
         .release_job_lease(&lease)
         .context("release job claim")?;
     let receipt = transaction
-        .commit_with_receipt()
+        .commit()
         .context("commit job claim release")?;
     drop(transaction);
     clear_job_state(&mut view, "requested");
@@ -4013,7 +4013,7 @@ fn job_complete(
         .complete_job_lease(&lease, &output, &activity)
         .context("complete job")?;
     let receipt = transaction
-        .commit_with_receipt()
+        .commit()
         .context("commit job completion")?;
     drop(transaction);
     clear_job_state(&mut view, "succeeded");
@@ -4033,7 +4033,7 @@ fn job_fail(args: JobFailArgs, json: bool, base_revision: Option<CliDecisionBase
         .fail_job_lease(&lease, &failure)
         .context("fail job")?;
     let receipt = transaction
-        .commit_with_receipt()
+        .commit()
         .context("commit job failure")?;
     drop(transaction);
     clear_job_state(&mut view, "failed");
@@ -4050,7 +4050,7 @@ fn job_cancel(args: &JobIdArgs, json: bool, base_revision: Option<CliDecisionBas
     set_cli_revision_context(&mut transaction, "Cancel job")?;
     transaction.cancel_job(job_id).context("cancel job")?;
     let receipt = transaction
-        .commit_with_receipt()
+        .commit()
         .context("commit job cancellation")?;
     drop(transaction);
     clear_job_state(&mut view, "cancelled");
@@ -4477,7 +4477,7 @@ fn run_executor_job(
             .claim_job_lease(job_id, &claim_tool, None, lease)
             .context("claim executor job")?;
         let receipt = transaction
-            .commit_with_receipt()
+            .commit()
             .context("commit executor job claim")?;
         (claim, receipt)
     };
@@ -4534,7 +4534,7 @@ fn run_claimed_executor_job(
                 RevisionContext::new(Some(origin), Some("Renew executor job claim".to_owned()))?;
             transaction.set_revision_context(context)?;
             transaction.renew_job_lease(claim, lease)?;
-            receipts.push(transaction.commit_with_receipt()?);
+            receipts.push(transaction.commit()?);
             Ok(())
         };
         executor.execute(request, &mut heartbeat)
@@ -4559,7 +4559,7 @@ fn run_claimed_executor_job(
                 .context("release unavailable executor job")?;
             receipts.push(
                 transaction
-                    .commit_with_receipt()
+                    .commit()
                     .context("commit unavailable executor release")?,
             );
             bail!("reference executor unavailable: {reason}");
@@ -4673,7 +4673,7 @@ fn complete_executor_job(
                 .context("copy executor activity parameter")?;
         }
         transaction
-            .commit_with_receipt()
+            .commit()
             .context("commit executor completion")
     })();
     match completion {
@@ -4712,7 +4712,7 @@ fn fail_executor_job(
         .fail_job_lease(lease, &failure)
         .context("fail executor job")?;
     transaction
-        .commit_with_receipt()
+        .commit()
         .context("commit executor job failure")
 }
 
@@ -5745,7 +5745,7 @@ fn confirm_candidate(
         .add_locator(&locator)
         .context("stage confirmed locator")?;
     let receipt = transaction
-        .commit_with_receipt()
+        .commit()
         .context("commit confirmed locator")?;
     Ok((
         candidate.sequence_naming().map(SequenceNamingView::from),

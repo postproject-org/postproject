@@ -19,7 +19,7 @@ fn assert_stale_unchanged(
             .record_dependency_set(source, std::slice::from_ref(dependency))
             .unwrap()
     );
-    let error = stale.commit_with_receipt().unwrap_err();
+    let error = stale.commit().unwrap_err();
     assert_eq!(stale.state(), TransactionState::RolledBack);
     assert_eq!(
         error.transaction_conflict_detail().unwrap().key(),
@@ -94,7 +94,7 @@ fn complete_observations_require_bases_and_preserve_a_newer_set() {
                 MediaRoot::new(MediaRootId::new(), "discarded", None, None, 0, true).unwrap(),
             )
             .unwrap();
-        let error = stale.commit_with_receipt().unwrap_err();
+        let error = stale.commit().unwrap_err();
         assert_eq!(stale.state(), TransactionState::RolledBack);
         assert_eq!(
             error.transaction_conflict_detail().unwrap().key(),
@@ -123,7 +123,7 @@ fn complete_observations_require_bases_and_preserve_a_newer_set() {
     );
     assert!(
         unchanged
-            .commit_with_receipt()
+            .commit()
             .unwrap()
             .revision()
             .is_none()

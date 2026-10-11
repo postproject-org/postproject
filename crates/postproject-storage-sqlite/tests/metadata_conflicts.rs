@@ -28,7 +28,7 @@ fn appends_merge_but_stale_replacement_and_removal_roll_back() {
     for value in &values {
         let mut append = production.begin_edit(base).unwrap();
         append.add_metadata_value(target, &property, value).unwrap();
-        append.commit_with_receipt().unwrap();
+        append.commit().unwrap();
     }
     let superseding = production.latest_revision().unwrap().unwrap();
     for remove in [false, true] {
@@ -40,7 +40,7 @@ fn appends_merge_but_stale_replacement_and_removal_roll_back() {
                 .unwrap();
         }
         let error = edit
-            .commit_with_receipt()
+            .commit()
             .expect_err("append invalidated decision");
         assert_eq!(error.kind(), ErrorKind::Conflict);
         assert_eq!(edit.state(), TransactionState::RolledBack);
