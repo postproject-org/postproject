@@ -145,14 +145,11 @@ Use <https://docs.postproject.org> for the published documentation.
 
 ## Project status and compatibility
 
-PostProject is in alpha development; this tree is
-the `0.8.0-alpha.1` candidate with C ABI version 52 and SQLite schema 27.
-The latest published release is `0.7.0-alpha.1`. The 0.6 C++17 Result
-propagation protocol (`Result<T>`, including `Result<void>`, `POSTPROJECT_TRY`
-and `POSTPROJECT_TRY_ASSIGN`) remains source-compatible within `0.6.x`.
-Development APIs are experimental. Consumers should
+PostProject is alpha software. Most APIs are experimental. Consumers should
 pin an exact release or commit and check the [ABI policy](docs/abi-policy.md)
 before depending on a particular interface.
+Published packages and release notes are listed in
+[GitHub releases](https://github.com/postproject-org/postproject/releases).
 
 The important distinction is intentional: **production data should be durable even while APIs are still being refined.** Compatibility promises are therefore documented explicitly rather than implied by version numbers alone.
 

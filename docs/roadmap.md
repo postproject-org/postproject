@@ -107,16 +107,16 @@ qualification and compatibility limits. It was published on 2026-10-08; the
 tagged report retains its earlier prepublication wording. Remote services and
 replication remain outside this release.
 
-## Release 0.8 — portable exchange candidate
+## Release 0.8 — portable exchange
 
-The `0.8.0-alpha.1` candidate captures complete native commits, retains scoped
+The `0.8.0-alpha.1` package captures complete native commits, retains scoped
 submission outcomes and streams checkpoints and changes to passive mirrors.
 Rust, C11, C++17, Python and CLI offer local exchange workflows. C ABI 52 and
 schema 27 preserve earlier evidence separately from executable history.
 Independent fixed vectors, process replay and measured native workloads qualify
-the implementation. Installed candidate checks and both maintained handoffs pass;
+the implementation. Installed package checks and both maintained handoffs pass;
 the [qualification report](release-0.8-report.md) records platform/build status
-and limits. This candidate is unpublished and names no new stable API family.
+and limits. No new stable API family is named.
 
 ## Explicitly later
 

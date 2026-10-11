@@ -5,16 +5,17 @@ change recorded in the changelog and ABI tests. `pp_abi_version()` reports the
 implemented version. Exported symbol names are unversioned until the first stable
 release, but removals or signature changes require an explicit ABI-version bump.
 
-The candidate package is `0.8.0-alpha.1` (Python `0.8.0a1`). Its APIs remain
-experimental; no additional stable family is named. The released 0.6 promise
+The `0.8.0-alpha.1` package (Python `0.8.0a1`) provides
+experimental APIs; no additional stable family is named. The released 0.6 promise
 below remains intact.
 
-Current development migrates local files to schema 27 for persistent exchange
-history, inert job observations, bounded outcomes and retained prior anchors
-(ADRs 0065 and 0066). The released 0.7 baseline remains schema 19.
-Development ABI 52 adds source-scoped exchange types and native preparation,
+Opening supported older local files migrates them to schema 27 for persistent
+exchange history, inert job observations, bounded outcomes and retained prior anchors
+(ADRs 0065 and 0066). Release 0.7 uses schema 19.
+C ABI 52 adds source-scoped exchange types and native preparation,
 submission, outcome recovery, checkpoint and catch-up operations (ADR 0067).
-Candidate qualification is in progress; protocol major 1 remains experimental.
+Protocol major 1 remains experimental. The {doc}`release-0.8-report` records
+qualification evidence and limits.
 
 Release 0.6 names the C++17 `cpp-result-propagation` family (ADR 0020).
 `Result<T>` (including `Result<void>`), `POSTPROJECT_TRY` and
