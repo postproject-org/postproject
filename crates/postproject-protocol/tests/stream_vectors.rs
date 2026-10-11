@@ -143,7 +143,7 @@ fn check_media_frames(frames: &[Document], expected: &[serde_json::Value], seque
                     assert_eq!(encode_locator(&locator).unwrap(), *frame);
                 }
                 Some(CreationFact::Structure(content)) => {
-                    assert_eq!(content.resource_ids().len() as u64, resources)
+                    assert_eq!(content.resource_ids().len() as u64, resources);
                 }
                 None => {}
                 other => panic!("unexpected creation fact {other:?}"),

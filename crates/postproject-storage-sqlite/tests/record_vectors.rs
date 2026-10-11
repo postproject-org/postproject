@@ -92,11 +92,67 @@ fn independent_records_preserve_original_media_identities_and_public_observation
             check_jobs(&mirror);
         } else if vector["file"] == "streams/metadata-edits.json" {
             check_metadata(&mirror, &fixture);
+        } else if vector["file"] == "streams/compound.json" {
+            check_compound(&mirror);
         }
         assert_eq!(
             mirror.begin_transaction().err().unwrap().kind(),
             ErrorKind::Unsupported
         );
+    }
+}
+
+fn check_compound(mirror: &SqliteProduction) {
+    use postproject_core::ContentStructureKind;
+
+    assert_eq!(mirror.assets().unwrap().len(), 4);
+    let sequence = mirror
+        .representation("00000000-0000-4000-8000-000000000835".parse().unwrap())
+        .unwrap();
+    let descriptor = sequence
+        .content_structure()
+        .image_sequence_descriptor()
+        .unwrap();
+    assert_eq!(descriptor.frames().start(), -5);
+    assert_eq!(descriptor.frames().end(), 7);
+    assert_eq!(descriptor.frames().step(), 2);
+    assert_eq!(descriptor.rate().numerator(), 24_000);
+    assert_eq!(descriptor.rate().denominator(), 1001);
+    assert_eq!(descriptor.known_missing_frames(), [-3, 5]);
+    let locators = mirror.locators(descriptor.resource_id()).unwrap();
+    let naming = locators[0].sequence_naming().unwrap();
+    assert_eq!(
+        (naming.prefix(), naming.suffix(), naming.padding()),
+        ("Exact.", ".exr", 4)
+    );
+    for (representation, first, second, kind, required) in [
+        (
+            "00000000-0000-4000-8000-00000000083f",
+            "00000000-0000-4000-8000-000000000840",
+            "00000000-0000-4000-8000-000000000841",
+            ContentStructureKind::OrderedParts,
+            true,
+        ),
+        (
+            "00000000-0000-4000-8000-000000000849",
+            "00000000-0000-4000-8000-00000000084a",
+            "00000000-0000-4000-8000-00000000084b",
+            ContentStructureKind::Package,
+            false,
+        ),
+    ] {
+        let value = mirror
+            .representation(representation.parse().unwrap())
+            .unwrap();
+        assert_eq!(value.content_structure().kind(), kind);
+        let members = value.content_structure().members().unwrap();
+        assert_eq!(members.len(), 2);
+        assert_eq!(members[0].resource_id().to_string(), first);
+        assert_eq!(members[1].resource_id().to_string(), second);
+        assert_eq!(members[0].role().as_str(), "vendor:Essence");
+        assert_eq!(members[1].role().as_str(), "vendor:Sidecar");
+        assert!(members[0].is_required());
+        assert_eq!(members[1].is_required(), required);
     }
 }
 
