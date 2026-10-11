@@ -15,10 +15,11 @@ its own expectations. `stream-vectors.json` binds independently authored metadat
 and media records, split length/UTF-8 framing, genesis anchors and both record/manifest
 digests. They preserve exact extreme values, repeated extensions, original media
 identities and observations; storage applies the fixed records and tests duplicate
-replay and reopen. `checkpoint-vectors.json` binds a complete
-genesis checkpoint with all 19 sections and split length/UTF-8 framing. It imports
-as an ordinary passive store. Nonempty checkpoint and remaining record families
-remain incomplete.
+replay and reopen. `checkpoint-vectors.json` binds complete genesis and nonempty
+media checkpoints with all 19 sections and split length/UTF-8 framing. Both import
+as ordinary passive stores and reexport identical section bodies. Initial media
+locators have no changed guard; record chunks are continuations of one logical item.
+Remaining record/checkpoint families are incomplete.
 
 Run `python3 tools/check_exchange_vectors.py` for canonical checks, or
 `uv run --no-project --with blake3==1.0.10 python3 tools/check_exchange_vectors.py --digests`

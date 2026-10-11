@@ -38,9 +38,9 @@ checkpoint exchange, catch-up and scoped inspection. Development ABI 52 has 349
 exports and 36 checked public layouts. [Installed native evidence](
 evidence/exchange-development/installed-native.json) records local compiler floors,
 consumer recipes, wheel typing and tests; it is not installed release-candidate
-acceptance. Fixed independent vectors cover all 24 command alternatives, a split
-metadata record and a complete genesis checkpoint. Nonempty checkpoint/other record
-vectors, remaining conformance negatives, maintained handoffs and final ecosystem
+acceptance. Fixed independent vectors cover all 24 command alternatives, split
+metadata/media records and complete genesis/nonempty media checkpoints. Remaining
+record/checkpoint vectors, conformance negatives, maintained handoffs and final ecosystem
 and platform qualification remain pending. [Blender native replay evidence](
 evidence/exchange-development/blender-native-replay.json) covers actual background
 save/render/relink commits and two distinct passive checkpoint/suffix routes.
