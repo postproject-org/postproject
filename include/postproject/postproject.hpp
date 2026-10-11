@@ -6017,7 +6017,7 @@ public:
     pp_commit_receipt_t receipt{};
     pp_error_t *error = nullptr;
     const pp_error_code_t status =
-        pp_transaction_commit_with_receipt(transaction_, &receipt, &error);
+        pp_transaction_commit(transaction_, &receipt, &error);
     POSTPROJECT_TRY(detail::check(status, error));
     POSTPROJECT_TRY(detail::native_tag(receipt.outcome, PP_COMMIT_NO_CHANGE, PP_COMMIT_REVISION_CREATED, "commit outcome; the edit is terminal"));
     CommitReceipt result{detail::production_id(receipt.production_id), std::nullopt};

@@ -1156,7 +1156,6 @@ EXPORTED_SYMBOLS = (
     "pp_transaction_cancel_job",
     "pp_transaction_claim_job_lease",
     "pp_transaction_commit",
-    "pp_transaction_commit_with_receipt",
     "pp_transaction_complete_job_lease",
     "pp_transaction_confirm_locator",
     "pp_transaction_create_activity",
@@ -1861,10 +1860,8 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_transaction_cancel_job.restype = ErrorCode
     lib.pp_transaction_create_activity.argtypes = [ctypes.POINTER(Transaction), ctypes.c_char_p, ctypes.POINTER(ActivityEdge), ctypes.c_uint64, ctypes.POINTER(ActivityEdge), ctypes.c_uint64, ctypes.POINTER(ctypes.c_int64), ctypes.POINTER(ctypes.c_int64), ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.POINTER(ActivityId), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_transaction_create_activity.restype = ErrorCode
-    lib.pp_transaction_commit.argtypes = [ctypes.POINTER(Transaction), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_transaction_commit.argtypes = [ctypes.POINTER(Transaction), ctypes.POINTER(CommitReceipt), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_transaction_commit.restype = ErrorCode
-    lib.pp_transaction_commit_with_receipt.argtypes = [ctypes.POINTER(Transaction), ctypes.POINTER(CommitReceipt), ctypes.POINTER(ctypes.POINTER(Error))]
-    lib.pp_transaction_commit_with_receipt.restype = ErrorCode
     lib.pp_transaction_rollback.argtypes = [ctypes.POINTER(Transaction), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_transaction_rollback.restype = ErrorCode
     lib.pp_transaction_release.argtypes = [ctypes.POINTER(Transaction)]

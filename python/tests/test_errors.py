@@ -38,7 +38,7 @@ class ErrorMappingTests(unittest.TestCase):
                 pointer.contents.outcome = outcome
                 return 0
 
-            native.lib.pp_transaction_commit_with_receipt.side_effect = commit
+            native.lib.pp_transaction_commit.side_effect = commit
             edit = object.__new__(_production.Edit)
             edit._native = native
             edit._handle = ctypes.POINTER(_abi.Transaction)()
@@ -48,7 +48,7 @@ class ErrorMappingTests(unittest.TestCase):
                 edit.commit()
             with self.assertRaises(InvalidArgumentError):
                 edit.commit()
-            native.lib.pp_transaction_commit_with_receipt.assert_called_once()
+            native.lib.pp_transaction_commit.assert_called_once()
 
     def test_missing_and_invalid_native_text_are_internal_errors(self) -> None:
         calls = (

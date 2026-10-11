@@ -4443,7 +4443,7 @@ class Edit:
         self._require_open()
         receipt = _abi.CommitReceipt()
         error = ctypes.POINTER(Error)()
-        status = self._native.lib.pp_transaction_commit_with_receipt(
+        status = self._native.lib.pp_transaction_commit(
             self._handle, ctypes.byref(receipt), ctypes.byref(error)
         )
         self._finished = True

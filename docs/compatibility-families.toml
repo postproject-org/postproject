@@ -43,7 +43,7 @@ last_changed_abi = 53
 c_operations = [
   "pp_production_begin_transaction",
   "pp_transaction_set_revision_context",
-  "pp_transaction_commit_with_receipt",
+  "pp_transaction_commit",
   "pp_transaction_rollback",
   "pp_transaction_release",
 ]
@@ -229,7 +229,7 @@ last_changed_release = "0.9.0-alpha.1"
 last_changed_abi = 53
 c_operations = [
   "pp_production_begin_transaction_at",
-  "pp_transaction_commit_with_receipt",
+  "pp_transaction_commit",
   "pp_transaction_release",
   "pp_error_transaction_conflict",
   "pp_error_release",

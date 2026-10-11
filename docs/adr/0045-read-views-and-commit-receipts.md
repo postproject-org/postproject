@@ -2,6 +2,8 @@
 
 Status: accepted for development; public projections and migration are in progress.
 
+ABI 53 uses the single receipt-returning commit operation (ADR 0074).
+
 ## Decision
 
 A read session owns a separate SQLite connection and a read transaction. Its
