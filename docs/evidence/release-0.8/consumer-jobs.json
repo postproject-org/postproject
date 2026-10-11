@@ -1,0 +1,103 @@
+{
+  "observed_on": "2026-10-11",
+  "scope": "Individual job conclusions; in_progress is not a passing result",
+  "optional_failure": "Blender 5.3-alpha download: no daily Linux build available",
+  "runs": [
+    {
+      "repository": "postproject-openassetio",
+      "run": 38146499062,
+      "head_sha": "36414f1609484e3149f2c05273c42b9b1e516c98",
+      "status": "completed",
+      "workflow_conclusion": "success",
+      "jobs": [
+        {"conclusion":"success","name":"test"}
+      ]
+    },
+    {
+      "repository": "postproject-openassetio-manager",
+      "run": 38146507697,
+      "head_sha": "ccfbd8d58a7b2da7b607940917aeea30cd697de0",
+      "status": "completed",
+      "workflow_conclusion": "success",
+      "jobs": [
+        {"conclusion":"success","name":"test (bundled-nuke-17)"},
+        {"conclusion":"success","name":"test (current)"}
+      ]
+    },
+    {
+      "repository": "postproject-otio-openassetio",
+      "run": 38146512656,
+      "head_sha": "10b05522ac91c446fc122c80b925c9b79bfaa37c",
+      "status": "completed",
+      "workflow_conclusion": "success",
+      "jobs": [
+        {"conclusion":"success","name":"test"}
+      ]
+    },
+    {
+      "repository": "postproject-otio-demo",
+      "run": 38146514914,
+      "head_sha": "4d73d227a689abd528cbfe8762abcd9f5a940c0d",
+      "status": "completed",
+      "workflow_conclusion": "success",
+      "jobs": [
+        {"conclusion":"success","name":"test"}
+      ]
+    },
+    {
+      "repository": "postproject-blender",
+      "run": 38146517415,
+      "head_sha": "807dfa7db7fbf93f65976c2ef97f77eb138bdee4",
+      "status": "completed",
+      "workflow_conclusion": "success",
+      "jobs": [
+        {"conclusion":"failure","name":"Blender 5.3-alpha"},
+        {"conclusion":"success","name":"Blender 5.2.2"},
+        {"conclusion":"success","name":"lint"}
+      ]
+    },
+    {
+      "repository": "postproject-natron",
+      "run": 38146521572,
+      "head_sha": "71e42f076e942d0575b43ff7b765697600b0667c",
+      "status": "completed",
+      "workflow_conclusion": "success",
+      "jobs": [
+        {"conclusion":"success","name":"contract"}
+      ]
+    },
+    {
+      "repository": "postproject-obs",
+      "run": 38146525911,
+      "head_sha": "4b8de37338a74b91af465c1f1b28fa8bf0569651",
+      "status": "completed",
+      "workflow_conclusion": "success",
+      "jobs": [
+        {"conclusion":"success","name":"contract"}
+      ]
+    },
+    {
+      "repository": "postproject-ardour",
+      "run": 38146537052,
+      "head_sha": "7656b6516e6367a89a7045726c84393fb54e2310",
+      "status": "in_progress",
+      "workflow_conclusion": "",
+      "jobs": [
+        {"conclusion":"success","name":"Installed pkg-config resolver on macOS"},
+        {"conclusion":"","name":"Ardour without PostProject"},
+        {"conclusion":"","name":"Ardour with PostProject"}
+      ]
+    },
+    {
+      "repository": "postproject-kdenlive",
+      "run": 38147376867,
+      "head_sha": "89a92139e5c67b309a226fadd75802ee911c0326",
+      "status": "in_progress",
+      "workflow_conclusion": "",
+      "jobs": [
+        {"conclusion":"","name":"Kdenlive without PostProject"},
+        {"conclusion":"","name":"Kdenlive with PostProject"}
+      ]
+    }
+  ]
+}
