@@ -20,7 +20,6 @@ int main(int argc, char **argv) {
    * Release functions accept NULL, so one cleanup path serves every outcome. */
   pp_production_t *production = NULL;
   pp_transaction_t *transaction = NULL;
-  pp_media_source_t *media = NULL;
   pp_representation_set_t *representations = NULL;
   pp_error_t *error = NULL;
   pp_asset_id_t asset_id = {{0}};
@@ -36,13 +35,8 @@ int main(int argc, char **argv) {
   /* A media source describes the file to import; the transaction borrows it
    * only for the call. */
   if (status == PP_OK) {
-    status = pp_media_source_create_file(argv[2], &media, &error);
+    status = pp_transaction_import_file(transaction, argv[2], NULL, &asset_id, &error);
   }
-  if (status == PP_OK) {
-    status = pp_transaction_import_media(transaction, media, NULL, &asset_id,
-                                         &error);
-  }
-  pp_media_source_release(media);
   /* Staged work becomes durable only on commit. Releasing a transaction that
    * was not committed discards everything staged in it. */
   if (status == PP_OK) {

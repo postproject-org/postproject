@@ -79,25 +79,18 @@ static pp_error_code_t add_proxy(pp_production_t *production,
                                  const pp_asset_id_t *asset_id,
                                  const char *proxy_path,
                                  pp_representation_id_t *out_proxy_id, pp_error_t **error) {
-  pp_media_source_t *proxy = NULL;
   pp_transaction_t *transaction = NULL;
-  pp_error_code_t status = pp_media_source_create_file(proxy_path, &proxy, error);
-  if (status == PP_OK) {
-    status = pp_production_begin_transaction(production, &transaction, error);
-  }
+  pp_error_code_t status = pp_production_begin_transaction(production, &transaction, error);
   if (status == PP_OK) {
     /* The file is fingerprinted and recorded as one more representation of
      * the same asset; it never becomes an unrelated asset. */
-    status = pp_transaction_add_representation(
-        transaction, *asset_id, PP_REPRESENTATION_PROXY, proxy, out_proxy_id,
-        error);
+    status = pp_transaction_add_file_representation(transaction, *asset_id, PP_REPRESENTATION_PROXY, proxy_path, out_proxy_id, error);
   }
   if (status == PP_OK) {
     pp_commit_receipt_t commit_receipt;
     status = pp_transaction_commit_with_receipt(transaction, &commit_receipt, error);
   }
   pp_transaction_release(transaction);
-  pp_media_source_release(proxy);
   return status;
 }
 /* [/add-representation] */
@@ -725,15 +718,11 @@ static pp_error_code_t create_production(const char *path, const char *media,
   const int64_t missing_frames[] = {1003};
   pp_production_t *production = NULL;
   pp_transaction_t *transaction = NULL;
-  pp_media_source_t *camera = NULL;
   pp_media_source_t *sequence = NULL;
   pp_media_root_id_t root_id;
   pp_representation_id_t sequence_id;
   pp_error_code_t status =
       pp_production_create(path, "Documentary", &production, error);
-  if (status == PP_OK) {
-    status = pp_media_source_create_file(media, &camera, error);
-  }
   if (status == PP_OK) {
     const pp_sequence_naming_t naming = {"shot010.", ".exr", 4};
     status = pp_media_source_create_image_sequence(
@@ -744,15 +733,13 @@ static pp_error_code_t create_production(const char *path, const char *media,
     status = pp_production_begin_transaction(production, &transaction, error);
   }
   if (status == PP_OK) {
-    status = pp_transaction_import_media(transaction, camera, "Camera A",
-                                         out_asset_id, error);
+    status = pp_transaction_import_file(transaction, media, "Camera A", out_asset_id, error);
   }
   if (status == PP_OK) {
     status = pp_transaction_add_representation(
         transaction, *out_asset_id, PP_REPRESENTATION_DERIVED, sequence,
         &sequence_id, error);
   }
-  pp_media_source_release(camera);
   pp_media_source_release(sequence);
   if (status == PP_OK) {
     status = pp_transaction_add_media_root(transaction, "proxies",

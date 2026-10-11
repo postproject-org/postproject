@@ -40,13 +40,7 @@ static pp_error_code_t import_file(pp_transaction_t *transaction,
                                    const char *path, const char *display_name,
                                    pp_asset_id_t *out_asset_id,
                                    pp_error_t **out_error) {
-  pp_media_source_t *source = NULL;
-  pp_error_code_t status = pp_media_source_create_file(path, &source, out_error);
-  if (status == PP_OK) {
-    status = pp_transaction_import_media(transaction, source, display_name,
-                                         out_asset_id, out_error);
-  }
-  pp_media_source_release(source);
+  pp_error_code_t status = pp_transaction_import_file(transaction, path, display_name, out_asset_id, out_error);
   return status;
 }
 
@@ -55,13 +49,7 @@ static pp_error_code_t add_file(pp_transaction_t *transaction,
                                 pp_representation_kind_t kind, const char *path,
                                 pp_representation_id_t *out_representation_id,
                                 pp_error_t **out_error) {
-  pp_media_source_t *source = NULL;
-  pp_error_code_t status = pp_media_source_create_file(path, &source, out_error);
-  if (status == PP_OK) {
-    status = pp_transaction_add_representation(
-        transaction, *asset_id, kind, source, out_representation_id, out_error);
-  }
-  pp_media_source_release(source);
+  pp_error_code_t status = pp_transaction_add_file_representation(transaction, *asset_id, kind, path, out_representation_id, out_error);
   return status;
 }
 

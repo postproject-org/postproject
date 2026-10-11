@@ -72,7 +72,6 @@ static int exercise(const char *path, const char *media) {
   pp_production_t *production = NULL;
   pp_read_session_t *empty = NULL, *view = NULL;
   pp_transaction_t *edit = NULL;
-  pp_media_source_t *source = NULL;
   pp_metadata_input_t *title = NULL;
   pp_asset_set_t *assets = NULL;
   pp_job_set_t *jobs = NULL;
@@ -107,8 +106,7 @@ static int exercise(const char *path, const char *media) {
   CHECK(pp_read_session_begin_edit(empty, &edit, &error));
   CHECK(pp_read_session_plan_regeneration(empty, NULL, 0, &plans, &error));
   if (pp_regeneration_plan_set_count(plans)) goto cleanup;
-  CHECK(pp_media_source_create_file(media, &source, &error));
-  CHECK(pp_transaction_import_media(edit, source, NULL, &asset, &error));
+  CHECK(pp_transaction_import_file(edit, media, NULL, &asset, &error));
   pp_object_ref_t target;
   CHECK(pp_object_ref_from_asset(asset, &target, &error));
   CHECK(pp_transaction_add_external_identifier(edit, &target, "https://example.com/id", "camera", NULL, &error));
@@ -298,7 +296,6 @@ cleanup:
   pp_object_query_set_release(resource_page);
   pp_object_query_set_release(provenance_page);
   pp_locator_query_set_release(locator_page);
-  pp_media_source_release(source);
   pp_metadata_input_release(title);
   pp_transaction_release(edit);
   pp_read_session_release(empty);

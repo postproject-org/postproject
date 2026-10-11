@@ -24,9 +24,9 @@ source on every surface.
 
 | Surface | Single file | Image sequence | Ordered parts | Package |
 | --- | --- | --- | --- | --- |
-| C | `pp_media_source_create_file` | `pp_media_source_create_image_sequence` | `pp_media_source_create_ordered_parts` | `pp_media_source_create_package` |
-| C++ | a path, or `MediaSource::file` | `MediaSource::imageSequence` | `MediaSource::orderedParts` | `MediaSource::package` |
-| Python | a path, or `FileSource` | `ImageSequenceSource` | `OrderedPartsSource` | `PackageSource` |
+| C | `pp_transaction_import_file` / `pp_transaction_add_file_representation` | `pp_media_source_create_image_sequence` | `pp_media_source_create_ordered_parts` | `pp_media_source_create_package` |
+| C++ | a native path | `MediaSource::imageSequence` | `MediaSource::orderedParts` | `MediaSource::package` |
+| Python | a native path | `ImageSequenceSource` | `OrderedPartsSource` | `PackageSource` |
 | Rust | `MediaSource::File` | `MediaSource::ImageSequence` | `MediaSource::OrderedParts` | `MediaSource::Package` |
 
 In C, `pp_transaction_import_media` and `pp_transaction_add_representation`

@@ -18,7 +18,6 @@ static pp_error_code_t create_production(const char *path, const char *media,
                                          pp_error_t **error) {
   pp_production_t *production = NULL;
   pp_transaction_t *transaction = NULL;
-  pp_media_source_t *camera = NULL;
   pp_representation_set_t *representations = NULL;
 
   pp_error_code_t status =
@@ -32,13 +31,8 @@ static pp_error_code_t create_production(const char *path, const char *media,
         "Import camera original", error);
   }
   if (status == PP_OK) {
-    status = pp_media_source_create_file(media, &camera, error);
+    status = pp_transaction_import_file(transaction, media, "Camera A", out_asset_id, error);
   }
-  if (status == PP_OK) {
-    status = pp_transaction_import_media(transaction, camera, "Camera A",
-                                         out_asset_id, error);
-  }
-  pp_media_source_release(camera);
   if (status == PP_OK) {
     pp_commit_receipt_t commit_receipt;
     status = pp_transaction_commit_with_receipt(transaction, &commit_receipt, error);
