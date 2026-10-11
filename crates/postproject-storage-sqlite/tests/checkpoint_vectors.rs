@@ -78,7 +78,7 @@ fn independent_genesis_bytes_and_digests_import_without_regenerating_source_fact
         );
         assert_eq!(mirror.production().created_at().as_unix_micros(), i64::MIN);
         assert_eq!(mirror.production().display_name(), Some("Exact 同 😀\n"));
-        assert!(mirror.changes_since(0, 10).unwrap().is_empty());
+        assert_eq!(mirror.changes_since(0, 10).unwrap(), []);
         drop(mirror);
         let mut reopened = SqliteProduction::open(&path).unwrap();
         assert_eq!(reopened.exchange_floor().unwrap(), manifest.floor());
