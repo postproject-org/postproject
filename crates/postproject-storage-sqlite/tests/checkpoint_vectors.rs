@@ -9,7 +9,7 @@ use postproject_protocol::{
 use postproject_storage_sqlite::{CheckpointLimits, SqliteProduction};
 
 #[test]
-fn independent_genesis_bytes_and_digests_import_without_regenerating_source_facts() {
+fn independent_checkpoints_import_without_regenerating_source_facts() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/exchange");
     let vectors: serde_json::Value = serde_json::from_str(include_str!(
         "../../../tests/fixtures/exchange/checkpoint-vectors.json"
@@ -30,9 +30,8 @@ fn independent_genesis_bytes_and_digests_import_without_regenerating_source_fact
         );
         let manifest = CheckpointManifest::from_document(&manifest_document).unwrap();
         assert_eq!(manifest.document().unwrap(), manifest_document);
-        assert_eq!(manifest.floor(), manifest.head());
-        let anchor = Position::anchor(manifest.head().decision_base()).unwrap();
-        assert_eq!(anchor, manifest.head());
+        let anchor = Position::anchor(manifest.floor().decision_base()).unwrap();
+        assert_eq!(anchor, manifest.floor());
         assert_eq!(anchor.digest().to_string(), vector["anchor_digest"]);
         let chunks: Vec<_> = snapshot["chunks"]
             .as_array()
@@ -78,12 +77,57 @@ fn independent_genesis_bytes_and_digests_import_without_regenerating_source_fact
         );
         assert_eq!(mirror.production().created_at().as_unix_micros(), i64::MIN);
         assert_eq!(mirror.production().display_name(), Some("Exact 同 😀\n"));
-        assert_eq!(mirror.changes_since(0, 10).unwrap(), []);
+        compare_exported_bodies(&mirror, &snapshot);
+        assert_eq!(
+            mirror.changes_since(0, 10).unwrap().len() as u64,
+            manifest.head().sequence()
+        );
+        if manifest.head().sequence() == 1 {
+            let asset = mirror.assets().unwrap().pop().unwrap();
+            assert_eq!(
+                asset.id().to_string(),
+                "00000000-0000-4000-8000-000000000005"
+            );
+            assert_eq!(asset.display_name(), Some("同 😀"));
+            assert_eq!(mirror.representations(asset.id()).unwrap().len(), 2);
+            let reader = mirror.record_reader(1).unwrap();
+            assert_eq!(reader.manifest().event_count(), 9);
+            assert_eq!(reader.manifest().effect_count(), 2);
+        }
         drop(mirror);
         let mut reopened = SqliteProduction::open(&path).unwrap();
         assert_eq!(reopened.exchange_floor().unwrap(), manifest.floor());
         assert!(
             matches!(reopened.begin_transaction(), Err(error) if error.kind() == ErrorKind::Unsupported)
+        );
+    }
+}
+
+fn compare_exported_bodies(mirror: &SqliteProduction, snapshot: &serde_json::Value) {
+    let mut bodies = std::collections::BTreeMap::<_, Vec<u8>>::new();
+    mirror
+        .export_checkpoint(|chunk| {
+            bodies
+                .entry(chunk.section().as_str())
+                .or_default()
+                .extend_from_slice(chunk.payload());
+            Ok(())
+        })
+        .unwrap();
+    for (section, payload) in bodies {
+        let expected = snapshot["bodies"][section].as_array().unwrap();
+        let mut frames = vec![];
+        for value in expected {
+            let body = Document::parse(&serde_json::to_vec(value).unwrap(), Limits::default())
+                .unwrap()
+                .canonical_bytes()
+                .unwrap();
+            frames.extend_from_slice(&(body.len() as u64).to_be_bytes());
+            frames.extend(body);
+        }
+        assert_eq!(
+            payload, frames,
+            "{section} body changed after import/export"
         );
     }
 }

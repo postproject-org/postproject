@@ -110,7 +110,9 @@ def check_checkpoint(vector: dict, snapshot: dict, digests: bool) -> None:
     assert manifest["required_features"] == ["checkpoint-archives.v1", "checkpoints.v1"]
     assert encoded(manifest) == vector["canonical_manifest"].encode()
     assert manifest["digest"] == vector["manifest_digest"]
-    assert manifest["floor"] == manifest["head"]
+    assert manifest["floor"]["production"] == manifest["head"]["production"]
+    assert manifest["floor"]["history"] == manifest["head"]["history"]
+    assert int(manifest["floor"]["sequence"]) <= int(manifest["head"]["sequence"])
     assert manifest["floor"]["digest"] == vector["anchor_digest"]
     assert [section["section"] for section in manifest["sections"]] == [
         "production",
@@ -139,7 +141,13 @@ def check_checkpoint(vector: dict, snapshot: dict, digests: bool) -> None:
     for summary in manifest["sections"]:
         section = summary["section"]
         items = snapshot["bodies"].get(section, [])
-        assert summary["items"] == str(len(items))
+        primary = {"structures": "structure.header", "records": "record.manifest"}
+        logical_count = (
+            sum(item["kind"] == primary[section] for item in items)
+            if section in primary
+            else len(items)
+        )
+        assert summary["items"] == str(logical_count)
         if not items:
             assert summary["chunks"] is None
             continue

@@ -77,6 +77,43 @@ class CheckpointChecks(unittest.TestCase):
         self.altered(lambda snapshot: snapshot["chunks"].pop())
         self.altered(lambda snapshot: snapshot["chunks"].append(snapshot["chunks"][-1]))
 
+    def test_nonempty_record_continuations_count_as_one_logical_item(self):
+        directory = ROOT / "tests/fixtures/exchange"
+        self.vector = next(
+            vector
+            for vector in json.loads(
+                (directory / "checkpoint-vectors.json").read_text()
+            )
+            if vector["file"] == "checkpoints/media.json"
+        )
+        self.snapshot = json.loads((directory / self.vector["file"]).read_text())
+        check_checkpoint(self.vector, self.snapshot, False)
+        self.assertNotEqual(
+            self.snapshot["manifest"]["head"], self.snapshot["manifest"]["floor"]
+        )
+        self.assertEqual(len(self.snapshot["bodies"]["records"]), 4)
+
+        def count_continuations(snapshot):
+            next(
+                section
+                for section in snapshot["manifest"]["sections"]
+                if section["section"] == "records"
+            )["items"] = "4"
+
+        self.altered(count_continuations)
+
+    def test_head_scope_and_floor_order_are_exact(self):
+        self.altered(
+            lambda snapshot: snapshot["manifest"]["head"].update(history="foreign")
+        )
+
+        def future_floor(snapshot):
+            snapshot["manifest"]["floor"] = dict(
+                snapshot["manifest"]["floor"], sequence="1"
+            )
+
+        self.altered(future_floor)
+
 
 if __name__ == "__main__":
     unittest.main()
