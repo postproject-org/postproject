@@ -57,11 +57,10 @@ postproject::RepresentationId add_proxy(postproject::Production &production,
                             const postproject::AssetId &asset_id,
                             const std::string &proxy_path) {
   auto transaction = production.beginTransaction().value();
-  // A path converts to a single-file source; MediaSource::file says so
-  // explicitly.
+  // A native path describes a file without an intermediate source owner.
   const auto proxy_id = transaction.addRepresentation(
       asset_id, postproject::RepresentationKind::proxy,
-      postproject::MediaSource::file(proxy_path)).value();
+      std::filesystem::path(proxy_path)).value();
   transaction.commit().value();
   require(postproject::RepresentationId::fromString(proxy_id.toString().value()).value()
               == proxy_id, "saved representation identity");

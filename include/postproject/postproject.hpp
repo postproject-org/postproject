@@ -5250,9 +5250,7 @@ public:
       : MediaSource(path != nullptr ? std::string_view(path)
                                     : std::string_view()) {}
 
-  [[nodiscard]] static MediaSource file(std::string_view path) {
-    return MediaSource(path);
-  }
+  MediaSource(const std::filesystem::path &path) : content_(File{path}) {}
 
   [[nodiscard]] static MediaSource imageSequence(ImageSequenceInput sequence) {
     return MediaSource(Content(std::move(sequence)));
@@ -5275,8 +5273,20 @@ private:
   friend class Transaction;
 
   struct File final {
-    std::string path;
+    std::variant<std::string, std::filesystem::path> path;
   };
+
+  static Result<std::string> file_path(const File &file) {
+    return std::visit(
+        [](const auto &path) -> Result<std::string> {
+          if constexpr (std::is_same_v<std::decay_t<decltype(path)>,
+                                       std::filesystem::path>)
+            return detail::checked_path(path, "path");
+          else
+            return detail::checked_string(path, "path");
+        },
+        file.path);
+  }
 
   struct Collection final {
     std::vector<FileResourceInput> members;
@@ -5291,12 +5301,8 @@ private:
     pp_media_source_t *raw = nullptr;
     pp_error_t *error = nullptr;
     pp_error_code_t status = PP_OK;
-    if (const File *file = std::get_if<File>(&content_)) {
-      POSTPROJECT_TRY_ASSIGN(const std::string path,
-                             detail::checked_string(file->path, "path"));
-      status = pp_media_source_create_file(path.c_str(), &raw, &error);
-    } else if (const ImageSequenceInput *sequence =
-                   std::get_if<ImageSequenceInput>(&content_)) {
+    if (const ImageSequenceInput *sequence =
+            std::get_if<ImageSequenceInput>(&content_)) {
       POSTPROJECT_TRY_ASSIGN(
           const std::string directory,
           detail::checked_string(sequence->directory, "directory"));
@@ -5304,8 +5310,7 @@ private:
                              detail::NativeNaming::make(sequence->naming));
       status = pp_media_source_create_image_sequence(
           directory.c_str(), naming.get(), sequence->start, sequence->end,
-          sequence->step,
-          sequence->rate_numerator, sequence->rate_denominator,
+          sequence->step, sequence->rate_numerator, sequence->rate_denominator,
           sequence->missing_frames.data(),
           static_cast<std::uint64_t>(sequence->missing_frames.size()), &raw,
           &error);
@@ -5569,27 +5574,39 @@ public:
 
   // Adds a representation of the given kind, with the source's structure, to
   // an existing asset.
-  Result<RepresentationId> addRepresentation(const AssetId &asset_id, RepresentationKind kind,
-                                 const MediaSource &source) {
-    POSTPROJECT_TRY_ASSIGN(const detail::MediaSourceHandle native_source,
-                           source.native());
+  Result<RepresentationId> addRepresentation(const AssetId &asset_id,
+                                             RepresentationKind kind,
+                                             const MediaSource &source) {
     const pp_asset_id_t native_asset_id = detail::native_asset_id(asset_id);
     pp_representation_id_t value{};
     pp_error_t *error = nullptr;
-    const pp_error_code_t status = pp_transaction_add_representation(
-        transaction_, native_asset_id,
-        static_cast<pp_representation_kind_t>(kind), native_source.get(),
-        &value, &error);
+    pp_error_code_t status;
+    if (const auto *file = std::get_if<MediaSource::File>(&source.content_)) {
+      POSTPROJECT_TRY_ASSIGN(const auto path, MediaSource::file_path(*file));
+      status = pp_transaction_add_file_representation(
+          transaction_, native_asset_id,
+          static_cast<pp_representation_kind_t>(kind), path.c_str(), &value,
+          &error);
+    } else {
+      POSTPROJECT_TRY_ASSIGN(const detail::MediaSourceHandle native_source,
+                             source.native());
+      status = pp_transaction_add_representation(
+          transaction_, native_asset_id,
+          static_cast<pp_representation_kind_t>(kind), native_source.get(),
+          &value, &error);
+    }
     POSTPROJECT_TRY(detail::check(status, error));
     return detail::representation_id(value);
   }
 
-  Result<MediaRootId> addMediaRoot(std::string_view name, std::int32_t priority = 0) {
+  Result<MediaRootId> addMediaRoot(std::string_view name,
+                                   std::int32_t priority = 0) {
     return add_media_root_impl(name, nullptr, priority);
   }
 
-  Result<MediaRootId> addMediaRoot(std::string_view name, std::string_view label,
-                            std::int32_t priority = 0) {
+  Result<MediaRootId> addMediaRoot(std::string_view name,
+                                   std::string_view label,
+                                   std::int32_t priority = 0) {
     POSTPROJECT_TRY_ASSIGN(const std::string native_label,
                            detail::checked_string(label, "label"));
     return add_media_root_impl(name, native_label.c_str(), priority);
@@ -6053,19 +6070,27 @@ private:
   }
 
   Result<AssetId> import_media_impl(const MediaSource &source,
-                                 const char *display_name) {
-    POSTPROJECT_TRY_ASSIGN(const detail::MediaSourceHandle native_source,
-                           source.native());
+                                    const char *display_name) {
     pp_asset_id_t value{};
     pp_error_t *error = nullptr;
-    const pp_error_code_t status = pp_transaction_import_media(
-        transaction_, native_source.get(), display_name, &value, &error);
+    pp_error_code_t status;
+    if (const auto *file = std::get_if<MediaSource::File>(&source.content_)) {
+      POSTPROJECT_TRY_ASSIGN(const auto path, MediaSource::file_path(*file));
+      status = pp_transaction_import_file(transaction_, path.c_str(),
+                                          display_name, &value, &error);
+    } else {
+      POSTPROJECT_TRY_ASSIGN(const detail::MediaSourceHandle native_source,
+                             source.native());
+      status = pp_transaction_import_media(transaction_, native_source.get(),
+                                           display_name, &value, &error);
+    }
     POSTPROJECT_TRY(detail::check(status, error));
     return detail::asset_id_value(value);
   }
 
-  Result<MediaRootId> add_media_root_impl(std::string_view name, const char *label,
-                                   std::int32_t priority) {
+  Result<MediaRootId> add_media_root_impl(std::string_view name,
+                                          const char *label,
+                                          std::int32_t priority) {
     POSTPROJECT_TRY_ASSIGN(const std::string native_name,
                            detail::checked_string(name, "name"));
     pp_media_root_id_t value{};
@@ -6091,21 +6116,14 @@ private:
           detail::checked_string(*identifier.qualifier, "qualifier"));
     }
     pp_error_t *error = nullptr;
-    const pp_error_code_t status = remove
-                                       ? pp_transaction_remove_external_identifier(
-                                             transaction_, &native_target,
-                                             scheme.c_str(), value.c_str(),
-                                             qualifier.has_value()
-                                                 ? qualifier->c_str()
-                                                 : nullptr,
-                                             &error)
-                                       : pp_transaction_add_external_identifier(
-                                             transaction_, &native_target,
-                                             scheme.c_str(), value.c_str(),
-                                             qualifier.has_value()
-                                                 ? qualifier->c_str()
-                                                 : nullptr,
-                                             &error);
+    const pp_error_code_t status =
+        remove
+            ? pp_transaction_remove_external_identifier(
+                  transaction_, &native_target, scheme.c_str(), value.c_str(),
+                  qualifier.has_value() ? qualifier->c_str() : nullptr, &error)
+            : pp_transaction_add_external_identifier(
+                  transaction_, &native_target, scheme.c_str(), value.c_str(),
+                  qualifier.has_value() ? qualifier->c_str() : nullptr, &error);
     POSTPROJECT_TRY(detail::check(status, error));
     return {};
   }
