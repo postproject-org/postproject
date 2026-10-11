@@ -49,6 +49,7 @@ def exercise(path: Path, media: Path) -> None:
             latest = view.latest_revision
             assert latest is not None and latest.id == receipt.revision.id
             assert view.changes_since(0, 10) == (latest,)
+            assert tuple(view.revisions(page_size=1)) == (latest,)
             filtered = view.changes_since_filtered(0, (AssetImportedEvent,), 10)
             assert filtered.revisions == (latest,)
             assert filtered.through_sequence == latest.sequence

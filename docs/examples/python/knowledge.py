@@ -11,6 +11,7 @@ The work directory is prepared by ``prepare-workdir.cmake``.
 from __future__ import annotations
 
 import sys
+from fractions import Fraction
 from pathlib import Path
 
 from postproject import (
@@ -24,6 +25,7 @@ from postproject import (
     MetadataBytes,
     MetadataDecimal,
     MetadataI64,
+    MetadataInput,
     MetadataLanguageString,
     MetadataList,
     MetadataProperty,
@@ -35,7 +37,6 @@ from postproject import (
     MetadataTimestamp,
     MetadataU64,
     MetadataUri,
-    MetadataValue,
     ObjectReference,
     Production,
     RepresentationId,
@@ -101,23 +102,21 @@ def replace_tape_identifier(
 def add_editorial_metadata(
     production: Production, asset_id: AssetId, original_id: RepresentationId
 ) -> None:
-    values: dict[str, MetadataValue] = {
-        "title": MetadataString("Interview"),
+    values: dict[str, MetadataInput] = {
+        "title": "Interview",
         "headline": MetadataLanguageString("Gespräch am Morgen", "de"),
-        "reel-offset": MetadataI64(-48),
+        "reel-offset": -48,
         "take-count": MetadataU64(3),
         "gain-db": MetadataDecimal(coefficient=-125, scale=1),  # -12.5
-        "approved": MetadataBool(True),
+        "approved": True,
         "shot-at": MetadataTimestamp(1_700_000_000_000_000),
         "script": MetadataUri("https://example.com/scripts/ep1"),
-        "thumbnail": MetadataBytes(b"\x89PNG"),
-        "frame-rate": MetadataRational(24_000, 1_001),
-        "keywords": MetadataList(
-            (MetadataString("interview"), MetadataString("exterior"))
-        ),
+        "thumbnail": b"\x89PNG",
+        "frame-rate": Fraction(24_000, 1_001),
+        "keywords": MetadataList(("interview", "exterior")),
         "lens": MetadataStruct(
             (
-                MetadataStructField("model", MetadataString("Example 35mm")),
+                MetadataStructField("model", "Example 35mm"),
                 MetadataStructField("focal-length-mm", MetadataU64(35)),
             )
         ),
@@ -125,13 +124,11 @@ def add_editorial_metadata(
     }
     with production.edit() as transaction:
         for name, value in values.items():
-            transaction.add_metadata(
-                AssetRef(asset_id), MetadataProperty(EDITORIAL, name), value
-            )
+            transaction.add_metadata(AssetRef(asset_id), (EDITORIAL, name), value)
         transaction.commit()
 
 
-def describe(value: MetadataValue) -> str:
+def describe(value: MetadataInput) -> str:
     match value:
         case MetadataString(text) | MetadataUri(text):
             return text

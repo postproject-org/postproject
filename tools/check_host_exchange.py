@@ -29,7 +29,7 @@ def worker(root: Path, directory: Path, name: str) -> None:
         assert reopened.exchange_state.role is pp.ExchangeRole.PASSIVE_MIRROR
         assert reopened.exchange_state.head == head
         for operation in (
-            reopened.transaction,
+            reopened.edit,
             lambda: reopened.edit(head.base.decision),
         ):
             try:

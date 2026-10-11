@@ -10,6 +10,7 @@ from postproject import (
     AssetId,
     AssetRef,
     ClientId,
+    Edit,
     HistoryId,
     JobId,
     JobRef,
@@ -21,7 +22,6 @@ from postproject import (
     RepresentationId,
     RequestId,
     RequestIdentity,
-    Edit,
     parse_id,
 )
 

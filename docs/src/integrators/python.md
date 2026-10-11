@@ -22,11 +22,14 @@ library. The binding does not search the working directory or modify the
 platform loader path, and it loads each library once per process. The
 installed quickstart above runs in package CI on Linux, macOS, and Windows.
 
-A transaction context requires explicit `commit()`. Every uncommitted exit
+An `Edit` context requires explicit `commit()`. Every uncommitted exit
 rolls back, including normal exit. `close()` is idempotent for production and
-transaction handles, and a
+edit handles, and a
 finalizer is a fallback for handles that were not closed explicitly.
-The {doc}`coherent-reads` recipe uses `Edit` contexts with the same lifecycle.
+Use `production.edit()` for additive writes and `production.edit(base)` for
+work decided from a detached `view.decision_base`. Use `view.edit()` when
+staging needs the retained read knowledge. Both constructors accept `origin=`
+and `message=`. The {doc}`coherent-reads` recipe explains the lifetime rules.
 
 Identity annotations such as `AssetId` are `NewType` hints over ordinary
 `uuid.UUID` values. Use `parse_id(text, AssetId)` to parse text, standard UUID
@@ -47,7 +50,7 @@ payloads raise `InternalError`. These exceptions carry the corresponding native
 
 Production operations may run concurrently from multiple Python threads; calls
 on one native handle serialize internally. Do not call `close()` concurrently
-with an operation, and do not share a transaction between concurrent callers.
+with an operation, and do not share an edit between concurrent callers.
 Open the production again when reads should use a separate native handle during
 a commit.
 
@@ -57,13 +60,15 @@ The quickstart program shows each of these rules:
 :language: python
 ```
 
-The current high-level surface covers production lifecycle, transactions,
-original-media import, revision context, iterable asset summaries with identity
-membership checks, and the paginated revision feed with typed semantic events.
+The current high-level surface covers production lifecycle, staged edits,
+original-media import, revision context, scoped asset/revision scans,
+typed membership queries and bounded semantic events.
 External identifiers can be added,
 removed, enumerated, and found by exact scheme and value. Metadata reads and
 writes preserve every typed value kind; scalar, repeated, structured, and
-reference values use `transaction.add_metadata()`. Provenance activities can be
+reference values use `edit.add_metadata()`. Common inputs use a
+`(vocabulary, property)` tuple with `str`, `bool`, signed `int`, `bytes` or
+`Fraction` values. Ambiguous kinds stay explicit; see {doc}`metadata-vocabularies`. Provenance activities can be
 created and queried through immutable value objects and keyed graph views.
 `production.resolve(asset_id, {"rushes": "/mnt/show/rushes"})` returns typed
 representation availability, resource candidates, evidence, diagnostics, and
@@ -100,7 +105,8 @@ keyword `limit` and an optional `cursor` and return a `QueryPage` with `items`,
 `objects_changed_since()`.
 
 For a coherent asset scan, open a read session and iterate
-`view.assets(page_size=100)`. The iterator loads one bounded page at a time;
+`view.assets(page_size=100)` or `view.revisions(after=0, page_size=100)`.
+Both scan the pinned view and load one bounded page at a time;
 page size bounds memory, not total work. Close the session before long host
 work. Advancing an unfinished iterator after session close raises
 `InvalidArgumentError`; copied assets remain usable. Use

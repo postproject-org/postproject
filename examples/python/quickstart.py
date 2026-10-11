@@ -30,7 +30,7 @@ def main() -> None:
         args.production, "Python quickstart", library_path=args.library
     ) as production:
         # Commit explicitly; an uncommitted context always rolls back.
-        with production.transaction(
+        with production.edit(
             origin=OriginIdentity("org.postproject:python-quickstart"),
             message="Import quickstart media",
         ) as transaction:
@@ -41,7 +41,7 @@ def main() -> None:
 
         # An exception escaping the context rolls the transaction back.
         try:
-            with production.transaction() as transaction:
+            with production.edit() as transaction:
                 transaction.add_media_root("proxies")
                 raise Cancelled
         except Cancelled:

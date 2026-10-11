@@ -2,11 +2,11 @@
 
 from postproject import (
     ActivityRef, AssetId, AssetRef, ClientId, DecisionBase, Production,
-    ProtocolBase, RepresentationId, RequestId, Transaction,
+    ProtocolBase, RepresentationId, RequestId, Edit,
 )
 
 
-def wrong_kinds(production: Production, transaction: Transaction, asset: AssetId, representation: RepresentationId) -> None:
+def wrong_kinds(production: Production, transaction: Edit, asset: AssetId, representation: RepresentationId) -> None:
     production.asset(representation)
     production.representation(asset)
     AssetRef(representation)
@@ -18,7 +18,7 @@ def wrong_kinds(production: Production, transaction: Transaction, asset: AssetId
     ActivityRef(asset)
 
 
-def wrong_exchange(transaction: Transaction, client: ClientId,
+def wrong_exchange(transaction: Edit, client: ClientId,
     request: RequestId, decision: DecisionBase) -> None:
     transaction.prepare_proposal(request, request)
     transaction.prepare_proposal(client, client)

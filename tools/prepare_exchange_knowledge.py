@@ -111,7 +111,7 @@ def run(root: Path) -> None:
         target = pp.AssetRef(imported.asset_id)
         stale = proposal(source, client, [pp.RemoveMetadataCommand(target, property)])
         with stale:
-            with source.transaction() as native:
+            with source.edit() as native:
                 native.add_metadata(
                     target, property, pp.MetadataString("native suffix")
                 )
