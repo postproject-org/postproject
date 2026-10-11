@@ -78,7 +78,7 @@ static pp_error_code_t observe_file(pp_production_t *production,
   }
   if (status == PP_OK) {
     pp_commit_receipt_t commit_receipt;
-    status = pp_transaction_commit_with_receipt(transaction, &commit_receipt, error);
+    status = pp_transaction_commit(transaction, &commit_receipt, error);
   }
   pp_transaction_release(transaction);
   return status;
@@ -226,7 +226,7 @@ static pp_error_code_t record_transcode(pp_production_t *production,
   }
   if (status == PP_OK) {
     pp_commit_receipt_t commit_receipt;
-    status = pp_transaction_commit_with_receipt(transaction, &commit_receipt, error);
+    status = pp_transaction_commit(transaction, &commit_receipt, error);
   }
   if (status == PP_OK) {
     status = pp_production_activities(production, &activities, error);
@@ -349,7 +349,7 @@ static pp_error_code_t explain_stale_proxy(
   }
   if (status == PP_OK) {
     pp_commit_receipt_t commit_receipt;
-    status = pp_transaction_commit_with_receipt(transaction, &commit_receipt, error);
+    status = pp_transaction_commit(transaction, &commit_receipt, error);
   }
   if (status == PP_OK) {
     status = pp_production_evaluate_artifact(
@@ -490,7 +490,7 @@ static pp_error_code_t record_dependencies(pp_production_t *production,
   }
   if (status == PP_OK) {
     pp_commit_receipt_t commit_receipt;
-    status = pp_transaction_commit_with_receipt(transaction, &commit_receipt, error);
+    status = pp_transaction_commit(transaction, &commit_receipt, error);
   }
   pp_transaction_release(transaction);
   return status;
@@ -517,7 +517,7 @@ static pp_error_code_t observe_source(pp_production_t *production,
   }
   if (status == PP_OK) {
     pp_commit_receipt_t commit_receipt;
-    status = pp_transaction_commit_with_receipt(transaction, &commit_receipt, error);
+    status = pp_transaction_commit(transaction, &commit_receipt, error);
   }
   pp_transaction_release(transaction);
   return status;
@@ -590,7 +590,7 @@ create_production(const char *path, const char *media, const char *proxy,
   }
   if (status == PP_OK) {
     pp_commit_receipt_t commit_receipt;
-    status = pp_transaction_commit_with_receipt(transaction, &commit_receipt, error);
+    status = pp_transaction_commit(transaction, &commit_receipt, error);
   }
   pp_transaction_release(transaction);
   transaction = NULL;
@@ -621,7 +621,7 @@ create_production(const char *path, const char *media, const char *proxy,
   }
   if (status == PP_OK) {
     pp_commit_receipt_t commit_receipt;
-    status = pp_transaction_commit_with_receipt(transaction, &commit_receipt, error);
+    status = pp_transaction_commit(transaction, &commit_receipt, error);
   }
   if (status == PP_OK) {
     *out_production = production;

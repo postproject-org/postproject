@@ -104,7 +104,7 @@ static pp_error_code_t replace_identifiers(pp_production_t *production,
   }
   if (status == PP_OK) {
     pp_commit_receipt_t commit_receipt;
-    status = pp_transaction_commit_with_receipt(transaction, &commit_receipt, error);
+    status = pp_transaction_commit(transaction, &commit_receipt, error);
   }
   pp_transaction_release(transaction);
   transaction = NULL;
@@ -151,7 +151,7 @@ static pp_error_code_t replace_identifiers(pp_production_t *production,
   }
   if (status == PP_OK) {
     pp_commit_receipt_t commit_receipt;
-    status = pp_transaction_commit_with_receipt(transaction, &commit_receipt, error);
+    status = pp_transaction_commit(transaction, &commit_receipt, error);
   }
   pp_external_identifier_set_release(identifiers);
   identifiers = NULL;
@@ -267,7 +267,7 @@ static pp_error_code_t add_typed_values(pp_production_t *production,
   }
   if (status == PP_OK) {
     pp_commit_receipt_t commit_receipt;
-    status = pp_transaction_commit_with_receipt(transaction, &commit_receipt, error);
+    status = pp_transaction_commit(transaction, &commit_receipt, error);
   }
 
   pp_transaction_release(transaction);
@@ -495,7 +495,7 @@ static pp_error_code_t remove_keywords(pp_production_t *production,
   }
   if (status == PP_OK) {
     pp_commit_receipt_t commit_receipt;
-    status = pp_transaction_commit_with_receipt(transaction, &commit_receipt, error);
+    status = pp_transaction_commit(transaction, &commit_receipt, error);
   }
   if (status == PP_OK) {
     status = pp_production_find_metadata(production, EDITORIAL, "keywords",
@@ -534,7 +534,7 @@ static pp_error_code_t create_production(const char *path, const char *media,
   }
   if (status == PP_OK) {
     pp_commit_receipt_t commit_receipt;
-    status = pp_transaction_commit_with_receipt(transaction, &commit_receipt, error);
+    status = pp_transaction_commit(transaction, &commit_receipt, error);
   }
   if (status == PP_OK) {
     status = pp_production_representations(production, *out_asset_id,
@@ -582,7 +582,7 @@ static pp_error_code_t add_departments(pp_production_t *production,
   }
   if (status == PP_OK) {
     pp_commit_receipt_t commit_receipt;
-    status = pp_transaction_commit_with_receipt(transaction, &commit_receipt, error);
+    status = pp_transaction_commit(transaction, &commit_receipt, error);
   }
   pp_transaction_release(transaction);
   pp_metadata_input_release(department);

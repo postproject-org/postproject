@@ -112,7 +112,7 @@ static int exercise(const char *path, const char *media) {
   CHECK(pp_transaction_add_external_identifier(edit, &target, "https://example.com/id", "camera", NULL, &error));
   CHECK(pp_metadata_input_create_string("Camera", NULL, &title, &error));
   CHECK(pp_transaction_add_metadata_value(edit, &target, "https://example.com/editorial", "title", title, &error));
-  CHECK(pp_transaction_commit_with_receipt(edit, &receipt, &error));
+  CHECK(pp_transaction_commit(edit, &receipt, &error));
   if (receipt.outcome != PP_COMMIT_REVISION_CREATED || receipt.revision_sequence != 1)
     goto cleanup;
   pp_transaction_release(edit); edit = NULL;
@@ -249,7 +249,7 @@ static int exercise(const char *path, const char *media) {
   /* Copied sets and a detached base survive closing the pinned view. */
   CHECK(pp_revision_event_set_get(events, 0, &first_event, &error));
   CHECK(pp_production_begin_edit(production, &base, &edit, &error));
-  CHECK(pp_transaction_commit_with_receipt(edit, &receipt, &error));
+  CHECK(pp_transaction_commit(edit, &receipt, &error));
   if (receipt.outcome != PP_COMMIT_NO_CHANGE || pp_asset_set_count(assets) != 1 ||
       pp_locator_query_set_count(locator_page) != 1 ||
       pp_object_query_set_count(resource_page) != 1)
@@ -260,7 +260,7 @@ static int exercise(const char *path, const char *media) {
   pp_job_id_t job;
   CHECK(pp_transaction_request_job(edit, "example:proxy", &representation, 1,
       asset, PP_REPRESENTATION_PROXY, NULL, &job, &error));
-  CHECK(pp_transaction_commit_with_receipt(edit, &receipt, &error));
+  CHECK(pp_transaction_commit(edit, &receipt, &error));
   CHECK(pp_read_session_jobs(view, PP_JOB_REQUESTED, "example:proxy", 10, NULL, &jobs, &error));
   if (pp_job_set_count(jobs) != 0) goto cleanup;
   pp_job_set_release(jobs); jobs = NULL;

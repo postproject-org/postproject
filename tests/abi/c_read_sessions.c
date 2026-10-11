@@ -34,7 +34,7 @@ static int metadata_edits_contract(pp_production_t *production) {
   if (pp_production_begin_transaction(production, &edit, &error) != PP_OK ||
       pp_transaction_add_metadata_value(edit, &target, vocabulary, "keywords",
                                        value, &error) != PP_OK ||
-      pp_transaction_commit_with_receipt(edit, &receipt, &error) != PP_OK)
+      pp_transaction_commit(edit, &receipt, &error) != PP_OK)
     goto cleanup;
   pp_transaction_release(edit); edit = NULL;
   if (pp_production_begin_transaction(production, &edit, &error) != PP_OK ||
@@ -45,13 +45,13 @@ static int metadata_edits_contract(pp_production_t *production) {
   /* Validation rejection must not stage a removal or close the transaction. */
   if (pp_transaction_add_metadata_value(edit, &target, vocabulary, "keywords",
                                        value, &error) != PP_OK ||
-      pp_transaction_commit_with_receipt(edit, &receipt, &error) != PP_OK)
+      pp_transaction_commit(edit, &receipt, &error) != PP_OK)
     goto cleanup;
   pp_transaction_release(edit); edit = NULL;
   if (pp_read_session_begin_edit(view, &edit, &error) != PP_OK ||
       pp_transaction_remove_metadata_property(edit, &target, vocabulary,
           "keywords", &error) != PP_OK ||
-      pp_transaction_commit_with_receipt(edit, &receipt, &error) != PP_ERROR_CONFLICT ||
+      pp_transaction_commit(edit, &receipt, &error) != PP_ERROR_CONFLICT ||
       receipt.outcome != PP_COMMIT_NO_CHANGE ||
       pp_error_transaction_conflict(error, &conflict) != 1)
     goto cleanup;
@@ -66,7 +66,7 @@ static int metadata_edits_contract(pp_production_t *production) {
       pp_read_session_begin_edit(view, &edit, &error) != PP_OK ||
       pp_transaction_remove_metadata_property(edit, &target, vocabulary,
           "keywords", &error) != PP_OK ||
-      pp_transaction_commit_with_receipt(edit, &receipt, &error) != PP_OK ||
+      pp_transaction_commit(edit, &receipt, &error) != PP_OK ||
       receipt.outcome != PP_COMMIT_REVISION_CREATED ||
       pp_production_metadata(production, &target, &values, &error) != PP_OK ||
       pp_metadata_set_count(values) != 0)
@@ -98,7 +98,7 @@ static int root_edits_contract(pp_production_t *production) {
       error == NULL) goto cleanup;
   pp_error_release(error); error = NULL;
   /* Neither rejection staged a mutation or discarded the additive creation. */
-  if (pp_transaction_commit_with_receipt(edit, &receipt, &error) != PP_OK ||
+  if (pp_transaction_commit(edit, &receipt, &error) != PP_OK ||
       receipt.outcome != PP_COMMIT_REVISION_CREATED) goto cleanup;
   pp_transaction_release(edit); edit = NULL;
   if (pp_production_read_session(production, &view, &error) != PP_OK ||
@@ -108,13 +108,13 @@ static int root_edits_contract(pp_production_t *production) {
       error == NULL) goto cleanup;
   pp_error_release(error); error = NULL;
   if (pp_transaction_set_media_root_enabled(edit, root, 0, &error) != PP_OK ||
-      pp_transaction_commit_with_receipt(edit, &receipt, &error) != PP_OK ||
+      pp_transaction_commit(edit, &receipt, &error) != PP_OK ||
       receipt.outcome != PP_COMMIT_REVISION_CREATED) goto cleanup;
   pp_revision_id_t superseding = receipt.revision_id;
   pp_transaction_release(edit); edit = NULL;
   if (pp_read_session_begin_edit(view, &edit, &error) != PP_OK ||
       pp_transaction_remove_media_root(edit, root, &error) != PP_OK ||
-      pp_transaction_commit_with_receipt(edit, &receipt, &error) != PP_ERROR_CONFLICT ||
+      pp_transaction_commit(edit, &receipt, &error) != PP_ERROR_CONFLICT ||
       receipt.outcome != PP_COMMIT_NO_CHANGE ||
       pp_error_transaction_conflict(error, &conflict) != 1 ||
       conflict.kind != PP_CONFLICT_MEDIA_ROOT || conflict.target.kind != 0 ||
@@ -127,7 +127,7 @@ static int root_edits_contract(pp_production_t *production) {
   if (pp_production_read_session(production, &view, &error) != PP_OK ||
       pp_read_session_begin_edit(view, &edit, &error) != PP_OK ||
       pp_transaction_remove_media_root(edit, root, &error) != PP_OK ||
-      pp_transaction_commit_with_receipt(edit, &receipt, &error) != PP_OK ||
+      pp_transaction_commit(edit, &receipt, &error) != PP_OK ||
       receipt.outcome != PP_COMMIT_REVISION_CREATED) goto cleanup;
   valid = 1;
 cleanup:
@@ -241,7 +241,7 @@ int main(int argc, char **argv) {
   if (pp_read_session_assets_page(view, 1, NULL, &assets, &error) != PP_OK ||
       pp_asset_set_count(assets) != 0 ||
       pp_read_session_begin_edit(view, &edit, &error) != PP_OK ||
-      pp_transaction_commit_with_receipt(edit, &receipt, &error) != PP_OK)
+      pp_transaction_commit(edit, &receipt, &error) != PP_OK)
     goto cleanup;
   if (receipt.outcome != PP_COMMIT_NO_CHANGE ||
       memcmp(receipt.production_id.bytes, base.production_id.bytes, 16) != 0)

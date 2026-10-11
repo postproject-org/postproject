@@ -18,11 +18,11 @@ static int check_terminal_state(pp_production_t *production, int terminal) {
     const pp_resource_id_t absent = {{1}};
     if (pp_transaction_confirm_locator(a, absent, "file:///absent", NULL,
                                        NULL, &error) != PP_OK ||
-        pp_transaction_commit(a, &error) == PP_OK)
+        pp_transaction_commit(a, &(pp_commit_receipt_t){0}, &error) == PP_OK)
       goto cleanup;
     pp_error_release(error);
     error = NULL;
-  } else if ((terminal == 0 ? pp_transaction_commit_with_receipt(a, &receipt, &error)
+  } else if ((terminal == 0 ? pp_transaction_commit(a, &receipt, &error)
                             : pp_transaction_rollback(a, &error)) != PP_OK) {
     goto cleanup;
   }
@@ -32,7 +32,7 @@ static int check_terminal_state(pp_production_t *production, int terminal) {
         pp_production_id(production, &production_id, &error) != PP_OK ||
         memcmp(receipt.production_id.bytes, production_id.bytes, 16) != 0)
       goto cleanup;
-    if (pp_transaction_commit_with_receipt(a, &receipt, &error) != PP_ERROR_CONFLICT ||
+    if (pp_transaction_commit(a, &receipt, &error) != PP_ERROR_CONFLICT ||
         receipt.revision_sequence != 0)
       goto cleanup;
     pp_error_release(error);

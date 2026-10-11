@@ -182,7 +182,7 @@ static int renamed_sequence_scenario(pp_production_t *production,
                                          &error);
   }
   if (status == PP_OK) {
-    status = pp_transaction_commit(transaction, &error);
+    status = pp_transaction_commit(transaction, &(pp_commit_receipt_t){0}, &error);
   }
   pp_transaction_release(transaction);
   transaction = NULL;
@@ -258,7 +258,7 @@ static int renamed_sequence_scenario(pp_production_t *production,
                                             media_root, &found, &error);
   }
   if (status == PP_OK) {
-    status = pp_transaction_commit(transaction, &error);
+    status = pp_transaction_commit(transaction, &(pp_commit_receipt_t){0}, &error);
   }
   pp_transaction_release(transaction);
   pp_resolution_set_release(resolutions);
@@ -366,7 +366,7 @@ static int observation_base_contract(pp_production_t *production,
     pp_error_release(error); error = NULL;
   }
   /* All three rejections leave an open edit with no staged observations. */
-  if (pp_transaction_commit_with_receipt(edit, &receipt, &error) != PP_OK ||
+  if (pp_transaction_commit(edit, &receipt, &error) != PP_OK ||
       receipt.outcome != PP_COMMIT_NO_CHANGE) goto cleanup;
   valid = 1;
 cleanup:
@@ -533,7 +533,7 @@ int main(int argc, char **argv) {
     pp_error_release(error);
     return 13;
   }
-  status = pp_transaction_commit(transaction, &error);
+  status = pp_transaction_commit(transaction, &(pp_commit_receipt_t){0}, &error);
   if (status != PP_OK) {
     pp_transaction_release(transaction);
     pp_production_release(production);
@@ -1075,7 +1075,7 @@ int main(int argc, char **argv) {
                                                      &error);
   }
   if (status == PP_OK) {
-    status = pp_transaction_commit(observation, &error);
+    status = pp_transaction_commit(observation, &(pp_commit_receipt_t){0}, &error);
   }
   pp_transaction_release(observation);
   if (status != PP_OK || outcome != PP_OBSERVATION_UNCHANGED) {
@@ -1219,7 +1219,7 @@ int main(int argc, char **argv) {
       pp_transaction_set_media_root_enabled(transaction, root_id, 0, &error) !=
           PP_OK ||
       pp_transaction_retire_locator(transaction, locator_id, &error) != PP_OK ||
-      pp_transaction_commit(transaction, &error) != PP_OK) {
+      pp_transaction_commit(transaction, &(pp_commit_receipt_t){0}, &error) != PP_OK) {
     pp_transaction_release(transaction);
     pp_resolution_set_release(resolutions);
     pp_production_release(production);
@@ -1449,7 +1449,7 @@ int main(int argc, char **argv) {
   status = begin_decision_edit(production, &transaction, &error);
   if (status != PP_OK ||
       pp_transaction_remove_media_root(transaction, root_id, &error) != PP_OK ||
-      pp_transaction_commit(transaction, &error) != PP_OK) {
+      pp_transaction_commit(transaction, &(pp_commit_receipt_t){0}, &error) != PP_OK) {
     pp_transaction_release(transaction);
     pp_resolution_set_release(resolutions);
     pp_production_release(production);
@@ -1504,7 +1504,7 @@ int main(int argc, char **argv) {
         &error);
   }
   pp_metadata_input_release(rate_input);
-  if (status != PP_OK || pp_transaction_commit(transaction, &error) != PP_OK) {
+  if (status != PP_OK || pp_transaction_commit(transaction, &(pp_commit_receipt_t){0}, &error) != PP_OK) {
     pp_transaction_release(transaction);
     pp_resolution_set_release(resolutions);
     pp_production_release(production);
@@ -1756,7 +1756,7 @@ int main(int argc, char **argv) {
       add_file(transaction, &asset_id, PP_REPRESENTATION_PROXY,
                moved_media_path, &proxy_representation_id, &error) != PP_OK ||
       representation_id_is_zero(&proxy_representation_id) ||
-      pp_transaction_commit(transaction, &error) != PP_OK) {
+      pp_transaction_commit(transaction, &(pp_commit_receipt_t){0}, &error) != PP_OK) {
     pp_transaction_release(transaction);
     pp_production_release(production);
     pp_error_release(error);
@@ -1813,7 +1813,7 @@ int main(int argc, char **argv) {
                                   "C image strip", &sequence_asset_id,
                                   &error) != PP_OK ||
       bytes_are_zero(sequence_asset_id.bytes) ||
-      pp_transaction_commit(transaction, &error) != PP_OK) {
+      pp_transaction_commit(transaction, &(pp_commit_receipt_t){0}, &error) != PP_OK) {
     pp_media_source_release(sequence_source);
     pp_transaction_release(transaction);
     pp_production_release(production);
@@ -1916,7 +1916,7 @@ int main(int argc, char **argv) {
           &package_representation_id, &error) != PP_OK ||
       representation_id_is_zero(&ordered_representation_id) ||
       representation_id_is_zero(&package_representation_id) ||
-      pp_transaction_commit(transaction, &error) != PP_OK) {
+      pp_transaction_commit(transaction, &(pp_commit_receipt_t){0}, &error) != PP_OK) {
     pp_media_source_release(ordered_source);
     pp_media_source_release(package_source);
     pp_transaction_release(transaction);
@@ -1963,7 +1963,7 @@ int main(int argc, char **argv) {
       pp_transaction_record_dependency_set(
           transaction, representation_id, &recorded_dependency, UINT64_C(1),
           &error) != PP_OK ||
-      pp_transaction_commit(transaction, &error) != PP_OK) {
+      pp_transaction_commit(transaction, &(pp_commit_receipt_t){0}, &error) != PP_OK) {
     pp_transaction_release(transaction);
     pp_production_release(production);
     pp_error_release(error);
@@ -2079,7 +2079,7 @@ int main(int argc, char **argv) {
           transaction, "org.postproject:generate-proxy", &representation_id,
           UINT64_C(1), asset_id, PP_REPRESENTATION_PROXY, NULL, &job_id,
           &error) != PP_OK ||
-      job_id_is_zero(job_id) || pp_transaction_commit(transaction, &error) != PP_OK) {
+      job_id_is_zero(job_id) || pp_transaction_commit(transaction, &(pp_commit_receipt_t){0}, &error) != PP_OK) {
     fprintf(stderr, "job request failed (%u): %s\n", status,
             error != NULL ? pp_error_message(error) : "no details");
     pp_transaction_release(transaction);
@@ -2137,7 +2137,7 @@ int main(int argc, char **argv) {
           transaction, job_id, "C worker", "1.0", NULL, "operator", NULL,
           NULL, NULL, UINT64_C(60000000), &lease, &error) != PP_OK ||
       lease == NULL ||
-      pp_transaction_commit(transaction, &error) != PP_OK) {
+      pp_transaction_commit(transaction, &(pp_commit_receipt_t){0}, &error) != PP_OK) {
     pp_transaction_release(transaction);
     pp_production_release(production);
     pp_error_release(error);
@@ -2167,7 +2167,7 @@ int main(int argc, char **argv) {
   status = pp_production_begin_transaction(production, &transaction, &error);
   if (status != PP_OK ||
       pp_transaction_renew_job_lease(transaction, lease, UINT64_C(120000000), &error) != PP_OK ||
-      pp_transaction_commit(transaction, &error) != PP_OK) {
+      pp_transaction_commit(transaction, &(pp_commit_receipt_t){0}, &error) != PP_OK) {
     pp_transaction_release(transaction);
     pp_production_release(production);
     pp_error_release(error);
@@ -2179,7 +2179,7 @@ int main(int argc, char **argv) {
   status = pp_production_begin_transaction(production, &transaction, &error);
   if (status != PP_OK ||
       pp_transaction_release_job_lease(transaction, lease, &error) != PP_OK ||
-      pp_transaction_commit(transaction, &error) != PP_OK) {
+      pp_transaction_commit(transaction, &(pp_commit_receipt_t){0}, &error) != PP_OK) {
     pp_transaction_release(transaction);
     pp_production_release(production);
     pp_error_release(error);
@@ -2196,7 +2196,7 @@ int main(int argc, char **argv) {
           transaction, job_id, "C worker", NULL, NULL, NULL, NULL, NULL,
           NULL, UINT64_C(60000000), &second_lease, &error) != PP_OK ||
       second_lease == NULL ||
-      pp_transaction_commit(transaction, &error) != PP_OK) {
+      pp_transaction_commit(transaction, &(pp_commit_receipt_t){0}, &error) != PP_OK) {
     pp_transaction_release(transaction);
     pp_production_release(production);
     pp_error_release(error);
@@ -2208,7 +2208,7 @@ int main(int argc, char **argv) {
   status = pp_production_begin_transaction(production, &transaction, &error);
   if (status != PP_OK ||
       pp_transaction_fail_job_lease(transaction, second_lease, "encoder exited", &error) != PP_OK ||
-      pp_transaction_commit(transaction, &error) != PP_OK) {
+      pp_transaction_commit(transaction, &(pp_commit_receipt_t){0}, &error) != PP_OK) {
     pp_transaction_release(transaction);
     pp_production_release(production);
     pp_error_release(error);
@@ -2225,7 +2225,7 @@ int main(int argc, char **argv) {
           transaction, "org.postproject:generate-thumbnail", &representation_id,
           UINT64_C(1), asset_id, PP_REPRESENTATION_DERIVED, NULL,
           &cancelled_job_id, &error) != PP_OK ||
-      pp_transaction_commit(transaction, &error) != PP_OK) {
+      pp_transaction_commit(transaction, &(pp_commit_receipt_t){0}, &error) != PP_OK) {
     pp_transaction_release(transaction);
     pp_production_release(production);
     pp_error_release(error);
@@ -2236,7 +2236,7 @@ int main(int argc, char **argv) {
   status = pp_production_begin_transaction(production, &transaction, &error);
   if (status != PP_OK ||
       pp_transaction_cancel_job(transaction, cancelled_job_id, &error) != PP_OK ||
-      pp_transaction_commit(transaction, &error) != PP_OK) {
+      pp_transaction_commit(transaction, &(pp_commit_receipt_t){0}, &error) != PP_OK) {
     pp_transaction_release(transaction);
     pp_production_release(production);
     pp_error_release(error);
@@ -2283,7 +2283,7 @@ int main(int argc, char **argv) {
           transaction, "org.postproject:generate-proxy", &representation_id,
           UINT64_C(1), asset_id, PP_REPRESENTATION_PROXY, NULL,
           &completed_job_id, &error) != PP_OK ||
-      pp_transaction_commit(transaction, &error) != PP_OK) {
+      pp_transaction_commit(transaction, &(pp_commit_receipt_t){0}, &error) != PP_OK) {
     pp_transaction_release(transaction);
     pp_production_release(production);
     pp_error_release(error);
@@ -2299,7 +2299,7 @@ int main(int argc, char **argv) {
           transaction, completed_job_id, "C worker", NULL, NULL, NULL, NULL,
           NULL, NULL, UINT64_C(60000000), &completion_lease,
           &error) != PP_OK ||
-      pp_transaction_commit(transaction, &error) != PP_OK) {
+      pp_transaction_commit(transaction, &(pp_commit_receipt_t){0}, &error) != PP_OK) {
     pp_transaction_release(transaction);
     pp_production_release(production);
     pp_error_release(error);
@@ -2332,7 +2332,7 @@ int main(int argc, char **argv) {
   }
   if (status != PP_OK || representation_id_is_zero(&completed_representation_id) ||
       activity_id_is_zero(completion_activity_id) ||
-      pp_transaction_commit(transaction, &error) != PP_OK) {
+      pp_transaction_commit(transaction, &(pp_commit_receipt_t){0}, &error) != PP_OK) {
     pp_transaction_release(transaction);
     pp_production_release(production);
     pp_error_release(error);
@@ -2614,7 +2614,7 @@ int main(int argc, char **argv) {
       pp_transaction_confirm_locator(transaction, resource_id,
                                      "file:///c-smoke/conflict-first.mov", NULL,
                                      NULL, &error) != PP_OK ||
-      pp_transaction_commit(transaction, &error) != PP_OK) {
+      pp_transaction_commit(transaction, &(pp_commit_receipt_t){0}, &error) != PP_OK) {
     pp_transaction_release(transaction);
     pp_production_release(production);
     pp_error_release(error);
@@ -2632,7 +2632,7 @@ int main(int argc, char **argv) {
     pp_error_release(error);
     return 143;
   }
-  status = pp_transaction_commit(transaction, &error);
+  status = pp_transaction_commit(transaction, &(pp_commit_receipt_t){0}, &error);
   pp_transaction_release(transaction);
   transaction = NULL;
   pp_transaction_conflict_t conflict = {0};

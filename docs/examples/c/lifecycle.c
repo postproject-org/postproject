@@ -139,7 +139,7 @@ static pp_error_code_t commit_then_roll_back(pp_production_t *production,
   }
   if (status == PP_OK) {
     pp_commit_receipt_t commit_receipt;
-    status = pp_transaction_commit_with_receipt(transaction, &commit_receipt, error);
+    status = pp_transaction_commit(transaction, &commit_receipt, error);
   }
   pp_transaction_release(transaction);
   transaction = NULL;
@@ -206,7 +206,7 @@ static pp_error_code_t create_production(const char *path, const char *media,
   }
   if (status == PP_OK) {
     pp_commit_receipt_t commit_receipt;
-    status = pp_transaction_commit_with_receipt(transaction, &commit_receipt, error);
+    status = pp_transaction_commit(transaction, &commit_receipt, error);
   }
   pp_transaction_release(transaction);
   pp_production_release(production);

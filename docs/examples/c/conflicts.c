@@ -60,7 +60,7 @@ update_from_a_base_revision(pp_production_t *production, pp_error_t **error) {
   }
   if (status == PP_OK) {
     pp_commit_receipt_t commit_receipt;
-    status = pp_transaction_commit_with_receipt(transaction, &commit_receipt, error);
+    status = pp_transaction_commit(transaction, &commit_receipt, error);
   }
   pp_transaction_release(transaction);
   transaction = NULL;
@@ -78,7 +78,7 @@ update_from_a_base_revision(pp_production_t *production, pp_error_t **error) {
   }
   if (status == PP_OK) {
     pp_commit_receipt_t receipt;
-    status = pp_transaction_commit_with_receipt(transaction, &receipt, error);
+    status = pp_transaction_commit(transaction, &receipt, error);
     if (status == PP_OK && receipt.outcome != PP_COMMIT_REVISION_CREATED)
       status = PP_ERROR_INTERNAL;
     if (status == PP_OK) {
@@ -101,7 +101,7 @@ update_from_a_base_revision(pp_production_t *production, pp_error_t **error) {
     pp_error_t *conflict_error = NULL;
     pp_transaction_conflict_t conflict;
     /* Status-only commit deliberately discards any receipt; this call must fail. */
-    status = pp_transaction_commit(transaction, &conflict_error);
+    status = pp_transaction_commit(transaction, &(pp_commit_receipt_t){0}, &conflict_error);
     if (status == PP_ERROR_CONFLICT &&
         pp_error_transaction_conflict(conflict_error, &conflict) != 0 &&
         conflict.kind == PP_CONFLICT_MEDIA_ROOT &&
@@ -138,7 +138,7 @@ update_from_a_base_revision(pp_production_t *production, pp_error_t **error) {
   }
   if (status == PP_OK) {
     pp_commit_receipt_t commit_receipt;
-    status = pp_transaction_commit_with_receipt(transaction, &commit_receipt, error);
+    status = pp_transaction_commit(transaction, &commit_receipt, error);
   }
   pp_transaction_release(transaction);
   return status;
