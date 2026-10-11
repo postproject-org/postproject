@@ -104,7 +104,7 @@ class ExchangeTests(unittest.TestCase):
                     self.assertEqual(state.role, ExchangeRole.PASSIVE_MIRROR)
                     self.assertEqual(state.head, saved)
                     for operation in (
-                        mirror.transaction,
+                        mirror.edit,
                         lambda: mirror.edit(state.observed_base.decision),
                     ):
                         with self.assertRaises(UnsupportedError):
