@@ -17,16 +17,14 @@ fn read_then_edit(production: &mut SqliteProduction, media: &Path) -> Result<()>
         edit.commit()?
     };
     assert_eq!(receipt.revision().expect("import revision").sequence(), 1);
-    assert_eq!(
-        empty
-            .read()
-            .assets_page(&QueryPageRequest::new(10, None)?)?
-            .items(),
-        []
-    );
+    assert!(empty.assets(10)?.next().is_none());
     drop(empty);
 
     let view = production.read_session()?;
+    let assets = view.assets(10)?.collect::<Result<Vec<_>>>()?;
+    assert_eq!(assets[0].id(), asset_id);
+    let revisions = view.revisions(0, 10)?.collect::<Result<Vec<_>>>()?;
+    assert_eq!(revisions.len(), 1);
     let revision_id = receipt.revision().expect("import revision").id();
     let events = view
         .read()

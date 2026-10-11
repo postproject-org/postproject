@@ -386,3 +386,94 @@ fn adapter_facade_stays_pinned_and_rejects_write_and_live_operations() {
     drop(writer);
     assert!(reader.latest_revision().unwrap().is_none());
 }
+
+#[test]
+fn bounded_scans_keep_the_snapshot_across_buffered_and_later_pages() {
+    let directory = tempfile::tempdir().unwrap();
+    let media_path = directory.path().join("scan-media.dat");
+    std::fs::write(&media_path, b"scan media").unwrap();
+    let mut writer = SqliteProduction::create(directory.path().join("scan.pproj"), None).unwrap();
+    for _ in 0..5 {
+        let prepared = prepare_original_media(&media_path, None, None).unwrap();
+        let mut edit = writer.begin_transaction().unwrap();
+        edit.import_original(&prepared).unwrap();
+        edit.commit().unwrap();
+    }
+    let view = writer.read_session().unwrap();
+    for size in [0, 1001] {
+        assert!(view.assets(size).is_err());
+        assert!(view.revisions(0, size).is_err());
+    }
+    let expected = view
+        .read()
+        .assets_page(&QueryPageRequest::new(100, None).unwrap())
+        .unwrap()
+        .into_items();
+    let mut assets = view.assets(2).unwrap();
+    let copied = assets.next().unwrap().unwrap();
+    let prepared = prepare_original_media(&media_path, None, None).unwrap();
+    {
+        let mut edit = writer.begin_transaction().unwrap();
+        edit.import_original(&prepared).unwrap();
+        edit.commit().unwrap();
+    }
+    let mut found = vec![copied.clone()];
+    found.extend(
+        assets
+            .by_ref()
+            .collect::<postproject_core::Result<Vec<_>>>()
+            .unwrap(),
+    );
+    assert_eq!(found, expected);
+    assert!(assets.next().is_none());
+    assert!(assets.next().is_none());
+    drop(assets);
+    let revisions = view
+        .revisions(0, 2)
+        .unwrap()
+        .collect::<postproject_core::Result<Vec<_>>>()
+        .unwrap();
+    assert_eq!(
+        revisions
+            .iter()
+            .map(postproject_core::Revision::sequence)
+            .collect::<Vec<_>>(),
+        [1, 2, 3, 4, 5]
+    );
+    assert!(view.revisions(u64::MAX, 2).unwrap().next().is_none());
+    drop(view);
+    assert_eq!(copied.id(), expected[0].id());
+    let current = writer.read_session().unwrap();
+    assert_eq!(current.assets(1).unwrap().count(), 6);
+    assert_eq!(current.revisions(0, 1).unwrap().count(), 6);
+}
+
+#[test]
+fn asset_scan_returns_the_original_storage_error_once() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("corrupt-scan.pproj");
+    let media = directory.path().join("media.dat");
+    std::fs::write(&media, b"media").unwrap();
+    let mut production = SqliteProduction::create(&path, None).unwrap();
+    let prepared = prepare_original_media(&media, None, None).unwrap();
+    {
+        let mut edit = production.begin_transaction().unwrap();
+        edit.import_original(&prepared).unwrap();
+        edit.commit().unwrap();
+    }
+    // An untrusted file has a BLOB where asset names require text.
+    let connection = rusqlite::Connection::open(&path).unwrap();
+    connection
+        .execute("UPDATE assets SET display_name = x'80'", [])
+        .unwrap();
+    drop(connection);
+    let view = production.read_session().unwrap();
+    let error = view
+        .read()
+        .assets_page(&QueryPageRequest::new(2, None).unwrap())
+        .unwrap_err();
+    let mut scan = view.assets(2).unwrap();
+    assert_eq!(scan.next().unwrap().unwrap_err(), error);
+    assert!(scan.next().is_none());
+    assert!(scan.next().is_none());
+}
