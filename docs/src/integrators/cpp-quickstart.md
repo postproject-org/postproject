@@ -61,9 +61,9 @@ type is always `postproject::Error`, and it is constructed from an `Error`
 directly rather than through `std::unexpected`.
 
 Create cancellation tokens and resolution options with their `create()`
-factories. Options setters return `Result<void>` immediately; a failed setter
-preserves the previous settings. Use propagation macros or `.value()` to check
-each call. Metadata request values are validated when a mutation consumes them.
+factories. Pass a complete `ResolutionConfig` using standard mappings, paths
+and scalar bounds to `ResolutionOptions::create(config)`. Creation validates
+all settings atomically and returns one checked result. Metadata request values are validated when a mutation consumes them.
 
 ## The example program
 

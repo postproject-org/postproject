@@ -38,10 +38,9 @@ those objects and a retained revision.
 
 Commit receipts identify the production and the revision created by that
 transaction. An absent revision explicitly means no new journal entry. C uses
-`pp_transaction_commit`, C++ uses `commitWithReceipt`, Rust uses
-`commit_with_receipt`, and Python `commit()` returns the receipt. The legacy
-void commit operations remain available during migration. A later head read
-can belong to another writer; use the atomic receipt for attribution.
+`pp_transaction_commit` with a required receipt output; C++, Rust and Python
+use `commit()`. A later head read can belong to another writer; use the atomic
+receipt for attribution.
 
 ```mermaid
 sequenceDiagram

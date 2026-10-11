@@ -82,6 +82,9 @@ Use the pieces that solve real host problems:
 - {doc}`portable-exchange` for development checkpoint and passive catch-up workflows;
 - {doc}`openassetio-publishing` when an OpenAssetIO host publishes rendered media through the PostProject Manager.
 
+Existing 0.8 integrations should follow {doc}`api-migration-0.9` for the
+removed forms and runnable task comparisons.
+
 ## Every guide shows every surface
 
 Each task guide shows the operation in C, C++, Python, Rust, and the CLI. Choose a language with the tabs or with the **Code** selector in the sidebar; the choice applies to every example on the site. Where a surface deliberately lacks an operation, the tab says so and names the alternative.
@@ -128,6 +131,7 @@ c-quickstart
 cpp-quickstart
 python
 first-production
+api-migration-0.9
 host-object-bindings
 ```
 
