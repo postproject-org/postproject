@@ -44,8 +44,8 @@ Import a file and ordinary metadata with one edit:
 
 ```{literalinclude} ../../examples/python/ergonomics.py
 :language: python
-:start-after: # [ergonomic-import]
-:end-before: # [/ergonomic-import]
+:start-after: "# [ergonomic-import]"
+:end-before: "# [/ergonomic-import]"
 :dedent:
 ```
 
@@ -53,8 +53,8 @@ Reuse an existing identity after an explicit adoption decision:
 
 ```{literalinclude} ../../examples/python/ergonomics.py
 :language: python
-:start-after: # [ergonomic-adopt]
-:end-before: # [/ergonomic-adopt]
+:start-after: "# [ergonomic-adopt]"
+:end-before: "# [/ergonomic-adopt]"
 :dedent:
 ```
 
@@ -63,8 +63,8 @@ The detached base lets the caller close the view before host/UI work:
 
 ```{literalinclude} ../../examples/python/ergonomics.py
 :language: python
-:start-after: # [ergonomic-resolve]
-:end-before: # [/ergonomic-resolve]
+:start-after: "# [ergonomic-resolve]"
+:end-before: "# [/ergonomic-resolve]"
 :dedent:
 ```
 
@@ -72,8 +72,8 @@ Record a produced representation, its activity and input dependency together:
 
 ```{literalinclude} ../../examples/python/ergonomics.py
 :language: python
-:start-after: # [ergonomic-derived]
-:end-before: # [/ergonomic-derived]
+:start-after: "# [ergonomic-derived]"
+:end-before: "# [/ergonomic-derived]"
 :dedent:
 ```
 
@@ -81,8 +81,8 @@ Scan a pinned asset set and finite history with bounded pages:
 
 ```{literalinclude} ../../examples/python/ergonomics.py
 :language: python
-:start-after: # [ergonomic-revisions]
-:end-before: # [/ergonomic-revisions]
+:start-after: "# [ergonomic-revisions]"
+:end-before: "# [/ergonomic-revisions]"
 :dedent:
 ```
 

@@ -43,6 +43,8 @@ Read the relevant ADR before changing an invariant, a boundary, or a public cont
 
 ## Public surfaces, persistence, and compatibility
 
+- {doc}`ADR 0075 — CLI scoped decisions </adr/0075-cli-scoped-decisions>`
+- {doc}`ADR 0074 — Canonical commit receipts </adr/0074-canonical-commit-receipts>`
 - {doc}`ADR 0073 — Direct file inputs </adr/0073-direct-file-inputs>`
 - {doc}`ADR 0072 — Atomic native resolution options </adr/0072-atomic-native-resolution-options>`
 - {doc}`ADR 0071 — Native Python metadata inputs </adr/0071-python-native-metadata-inputs>`
@@ -166,4 +168,6 @@ Read the relevant ADR before changing an invariant, a boundary, or a public cont
 /adr/0071-python-native-metadata-inputs
 /adr/0072-atomic-native-resolution-options
 /adr/0073-direct-file-inputs
+/adr/0074-canonical-commit-receipts
+/adr/0075-cli-scoped-decisions
 ```
