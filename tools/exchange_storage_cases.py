@@ -64,6 +64,23 @@ def record_cases() -> list[Case]:
     def forged_predecessor(record):
         record["manifest"]["predecessor"]["digest"] = "0" * 64
 
+    def invalid_sequence_exception(record):
+        first(record["body"], "structure.exception")["frame"] = "4"
+
+    def optional_package(record):
+        owner = next(
+            frame["representation_id"]
+            for frame in record["body"]
+            if frame["kind"] == "structure.header"
+            and frame["content"]["shape"] == "package"
+        )
+        for frame in record["body"]:
+            if (
+                frame["kind"] == "structure.member"
+                and frame["representation_id"] == owner
+            ):
+                frame["required"] = False
+
     return [
         ("noncontiguous assertion", "metadata-edits", 18, append_position),
         ("false prior fingerprint", "knowledge", 18, prior_fingerprint),
@@ -77,6 +94,13 @@ def record_cases() -> list[Case]:
         ("unsupported required effect", "metadata-edits", 10, future_effect),
         ("foreign history", "metadata-edits", 14, foreign_scope),
         ("forged predecessor", "metadata-edits", 17, forged_predecessor),
+        (
+            "exception outside stepped domain",
+            "compound",
+            12,
+            invalid_sequence_exception,
+        ),
+        ("late package without required essence", "compound", 12, optional_package),
     ]
 
 
@@ -120,6 +144,17 @@ def checkpoint_cases() -> list[Case]:
     def wrong_metadata(snapshot):
         snapshot["bodies"]["metadata"][0]["value"]["value"] = "changed"
 
+    def forged_prior_anchor(snapshot):
+        snapshot["bodies"]["archives"][0]["payload"] = (
+            "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+        )
+
+    def archive_after_floor(snapshot):
+        snapshot["bodies"]["archives"][-1]["sequence"] = "2"
+        snapshot["bodies"]["archives"][-1]["revision"] = snapshot["manifest"]["head"][
+            "revision"
+        ]
+
     return [
         ("false current fingerprint", "knowledge", 18, wrong_current_fingerprint),
         ("false dependency boundary", "provenance", 18, wrong_dependency_boundary),
@@ -128,4 +163,6 @@ def checkpoint_cases() -> list[Case]:
         ("false terminal diagnostic", "jobs", 18, wrong_job_state),
         ("credential field in public checkpoint", "jobs", 12, extra_capability),
         ("false current metadata", "metadata", 18, wrong_metadata),
+        ("forged prior anchor", "archives", 18, forged_prior_anchor),
+        ("archive after replay floor", "archives", 18, archive_after_floor),
     ]

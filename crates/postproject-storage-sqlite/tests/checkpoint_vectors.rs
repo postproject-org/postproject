@@ -78,6 +78,9 @@ fn independent_checkpoints_import_without_regenerating_source_facts() {
         assert_eq!(mirror.production().created_at().as_unix_micros(), i64::MIN);
         assert_eq!(mirror.production().display_name(), Some("Exact 同 😀\n"));
         compare_exported_bodies(&mirror, &snapshot);
+        if vector["file"] == "checkpoints/archives.json" {
+            check_archive_boundary(&mirror);
+        }
         assert_eq!(
             mirror.changes_since(0, 10).unwrap().len() as u64,
             manifest.head().sequence()
@@ -101,6 +104,21 @@ fn independent_checkpoints_import_without_regenerating_source_facts() {
             matches!(reopened.begin_transaction(), Err(error) if error.kind() == ErrorKind::Unsupported)
         );
     }
+}
+
+fn check_archive_boundary(mirror: &SqliteProduction) {
+    use postproject_protocol::FailureKind;
+    use postproject_storage_sqlite::ExchangeError;
+
+    assert_eq!(mirror.exchange_floor().unwrap().sequence(), 1);
+    assert!(
+        matches!(mirror.record_reader(1).err(), Some(ExchangeError::Protocol(error))
+        if error.kind() == FailureKind::HistoryGap)
+    );
+    assert_eq!(
+        mirror.record_reader(2).unwrap().manifest().predecessor(),
+        mirror.exchange_floor().unwrap()
+    );
 }
 
 fn compare_exported_bodies(mirror: &SqliteProduction, snapshot: &serde_json::Value) {
