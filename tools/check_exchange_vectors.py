@@ -141,7 +141,12 @@ def check_checkpoint(vector: dict, snapshot: dict, digests: bool) -> None:
     for summary in manifest["sections"]:
         section = summary["section"]
         items = snapshot["bodies"].get(section, [])
-        primary = {"structures": "structure.header", "records": "record.manifest"}
+        primary = {
+            "structures": "structure.header",
+            "activities": "activity.header",
+            "dependencies": "dependency.set",
+            "records": "record.manifest",
+        }
         logical_count = (
             sum(item["kind"] == primary[section] for item in items)
             if section in primary

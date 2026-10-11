@@ -114,6 +114,28 @@ class CheckpointChecks(unittest.TestCase):
 
         self.altered(future_floor)
 
+    def test_activity_snapshots_are_continuations_of_one_logical_item(self):
+        directory = ROOT / "tests/fixtures/exchange"
+        self.vector = next(
+            vector
+            for vector in json.loads(
+                (directory / "checkpoint-vectors.json").read_text()
+            )
+            if vector["file"] == "checkpoints/provenance.json"
+        )
+        self.snapshot = json.loads((directory / self.vector["file"]).read_text())
+        check_checkpoint(self.vector, self.snapshot, False)
+        self.assertEqual(len(self.snapshot["bodies"]["activities"]), 6)
+
+        def count_snapshots(snapshot):
+            next(
+                section
+                for section in snapshot["manifest"]["sections"]
+                if section["section"] == "activities"
+            )["items"] = "6"
+
+        self.altered(count_snapshots)
+
 
 if __name__ == "__main__":
     unittest.main()
