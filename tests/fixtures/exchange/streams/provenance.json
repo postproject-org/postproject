@@ -1,0 +1,175 @@
+{
+  "anchor": {
+  "kind": "anchor",
+  "version": "1",
+  "production": "00000000-0000-4000-8000-000000000001",
+  "history": "00000000-0000-4000-8000-000000000002",
+  "revision": null,
+  "sequence": "0"
+},
+  "floor": {
+  "production": "00000000-0000-4000-8000-000000000001",
+  "history": "00000000-0000-4000-8000-000000000002",
+  "revision": null,
+  "sequence": "0",
+  "digest": "bee5f938e8af5b92fbf9a176cc0fe4c2b7dc52a779f8ebbc2c43e9df65d16ad1"
+},
+  "predecessor": {
+  "production": "00000000-0000-4000-8000-000000000001",
+  "history": "00000000-0000-4000-8000-000000000002",
+  "revision": "00000000-0000-4000-8000-000000000579",
+  "sequence": "3",
+  "digest": "9cbdd360e8af57dcc66d9131fd075425c559003c25dd7e360551ed7bbf6cfd99"
+},
+  "prefix": [
+  "streams/media.json",
+  "streams/access.json",
+  "streams/knowledge.json"
+],
+  "body": [
+    {"kind": "dependency.set", "source_representation_id": "00000000-0000-4000-8000-000000000006", "recorded_revision_sequence": "4", "status": "current", "occurrence_count": "2"},
+    {"kind": "dependency.occurrence", "source_representation_id": "00000000-0000-4000-8000-000000000006", "position": "0", "dependency": {"source_resource_id": "00000000-0000-4000-8000-000000000008", "kind": "vendor:Reference", "target": {"kind": "asset", "id": "00000000-0000-4000-8000-000000000005"}, "resolved_representation_id": "00000000-0000-4000-8000-00000000000a", "required": true, "authored_reference": "  unknown:同/😀%2fExact  "}},
+    {"kind": "dependency.occurrence", "source_representation_id": "00000000-0000-4000-8000-000000000006", "position": "1", "dependency": {"source_resource_id": "00000000-0000-4000-8000-000000000008", "kind": "vendor:Reference", "target": {"kind": "asset", "id": "00000000-0000-4000-8000-000000000005"}, "resolved_representation_id": "00000000-0000-4000-8000-00000000000a", "required": true, "authored_reference": "  unknown:同/😀%2fExact  "}},
+    {"kind": "activity.header", "id": "00000000-0000-4000-8000-000000000640", "activity_kind": "vendor:Render", "started_at_micros": "-9223372036854775808", "finished_at_micros": "9223372036854775807", "input_count": "1", "output_count": "1", "tool": {"name": "Exact 同 😀", "version": "65535", "uri": "unknown:Exact%2fCase"}, "agent": {"name": "  同  ", "identifier": {"scheme": "urn:vendor:Unknown", "value": "  😀  ", "qualifier": "vendor:Exact"}}},
+    {"kind": "activity.edge", "activity_id": "00000000-0000-4000-8000-000000000640", "side": "input", "position": "0", "representation_id": "00000000-0000-4000-8000-000000000006", "role": "vendor:Input", "snapshot_revision_sequence": "4", "fingerprint_count": "1", "dependency_snapshot": true, "dependency_path_count": "1"},
+    {"kind": "fingerprint.snapshot", "fingerprint": {"algorithm": "vendor-Exact", "version": "65535", "value": "AEL+", "observed_revision_sequence": "3"}},
+    {"kind": "activity.dependency-path", "position": "0", "status": "recorded", "subject_representation_id": "00000000-0000-4000-8000-00000000000a", "segment_count": "1", "fingerprint_count": "0"},
+    {"kind": "activity.dependency-segment", "position": "0", "occurrence": {"kind": "dependency.occurrence", "source_representation_id": "00000000-0000-4000-8000-000000000006", "position": "0", "dependency": {"source_resource_id": "00000000-0000-4000-8000-000000000008", "kind": "vendor:Reference", "target": {"kind": "asset", "id": "00000000-0000-4000-8000-000000000005"}, "resolved_representation_id": "00000000-0000-4000-8000-00000000000a", "required": true, "authored_reference": "  unknown:同/😀%2fExact  "}}},
+    {"kind": "activity.edge", "activity_id": "00000000-0000-4000-8000-000000000640", "side": "output", "position": "0", "representation_id": "00000000-0000-4000-8000-00000000000a", "role": "vendor:Output", "snapshot_revision_sequence": "4", "fingerprint_count": "0", "dependency_snapshot": false, "dependency_path_count": "0"},
+    {"kind": "fingerprint.change", "target": {"kind": "representation", "id": "00000000-0000-4000-8000-000000000006"}, "previous": {"algorithm": "vendor-Exact", "version": "65535", "value": "AEL+", "observed_revision_sequence": "3"}, "current": {"algorithm": "vendor-Exact", "version": "65535", "value": "AET8", "observed_revision_sequence": "4"}, "archived_position": "1", "marker_count": "0", "cleared_marker": {"kind": "fingerprint.recomputation", "representation_id": "00000000-0000-4000-8000-000000000006", "changed_resource_id": "00000000-0000-4000-8000-000000000008", "revision_sequence": "3"}, "dependency_invalidated": true},
+    {"kind": "dependency.set", "source_representation_id": "00000000-0000-4000-8000-000000000006", "recorded_revision_sequence": "4", "status": "current", "occurrence_count": "0"},
+    {"kind": "observation", "revision": "00000000-0000-4000-8000-000000000641", "position": "0", "event": {"kind": "dependency_set_recorded", "representation_id": "00000000-0000-4000-8000-000000000006"}},
+    {"kind": "observation", "revision": "00000000-0000-4000-8000-000000000641", "position": "1", "event": {"kind": "activity_created", "activity_id": "00000000-0000-4000-8000-000000000640", "activity_kind": "vendor:Render"}},
+    {"kind": "observation", "revision": "00000000-0000-4000-8000-000000000641", "position": "2", "event": {"kind": "activity_input_added", "activity_id": "00000000-0000-4000-8000-000000000640", "representation_id": "00000000-0000-4000-8000-000000000006", "role": "vendor:Input"}},
+    {"kind": "observation", "revision": "00000000-0000-4000-8000-000000000641", "position": "3", "event": {"kind": "activity_output_added", "activity_id": "00000000-0000-4000-8000-000000000640", "representation_id": "00000000-0000-4000-8000-00000000000a", "role": "vendor:Output"}},
+    {"kind": "observation", "revision": "00000000-0000-4000-8000-000000000641", "position": "4", "event": {"kind": "representation_fingerprint_observed", "representation_id": "00000000-0000-4000-8000-000000000006", "algorithm": "vendor-Exact", "version": "65535"}},
+    {"kind": "observation", "revision": "00000000-0000-4000-8000-000000000641", "position": "5", "event": {"kind": "dependency_set_recorded", "representation_id": "00000000-0000-4000-8000-000000000006"}}
+  ],
+  "chunks": [
+  {
+    "kind": "record.chunk",
+    "version": "1",
+    "required_features": [
+      "record-chunks.v1"
+    ],
+    "production": "00000000-0000-4000-8000-000000000001",
+    "history": "00000000-0000-4000-8000-000000000002",
+    "revision": "00000000-0000-4000-8000-000000000641",
+    "index": "0",
+    "previous": null,
+    "payload": "AAAAAAAAAA==",
+    "extensions": {
+      "vendor:exact": {
+        "ordered": [
+          "同",
+          "同",
+          "😀"
+        ]
+      }
+    },
+    "digest": "62059d081044a8996ddb271d02403da574dce2edde9335c767f8dd5f13bdb7c2"
+  },
+  {
+    "kind": "record.chunk",
+    "version": "1",
+    "required_features": [
+      "record-chunks.v1"
+    ],
+    "production": "00000000-0000-4000-8000-000000000001",
+    "history": "00000000-0000-4000-8000-000000000002",
+    "revision": "00000000-0000-4000-8000-000000000641",
+    "index": "1",
+    "previous": "62059d081044a8996ddb271d02403da574dce2edde9335c767f8dd5f13bdb7c2",
+    "payload": "pnsia2luZCI6ImRlcGVuZGVuY3kuc2V0Iiwib2NjdXJyZW5jZV9jb3VudCI6IjIiLCJyZWNvcmRlZF9yZXZpc2lvbl9zZXF1ZW5jZSI6IjQiLCJzb3VyY2VfcmVwcmVzZW50YXRpb25faWQiOiIwMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwMDYiLCJzdGF0dXMiOiJjdXJyZW50In0AAAAAAAABpHsiZGVwZW5kZW5jeSI6eyJhdXRob3JlZF9yZWZlcmVuY2UiOiIgIHVua25vd2465ZCML/A=",
+    "extensions": {
+      "vendor:exact": {
+        "ordered": [
+          "同",
+          "同",
+          "😀"
+        ]
+      }
+    },
+    "digest": "0d5b46353addb8da04a83a1569705e0e921ddf74fb14c3f024cac49156d52e7a"
+  },
+  {
+    "kind": "record.chunk",
+    "version": "1",
+    "required_features": [
+      "record-chunks.v1"
+    ],
+    "production": "00000000-0000-4000-8000-000000000001",
+    "history": "00000000-0000-4000-8000-000000000002",
+    "revision": "00000000-0000-4000-8000-000000000641",
+    "index": "2",
+    "previous": "0d5b46353addb8da04a83a1569705e0e921ddf74fb14c3f024cac49156d52e7a",
+    "payload": "n5iAJTJmRXhhY3QgICIsImtpbmQiOiJ2ZW5kb3I6UmVmZXJlbmNlIiwicmVxdWlyZWQiOnRydWUsInJlc29sdmVkX3JlcHJlc2VudGF0aW9uX2lkIjoiMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDBhIiwic291cmNlX3Jlc291cmNlX2lkIjoiMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDA4IiwidGFyZ2V0Ijp7ImlkIjoiMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDA1Iiwia2luZCI6ImFzc2V0In19LCJraW5kIjoiZGVwZW5kZW5jeS5vY2N1cnJlbmNlIiwicG9zaXRpb24iOiIwIiwic291cmNlX3JlcHJlc2VudGF0aW9uX2lkIjoiMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDA2In0AAAAAAAABpHsiZGVwZW5kZW5jeSI6eyJhdXRob3JlZF9yZWZlcmVuY2UiOiIgIHVua25vd2465ZCML/CfmIAlMmZFeGFjdCAgIiwia2luZCI6InZlbmRvcjpSZWZlcmVuY2UiLCJyZXF1aXJlZCI6dHJ1ZSwicmVzb2x2ZWRfcmVwcmVzZW50YXRpb25faWQiOiIwMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwMGEiLCJzb3VyY2VfcmVzb3VyY2VfaWQiOiIwMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwMDgiLCJ0YXJnZXQiOnsiaWQiOiIwMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwMDUiLCJraW5kIjoiYXNzZXQifX0sImtpbmQiOiJkZXBlbmRlbmN5Lm9jY3VycmVuY2UiLCJwb3NpdGlvbiI6IjEiLCJzb3VyY2VfcmVwcmVzZW50YXRpb25faWQiOiIwMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwMDYifQAAAAAAAAGneyJhY3Rpdml0eV9raW5kIjoidmVuZG9yOlJlbmRlciIsImFnZW50Ijp7ImlkZW50aWZpZXIiOnsicXVhbGlmaWVyIjoidmVuZG9yOkV4YWN0Iiwic2NoZW1lIjoidXJuOnZlbmRvcjpVbmtub3duIiwidmFsdWUiOiIgIPCfmIAgICJ9LCJuYW1lIjoiICDlkIwgICJ9LCJmaW5pc2hlZF9hdF9taWNyb3MiOiI5MjIzMzcyMDM2ODU0Nzc1ODA3IiwiaWQiOiIwMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDA2NDAiLCJpbnB1dF9jb3VudCI6IjEiLCJraW5kIjoiYWN0aXZpdHkuaGVhZGVyIiwib3V0cHV0X2NvdW50IjoiMSIsInN0YXJ0ZWRfYXRfbWljcm9zIjoiLTkyMjMzNzIwMzY4NTQ3NzU4MDgiLCJ0b29sIjp7Im5hbWUiOiJFeGFjdCDlkIwg8J+YgCIsInVyaSI6InVua25vd246RXhhY3QlMmZDYXNlIiwidmVyc2lvbiI6IjY1NTM1In19AAAAAAAAASx7ImFjdGl2aXR5X2lkIjoiMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwNjQwIiwiZGVwZW5kZW5jeV9wYXRoX2NvdW50IjoiMSIsImRlcGVuZGVuY3lfc25hcHNob3QiOnRydWUsImZpbmdlcnByaW50X2NvdW50IjoiMSIsImtpbmQiOiJhY3Rpdml0eS5lZGdlIiwicG9zaXRpb24iOiIwIiwicmVwcmVzZW50YXRpb25faWQiOiIwMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwMDYiLCJyb2xlIjoidmVuZG9yOklucHV0Iiwic2lkZSI6ImlucHV0Iiwic25hcHNob3RfcmV2aXNpb25fc2VxdWVuY2UiOiI0In0AAAAAAAAAjHsiZmluZ2VycHJpbnQiOnsiYWxnb3JpdGhtIjoidmVuZG9yLUV4YWN0Iiwib2JzZXJ2ZWRfcmV2aXNpb25fc2VxdWVuY2UiOiIzIiwidmFsdWUiOiJBRUwrIiwidmVyc2lvbiI6IjY1NTM1In0sImtpbmQiOiJmaW5nZXJwcmludC5zbmFwc2hvdCJ9AAAAAAAAALV7ImZpbmdlcnByaW50X2NvdW50IjoiMCIsImtpbmQiOiJhY3Rpdml0eS5kZXBlbmRlbmN5LXBhdGgiLCJwb3NpdGlvbiI6IjAiLCJzZWdtZW50X2NvdW50IjoiMSIsInN0YXR1cyI6InJlY29yZGVkIiwic3ViamVjdF9yZXByZXNlbnRhdGlvbl9pZCI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwYSJ9AAAAAAAAAed7ImtpbmQiOiJhY3Rpdml0eS5kZXBlbmRlbmN5LXNlZ21lbnQiLCJvY2N1cnJlbmNlIjp7ImRlcGVuZGVuY3kiOnsiYXV0aG9yZWRfcmVmZXJlbmNlIjoiICB1bmtub3duOuWQjC/wn5iAJTJmRXhhY3QgICIsImtpbmQiOiJ2ZW5kb3I6UmVmZXJlbmNlIiwicmVxdWlyZWQiOnRydWUsInJlc29sdmVkX3JlcHJlc2VudGF0aW9uX2lkIjoiMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDBhIiwic291cmNlX3Jlc291cmNlX2lkIjoiMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDA4IiwidGFyZ2V0Ijp7ImlkIjoiMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDA1Iiwia2luZCI6ImFzc2V0In19LCJraW5kIjoiZGVwZW5kZW5jeS5vY2N1cnJlbmNlIiwicG9zaXRpb24iOiIwIiwic291cmNlX3JlcHJlc2VudGF0aW9uX2lkIjoiMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDA2In0sInBvc2l0aW9uIjoiMCJ9AAAAAAAAAS97ImFjdGl2aXR5X2lkIjoiMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwNjQwIiwiZGVwZW5kZW5jeV9wYXRoX2NvdW50IjoiMCIsImRlcGVuZGVuY3lfc25hcHNob3QiOmZhbHNlLCJmaW5nZXJwcmludF9jb3VudCI6IjAiLCJraW5kIjoiYWN0aXZpdHkuZWRnZSIsInBvc2l0aW9uIjoiMCIsInJlcHJlc2VudGF0aW9uX2lkIjoiMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDBhIiwicm9sZSI6InZlbmRvcjpPdXRwdXQiLCJzaWRlIjoib3V0cHV0Iiwic25hcHNob3RfcmV2aXNpb25fc2VxdWVuY2UiOiI0In0AAAAAAAACTnsiYXJjaGl2ZWRfcG9zaXRpb24iOiIxIiwiY2xlYXJlZF9tYXJrZXIiOnsiY2hhbmdlZF9yZXNvdXJjZV9pZCI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwOCIsImtpbmQiOiJmaW5nZXJwcmludC5yZWNvbXB1dGF0aW9uIiwicmVwcmVzZW50YXRpb25faWQiOiIwMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwMDYiLCJyZXZpc2lvbl9zZXF1ZW5jZSI6IjMifSwiY3VycmVudCI6eyJhbGdvcml0aG0iOiJ2ZW5kb3ItRXhhY3QiLCJvYnNlcnZlZF9yZXZpc2lvbl9zZXF1ZW5jZSI6IjQiLCJ2YWx1ZSI6IkFFVDgiLCJ2ZXJzaW9uIjoiNjU1MzUifSwiZGVwZW5kZW5jeV9pbnZhbGlkYXRlZCI6dHJ1ZSwia2luZCI6ImZpbmdlcnByaW50LmNoYW5nZSIsIm1hcmtlcl9jb3VudCI6IjAiLCJwcmV2aW91cyI6eyJhbGdvcml0aG0iOiJ2ZW5kb3ItRXhhY3QiLCJvYnNlcnZlZF9yZXZpc2lvbl9zZXF1ZW5jZSI6IjMiLCJ2YWx1ZSI6IkFFTCsiLCJ2ZXJzaW9uIjoiNjU1MzUifSwidGFyZ2V0Ijp7ImlkIjoiMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDA2Iiwia2luZCI6InJlcHJlc2VudGF0aW9uIn19AAAAAAAAAKZ7ImtpbmQiOiJkZXBlbmRlbmN5LnNldCIsIm9jY3VycmVuY2VfY291bnQiOiIwIiwicmVjb3JkZWRfcmV2aXNpb25fc2VxdWVuY2UiOiI0Iiwic291cmNlX3JlcHJlc2VudGF0aW9uX2lkIjoiMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDA2Iiwic3RhdHVzIjoiY3VycmVudCJ9AAAAAAAAAL17ImV2ZW50Ijp7ImtpbmQiOiJkZXBlbmRlbmN5X3NldF9yZWNvcmRlZCIsInJlcHJlc2VudGF0aW9uX2lkIjoiMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDA2In0sImtpbmQiOiJvYnNlcnZhdGlvbiIsInBvc2l0aW9uIjoiMCIsInJldmlzaW9uIjoiMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwNjQxIn0AAAAAAAAA0HsiZXZlbnQiOnsiYWN0aXZpdHlfaWQiOiIwMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDA2NDAiLCJhY3Rpdml0eV9raW5kIjoidmVuZG9yOlJlbmRlciIsImtpbmQiOiJhY3Rpdml0eV9jcmVhdGVkIn0sImtpbmQiOiJvYnNlcnZhdGlvbiIsInBvc2l0aW9uIjoiMSIsInJldmlzaW9uIjoiMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwNjQxIn0AAAAAAAABBXsiZXZlbnQiOnsiYWN0aXZpdHlfaWQiOiIwMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDA2NDAiLCJraW5kIjoiYWN0aXZpdHlfaW5wdXRfYWRkZWQiLCJyZXByZXNlbnRhdGlvbl9pZCI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwNiIsInJvbGUiOiJ2ZW5kb3I6SW5wdXQifSwia2luZCI6Im9ic2VydmF0aW9uIiwicG9zaXRpb24iOiIyIiwicmV2aXNpb24iOiIwMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDA2NDEifQAAAAAAAAEHeyJldmVudCI6eyJhY3Rpdml0eV9pZCI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDY0MCIsImtpbmQiOiJhY3Rpdml0eV9vdXRwdXRfYWRkZWQiLCJyZXByZXNlbnRhdGlvbl9pZCI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwYSIsInJvbGUiOiJ2ZW5kb3I6T3V0cHV0In0sImtpbmQiOiJvYnNlcnZhdGlvbiIsInBvc2l0aW9uIjoiMyIsInJldmlzaW9uIjoiMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwNjQxIn0AAAAAAAAA9nsiZXZlbnQiOnsiYWxnb3JpdGhtIjoidmVuZG9yLUV4YWN0Iiwia2luZCI6InJlcHJlc2VudGF0aW9uX2ZpbmdlcnByaW50X29ic2VydmVkIiwicmVwcmVzZW50YXRpb25faWQiOiIwMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwMDYiLCJ2ZXJzaW9uIjoiNjU1MzUifSwia2luZCI6Im9ic2VydmF0aW9uIiwicG9zaXRpb24iOiI0IiwicmV2aXNpb24iOiIwMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDA2NDEifQAAAAAAAAC9eyJldmVudCI6eyJraW5kIjoiZGVwZW5kZW5jeV9zZXRfcmVjb3JkZWQiLCJyZXByZXNlbnRhdGlvbl9pZCI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwNiJ9LCJraW5kIjoib2JzZXJ2YXRpb24iLCJwb3NpdGlvbiI6IjUiLCJyZXZpc2lvbiI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDY0MSJ9",
+    "extensions": {
+      "vendor:exact": {
+        "ordered": [
+          "同",
+          "同",
+          "😀"
+        ]
+      }
+    },
+    "digest": "472b3b1e4530ffbfe2250497e0bbe34773809981d3de789bc259d9938f1aca78"
+  }
+],
+  "manifest": {
+  "kind": "record.manifest",
+  "version": "1",
+  "required_features": [
+    "dependencies.v1",
+    "media.v1",
+    "provenance.v1",
+    "record-chunks.v1"
+  ],
+  "predecessor": {
+    "production": "00000000-0000-4000-8000-000000000001",
+    "history": "00000000-0000-4000-8000-000000000002",
+    "revision": "00000000-0000-4000-8000-000000000579",
+    "sequence": "3",
+    "digest": "9cbdd360e8af57dcc66d9131fd075425c559003c25dd7e360551ed7bbf6cfd99"
+  },
+  "revision": {
+    "id": "00000000-0000-4000-8000-000000000641",
+    "transaction": "00000000-0000-4000-8000-000000000642",
+    "sequence": "4",
+    "committed_at": "9223372036854775807",
+    "context": {
+      "origin": {
+        "name": "vendor:Exact",
+        "version": "65535",
+        "uri": "unknown:Exact%2fCase"
+      },
+      "message": "Original intermediate evidence"
+    }
+  },
+  "chunks": {
+    "count": "3",
+    "payload_bytes": "5088",
+    "last_digest": "472b3b1e4530ffbfe2250497e0bbe34773809981d3de789bc259d9938f1aca78"
+  },
+  "effects": "4",
+  "events": "6",
+  "extensions": {
+    "vendor:exact": {
+      "ordered": [
+        "同",
+        "同",
+        "😀"
+      ]
+    }
+  },
+  "record_digest": "cfaed59031b8bdfdab1fcceb99f4c439add30a980d5bc33573db4f1092ca3262",
+  "digest": "ec9c201cea9b083218c8c836b24b9bee7b9edfa72a40d7e99110d5d007aee255"
+},
+  "head": {
+  "production": "00000000-0000-4000-8000-000000000001",
+  "history": "00000000-0000-4000-8000-000000000002",
+  "revision": "00000000-0000-4000-8000-000000000641",
+  "sequence": "4",
+  "digest": "cfaed59031b8bdfdab1fcceb99f4c439add30a980d5bc33573db4f1092ca3262"
+}
+}

@@ -4,11 +4,12 @@ use std::path::Path;
 
 use postproject_core::DecisionBase;
 use postproject_protocol::{
-    CreationDecoder, CreationFact, DependencyOccurrence, DependencySetHeader, Document,
-    FingerprintChangeStart, FingerprintRecomputation, FrameDecoder, IdentifierChange, Limits,
-    MediaChange, MetadataEffect, MetadataEffectStart, Position, ProtocolBase, RecordChunk,
-    RecordManifest, RepresentationCreationStart, decode_asset, decode_event, encode_asset,
-    encode_event, encode_locator,
+    ActivityEdgeHeader, ActivityHeader, ActivityPathHeader, ActivityPathSegment, CreationDecoder,
+    CreationFact, DependencyOccurrence, DependencySetHeader, Document, FingerprintChangeStart,
+    FingerprintRecomputation, FrameDecoder, IdentifierChange, Limits, MediaChange, MetadataEffect,
+    MetadataEffectStart, Position, ProtocolBase, RecordChunk, RecordManifest,
+    RepresentationCreationStart, decode_asset, decode_event, decode_fingerprint_snapshot,
+    encode_asset, encode_event, encode_fingerprint_snapshot, encode_locator,
 };
 
 fn document(value: &serde_json::Value) -> Document {
@@ -73,6 +74,19 @@ fn independent_split_stream_preserves_exact_authored_frames_and_both_digests() {
                 .filter(|frame| frame.kind().unwrap() != "observation")
             {
                 let encoded = match frame.kind().unwrap() {
+                    "activity.header" => ActivityHeader::from_document(frame).unwrap().document(),
+                    "activity.edge" => ActivityEdgeHeader::from_document(frame).unwrap().document(),
+                    "activity.dependency-path" => {
+                        ActivityPathHeader::from_document(frame).unwrap().document()
+                    }
+                    "activity.dependency-segment" => ActivityPathSegment::from_document(frame)
+                        .unwrap()
+                        .document()
+                        .unwrap(),
+                    "fingerprint.snapshot" => {
+                        encode_fingerprint_snapshot(&decode_fingerprint_snapshot(frame).unwrap())
+                            .unwrap()
+                    }
                     "fingerprint.change" => FingerprintChangeStart::from_document(frame)
                         .unwrap()
                         .document()
