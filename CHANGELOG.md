@@ -5,6 +5,7 @@ All notable changes to PostProject will be documented here. The project uses
 
 ## Unreleased
 
+- Accept native Python metadata keys and scalar values through the shared checked write/query conversion (ADR 0071).
 - Consolidate Python staged writes into `Edit`, with consistent context keywords and production-scoped decision bases (ADR 0070).
 
 - Start the `0.9.0-alpha.1` series (Python `0.9.0a1`); schema 27 and exchange protocol 1 are unchanged.

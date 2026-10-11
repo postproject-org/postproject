@@ -1639,13 +1639,13 @@ class MetadataRational:
 
 @dataclass(frozen=True, slots=True)
 class MetadataList:
-    values: tuple[MetadataValue, ...]
+    values: tuple[MetadataInput, ...]
 
 
 @dataclass(frozen=True, slots=True)
 class MetadataStructField:
     name: str
-    value: MetadataValue
+    value: MetadataInput
 
 
 @dataclass(frozen=True, slots=True)
@@ -1673,6 +1673,12 @@ MetadataValue: TypeAlias = (
     | MetadataStruct
     | MetadataReference
 )
+
+MetadataKey: TypeAlias = MetadataProperty | tuple[str, str]
+"""An exact vocabulary/property pair, including keys copied from reads."""
+
+MetadataInput: TypeAlias = MetadataValue | str | bool | int | bytes | Fraction
+"""Unambiguous native values or explicitly tagged metadata distinctions."""
 
 
 @dataclass(frozen=True, slots=True)

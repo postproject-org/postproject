@@ -185,6 +185,8 @@ from ._model import (
     MetadataBytes,
     MetadataDecimal,
     MetadataI64,
+    MetadataInput,
+    MetadataKey,
     MetadataLanguageString,
     MetadataList,
     MetadataProperty,
@@ -317,7 +319,7 @@ class _MetadataByProperty:
     def __init__(self, production: Production) -> None:
         self._production = production
 
-    def __getitem__(self, property: MetadataProperty) -> tuple[MetadataAssertion, ...]:
+    def __getitem__(self, property: MetadataKey) -> tuple[MetadataAssertion, ...]:
         return self._production._metadata_by_property(property)
 
 
@@ -1358,15 +1360,16 @@ class Production:
 
     def query_metadata(
         self,
-        property: MetadataProperty,
+        property: MetadataKey,
         *,
         limit: int,
         cursor: str | None = None,
-        value: MetadataValue | None = None,
+        value: MetadataInput | None = None,
     ) -> QueryPage[MetadataAssertion]:
         """Return one bounded assertion page with an optional exact scalar value."""
 
         self._require_open()
+        property = _metadata_key(property)
         vocabulary = _utf8(property.vocabulary, "metadata vocabulary")
         property_name = _utf8(property.property, "metadata property")
         native_cursor = _optional_text(cursor)
@@ -1739,9 +1742,10 @@ class Production:
         )
 
     def _metadata_by_property(
-        self, property: MetadataProperty
+        self, property: MetadataKey
     ) -> tuple[MetadataAssertion, ...]:
         self._require_open()
+        property = _metadata_key(property)
         return self._metadata_set(
             self._native.lib.pp_production_find_metadata,
             self._handle,
@@ -3430,11 +3434,12 @@ class ReadSession:
         )
 
     def metadata_by_property(
-        self, property: MetadataProperty
+        self, property: MetadataKey
     ) -> tuple[MetadataAssertion, ...]:
         """Return copied assertions of one property in this view."""
 
         self._require_open()
+        property = _metadata_key(property)
         return _metadata_set(
             self._native,
             self._native.lib.pp_read_session_find_metadata,
@@ -3445,15 +3450,16 @@ class ReadSession:
 
     def query_metadata(
         self,
-        property: MetadataProperty,
+        property: MetadataKey,
         *,
         limit: int,
         cursor: str | None = None,
-        value: MetadataValue | None = None,
+        value: MetadataInput | None = None,
     ) -> QueryPage[MetadataAssertion]:
         """Return one bounded assertion page with an optional exact scalar value."""
 
         self._require_open()
+        property = _metadata_key(property)
         vocabulary = _utf8(property.vocabulary, "metadata vocabulary")
         property_name = _utf8(property.property, "metadata property")
         native_cursor = _optional_text(cursor)
@@ -4146,12 +4152,13 @@ class Edit:
     def add_metadata(
         self,
         target: ObjectReference,
-        property: MetadataProperty,
-        value: MetadataValue,
+        property: MetadataKey,
+        value: MetadataInput,
     ) -> None:
-        """Stage one typed metadata assertion."""
+        """Stage one assertion using native scalars or an explicit metadata kind."""
 
         self._require_open()
+        property = _metadata_key(property)
         native_target = _native_object_reference(target)
         native_value = _metadata_input(self._native, value)
         try:
@@ -4326,7 +4333,7 @@ class Edit:
         return ActivityId(_uuid(activity_id))
 
     def remove_metadata_property(
-        self, target: ObjectReference, property: MetadataProperty
+        self, target: ObjectReference, property: MetadataKey
     ) -> None:
         """Remove every assertion for a target/property in a read-bound edit.
 
@@ -4335,6 +4342,7 @@ class Edit:
         """
 
         self._require_open()
+        property = _metadata_key(property)
         native_target = _native_object_reference(target)
         error = ctypes.POINTER(Error)()
         status = self._native.lib.pp_transaction_remove_metadata_property(
@@ -5335,9 +5343,31 @@ def _create_metadata_input(
     return handle
 
 
+def _metadata_key(key: MetadataKey) -> MetadataProperty:
+    if isinstance(key, MetadataProperty):
+        return key
+    if (
+        not isinstance(key, tuple)
+        or len(key) != 2
+        or not all(isinstance(part, str) for part in key)
+    ):
+        raise TypeError("metadata key must be a (vocabulary, property) string pair")
+    return MetadataProperty(*key)
+
+
 def _metadata_input(
-    native: NativeLibrary, value: MetadataValue
+    native: NativeLibrary, value: MetadataInput
 ) -> _Pointer[NativeMetadataInput]:
+    if isinstance(value, str):
+        value = MetadataString(value)
+    elif isinstance(value, bool):
+        value = MetadataBool(value)
+    elif isinstance(value, int):
+        value = MetadataI64(value)
+    elif isinstance(value, bytes):
+        value = MetadataBytes(value)
+    elif isinstance(value, Fraction):
+        value = MetadataRational(value.numerator, value.denominator)
     if isinstance(value, MetadataString):
         return _create_metadata_input(
             native,

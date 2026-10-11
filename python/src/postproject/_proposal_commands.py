@@ -26,8 +26,8 @@ from ._model import (
     LocatorId,
     MediaRootId,
     MediaSource,
-    MetadataProperty,
-    MetadataValue,
+    MetadataInput,
+    MetadataKey,
     ObjectReference,
     RepresentationId,
     RepresentationKind,
@@ -124,21 +124,21 @@ class RemoveIdentifierCommand:
 @dataclass(frozen=True, slots=True)
 class AppendMetadataCommand:
     target: ObjectReference
-    property: MetadataProperty
-    value: MetadataValue
+    property: MetadataKey
+    value: MetadataInput
 
 
 @dataclass(frozen=True, slots=True)
 class ReplaceMetadataCommand:
     target: ObjectReference
-    property: MetadataProperty
-    values: list[MetadataValue]
+    property: MetadataKey
+    values: list[MetadataInput]
 
 
 @dataclass(frozen=True, slots=True)
 class RemoveMetadataCommand:
     target: ObjectReference
-    property: MetadataProperty
+    property: MetadataKey
 
 
 @dataclass(frozen=True, slots=True)
