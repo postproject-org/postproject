@@ -91,6 +91,7 @@ def compare(root: Path) -> None:
                     "portable_section_sha256": expected["portable_section_sha256"],
                     "assets": len(expected["public"]["assets"]),
                     "activities": len(expected["public"]["activities"]),
+                    "jobs": len(expected["public"]["jobs"]),
                     "routes": "two independent passive processes; duplicate apply and reopen passed",
                     "observations": "exact bodies, domain values, metadata/identifiers, dependency evidence, artifact results and revisions/events agree",
                 },
