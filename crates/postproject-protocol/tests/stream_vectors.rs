@@ -6,10 +6,11 @@ use postproject_core::DecisionBase;
 use postproject_protocol::{
     ActivityEdgeHeader, ActivityHeader, ActivityPathHeader, ActivityPathSegment, CreationDecoder,
     CreationFact, DependencyOccurrence, DependencySetHeader, Document, FingerprintChangeStart,
-    FingerprintRecomputation, FrameDecoder, IdentifierChange, Limits, MediaChange, MetadataEffect,
-    MetadataEffectStart, Position, ProtocolBase, RecordChunk, RecordManifest,
-    RepresentationCreationStart, decode_asset, decode_event, decode_fingerprint_snapshot,
-    encode_asset, encode_event, encode_fingerprint_snapshot, encode_locator,
+    FingerprintRecomputation, FrameDecoder, IdentifierChange, JobHeader, JobInput, JobTransition,
+    Limits, MediaChange, MetadataEffect, MetadataEffectStart, Position, ProtocolBase, RecordChunk,
+    RecordManifest, RepresentationCreationStart, ResourceCreationStart, StructureHeader,
+    decode_asset, decode_event, decode_fingerprint_snapshot, decode_locator, encode_asset,
+    encode_event, encode_fingerprint_snapshot, encode_locator,
 };
 
 fn document(value: &serde_json::Value) -> Document {
@@ -145,6 +146,21 @@ fn decode_chunks(
 
 fn round_trip_fact(frame: &Document) -> Document {
     match frame.kind().unwrap() {
+        "representation.creation" => RepresentationCreationStart::from_document(frame)
+            .unwrap()
+            .document()
+            .unwrap(),
+        "resource.creation" => ResourceCreationStart::from_document(frame)
+            .unwrap()
+            .document(),
+        "structure.header" => StructureHeader::from_document(frame).unwrap().document(),
+        "locator.fact" => encode_locator(&decode_locator(frame).unwrap()).unwrap(),
+        "job.header" => JobHeader::from_document(frame).unwrap().document().unwrap(),
+        "job.input" => JobInput::from_document(frame).unwrap().document(),
+        "job.transition" => JobTransition::from_document(frame)
+            .unwrap()
+            .document()
+            .unwrap(),
         "activity.header" => ActivityHeader::from_document(frame).unwrap().document(),
         "activity.edge" => ActivityEdgeHeader::from_document(frame).unwrap().document(),
         "activity.dependency-path" => ActivityPathHeader::from_document(frame).unwrap().document(),
