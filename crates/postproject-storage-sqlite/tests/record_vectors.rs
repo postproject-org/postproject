@@ -86,6 +86,8 @@ fn independent_records_preserve_original_media_identities_and_public_observation
             check_access(&mirror);
         } else if vector["file"] == "streams/knowledge.json" {
             check_knowledge(&mirror);
+        } else if vector["file"] == "streams/provenance.json" {
+            check_provenance(&mirror);
         }
         assert_eq!(
             mirror.begin_transaction().err().unwrap().kind(),
@@ -112,6 +114,36 @@ fn check_knowledge(mirror: &SqliteProduction) {
         postproject_core::DependencySetStatus::Current
     );
     assert_eq!(dependencies.dependencies(), []);
+}
+
+fn check_provenance(mirror: &SqliteProduction) {
+    let activity = mirror.activities().unwrap().pop().unwrap();
+    assert_eq!(activity.kind().as_str(), "vendor:Render");
+    assert_eq!(activity.started_at().unwrap().as_unix_micros(), i64::MIN);
+    assert_eq!(activity.finished_at().unwrap().as_unix_micros(), i64::MAX);
+    assert_eq!(activity.tool().unwrap().name(), "Exact 同 😀");
+    assert_eq!(activity.inputs().len(), 1);
+    assert_eq!(activity.outputs().len(), 1);
+    let captured = activity.inputs()[0].snapshot().unwrap();
+    assert_eq!(captured.revision_sequence(), 4);
+    assert_eq!(captured.fingerprints()[0].value(), b"\0B\xfe");
+    assert_eq!(
+        captured.fingerprints()[0].observed_revision_sequence(),
+        Some(3)
+    );
+    let input = activity.inputs()[0].representation_id();
+    assert_eq!(
+        mirror.representation(input).unwrap().fingerprints()[0].value(),
+        b"\0D\xfc"
+    );
+    assert_eq!(
+        mirror
+            .dependency_set(input)
+            .unwrap()
+            .unwrap()
+            .dependencies(),
+        []
+    );
 }
 
 fn apply_prefix(mirror: &mut SqliteProduction, fixture: &serde_json::Value) {
