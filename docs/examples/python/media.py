@@ -69,7 +69,7 @@ def import_image_strip(production: Production, directory: Path) -> AssetId:
         rate=Fraction(24),
         missing_frames=(1003,),
     )
-    with production.transaction() as transaction:
+    with production.edit() as transaction:
         asset_id = transaction.import_media(strip, display_name="shot010 strip")
         transaction.commit()
 
@@ -86,7 +86,7 @@ def add_proxy(
     production: Production, asset_id: AssetId, proxy: Path
 ) -> RepresentationId:
     # A plain path is a single-file source too.
-    with production.transaction() as transaction:
+    with production.edit() as transaction:
         proxy_id = transaction.add_representation(
             asset_id, RepresentationKind.PROXY, FileSource(proxy)
         )
@@ -113,7 +113,7 @@ def add_spanned_clip(
             ),
         )
     )
-    with production.transaction() as transaction:
+    with production.edit() as transaction:
         clip_id = transaction.add_representation(
             asset_id, RepresentationKind.ORIGINAL, parts
         )
@@ -137,7 +137,7 @@ def add_package(
             ),
         )
     )
-    with production.transaction() as transaction:
+    with production.edit() as transaction:
         package_id = transaction.add_representation(
             asset_id, RepresentationKind.OPTIMIZED, members
         )
@@ -324,7 +324,7 @@ def write(path: Path, content: bytes) -> Path:
 def add_render_sequence(
     production: Production, asset_id: AssetId, directory: Path
 ) -> RepresentationId:
-    with production.transaction() as transaction:
+    with production.edit() as transaction:
         representation_id = transaction.add_representation(
             asset_id,
             RepresentationKind.DERIVED,
@@ -408,7 +408,7 @@ def relocate_under_root(
     """Move a file under a root directory and confirm it under root ``proxies``."""
 
     source.rename(root_directory / source.name)
-    with production.transaction() as transaction:
+    with production.edit() as transaction:
         transaction.add_media_root("proxies", "Proxy volume")
         transaction.commit()
     (resolution,) = [
@@ -423,7 +423,7 @@ def relocate_under_root(
         evidence.kind is EvidenceKind.MEDIA_ROOT_RELATION
         for evidence in candidate.evidence
     )
-    with production.transaction() as transaction:
+    with production.edit() as transaction:
         transaction.confirm_locator(
             resource.resource_id, candidate.uri, media_root="proxies"
         )
@@ -445,7 +445,7 @@ def relink_renamed_sequence(
                 continue
             for evidence in candidate.evidence:
                 print(f"{candidate.uri}: {evidence.kind.name}")
-            with production.transaction() as transaction:
+            with production.edit() as transaction:
                 transaction.confirm_locator(
                     resource.resource_id,
                     candidate.uri,
@@ -468,7 +468,7 @@ def main() -> None:
     media = rushes / "A001.mov"
 
     with Production.create(work / "media.pproj", "Media") as production:
-        with production.transaction() as transaction:
+        with production.edit() as transaction:
             asset_id = transaction.import_media(media, display_name="Camera A")
             transaction.commit()
         original = production.representations[asset_id][0]
@@ -514,7 +514,7 @@ def main() -> None:
         sequence = described[sequence_id].image_sequence
         assert sequence is not None and sequence.missing_frames == (1003,)
 
-        with production.transaction() as transaction:
+        with production.edit() as transaction:
             transaction.add_media_root("archive", "Archive shelf", priority=10)
             transaction.commit()
         archive_id = find_root(production, "archive")

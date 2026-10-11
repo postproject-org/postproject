@@ -15,7 +15,7 @@ the loader path.
 
 The package is pre-1.0 and tracks the current PostProject ABI without backward
 compatibility guarantees: it refuses a native library that reports a C ABI
-version other than the one it was built for (development ABI 51).
+version other than the one it was built for (development ABI 52).
 
 IDs are ordinary `uuid.UUID` values annotated with nominal hints such as
 `AssetId` and `RepresentationId`. `parse_id(text, AssetId)` checks UUID syntax;
@@ -35,7 +35,7 @@ media = Path(
 )
 
 with Production.create("production.pproj", "Documentary") as production:
-    with production.transaction(
+    with production.edit(
         origin=OriginIdentity("com.example.importer"),
         message="Import camera original",
     ) as transaction:
@@ -83,11 +83,11 @@ with Production.create("production.pproj", "Documentary") as production:
     print(len(unresolved.items), len(changed.items))
 ```
 
-Production and transaction handles support deterministic `close()` and context
+Production and edit handles support deterministic `close()` and context
 manager cleanup. Call `commit()` explicitly; every uncommitted exit rolls back.
-Releasing an unfinished transaction also discards its staged mutations.
+Releasing an unfinished edit also discards its staged mutations.
 Production operations may run concurrently from multiple threads and serialize
-inside the native handle; `close()` must not overlap them. Transaction instances
+inside the native handle; `close()` must not overlap them. Edit instances
 must remain on one caller-controlled execution path. Open the production again
 when reads should use a separate native handle during a commit.
 Revision summaries, representation structures, resources, locators, fingerprints,

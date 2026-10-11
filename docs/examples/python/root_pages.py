@@ -9,7 +9,7 @@ from postproject import Production
 # [root-pages]
 def root_pages(path: Path) -> None:
     with Production.create(path) as production:
-        with production.transaction() as transaction:
+        with production.edit() as transaction:
             transaction.add_media_root("first", priority=-1)
             transaction.add_media_root("second")
             transaction.commit()

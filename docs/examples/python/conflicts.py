@@ -10,20 +10,21 @@ from postproject import ConflictError, ConflictKeyKind, Production
 
 # [semantic-conflicts]
 def update_from_a_base_revision(production: Production) -> None:
-    with production.transaction() as setup:
+    with production.edit() as setup:
         root_id = setup.add_media_root("rushes")
         setup.commit()
 
-    base = production.latest_revision
-    assert base is not None
-    with production.transaction(base_revision=base.id) as first_writer:
+    with production.read_session() as view:
+        base = view.decision_base
+    assert base.revision is not None
+    with production.edit(base) as first_writer:
         first_writer.set_media_root_enabled(root_id, False)
         receipt = first_writer.commit()
 
     assert receipt.production_id == production.id
     superseding = receipt.revision
     assert superseding is not None
-    stale_writer = production.transaction(base_revision=base.id)
+    stale_writer = production.edit(base)
     try:
         stale_writer.set_media_root_enabled(root_id, True)
         stale_writer.commit()
@@ -32,7 +33,7 @@ def update_from_a_base_revision(production: Production) -> None:
         assert conflict is not None
         assert conflict.key.kind is ConflictKeyKind.MEDIA_ROOT
         assert conflict.key.target == root_id
-        assert conflict.base_revision_id == base.id
+        assert conflict.base_revision_id == base.revision.id
         assert conflict.superseding_revision_id == superseding.id
     else:
         raise AssertionError("stale write did not conflict")
@@ -40,9 +41,7 @@ def update_from_a_base_revision(production: Production) -> None:
         stale_writer.close()
 
     # Retry only after re-reading and deciding that enabling is still right.
-    refreshed = production.latest_revision
-    assert refreshed is not None
-    with production.transaction(base_revision=refreshed.id) as retry:
+    with production.read_session() as refreshed, refreshed.edit() as retry:
         retry.set_media_root_enabled(root_id, True)
         retry.commit()
 

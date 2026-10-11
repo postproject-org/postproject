@@ -64,7 +64,7 @@ def request_proxy(
         target_root="proxies",
     )
     # The job and its typed parameters commit together.
-    with production.transaction() as transaction:
+    with production.edit() as transaction:
         job_id = transaction.request_job(request)
         transaction.add_metadata(JobRef(job_id), PROFILE, MetadataString("proxy-720p"))
         transaction.commit()
@@ -87,7 +87,7 @@ def request_proxy(
 
 # [claim-job]
 def claim_renew_release(production: Production, job_id: JobId) -> None:
-    with production.transaction() as transaction:
+    with production.edit() as transaction:
         lease = transaction.claim_job_lease(
             job_id, WORKER, timedelta(minutes=5), agent=AGENT
         )
@@ -99,10 +99,10 @@ def claim_renew_release(production: Production, job_id: JobId) -> None:
         assert isinstance(lease.state, ActiveJobLease)
         # Explicit private transport when work moves to another process.
         with production.import_job_lease(lease.export_token()) as imported:
-            with production.transaction() as transaction:
+            with production.edit() as transaction:
                 transaction.renew_job_lease(imported, timedelta(minutes=10))
                 transaction.commit()
-            with production.transaction() as transaction:
+            with production.edit() as transaction:
                 transaction.release_job_lease(imported)
                 transaction.commit()
             assert isinstance(imported.state, ClosedJobLease)
@@ -113,7 +113,7 @@ def claim_renew_release(production: Production, job_id: JobId) -> None:
 
 # [complete-job]
 def run_proxy_job(production: Production, job_id: JobId, output: Path) -> None:
-    with production.transaction() as transaction:
+    with production.edit() as transaction:
         lease = transaction.claim_job_lease(
             job_id, WORKER, timedelta(minutes=5), agent=AGENT
         )
@@ -125,7 +125,7 @@ def run_proxy_job(production: Production, job_id: JobId, output: Path) -> None:
 
         # Stage the output, the activity, and the completion in one transaction;
         # never commit the representation or activity separately.
-        with production.transaction() as transaction:
+        with production.edit() as transaction:
             proxy_id = transaction.add_representation(
                 job.output_asset_id, job.output_representation_kind, output
             )
@@ -152,13 +152,13 @@ def run_proxy_job(production: Production, job_id: JobId, output: Path) -> None:
 
 # [fail-job]
 def fail_after_tool_error(production: Production, job_id: JobId) -> None:
-    with production.transaction() as transaction:
+    with production.edit() as transaction:
         lease = transaction.claim_job_lease(
             job_id, WORKER, timedelta(minutes=5), agent=AGENT
         )
         transaction.commit()
     # A failure records a bounded diagnostic and no representation.
-    with lease, production.transaction() as transaction:
+    with lease, production.edit() as transaction:
         transaction.fail_job_lease(lease, "encoder exited with 1")
         transaction.commit()
 
@@ -168,7 +168,7 @@ def fail_after_tool_error(production: Production, job_id: JobId) -> None:
 
 # [cancel-job]
 def cancel(production: Production, job_id: JobId) -> None:
-    with production.transaction() as transaction:
+    with production.edit() as transaction:
         transaction.cancel_job(job_id)
         transaction.commit()
 
@@ -187,7 +187,7 @@ def plan_and_enqueue(
 
     # Enqueue explicitly. The proposal repeats the kind and target root of the
     # job that produced the artifact.
-    with production.transaction() as transaction:
+    with production.edit() as transaction:
         job_id = transaction.request_job(
             JobRequest(
                 proposed.kind,
@@ -217,7 +217,7 @@ def main() -> None:
     output.parent.mkdir()
 
     with Production.create(work / "jobs.pproj", "Jobs") as production:
-        with production.transaction() as transaction:
+        with production.edit() as transaction:
             asset_id = transaction.import_media(work / "rushes" / "A001.mov")
             transaction.add_media_root("proxies", "Proxy volume")
             transaction.commit()

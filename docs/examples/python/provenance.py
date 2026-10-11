@@ -50,7 +50,7 @@ def record_proxy_generation(
     original_id: RepresentationId,
     proxy_id: RepresentationId,
 ) -> ActivityId:
-    with production.transaction() as transaction:
+    with production.edit() as transaction:
         activity_id = transaction.create_activity(
             ActivitySpec(
                 "org.postproject:transcode",
@@ -221,13 +221,13 @@ def main() -> None:
     edit.write_text("{}\n", encoding="utf-8")
 
     with Production.create(work / "provenance.pproj", "Provenance") as production:
-        with production.transaction() as transaction:
+        with production.edit() as transaction:
             asset_id = transaction.import_media(media)
             edit_asset_id = transaction.import_media(edit)
             transaction.commit()
         original = production.representations[asset_id][0]
         edit_representation = production.representations[edit_asset_id][0]
-        with production.transaction() as transaction:
+        with production.edit() as transaction:
             proxy_id = transaction.add_representation(
                 asset_id, RepresentationKind.PROXY, proxy
             )

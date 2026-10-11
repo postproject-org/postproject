@@ -37,7 +37,7 @@ def exercise(work: Path) -> None:
         assert state.limits == ExchangeLimits()
         with Production.open(mirror_path) as mirror:
             try:
-                mirror.transaction()
+                mirror.edit()
             except UnsupportedError:
                 pass
             else:

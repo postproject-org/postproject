@@ -185,7 +185,7 @@ with `Transaction::addMetadataValue`.
 :::{no-variant} python
 Inspection is not exposed through the Python binding. A host that already
 inspects media can record its own findings as typed
-[metadata](metadata-vocabularies.md) with `Transaction.add_metadata`.
+[metadata](metadata-vocabularies.md) with `Edit.add_metadata`.
 :::
 ```
 

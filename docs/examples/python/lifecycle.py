@@ -68,7 +68,7 @@ def open_production(
 
 # [transaction-lifecycle]
 def tag_then_discard(production: Production, asset_id: AssetId) -> None:
-    transaction = production.transaction()
+    transaction = production.edit()
     try:
         transaction.set_revision_context(
             RevisionContext(
@@ -84,7 +84,7 @@ def tag_then_discard(production: Production, asset_id: AssetId) -> None:
         transaction.close()  # releases the handle; harmless after commit
 
     before = production.latest_revision
-    transaction = production.transaction()
+    transaction = production.edit()
     try:
         transaction.add_external_identifier(
             AssetRef(asset_id), ExternalIdentifier("com.example.tape", "T-0012")
@@ -119,7 +119,7 @@ def open_missing(path: Path) -> NotFoundError | None:
 
 def create_production(path: Path, media: Path) -> tuple[ProductionId, AssetId]:
     with Production.create(path, "Lifecycle") as production:
-        with production.transaction(message="Import camera original") as transaction:
+        with production.edit(message="Import camera original") as transaction:
             asset_id = transaction.import_media(media, display_name="Camera A")
             transaction.commit()
         return production.id, asset_id

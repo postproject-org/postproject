@@ -49,7 +49,7 @@ from postproject import (
 # [create-production]
 def create_production(path: Path, media: Path) -> tuple[Production, AssetId]:
     production = Production.create(path, "Documentary")
-    with production.transaction(
+    with production.edit(
         origin=OriginIdentity("com.example.editor", "0.4.0"),
         message="Import camera original",
     ) as transaction:
@@ -66,7 +66,7 @@ def create_production(path: Path, media: Path) -> tuple[Production, AssetId]:
 # [external-identifiers]
 def tag_camera_serial(production: Production, asset_id: AssetId) -> None:
     identifier = ExternalIdentifier("com.example.camera.serial", "A-0007")
-    with production.transaction() as transaction:
+    with production.edit() as transaction:
         transaction.add_external_identifier(AssetRef(asset_id), identifier)
         transaction.commit()
 
@@ -87,7 +87,7 @@ def add_title(production: Production, asset_id: AssetId) -> None:
         "https://iptc.org/std/videometadatahub/recommendation/iptc-vmhub-1.7-schema.json",
         "title",
     )
-    with production.transaction() as transaction:
+    with production.edit() as transaction:
         transaction.add_metadata(
             AssetRef(asset_id), title, MetadataLanguageString("Interview", "en-US")
         )
@@ -103,7 +103,7 @@ def add_title(production: Production, asset_id: AssetId) -> None:
 
 # [media-root]
 def add_rushes_root(production: Production) -> None:
-    with production.transaction() as transaction:
+    with production.edit() as transaction:
         transaction.add_media_root("rushes", "Camera originals")
         transaction.commit()
 
@@ -134,7 +134,7 @@ def resolve_asset(
 def confirm_unique_candidates(
     production: Production, resolutions: tuple[RepresentationResolution, ...]
 ) -> None:
-    with production.transaction() as transaction:
+    with production.edit() as transaction:
         for representation in resolutions:
             for resource in representation.resources:
                 # Several candidates need a person to choose; never pick one here.
@@ -159,7 +159,7 @@ def confirm_unique_candidates(
 def add_render_sequence(
     production: Production, asset_id: AssetId, directory: Path
 ) -> RepresentationId:
-    with production.transaction() as transaction:
+    with production.edit() as transaction:
         sequence_id = transaction.add_representation(
             asset_id,
             RepresentationKind.DERIVED,
@@ -197,7 +197,7 @@ def record_render(
     source_id: RepresentationId,
     render_id: RepresentationId,
 ) -> None:
-    with production.transaction() as transaction:
+    with production.edit() as transaction:
         activity_id = transaction.create_activity(
             ActivitySpec(
                 "org.postproject:render",
@@ -284,7 +284,7 @@ def request_and_page_jobs(
         output_asset_id,
         RepresentationKind.PROXY,
     )
-    with production.transaction() as transaction:
+    with production.edit() as transaction:
         job_id = transaction.request_job(request)
         transaction.request_job(request)
         transaction.commit()

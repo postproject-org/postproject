@@ -72,7 +72,7 @@ def replace_tape_identifier(
 ) -> tuple[ExternalIdentifier, ...]:
     serial = ExternalIdentifier("com.example.camera.serial", "A-0007")
     tape = ExternalIdentifier("com.example.tape", "T-0012", qualifier="reel")
-    with production.transaction() as transaction:
+    with production.edit() as transaction:
         transaction.add_external_identifier(AssetRef(asset_id), serial)
         transaction.add_external_identifier(AssetRef(asset_id), tape)
         transaction.commit()
@@ -123,7 +123,7 @@ def add_editorial_metadata(
         ),
         "selected-take": MetadataReference(RepresentationRef(original_id)),
     }
-    with production.transaction() as transaction:
+    with production.edit() as transaction:
         for name, value in values.items():
             transaction.add_metadata(
                 AssetRef(asset_id), MetadataProperty(EDITORIAL, name), value
@@ -204,7 +204,7 @@ def main() -> None:
     media_path = work / "rushes" / "A001.mov"
 
     with Production.create(production_path, "Knowledge") as production:
-        with production.transaction() as transaction:
+        with production.edit() as transaction:
             asset_id = transaction.import_media(media_path)
             transaction.commit()
         original_id = production.representations[asset_id][0].id
@@ -244,7 +244,7 @@ def main() -> None:
         assert describe(stored["keywords"]) == "[interview, exterior]"
 
         approved = MetadataProperty(EDITORIAL, "approved")
-        with production.transaction() as transaction:
+        with production.edit() as transaction:
             transaction.add_metadata(
                 RepresentationRef(original_id), approved, MetadataBool(True)
             )
