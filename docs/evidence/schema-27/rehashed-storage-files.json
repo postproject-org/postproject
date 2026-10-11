@@ -1,0 +1,123 @@
+{
+  "scope": "Installed passive checkpoint reconstruction and atomic record rejection with independently rehashed domain facts",
+  "sources": {
+    "file_author": "adfba30",
+    "cases": "08f33a5",
+    "controller": "83e9566",
+    "fixed_vectors": "da4ec76",
+    "native_implementation": "016297a",
+    "wheel_bindings": "9b89f07"
+  },
+  "runtime": "Linux x86_64; Python 3.14.7; blake3 1.0.10",
+  "versions": {
+    "python": "0.7.0a1",
+    "c_abi": 52,
+    "schema": 27
+  },
+  "installed_wheel_sha256": "d15225f7af18557ea37b5e32c0fb786019683fdec34c5d144326930e3bcc1835",
+  "bundled_library_sha256": "84880892e536363e472b5bc7931d2c1729d45b6c426631486fbc350e19b7254e",
+  "command": "python tools/check_exchange_storage_mutations.py --output target/exchange-storage-mutations-controls.json",
+  "bounds": "Each authored file and fixture is at most 2 MiB; existing native receiver budgets apply",
+  "controls": "Each record has a fresh valid application control. Each checkpoint has a successful original import with ordinary public reads.",
+  "records": [
+    {
+      "case": "noncontiguous assertion",
+      "failure_code": 18,
+      "unchanged_after_reopen": true
+    },
+    {
+      "case": "false prior fingerprint",
+      "failure_code": 18,
+      "unchanged_after_reopen": true
+    },
+    {
+      "case": "wrong marker revision",
+      "failure_code": 18,
+      "unchanged_after_reopen": true
+    },
+    {
+      "case": "reordered occurrence",
+      "failure_code": 18,
+      "unchanged_after_reopen": true
+    },
+    {
+      "case": "invented activity fingerprint",
+      "failure_code": 18,
+      "unchanged_after_reopen": true
+    },
+    {
+      "case": "invented historical path",
+      "failure_code": 18,
+      "unchanged_after_reopen": true
+    },
+    {
+      "case": "false previous claim",
+      "failure_code": 18,
+      "unchanged_after_reopen": true
+    },
+    {
+      "case": "future completion input boundary",
+      "failure_code": 18,
+      "unchanged_after_reopen": true
+    },
+    {
+      "case": "credential field in inert claim",
+      "failure_code": 12,
+      "unchanged_after_reopen": true
+    },
+    {
+      "case": "unsupported required effect",
+      "failure_code": 10,
+      "unchanged_after_reopen": true
+    },
+    {
+      "case": "foreign history",
+      "failure_code": 14,
+      "unchanged_after_reopen": true
+    },
+    {
+      "case": "forged predecessor",
+      "failure_code": 17,
+      "unchanged_after_reopen": true
+    }
+  ],
+  "checkpoints": [
+    {
+      "case": "false current fingerprint",
+      "failure_code": 18,
+      "destination_absent": true
+    },
+    {
+      "case": "false dependency boundary",
+      "failure_code": 18,
+      "destination_absent": true
+    },
+    {
+      "case": "false captured activity bytes",
+      "failure_code": 18,
+      "destination_absent": true
+    },
+    {
+      "case": "missing removed guard",
+      "failure_code": 18,
+      "destination_absent": true
+    },
+    {
+      "case": "false terminal diagnostic",
+      "failure_code": 18,
+      "destination_absent": true
+    },
+    {
+      "case": "credential field in public checkpoint",
+      "failure_code": 12,
+      "destination_absent": true
+    },
+    {
+      "case": "false current metadata",
+      "failure_code": 18,
+      "destination_absent": true
+    }
+  ],
+  "verification": "Every rejected record retains the original head, public domain reads and exact portable checkpoint-section bytes, including after reopen. Every rejected import leaves no destination.",
+  "limits": "Development package qualification, not a coordinated 0.8 candidate or release acceptance. Local Linux evidence; cross-platform installed runs are configured in CI. Fixed records use one asset and single-resource media. Large-value and scale qualification remain separate."
+}

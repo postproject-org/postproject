@@ -52,3 +52,7 @@ The [schema-27 storage campaigns](evidence/schema-27/exchange-storage-fuzz.json)
 exercise file decoding and SQLite reconstruction with fixed nonempty checkpoints
 and a complete Blender/job history seed. Inputs are bounded to 2 MiB; these
 campaigns do not qualify maximum legal values or scale workloads.
+The [rehashed storage cases](evidence/schema-27/rehashed-storage-files.json)
+separately alter domain facts and recompute file integrity. Installed native
+import/apply checks reject false history, snapshots, job decisions and semantic
+guards while preserving the prior mirror or leaving no imported destination.

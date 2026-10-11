@@ -12,15 +12,22 @@ the PostProject codec or bindings. Digests used `blake3==1.0.10`, checked agains
 The hash binding uses the official Rust primitive; the independent implementation
 here is the wire encoding. Rust checks the fixed results, rather than generating
 its own expectations. `stream-vectors.json` binds independently authored metadata,
-media and access records, split length/UTF-8 framing, genesis anchors and both record/manifest
+media, access, fingerprint/dependency, activity and job records, split length/UTF-8
+framing, genesis anchors and both record/manifest
 digests. They preserve exact extreme values, repeated extensions, original media
 identities and observations; storage applies the fixed records and tests duplicate
 replay and reopen. `checkpoint-vectors.json` binds complete genesis, media and
-access checkpoints with all 19 sections and split length/UTF-8 framing. They import
+access, fingerprint/dependency, activity, job and metadata checkpoints with all 19
+sections and split length/UTF-8 framing. They import
 as ordinary passive stores and reexport identical section bodies. Removed roots
 and identifiers retain their exact semantic guards. Initial media locators have
 no changed guard; record chunks are continuations of one logical item.
-Remaining record/checkpoint families are incomplete.
+
+The metadata-edit profile preserves all 13 value kinds, repeated ordered values,
+replacement and removal. Activity snapshots retain earlier fingerprint and path
+facts after later edits. Jobs preserve all five public states, exact lifecycle
+decisions and an atomic output/activity publication, without capability fields.
+Compound-media and archived-history fixed profiles remain incomplete.
 
 Run `python3 tools/check_exchange_vectors.py` for canonical checks, or
 `uv run --no-project --with blake3==1.0.10 python3 tools/check_exchange_vectors.py --digests`
