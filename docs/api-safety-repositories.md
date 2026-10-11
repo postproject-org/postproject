@@ -1,5 +1,8 @@
 # API safety repository inputs
 
+Historical prepublication qualification record for `0.7.0-alpha.1`.
+Repository and package status below describe that qualification, not current releases.
+
 Inventory checked against `gh repo list postproject-org` on 2026-10-04.
 All 13 non-archived organization repositories have local checkouts on `main`;
 the historical 12-repository evidence excludes the landing site. Local checks

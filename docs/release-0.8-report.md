@@ -1,10 +1,10 @@
-# PostProject 0.8 candidate qualification
+# PostProject 0.8 qualification
 
-Candidate `0.8.0-alpha.1` (Python `0.8.0a1`), C ABI **52**, **349 exports**,
+Package `0.8.0-alpha.1` (Python `0.8.0a1`), C ABI **52**, **349 exports**,
 **36 public layouts**, SQLite schema **27**, experimental protocol major **1**.
-The released baseline is `v0.7.0-alpha.1`, commit
+The qualification baseline is `v0.7.0-alpha.1`, commit
 `e14d92fbcd7de55626b7da3a42aee4e8d3a32ba6`.
-Candidate qualification is complete; the candidate remains unpublished.
+Qualification completed on 2026-10-11 against the source and artifacts below.
 
 ## Delivered behavior
 
@@ -111,7 +111,7 @@ and retained record storage explains almost all measured disk growth. Streaming,
 maximum binary/nesting and outcome retention are measured explicitly. These
 shared-workstation samples establish no universal latency or memory threshold.
 
-## Commercial and publication status
+## Commercial and publication scope
 
 The [Nuke 17.0v1 Read package](https://github.com/postproject-org/postproject-openassetio-manager/blob/ccfbd8d58a7b2da7b607940917aeea30cd697de0/docs/nuke-trial.md)
 includes configuration, real PNG sequence fixture, acceptance script and
@@ -121,7 +121,7 @@ is **not executed**: no Nuke binary/license is available here. The brief supplie
 the exact ready-to-run command. {doc}`commercial-host-feasibility` records the
 reviewed REAPER and vendor-shipped Resolve routes without runtime claims.
 
-The landing site retains published-release links. No 0.8 tag, release, registry
-upload or consumer package publication has occurred. Publication remains a
-separate authorized operation under {doc}`releasing`; review artifacts must not
-be presented as immutable release assets.
+Qualification did not include release tagging, registry uploads or consumer
+package publication. Published SDK artifacts are listed in
+[GitHub releases](https://github.com/postproject-org/postproject/releases).
+The publication procedure is documented in {doc}`releasing`.

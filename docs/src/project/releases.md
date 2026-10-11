@@ -10,12 +10,12 @@ These pages describe what each release delivered, how it was verified, and which
 
 ## Release records
 
-- {doc}`/release-0.8-report` — candidate behavior, qualification and publication status.
+- {doc}`/release-0.8-report` — delivered behavior, qualification and artifact scope.
 - {doc}`/release-0.8-conformance` — local protocol, crash recovery and independent fixture evidence.
-- {doc}`/release-0.8-compatibility-evidence` — installed candidate family use and review limits; no release publication.
+- {doc}`/release-0.8-compatibility-evidence` — installed family use and review limits.
 - {doc}`/release-0.7-report` — release qualification and package scope.
-- {doc}`/release-0.7-compatibility-evidence` — current family usage and qualification limits.
-- {doc}`/release-0.6-report` — candidate acceptance and artifact scope.
+- {doc}`/release-0.7-compatibility-evidence` — family usage and qualification limits.
+- {doc}`/release-0.6-report` — acceptance and artifact scope.
 - {doc}`/release-0.6-integration-findings` — pilot selection and reproduced defects.
 - {doc}`/release-0.6-compatibility-evidence` — generated family usage and dependency closure.
 - {doc}`/release-0.6-compatibility-decision` — approved C++ source compatibility scope.
