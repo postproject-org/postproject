@@ -5,6 +5,8 @@ All notable changes to PostProject will be documented here. The project uses
 
 ## Unreleased
 
+- Return the caller's atomic receipt from the single Rust/C commit operation (ADR 0074).
+
 - Stage single files directly from paths and remove redundant C/C++/Python source construction (ADR 0073).
 - Replace incremental C resolution options with atomic configuration and bump the C ABI to 53 (ADR 0072).
 - Accept native Python metadata keys and scalar values through the shared checked write/query conversion (ADR 0071).

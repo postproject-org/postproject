@@ -7356,7 +7356,7 @@ impl PpTransaction {
             for mutation in &self.mutations {
                 apply_staged_mutation(&mut transaction, mutation)?;
             }
-            transaction.commit_with_receipt()
+            transaction.commit()
         })();
 
         self.state.transaction_open.store(false, Ordering::Release);

@@ -1893,16 +1893,6 @@ impl<'production> SqliteTransaction<'production> {
         Ok(true)
     }
 
-    /// Atomically commits all staged mutations and returns their own receipt.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`ErrorKind::Conflict`] if already closed, or
-    /// [`ErrorKind::Storage`] if SQLite cannot commit.
-    pub fn commit(&mut self) -> Result<CommitReceipt> {
-        self.commit_with_receipt()
-    }
-
     /// Commits atomically and returns the revision produced by this transaction.
     ///
     /// An absent revision means no revision was created, even in a nonempty
@@ -1911,7 +1901,7 @@ impl<'production> SqliteTransaction<'production> {
     /// # Errors
     ///
     /// Returns structured semantic conflicts, closed-state or storage errors.
-    pub fn commit_with_receipt(&mut self) -> Result<CommitReceipt> {
+    pub fn commit(&mut self) -> Result<CommitReceipt> {
         self.lifecycle.ensure_open()?;
         let result = self.commit_open();
         if result.is_err() {
@@ -2763,10 +2753,6 @@ impl ProductionStoreTransaction for SqliteTransaction<'_> {
 
     fn commit(&mut self) -> Result<CommitReceipt> {
         SqliteTransaction::commit(self)
-    }
-
-    fn commit_with_receipt(&mut self) -> Result<CommitReceipt> {
-        SqliteTransaction::commit_with_receipt(self)
     }
 
     fn rollback(&mut self) -> Result<()> {
