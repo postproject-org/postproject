@@ -10,7 +10,7 @@
   "artifacts_sha256": {
     "lib/libpostproject.so": "66efb075275af31fd24a96d8f6e57aaf741c32c071fc468880bab72cc7fa69ae",
     "lib/libpostproject.a": "897a581a67c33f32b10c35b5d8b437a1069ff3d706dac5881a4e7ad77f0a5e5f",
-    "bin/postproject": "5c1318a8c3c5adf039c415c8ebcaf72c410e7663dec45a3f50845e04966e6e6c",
+    "bin/postproject": "188dc3eefb24a43e304970255c0dacc29d10099435378346e2eeb7314b396621",
     "include/postproject/postproject.h": "490b49140c1b103bb7c7d481f2022c76c1e109a6a1a5b5d2aaf21640565ccec6",
     "include/postproject/postproject.hpp": "3a9326db3a6c49f71a3c77ad388f9af728dd38d81436fb198cd3aff46cd5803d",
     "postproject-0.8.0a1-py3-none-any.whl": "fe443727651608610188a60a18f5bab54b4ce0da16cf22a0110469604b1060c4",
@@ -70,11 +70,17 @@
     {
       "command": "Bundled wheel library SHA256 and py.typed",
       "result": "verified"
+    },
+    {
+      "command": "ctest --test-dir /tmp/postproject-08-examples -R ^cli-exchange --output-on-failure",
+      "result": "passed after the CLI help description refresh; installed CLI source 6c7ee03"
     }
   ],
   "limitations": [
     "No release tag or publication.",
     "Native library is not sanitizer-instrumented by these local checks.",
     "Commercial host execution is separate from license-independent preparation."
-  ]
+  ],
+  "cli_source_commit": "6c7ee03",
+  "cli_initial_qualification_sha256": "5c1318a8c3c5adf039c415c8ebcaf72c410e7663dec45a3f50845e04966e6e6c"
 }

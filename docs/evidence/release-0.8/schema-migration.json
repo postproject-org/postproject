@@ -1,0 +1,30 @@
+{
+  "baseline_source": "e14d92fbcd7de55626b7da3a42aee4e8d3a32ba6",
+  "baseline_source_verification": "173 Rust files/build inputs match; extra native benchmark target only",
+  "baseline_cli_sha256": "100052f155ca91045a150f2c0bc157793a4efdd71f4ae435feec638af5085088",
+  "candidate_cli_source": "6c7ee03",
+  "candidate_cli_sha256": "188dc3eefb24a43e304970255c0dacc29d10099435378346e2eeb7314b396621",
+  "before_schema": 19,
+  "after_schema": 27,
+  "production_id": "fbc567d0-0cca-4e9c-ac80-99099d59d4f2",
+  "revision_sequence": 1,
+  "preserved": "production, revisions, events, unknown exact metadata and detached decision",
+  "old_binary_rejection": {
+    "format_version": 1,
+    "error": {
+      "code": "unsupported",
+      "message": "open production: production schema version 27 is newer than supported version 19",
+      "transaction_conflict": null
+    }
+  },
+  "old_binary_exit": 8,
+  "new_store_sha256_before_and_after_old_open": "e4581fc06fc7c32ccfadd730b3cfcd5f4a3dc0accca4ff7148d1800c1608ed30",
+  "result": "passed",
+  "migration_floor": {
+    "sequence": "1",
+    "revision": "ef393acb-9ca7-4940-802b-6d53b31c2de4",
+    "digest": "d54af4a43153c6df6ecdd33a69eba3ced7c83af8fa86336aaf8b543185deb559",
+    "role": "authority",
+    "replay_status": "available"
+  }
+}
