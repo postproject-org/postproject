@@ -12,9 +12,10 @@ guards only. Preserve those corrections. The workspace instructions apply to
 all 13 active GitHub repositories; no nested instructions were found. The
 historical Shotcut scaffold has no remote and is outside qualification.
 [Repository inputs](exchange-repositories.json) record exact starting commits
-and preexisting untracked builds. Candidate qualification has **not** run.
+and preexisting untracked builds. Installed 0.8 qualification is recorded in
+[the candidate evidence](evidence/release-0.8/linux-candidate.json).
 
-Development schema 27 retains one persistent history generation, an honest
+Schema 27 retains one persistent history generation, an honest
 genesis/migration replay floor and original observation history. Every current
 native mutation family enters complete capture in the same domain transaction.
 Passive replay preserves authored intermediates, identities, revision/event order,
@@ -35,22 +36,20 @@ and archived earlier evidence have focused semantic and process-exit regressions
 
 Rust, C11, C++17 (both error styles), Python and CLI offer submission/recovery,
 checkpoint exchange, catch-up and scoped inspection. Development ABI 52 has 349
-exports and 36 checked public layouts. [Installed native evidence](
-evidence/exchange-development/installed-native.json) records local compiler floors,
-consumer recipes, wheel typing and tests; it is not installed release-candidate
-acceptance. Fixed independent vectors cover all 24 command alternatives, ten
+exports and 36 checked public layouts. Installed candidate contracts, guide
+recipes and wheel typing pass. Fixed independent vectors cover all 24 command alternatives, ten
 records and nine checkpoints, including exact metadata edits, fingerprint history,
 dependency replacements, historical activities and all public job states. Imports
 reexport identical portable section bodies. [Rehashed storage cases](
 evidence/schema-27/rehashed-storage-files.json) qualify installed rejection and
 atomicity beyond hash checking, including compound validation and archived floor
-boundaries. Remaining limit qualification, maintained handoffs and final
-ecosystem/platform qualification remain pending. [Measured scale and local overhead](schema-27-exchange-measurements.md)
+boundaries. Both maintained real-host handoffs pass against the installed 0.8
+candidate. [Measured scale and local overhead](schema-27-exchange-measurements.md)
 cover native 10,000-asset capture, streaming, maximum binary metadata and outcome
 growth. [Blender native replay evidence](
 evidence/exchange-development/blender-native-replay.json) covers actual background
 save/render/relink commits and two distinct passive checkpoint/suffix routes.
-[Extended host conformance](evidence/exchange-development/host-compound-replay.json)
+[Installed 0.8 host conformance](evidence/release-0.8/host-convergence.json)
 adds compound knowledge, deterministic job lifecycles, two competing writers and
 distinct local mappings to that same native history. Exact portable bodies and
 public observations converge after replay and reopen; helper processes are not
@@ -58,10 +57,10 @@ independent host applications.
 
 ## Mutations and effect requirements
 
-All transaction methods and actual schema-19 tables/columns are classified in
+All transaction methods and actual schema tables/columns are classified in
 [the machine-readable inventory](exchange-inventory.json).
-`python3 tools/check_exchange_inventory.py` rejects unreviewed additions. Pending
-coverage is explicit; classification alone does not establish replay correctness.
+`python3 tools/check_exchange_inventory.py` rejects unreviewed additions.
+Classification alone does not establish replay correctness.
 
 | Mutation | Guard/merge | Required captured facts |
 |---|---|---|
@@ -112,7 +111,6 @@ rollback. Those private writes do not produce portable revisions.
 
 ## Evidence status
 
-Inventory/specification are development records. Codec, capture, outcomes,
-checkpoint/mirror, conformance, projections, consumer qualification and package
-gates remain incomplete. No released SDK artifact, commercial acceptance
-or release publication is claimed by this inventory.
+The inventory maps implemented behavior to contracts and executable evidence.
+Installed candidate checks and hosted job conclusions are separate qualification
+records. No commercial runtime acceptance or release publication is claimed.
