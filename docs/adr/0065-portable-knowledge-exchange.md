@@ -1,6 +1,6 @@
 # 0065: Portable knowledge exchange
 
-Status: accepted for development; implementation and qualification are incomplete.
+Status: accepted; implemented in the 0.8 candidate (protocol 1, ABI 52, schema 27).
 
 ## Decision
 
@@ -141,7 +141,7 @@ checking retained claim boundaries and original completion provenance. CLI
 submissions use explicit private files/stdin and reserve claim destinations before
 fresh staging. Retained recovery compares the original intent/private binding
 without reserving files or delivering ownership again. Native/Python projections
-remain pending.
+use the same recovery and separate delivery contract (ADR 0067).
 Public accepted outcomes retain one final summary per lifecycle-affected job,
 sorted by UUID: state, claimed expiry or successful publication IDs. Full request,
 attribution, diagnostic and input evidence remains in the receipt's effects.
@@ -154,8 +154,8 @@ and bindings. At most 1,000 fixed-width summaries, 64 KiB extensions and bounded
 receipt/conflict context fit this limit. It does not constrain native edits.
 Checkpoint guard export decodes every actual private key through checked domain
 constructors rather than inferring keys from events. Guard frames are a unique
-set; earlier development metadata ordering remains readable. Unsupported domain
-sections still reject explicitly until their checkpoint bodies are available.
+set; earlier development metadata ordering remains readable. All 19 portable
+sections have checkpoint bodies; unsupported required sections reject explicitly.
 Activity checkpoints retain original attribution, edges and fingerprint snapshots.
 Retained creation records must explain those immutable facts and match fingerprints
 at publication; current observations cannot replace historical evidence.

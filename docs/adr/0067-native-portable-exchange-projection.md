@@ -1,6 +1,6 @@
 # ADR 0067: Native portable exchange projection
 
-Status: accepted for development; projections and qualification in progress.
+Status: accepted; implemented and exercised by installed ABI 52 recipes.
 
 ## Decision
 

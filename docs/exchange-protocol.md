@@ -1,14 +1,14 @@
 # Portable exchange protocol
 
-This development specification describes protocol major 1. Implementation and
-cross-surface qualification are incomplete; the released 0.7 SDK does not offer
-these workflows. See [ADR 0065](adr/0065-portable-knowledge-exchange.md).
+This specification describes experimental protocol major 1, implemented across
+the 0.8 candidate's public surfaces. The released 0.7 SDK does not offer these
+workflows. See [ADR 0065](adr/0065-portable-knowledge-exchange.md).
 
 ## Scope and lifecycle
 
 ### Seekable exchange files
 
-The development Rust file helpers package existing canonical JSON envelopes.
+The Rust file helpers package canonical JSON envelopes.
 A checkpoint starts with the eight bytes `PPXC 00 00 00 01`; a single record
 uses `PPXR 00 00 00 01` (the spaces separate bytes, not file contents).
 Every chunk is an unsigned eight-byte big-endian length followed by exactly
