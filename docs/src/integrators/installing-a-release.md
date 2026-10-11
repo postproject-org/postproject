@@ -31,9 +31,10 @@ CMake consumers point `CMAKE_PREFIX_PATH` at the extracted directory and link
 `PostProject::postproject`. `pkg-config` consumers add its `lib/pkgconfig`
 directory to `PKG_CONFIG_PATH`. Neither path invokes Cargo.
 
-The Linux package and wheel are built for glibc 2.28 and load on any
-x86-64 Linux with that glibc or newer. The macOS package and wheel need
-macOS 11 on Apple silicon; the Windows ones need 64-bit Windows.
+The release workflow builds Linux packages and wheels for glibc 2.28.
+Locally built candidates have their build's platform requirements; check their
+qualification report before installing them. Release macOS packages and wheels
+need macOS 11 on Apple silicon; Windows packages need 64-bit Windows.
 
 A platform wheel, such as
 `postproject-0.8.0a1-py3-none-manylinux_2_28_x86_64.whl`, contains the

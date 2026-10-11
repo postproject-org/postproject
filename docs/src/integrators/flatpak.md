@@ -16,7 +16,8 @@ source archive:
   `flatpak-cargo-generator`.
 
 Copy both next to your manifest and list the module before the modules that
-use PostProject:
+use PostProject. The example names use the unpublished 0.8 candidate; render a
+local module with the command below until matching release assets exist:
 
 ```json
 {
