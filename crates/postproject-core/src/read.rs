@@ -2,7 +2,10 @@
 
 use std::{fmt, str::FromStr};
 
-use crate::{Error, ErrorKind, ProductionId, ProductionRead, ProductionStore, Result, RevisionId};
+use crate::{
+    Asset, Error, ErrorKind, ProductionId, ProductionRead, ProductionStore, QueryPageRequest,
+    Result, Revision, RevisionId,
+};
 
 /// Detached optimistic context; it does not retain a read view or a lock.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -110,6 +113,92 @@ pub trait ProductionReadSession {
 
     /// Detaches the view's production-scoped decision context.
     fn decision_base(&self) -> DecisionBase;
+
+    /// Scans all assets in this coherent view using bounded, lazy pages.
+    ///
+    /// The iterator borrows the view; copied assets may outlive it. A backend
+    /// error is returned once, then the iterator ends. Dropping the iterator
+    /// stops traversal without closing the caller-owned view. There is no
+    /// total-result cap or hidden connection.
+    ///
+    /// # Errors
+    ///
+    /// Rejects page sizes outside `1..=1000` before returning an iterator.
+    /// Individual items preserve errors from the underlying page operation.
+    fn assets(&self, page_size: u32) -> Result<impl Iterator<Item = Result<Asset>> + '_>
+    where
+        Self: Sized,
+    {
+        let mut request = Some(QueryPageRequest::new(page_size, None)?);
+        let mut buffered = Vec::new().into_iter();
+        Ok(std::iter::from_fn(move || {
+            if let Some(asset) = buffered.next() {
+                return Some(Ok(asset));
+            }
+            let current = request.take()?;
+            let page = match self.read().assets_page(&current) {
+                Ok(page) => page,
+                Err(error) => return Some(Err(error)),
+            };
+            if page.traversal_truncated()
+                || (page.items().is_empty() && page.next_cursor().is_some())
+                || page
+                    .next_cursor()
+                    .is_some_and(|next| Some(next) == current.cursor())
+            {
+                return Some(Err(Error::new(
+                    ErrorKind::Internal,
+                    "asset scan received an incomplete or nonadvancing page",
+                )));
+            }
+            if let Some(cursor) = page.next_cursor().cloned() {
+                match QueryPageRequest::new(page_size, Some(cursor)) {
+                    Ok(next) => request = Some(next),
+                    Err(error) => return Some(Err(error)),
+                }
+            }
+            buffered = page.into_items().into_iter();
+            buffered.next().map(Ok)
+        }))
+    }
+
+    /// Scans revisions after `after`, in ascending order within this view.
+    ///
+    /// Page size bounds memory, not the number of revisions. The iterator
+    /// borrows the view and ends after a backend error, returning that error
+    /// unchanged. It observes the retained history, not future writes.
+    ///
+    /// # Errors
+    ///
+    /// Rejects page sizes outside `1..=1000` before returning an iterator.
+    /// Individual items preserve errors from the underlying history operation.
+    fn revisions(
+        &self,
+        after: u64,
+        page_size: u32,
+    ) -> Result<impl Iterator<Item = Result<Revision>> + '_>
+    where
+        Self: Sized,
+    {
+        QueryPageRequest::new(page_size, None)?;
+        let mut sequence = Some(after);
+        let mut buffered = Vec::new().into_iter();
+        Ok(std::iter::from_fn(move || {
+            if let Some(revision) = buffered.next() {
+                return Some(Ok(revision));
+            }
+            let current = sequence.take()?;
+            let page = match self.read().changes_since(current, page_size) {
+                Ok(page) => page,
+                Err(error) => return Some(Err(error)),
+            };
+            if page.len() == page_size as usize {
+                sequence = page.last().map(Revision::sequence);
+            }
+            buffered = page.into_iter();
+            buffered.next().map(Ok)
+        }))
+    }
 
     /// Begins an edit carrying this view's decision base automatically.
     ///

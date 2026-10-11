@@ -35,6 +35,10 @@ artifact reports, bounded activities/provenance, output filters, unresolved
 media, changed objects, journal heads/pages/filters, bounded revision events,
 regeneration planning, resolution and verification. Rust exposes the full
 domain read interface. Existing production queries read current state separately.
+Python and Rust also offer lazy asset/revision scans inside a retained view.
+The page size bounds memory; it does not limit the complete result. Python
+checks view lifetime on each advance; Rust borrows the view. Errors propagate,
+and stopping a scan leaves closing the view to its caller.
 Media-root pages use the same ordering and cursor rules. Convenience root reads
 are capped at 1000 and fail above that count; use pages for larger productions.
 Live getters load current roots rather than roots cached at open.

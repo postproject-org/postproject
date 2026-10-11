@@ -29,13 +29,19 @@ pinned history, rather than a live subscription. The iterator advances using
 the last copied sequence, retains native errors and adds no total cap. Manual
 `changes_since` pages and revision waiters remain available.
 
+Rust `ProductionReadSession::assets(page_size)` and
+`revisions(after, page_size)` borrow the retained view and yield fallible,
+owned values. Rust prevents dropping the view while either iterator is in
+use. They validate size eagerly, fetch lazily and end after a single backend
+error. Low-level pages remain available. No new C ABI operation is needed.
+
 ## Migration and standards impact
 
 Replace `tuple(production.assets)` with a scan inside `read_session()` and
 `id in production.assets` with `production.asset_exists(id)`. Live point
 queries and pinned scans deliberately have different consistency boundaries.
 
-Reviewed against the contributor standards policy: this changes only Python
+Reviewed against the contributor standards policy: this changes Python and Rust
 source/lifetime semantics. UUIDs, domain meaning, storage, C ABI, cursor
 framing and portable exchange formats remain unchanged. No external standards
 mapping or normalization is introduced.
