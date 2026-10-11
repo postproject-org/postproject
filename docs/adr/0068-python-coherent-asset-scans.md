@@ -23,6 +23,12 @@ Remove the old collection's traversal, length and membership implementations;
 do not provide compatibility aliases. Callers that need a complete list
 explicitly collect the session iterator.
 
+`ReadSession.revisions(after=0, page_size=100)` applies the same lifetime and
+page-size rules to ascending revision summaries. It is a finite scan of the
+pinned history, rather than a live subscription. The iterator advances using
+the last copied sequence, retains native errors and adds no total cap. Manual
+`changes_since` pages and revision waiters remain available.
+
 ## Migration and standards impact
 
 Replace `tuple(production.assets)` with a scan inside `read_session()` and

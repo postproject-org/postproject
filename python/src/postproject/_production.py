@@ -2919,6 +2919,32 @@ class ReadSession:
             _page_limit(limit),
         )
 
+    def revisions(self, *, after: int = 0, page_size: int = 100) -> Iterator[Revision]:
+        """Scan copied revision summaries in ascending order within this view.
+
+        This is a finite scan of the pinned history, not a live subscription.
+        Page size bounds each native read; the complete scan has no total cap.
+        Closing the session invalidates unstarted and buffered advances.
+        """
+        self._require_open()
+        sequence = _unsigned(after, 64, "after")
+        limit = _page_limit(page_size)
+
+        def scan() -> Iterator[Revision]:
+            position = sequence
+            while True:
+                self._require_open()
+                page = self.changes_since(position, limit)
+                for revision in page:
+                    self._require_open()
+                    yield revision
+                self._require_open()
+                if len(page) < limit:
+                    return
+                position = page[-1].sequence
+
+        return scan()
+
     def dependency_set(
         self, representation_id: RepresentationId
     ) -> DependencySet | None:
