@@ -43,17 +43,17 @@
       "repository": "postproject",
       "run": 38146447281,
       "head_sha": "a5417522789909489c6fe4085f02e84a49c9f786",
-      "status": "in_progress",
-      "workflow_conclusion": "",
+      "status": "completed",
+      "workflow_conclusion": "success",
       "jobs": [
         {"conclusion":"success","name":"python-host / test"},
-        {"conclusion":"","name":"ardour / Ardour without PostProject"},
+        {"conclusion":"success","name":"ardour / Ardour without PostProject"},
         {"conclusion":"success","name":"openassetio-publishing / test (bundled-nuke-17)"},
         {"conclusion":"success","name":"openassetio-manager / test"},
         {"conclusion":"success","name":"ardour / Installed pkg-config resolver on macOS"},
         {"conclusion":"success","name":"natron / contract"},
         {"conclusion":"success","name":"openassetio-publishing / test (current)"},
-        {"conclusion":"","name":"ardour / Ardour with PostProject"},
+        {"conclusion":"success","name":"ardour / Ardour with PostProject"},
         {"conclusion":"success","name":"otio-openassetio / test"},
         {"conclusion":"success","name":"cpp-nle / test"},
         {"conclusion":"success","name":"obs / contract"}
@@ -95,11 +95,11 @@
       "repository": "postproject",
       "run": 38147503366,
       "head_sha": "a5417522789909489c6fe4085f02e84a49c9f786",
-      "status": "in_progress",
-      "workflow_conclusion": "",
+      "status": "completed",
+      "workflow_conclusion": "failure",
       "jobs": [
-        {"conclusion":"","name":"kdenlive / Kdenlive without PostProject"},
-        {"conclusion":"","name":"kdenlive / Kdenlive with PostProject"}
+        {"conclusion":"success","name":"kdenlive / Kdenlive without PostProject"},
+        {"conclusion":"failure","name":"kdenlive / Kdenlive with PostProject"}
       ]
     }
   ]

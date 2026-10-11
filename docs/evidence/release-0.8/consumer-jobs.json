@@ -80,23 +80,23 @@
       "repository": "postproject-ardour",
       "run": 38146537052,
       "head_sha": "7656b6516e6367a89a7045726c84393fb54e2310",
-      "status": "in_progress",
-      "workflow_conclusion": "",
+      "status": "completed",
+      "workflow_conclusion": "success",
       "jobs": [
         {"conclusion":"success","name":"Installed pkg-config resolver on macOS"},
-        {"conclusion":"","name":"Ardour without PostProject"},
-        {"conclusion":"","name":"Ardour with PostProject"}
+        {"conclusion":"success","name":"Ardour without PostProject"},
+        {"conclusion":"success","name":"Ardour with PostProject"}
       ]
     },
     {
       "repository": "postproject-kdenlive",
       "run": 38147376867,
       "head_sha": "89a92139e5c67b309a226fadd75802ee911c0326",
-      "status": "in_progress",
-      "workflow_conclusion": "",
+      "status": "completed",
+      "workflow_conclusion": "failure",
       "jobs": [
-        {"conclusion":"","name":"Kdenlive without PostProject"},
-        {"conclusion":"","name":"Kdenlive with PostProject"}
+        {"conclusion":"success","name":"Kdenlive without PostProject"},
+        {"conclusion":"failure","name":"Kdenlive with PostProject"}
       ]
     }
   ]

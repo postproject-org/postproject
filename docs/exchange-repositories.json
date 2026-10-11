@@ -27,7 +27,7 @@
       "repository": "postproject-ardour",
       "base_commit": "a417d2032ce5ee8893c31fad1791286d89f195ef",
       "candidate_commit": "7656b6516e6367a89a7045726c84393fb54e2310",
-      "qualification": "installed resolver passed; full with/without builds pending on GitHub",
+      "qualification": "installed resolver and all three hosted jobs passed, including full builds with/without PostProject",
       "initial_untracked": [],
       "changed": true,
       "test_command": "tools/test.sh <candidate install prefix>",
@@ -60,14 +60,15 @@
     {
       "repository": "postproject-kdenlive",
       "base_commit": "24153ec76ba7e0420a5950be6163500d320f1719",
-      "candidate_commit": "89a92139e5c67b309a226fadd75802ee911c0326",
-      "qualification": "installed full build, document/pilot tests and real shared handoff passed; hosted builds pending",
+      "candidate_commit": "f89b19a2054153de98a9e8182aa7504d1285a921",
+      "qualification": "local full build/tests/shared handoff passed; hosted handoff filename fixed after failed run, requalification pending",
       "initial_untracked": [],
       "changed": true,
       "test_command": "tools/test.sh /tmp/postproject-08-kdenlive-build; tools/shared-production.sh with candidate SDK/Blender/Manager",
       "local_log": "target/exchange-candidate-kdenlive-tests.log; target/exchange-candidate-shared-handoff.log",
       "upstream_pin": "v26.08.1 / 55e16e85cd9a9c6e032cd27a621137b4da881a7c; ten replacement patches",
-      "sdk_guard": "find_package(PostProject 0.8 CONFIG)"
+      "sdk_guard": "find_package(PostProject 0.8 CONFIG)",
+      "compiled_adapter_commit": "89a92139e5c67b309a226fadd75802ee911c0326"
     },
     {
       "repository": "postproject-natron",
@@ -95,7 +96,7 @@
         "?? build-qualification-abi51/"
       ],
       "changed": true,
-      "test_command": "ctest --test-dir /tmp/postproject-08-obs; python tests/run.py <new root> --library <candidate library>; tests/handoff_blender.py in Blender",
+      "test_command": "ctest --test-dir /tmp/postproject-08-obs; python tests/run.py <new root> --library <candidate library> --build /tmp/postproject-08-obs; tests/handoff_blender.py in Blender",
       "runtime_pin": "OBS 32.2.2; isolated Xvfb; FFmpeg output readback",
       "sdk_guard": "pkg-config postproject >= 0.8.0",
       "local_log": "target/exchange-candidate-obs-host-qualified.log; target/exchange-candidate-obs-blender-handoff.log"
