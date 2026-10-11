@@ -5,18 +5,23 @@
     "abi": 52,
     "schema": 27,
     "platform": "Linux x86_64",
-    "evidence": "evidence/release-0.8/linux-candidate.json"
+    "evidence": "evidence/release-0.8/linux-candidate.json",
+    "sdk_build_commit": "a5417522789909489c6fe4085f02e84a49c9f786",
+    "cli_source_commit": "6c7ee03",
+    "toolchain": "Rust 1.98.1; GCC 16; Python 3.11.15 / 3.14.7; Ruff 0.16.8; ty 0.0.82",
+    "commands_scope": "Run in each repository with candidate install prefix and installed Python environment; local logs are retained in SDK target/"
   },
   "repositories": [
     {
       "repository": "postproject",
       "base_commit": "663a8cf83b3062eb74636a4655c3882f1f607cdd",
-      "candidate_commit": "fb43dd3edb0ff5251a0548a9c69d4812dc1efeb5",
-      "qualification": "installed local gates passed; hosted jobs pending",
+      "candidate_commit": "a5417522789909489c6fe4085f02e84a49c9f786",
+      "qualification": "installed local gates and all 16 SDK CI jobs passed; full-host builds pending",
       "initial_untracked": [
         "?? python/build/"
       ],
-      "changed": true
+      "changed": true,
+      "test_command": "required Rust gates; installed native/Python/examples; docs/evidence/release-0.8/linux-candidate.json"
     },
     {
       "repository": "postproject-ardour",
@@ -38,18 +43,19 @@
       "repository": "postproject-cpp-nle",
       "base_commit": "8d2933a8db4d945801272282f316808807c61584",
       "candidate_commit": "8d2933a8db4d945801272282f316808807c61584",
-      "qualification": "unchanged source; local suite passed against candidate where applicable",
+      "qualification": "unchanged source; installed local suite and downstream hosted job passed",
       "initial_untracked": [],
-      "changed": false
+      "changed": false,
+      "test_command": "cmake with candidate CMAKE_PREFIX_PATH; ctest --test-dir /tmp/postproject-08-cpp-nle --output-on-failure",
+      "local_log": "target/exchange-candidate-downstream/cpp-nle-tests-final.log"
     },
     {
       "repository": "postproject-kdenlive",
       "base_commit": "24153ec76ba7e0420a5950be6163500d320f1719",
-      "candidate_commit": null,
-      "qualification": "pinned upstream plus current patch series; installed full build in progress",
+      "candidate_commit": "89a92139e5c67b309a226fadd75802ee911c0326",
+      "qualification": "installed full build, document/pilot tests and real shared handoff passed; hosted builds pending",
       "initial_untracked": [],
-      "changed": true,
-      "pending_diff_sha256": "e71299e6444ae83fddaf3c5ecd0d6cfa694f2466ad6b44ba6c092d2d640b174b"
+      "changed": true
     },
     {
       "repository": "postproject-natron",
@@ -78,55 +84,74 @@
       "repository": "postproject-openassetio",
       "base_commit": "5e38c3189dfa6f5224371df5a84e61d852eb4348",
       "candidate_commit": "36414f1609484e3149f2c05273c42b9b1e516c98",
-      "qualification": "local suite passed; hosted jobs pending",
+      "qualification": "installed local suite and every hosted test job passed",
       "initial_untracked": [
         "?? build/"
       ],
-      "changed": true
+      "changed": true,
+      "test_command": "-m pytest -q -W error",
+      "local_log": "target/exchange-candidate-downstream/postproject-openassetio.log",
+      "sdk_bound": ">=0.7.0a1,<0.9"
     },
     {
       "repository": "postproject-openassetio-manager",
       "base_commit": "ed5293c9f7fbc85d61a9658dd0909cfe036124db",
       "candidate_commit": "ccfbd8d58a7b2da7b607940917aeea30cd697de0",
-      "qualification": "local suite passed; hosted jobs pending",
+      "qualification": "installed local suite and every hosted test job passed",
       "initial_untracked": [
         "?? build/"
       ],
-      "changed": true
+      "changed": true,
+      "test_command": "-m pytest -q",
+      "local_log": "target/exchange-candidate-downstream/postproject-openassetio-manager.log",
+      "sdk_bound": ">=0.7.0a1,<0.9",
+      "own_version": "0.5.0",
+      "dependency_pins": "OpenAssetIO 1.0.0 / MediaCreation alpha.12 and 1.0.2 / alpha.13; Nuke 17.0v1 CPython 3.11 preparation only"
     },
     {
       "repository": "postproject-otio-demo",
       "base_commit": "c18f5bc1a700032f3136facf96f60f2831631580",
       "candidate_commit": "4d73d227a689abd528cbfe8762abcd9f5a940c0d",
-      "qualification": "local suite passed; hosted jobs pending",
+      "qualification": "installed local suite and every hosted test job passed",
       "initial_untracked": [
         "?? build/"
       ],
-      "changed": true
+      "changed": true,
+      "test_command": "-m pytest -q",
+      "local_log": "target/exchange-candidate-downstream/postproject-otio-demo.log",
+      "sdk_bound": ">=0.7.0a1,<0.9",
+      "own_version": "0.3.0",
+      "manager_bound": ">=0.5,<0.6"
     },
     {
       "repository": "postproject-otio-openassetio",
       "base_commit": "81a6ee684ac9704080d86c64fa404ca470766c86",
       "candidate_commit": "10b05522ac91c446fc122c80b925c9b79bfaa37c",
-      "qualification": "local suite passed; hosted jobs pending",
+      "qualification": "installed local suite and every hosted test job passed",
       "initial_untracked": [],
-      "changed": true
+      "changed": true,
+      "test_command": "-m pytest -q",
+      "local_log": "target/exchange-candidate-downstream/postproject-otio-openassetio.log",
+      "sdk_bound": ">=0.7.0a1,<0.9"
     },
     {
       "repository": "postproject-python-host",
       "base_commit": "c42b8b862cb53efe90a3ce5003ef78f34bfd3337",
       "candidate_commit": "c42b8b862cb53efe90a3ce5003ef78f34bfd3337",
-      "qualification": "unchanged source; local suite passed against candidate where applicable",
+      "qualification": "installed local suite and every hosted test job passed",
       "initial_untracked": [],
-      "changed": false
+      "changed": false,
+      "test_command": "-m pytest -q test_host.py",
+      "local_log": "target/exchange-candidate-downstream/postproject-python-host.log"
     },
     {
       "repository": "postproject.org",
       "base_commit": "606f228b61adefe1748b029b72228ec549dd37cb",
       "candidate_commit": "606f228b61adefe1748b029b72228ec549dd37cb",
-      "qualification": "unchanged source; local suite passed against candidate where applicable",
+      "qualification": "unchanged published-release claims; three standard-library tests passed",
       "initial_untracked": [],
-      "changed": false
+      "changed": false,
+      "test_command": "python3 -m unittest discover -s tests"
     }
   ]
 }
