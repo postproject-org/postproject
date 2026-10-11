@@ -85,6 +85,6 @@
     "Native library is not sanitizer-instrumented by these local checks.",
     "Commercial host execution is separate from license-independent preparation."
   ],
-  "cli_source_commit": "6c7ee03",
+  "cli_source_commit": "6c7ee03418db6ce7e5a35994e0249b4118ae2825",
   "cli_initial_qualification_sha256": "5c1318a8c3c5adf039c415c8ebcaf72c410e7663dec45a3f50845e04966e6e6c"
 }

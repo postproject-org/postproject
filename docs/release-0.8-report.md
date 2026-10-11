@@ -4,6 +4,7 @@ Candidate `0.8.0-alpha.1` (Python `0.8.0a1`), C ABI **52**, **349 exports**,
 **36 public layouts**, SQLite schema **27**, experimental protocol major **1**.
 The released baseline is `v0.7.0-alpha.1`, commit
 `e14d92fbcd7de55626b7da3a42aee4e8d3a32ba6`.
+Candidate qualification is complete; the candidate remains unpublished.
 
 ## Delivered behavior
 
@@ -62,7 +63,8 @@ the separate glibc 2.28 wheel. Both
 and the [KDE 6.10 Flatpak check](https://github.com/postproject-org/postproject/actions/runs/38146446748)
 pass. {download}`Individual SDK conclusions <evidence/release-0.8/sdk-jobs.json>`
 retain optional failures and distinguish unfinished jobs from passes.
-All eleven hosted downstream jobs pass, including full Ardour builds with and
+All eleven [downstream jobs](https://github.com/postproject-org/postproject/actions/runs/38149795827)
+pass at `dfad96b`, including full Ardour builds with and
 without PostProject. The corrected
 [Kdenlive repository workflow](https://github.com/postproject-org/postproject-kdenlive/actions/runs/38150060649)
 and [SDK full-host workflow](https://github.com/postproject-org/postproject/actions/runs/38150158593)

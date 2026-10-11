@@ -7,7 +7,7 @@
     "platform": "Linux x86_64",
     "evidence": "evidence/release-0.8/linux-candidate.json",
     "sdk_build_commit": "a5417522789909489c6fe4085f02e84a49c9f786",
-    "cli_source_commit": "6c7ee03",
+    "cli_source_commit": "6c7ee03418db6ce7e5a35994e0249b4118ae2825",
     "toolchain": "Rust 1.98.1; GCC 16; Python 3.11.15 / 3.14.7; Ruff 0.16.8; ty 0.0.82",
     "commands_scope": "Run in each repository with candidate install prefix and installed Python environment; local logs are retained in SDK target/"
   },

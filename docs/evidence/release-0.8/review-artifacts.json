@@ -5,7 +5,11 @@
       "file": "postproject-0.8.0-alpha.1-candidate-linux-x86_64.tar.gz",
       "bytes": 25826990,
       "sha256": "09acb8b1a93e0d6870ba414680a2fcfa5e4d59fa13aa04007cff45072ffd2dec",
-      "source_commit": "a541752; CLI 6c7ee03; installed notes 4a6307b",
+      "source_commit": {
+        "sdk": "a5417522789909489c6fe4085f02e84a49c9f786",
+        "cli": "6c7ee03418db6ce7e5a35994e0249b4118ae2825",
+        "installed_notes": "4a6307b586ab62db27fab51a763052dedcfa0043"
+      },
       "scope": "Local review archive, no publication; Linux native has no glibc 2.28 claim"
     },
     {
