@@ -14,90 +14,34 @@ historical Shotcut scaffold has no remote and is outside qualification.
 [Repository inputs](exchange-repositories.json) record exact starting commits
 and preexisting untracked builds. Candidate qualification has **not** run.
 
-Development schema 27 retains one persistent history generation and a deterministic
-genesis/migration-floor anchor. Existing revisions remain intact. The codec now
-covers strict framing, every metadata value kind, metadata/scalar media proposal intent,
-media fact/creation bodies and all existing original observation kinds;
-Job codecs preserve all five observed states without credentials. Schema 25 permits
-inert claimed observations in mirrors. Native capture and passive replay cover
-requests, claims, renewals, release, failure, cancellation and atomic completion.
-They retain intermediate states and input decisions without worker credentials.
-Complete mutation/effect coverage and the other exchange workflows remain pending.
-Media codecs retain identities, ownership, compact structures, individual ordered
-members/exceptions, roots, locators, exact identifiers and fingerprint history.
-Creation decoding yields provisional facts individually, checking complete resource
-and location coverage. Original/representation creation, roots, locators and
-exact identifiers, file-fact and standalone fingerprint updates now enter ordered native capture and
-atomic passive replay. Media checkpoint bodies preserve all four content shapes,
-exact attachments, current and historical fingerprints, dirty markers and later
-measurements/locator replacement. Fingerprint replay
-preserves same-revision supersessions and unchanged dirty clears, and rejects
-rehashed contradictory boundaries, markers and incomplete owner coverage.
-Dependency replacement captures complete empty and ordered occurrence sets,
-including repeated, floating, pinned and resolved references. Passive application
-preserves invalidation/re-extraction boundaries and rejects contradictory bodies
-without publishing a creation or history prefix. Native comparison streams beyond
-the public collection budget; unchanged observations retain stale-base guards.
-The maximum-member/exception codec tests do not qualify
-whole-production reconstruction or installed exchange surfaces.
-Metadata mutations now capture exact authored effects inside the native commit,
-including repeated edits to one property. Internal 1 MiB fragments preserve
-legal large values; a 65 MiB native replacement also commits and replays as one
-revision without assembling a whole evidence document. Metadata/media suffixes have bounded record manifests,
-ordered chunk chains and independently pinned Rust readers. Records retain the
-original revision/context, same-key history and observation events. Every current
-native mutation family is captured. Explicit bounded resynchronization establishes a new floor for incomplete
-development histories while retaining earlier evidence and durable outcomes. Readers report `history_gap`;
-native changing commits with a missing predecessor fail and roll back.
-Rust and CLI file workflows now export, import and catch up through checked
-bounded readers. Source-built process tests cover native media writes, private
-worker delivery, exact duplicate recovery and explicit history resynchronization.
-Native/Python exchange projections and installed-candidate qualification remain
-pending. Rust passive application validates metadata/media
-records atomically, preserving original revision/events and semantic versions.
-All four content shapes converge across distinct files without media I/O.
-Repeated root/locator/file-fact transitions retain authored intermediates.
-Rehashed contradictory creation facts reject without a visible staged prefix.
-Rust checkpoint export/import reconstructs media, identifiers, metadata, roots,
-current/historical fingerprint evidence and recomputation, activities with original
-fingerprint/dependency snapshots, ordered dependency sets and extraction state, inert public jobs with original
-completion/input evidence, earlier archives, retained
-revisions/events, semantic guards and post-floor records through bounded sections.
-Export pins one view; import checks current assertions against authored effects
-and promotes a closed passive store exclusively. Two distinct checkpoint bases
-converge through a contiguous suffix, including a migrated schema-19 baseline.
-Receiver budgets and iterator cancellation roll back the whole import/apply.
-Process-exit tests cover streaming, private commit and completion sealing;
-restart preserves unrelated files and altered/existing destinations.
-Activity checkpoint-plus-suffix routes retain original snapshots, exact attachments
-and ordinary artifact/staleness results after later observations and reopen.
-Rehashed activity contradictions reject without a destination or staging leftovers.
-Earlier development evidence travels in bounded, non-executable archive bodies.
-Checkpoint envelope extensions remain unsupported. Installed whole-production
-recipes and final qualification remain pending.
-Identified metadata/media submissions retain accepted/no-op/rejected public
-outcomes in the same writer transaction. Root, locator, identifier and file-fact
-commands reuse native bases and guards; reopen recovery precedes reevaluation,
-and ordered intermediate effects replay into a distinct passive file. Prepared
-original/representation aggregates submit atomically and retain their receipts
-after reopen; no media is opened on submission or replay. Fingerprint/dependency
-observations reuse mandatory bases. Activity commands capture native evidence
-before any later same-proposal changes; replay preserves that historical state.
-All seven job commands reuse native authority guards. Local submissions accept
-borrowed leases or private tokens and deliver newly committed active ownership
-separately. Rejected staging closes pending claims and retains observed authority
-time. Recovery precedes clock, expiry and current ownership checks; duplicates
-deliver no new ownership. Accepted outcomes retain sorted final job summaries
-with state, expiry and completion IDs; complete observations stay in records.
-The full authority gate remains pending.
-Private outcome persistence validates bounded credential bindings. Public lookup
-returns the original result without credentials; submission compares both public
-intent and private context before current-state guards. Installed worker
-input/delivery surfaces remain pending.
-Persisted passive roles reject native transaction opens and token import while
-retaining ordinary reads and coherent sessions. Role tests cover reopen and
-writer-lock enforcement; checkpoint tests cover all portable domain sections,
-including historical evidence and inert jobs. Installed role checks remain pending.
+Development schema 27 retains one persistent history generation, an honest
+genesis/migration replay floor and original observation history. Every current
+native mutation family enters complete capture in the same domain transaction.
+Passive replay preserves authored intermediates, identities, revision/event order,
+semantic versions, historical evidence and inert job observations. A missing
+predecessor prevents a successful changing commit; explicit resynchronization
+retains earlier evidence and outcomes outside the new replayable suffix.
+
+Identified proposals reuse native staging and guards. Accepted, no-op and terminal
+rejected outcomes survive reopen; original recovery precedes current-state guards.
+Private credential binding and fresh ownership delivery stay separate from public
+receipts and job results. Ordinary native writes remain usable without wire JSON.
+
+Checkpoint export pins one view and declares all 19 portable sections. Import
+checks completeness, cross-references and authored evidence before exclusively
+promoting a closed passive store. Claimed jobs carry no usable capability.
+Bounded stream readers, chunked large native transactions, owned staging recovery
+and archived earlier evidence have focused semantic and process-exit regressions.
+
+Rust, C11, C++17 (both error styles), Python and CLI offer submission/recovery,
+checkpoint exchange, catch-up and scoped inspection. Development ABI 52 has 349
+exports and 36 checked public layouts. [Installed native evidence](
+evidence/exchange-development/installed-native.json) records local compiler floors,
+consumer recipes, wheel typing and tests; it is not installed release-candidate
+acceptance. Fixed independent vectors cover all 24 command alternatives, a split
+metadata record and a complete genesis checkpoint. Nonempty checkpoint/other record
+vectors, complete cross-process convergence, real-host handoffs and final ecosystem
+and platform qualification remain pending.
 
 ## Mutations and effect requirements
 
@@ -157,5 +101,5 @@ rollback. Those private writes do not produce portable revisions.
 
 Inventory/specification are development records. Codec, capture, outcomes,
 checkpoint/mirror, conformance, projections, consumer qualification and package
-gates remain incomplete. No new SDK artifact, host run, commercial acceptance
+gates remain incomplete. No released SDK artifact, qualified host run, commercial acceptance
 or release publication is claimed by this inventory.
