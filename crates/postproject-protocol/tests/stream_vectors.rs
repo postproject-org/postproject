@@ -4,10 +4,11 @@ use std::path::Path;
 
 use postproject_core::DecisionBase;
 use postproject_protocol::{
-    CreationDecoder, CreationFact, Document, FrameDecoder, IdentifierChange, Limits, MediaChange,
-    MetadataEffect, MetadataEffectStart, Position, ProtocolBase, RecordChunk, RecordManifest,
-    RepresentationCreationStart, decode_asset, decode_event, encode_asset, encode_event,
-    encode_locator,
+    CreationDecoder, CreationFact, DependencyOccurrence, DependencySetHeader, Document,
+    FingerprintChangeStart, FingerprintRecomputation, FrameDecoder, IdentifierChange, Limits,
+    MediaChange, MetadataEffect, MetadataEffectStart, Position, ProtocolBase, RecordChunk,
+    RecordManifest, RepresentationCreationStart, decode_asset, decode_event, encode_asset,
+    encode_event, encode_locator,
 };
 
 fn document(value: &serde_json::Value) -> Document {
@@ -71,16 +72,31 @@ fn independent_split_stream_preserves_exact_authored_frames_and_both_digests() {
                 .iter()
                 .filter(|frame| frame.kind().unwrap() != "observation")
             {
-                let encoded = if frame.kind().unwrap().starts_with("identifier.") {
-                    IdentifierChange::from_document(frame)
+                let encoded = match frame.kind().unwrap() {
+                    "fingerprint.change" => FingerprintChangeStart::from_document(frame)
                         .unwrap()
                         .document()
+                        .unwrap(),
+                    "fingerprint.recomputation" => FingerprintRecomputation::from_document(frame)
                         .unwrap()
-                } else {
-                    MediaChange::from_document(frame)
+                        .document(),
+                    "dependency.set" => DependencySetHeader::from_document(frame)
+                        .unwrap()
+                        .document(),
+                    "dependency.occurrence" => DependencyOccurrence::from_document(frame)
                         .unwrap()
                         .document()
+                        .unwrap(),
+                    kind if kind.starts_with("identifier.") => {
+                        IdentifierChange::from_document(frame)
+                            .unwrap()
+                            .document()
+                            .unwrap()
+                    }
+                    _ => MediaChange::from_document(frame)
                         .unwrap()
+                        .document()
+                        .unwrap(),
                 };
                 assert_eq!(encoded, *frame);
             }
