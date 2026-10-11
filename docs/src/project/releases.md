@@ -10,6 +10,7 @@ These pages describe what each release delivered, how it was verified, and which
 
 ## Release records
 
+- {doc}`/release-0.8-compatibility-evidence` — installed candidate family use and review limits; no release publication.
 - {doc}`/release-0.7-report` — release qualification and package scope.
 - {doc}`/release-0.7-compatibility-evidence` — current family usage and qualification limits.
 - {doc}`/release-0.6-report` — candidate acceptance and artifact scope.
@@ -36,6 +37,7 @@ These pages describe what each release delivered, how it was verified, and which
 /abi-policy
 /releasing
 /roadmap
+/release-0.8-compatibility-evidence
 /release-0.7-report
 /release-0.7-compatibility-evidence
 /release-0.6-report
