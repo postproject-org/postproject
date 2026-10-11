@@ -7,10 +7,10 @@ use postproject_protocol::{
     ActivityEdgeHeader, ActivityHeader, ActivityPathHeader, ActivityPathSegment, CreationDecoder,
     CreationFact, DependencyOccurrence, DependencySetHeader, Document, FingerprintChangeStart,
     FingerprintRecomputation, FrameDecoder, IdentifierChange, JobHeader, JobInput, JobTransition,
-    Limits, MediaChange, MetadataEffect, MetadataEffectStart, Position, ProtocolBase, RecordChunk,
-    RecordManifest, RepresentationCreationStart, ResourceCreationStart, StructureHeader,
-    decode_asset, decode_event, decode_fingerprint_snapshot, decode_locator, encode_asset,
-    encode_event, encode_fingerprint_snapshot, encode_locator,
+    Limits, MediaChange, MetadataEffect, MetadataEffectStart, MetadataOperation, Position,
+    ProtocolBase, RecordChunk, RecordManifest, RepresentationCreationStart, ResourceCreationStart,
+    StructureHeader, decode_asset, decode_event, decode_fingerprint_snapshot, decode_locator,
+    encode_asset, encode_event, encode_fingerprint_snapshot, encode_locator,
 };
 
 fn document(value: &serde_json::Value) -> Document {
@@ -59,14 +59,7 @@ fn independent_split_stream_preserves_exact_authored_frames_and_both_digests() {
             assert_eq!(actual, &document(expected));
         }
         if frames[0].kind().unwrap() == "metadata.effect" {
-            let start = MetadataEffectStart::from_document(&frames[0]).unwrap();
-            let value = MetadataEffectStart::decode_value(&frames[1]).unwrap();
-            let effect =
-                MetadataEffect::appended(start.target(), start.property().clone(), 0, value)
-                    .unwrap();
-            for (actual, expected) in effect.frames().zip(&frames) {
-                assert_eq!(actual.unwrap(), *expected);
-            }
+            check_metadata_frames(&frames);
         } else if frames[0].kind().unwrap() == "original.creation" {
             check_media_frames(&frames, expected);
         } else {
@@ -84,6 +77,41 @@ fn independent_split_stream_preserves_exact_authored_frames_and_both_digests() {
             assert_eq!(encode_event(&decode_event(frame).unwrap()).unwrap(), *frame);
         }
     }
+}
+
+fn check_metadata_frames(frames: &[Document]) {
+    let mut offset = 0;
+    while frames[offset].kind().unwrap() != "observation" {
+        let start = MetadataEffectStart::from_document(&frames[offset]).unwrap();
+        let count = usize::try_from(start.value_count()).unwrap();
+        let values = frames[offset + 1..offset + 1 + count]
+            .iter()
+            .map(|frame| MetadataEffectStart::decode_value(frame).unwrap())
+            .collect::<Vec<_>>();
+        let effect = match start.operation() {
+            MetadataOperation::Appended(position) => MetadataEffect::appended(
+                start.target(),
+                start.property().clone(),
+                position,
+                values[0].clone(),
+            )
+            .unwrap(),
+            MetadataOperation::Replaced => {
+                MetadataEffect::replaced(start.target(), start.property().clone(), values)
+            }
+            MetadataOperation::Removed => {
+                MetadataEffect::removed(start.target(), start.property().clone())
+            }
+        };
+        let encoded = effect.frames().map(Result::unwrap).collect::<Vec<_>>();
+        assert_eq!(encoded, frames[offset..offset + 1 + count]);
+        offset += 1 + count;
+    }
+    assert!(
+        frames[offset..]
+            .iter()
+            .all(|frame| frame.kind().unwrap() == "observation")
+    );
 }
 
 fn check_media_frames(frames: &[Document], expected: &[serde_json::Value]) {

@@ -1,0 +1,190 @@
+{
+  "anchor": {
+  "kind": "anchor",
+  "version": "1",
+  "production": "00000000-0000-4000-8000-000000000001",
+  "history": "00000000-0000-4000-8000-000000000002",
+  "revision": null,
+  "sequence": "0"
+},
+  "floor": {
+  "production": "00000000-0000-4000-8000-000000000001",
+  "history": "00000000-0000-4000-8000-000000000002",
+  "revision": null,
+  "sequence": "0",
+  "digest": "bee5f938e8af5b92fbf9a176cc0fe4c2b7dc52a779f8ebbc2c43e9df65d16ad1"
+},
+  "predecessor": {
+  "production": "00000000-0000-4000-8000-000000000001",
+  "history": "00000000-0000-4000-8000-000000000002",
+  "revision": "00000000-0000-4000-8000-000000000730",
+  "sequence": "7",
+  "digest": "76a02fb59555a367e8a9111c5e445f3c1845424b7ac759ef31270abbdcc9d495"
+},
+  "prefix": [
+  "streams/media.json",
+  "streams/access.json",
+  "streams/knowledge.json",
+  "streams/provenance.json",
+  "streams/job-requests.json",
+  "streams/job-lifecycle.json",
+  "streams/job-completion.json"
+],
+  "body": [
+    {"kind": "metadata.effect", "target": {"kind": "asset", "id": "00000000-0000-4000-8000-000000000005"}, "property": {"vocabulary": "urn:vendor:Unknown", "property": "AllKinds"}, "operation": "replaced", "position": null, "values": "13"},
+    {"kind": "metadata.value", "value": {"kind": "string", "value": "Exact 同 😀\n "}},
+    {"kind": "metadata.value", "value": {"kind": "language_string", "value": "同", "language": "x-Exact"}},
+    {"kind": "metadata.value", "value": {"kind": "i64", "value": "-9223372036854775808"}},
+    {"kind": "metadata.value", "value": {"kind": "u64", "value": "18446744073709551615"}},
+    {"kind": "metadata.value", "value": {"kind": "decimal", "coefficient": "-170141183460469231731687303715884105728", "scale": "3"}},
+    {"kind": "metadata.value", "value": {"kind": "boolean", "value": true}},
+    {"kind": "metadata.value", "value": {"kind": "timestamp", "value": "-9223372036854775808"}},
+    {"kind": "metadata.value", "value": {"kind": "uri", "value": "unknown:Exact%2fCase"}},
+    {"kind": "metadata.value", "value": {"kind": "bytes", "value": "AP8="}},
+    {"kind": "metadata.value", "value": {"kind": "rational", "numerator": "-9223372036854775808", "denominator": "18446744073709551615"}},
+    {"kind": "metadata.value", "value": {"kind": "list", "value": [{"kind": "string", "value": "same"}, {"kind": "string", "value": "same"}]}},
+    {"kind": "metadata.value", "value": {"kind": "struct", "value": [{"name": "Repeated", "value": {"kind": "bytes", "value": "AP8="}}, {"name": "Repeated", "value": {"kind": "string", "value": "  Exact  "}}]}},
+    {"kind": "metadata.value", "value": {"kind": "reference", "value": {"kind": "asset", "id": "00000000-0000-4000-8000-000000000005"}}},
+    {"kind": "metadata.effect", "target": {"kind": "asset", "id": "00000000-0000-4000-8000-000000000005"}, "property": {"vocabulary": "urn:vendor:Unknown", "property": "Changed"}, "operation": "appended", "position": "0", "values": "1"},
+    {"kind": "metadata.value", "value": {"kind": "string", "value": "old"}},
+    {"kind": "metadata.effect", "target": {"kind": "asset", "id": "00000000-0000-4000-8000-000000000005"}, "property": {"vocabulary": "urn:vendor:Unknown", "property": "Changed"}, "operation": "appended", "position": "1", "values": "1"},
+    {"kind": "metadata.value", "value": {"kind": "string", "value": "old"}},
+    {"kind": "metadata.effect", "target": {"kind": "asset", "id": "00000000-0000-4000-8000-000000000005"}, "property": {"vocabulary": "urn:vendor:Unknown", "property": "Changed"}, "operation": "replaced", "position": null, "values": "2"},
+    {"kind": "metadata.value", "value": {"kind": "bytes", "value": "AP8="}},
+    {"kind": "metadata.value", "value": {"kind": "bytes", "value": "AP8="}},
+    {"kind": "metadata.effect", "target": {"kind": "asset", "id": "00000000-0000-4000-8000-000000000005"}, "property": {"vocabulary": "urn:vendor:Unknown", "property": "Removed"}, "operation": "appended", "position": "0", "values": "1"},
+    {"kind": "metadata.value", "value": {"kind": "string", "value": "temporary"}},
+    {"kind": "metadata.effect", "target": {"kind": "asset", "id": "00000000-0000-4000-8000-000000000005"}, "property": {"vocabulary": "urn:vendor:Unknown", "property": "Removed"}, "operation": "removed", "position": null, "values": "0"},
+    {"kind": "observation", "revision": "00000000-0000-4000-8000-0000000007d0", "position": "0", "event": {"kind": "metadata_added_or_replaced", "target": {"kind": "asset", "id": "00000000-0000-4000-8000-000000000005"}, "property": {"vocabulary": "urn:vendor:Unknown", "property": "AllKinds"}}},
+    {"kind": "observation", "revision": "00000000-0000-4000-8000-0000000007d0", "position": "1", "event": {"kind": "metadata_added_or_replaced", "target": {"kind": "asset", "id": "00000000-0000-4000-8000-000000000005"}, "property": {"vocabulary": "urn:vendor:Unknown", "property": "Changed"}}},
+    {"kind": "observation", "revision": "00000000-0000-4000-8000-0000000007d0", "position": "2", "event": {"kind": "metadata_added_or_replaced", "target": {"kind": "asset", "id": "00000000-0000-4000-8000-000000000005"}, "property": {"vocabulary": "urn:vendor:Unknown", "property": "Changed"}}},
+    {"kind": "observation", "revision": "00000000-0000-4000-8000-0000000007d0", "position": "3", "event": {"kind": "metadata_added_or_replaced", "target": {"kind": "asset", "id": "00000000-0000-4000-8000-000000000005"}, "property": {"vocabulary": "urn:vendor:Unknown", "property": "Changed"}}},
+    {"kind": "observation", "revision": "00000000-0000-4000-8000-0000000007d0", "position": "4", "event": {"kind": "metadata_added_or_replaced", "target": {"kind": "asset", "id": "00000000-0000-4000-8000-000000000005"}, "property": {"vocabulary": "urn:vendor:Unknown", "property": "Removed"}}},
+    {"kind": "observation", "revision": "00000000-0000-4000-8000-0000000007d0", "position": "5", "event": {"kind": "metadata_removed", "target": {"kind": "asset", "id": "00000000-0000-4000-8000-000000000005"}, "property": {"vocabulary": "urn:vendor:Unknown", "property": "Removed"}}}
+  ],
+  "chunks": [
+  {
+    "kind": "record.chunk",
+    "version": "1",
+    "required_features": [
+      "record-chunks.v1"
+    ],
+    "production": "00000000-0000-4000-8000-000000000001",
+    "history": "00000000-0000-4000-8000-000000000002",
+    "revision": "00000000-0000-4000-8000-0000000007d0",
+    "index": "0",
+    "previous": null,
+    "payload": "AAAAAAAAAA==",
+    "extensions": {
+      "vendor:exact": {
+        "ordered": [
+          "同",
+          "同",
+          "😀"
+        ]
+      }
+    },
+    "digest": "f676df95652a3092b0869184efaf9dc115a48f31bf7e335f6fa6e36401246f8e"
+  },
+  {
+    "kind": "record.chunk",
+    "version": "1",
+    "required_features": [
+      "record-chunks.v1"
+    ],
+    "production": "00000000-0000-4000-8000-000000000001",
+    "history": "00000000-0000-4000-8000-000000000002",
+    "revision": "00000000-0000-4000-8000-0000000007d0",
+    "index": "1",
+    "previous": "f676df95652a3092b0869184efaf9dc115a48f31bf7e335f6fa6e36401246f8e",
+    "payload": "2nsia2luZCI6Im1ldGFkYXRhLmVmZmVjdCIsIm9wZXJhdGlvbiI6InJlcGxhY2VkIiwicG9zaXRpb24iOm51bGwsInByb3BlcnR5Ijp7InByb3BlcnR5IjoiQWxsS2luZHMiLCJ2b2NhYnVsYXJ5IjoidXJuOnZlbmRvcjpVbmtub3duIn0sInRhcmdldCI6eyJpZCI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwNSIsImtpbmQiOiJhc3NldCJ9LCJ2YWx1ZXMiOiIxMyJ9AAAAAAAAAFF7ImtpbmQiOiJtZXRhZGF0YS52YWx1ZSIsInZhbHVlIjp7ImtpbmQiOiJzdHJpbmciLCJ2YWx1ZSI6IkV4YWN0IOWQjCDw",
+    "extensions": {
+      "vendor:exact": {
+        "ordered": [
+          "同",
+          "同",
+          "😀"
+        ]
+      }
+    },
+    "digest": "58a26a0047740c7200dc8db0363c82de7fe6a6e743befeb4b1223b30365ec709"
+  },
+  {
+    "kind": "record.chunk",
+    "version": "1",
+    "required_features": [
+      "record-chunks.v1"
+    ],
+    "production": "00000000-0000-4000-8000-000000000001",
+    "history": "00000000-0000-4000-8000-000000000002",
+    "revision": "00000000-0000-4000-8000-0000000007d0",
+    "index": "2",
+    "previous": "58a26a0047740c7200dc8db0363c82de7fe6a6e743befeb4b1223b30365ec709",
+    "payload": "n5iAXG7igKgifX0AAAAAAAAAX3sia2luZCI6Im1ldGFkYXRhLnZhbHVlIiwidmFsdWUiOnsia2luZCI6Imxhbmd1YWdlX3N0cmluZyIsImxhbmd1YWdlIjoieC1FeGFjdCIsInZhbHVlIjoi5ZCMIn19AAAAAAAAAE97ImtpbmQiOiJtZXRhZGF0YS52YWx1ZSIsInZhbHVlIjp7ImtpbmQiOiJpNjQiLCJ2YWx1ZSI6Ii05MjIzMzcyMDM2ODU0Nzc1ODA4In19AAAAAAAAAE97ImtpbmQiOiJtZXRhZGF0YS52YWx1ZSIsInZhbHVlIjp7ImtpbmQiOiJ1NjQiLCJ2YWx1ZSI6IjE4NDQ2NzQ0MDczNzA5NTUxNjE1In19AAAAAAAAAHl7ImtpbmQiOiJtZXRhZGF0YS52YWx1ZSIsInZhbHVlIjp7ImNvZWZmaWNpZW50IjoiLTE3MDE0MTE4MzQ2MDQ2OTIzMTczMTY4NzMwMzcxNTg4NDEwNTcyOCIsImtpbmQiOiJkZWNpbWFsIiwic2NhbGUiOiIzIn19AAAAAAAAAEF7ImtpbmQiOiJtZXRhZGF0YS52YWx1ZSIsInZhbHVlIjp7ImtpbmQiOiJib29sZWFuIiwidmFsdWUiOnRydWV9fQAAAAAAAABVeyJraW5kIjoibWV0YWRhdGEudmFsdWUiLCJ2YWx1ZSI6eyJraW5kIjoidGltZXN0YW1wIiwidmFsdWUiOiItOTIyMzM3MjAzNjg1NDc3NTgwOCJ9fQAAAAAAAABPeyJraW5kIjoibWV0YWRhdGEudmFsdWUiLCJ2YWx1ZSI6eyJraW5kIjoidXJpIiwidmFsdWUiOiJ1bmtub3duOkV4YWN0JTJmQ2FzZSJ9fQAAAAAAAABBeyJraW5kIjoibWV0YWRhdGEudmFsdWUiLCJ2YWx1ZSI6eyJraW5kIjoiYnl0ZXMiLCJ2YWx1ZSI6IkFQOD0ifX0AAAAAAAAAfXsia2luZCI6Im1ldGFkYXRhLnZhbHVlIiwidmFsdWUiOnsiZGVub21pbmF0b3IiOiIxODQ0Njc0NDA3MzcwOTU1MTYxNSIsImtpbmQiOiJyYXRpb25hbCIsIm51bWVyYXRvciI6Ii05MjIzMzcyMDM2ODU0Nzc1ODA4In19AAAAAAAAAH17ImtpbmQiOiJtZXRhZGF0YS52YWx1ZSIsInZhbHVlIjp7ImtpbmQiOiJsaXN0IiwidmFsdWUiOlt7ImtpbmQiOiJzdHJpbmciLCJ2YWx1ZSI6InNhbWUifSx7ImtpbmQiOiJzdHJpbmciLCJ2YWx1ZSI6InNhbWUifV19fQAAAAAAAAC7eyJraW5kIjoibWV0YWRhdGEudmFsdWUiLCJ2YWx1ZSI6eyJraW5kIjoic3RydWN0IiwidmFsdWUiOlt7Im5hbWUiOiJSZXBlYXRlZCIsInZhbHVlIjp7ImtpbmQiOiJieXRlcyIsInZhbHVlIjoiQVA4PSJ9fSx7Im5hbWUiOiJSZXBlYXRlZCIsInZhbHVlIjp7ImtpbmQiOiJzdHJpbmciLCJ2YWx1ZSI6IiAgRXhhY3QgICJ9fV19fQAAAAAAAAB7eyJraW5kIjoibWV0YWRhdGEudmFsdWUiLCJ2YWx1ZSI6eyJraW5kIjoicmVmZXJlbmNlIiwidmFsdWUiOnsiaWQiOiIwMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwMDUiLCJraW5kIjoiYXNzZXQifX19AAAAAAAAANd7ImtpbmQiOiJtZXRhZGF0YS5lZmZlY3QiLCJvcGVyYXRpb24iOiJhcHBlbmRlZCIsInBvc2l0aW9uIjoiMCIsInByb3BlcnR5Ijp7InByb3BlcnR5IjoiQ2hhbmdlZCIsInZvY2FidWxhcnkiOiJ1cm46dmVuZG9yOlVua25vd24ifSwidGFyZ2V0Ijp7ImlkIjoiMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDA1Iiwia2luZCI6ImFzc2V0In0sInZhbHVlcyI6IjEifQAAAAAAAABBeyJraW5kIjoibWV0YWRhdGEudmFsdWUiLCJ2YWx1ZSI6eyJraW5kIjoic3RyaW5nIiwidmFsdWUiOiJvbGQifX0AAAAAAAAA13sia2luZCI6Im1ldGFkYXRhLmVmZmVjdCIsIm9wZXJhdGlvbiI6ImFwcGVuZGVkIiwicG9zaXRpb24iOiIxIiwicHJvcGVydHkiOnsicHJvcGVydHkiOiJDaGFuZ2VkIiwidm9jYWJ1bGFyeSI6InVybjp2ZW5kb3I6VW5rbm93biJ9LCJ0YXJnZXQiOnsiaWQiOiIwMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwMDUiLCJraW5kIjoiYXNzZXQifSwidmFsdWVzIjoiMSJ9AAAAAAAAAEF7ImtpbmQiOiJtZXRhZGF0YS52YWx1ZSIsInZhbHVlIjp7ImtpbmQiOiJzdHJpbmciLCJ2YWx1ZSI6Im9sZCJ9fQAAAAAAAADYeyJraW5kIjoibWV0YWRhdGEuZWZmZWN0Iiwib3BlcmF0aW9uIjoicmVwbGFjZWQiLCJwb3NpdGlvbiI6bnVsbCwicHJvcGVydHkiOnsicHJvcGVydHkiOiJDaGFuZ2VkIiwidm9jYWJ1bGFyeSI6InVybjp2ZW5kb3I6VW5rbm93biJ9LCJ0YXJnZXQiOnsiaWQiOiIwMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwMDUiLCJraW5kIjoiYXNzZXQifSwidmFsdWVzIjoiMiJ9AAAAAAAAAEF7ImtpbmQiOiJtZXRhZGF0YS52YWx1ZSIsInZhbHVlIjp7ImtpbmQiOiJieXRlcyIsInZhbHVlIjoiQVA4PSJ9fQAAAAAAAABBeyJraW5kIjoibWV0YWRhdGEudmFsdWUiLCJ2YWx1ZSI6eyJraW5kIjoiYnl0ZXMiLCJ2YWx1ZSI6IkFQOD0ifX0AAAAAAAAA13sia2luZCI6Im1ldGFkYXRhLmVmZmVjdCIsIm9wZXJhdGlvbiI6ImFwcGVuZGVkIiwicG9zaXRpb24iOiIwIiwicHJvcGVydHkiOnsicHJvcGVydHkiOiJSZW1vdmVkIiwidm9jYWJ1bGFyeSI6InVybjp2ZW5kb3I6VW5rbm93biJ9LCJ0YXJnZXQiOnsiaWQiOiIwMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwMDUiLCJraW5kIjoiYXNzZXQifSwidmFsdWVzIjoiMSJ9AAAAAAAAAEd7ImtpbmQiOiJtZXRhZGF0YS52YWx1ZSIsInZhbHVlIjp7ImtpbmQiOiJzdHJpbmciLCJ2YWx1ZSI6InRlbXBvcmFyeSJ9fQAAAAAAAADXeyJraW5kIjoibWV0YWRhdGEuZWZmZWN0Iiwib3BlcmF0aW9uIjoicmVtb3ZlZCIsInBvc2l0aW9uIjpudWxsLCJwcm9wZXJ0eSI6eyJwcm9wZXJ0eSI6IlJlbW92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",
+    "extensions": {
+      "vendor:exact": {
+        "ordered": [
+          "同",
+          "同",
+          "😀"
+        ]
+      }
+    },
+    "digest": "6abd66c088aa0953e273214aec944556fe38e8e229ff9131f484ec15cf998469"
+  }
+],
+  "manifest": {
+  "kind": "record.manifest",
+  "version": "1",
+  "required_features": [
+    "metadata.v1",
+    "record-chunks.v1"
+  ],
+  "predecessor": {
+    "production": "00000000-0000-4000-8000-000000000001",
+    "history": "00000000-0000-4000-8000-000000000002",
+    "revision": "00000000-0000-4000-8000-000000000730",
+    "sequence": "7",
+    "digest": "76a02fb59555a367e8a9111c5e445f3c1845424b7ac759ef31270abbdcc9d495"
+  },
+  "revision": {
+    "id": "00000000-0000-4000-8000-0000000007d0",
+    "transaction": "00000000-0000-4000-8000-0000000007d1",
+    "sequence": "8",
+    "committed_at": "9223372036854775807",
+    "context": {
+      "origin": {
+        "name": "vendor:Exact",
+        "version": "65535",
+        "uri": "unknown:Exact%2fCase"
+      },
+      "message": "Independent job lifecycle"
+    }
+  },
+  "chunks": {
+    "count": "3",
+    "payload_bytes": "4791",
+    "last_digest": "6abd66c088aa0953e273214aec944556fe38e8e229ff9131f484ec15cf998469"
+  },
+  "effects": "6",
+  "events": "6",
+  "extensions": {
+    "vendor:exact": {
+      "ordered": [
+        "同",
+        "同",
+        "😀"
+      ]
+    }
+  },
+  "record_digest": "cb6153782c863995bdf71a2c0645c3d91f4fd0b3b426379df770982d307d28ce",
+  "digest": "8dc8393aa44e137a5bad532173d41f60a2db65354409d5ba45a3875182f8a620"
+},
+  "head": {
+  "production": "00000000-0000-4000-8000-000000000001",
+  "history": "00000000-0000-4000-8000-000000000002",
+  "revision": "00000000-0000-4000-8000-0000000007d0",
+  "sequence": "8",
+  "digest": "cb6153782c863995bdf71a2c0645c3d91f4fd0b3b426379df770982d307d28ce"
+}
+}
