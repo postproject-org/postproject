@@ -40,10 +40,15 @@ evidence/exchange-development/installed-native.json) records local compiler floo
 consumer recipes, wheel typing and tests; it is not installed release-candidate
 acceptance. Fixed independent vectors cover all 24 command alternatives, a split
 metadata record and a complete genesis checkpoint. Nonempty checkpoint/other record
-vectors, complete cross-process convergence, real-host handoffs and final ecosystem
+vectors, remaining conformance negatives, maintained handoffs and final ecosystem
 and platform qualification remain pending. [Blender native replay evidence](
 evidence/exchange-development/blender-native-replay.json) covers actual background
 save/render/relink commits and two distinct passive checkpoint/suffix routes.
+[Extended host conformance](evidence/exchange-development/host-compound-replay.json)
+adds compound knowledge, deterministic job lifecycles, two competing writers and
+distinct local mappings to that same native history. Exact portable bodies and
+public observations converge after replay and reopen; helper processes are not
+independent host applications.
 
 ## Mutations and effect requirements
 
@@ -103,5 +108,5 @@ rollback. Those private writes do not produce portable revisions.
 
 Inventory/specification are development records. Codec, capture, outcomes,
 checkpoint/mirror, conformance, projections, consumer qualification and package
-gates remain incomplete. No released SDK artifact, qualified host run, commercial acceptance
+gates remain incomplete. No released SDK artifact, commercial acceptance
 or release publication is claimed by this inventory.

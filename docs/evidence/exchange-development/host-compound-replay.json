@@ -1,0 +1,81 @@
+{
+  "scope": "Development conformance; one actual Blender application plus synthetic qualification helpers and two passive processes",
+  "date": "2026-10-11",
+  "sources": {
+    "sdk_wheel": "9b89f07",
+    "native_library": "016297a",
+    "blender_fixture": "6520039",
+    "job_helpers": "81599f3",
+    "race_helper": "9b5f09f",
+    "mapping_and_comparison": "ffd370b",
+    "knowledge_helper": "1cc2842"
+  },
+  "runtime": {
+    "blender": "5.2.2 LTS d13f752e3b9c",
+    "python": "3.14.7",
+    "package": "0.7.0a1 development",
+    "abi": 52,
+    "schema": 27
+  },
+  "comparison": {
+    "head": {
+      "type": "ExchangePosition",
+      "base": {
+        "type": "ProtocolBase",
+        "decision": {
+          "type": "DecisionBase",
+          "production_id": "8f5d4202-3fdc-42cd-8c1c-094c01806b0d",
+          "revision": {
+            "type": "CommittedRevision",
+            "id": "3d18a116-1f2e-4b2f-8ec0-c72e1e4cca69",
+            "sequence": {
+              "integer": "27"
+            }
+          }
+        },
+        "history_id": "01884712-ef1e-327d-8c4c-1f6b10a90f68"
+      },
+      "digest": {
+        "bytes": "SHo4a0AHX4GfzyuA5x4v7pe7ibA4ZdCT2Iakiln0dUE="
+      }
+    },
+    "portable_section_sha256": "b8c47c1a97732f4ad07640ab3e62d31a0a7a3755ea005515c00377ebc23b934d",
+    "assets": 3,
+    "activities": 3,
+    "jobs": 7,
+    "distinct_local_mappings": true,
+    "routes": "two independent passive processes; duplicate apply and reopen passed",
+    "observations": "exact bodies, domain values, metadata/identifiers, dependency evidence, artifact results and revisions/events agree"
+  },
+  "checks": [
+    "Actual Blender save adopts movie; actual render publishes output/activity; normal relink records relocated source; plugin-free native reopen retains strip reference",
+    "Same authority history extended through typed proposals with all four content shapes, all metadata value kinds, exact numeric/Unicode/nested/repeated values, identifiers, roots and historical fingerprint/dependency/activity evidence",
+    "Ordinary native job requests plus identified claims/renew/release/failure/completion/cancellation preserve all five states; stale input and replaced claim reject",
+    "Original changing/rejected outcomes recover after reopen with disabled test clock; duplicate claim has no credential delivery",
+    "Text and binary lease identities absent from decoded checkpoint section payloads and imported mirror database",
+    "Two writer processes prepare from the same base and merge appends; stale removal rejects; each own receipt remains original",
+    "Genesis and nonempty checkpoint routes catch up through complete native/protocol suffix in separate passive processes; duplicate replay and reopen preserve head",
+    "Authority and passive readers resolve same bytes through three distinct caller-supplied directory mappings without recording those mappings",
+    "Exact portable section bodies and ordinary public queries, including jobs and artifact evaluation, agree"
+  ],
+  "local_logs": [
+    "target/exchange-host-complete-blender.log",
+    "target/exchange-host-complete-knowledge.log",
+    "target/exchange-host-complete-jobs.log",
+    "target/exchange-host-complete-race.log",
+    "target/exchange-host-complete-final-comparison.log"
+  ],
+  "limits": [
+    "Test-only private clock is confined to the storage test binary; no production clock injection",
+    "Local fixtures and logs are not distributable release artifacts",
+    "No second independent worker application or commercial runtime execution",
+    "Malformed storage campaigns, complete independent every-family vectors, scale/overhead, installed candidate and coordinated ecosystem acceptance remain separate gates"
+  ],
+  "verification": {
+    "storage_unit_tests": "113 passed, one explicit actual-host test ignored by default",
+    "actual_host_test": "passed separately against generated native fixture",
+    "rust_1_85": "all workspace targets/features checked",
+    "sphinx": "strict build passed",
+    "tool_typing_and_lint": "installed wheel typing and Ruff passed"
+  }
+}
