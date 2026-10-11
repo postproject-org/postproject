@@ -2317,16 +2317,19 @@ def _resolve(
     cancel_token: CancelToken | None,
 ) -> tuple[RepresentationResolution, ...]:
     ids = (AssetId(asset_ids),) if isinstance(asset_ids, UUID) else tuple(asset_ids)
-    options = _ResolutionOptions(native)
-    for name, directory in sorted((root_mappings or {}).items()):
-        options.add_root_mapping(name, directory)
-    for directory in search_directories:
-        options.add_search_directory(directory)
-    options.set_verification(verification)
-    options.set_limits(max_depth, max_entries_per_directory)
-    if cancel_token is not None:
-        options.set_cancel_token(cancel_token)
-    return _resolve_assets(native, function, handle, ids, options)
+    options = _ResolutionOptions(
+        native,
+        root_mappings,
+        search_directories,
+        verification,
+        max_depth,
+        max_entries_per_directory,
+        cancel_token,
+    )
+    try:
+        return _resolve_assets(native, function, handle, ids, options)
+    finally:
+        options.close()
 
 
 def _resolve_assets(
@@ -4949,59 +4952,49 @@ class _NativeMediaSource:
 class _ResolutionOptions:
     """Owned native resolution options for one resolve call."""
 
-    def __init__(self, native: NativeLibrary) -> None:
+    def __init__(
+        self,
+        native: NativeLibrary,
+        root_mappings: Mapping[str, str | os.PathLike[str]] | None,
+        search_directories: Iterable[str | os.PathLike[str]],
+        verification: VerificationMode,
+        max_depth: int,
+        max_entries_per_directory: int,
+        cancel_token: CancelToken | None,
+    ) -> None:
+        mappings = tuple(sorted((root_mappings or {}).items()))
+        native_mappings = (_abi.RootMapping * len(mappings))(
+            *(
+                _abi.RootMapping(_utf8(name, "root name"), _path_bytes(path))
+                for name, path in mappings
+            )
+        )
+        directories = tuple(_path_bytes(path) for path in search_directories)
+        native_directories = (ctypes.c_char_p * len(directories))(*directories)
+        config = _abi.ResolutionConfig(
+            native_mappings,
+            len(native_mappings),
+            native_directories,
+            len(directories),
+            _VERIFICATION_MODES[verification],
+            max_depth,
+            max_entries_per_directory,
+            None if cancel_token is None else cancel_token.handle,
+        )
         handle = ctypes.POINTER(NativeResolutionOptions)()
         error = ctypes.POINTER(Error)()
         status = native.lib.pp_resolution_options_create(
-            ctypes.byref(handle), ctypes.byref(error)
+            ctypes.byref(config), ctypes.byref(handle), ctypes.byref(error)
         )
         native.check(status, error)
-        self._native = native
         self.handle = handle
         self._finalizer = weakref.finalize(
             self, native.lib.pp_resolution_options_release, handle
         )
 
-    def add_root_mapping(self, name: str, directory: str | os.PathLike[str]) -> None:
-        error = ctypes.POINTER(Error)()
-        status = self._native.lib.pp_resolution_options_add_root_mapping(
-            self.handle,
-            _utf8(name, "root name"),
-            _path_bytes(directory),
-            ctypes.byref(error),
-        )
-        self._native.check(status, error)
-
-    def add_search_directory(self, directory: str | os.PathLike[str]) -> None:
-        error = ctypes.POINTER(Error)()
-        status = self._native.lib.pp_resolution_options_add_search_directory(
-            self.handle, _path_bytes(directory), ctypes.byref(error)
-        )
-        self._native.check(status, error)
-
-    def set_verification(self, verification: VerificationMode) -> None:
-        error = ctypes.POINTER(Error)()
-        status = self._native.lib.pp_resolution_options_set_verification(
-            self.handle, _VERIFICATION_MODES[verification], ctypes.byref(error)
-        )
-        self._native.check(status, error)
-
-    def set_limits(self, max_depth: int, max_entries_per_directory: int) -> None:
-        error = ctypes.POINTER(Error)()
-        status = self._native.lib.pp_resolution_options_set_limits(
-            self.handle,
-            _unsigned(max_depth, 32, "max_depth"),
-            _unsigned(max_entries_per_directory, 64, "max_entries_per_directory"),
-            ctypes.byref(error),
-        )
-        self._native.check(status, error)
-
-    def set_cancel_token(self, token: CancelToken) -> None:
-        error = ctypes.POINTER(Error)()
-        status = self._native.lib.pp_resolution_options_set_cancel_token(
-            self.handle, token.handle, ctypes.byref(error)
-        )
-        self._native.check(status, error)
+    def close(self) -> None:
+        self._finalizer()
+        self.handle = ctypes.POINTER(NativeResolutionOptions)()
 
 
 _VERIFICATION_MODES = {
