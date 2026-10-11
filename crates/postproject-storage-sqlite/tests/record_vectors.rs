@@ -90,6 +90,8 @@ fn independent_records_preserve_original_media_identities_and_public_observation
             check_provenance(&mirror);
         } else if vector["file"] == "streams/job-completion.json" {
             check_jobs(&mirror);
+        } else if vector["file"] == "streams/metadata-edits.json" {
+            check_metadata(&mirror, &fixture);
         }
         assert_eq!(
             mirror.begin_transaction().err().unwrap().kind(),
@@ -194,6 +196,39 @@ fn check_jobs(mirror: &SqliteProduction) {
     assert_eq!(
         activity.inputs()[0].snapshot().unwrap().fingerprints()[0].observed_revision_sequence(),
         Some(4)
+    );
+}
+
+fn check_metadata(mirror: &SqliteProduction, fixture: &serde_json::Value) {
+    let target =
+        postproject_core::ObjectRef::Asset("00000000-0000-4000-8000-000000000005".parse().unwrap());
+    let assertions = mirror.metadata(target).unwrap();
+    assert_eq!(assertions.len(), 15);
+    let values = assertions
+        .iter()
+        .filter(|assertion| assertion.property().property().as_str() == "AllKinds")
+        .collect::<Vec<_>>();
+    assert_eq!(values.len(), 13);
+    for (assertion, expected) in values
+        .iter()
+        .zip(fixture["body"].as_array().unwrap()[1..14].iter())
+    {
+        assert_eq!(
+            postproject_protocol::encode_metadata(assertion.value()).unwrap(),
+            document(&expected["value"])
+        );
+    }
+    let changed = assertions
+        .iter()
+        .filter(|assertion| assertion.property().property().as_str() == "Changed")
+        .collect::<Vec<_>>();
+    assert_eq!(changed.len(), 2);
+    assert_eq!(changed[0].value().as_bytes(), Some(b"\0\xff".as_slice()));
+    assert_eq!(changed[0].value(), changed[1].value());
+    assert!(
+        assertions
+            .iter()
+            .all(|assertion| assertion.property().property().as_str() != "Removed")
     );
 }
 

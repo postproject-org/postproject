@@ -125,8 +125,8 @@ fn compare_exported_bodies(mirror: &SqliteProduction, snapshot: &serde_json::Val
             frames.extend_from_slice(&(body.len() as u64).to_be_bytes());
             frames.extend(body);
         }
-        assert_eq!(
-            payload, frames,
+        assert!(
+            payload == frames,
             "{section} body changed after import/export"
         );
     }
