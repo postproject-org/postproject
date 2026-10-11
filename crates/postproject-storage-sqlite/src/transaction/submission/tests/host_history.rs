@@ -1,5 +1,6 @@
 //! Typed job helpers shared by hermetic and actual-host qualification.
 
+mod lifecycle;
 mod secrets;
 
 use std::{sync::Arc, time::Duration};
