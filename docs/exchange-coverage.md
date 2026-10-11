@@ -43,7 +43,7 @@ records and seven checkpoints, including exact metadata edits, fingerprint histo
 dependency replacements, historical activities and all public job states. Imports
 reexport identical portable section bodies. [Rehashed storage cases](
 evidence/schema-27/rehashed-storage-files.json) qualify installed rejection and
-atomicity beyond hash checking. Compound-media/archive fixed profiles, large-value
+atomicity beyond hash checking. Compound-media/archive fixed profiles, remaining limit
 qualification, maintained handoffs and final ecosystem/platform qualification
 remain pending. [Measured scale and local overhead](schema-27-exchange-measurements.md)
 cover native 10,000-asset capture, streaming, maximum binary metadata and outcome

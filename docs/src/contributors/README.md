@@ -116,6 +116,8 @@ For repository-wide engineering detail, continue with {doc}`../project/README`.
 The development {doc}`API safety audit </api-safety-audit>` and
 {doc}`repository migration inventory </api-safety-repositories>` record the
 current cross-surface work and verification gaps.
+The {doc}`schema 27 exchange measurements </schema-27-exchange-measurements>`
+record reproducible native, streaming and retained-history costs.
 
 ```{toctree}
 :hidden:
@@ -126,4 +128,5 @@ provenance-model
 standards-policy
 /api-safety-audit
 /api-safety-repositories
+/schema-27-exchange-measurements
 ```

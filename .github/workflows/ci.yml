@@ -76,9 +76,9 @@ jobs:
           ruff check tools/prepare_exchange_race.py tools/exchange_local_resolution.py
           ruff format --check tools/prepare_exchange_race.py tools/exchange_local_resolution.py
           ty check tools/prepare_exchange_race.py tools/exchange_local_resolution.py
-          ruff check tools/exchange_fixture_files.py tools/exchange_storage_cases.py tools/check_exchange_storage_mutations.py tools/measure_exchange_workflows.py
-          ruff format --check tools/exchange_fixture_files.py tools/exchange_storage_cases.py tools/check_exchange_storage_mutations.py tools/measure_exchange_workflows.py
-          ty check tools/exchange_fixture_files.py tools/exchange_storage_cases.py tools/check_exchange_storage_mutations.py tools/measure_exchange_workflows.py
+          ruff check tools/exchange_fixture_files.py tools/exchange_storage_cases.py tools/check_exchange_storage_mutations.py tools/measure_exchange_workflows.py tools/check_exchange_measurements.py
+          ruff format --check tools/exchange_fixture_files.py tools/exchange_storage_cases.py tools/check_exchange_storage_mutations.py tools/measure_exchange_workflows.py tools/check_exchange_measurements.py
+          ty check tools/exchange_fixture_files.py tools/exchange_storage_cases.py tools/check_exchange_storage_mutations.py tools/measure_exchange_workflows.py tools/check_exchange_measurements.py
       - run: python -m unittest tools/test_check_architecture.py
       - run: ruff check tools/check_architecture.py tools/test_check_architecture.py
       - run: ruff format --check tools/check_architecture.py tools/test_check_architecture.py
