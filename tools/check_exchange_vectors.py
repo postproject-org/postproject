@@ -55,7 +55,7 @@ def check_stream(vector: dict, stream: dict, digests: bool = False) -> None:
 
     manifest = stream["manifest"]
     assert encoded(manifest) == vector["canonical_manifest"].encode("utf-8")
-    assert manifest["predecessor"] == stream["floor"]
+    assert manifest["predecessor"] == stream.get("predecessor", stream["floor"])
     assert stream["head"]["digest"] == vector["record_digest"]
     assert manifest["record_digest"] == vector["record_digest"]
     assert manifest["digest"] == vector["manifest_digest"]

@@ -3,7 +3,7 @@
 use std::path::Path;
 
 use postproject_core::{ErrorKind, Production, RepresentationKind, Timestamp};
-use postproject_protocol::{Document, Limits, RecordChunk, RecordManifest};
+use postproject_protocol::{Document, Limits, Position, RecordChunk, RecordManifest};
 use postproject_storage_sqlite::{CURRENT_SCHEMA_VERSION, ReplayLimits, SqliteProduction};
 
 fn document(value: &serde_json::Value) -> Document {
@@ -31,9 +31,21 @@ fn independent_records_preserve_original_media_identities_and_public_observation
         );
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("mirror.pproj");
-        let mut mirror =
-            SqliteProduction::create_genesis_mirror(&path, &source, manifest.predecessor())
+        let mut mirror = SqliteProduction::create_genesis_mirror(
+            &path,
+            &source,
+            Position::from_document(&document(&fixture["floor"])).unwrap(),
+        )
+        .unwrap();
+        if let Some(prefix) = fixture["prefix"].as_array() {
+            for file in prefix {
+                let prior: serde_json::Value = serde_json::from_slice(
+                    &std::fs::read(root.join(file.as_str().unwrap())).unwrap(),
+                )
                 .unwrap();
+                apply_prefix(&mut mirror, &prior);
+            }
+        }
         let chunks: Vec<_> = fixture["chunks"]
             .as_array()
             .unwrap()
@@ -69,37 +81,56 @@ fn independent_records_preserve_original_media_identities_and_public_observation
             assert_eq!(event.revision_id(), manifest.revision().id());
         }
         if vector["file"] == "streams/media.json" {
-            let asset = mirror.assets().unwrap().pop().unwrap();
-            assert_eq!(
-                asset.id().to_string(),
-                "00000000-0000-4000-8000-000000000005"
-            );
-            assert_eq!(asset.created_at(), Timestamp::from_unix_micros(i64::MIN));
-            assert_eq!(asset.display_name(), Some("同 😀"));
-            let representations = mirror.representations(asset.id()).unwrap();
-            assert_eq!(representations.len(), 2);
-            assert!(
-                representations
-                    .iter()
-                    .any(|item| item.kind() == RepresentationKind::Original)
-            );
-            assert!(
-                representations
-                    .iter()
-                    .any(|item| item.kind() == RepresentationKind::Proxy)
-            );
-            for representation in representations {
-                let resources = mirror.resources(representation.id()).unwrap();
-                assert_eq!(resources.len(), 1);
-                assert_eq!(
-                    mirror.locators(resources[0].id()).unwrap()[0].uri(),
-                    "file:///missing/Exact.mov"
-                );
-            }
+            check_media(&mirror);
         }
         assert_eq!(
             mirror.begin_transaction().err().unwrap().kind(),
             ErrorKind::Unsupported
+        );
+    }
+}
+
+fn apply_prefix(mirror: &mut SqliteProduction, fixture: &serde_json::Value) {
+    let manifest = RecordManifest::from_document(&document(&fixture["manifest"])).unwrap();
+    assert_eq!(mirror.exchange_head().unwrap(), manifest.predecessor());
+    let chunks = fixture["chunks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|value| Ok(RecordChunk::from_document(&document(value)).unwrap()));
+    assert!(
+        mirror
+            .apply_record(&manifest, chunks, ReplayLimits::default())
+            .unwrap()
+    );
+}
+
+fn check_media(mirror: &SqliteProduction) {
+    let asset = mirror.assets().unwrap().pop().unwrap();
+    assert_eq!(
+        asset.id().to_string(),
+        "00000000-0000-4000-8000-000000000005"
+    );
+    assert_eq!(asset.created_at(), Timestamp::from_unix_micros(i64::MIN));
+    assert_eq!(asset.display_name(), Some("同 😀"));
+    let representations = mirror.representations(asset.id()).unwrap();
+    assert_eq!(representations.len(), 2);
+    assert!(
+        representations
+            .iter()
+            .any(|item| item.kind() == RepresentationKind::Original)
+    );
+    assert!(
+        representations
+            .iter()
+            .any(|item| item.kind() == RepresentationKind::Proxy)
+    );
+    for representation in representations {
+        let resources = mirror.resources(representation.id()).unwrap();
+        assert_eq!(resources.len(), 1);
+        assert_eq!(
+            mirror.locators(resources[0].id()).unwrap()[0].uri(),
+            "file:///missing/Exact.mov"
         );
     }
 }
