@@ -5,7 +5,7 @@ All notable changes to PostProject will be documented here. The project uses
 
 ## Unreleased
 
-- Return the caller's atomic receipt from the single Rust/C commit operation (ADR 0074).
+- Return the caller's atomic receipt from the single Rust/C/C++ commit operation (ADR 0074).
 
 - Stage single files directly from paths and remove redundant C/C++/Python source construction (ADR 0073).
 - Replace incremental C resolution options with atomic configuration and bump the C ABI to 53 (ADR 0072).
@@ -14,7 +14,7 @@ All notable changes to PostProject will be documented here. The project uses
 
 - Start the `0.9.0-alpha.1` series (Python `0.9.0a1`); schema 27 and exchange protocol 1 are unchanged.
 
-- Replace Python's eager asset collection with bounded, explicitly owned asset/revision scans and typed membership queries (ADR 0068).
+- Provide bounded, explicitly owned Python/Rust asset/revision scans and remove Python's eager asset collection and typed membership queries (ADR 0068).
 - Replace C++ resolution-option setters with one checked configuration using standard paths and containers (ADR 0069).
 
 ## 0.8.0-alpha.1 - 2026-10-11

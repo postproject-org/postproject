@@ -172,7 +172,7 @@ void clear_keywords(postproject::Production &production,
           "inspect this asset's keywords");
   auto edit = view.edit().value();
   edit.removeMetadataProperty(target, editorial, "keywords").value();
-  const auto receipt = edit.commitWithReceipt().value();
+  const auto receipt = edit.commit().value();
   require(receipt.revision.has_value(), "removal created its own revision");
   require(production.queryMetadata(editorial, "keywords", 1).value().items.empty(),
           "all keywords removed");
@@ -288,7 +288,7 @@ int main(int argc, char **argv) {
       const auto rejected = unbased.removeMetadataProperty(asset, editorial, "keywords");
       require(!rejected && rejected.error().code() == postproject::ErrorCode::invalid_argument,
               "unbased removal rejects before staging");
-      require(!unbased.commitWithReceipt().value().revision.has_value(),
+      require(!unbased.commit().value().revision.has_value(),
               "rejected removal leaves a usable no-change transaction");
     }
     clear_keywords(production, asset_id);

@@ -25,7 +25,7 @@ void update_from_a_base_revision(postproject::Production &production) {
   const auto base = production.latestRevision().value().value();
   auto first_writer = production.beginTransaction(base.id).value();
   first_writer.setMediaRootEnabled(root_id, false).value();
-  const auto receipt = first_writer.commitWithReceipt().value();
+  const auto receipt = first_writer.commit().value();
   require(receipt.production_id == production.id().value(), "receipt production");
   require(receipt.revision.has_value(), "created revision");
   const auto superseding = *receipt.revision;

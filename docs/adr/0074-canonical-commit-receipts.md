@@ -8,7 +8,8 @@ Keep one `commit` operation on each surface. Rust removes the redundant
 `commit_with_receipt` method. C removes the status-only commit and renames
 the receipt-returning function to `pp_transaction_commit`. Its receipt
 output is required; a missing output rejects before attempting a commit.
-C++ and Python continue returning `CommitReceipt` from `commit`.
+C++ removes `commitWithReceipt`; C++ and Python return `CommitReceipt`
+from `commit`.
 
 The atomic write path supplies the production and the revision made by that
 edit. A no-change receipt has no revision. Every actual commit attempt is

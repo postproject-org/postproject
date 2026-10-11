@@ -22,7 +22,7 @@ static void exercise(const std::string &path, const std::string &media) {
   edit.addMetadataValue(postproject::ObjectRef::asset(asset),
       "https://example.com/editorial", "title",
       postproject::MetadataValue::plainString("Camera")).value();
-  const auto receipt = edit.commitWithReceipt().value();
+  const auto receipt = edit.commit().value();
   if (!receipt.revision || receipt.revision->sequence != 1 ||
       !empty.assets(10).value().items.empty())
     throw std::runtime_error("coherent empty view or receipt");
@@ -108,14 +108,14 @@ static void exercise(const std::string &path, const std::string &media) {
       view.findKnownMediaByFingerprint(postproject::fingerprintFile(media).value(), 10).value().items[0].asset_id != asset)
     throw std::runtime_error("coherent lookup projections");
   auto later = production.edit(base).value();
-  const auto noop = later.commitWithReceipt().value();
+  const auto noop = later.commit().value();
   if (noop.revision || copied.id != asset || representation.asset_id != asset)
     throw std::runtime_error("no-change receipt or copied identity");
   auto before_job = production.readSession().value();
   auto request = before_job.edit().value();
   const auto job = request.requestJob({"example:proxy", {representation.id}, asset,
       postproject::RepresentationKind::proxy, std::nullopt}).value();
-  request.commitWithReceipt().value();
+  request.commit().value();
   if (!before_job.jobs(10).value().items.empty() ||
       before_job.job(job).error().code() != postproject::ErrorCode::not_found)
     throw std::runtime_error("coherent job view");

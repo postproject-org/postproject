@@ -6009,11 +6009,8 @@ public:
     return detail::activity_id(activity_id);
   }
 
+  /** Commits atomically and returns this edit's own revision, if any. */
   [[nodiscard]] Result<CommitReceipt> commit() {
-    return commitWithReceipt();
-  }
-
-  [[nodiscard]] Result<CommitReceipt> commitWithReceipt() {
     pp_commit_receipt_t receipt{};
     pp_error_t *error = nullptr;
     const pp_error_code_t status =
