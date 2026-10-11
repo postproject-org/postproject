@@ -65,8 +65,8 @@ both revisions, then performs an explicit retry:
 ```{code-variants} semantic-conflicts
 ```
 
-For the CLI, use `--decision-base TOKEN` from `inspect`. The advanced
-`--base-revision REVISION_ID` path remains available. With `--json`, an
+For the CLI, use the production-scoped `--decision-base TOKEN` from `inspect`.
+With `--json`, an
 optimistic conflict is written to standard output with a failing exit status as
 JSON containing `key`, `base_revision_id`, `base_revision_sequence`,
 `superseding_revision_id`, and `superseding_revision_sequence`.

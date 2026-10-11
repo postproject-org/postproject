@@ -42,7 +42,7 @@ head identify incomplete development history. `exchange position production.ppro
 cursor.json` saves a complete continuation to a new file.
 `exchange submit production.pproj proposal.json` accepts the development
 protocol's domain commands; its scoped base comes from the proposal.
-Global `--decision-base` and `--base-revision` options reject.
+Global `--decision-base` rejects for these scoped exchange operations.
 
 With `--json`, the result's `outcome` is a protocol-major-1 object inside the
 CLI format-1 envelope. Protocol integers are exact decimal **strings**, including

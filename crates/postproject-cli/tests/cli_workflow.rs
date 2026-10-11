@@ -30,6 +30,40 @@ fn root_add_help_describes_a_logical_root() {
     assert!(!help.contains("Add a directory searched during media resolution"));
 }
 
+#[test]
+fn task_help_routes_exist_and_bare_revision_options_are_removed() {
+    let help = cargo_bin_cmd!("postproject")
+        .arg("--help")
+        .assert()
+        .success();
+    let text = std::str::from_utf8(&help.get_output().stdout).unwrap();
+    assert!(text.contains("Common tasks:"));
+    assert!(text.contains("--decision-base"));
+    assert!(!text.contains("--base-revision"));
+    for arguments in [
+        vec!["media", "find-by-locator", "--help"],
+        vec!["media", "resolve", "--help"],
+        vec!["revisions", "since", "--help"],
+        vec!["exchange", "checkpoint", "--help"],
+    ] {
+        cargo_bin_cmd!("postproject")
+            .args(arguments)
+            .assert()
+            .success();
+    }
+    let rejected = cargo_bin_cmd!("postproject")
+        .args([
+            "--json",
+            "--base-revision",
+            "00000000-0000-0000-0000-000000000001",
+            "inspect",
+            "absent.pproj",
+        ])
+        .assert()
+        .code(2);
+    assert!(rejected.get_output().stdout.is_empty());
+}
+
 fn add_representation_from_spec(
     production: &str,
     asset_id: &str,
@@ -868,7 +902,7 @@ fn manages_media_root_lifecycle() {
 }
 
 #[test]
-fn base_revision_merges_additions_and_reports_structured_conflicts() {
+fn scoped_decisions_merge_additions_and_report_structured_conflicts() {
     let directory = tempfile::tempdir().expect("create test directory");
     let production = directory.path().join("conflict.pproj");
     let production = production.to_str().expect("UTF-8 production path");
@@ -876,10 +910,12 @@ fn base_revision_merges_additions_and_reports_structured_conflicts() {
     let root = run_json(&["root", "add", production, "rushes"]);
     let root_id = root["id"].as_str().expect("media-root ID");
 
-    let additive_base = run_json(&["revisions", "latest", production]);
-    let additive_base_id = additive_base["id"].as_str().expect("base revision ID");
+    let additive_base = run_json(&["inspect", production]);
+    let additive_base_id = additive_base["decision_base"]
+        .as_str()
+        .expect("decision base");
     run_json(&[
-        "--base-revision",
+        "--decision-base",
         additive_base_id,
         "root",
         "add",
@@ -887,7 +923,7 @@ fn base_revision_merges_additions_and_reports_structured_conflicts() {
         "plates",
     ]);
     run_json(&[
-        "--base-revision",
+        "--decision-base",
         additive_base_id,
         "root",
         "add",
@@ -904,9 +940,11 @@ fn base_revision_merges_additions_and_reports_structured_conflicts() {
 
     let base = run_json(&["revisions", "latest", production]);
     let base_id = base["id"].as_str().expect("base revision ID");
+    let inspected = run_json(&["inspect", production]);
+    let token = inspected["decision_base"].as_str().expect("decision base");
     run_json(&[
-        "--base-revision",
-        base_id,
+        "--decision-base",
+        token,
         "root",
         "disable",
         production,
@@ -917,8 +955,8 @@ fn base_revision_merges_additions_and_reports_structured_conflicts() {
     let assertion = cargo_bin_cmd!("postproject")
         .args([
             "--json",
-            "--base-revision",
-            base_id,
+            "--decision-base",
+            token,
             "root",
             "enable",
             production,
