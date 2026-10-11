@@ -8,8 +8,8 @@ contains the shared and static libraries, C and C++ headers, CMake and
 
 Download the archive for the target platform and its adjacent `.sha256` file
 from the [GitHub release](https://github.com/postproject-org/postproject/releases).
-The examples below use 0.8 candidate archive names. Before publication, obtain
-them from an exact candidate build; the latest published release is 0.7.
+The examples below use `0.8.0-alpha.1` archive names. If its release assets are
+not yet available, build the candidate from source.
 For example, on Linux:
 
 ```sh

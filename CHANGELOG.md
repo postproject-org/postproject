@@ -3,11 +3,10 @@
 All notable changes to PostProject will be documented here. The project uses
 [Semantic Versioning](https://semver.org/) once a stable API is released.
 
-## Unreleased
+## 0.8.0-alpha.1 - 2026-10-11
 
-- Start the `0.8.0-alpha.1` candidate series (Python `0.8.0a1`, C ABI 52, schema 27).
+- Start the `0.8.0-alpha.1` series (Python `0.8.0a1`, C ABI 52, schema 27).
 - Keep C++ representation reads warning-free without exceptions on GCC 16.
-
 - Add experimental typed portable exchange, checkpoint/catch-up workflows and passive edit guards across public surfaces (ADRs 0065, 0067; C ABI 52).
 - Persist exchange histories, metadata/media/dependency/activity/job records and privately bound submission outcomes and compact job results in schema 27; reconstruct passive media/metadata/root/activity/dependency/job checkpoints and replay native authored facts.
 - Add explicit, bounded development-history resynchronization that preserves earlier evidence and durable outcomes (ADR 0066).
