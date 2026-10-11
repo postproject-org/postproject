@@ -5,7 +5,7 @@ change recorded in the changelog and ABI tests. `pp_abi_version()` reports the
 implemented version. Exported symbol names are unversioned until the first stable
 release, but removals or signature changes require an explicit ABI-version bump.
 
-The `0.8.0-alpha.1` package (Python `0.8.0a1`) provides
+The `0.9.0-alpha.1` development package (Python `0.9.0a1`) currently provides
 experimental APIs; no additional stable family is named. The released 0.6 promise
 below remains intact.
 

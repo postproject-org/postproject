@@ -1,6 +1,6 @@
 format_version = 1
 baseline_release = "0.7.0-alpha.1"
-candidate_release = "0.8.0-alpha.1"
+candidate_release = "0.9.0-alpha.1"
 release_order = [
   "0.1.0-alpha.1",
   "0.2.0-alpha.1",

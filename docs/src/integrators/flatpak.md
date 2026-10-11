@@ -16,7 +16,7 @@ source archive:
   `flatpak-cargo-generator`.
 
 Copy both next to your manifest and list the module before the modules that
-use PostProject. The example names use `0.8.0-alpha.1`; if matching release assets
+use PostProject. The example names use `0.9.0-alpha.1`; if matching release assets
 are not yet available, render a local module with the command below:
 
 ```json
@@ -25,7 +25,7 @@ are not yet available, render a local module with the command below:
         "org.freedesktop.Sdk.Extension.rust-stable"
     ],
     "modules": [
-        "postproject-0.8.0-alpha.1-flatpak.json",
+        "postproject-0.9.0-alpha.1-flatpak.json",
         {
             "name": "my-application",
             "buildsystem": "cmake-ninja"
@@ -71,10 +71,10 @@ To try a revision that has not been released, render the module for a local
 archive. The command also writes a small check application that builds it:
 
 ```sh
-git archive --format=tar.gz --prefix=postproject-0.8.0-alpha.1/ \
-  --output=target/flatpak/postproject-0.8.0-alpha.1-source.tar.gz HEAD
-python3 tools/flatpak_module.py render --version 0.8.0-alpha.1 \
-  --archive target/flatpak/postproject-0.8.0-alpha.1-source.tar.gz \
+git archive --format=tar.gz --prefix=postproject-0.9.0-alpha.1/ \
+  --output=target/flatpak/postproject-0.9.0-alpha.1-source.tar.gz HEAD
+python3 tools/flatpak_module.py render --version 0.9.0-alpha.1 \
+  --archive target/flatpak/postproject-0.9.0-alpha.1-source.tar.gz \
   --output target/flatpak
 flatpak-builder --user --install-deps-from=flathub --force-clean \
   target/flatpak/app target/flatpak/org.postproject.FlatpakCheck.json

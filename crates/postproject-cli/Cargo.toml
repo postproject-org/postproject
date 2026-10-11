@@ -18,10 +18,10 @@ doc = false
 anyhow = "1"
 clap = { version = "4.5", features = ["derive"] }
 hex = "0.4"
-postproject-core = { version = "0.8.0-alpha.1", path = "../postproject-core" }
-postproject-media = { version = "0.8.0-alpha.1", path = "../postproject-media" }
-postproject-protocol = { version = "0.8.0-alpha.1", path = "../postproject-protocol" }
-postproject-storage-sqlite = { version = "0.8.0-alpha.1", path = "../postproject-storage-sqlite" }
+postproject-core = { version = "0.9.0-alpha.1", path = "../postproject-core" }
+postproject-media = { version = "0.9.0-alpha.1", path = "../postproject-media" }
+postproject-protocol = { version = "0.9.0-alpha.1", path = "../postproject-protocol" }
+postproject-storage-sqlite = { version = "0.9.0-alpha.1", path = "../postproject-storage-sqlite" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tempfile = "3"

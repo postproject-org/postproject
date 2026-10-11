@@ -14,11 +14,11 @@ name = "postproject"
 crate-type = ["cdylib", "staticlib", "rlib"]
 
 [dependencies]
-postproject-ffi-macros = { version = "0.8.0-alpha.1", path = "../postproject-ffi-macros" }
-postproject-core = { version = "0.8.0-alpha.1", path = "../postproject-core" }
-postproject-media = { version = "0.8.0-alpha.1", path = "../postproject-media" }
-postproject-protocol = { version = "0.8.0-alpha.1", path = "../postproject-protocol" }
-postproject-storage-sqlite = { version = "0.8.0-alpha.1", path = "../postproject-storage-sqlite" }
+postproject-ffi-macros = { version = "0.9.0-alpha.1", path = "../postproject-ffi-macros" }
+postproject-core = { version = "0.9.0-alpha.1", path = "../postproject-core" }
+postproject-media = { version = "0.9.0-alpha.1", path = "../postproject-media" }
+postproject-protocol = { version = "0.9.0-alpha.1", path = "../postproject-protocol" }
+postproject-storage-sqlite = { version = "0.9.0-alpha.1", path = "../postproject-storage-sqlite" }
 tempfile = "3"
 
 [dev-dependencies]
