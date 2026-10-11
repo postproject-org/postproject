@@ -1,7 +1,7 @@
 """Verify a host-produced authority through two distinct checkpoint/suffix routes.
 
 Run with an installed Python wheel. The host fixture must provide authority.pproj
-and initial/later.ppxc/.ppxd files; mirror workers are independent processes.
+and initial/later.ppxc files; mirror workers are independent processes.
 """
 
 from __future__ import annotations
@@ -21,9 +21,9 @@ def worker(root: Path, directory: Path, name: str) -> None:
     path = directory / f"{name}.pproj"
     with pp.Production.import_checkpoint(root / f"{name}.ppxc", path) as mirror:
         original = mirror.exchange_state.head
-        head = mirror.apply_changes(root / f"{name}.ppxd")
+        head = mirror.apply_changes(directory / f"{name}.ppxd")
         assert head != original
-        assert mirror.apply_changes(root / f"{name}.ppxd") == head
+        assert mirror.apply_changes(directory / f"{name}.ppxd") == head
     with pp.Production.open(path) as reopened:
         assert reopened.exchange_state.role is pp.ExchangeRole.PASSIVE_MIRROR
         assert reopened.exchange_state.head == head
@@ -61,6 +61,10 @@ def compare(root: Path) -> None:
             assert head is not None and head != later
             checkpoint = directory / "authority-final.ppxc"
             source.export_checkpoint(checkpoint)
+            for name, position in (("initial", early), ("later", later)):
+                assert (
+                    source.export_changes(position, directory / f"{name}.ppxd") == head
+                )
             expected = {
                 "head": exact(head),
                 "portable_section_sha256": checkpoint_bodies(checkpoint),
