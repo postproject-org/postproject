@@ -12,7 +12,10 @@ import base64
 import json
 from pathlib import Path
 
-from exchange_proposal_vectors import FIELDS, check_proposal
+if __package__:
+    from .exchange_proposal_vectors import FIELDS, check_proposal
+else:
+    from exchange_proposal_vectors import FIELDS, check_proposal
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -103,6 +106,8 @@ def check_checkpoint(vector: dict, snapshot: dict, digests: bool) -> None:
         return canonical(json.dumps(value, ensure_ascii=False))
 
     manifest = snapshot["manifest"]
+    assert manifest["kind"] == "checkpoint.manifest" and manifest["version"] == "1"
+    assert manifest["required_features"] == ["checkpoint-archives.v1", "checkpoints.v1"]
     assert encoded(manifest) == vector["canonical_manifest"].encode()
     assert manifest["digest"] == vector["manifest_digest"]
     assert manifest["floor"] == manifest["head"]
@@ -142,6 +147,8 @@ def check_checkpoint(vector: dict, snapshot: dict, digests: bool) -> None:
         payload = bytearray()
         previous = None
         for index, chunk in enumerate(chunks[offset : offset + count]):
+            assert chunk["kind"] == "checkpoint.chunk" and chunk["version"] == "1"
+            assert chunk["required_features"] == ["checkpoints.v1"]
             assert encoded(chunk) == vector["canonical_chunks"][offset + index].encode()
             assert chunk["index"] == str(index) and chunk["previous"] == previous
             assert (
