@@ -155,8 +155,9 @@ class ProductionTests(unittest.TestCase):
             ) as transaction:
                 asset_id = transaction.import_media(self.media_path, "Camera A")
                 transaction.commit()
-            self.assertIn(asset_id, production.assets)
-            assets = tuple(production.assets)
+            self.assertTrue(production.asset_exists(asset_id))
+            with production.read_session() as view:
+                assets = tuple(view.assets())
             self.assertEqual(len(assets), 1)
             self.assertEqual(assets[0].id, asset_id)
             self.assertGreater(assets[0].created_at_unix_micros, 0)
@@ -167,7 +168,7 @@ class ProductionTests(unittest.TestCase):
             self.production_path, library_path=LIBRARY_PATH
         ) as reopened:
             self.assertEqual(reopened.id, production_id)
-            self.assertIn(asset_id, reopened.assets)
+            self.assertTrue(reopened.asset_exists(asset_id))
 
     def test_point_reads_return_one_object_or_raise_not_found(self) -> None:
         with Production.create(
@@ -955,12 +956,12 @@ class ProductionTests(unittest.TestCase):
                 with production.transaction() as transaction:
                     exception_asset = transaction.import_media(self.media_path)
                     raise RuntimeError("abort")
-            self.assertNotIn(exception_asset, production.assets)
+            self.assertFalse(production.asset_exists(exception_asset))
 
             with production.transaction() as transaction:
                 explicit_asset = transaction.import_media(self.media_path)
                 transaction.rollback()
-            self.assertNotIn(explicit_asset, production.assets)
+            self.assertFalse(production.asset_exists(explicit_asset))
 
     def test_close_is_idempotent_and_closed_handles_are_rejected(self) -> None:
         production = Production.create(self.production_path, library_path=LIBRARY_PATH)
@@ -1570,7 +1571,8 @@ class ProductionTests(unittest.TestCase):
                 page = production.assets_page(limit=1, cursor=cursor)
                 paged_assets.extend(page.items)
                 cursor = page.next_cursor
-            self.assertEqual(tuple(paged_assets), tuple(production.assets))
+            with production.read_session() as view:
+                self.assertEqual(tuple(paged_assets), tuple(view.assets()))
             self.assertEqual(
                 {asset.id for asset in paged_assets}, {first_asset, second_asset}
             )

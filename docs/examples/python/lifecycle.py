@@ -47,10 +47,11 @@ def open_production(
     try:
         production_id = production.id
         print(f"production: {production_id}")
-        if asset_id in production.assets:
+        if production.asset_exists(asset_id):
             print(f"asset {asset_id} exists")
 
-        assets = list(production.assets)
+        with production.read_session() as view:
+            assets = list(view.assets())
         for asset in assets:
             print(f"asset {asset.id}: {asset.display_name or '-'}")
 

@@ -99,6 +99,14 @@ keyword `limit` and an optional `cursor` and return a `QueryPage` with `items`,
 `dependencies()`, `dependents()`, `stale_artifacts()`, `jobs()`, and
 `objects_changed_since()`.
 
+For a coherent asset scan, open a read session and iterate
+`view.assets(page_size=100)`. The iterator loads one bounded page at a time;
+page size bounds memory, not total work. Close the session before long host
+work. Advancing an unfinished iterator after session close raises
+`InvalidArgumentError`; copied assets remain usable. Use
+`production.asset_exists(asset_id)` for a live membership check. The former
+`production.assets` collection is removed.
+
 ## Plug-ins of a host application
 
 Applications that embed Python, such as Blender, Nuke, Houdini, or Maya, often

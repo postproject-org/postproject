@@ -42,7 +42,7 @@ with Production.create("production.pproj", "Documentary") as production:
         asset_id = transaction.import_media(media, display_name="Camera A")
         transaction.commit()
 
-    assert asset_id in production.assets
+    assert production.asset_exists(asset_id)
 
     for representation in production.representations[asset_id]:
         print(representation.structure_kind, representation.resources)

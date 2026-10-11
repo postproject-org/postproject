@@ -3,6 +3,10 @@
 All notable changes to PostProject will be documented here. The project uses
 [Semantic Versioning](https://semver.org/) once a stable API is released.
 
+## Unreleased
+
+- Replace Python's eager asset collection with bounded, explicitly owned read-session iteration and typed membership queries (ADR 0068).
+
 ## 0.8.0-alpha.1 - 2026-10-11
 
 - Start the `0.8.0-alpha.1` series (Python `0.8.0a1`, C ABI 52, schema 27).

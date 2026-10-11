@@ -259,22 +259,6 @@ from ._proposal_commands import ProposalCommand, StagedValue, _stage
 _ObjectQueryItem = TypeVar("_ObjectQueryItem")
 
 
-class _Assets:
-    def __init__(self, production: Production) -> None:
-        self._production = production
-
-    def __contains__(self, asset_id: object) -> bool:
-        if not isinstance(asset_id, UUID):
-            return False
-        return self._production._contains_asset(AssetId(asset_id))
-
-    def __iter__(self) -> Iterator[Asset]:
-        return iter(self._production._assets())
-
-    def __len__(self) -> int:
-        return len(self._production._assets())
-
-
 class _ActivitiesByRepresentation:
     def __init__(self, production: Production, direction: str) -> None:
         self._production = production
@@ -747,13 +731,6 @@ class Production:
         )
         self._native.check(status, error)
         return ProductionId(_uuid(value))
-
-    @property
-    def assets(self) -> _Assets:
-        """Return an iterable asset collection with identity membership checks."""
-
-        self._require_open()
-        return _Assets(self)
 
     def media_roots_page(
         self, *, limit: int, cursor: str | None = None
@@ -1580,7 +1557,7 @@ class Production:
         self._require_open()
         return _HostBindings(self)
 
-    def _contains_asset(self, asset_id: AssetId) -> bool:
+    def asset_exists(self, asset_id: AssetId) -> bool:
         """Return whether an asset identity belongs to this production."""
 
         self._require_open()
@@ -1595,26 +1572,6 @@ class Production:
         )
         self._native.check(status, error)
         return bool(exists.value)
-
-    def _assets(self) -> tuple[Asset, ...]:
-        self._require_open()
-        handle = ctypes.POINTER(AssetSet)()
-        error = ctypes.POINTER(Error)()
-        status = self._native.lib.pp_production_assets(
-            self._handle, ctypes.byref(handle), ctypes.byref(error)
-        )
-        self._native.check(status, error)
-        if not handle:
-            raise InternalError(
-                _abi.PP_ERROR_INTERNAL, "native asset query returned no result set"
-            )
-        try:
-            count = self._native.lib.pp_asset_set_count(handle)
-            return tuple(
-                _asset_at(self._native, handle, index) for index in range(int(count))
-            )
-        finally:
-            self._native.lib.pp_asset_set_release(handle)
 
     def _representations(self, asset_id: AssetId) -> tuple[Representation, ...]:
         self._require_open()
@@ -3244,6 +3201,31 @@ class ReadSession:
                 "native representation read returned no single representation",
             )
         return page.items[0]
+
+    def assets(self, *, page_size: int = 100) -> Iterator[Asset]:
+        """Iterate bounded asset pages in this explicitly owned snapshot.
+
+        Page size is validated immediately. Each advance requires an open
+        session, including advances through buffered values. Copied assets
+        outlive close; closing this iterator does not close the session.
+        """
+
+        self._require_open()
+        _page_limit(page_size)
+
+        def iterate() -> Iterator[Asset]:
+            cursor = None
+            while True:
+                page = self.assets_page(limit=page_size, cursor=cursor)
+                for asset in page.items:
+                    self._require_open()
+                    yield asset
+                self._require_open()
+                cursor = page.next_cursor
+                if cursor is None:
+                    return
+
+        return iterate()
 
     def assets_page(self, *, limit: int, cursor: str | None = None) -> QueryPage[Asset]:
         """Return one bounded asset page in creation and identity order."""

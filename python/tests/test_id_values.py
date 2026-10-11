@@ -346,19 +346,21 @@ class IdentityTests(unittest.TestCase):
                     [(empty.bytes, 0), (corrupt.bytes, "invalid timestamp")],
                 )
             with Production.open(path) as production:
-                self.assertIn(empty, production.assets)
-                self.assertNotIn(absent, production.assets)
-                self.assertNotIn(AssetId(UUID(int=0)), production.assets)
+                self.assertTrue(production.asset_exists(empty))
+                self.assertFalse(production.asset_exists(absent))
+                self.assertFalse(production.asset_exists(AssetId(UUID(int=0))))
                 self.assertEqual(production.resolve(empty), ())
                 with self.assertRaises(NotFoundError):
                     production.resolve(absent)
                 for query in (
-                    lambda: corrupt in production.assets,
+                    lambda: production.asset_exists(corrupt),
                     lambda: production.resolve(corrupt),
-                    lambda: list(production.assets),
                 ):
                     with self.assertRaises(StorageError):
                         query()
+                with production.read_session() as view:
+                    with self.assertRaises(StorageError):
+                        list(view.assets())
 
     def test_native_journal_arguments_reject_other_id_structures(self) -> None:
         native = _native.NativeLibrary()
