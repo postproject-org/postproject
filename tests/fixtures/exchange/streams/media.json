@@ -1,0 +1,158 @@
+{
+  "anchor": {
+  "kind": "anchor",
+  "version": "1",
+  "production": "00000000-0000-4000-8000-000000000001",
+  "history": "00000000-0000-4000-8000-000000000002",
+  "revision": null,
+  "sequence": "0"
+},
+  "floor": {
+  "production": "00000000-0000-4000-8000-000000000001",
+  "history": "00000000-0000-4000-8000-000000000002",
+  "revision": null,
+  "sequence": "0",
+  "digest": "bee5f938e8af5b92fbf9a176cc0fe4c2b7dc52a779f8ebbc2c43e9df65d16ad1"
+},
+  "body": [
+    {"kind": "original.creation", "asset": {"kind": "asset.header", "id": "00000000-0000-4000-8000-000000000005", "created_at_micros": "-9223372036854775808", "display_name": "同 😀", "import_source": "Exact"}},
+    {"kind": "representation.creation", "representation": {"kind": "representation.header", "id": "00000000-0000-4000-8000-000000000006", "asset_id": "00000000-0000-4000-8000-000000000005", "role": "original"}, "resource_count": "1", "locator_count": "1", "fingerprint_count": "0"},
+    {"kind": "structure.header", "representation_id": "00000000-0000-4000-8000-000000000006", "content": {"shape": "single", "resource_id": "00000000-0000-4000-8000-000000000008"}},
+    {"kind": "resource.creation", "resource": {"kind": "resource.header", "id": "00000000-0000-4000-8000-000000000008", "file_facts": null}, "fingerprint_count": "0"},
+    {"kind": "locator.fact", "id": "00000000-0000-4000-8000-00000000006c", "resource_id": "00000000-0000-4000-8000-000000000008", "uri": "file:///missing/Exact.mov", "last_seen_micros": null, "availability": "offline", "media_root": null, "sequence_naming": null},
+    {"kind": "representation.creation", "representation": {"kind": "representation.header", "id": "00000000-0000-4000-8000-00000000000a", "asset_id": "00000000-0000-4000-8000-000000000005", "role": "proxy"}, "resource_count": "1", "locator_count": "1", "fingerprint_count": "0"},
+    {"kind": "structure.header", "representation_id": "00000000-0000-4000-8000-00000000000a", "content": {"shape": "single", "resource_id": "00000000-0000-4000-8000-00000000000c"}},
+    {"kind": "resource.creation", "resource": {"kind": "resource.header", "id": "00000000-0000-4000-8000-00000000000c", "file_facts": null}, "fingerprint_count": "0"},
+    {"kind": "locator.fact", "id": "00000000-0000-4000-8000-000000000070", "resource_id": "00000000-0000-4000-8000-00000000000c", "uri": "file:///missing/Exact.mov", "last_seen_micros": null, "availability": "offline", "media_root": null, "sequence_naming": null},
+    {"kind": "observation", "revision": "00000000-0000-4000-8000-000000000384", "position": "0", "event": {"kind": "asset_imported", "asset_id": "00000000-0000-4000-8000-000000000005"}},
+    {"kind": "observation", "revision": "00000000-0000-4000-8000-000000000384", "position": "1", "event": {"kind": "representation_added", "asset_id": "00000000-0000-4000-8000-000000000005", "representation_id": "00000000-0000-4000-8000-000000000006"}},
+    {"kind": "observation", "revision": "00000000-0000-4000-8000-000000000384", "position": "2", "event": {"kind": "resource_added", "resource_id": "00000000-0000-4000-8000-000000000008"}},
+    {"kind": "observation", "revision": "00000000-0000-4000-8000-000000000384", "position": "3", "event": {"kind": "representation_resource_added", "representation_id": "00000000-0000-4000-8000-000000000006", "resource_id": "00000000-0000-4000-8000-000000000008", "position": "0"}},
+    {"kind": "observation", "revision": "00000000-0000-4000-8000-000000000384", "position": "4", "event": {"kind": "locator_added", "resource_id": "00000000-0000-4000-8000-000000000008", "locator_id": "00000000-0000-4000-8000-00000000006c"}},
+    {"kind": "observation", "revision": "00000000-0000-4000-8000-000000000384", "position": "5", "event": {"kind": "representation_added", "asset_id": "00000000-0000-4000-8000-000000000005", "representation_id": "00000000-0000-4000-8000-00000000000a"}},
+    {"kind": "observation", "revision": "00000000-0000-4000-8000-000000000384", "position": "6", "event": {"kind": "resource_added", "resource_id": "00000000-0000-4000-8000-00000000000c"}},
+    {"kind": "observation", "revision": "00000000-0000-4000-8000-000000000384", "position": "7", "event": {"kind": "representation_resource_added", "representation_id": "00000000-0000-4000-8000-00000000000a", "resource_id": "00000000-0000-4000-8000-00000000000c", "position": "0"}},
+    {"kind": "observation", "revision": "00000000-0000-4000-8000-000000000384", "position": "8", "event": {"kind": "locator_added", "resource_id": "00000000-0000-4000-8000-00000000000c", "locator_id": "00000000-0000-4000-8000-000000000070"}}
+  ],
+  "chunks": [
+  {
+    "kind": "record.chunk",
+    "version": "1",
+    "required_features": [
+      "record-chunks.v1"
+    ],
+    "production": "00000000-0000-4000-8000-000000000001",
+    "history": "00000000-0000-4000-8000-000000000002",
+    "revision": "00000000-0000-4000-8000-000000000384",
+    "index": "0",
+    "previous": null,
+    "payload": "AAAAAAAAAA==",
+    "extensions": {
+      "vendor:exact": {
+        "ordered": [
+          "同",
+          "同",
+          "😀"
+        ]
+      }
+    },
+    "digest": "ed463917310e3c29531f37da3899bc82d793a32d9f2778035b4af69b31591bb6"
+  },
+  {
+    "kind": "record.chunk",
+    "version": "1",
+    "required_features": [
+      "record-chunks.v1"
+    ],
+    "production": "00000000-0000-4000-8000-000000000001",
+    "history": "00000000-0000-4000-8000-000000000002",
+    "revision": "00000000-0000-4000-8000-000000000384",
+    "index": "1",
+    "previous": "ed463917310e3c29531f37da3899bc82d793a32d9f2778035b4af69b31591bb6",
+    "payload": "xXsiYXNzZXQiOnsiY3JlYXRlZF9hdF9taWNyb3MiOiItOTIyMzM3MjAzNjg1NDc3NTgwOCIsImRpc3BsYXlfbmFtZSI6IuWQjCDw",
+    "extensions": {
+      "vendor:exact": {
+        "ordered": [
+          "同",
+          "同",
+          "😀"
+        ]
+      }
+    },
+    "digest": "52981d4d222950520100bcf5c78aa0d65e8dd4f181ffc9a937a85b97eec3cfaf"
+  },
+  {
+    "kind": "record.chunk",
+    "version": "1",
+    "required_features": [
+      "record-chunks.v1"
+    ],
+    "production": "00000000-0000-4000-8000-000000000001",
+    "history": "00000000-0000-4000-8000-000000000002",
+    "revision": "00000000-0000-4000-8000-000000000384",
+    "index": "2",
+    "previous": "52981d4d222950520100bcf5c78aa0d65e8dd4f181ffc9a937a85b97eec3cfaf",
+    "payload": "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",
+    "extensions": {
+      "vendor:exact": {
+        "ordered": [
+          "同",
+          "同",
+          "😀"
+        ]
+      }
+    },
+    "digest": "cbd646b45ad54ee45212f87cadf8826d00db7ea31d0870b4a7c2cfd6254c2a74"
+  }
+],
+  "manifest": {
+  "kind": "record.manifest",
+  "version": "1",
+  "required_features": [
+    "media.v1",
+    "record-chunks.v1"
+  ],
+  "predecessor": {
+    "production": "00000000-0000-4000-8000-000000000001",
+    "history": "00000000-0000-4000-8000-000000000002",
+    "revision": null,
+    "sequence": "0",
+    "digest": "bee5f938e8af5b92fbf9a176cc0fe4c2b7dc52a779f8ebbc2c43e9df65d16ad1"
+  },
+  "revision": {
+    "id": "00000000-0000-4000-8000-000000000384",
+    "transaction": "00000000-0000-4000-8000-000000000385",
+    "sequence": "1",
+    "committed_at": "-9223372036854775808",
+    "context": {
+      "origin": null,
+      "message": "Exact independent media"
+    }
+  },
+  "chunks": {
+    "count": "3",
+    "payload_bytes": "3955",
+    "last_digest": "cbd646b45ad54ee45212f87cadf8826d00db7ea31d0870b4a7c2cfd6254c2a74"
+  },
+  "effects": "2",
+  "events": "9",
+  "extensions": {
+    "vendor:exact": {
+      "ordered": [
+        "同",
+        "同",
+        "😀"
+      ]
+    }
+  },
+  "record_digest": "4ae9a35bc48fe38fb344fa96b56cb2ce30a221f18031aa73d46b1c34df763b04",
+  "digest": "d77a9a10c7d92246c8bc231ff13040609eb8b49cccd3cc675b6eaa499cdcfa38"
+},
+  "head": {
+  "production": "00000000-0000-4000-8000-000000000001",
+  "history": "00000000-0000-4000-8000-000000000002",
+  "revision": "00000000-0000-4000-8000-000000000384",
+  "sequence": "1",
+  "digest": "4ae9a35bc48fe38fb344fa96b56cb2ce30a221f18031aa73d46b1c34df763b04"
+}
+}

@@ -1,11 +1,13 @@
-//! Fixed metadata stream bytes/digests authored without the `PostProject` codec.
+//! Fixed record streams authored without the `PostProject` codec.
 
 use std::path::Path;
 
 use postproject_core::DecisionBase;
 use postproject_protocol::{
-    Document, FrameDecoder, Limits, MetadataEffect, MetadataEffectStart, Position, ProtocolBase,
-    RecordChunk, RecordManifest, decode_event, encode_event,
+    CreationDecoder, CreationFact, Document, FrameDecoder, Limits, MetadataEffect,
+    MetadataEffectStart, Position, ProtocolBase, RecordChunk, RecordManifest,
+    RepresentationCreationStart, decode_asset, decode_event, encode_asset, encode_event,
+    encode_locator,
 };
 
 fn document(value: &serde_json::Value) -> Document {
@@ -53,17 +55,48 @@ fn independent_split_stream_preserves_exact_authored_frames_and_both_digests() {
         for (actual, expected) in frames.iter().zip(expected) {
             assert_eq!(actual, &document(expected));
         }
-        let start = MetadataEffectStart::from_document(&frames[0]).unwrap();
-        let value = MetadataEffectStart::decode_value(&frames[1]).unwrap();
-        let effect =
-            MetadataEffect::appended(start.target(), start.property().clone(), 0, value).unwrap();
-        for (actual, expected) in effect.frames().zip(&frames) {
-            assert_eq!(actual.unwrap(), *expected);
+        if frames[0].kind().unwrap() == "metadata.effect" {
+            let start = MetadataEffectStart::from_document(&frames[0]).unwrap();
+            let value = MetadataEffectStart::decode_value(&frames[1]).unwrap();
+            let effect =
+                MetadataEffect::appended(start.target(), start.property().clone(), 0, value)
+                    .unwrap();
+            for (actual, expected) in effect.frames().zip(&frames) {
+                assert_eq!(actual.unwrap(), *expected);
+            }
+        } else {
+            check_media_frames(&frames, expected);
         }
-        assert_eq!(
-            encode_event(&decode_event(&frames[2]).unwrap()).unwrap(),
-            frames[2]
-        );
+        for frame in frames
+            .iter()
+            .filter(|frame| frame.kind().unwrap() == "observation")
+        {
+            assert_eq!(encode_event(&decode_event(frame).unwrap()).unwrap(), *frame);
+        }
+    }
+}
+
+fn check_media_frames(frames: &[Document], expected: &[serde_json::Value]) {
+    let asset = document(&expected[0]["asset"]);
+    assert_eq!(encode_asset(&decode_asset(&asset).unwrap()), asset);
+    for offset in [1, 5] {
+        let start = RepresentationCreationStart::from_document(&frames[offset]).unwrap();
+        assert_eq!(start.document().unwrap(), frames[offset]);
+        let mut decoder = CreationDecoder::new(start, 1).unwrap();
+        for frame in &frames[offset + 1..offset + 4] {
+            match decoder.push(frame).unwrap().unwrap() {
+                CreationFact::Resource(header) => {
+                    let original = document(&expected[offset + 2]["resource"]);
+                    assert_eq!(header.document(), original);
+                }
+                CreationFact::Locator(locator) => {
+                    assert_eq!(encode_locator(&locator).unwrap(), *frame);
+                }
+                CreationFact::Structure(content) => assert_eq!(content.resource_ids().len(), 1),
+                other => panic!("unexpected creation fact {other:?}"),
+            }
+        }
+        decoder.finish().unwrap();
     }
 }
 
