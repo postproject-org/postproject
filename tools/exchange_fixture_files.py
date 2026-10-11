@@ -20,7 +20,7 @@ MAX_BYTES = 2 * 1024 * 1024
 def fixture(name: str) -> dict:
     path = ROOT / name
     assert path.stat().st_size <= MAX_BYTES
-    return json.loads(path.read_text())
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def encoded(value: dict) -> bytes:

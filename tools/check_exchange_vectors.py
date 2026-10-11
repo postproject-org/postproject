@@ -209,33 +209,47 @@ def main() -> int:
     )
     options = parser.parse_args()
     vectors = json.loads(
-        (ROOT / "tests/fixtures/exchange/canonical-json.json").read_text()
+        (ROOT / "tests/fixtures/exchange/canonical-json.json").read_text(
+            encoding="utf-8"
+        )
     )
     for vector in vectors:
         assert canonical(vector["input"]) == vector["canonical"].encode("utf-8")
     proposals = json.loads(
-        (ROOT / "tests/fixtures/exchange/proposal-vectors.json").read_text()
+        (ROOT / "tests/fixtures/exchange/proposal-vectors.json").read_text(
+            encoding="utf-8"
+        )
     )
     operations = set()
     for vector in proposals:
         path = ROOT / "tests/fixtures/exchange" / vector["file"]
-        assert canonical(path.read_text()) == vector["canonical"].encode("utf-8")
-        operations.update(check_proposal(json.loads(path.read_text())))
+        assert canonical(path.read_text(encoding="utf-8")) == vector[
+            "canonical"
+        ].encode("utf-8")
+        operations.update(check_proposal(json.loads(path.read_text(encoding="utf-8"))))
     assert operations == set(FIELDS), (
         "fixed proposals must cover every current operation"
     )
     streams = json.loads(
-        (ROOT / "tests/fixtures/exchange/stream-vectors.json").read_text()
+        (ROOT / "tests/fixtures/exchange/stream-vectors.json").read_text(
+            encoding="utf-8"
+        )
     )
     for vector in streams:
         path = ROOT / "tests/fixtures/exchange" / vector["file"]
-        check_stream(vector, json.loads(path.read_text()), options.digests)
+        check_stream(
+            vector, json.loads(path.read_text(encoding="utf-8")), options.digests
+        )
     checkpoints = json.loads(
-        (ROOT / "tests/fixtures/exchange/checkpoint-vectors.json").read_text()
+        (ROOT / "tests/fixtures/exchange/checkpoint-vectors.json").read_text(
+            encoding="utf-8"
+        )
     )
     for vector in checkpoints:
         path = ROOT / "tests/fixtures/exchange" / vector["file"]
-        check_checkpoint(vector, json.loads(path.read_text()), options.digests)
+        check_checkpoint(
+            vector, json.loads(path.read_text(encoding="utf-8")), options.digests
+        )
     if options.digests:
         from blake3 import blake3
 
