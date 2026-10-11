@@ -88,6 +88,8 @@ fn independent_records_preserve_original_media_identities_and_public_observation
             check_knowledge(&mirror);
         } else if vector["file"] == "streams/provenance.json" {
             check_provenance(&mirror);
+        } else if vector["file"] == "streams/job-completion.json" {
+            check_jobs(&mirror);
         }
         assert_eq!(
             mirror.begin_transaction().err().unwrap().kind(),
@@ -143,6 +145,55 @@ fn check_provenance(mirror: &SqliteProduction) {
             .unwrap()
             .dependencies(),
         []
+    );
+}
+
+fn check_jobs(mirror: &SqliteProduction) {
+    let job = |suffix: &str| {
+        mirror
+            .job(format!("00000000-0000-4000-8000-{suffix}").parse().unwrap())
+            .unwrap()
+    };
+    assert!(matches!(
+        job("000000000708").state(),
+        postproject_core::JobState::Requested
+    ));
+    let claimed = job("000000000709");
+    let postproject_core::JobState::Claimed(claim) = claimed.state() else {
+        panic!("missing inert claim")
+    };
+    assert_eq!(claim.expires_at().as_unix_micros(), i64::MAX);
+    assert_eq!(claim.tool().name(), "Exact 同 😀");
+    let failed = job("00000000070a");
+    let postproject_core::JobState::Failed(failure) = failed.state() else {
+        panic!("missing terminal failure")
+    };
+    assert_eq!(failure.diagnostic(), "  vendor:Failure 同 😀\n  ");
+    assert!(matches!(
+        job("00000000070b").state(),
+        postproject_core::JobState::Cancelled
+    ));
+    let succeeded = job("00000000070c");
+    let postproject_core::JobState::Succeeded(completion) = succeeded.state() else {
+        panic!("missing publication receipt")
+    };
+    assert_eq!(
+        completion.representation_id().to_string(),
+        "00000000-0000-4000-8000-000000000726"
+    );
+    let output = mirror
+        .representation(completion.representation_id())
+        .unwrap();
+    assert_eq!(output.kind(), RepresentationKind::Derived);
+    let activity = mirror
+        .activities_producing(output.id())
+        .unwrap()
+        .pop()
+        .unwrap();
+    assert_eq!(activity.id(), completion.activity_id());
+    assert_eq!(
+        activity.inputs()[0].snapshot().unwrap().fingerprints()[0].observed_revision_sequence(),
+        Some(4)
     );
 }
 
