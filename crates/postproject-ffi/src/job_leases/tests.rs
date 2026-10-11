@@ -2,7 +2,7 @@
 
 use std::{ffi::CStr, ptr};
 
-use postproject_core::{Job, JobKind, RepresentationKind, RequestedJobOutput};
+use postproject_core::{Job, JobKind, JobLeaseState, RepresentationKind, RequestedJobOutput};
 use tempfile::{TempDir, tempdir};
 
 use super::{api::*, transitions::*};
@@ -72,10 +72,7 @@ fn native_pending_claims_close_on_discard_and_activate_only_after_commit() {
         );
         assert!(token.is_null());
         pp_transaction_release(edit);
-        assert_eq!(
-            (*lease).shared.state().unwrap(),
-            postproject_core::JobLeaseState::Closed
-        );
+        assert_eq!((*lease).shared.state().unwrap(), JobLeaseState::Closed);
         pp_job_lease_free(lease);
 
         let edit = begin_transaction_handle(&production.state, None, None).unwrap();
@@ -97,7 +94,7 @@ fn native_pending_claims_close_on_discard_and_activate_only_after_commit() {
             crate::PP_OK
         );
         assert_eq!(
-            crate::pp_transaction_commit(edit, &mut receipt, ptr::null_mut()),
+            crate::pp_transaction_commit(edit, &raw mut receipt, ptr::null_mut()),
             crate::PP_OK
         );
         pp_transaction_release(edit);
@@ -124,21 +121,18 @@ fn native_pending_claims_close_on_discard_and_activate_only_after_commit() {
             crate::PP_OK
         );
         assert_eq!(
-            crate::pp_transaction_commit(edit, &mut receipt, ptr::null_mut()),
+            crate::pp_transaction_commit(edit, &raw mut receipt, ptr::null_mut()),
             crate::PP_OK
         );
         pp_transaction_release(edit);
-        assert_eq!(
-            (*lease).shared.state().unwrap(),
-            postproject_core::JobLeaseState::Closed
-        );
+        assert_eq!((*lease).shared.state().unwrap(), JobLeaseState::Closed);
         let edit = begin_transaction_handle(&production.state, None, None).unwrap();
         assert_eq!(
             pp_transaction_fail_job_lease(edit, imported, c"late".as_ptr(), ptr::null_mut()),
             crate::PP_OK
         );
         assert_eq!(
-            crate::pp_transaction_commit(edit, &mut receipt, ptr::null_mut()),
+            crate::pp_transaction_commit(edit, &raw mut receipt, ptr::null_mut()),
             crate::PP_ERROR_CONFLICT
         );
         pp_transaction_release(edit);
@@ -199,7 +193,7 @@ fn native_rejects_invalid_durations_and_token_size_before_reading_input() {
             crate::PP_ERROR_INVALID_ARGUMENT
         );
         assert_eq!(
-            crate::pp_transaction_commit(edit, &mut receipt, ptr::null_mut()),
+            crate::pp_transaction_commit(edit, &raw mut receipt, ptr::null_mut()),
             crate::PP_OK
         );
         pp_transaction_release(edit);

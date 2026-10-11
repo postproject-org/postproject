@@ -2,7 +2,9 @@
 
 use std::{ffi::CStr, ptr};
 
-use postproject_core::{Job, JobId, JobKind, RepresentationKind, RequestedJobOutput};
+use postproject_core::{
+    Job, JobId, JobKind, JobLeaseState, RepresentationKind, RequestedJobOutput,
+};
 
 use super::{outcome::*, submission::*, *};
 use crate::{
@@ -122,10 +124,7 @@ fn fresh_claim(production: &PpProduction, job: PpJobId) -> *mut crate::PpJobLeas
             crate::PP_OK
         );
         let proposal = prepare(edit, 2);
-        assert_eq!(
-            (*pending).shared.state().unwrap(),
-            postproject_core::JobLeaseState::Closed
-        );
+        assert_eq!((*pending).shared.state().unwrap(), JobLeaseState::Closed);
         pp_job_lease_free(pending);
         let delivery = submit(production, proposal, &[]);
         assert_eq!(pp_submission_lease_count(delivery), 1);
@@ -261,14 +260,11 @@ fn private_native_handle_recovery_precedes_current_ownership_checks() {
             crate::PP_OK
         );
         assert_eq!(
-            crate::pp_transaction_commit(edit, &mut receipt, ptr::null_mut()),
+            crate::pp_transaction_commit(edit, &raw mut receipt, ptr::null_mut()),
             crate::PP_OK
         );
         crate::pp_transaction_release(edit);
-        assert_eq!(
-            (*lease).shared.state().unwrap(),
-            postproject_core::JobLeaseState::Closed
-        );
+        assert_eq!((*lease).shared.state().unwrap(), JobLeaseState::Closed);
         assert_token_recovery(&directory, proposal, original, &token);
         let recovered = submit(&production, proposal, &[lease]);
         assert_eq!(pp_submission_lease_count(recovered), 0);
