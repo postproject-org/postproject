@@ -6163,27 +6163,48 @@ class ResolutionOptions final {
 public:
   [[nodiscard]] static Result<ResolutionOptions>
   create(const ResolutionConfig &config = {}) {
-    pp_resolution_options_t *options = nullptr;
-    pp_error_t *error = nullptr;
-    const auto status = pp_resolution_options_create(&options, &error);
-    POSTPROJECT_TRY(detail::check(status, error));
-    ResolutionOptions result(options);
+    std::vector<std::string> names, mapped_paths, searched_paths;
+    std::vector<pp_root_mapping_t> mappings;
+    std::vector<const char *> directories;
+    names.reserve(config.root_mappings.size());
+    mapped_paths.reserve(config.root_mappings.size());
+    mappings.reserve(config.root_mappings.size());
+    searched_paths.reserve(config.search_directories.size());
+    directories.reserve(config.search_directories.size());
     for (const auto &mapping : config.root_mappings) {
-      POSTPROJECT_TRY_ASSIGN(const auto directory,
-                             detail::checked_path(mapping.second, "root directory"));
-      POSTPROJECT_TRY(result.addRootMapping(mapping.first, directory));
+      POSTPROJECT_TRY_ASSIGN(
+          auto name, detail::checked_string(mapping.first, "root name"));
+      POSTPROJECT_TRY_ASSIGN(
+          auto directory,
+          detail::checked_path(mapping.second, "root directory"));
+      names.push_back(std::move(name));
+      mapped_paths.push_back(std::move(directory));
+      mappings.push_back({names.back().c_str(), mapped_paths.back().c_str()});
     }
     for (const auto &path : config.search_directories) {
-      POSTPROJECT_TRY_ASSIGN(const auto directory,
+      POSTPROJECT_TRY_ASSIGN(auto directory,
                              detail::checked_path(path, "search directory"));
-      POSTPROJECT_TRY(result.addSearchDirectory(directory));
+      searched_paths.push_back(std::move(directory));
+      directories.push_back(searched_paths.back().c_str());
     }
-    POSTPROJECT_TRY(result.setVerification(config.verification));
-    POSTPROJECT_TRY(
-        result.setLimits(config.max_depth, config.max_entries_per_directory));
-    if (config.cancel_token)
-      POSTPROJECT_TRY(result.setCancelToken(*config.cancel_token));
-    return result;
+    if (config.cancel_token && !config.cancel_token->token_)
+      return Error(ErrorCode::invalid_argument,
+                   "cancellation token was moved from");
+    const pp_resolution_config_t native_config = {
+        mappings.data(),
+        mappings.size(),
+        directories.data(),
+        directories.size(),
+        static_cast<pp_verification_mode_t>(config.verification),
+        config.max_depth,
+        config.max_entries_per_directory,
+        config.cancel_token ? config.cancel_token->token_ : nullptr};
+    pp_resolution_options_t *options = nullptr;
+    pp_error_t *error = nullptr;
+    const auto status =
+        pp_resolution_options_create(&native_config, &options, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    return ResolutionOptions(options);
   }
   ResolutionOptions(const ResolutionOptions &) = delete;
   ResolutionOptions &operator=(const ResolutionOptions &) = delete;
@@ -6199,52 +6220,6 @@ public:
   ~ResolutionOptions() { pp_resolution_options_release(options_); }
 
 private:
-  [[nodiscard]] Result<void> addRootMapping(std::string_view name,
-                                            std::string_view directory) {
-    POSTPROJECT_TRY_ASSIGN(const auto native_name,
-                           detail::checked_string(name, "root name"));
-    POSTPROJECT_TRY_ASSIGN(const auto native_directory,
-                           detail::checked_string(directory, "root directory"));
-    pp_error_t *error = nullptr;
-    const auto status = pp_resolution_options_add_root_mapping(
-        options_, native_name.c_str(), native_directory.c_str(), &error);
-    return detail::check(status, error);
-  }
-
-  [[nodiscard]] Result<void> addSearchDirectory(std::string_view directory) {
-    POSTPROJECT_TRY_ASSIGN(const auto native_directory,
-                           detail::checked_string(directory, "search directory"));
-    pp_error_t *error = nullptr;
-    const auto status = pp_resolution_options_add_search_directory(
-        options_, native_directory.c_str(), &error);
-    return detail::check(status, error);
-  }
-
-  [[nodiscard]] Result<void> setVerification(VerificationMode verification) {
-    pp_error_t *error = nullptr;
-    const auto status = pp_resolution_options_set_verification(
-        options_, static_cast<pp_verification_mode_t>(verification), &error);
-    return detail::check(status, error);
-  }
-
-  [[nodiscard]] Result<void> setLimits(std::uint32_t max_depth,
-                                     std::uint64_t max_entries_per_directory) {
-    pp_error_t *error = nullptr;
-    const auto status = pp_resolution_options_set_limits(
-        options_, max_depth, max_entries_per_directory, &error);
-    return detail::check(status, error);
-  }
-
-  // The options retain the flag independently of the token's lifetime.
-  [[nodiscard]] Result<void> setCancelToken(const CancelToken &token) {
-    if (token.token_ == nullptr)
-      return Error(ErrorCode::invalid_argument, "cancellation token was moved from");
-    pp_error_t *error = nullptr;
-    const auto status = pp_resolution_options_set_cancel_token(
-        options_, token.token_, &error);
-    return detail::check(status, error);
-  }
-
   friend class Production;
   friend class ReadSession;
   explicit ResolutionOptions(pp_resolution_options_t *options) noexcept
