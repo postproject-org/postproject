@@ -241,6 +241,7 @@ fn private_native_handle_recovery_precedes_current_ownership_checks() {
     let token = private_token(lease);
     // SAFETY: All pointers remain live and serialized; every allocation freed once.
     unsafe {
+        let mut receipt = crate::PpCommitReceipt::empty();
         let edit = begin_transaction_handle(&production.state, None, None).unwrap();
         assert_eq!(
             pp_transaction_renew_job_lease(edit, lease, 60_000_000, ptr::null_mut()),
@@ -260,11 +261,7 @@ fn private_native_handle_recovery_precedes_current_ownership_checks() {
             crate::PP_OK
         );
         assert_eq!(
-            crate::pp_transaction_commit(
-                edit,
-                &mut crate::PpCommitReceipt::empty(),
-                ptr::null_mut()
-            ),
+            crate::pp_transaction_commit(edit, &mut receipt, ptr::null_mut()),
             crate::PP_OK
         );
         crate::pp_transaction_release(edit);
