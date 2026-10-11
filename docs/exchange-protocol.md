@@ -244,7 +244,8 @@ now adopt complete original/representation creation, roots, locators, identifier
 resource file facts. Root/locator effects retain additions and intermediate
 enabled/removal states; file-fact effects retain authored sizes/times. Standalone
 fingerprint updates retain exact historical boundaries and recomputation facts.
-Installed exchange projections remain incomplete.
+Installed Rust, C, C++, Python and CLI recipes exercise these operations through
+their public exchange APIs; ordinary integrations keep their native domain calls.
 
 ## Bounds, checkpoints and replay
 

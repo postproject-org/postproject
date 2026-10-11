@@ -89,7 +89,7 @@ struct Cli {
 enum Command {
     /// Read a coherent bounded view and emit a detached decision token.
     Inspect(ProductionQueryArgs),
-    /// Submit portable metadata proposals and recover durable outcomes.
+    /// Submit portable proposals and recover durable outcomes.
     Exchange(exchange::ExchangeArgs),
     /// Create a production file.
     Init(InitArgs),
