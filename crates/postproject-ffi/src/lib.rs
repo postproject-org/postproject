@@ -38,7 +38,7 @@ use std::{
     any::Any,
     ffi::{CStr, CString, c_char},
     panic::{AssertUnwindSafe, catch_unwind},
-    path::Path,
+    path::{Path, PathBuf},
     ptr,
     str::FromStr,
     sync::{
@@ -5050,11 +5050,11 @@ pub unsafe extern "C" fn pp_transaction_import_media(
                 return Err(invalid_argument("out_asset_id must not be null"));
             }
             let display_name = optional_utf8(display_name, "display_name")?.map(str::to_owned);
-            let import = prepare_original_media(source.clone(), display_name, None)?;
-            out_asset_id.write(PpAssetId {
-                bytes: import.asset().id().into_bytes(),
-            });
-            transaction.mutations.push(StagedMutation::Import(import));
+            out_asset_id.write(stage_original_media(
+                transaction,
+                source.clone(),
+                display_name,
+            )?);
             Ok(())
         })
     }
@@ -5092,20 +5092,119 @@ pub unsafe extern "C" fn pp_transaction_add_representation(
             if out_representation_id.is_null() {
                 return Err(invalid_argument("out_representation_id must not be null"));
             }
-            let import = prepare_representation(
-                AssetId::from_bytes(asset_id.bytes),
-                representation_kind_from_abi(kind)?,
+            out_representation_id.write(stage_representation(
+                transaction,
+                asset_id,
+                kind,
                 source.clone(),
-            )?;
-            out_representation_id.write(PpRepresentationId {
-                bytes: import.representation().id().into_bytes(),
-            });
-            transaction
-                .mutations
-                .push(StagedMutation::Representation(import));
+            )?);
             Ok(())
         })
     }
+}
+
+/// Stages an original single-file import without an intermediate source owner.
+///
+/// # Safety
+///
+/// Transaction must be live; path must be NUL-terminated UTF-8. Display name
+/// may be null or NUL-terminated UTF-8. Outputs must be writable.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_transaction_import_file(
+    transaction: *mut PpTransaction,
+    path: *const c_char,
+    display_name: *const c_char,
+    out_asset_id: *mut PpAssetId,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: Validate pointers before use; borrow path only during this call.
+    unsafe {
+        initialize_value(out_asset_id, PpAssetId { bytes: [0; 16] });
+        ffi_call(out_error, || {
+            require_output(out_asset_id, "out_asset_id")?;
+            let transaction = transaction
+                .as_mut()
+                .ok_or_else(|| invalid_argument("transaction must not be null"))?;
+            transaction.lifecycle.ensure_open()?;
+            let path = media_source::required_path(path, "path")?;
+            let display_name = optional_utf8(display_name, "display_name")?.map(str::to_owned);
+            out_asset_id.write(stage_original_media(
+                transaction,
+                postproject_media::MediaSource::File(PathBuf::from(path)),
+                display_name,
+            )?);
+            Ok(())
+        })
+    }
+}
+
+/// Stages a single-file representation without an intermediate source owner.
+///
+/// # Safety
+///
+/// Transaction must be live; path must be NUL-terminated UTF-8. Outputs must
+/// be writable. The asset is validated at commit, as for compound sources.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_transaction_add_file_representation(
+    transaction: *mut PpTransaction,
+    asset_id: PpAssetId,
+    kind: u32,
+    path: *const c_char,
+    out_representation_id: *mut PpRepresentationId,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: Validate pointers before use; borrow path only during this call.
+    unsafe {
+        initialize_value(out_representation_id, PpRepresentationId { bytes: [0; 16] });
+        ffi_call(out_error, || {
+            require_output(out_representation_id, "out_representation_id")?;
+            let transaction = transaction
+                .as_mut()
+                .ok_or_else(|| invalid_argument("transaction must not be null"))?;
+            transaction.lifecycle.ensure_open()?;
+            let path = media_source::required_path(path, "path")?;
+            out_representation_id.write(stage_representation(
+                transaction,
+                asset_id,
+                kind,
+                postproject_media::MediaSource::File(PathBuf::from(path)),
+            )?);
+            Ok(())
+        })
+    }
+}
+
+fn stage_original_media(
+    transaction: &mut PpTransaction,
+    source: postproject_media::MediaSource,
+    display_name: Option<String>,
+) -> Result<PpAssetId, Error> {
+    let import = prepare_original_media(source, display_name, None)?;
+    let id = PpAssetId {
+        bytes: import.asset().id().into_bytes(),
+    };
+    transaction.mutations.push(StagedMutation::Import(import));
+    Ok(id)
+}
+
+fn stage_representation(
+    transaction: &mut PpTransaction,
+    asset_id: PpAssetId,
+    kind: u32,
+    source: postproject_media::MediaSource,
+) -> Result<PpRepresentationId, Error> {
+    let import = prepare_representation(
+        AssetId::from_bytes(asset_id.bytes),
+        representation_kind_from_abi(kind)?,
+        source,
+    )?;
+    let id = PpRepresentationId {
+        bytes: import.representation().id().into_bytes(),
+    };
+    transaction
+        .mutations
+        .push(StagedMutation::Representation(import));
+    Ok(id)
 }
 
 /// Stages a filesystem media root and returns its stable identity.
@@ -7470,25 +7569,13 @@ mod tests {
         // SAFETY: The transaction retains shared ownership of the state.
         unsafe { pp_production_release(production) };
 
-        let mut source = ptr::null_mut();
-        // SAFETY: The path is NUL-terminated and the outputs are writable.
-        assert_eq!(
-            unsafe {
-                media_source::pp_media_source_create_file(
-                    media_path.as_ptr(),
-                    &raw mut source,
-                    &raw mut error,
-                )
-            },
-            PP_OK
-        );
         let mut asset_id = PpAssetId { bytes: [0; 16] };
-        // SAFETY: `transaction` and `source` are live and outputs are writable.
+        // SAFETY: `transaction` is live and the path is NUL-terminated and outputs are writable.
         assert_eq!(
             unsafe {
-                pp_transaction_import_media(
+                pp_transaction_import_file(
                     transaction,
-                    source,
+                    media_path.as_ptr(),
                     ptr::null(),
                     &raw mut asset_id,
                     &raw mut error,
@@ -7496,8 +7583,6 @@ mod tests {
             },
             PP_OK
         );
-        // SAFETY: The live source is released exactly once.
-        unsafe { media_source::pp_media_source_release(source) };
         // SAFETY: `transaction` remains live and exclusively accessed.
         assert_eq!(
             unsafe { pp_transaction_commit(transaction, &raw mut error) },

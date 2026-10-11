@@ -1844,8 +1844,7 @@ PP_API void pp_production_release(pp_production_t *production);
  * the call, so one source may serve many calls. Inputs are copied and checked
  * against the content-structure rules when the source is created; the files
  * are inspected and fingerprinted when a transaction uses the source. */
-PP_API pp_error_code_t pp_media_source_create_file(
-    const char *path, pp_media_source_t **out_source, pp_error_t **out_error);
+
 /* The missing-frame array is borrowed and may be NULL only when its count is
  * zero. The directory and the naming are required and borrowed. The directory
  * and naming become the sequence's first locator; the frames, rate, and
@@ -1874,6 +1873,17 @@ PP_API pp_error_code_t pp_transaction_set_revision_context(
     pp_transaction_t *transaction, const char *origin_name,
     const char *origin_version, const char *origin_uri, const char *message,
     pp_error_t **out_error);
+/* Single files use borrowed UTF-8 paths directly, without a source handle.
+ * Failed staging clears the ID output and leaves the edit open and unchanged.
+ * Asset membership for representations is checked at commit. */
+PP_API pp_error_code_t pp_transaction_import_file(
+    pp_transaction_t *transaction, const char *path, const char *display_name,
+    pp_asset_id_t *out_asset_id, pp_error_t **out_error);
+PP_API pp_error_code_t pp_transaction_add_file_representation(
+    pp_transaction_t *transaction, pp_asset_id_t asset_id,
+    pp_representation_kind_t kind, const char *path,
+    pp_representation_id_t *out_representation_id, pp_error_t **out_error);
+/* Compound sources retain their explicit structure description. */
 PP_API pp_error_code_t pp_transaction_import_media(
     pp_transaction_t *transaction, const pp_media_source_t *source,
     const char *display_name, pp_asset_id_t *out_asset_id, pp_error_t **out_error);

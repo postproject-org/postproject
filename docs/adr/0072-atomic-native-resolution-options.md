@@ -26,7 +26,7 @@ ADR 0069's checked C++ contract remains unchanged.
 
 Initialize a config, populate its fields, then check one creation result.
 The changed creation signature and removed exports require ABI/soname 53.
-The two input layouts bring the total to 38; there are 344 exports.
+The two input layouts bring the total to 38; there are 345 exports.
 Bindings built for ABI 52 reject the new library before declaring functions.
 
 Reviewed against the contributor standards policy: search policy, domain

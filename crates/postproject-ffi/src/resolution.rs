@@ -566,8 +566,8 @@ mod tests {
     fn config_arrays_and_late_failures_leave_no_partial_owner() {
         let fixture = tempfile::tempdir().expect("directory fixture");
         let name = std::ffi::CString::new("rushes").expect("name");
-        let directory = std::ffi::CString::new(fixture.path().to_str().expect("UTF-8"))
-            .expect("directory");
+        let directory =
+            std::ffi::CString::new(fixture.path().to_str().expect("UTF-8")).expect("directory");
         let empty = std::ffi::CString::new("").expect("empty");
         let mappings = [
             PpRootMapping {

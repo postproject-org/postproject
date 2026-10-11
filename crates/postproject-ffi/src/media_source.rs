@@ -23,31 +23,6 @@ pub struct PpMediaSource {
     pub(crate) source: MediaSource,
 }
 
-/// Creates a single-file media source.
-///
-/// # Safety
-///
-/// `path` must be borrowed NUL-terminated UTF-8. `out_source` must be
-/// writable; `out_error` may be null or writable.
-#[postproject_ffi_macros::ffi_export]
-pub unsafe extern "C" fn pp_media_source_create_file(
-    path: *const c_char,
-    out_source: *mut *mut PpMediaSource,
-    out_error: *mut *mut PpError,
-) -> u32 {
-    // SAFETY: The output is validated before it is written, and the path is
-    // copied before this call returns.
-    unsafe {
-        initialize_output(out_source);
-        ffi_call(out_error, || {
-            require_output(out_source, "out_source")?;
-            let path = required_path(path, "path")?;
-            write_source(out_source, MediaSource::File(Path::new(path).to_path_buf()));
-            Ok(())
-        })
-    }
-}
-
 /// Creates a compact image-sequence media source.
 ///
 /// # Safety
@@ -250,7 +225,10 @@ unsafe fn create_file_collection(
     }
 }
 
-unsafe fn required_path<'a>(value: *const c_char, label: &str) -> Result<&'a str, Error> {
+pub(crate) unsafe fn required_path<'a>(
+    value: *const c_char,
+    label: &str,
+) -> Result<&'a str, Error> {
     // SAFETY: The caller forwards a borrowed NUL-terminated string contract.
     let value = unsafe { required_utf8(value, label) }?;
     if value.is_empty() {

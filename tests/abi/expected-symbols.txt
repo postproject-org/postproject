@@ -85,7 +85,6 @@ pp_media_root_set_count
 pp_media_root_set_get
 pp_media_root_set_next_cursor
 pp_media_root_set_release
-pp_media_source_create_file
 pp_media_source_create_image_sequence
 pp_media_source_create_ordered_parts
 pp_media_source_create_package
@@ -312,6 +311,7 @@ pp_submission_outcome
 pp_submission_release
 pp_submission_take_lease
 pp_transaction_add_external_identifier
+pp_transaction_add_file_representation
 pp_transaction_add_media_root
 pp_transaction_add_metadata_value
 pp_transaction_add_representation
@@ -325,6 +325,7 @@ pp_transaction_create_activity
 pp_transaction_fail_job_lease
 pp_transaction_id_format
 pp_transaction_id_parse
+pp_transaction_import_file
 pp_transaction_import_media
 pp_transaction_observe_resource_content
 pp_transaction_prepare_proposal
