@@ -7,6 +7,7 @@ Editing, compositing, sound, ingest, review, and delivery tools often know about
 PostProject does **not** replace an editor, compositor, timeline format, decoder, or asset-management UI. Applications keep their own project data and workflows. PostProject supplies shared production knowledge underneath them.
 
 - Project overview: <https://postproject.org>
+- [Try PostProject in an application: integrations and demos](https://www.postproject.org/#integrations)
 - Documentation: <https://docs.postproject.org>
 - Source and releases: this repository
 

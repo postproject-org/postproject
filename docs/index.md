@@ -14,6 +14,11 @@ Then read {doc}`src/getting-started/core-model` for the four most important obje
 
 ### I want to use a PostProject-enabled application or the CLI
 
+Start with [Integrations and demos](https://www.postproject.org/#integrations)
+for application pilots, installation routes and the OBS → Blender and
+Kdenlive → Blender → Manager walkthroughs. Each application keeps its own
+native project; participating tools share an explicitly selected production.
+
 Read {doc}`src/users/README`, then follow the {doc}`src/users/portable-production-workflow`.
 
 The user guides focus on practical questions such as moving a production to another machine, handling image sequences, checking whether media is still available, and understanding metadata and provenance.
