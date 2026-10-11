@@ -68,6 +68,9 @@ jobs:
           ruff check tools/check_exchange_vectors.py tools/exchange_proposal_vectors.py tools/check_host_exchange.py tools/exchange_observations.py tools/test_check_exchange_checkpoints.py
           ruff format --check tools/check_exchange_vectors.py tools/exchange_proposal_vectors.py tools/check_host_exchange.py tools/exchange_observations.py tools/test_check_exchange_checkpoints.py
           ty check tools/check_host_exchange.py tools/exchange_observations.py
+          ruff check tools/exchange_knowledge.py tools/prepare_exchange_knowledge.py
+          ruff format --check tools/exchange_knowledge.py tools/prepare_exchange_knowledge.py
+          ty check tools/exchange_knowledge.py tools/prepare_exchange_knowledge.py
       - run: python -m unittest tools/test_check_architecture.py
       - run: ruff check tools/check_architecture.py tools/test_check_architecture.py
       - run: ruff format --check tools/check_architecture.py tools/test_check_architecture.py
