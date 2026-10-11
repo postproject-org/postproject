@@ -73,46 +73,7 @@ fn independent_split_stream_preserves_exact_authored_frames_and_both_digests() {
                 .iter()
                 .filter(|frame| frame.kind().unwrap() != "observation")
             {
-                let encoded = match frame.kind().unwrap() {
-                    "activity.header" => ActivityHeader::from_document(frame).unwrap().document(),
-                    "activity.edge" => ActivityEdgeHeader::from_document(frame).unwrap().document(),
-                    "activity.dependency-path" => {
-                        ActivityPathHeader::from_document(frame).unwrap().document()
-                    }
-                    "activity.dependency-segment" => ActivityPathSegment::from_document(frame)
-                        .unwrap()
-                        .document()
-                        .unwrap(),
-                    "fingerprint.snapshot" => {
-                        encode_fingerprint_snapshot(&decode_fingerprint_snapshot(frame).unwrap())
-                            .unwrap()
-                    }
-                    "fingerprint.change" => FingerprintChangeStart::from_document(frame)
-                        .unwrap()
-                        .document()
-                        .unwrap(),
-                    "fingerprint.recomputation" => FingerprintRecomputation::from_document(frame)
-                        .unwrap()
-                        .document(),
-                    "dependency.set" => DependencySetHeader::from_document(frame)
-                        .unwrap()
-                        .document(),
-                    "dependency.occurrence" => DependencyOccurrence::from_document(frame)
-                        .unwrap()
-                        .document()
-                        .unwrap(),
-                    kind if kind.starts_with("identifier.") => {
-                        IdentifierChange::from_document(frame)
-                            .unwrap()
-                            .document()
-                            .unwrap()
-                    }
-                    _ => MediaChange::from_document(frame)
-                        .unwrap()
-                        .document()
-                        .unwrap(),
-                };
-                assert_eq!(encoded, *frame);
+                assert_eq!(round_trip_fact(frame), *frame);
             }
         }
         for frame in frames
@@ -180,4 +141,41 @@ fn decode_chunks(
     decoder.finish().unwrap();
     manifest.verify_chain(chain).unwrap();
     frames
+}
+
+fn round_trip_fact(frame: &Document) -> Document {
+    match frame.kind().unwrap() {
+        "activity.header" => ActivityHeader::from_document(frame).unwrap().document(),
+        "activity.edge" => ActivityEdgeHeader::from_document(frame).unwrap().document(),
+        "activity.dependency-path" => ActivityPathHeader::from_document(frame).unwrap().document(),
+        "activity.dependency-segment" => ActivityPathSegment::from_document(frame)
+            .unwrap()
+            .document()
+            .unwrap(),
+        "fingerprint.snapshot" => {
+            encode_fingerprint_snapshot(&decode_fingerprint_snapshot(frame).unwrap()).unwrap()
+        }
+        "fingerprint.change" => FingerprintChangeStart::from_document(frame)
+            .unwrap()
+            .document()
+            .unwrap(),
+        "fingerprint.recomputation" => FingerprintRecomputation::from_document(frame)
+            .unwrap()
+            .document(),
+        "dependency.set" => DependencySetHeader::from_document(frame)
+            .unwrap()
+            .document(),
+        "dependency.occurrence" => DependencyOccurrence::from_document(frame)
+            .unwrap()
+            .document()
+            .unwrap(),
+        kind if kind.starts_with("identifier.") => IdentifierChange::from_document(frame)
+            .unwrap()
+            .document()
+            .unwrap(),
+        _ => MediaChange::from_document(frame)
+            .unwrap()
+            .document()
+            .unwrap(),
+    }
 }
