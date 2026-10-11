@@ -446,7 +446,7 @@ c_operations = [
   "pp_outcome_job_completion",
 ]
 cpp_operations = ["Production::submissionOutcome", "SubmissionOutcome::status", "SubmissionOutcome::jobs", "SubmissionOutcome::document"]
-python_operations = ["Production.submission_outcome", "SubmissionOutcome.receipt", "SubmissionOutcome.rejection", "SubmissionOutcome.jobs", "SubmissionOutcome.document"]
+python_operations = ["Production.submission_outcome", "SubmissionOutcome.status", "SubmissionOutcome.jobs", "SubmissionOutcome.document"]
 
 [[families]]
 id = "proposal-submission-delivery"

@@ -51,7 +51,9 @@ The absent second real renew/fail/cancel consumer remains a qualification gap.
 adapter commits, host scope and trace checksums. Reproduce the full report:
 
 ```sh
+git show v0.7.0-alpha.1:docs/compatibility-families.toml > target/release-0.7-families.toml
 python3 tools/compatibility_usage.py \
+  --manifest target/release-0.7-families.toml \
   --trace kdenlive=docs/evidence/release-0.7/kdenlive.txt \
   --trace blender=docs/evidence/release-0.7/blender.txt \
   --trace openassetio-manager=docs/evidence/release-0.7/openassetio-manager.txt \
