@@ -1,0 +1,240 @@
+{
+  "anchor": {
+    "kind": "anchor",
+    "version": "1",
+    "production": "00000000-0000-4000-8000-000000000001",
+    "history": "00000000-0000-4000-8000-000000000002",
+    "revision": null,
+    "sequence": "0"
+  },
+  "manifest": {
+    "kind": "checkpoint.manifest",
+    "version": "1",
+    "required_features": [
+      "checkpoint-archives.v1",
+      "checkpoints.v1"
+    ],
+    "checkpoint": "00000000-0000-4000-8000-000000000320",
+    "head": {
+      "production": "00000000-0000-4000-8000-000000000001",
+      "history": "00000000-0000-4000-8000-000000000002",
+      "revision": null,
+      "sequence": "0",
+      "digest": "bee5f938e8af5b92fbf9a176cc0fe4c2b7dc52a779f8ebbc2c43e9df65d16ad1"
+    },
+    "floor": {
+      "production": "00000000-0000-4000-8000-000000000001",
+      "history": "00000000-0000-4000-8000-000000000002",
+      "revision": null,
+      "sequence": "0",
+      "digest": "bee5f938e8af5b92fbf9a176cc0fe4c2b7dc52a779f8ebbc2c43e9df65d16ad1"
+    },
+    "sections": [
+      {
+        "section": "production",
+        "items": "1",
+        "chunks": {
+          "count": "3",
+          "payload_bytes": "150",
+          "last_digest": "e5b2a2948fabb3dac3f3196ffb2a17d0ec44e63e350818e711b355558a9044c3"
+        }
+      },
+      {
+        "section": "assets",
+        "items": "0",
+        "chunks": null
+      },
+      {
+        "section": "resources",
+        "items": "0",
+        "chunks": null
+      },
+      {
+        "section": "representations",
+        "items": "0",
+        "chunks": null
+      },
+      {
+        "section": "structures",
+        "items": "0",
+        "chunks": null
+      },
+      {
+        "section": "roots",
+        "items": "0",
+        "chunks": null
+      },
+      {
+        "section": "locators",
+        "items": "0",
+        "chunks": null
+      },
+      {
+        "section": "identifiers",
+        "items": "0",
+        "chunks": null
+      },
+      {
+        "section": "metadata",
+        "items": "0",
+        "chunks": null
+      },
+      {
+        "section": "activities",
+        "items": "0",
+        "chunks": null
+      },
+      {
+        "section": "dependencies",
+        "items": "0",
+        "chunks": null
+      },
+      {
+        "section": "fingerprints",
+        "items": "0",
+        "chunks": null
+      },
+      {
+        "section": "jobs",
+        "items": "0",
+        "chunks": null
+      },
+      {
+        "section": "revisions",
+        "items": "0",
+        "chunks": null
+      },
+      {
+        "section": "events",
+        "items": "0",
+        "chunks": null
+      },
+      {
+        "section": "conflict_versions",
+        "items": "0",
+        "chunks": null
+      },
+      {
+        "section": "conflict_floor",
+        "items": "1",
+        "chunks": {
+          "count": "2",
+          "payload_bytes": "116",
+          "last_digest": "ad39d226997ad4e220d9ea8cec45ad426dc7a6841e3a754e976e4a97b48dabbd"
+        }
+      },
+      {
+        "section": "records",
+        "items": "0",
+        "chunks": null
+      },
+      {
+        "section": "archives",
+        "items": "0",
+        "chunks": null
+      }
+    ],
+    "extensions": {},
+    "digest": "bd939f6719f03008adaefba7093ef35ecefc0f61fd790fa7b6d39f8d4267b95a"
+  },
+  "chunks": [
+    {
+      "kind": "checkpoint.chunk",
+      "version": "1",
+      "required_features": [
+        "checkpoints.v1"
+      ],
+      "production": "00000000-0000-4000-8000-000000000001",
+      "history": "00000000-0000-4000-8000-000000000002",
+      "checkpoint": "00000000-0000-4000-8000-000000000320",
+      "section": "production",
+      "index": "0",
+      "previous": null,
+      "payload": "AAAA",
+      "extensions": {},
+      "digest": "2b75d8f67079062fe30d7c153bd883ca52f3cd78cb78d79ce50c234e1abe9ec1"
+    },
+    {
+      "kind": "checkpoint.chunk",
+      "version": "1",
+      "required_features": [
+        "checkpoints.v1"
+      ],
+      "production": "00000000-0000-4000-8000-000000000001",
+      "history": "00000000-0000-4000-8000-000000000002",
+      "checkpoint": "00000000-0000-4000-8000-000000000320",
+      "section": "production",
+      "index": "1",
+      "previous": "2b75d8f67079062fe30d7c153bd883ca52f3cd78cb78d79ce50c234e1abe9ec1",
+      "payload": "AAAAAI57ImNyZWF0ZWRfYXQiOiItOTIyMzM3MjAzNjg1NDc3NTgwOCIsImRpc3BsYXlfbmFtZSI6IkV4YWN0IOWQjCDw",
+      "extensions": {},
+      "digest": "6d0386358bbec7cd9d730a1285dac87fd515326a3e6cb9e4431f115530c19831"
+    },
+    {
+      "kind": "checkpoint.chunk",
+      "version": "1",
+      "required_features": [
+        "checkpoints.v1"
+      ],
+      "production": "00000000-0000-4000-8000-000000000001",
+      "history": "00000000-0000-4000-8000-000000000002",
+      "checkpoint": "00000000-0000-4000-8000-000000000320",
+      "section": "production",
+      "index": "2",
+      "previous": "6d0386358bbec7cd9d730a1285dac87fd515326a3e6cb9e4431f115530c19831",
+      "payload": "n5iAXG4iLCJpZCI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMSIsImtpbmQiOiJwcm9kdWN0aW9uLmhlYWRlciJ9",
+      "extensions": {},
+      "digest": "e5b2a2948fabb3dac3f3196ffb2a17d0ec44e63e350818e711b355558a9044c3"
+    },
+    {
+      "kind": "checkpoint.chunk",
+      "version": "1",
+      "required_features": [
+        "checkpoints.v1"
+      ],
+      "production": "00000000-0000-4000-8000-000000000001",
+      "history": "00000000-0000-4000-8000-000000000002",
+      "checkpoint": "00000000-0000-4000-8000-000000000320",
+      "section": "conflict_floor",
+      "index": "0",
+      "previous": null,
+      "payload": "AAAA",
+      "extensions": {},
+      "digest": "5b68b89f9989ac937b84f14a8df5469d508a2c2f35d5ba989c9c1a8ec12f0aa7"
+    },
+    {
+      "kind": "checkpoint.chunk",
+      "version": "1",
+      "required_features": [
+        "checkpoints.v1"
+      ],
+      "production": "00000000-0000-4000-8000-000000000001",
+      "history": "00000000-0000-4000-8000-000000000002",
+      "checkpoint": "00000000-0000-4000-8000-000000000320",
+      "section": "conflict_floor",
+      "index": "1",
+      "previous": "5b68b89f9989ac937b84f14a8df5469d508a2c2f35d5ba989c9c1a8ec12f0aa7",
+      "payload": "AAAAAGx7ImtpbmQiOiJjb25mbGljdC5mbG9vciIsInByb2R1Y3Rpb24iOiIwMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwMDEiLCJyZXZpc2lvbiI6bnVsbCwic2VxdWVuY2UiOiIwIn0=",
+      "extensions": {},
+      "digest": "ad39d226997ad4e220d9ea8cec45ad426dc7a6841e3a754e976e4a97b48dabbd"
+    }
+  ],
+  "bodies": {
+    "production": [
+      {
+        "kind": "production.header",
+        "id": "00000000-0000-4000-8000-000000000001",
+        "created_at": "-9223372036854775808",
+        "display_name": "Exact 同 😀\n"
+      }
+    ],
+    "conflict_floor": [
+      {
+        "kind": "conflict.floor",
+        "production": "00000000-0000-4000-8000-000000000001",
+        "revision": null,
+        "sequence": "0"
+      }
+    ]
+  }
+}
