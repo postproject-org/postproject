@@ -41,5 +41,9 @@ harness = false
 name = "release_0_4_queries"
 harness = false
 
+[[bench]]
+name = "native_workflows"
+harness = false
+
 [lints]
 workspace = true
