@@ -4125,7 +4125,7 @@ inline DecisionBase decision_base(const pp_decision_base_t &base) {
 }
 
 
-inline Result<std::string> exchange_path(const std::filesystem::path &path, const char *label) {
+inline Result<std::string> checked_path(const std::filesystem::path &path, const char *label) {
   const auto encoded = path.u8string();
   return checked_string(std::string_view(reinterpret_cast<const char *>(encoded.data()),
       encoded.size()), label);
@@ -6147,16 +6147,43 @@ private:
   pp_cancel_token_t *token_ = nullptr;
 };
 
-// Validated machine-local resolution settings. Setters report errors immediately
-// and preserve the previous settings on failure. Ownership remains move-only.
+// Ordinary machine-local inputs. create() validates the complete configuration
+// and retains the cancellation flag independently of the token's lifetime.
+struct ResolutionConfig {
+  std::vector<std::pair<std::string, std::filesystem::path>> root_mappings;
+  std::vector<std::filesystem::path> search_directories;
+  VerificationMode verification = VerificationMode::presence;
+  std::uint32_t max_depth = 64;
+  std::uint64_t max_entries_per_directory = 100000;
+  const CancelToken *cancel_token = nullptr;
+};
+
+// Move-only validated configuration; failed creation returns no usable object.
 class ResolutionOptions final {
 public:
-  [[nodiscard]] static Result<ResolutionOptions> create() {
+  [[nodiscard]] static Result<ResolutionOptions>
+  create(const ResolutionConfig &config = {}) {
     pp_resolution_options_t *options = nullptr;
     pp_error_t *error = nullptr;
     const auto status = pp_resolution_options_create(&options, &error);
     POSTPROJECT_TRY(detail::check(status, error));
-    return ResolutionOptions(options);
+    ResolutionOptions result(options);
+    for (const auto &mapping : config.root_mappings) {
+      POSTPROJECT_TRY_ASSIGN(const auto directory,
+                             detail::checked_path(mapping.second, "root directory"));
+      POSTPROJECT_TRY(result.addRootMapping(mapping.first, directory));
+    }
+    for (const auto &path : config.search_directories) {
+      POSTPROJECT_TRY_ASSIGN(const auto directory,
+                             detail::checked_path(path, "search directory"));
+      POSTPROJECT_TRY(result.addSearchDirectory(directory));
+    }
+    POSTPROJECT_TRY(result.setVerification(config.verification));
+    POSTPROJECT_TRY(
+        result.setLimits(config.max_depth, config.max_entries_per_directory));
+    if (config.cancel_token)
+      POSTPROJECT_TRY(result.setCancelToken(*config.cancel_token));
+    return result;
   }
   ResolutionOptions(const ResolutionOptions &) = delete;
   ResolutionOptions &operator=(const ResolutionOptions &) = delete;
@@ -6171,8 +6198,9 @@ public:
   }
   ~ResolutionOptions() { pp_resolution_options_release(options_); }
 
+private:
   [[nodiscard]] Result<void> addRootMapping(std::string_view name,
-                                          std::string_view directory) {
+                                            std::string_view directory) {
     POSTPROJECT_TRY_ASSIGN(const auto native_name,
                            detail::checked_string(name, "root name"));
     POSTPROJECT_TRY_ASSIGN(const auto native_directory,
@@ -6217,7 +6245,6 @@ public:
     return detail::check(status, error);
   }
 
-private:
   friend class Production;
   friend class ReadSession;
   explicit ResolutionOptions(pp_resolution_options_t *options) noexcept
@@ -7080,7 +7107,7 @@ public:
   }
 
   [[nodiscard]] Result<ExchangePosition> exportCheckpoint(const std::filesystem::path &path) const {
-    POSTPROJECT_TRY_ASSIGN(auto text, detail::exchange_path(path, "checkpoint path"));
+    POSTPROJECT_TRY_ASSIGN(auto text, detail::checked_path(path, "checkpoint path"));
     pp_exchange_position_t position{};
     pp_error_t *error = nullptr;
     const auto status = pp_production_export_checkpoint(production_, text.c_str(), &position, &error);
@@ -7090,7 +7117,7 @@ public:
 
   [[nodiscard]] static Result<ExchangePosition> validateCheckpoint(
       const std::filesystem::path &path, const ExchangeLimits &limits = {}) {
-    POSTPROJECT_TRY_ASSIGN(auto text, detail::exchange_path(path, "checkpoint path"));
+    POSTPROJECT_TRY_ASSIGN(auto text, detail::checked_path(path, "checkpoint path"));
     const auto native_limits = detail::native_exchange_limits(limits);
     pp_exchange_position_t position{};
     pp_error_t *error = nullptr;
@@ -7102,8 +7129,8 @@ public:
   [[nodiscard]] static Result<Production> importCheckpoint(
       const std::filesystem::path &path, const std::filesystem::path &destination,
       const ExchangeLimits &limits = {}) {
-    POSTPROJECT_TRY_ASSIGN(auto text, detail::exchange_path(path, "checkpoint path"));
-    POSTPROJECT_TRY_ASSIGN(auto target, detail::exchange_path(destination, "mirror path"));
+    POSTPROJECT_TRY_ASSIGN(auto text, detail::checked_path(path, "checkpoint path"));
+    POSTPROJECT_TRY_ASSIGN(auto target, detail::checked_path(destination, "mirror path"));
     const auto native_limits = detail::native_exchange_limits(limits);
     pp_production_t *production = nullptr;
     pp_error_t *error = nullptr;
@@ -7115,7 +7142,7 @@ public:
 
   [[nodiscard]] Result<ExchangePosition> exportChanges(
       const ExchangePosition &from, const std::filesystem::path &path) const {
-    POSTPROJECT_TRY_ASSIGN(auto text, detail::exchange_path(path, "changes path"));
+    POSTPROJECT_TRY_ASSIGN(auto text, detail::checked_path(path, "changes path"));
     const auto native_from = detail::native_exchange_position(from);
     pp_exchange_position_t through{};
     pp_error_t *error = nullptr;
@@ -7129,7 +7156,7 @@ public:
   // explicitly retry the same sealed file; verified duplicates are harmless.
   [[nodiscard]] Result<ExchangePosition> applyChanges(
       const std::filesystem::path &path, const ExchangeLimits &limits = {}) const {
-    POSTPROJECT_TRY_ASSIGN(auto text, detail::exchange_path(path, "changes path"));
+    POSTPROJECT_TRY_ASSIGN(auto text, detail::checked_path(path, "changes path"));
     const auto native_limits = detail::native_exchange_limits(limits);
     pp_exchange_position_t through{};
     pp_error_t *error = nullptr;

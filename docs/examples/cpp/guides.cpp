@@ -96,8 +96,9 @@ resolve_asset(const postproject::Production &production,
               const postproject::AssetId &asset_id,
               const std::string &rushes_directory) {
   // The mapping locates the logical root on this machine for this call only.
-  auto options = postproject::ResolutionOptions::create().value();
-  options.addRootMapping("rushes", rushes_directory).value();
+  postproject::ResolutionConfig config;
+  config.root_mappings = {{"rushes", rushes_directory}};
+  auto options = postproject::ResolutionOptions::create(config).value();
   const auto resolutions = production.resolveAsset(asset_id, options).value();
   for (const auto &representation : resolutions) {
     std::cout << "availability: "

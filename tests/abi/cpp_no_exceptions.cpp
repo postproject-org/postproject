@@ -109,21 +109,30 @@ int main(int argc, char **argv) {
   auto options_result = postproject::ResolutionOptions::create();
   if (!options_result) return 12;
   auto options = *std::move(options_result);
-  const auto invalid_mapping = options.addRootMapping("missing", path + ".no-such-directory");
-  if (invalid_mapping || invalid_mapping.error().code() != postproject::ErrorCode::io) {
+  postproject::ResolutionConfig config;
+  config.root_mappings = {{"missing", path + ".no-such-directory"}};
+  const auto invalid_mapping = postproject::ResolutionOptions::create(config);
+  if (invalid_mapping || invalid_mapping.error().code() != postproject::ErrorCode::io)
     return 12;
-  }
-  // Failed setters preserve a usable value, and later valid setters still run.
-  const auto invalid_limits = options.setLimits(0, 100);
-  const auto invalid_mode = options.setVerification(static_cast<postproject::VerificationMode>(99));
-  const auto invalid_directory = options.addSearchDirectory(std::string("bad\0path", 8));
-  if (invalid_limits || invalid_mode || invalid_directory ||
-      !options.setLimits(16, 1000) ||
-      !options.setVerification(postproject::VerificationMode::content)) {
-    return 13;
-  }
+  config.root_mappings.clear();
+  config.max_depth = 0;
+  const auto invalid_limits = postproject::ResolutionOptions::create(config);
+  config.max_depth = 16;
+  config.verification = static_cast<postproject::VerificationMode>(99);
+  const auto invalid_mode = postproject::ResolutionOptions::create(config);
+  config.verification = postproject::VerificationMode::content;
+  config.search_directories = {std::string("bad\0path", 8)};
+  const auto invalid_directory = postproject::ResolutionOptions::create(config);
+  if (invalid_limits || invalid_mode || invalid_directory) return 13;
+  // Failed configurations never change the previously validated value.
+  if (!production.resolveAsset(*asset_id, options)) return 13;
+  config.search_directories.clear();
+  config.max_entries_per_directory = 1000;
+  options_result = postproject::ResolutionOptions::create(config);
+  if (!options_result) return 13;
+  options = *std::move(options_result);
   auto moved_options = std::move(options);
-  if (production.resolveAsset(*asset_id, options) || options.setLimits(1, 1)) return 13;
+  if (production.resolveAsset(*asset_id, options)) return 13;
   const auto resolved = production.resolveAsset(*asset_id, moved_options);
   if (!resolved.has_value() || resolved->size() != 1 ||
       resolved->front().availability !=
@@ -134,7 +143,12 @@ int main(int argc, char **argv) {
   if (!token_result) return 14;
   auto token = *std::move(token_result);
   auto moved_token = std::move(token);
-  if (moved_options.setCancelToken(token) || !moved_options.setCancelToken(moved_token)) return 14;
+  config.cancel_token = &token;
+  if (postproject::ResolutionOptions::create(config)) return 14;
+  config.cancel_token = &moved_token;
+  auto cancelled_options = postproject::ResolutionOptions::create(config);
+  if (!cancelled_options) return 14;
+  moved_options = *std::move(cancelled_options);
   token.cancel(); // moved-from token does not affect the retained flag
   moved_token.cancel();
   const auto cancelled = production.resolveAsset(*asset_id, moved_options);

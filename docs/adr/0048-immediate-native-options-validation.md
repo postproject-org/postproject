@@ -2,6 +2,9 @@
 
 Status: accepted for the 0.7 development API.
 
+ADR 0069 replaces the C++ option setters in the development API with atomic
+whole-configuration creation. Token and immediate-validation rules remain.
+
 ## Decision
 
 C++ cancellation-token creation returns `Result<CancelToken>`. Allocation or

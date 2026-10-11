@@ -78,8 +78,9 @@ int renamed_sequence_scenario(const std::string &production_path) {
                graded / (std::string("shot-graded_") + number));
   }
 
-  auto options = postproject::ResolutionOptions::create().value();
-  options.addSearchDirectory(base.string()).value();
+  postproject::ResolutionConfig config;
+  config.search_directories = {base};
+  auto options = postproject::ResolutionOptions::create(config).value();
   const auto resolved = production.resolveAsset(asset_id, options).value();
   const auto &resource = resolved[0].resources[0];
   const postproject::SequenceNaming renamed{"shot-graded_", ".png", 4};
@@ -383,15 +384,16 @@ int main(int argc, char **argv) {
     std::filesystem::rename(media_path, moved_media_path);
     const std::string fixtures =
         std::filesystem::path(path).parent_path().string();
-    auto options = postproject::ResolutionOptions::create().value();
-    options.addRootMapping("fixtures", fixtures).value();
-    options.addSearchDirectory(fixtures).value();
-    options.setVerification(postproject::VerificationMode::presence).value();
-    options.setLimits(64, 1000000).value();
-    {
+    postproject::ResolutionConfig config;
+    config.root_mappings = {{"fixtures", fixtures}};
+    config.search_directories = {fixtures};
+    config.max_entries_per_directory = 1000000;
+    auto options = [&config] {
       auto token = postproject::CancelToken::create().value();
-      options.setCancelToken(token).value();
-    }
+      config.cancel_token = &token;
+      return postproject::ResolutionOptions::create(config).value();
+    }(); // The configured flag survives the token's destruction.
+    config.cancel_token = nullptr;
     const auto resolutions = production.resolveAssets({asset_id}, options).value();
     if (resolutions.size() != 1 || !(resolutions[0].asset_id == asset_id) ||
         resolutions[0].resources[0].candidates().empty() ||
@@ -411,7 +413,8 @@ int main(int argc, char **argv) {
       return 11;
     }
     auto cancel_token = postproject::CancelToken::create().value();
-    options.setCancelToken(cancel_token).value();
+    config.cancel_token = &cancel_token;
+    options = postproject::ResolutionOptions::create(config).value();
     cancel_token.cancel();
     try {
       (void)production.resolveAsset(asset_id, options).value();
