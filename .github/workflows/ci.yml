@@ -71,6 +71,9 @@ jobs:
           ruff check tools/exchange_knowledge.py tools/prepare_exchange_knowledge.py
           ruff format --check tools/exchange_knowledge.py tools/prepare_exchange_knowledge.py
           ty check tools/exchange_knowledge.py tools/prepare_exchange_knowledge.py
+          ruff check tools/prepare_exchange_race.py tools/exchange_local_resolution.py
+          ruff format --check tools/prepare_exchange_race.py tools/exchange_local_resolution.py
+          ty check tools/prepare_exchange_race.py tools/exchange_local_resolution.py
       - run: python -m unittest tools/test_check_architecture.py
       - run: ruff check tools/check_architecture.py tools/test_check_architecture.py
       - run: ruff format --check tools/check_architecture.py tools/test_check_architecture.py
