@@ -260,7 +260,11 @@ fn private_native_handle_recovery_precedes_current_ownership_checks() {
             crate::PP_OK
         );
         assert_eq!(
-            crate::pp_transaction_commit(edit, ptr::null_mut()),
+            crate::pp_transaction_commit(
+                edit,
+                &mut crate::PpCommitReceipt::empty(),
+                ptr::null_mut()
+            ),
             crate::PP_OK
         );
         crate::pp_transaction_release(edit);

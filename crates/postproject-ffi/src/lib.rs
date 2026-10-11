@@ -225,6 +225,17 @@ pub struct PpCommitReceipt {
     pub revision_sequence: u64,
 }
 
+impl PpCommitReceipt {
+    fn empty() -> Self {
+        Self {
+            production_id: PpProductionId { bytes: [0; 16] },
+            outcome: 0,
+            revision_id: PpRevisionId { bytes: [0; 16] },
+            revision_sequence: 0,
+        }
+    }
+}
+
 impl From<&CommitReceipt> for PpCommitReceipt {
     fn from(receipt: &CommitReceipt) -> Self {
         Self {
@@ -5890,29 +5901,6 @@ pub unsafe extern "C" fn pp_transaction_create_activity(
     }
 }
 
-/// Atomically commits all staged transaction mutations.
-///
-/// # Safety
-///
-/// `transaction` must be a live transaction handle and `out_error` may be null
-/// or writable. A closed transaction remains valid only for release.
-#[postproject_ffi_macros::ffi_export]
-pub unsafe extern "C" fn pp_transaction_commit(
-    transaction: *mut PpTransaction,
-    out_error: *mut *mut PpError,
-) -> u32 {
-    // SAFETY: The non-null transaction is required to be live and exclusively
-    // accessed by the caller for this operation.
-    unsafe {
-        ffi_call(out_error, || {
-            let transaction = transaction
-                .as_mut()
-                .ok_or_else(|| invalid_argument("transaction must not be null"))?;
-            transaction.commit().map(|_| ())
-        })
-    }
-}
-
 /// Commits and returns the production and revision from the atomic write path.
 ///
 /// # Safety
@@ -5920,22 +5908,14 @@ pub unsafe extern "C" fn pp_transaction_commit(
 /// `transaction` must be live and exclusively accessed, `out_receipt` writable,
 /// and `out_error` null or writable. Missing outputs reject before commit.
 #[postproject_ffi_macros::ffi_export]
-pub unsafe extern "C" fn pp_transaction_commit_with_receipt(
+pub unsafe extern "C" fn pp_transaction_commit(
     transaction: *mut PpTransaction,
     out_receipt: *mut PpCommitReceipt,
     out_error: *mut *mut PpError,
 ) -> u32 {
     // SAFETY: Pointer validity and exclusive access are caller requirements.
     unsafe {
-        initialize_value(
-            out_receipt,
-            PpCommitReceipt {
-                production_id: PpProductionId { bytes: [0; 16] },
-                outcome: 0,
-                revision_id: PpRevisionId { bytes: [0; 16] },
-                revision_sequence: 0,
-            },
-        );
+        initialize_value(out_receipt, PpCommitReceipt::empty());
         ffi_call(out_error, || {
             require_output(out_receipt, "out_receipt")?;
             let transaction = transaction
@@ -7585,7 +7565,9 @@ mod tests {
         );
         // SAFETY: `transaction` remains live and exclusively accessed.
         assert_eq!(
-            unsafe { pp_transaction_commit(transaction, &raw mut error) },
+            unsafe {
+                pp_transaction_commit(transaction, &mut PpCommitReceipt::empty(), &raw mut error)
+            },
             PP_OK
         );
         // SAFETY: The live transaction is released exactly once.

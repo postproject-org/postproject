@@ -26,7 +26,7 @@ bindings calls the native file operation without allocating a source owner.
 
 Replace C source creation/import/release with one file operation. Pass paths
 instead of Python `FileSource` or C++ `MediaSource::file` wrappers. ABI 53
-now has 345 exports and 38 public layouts.
+now has 344 exports and 38 public layouts.
 
 Reviewed against the contributor standards policy: representation meaning,
 storage and exchange formats are unchanged. No file recognition, identifier

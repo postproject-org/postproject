@@ -15,10 +15,11 @@ exchange history, inert job observations, bounded outcomes and retained prior an
 C ABI 52 adds source-scoped exchange types and native preparation,
 submission, outcome recovery, checkpoint and catch-up operations (ADR 0067).
 ABI 53 replaces incremental resolution-option setters with a complete
-`pp_resolution_config_t` input to checked creation. It has 345 exports and
+`pp_resolution_config_t` input to checked creation. It has 344 exports and
 38 public layouts; old ABI 52 bindings must reject this library before use.
 Single files stage directly from paths; compound sources retain explicit
-structure inputs (ADRs 0072–0073). Schema 27 and protocol major 1 are unchanged.
+structure inputs; the single commit operation requires its receipt output
+(ADRs 0072–0074). Schema 27 and protocol major 1 are unchanged.
 Protocol major 1 remains experimental. The {doc}`release-0.8-report` records
 qualification evidence and limits.
 

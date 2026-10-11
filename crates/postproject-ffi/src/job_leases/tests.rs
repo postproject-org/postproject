@@ -96,7 +96,11 @@ fn native_pending_claims_close_on_discard_and_activate_only_after_commit() {
             crate::PP_OK
         );
         assert_eq!(
-            crate::pp_transaction_commit(edit, ptr::null_mut()),
+            crate::pp_transaction_commit(
+                edit,
+                &mut crate::PpCommitReceipt::empty(),
+                ptr::null_mut()
+            ),
             crate::PP_OK
         );
         pp_transaction_release(edit);
@@ -123,7 +127,11 @@ fn native_pending_claims_close_on_discard_and_activate_only_after_commit() {
             crate::PP_OK
         );
         assert_eq!(
-            crate::pp_transaction_commit(edit, ptr::null_mut()),
+            crate::pp_transaction_commit(
+                edit,
+                &mut crate::PpCommitReceipt::empty(),
+                ptr::null_mut()
+            ),
             crate::PP_OK
         );
         pp_transaction_release(edit);
@@ -137,7 +145,11 @@ fn native_pending_claims_close_on_discard_and_activate_only_after_commit() {
             crate::PP_OK
         );
         assert_eq!(
-            crate::pp_transaction_commit(edit, ptr::null_mut()),
+            crate::pp_transaction_commit(
+                edit,
+                &mut crate::PpCommitReceipt::empty(),
+                ptr::null_mut()
+            ),
             crate::PP_ERROR_CONFLICT
         );
         pp_transaction_release(edit);
@@ -197,7 +209,11 @@ fn native_rejects_invalid_durations_and_token_size_before_reading_input() {
             crate::PP_ERROR_INVALID_ARGUMENT
         );
         assert_eq!(
-            crate::pp_transaction_commit(edit, ptr::null_mut()),
+            crate::pp_transaction_commit(
+                edit,
+                &mut crate::PpCommitReceipt::empty(),
+                ptr::null_mut()
+            ),
             crate::PP_OK
         );
         pp_transaction_release(edit);

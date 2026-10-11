@@ -2042,16 +2042,10 @@ PP_API pp_error_code_t pp_transaction_create_activity(
     const char *agent_identifier_scheme, const char *agent_identifier_value,
     const char *agent_identifier_qualifier, pp_activity_id_t *out_activity_id,
     pp_error_t **out_error);
-/* Advanced status-only commit: deliberately discards the receipt. Prefer
- * pp_transaction_commit_with_receipt for ordinary writes and retry decisions.
- * A commit attempt remains terminal, including failure. */
-PP_API pp_error_code_t pp_transaction_commit(pp_transaction_t *transaction,
-                                            pp_error_t **out_error);
-
 /* A commit attempt is terminal, including failure. Captures the produced
  * revision in the atomic write path; never queries a later head. out_receipt
  * is required. Release the closed transaction with pp_transaction_release. */
-PP_API pp_error_code_t pp_transaction_commit_with_receipt(
+PP_API pp_error_code_t pp_transaction_commit(
     pp_transaction_t *transaction, pp_commit_receipt_t *out_receipt,
     pp_error_t **out_error);
 PP_API pp_error_code_t pp_transaction_rollback(pp_transaction_t *transaction,
