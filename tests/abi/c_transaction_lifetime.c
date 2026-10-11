@@ -14,6 +14,13 @@ static int check_terminal_state(pp_production_t *production, int terminal) {
   if (pp_production_begin_transaction(production, &a, &error) != PP_OK)
     goto cleanup;
 
+  if (terminal == 0) {
+    /* Invalid output rejects before the attempt, leaving this edit open. */
+    if (pp_transaction_commit(a, NULL, &error) != PP_ERROR_INVALID_ARGUMENT)
+      goto cleanup;
+    pp_error_release(error);
+    error = NULL;
+  }
   if (terminal == 2) {
     const pp_resource_id_t absent = {{1}};
     if (pp_transaction_confirm_locator(a, absent, "file:///absent", NULL,
