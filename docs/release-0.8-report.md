@@ -58,7 +58,9 @@ the separate glibc 2.28 wheel. Both
 and the [KDE 6.10 Flatpak check](https://github.com/postproject-org/postproject/actions/runs/38146446748)
 pass. {download}`Individual SDK conclusions <evidence/release-0.8/sdk-jobs.json>`
 retain optional failures and distinguish unfinished jobs from passes.
-Full hosted Ardour/Kdenlive build qualification is still in progress.
+All eleven hosted downstream jobs pass, including full Ardour builds with and
+without PostProject. Hosted Kdenlive handoff requalification is in progress
+after correcting a stale Blender extension filename in its workflow.
 
 ## Migration, consumers and compatibility
 

@@ -114,8 +114,9 @@ submission outcomes and streams checkpoints and changes to passive mirrors.
 Rust, C11, C++17, Python and CLI offer local exchange workflows. C ABI 52 and
 schema 27 preserve earlier evidence separately from executable history.
 Independent fixed vectors, process replay and measured native workloads qualify
-the implementation. Installed candidate and maintained-host qualification remain
-in progress; this candidate is unpublished and names no new stable API family.
+the implementation. Installed candidate checks and both maintained handoffs pass;
+the [qualification report](release-0.8-report.md) records platform/build status
+and limits. This candidate is unpublished and names no new stable API family.
 
 ## Explicitly later
 
