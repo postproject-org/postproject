@@ -403,6 +403,7 @@ dependencies = [
  "postproject-ffi",
  "postproject-protocol",
  "postproject-storage-sqlite",
+ "serde_json",
  "tempfile",
 ]
 
