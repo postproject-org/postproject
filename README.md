@@ -38,6 +38,7 @@ PostProject currently provides building blocks for:
 - **Provenance.** Record activities, inputs, outputs, tools, and parameters so applications can explain where media came from.
 - **Artifact knowledge.** Describe dependencies, freshness, and reproducibility of managed outputs without turning PostProject into the executor itself.
 - **Change tracking.** Consume semantic revisions so another application can react to production changes without polling every table.
+- **Portable exchange.** Export a checkpoint and complete changes to a passive mirror, preserving production knowledge across distinct files.
 
 For the conceptual model, start with the [documentation](https://docs.postproject.org) rather than the generated API reference.
 
@@ -145,7 +146,8 @@ Use <https://docs.postproject.org> for the published documentation.
 ## Project status and compatibility
 
 PostProject is in alpha development; this tree is
-`0.7.0-alpha.1` with C ABI version 51 and SQLite schema 19. The 0.6 C++17 Result
+the `0.8.0-alpha.1` candidate with C ABI version 52 and SQLite schema 27.
+The latest published release is `0.7.0-alpha.1`. The 0.6 C++17 Result
 propagation protocol (`Result<T>`, including `Result<void>`, `POSTPROJECT_TRY`
 and `POSTPROJECT_TRY_ASSIGN`) remains source-compatible within `0.6.x`.
 Development APIs are experimental. Consumers should

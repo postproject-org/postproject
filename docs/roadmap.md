@@ -96,15 +96,26 @@ not selected under the documented minimum-pilot gate. The
 [acceptance report](release-0.6-report.md) records exact verification and
 release-scoped limitations. The package was published on 2026-10-04.
 
-## Release 0.7 — API safety candidate
+## Release 0.7 — API safety
 
-The `0.7.0-alpha.1` candidate coordinates semantic identities, validated state
+The `0.7.0-alpha.1` release coordinates semantic identities, validated state
 alternatives, coherent reads, scoped edits, atomic receipts, authority-timed
 leases and bounded queries across Rust, C, C++, Python and CLI. All maintained
 consumers use C ABI 51 / schema 19, with installed packages and cross-host
 handoffs verified. The [acceptance report](release-0.7-report.md) records
-qualification and compatibility limits. The candidate is unpublished; remote
-services and replication remain outside this release.
+qualification and compatibility limits. It was published on 2026-10-08; the
+tagged report retains its earlier prepublication wording. Remote services and
+replication remain outside this release.
+
+## Release 0.8 — portable exchange candidate
+
+The `0.8.0-alpha.1` candidate captures complete native commits, retains scoped
+submission outcomes and streams checkpoints and changes to passive mirrors.
+Rust, C11, C++17, Python and CLI offer local exchange workflows. C ABI 52 and
+schema 27 preserve earlier evidence separately from executable history.
+Independent fixed vectors, process replay and measured native workloads qualify
+the implementation. Installed candidate and maintained-host qualification remain
+in progress; this candidate is unpublished and names no new stable API family.
 
 ## Explicitly later
 
