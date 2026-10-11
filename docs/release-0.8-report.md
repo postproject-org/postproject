@@ -47,8 +47,12 @@ records native/header/wheel checksums and their source commits. Native
 implementation is `016297a`; installed header qualification is `a541752`;
 wheel binding source is `8d05e6f`. The final local CLI additionally refreshes its
 help description at `6c7ee03`, with its installed exchange recipe repeated.
-Source/native review archives and wheels are local candidate artifacts, not
-published assets. The local Linux build makes no glibc 2.28 claim.
+{download}`Review artifact inventory <evidence/release-0.8/review-artifacts.json>`
+records source/Linux/macOS/Windows archives and wheels with checksums. The Linux
+archive's relocated C/C++ and installed-wheel Python quickstarts pass without
+Cargo. macOS/Windows review artifacts reuse qualified CI install prefixes and
+libraries; they were not executed on this workstation. These are local candidate
+artifacts, not published assets. The local Linux build makes no glibc 2.28 claim.
 
 All sixteen [SDK CI jobs](https://github.com/postproject-org/postproject/actions/runs/38146446727)
 pass at `a541752`, including exact Rust 1.85, Linux/macOS/Windows tests and

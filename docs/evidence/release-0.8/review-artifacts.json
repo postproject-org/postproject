@@ -1,0 +1,55 @@
+{
+  "scope": "Local review artifacts; no release tag or publication. Local Linux native archive is not a glibc 2.28 build.",
+  "archives": [
+    {
+      "file": "postproject-0.8.0-alpha.1-candidate-source.tar.gz",
+      "bytes": 2323311,
+      "sha256": "b3a9438ade947971158ccc6d881e2eda94eb8abaec1b82b357fa0891fcc4c054",
+      "source_commit": "4a6307b586ab62db27fab51a763052dedcfa0043",
+      "scope": "Local review archive, no publication; Linux native has no glibc 2.28 claim"
+    },
+    {
+      "file": "postproject-0.8.0-alpha.1-candidate-linux-x86_64.tar.gz",
+      "bytes": 25826990,
+      "sha256": "09acb8b1a93e0d6870ba414680a2fcfa5e4d59fa13aa04007cff45072ffd2dec",
+      "source_commit": "a541752; CLI 6c7ee03; installed notes 4a6307b",
+      "scope": "Local review archive, no publication; Linux native has no glibc 2.28 claim"
+    },
+    {
+      "file": "postproject-0.8.0-alpha.1-candidate-macos-native.tar.gz",
+      "bytes": 25117167,
+      "sha256": "3b49b7467f44d3768704cc24925478d1675ca58429589e83bc3df6e35bce0b7c",
+      "source_commit": "a5417522789909489c6fe4085f02e84a49c9f786",
+      "source_run": 38146446727,
+      "scope": "Repackaged qualified native install prefix; no execution on this Linux workstation"
+    },
+    {
+      "file": "postproject-0.8.0-alpha.1-candidate-windows-x86_64.zip",
+      "bytes": 25387755,
+      "sha256": "e009cd50566ce4164d35bddbf7476eff3d6775598d43994e91c910a44a97bc7c",
+      "source_commit": "a5417522789909489c6fe4085f02e84a49c9f786",
+      "source_run": 38146446727,
+      "scope": "Repackaged qualified native install prefix; no execution on this Linux workstation; Windows headers preserve checkout CRLF"
+    },
+    {
+      "file": "postproject-0.8.0a1-py3-none-macosx_11_0_arm64.whl",
+      "bytes": 2750350,
+      "sha256": "3b2ee4fcb9899a69a3a399e68a82ef66577d4011b88053dea03ff02a85de7a91",
+      "source_commit": "a5417522789909489c6fe4085f02e84a49c9f786",
+      "source_run": 38146446727,
+      "scope": "Repackaged candidate binding/qualified platform library; matching packaging recipe passed in native-package CI, not executed locally"
+    },
+    {
+      "file": "postproject-0.8.0a1-py3-none-win_amd64.whl",
+      "bytes": 3045763,
+      "sha256": "3efac732d31c1419fb29f2659a134687146c7196f4497d6ae7aa97a08b9809b4",
+      "source_commit": "a5417522789909489c6fe4085f02e84a49c9f786",
+      "source_run": 38146446727,
+      "scope": "Repackaged candidate binding/qualified platform library; matching packaging recipe passed in native-package CI, not executed locally"
+    }
+  ],
+  "linux_wheels_and_native_hashes": "linux-candidate.json",
+  "clean_linux_archive": "Extracted to a fresh relocated prefix; C/C++ installed quickstart configure/build/ctest and installed-wheel Python quickstart passed without invoking Cargo.",
+  "local_log": "target/exchange-candidate-archive-consumers.log",
+  "source_exclusions": "Tracked source only; PLAN*.md absent from archives and repository index."
+}
