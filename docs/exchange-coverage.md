@@ -44,8 +44,10 @@ dependency replacements, historical activities and all public job states. Import
 reexport identical portable section bodies. [Rehashed storage cases](
 evidence/schema-27/rehashed-storage-files.json) qualify installed rejection and
 atomicity beyond hash checking. Compound-media/archive fixed profiles, large-value
-and scale evidence, maintained handoffs and final ecosystem/platform qualification
-remain pending. [Blender native replay evidence](
+qualification, maintained handoffs and final ecosystem/platform qualification
+remain pending. [Measured scale and local overhead](schema-27-exchange-measurements.md)
+cover native 10,000-asset capture, streaming, maximum binary metadata and outcome
+growth. [Blender native replay evidence](
 evidence/exchange-development/blender-native-replay.json) covers actual background
 save/render/relink commits and two distinct passive checkpoint/suffix routes.
 [Extended host conformance](evidence/exchange-development/host-compound-replay.json)
