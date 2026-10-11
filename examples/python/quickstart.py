@@ -58,7 +58,7 @@ def main() -> None:
         # A separately opened handle does not wait for calls on the first one,
         # such as a long commit.
         reader = Production.open(args.production, library_path=args.library)
-        assert asset_id in reader.assets
+        assert reader.asset_exists(asset_id)
         reader.close()
 
     production.close()  # The context closed it already; this is harmless.

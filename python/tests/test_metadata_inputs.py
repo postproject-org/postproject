@@ -122,7 +122,9 @@ class MetadataInputTests(unittest.TestCase):
                     checkpoint, root / "mirror.pproj"
                 ) as mirror:
                     delta = root / "changes.ppdelta"
-                    production.export_changes(mirror.exchange_state.head, delta)
+                    position = mirror.exchange_state.head
+                    assert position is not None
+                    production.export_changes(position, delta)
                     mirror.apply_changes(delta)
                     self.assertEqual(
                         mirror.metadata[target], production.metadata[target]

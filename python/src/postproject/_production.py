@@ -4924,7 +4924,7 @@ class _NativeMediaSource:
                 ctypes.byref(self.handle),
                 ctypes.byref(error),
             )
-        else:
+        elif isinstance(source, (OrderedPartsSource, PackageSource)):
             members = (
                 source.parts
                 if isinstance(source, OrderedPartsSource)
@@ -4951,6 +4951,10 @@ class _NativeMediaSource:
                 len(native_members),
                 ctypes.byref(self.handle),
                 ctypes.byref(error),
+            )
+        else:
+            raise TypeError(
+                "compound media source must describe a sequence, parts or package"
             )
         native.check(status, error)
 

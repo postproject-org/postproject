@@ -130,6 +130,8 @@ def add_editorial_metadata(
 
 def describe(value: MetadataInput) -> str:
     match value:
+        case str() | bool() | int() | bytes() | Fraction():
+            return repr(value)
         case MetadataString(text) | MetadataUri(text):
             return text
         case MetadataLanguageString(text, language):
@@ -154,6 +156,7 @@ def describe(value: MetadataInput) -> str:
             )
         case MetadataReference(target):
             return f"-> {target}"
+    raise TypeError("unsupported metadata value")
 
 
 def print_metadata(production: Production, target: ObjectReference) -> None:
