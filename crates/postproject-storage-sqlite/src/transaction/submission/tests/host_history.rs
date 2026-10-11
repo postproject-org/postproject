@@ -1,5 +1,7 @@
 //! Typed job helpers shared by hermetic and actual-host qualification.
 
+mod secrets;
+
 use std::{sync::Arc, time::Duration};
 
 use postproject_core::{
@@ -156,6 +158,7 @@ fn typed_helpers_join_native_requests_and_recover_completion() {
     let token = scenario.claim(jobs[0], 100);
     scenario.clock.set(150);
     scenario.accepted(vec![scenario.completion(jobs[0])], &[&token]);
+    secrets::assert_public_secrets_absent(&scenario, &[token]);
     assert!(matches!(
         scenario.source.job(jobs[0]).unwrap().state(),
         postproject_core::JobState::Succeeded(_)
