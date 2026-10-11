@@ -206,6 +206,7 @@ from ._model import (
     OrderedPartsSource,
     OriginIdentity,
     PackageContent,
+    PackageSource,
     PendingJobLease,
     ProductionId,
     ProductionRef,

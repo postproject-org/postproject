@@ -1062,8 +1062,9 @@ class ProductionTests(unittest.TestCase):
             assert conflict is not None
             self.assertEqual(conflict.key.kind, ConflictKeyKind.LOCATOR_SET)
             self.assertEqual(conflict.key.target, ResourceRef(resource_id))
-            self.assertEqual(conflict.base_revision_id, base.revision_id)
-            self.assertEqual(conflict.base_revision_sequence, base.sequence)
+            assert base.revision is not None
+            self.assertEqual(conflict.base_revision_id, base.revision.id)
+            self.assertEqual(conflict.base_revision_sequence, base.revision.sequence)
             self.assertEqual(conflict.superseding_revision_id, superseding.id)
             self.assertEqual(
                 conflict.superseding_revision_sequence, superseding.sequence
