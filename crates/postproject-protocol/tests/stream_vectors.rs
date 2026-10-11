@@ -4,8 +4,8 @@ use std::path::Path;
 
 use postproject_core::DecisionBase;
 use postproject_protocol::{
-    CreationDecoder, CreationFact, Document, FrameDecoder, Limits, MetadataEffect,
-    MetadataEffectStart, Position, ProtocolBase, RecordChunk, RecordManifest,
+    CreationDecoder, CreationFact, Document, FrameDecoder, IdentifierChange, Limits, MediaChange,
+    MetadataEffect, MetadataEffectStart, Position, ProtocolBase, RecordChunk, RecordManifest,
     RepresentationCreationStart, decode_asset, decode_event, encode_asset, encode_event,
     encode_locator,
 };
@@ -64,8 +64,26 @@ fn independent_split_stream_preserves_exact_authored_frames_and_both_digests() {
             for (actual, expected) in effect.frames().zip(&frames) {
                 assert_eq!(actual.unwrap(), *expected);
             }
-        } else {
+        } else if frames[0].kind().unwrap() == "original.creation" {
             check_media_frames(&frames, expected);
+        } else {
+            for frame in frames
+                .iter()
+                .filter(|frame| frame.kind().unwrap() != "observation")
+            {
+                let encoded = if frame.kind().unwrap().starts_with("identifier.") {
+                    IdentifierChange::from_document(frame)
+                        .unwrap()
+                        .document()
+                        .unwrap()
+                } else {
+                    MediaChange::from_document(frame)
+                        .unwrap()
+                        .document()
+                        .unwrap()
+                };
+                assert_eq!(encoded, *frame);
+            }
         }
         for frame in frames
             .iter()
