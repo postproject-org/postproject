@@ -14,6 +14,7 @@ import tempfile
 from pathlib import Path
 
 import postproject as pp
+from exchange_local_resolution import check as check_mapping
 from exchange_observations import checkpoint_bodies, exact, public_observations
 
 
@@ -37,6 +38,8 @@ def worker(root: Path, directory: Path, name: str) -> None:
                 pass
             else:
                 raise AssertionError("passive write accepted")
+        if (root / "local-resolution.json").exists():
+            check_mapping(reopened, root, directory / f"{name}-local-media")
         checkpoint = directory / f"{name}-final.ppxc"
         reopened.export_checkpoint(checkpoint)
         observations = {
@@ -59,6 +62,8 @@ def compare(root: Path) -> None:
         with pp.Production.open(root / "authority.pproj") as source:
             head = source.exchange_state.head
             assert head is not None and head != later
+            if (root / "local-resolution.json").exists():
+                check_mapping(source, root, directory / "authority-local-media")
             checkpoint = directory / "authority-final.ppxc"
             source.export_checkpoint(checkpoint)
             for name, position in (("initial", early), ("later", later)):
@@ -92,6 +97,9 @@ def compare(root: Path) -> None:
                     "assets": len(expected["public"]["assets"]),
                     "activities": len(expected["public"]["activities"]),
                     "jobs": len(expected["public"]["jobs"]),
+                    "distinct_local_mappings": (
+                        root / "local-resolution.json"
+                    ).exists(),
                     "routes": "two independent passive processes; duplicate apply and reopen passed",
                     "observations": "exact bodies, domain values, metadata/identifiers, dependency evidence, artifact results and revisions/events agree",
                 },
