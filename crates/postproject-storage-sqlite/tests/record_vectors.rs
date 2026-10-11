@@ -82,6 +82,8 @@ fn independent_records_preserve_original_media_identities_and_public_observation
         }
         if vector["file"] == "streams/media.json" {
             check_media(&mirror);
+        } else if vector["file"] == "streams/access.json" {
+            check_access(&mirror);
         }
         assert_eq!(
             mirror.begin_transaction().err().unwrap().kind(),
@@ -133,4 +135,32 @@ fn check_media(mirror: &SqliteProduction) {
             "file:///missing/Exact.mov"
         );
     }
+}
+
+fn check_access(mirror: &SqliteProduction) {
+    assert_eq!(mirror.media_roots().unwrap(), []);
+    let asset = mirror.assets().unwrap().pop().unwrap();
+    let identifiers = mirror
+        .external_identifiers(postproject_core::ObjectRef::Asset(asset.id()))
+        .unwrap();
+    assert_eq!(identifiers.len(), 1);
+    assert_eq!(identifiers[0].scheme().as_str(), "urn:vendor:EXACT");
+    assert_eq!(identifiers[0].value(), "  同/😀  ");
+    assert_eq!(identifiers[0].qualifier(), Some("vendor:Keep"));
+    let representation = "00000000-0000-4000-8000-000000000006".parse().unwrap();
+    let resources = mirror.resources(representation).unwrap();
+    let facts = resources[0].file_facts().unwrap();
+    assert_eq!(facts.size_bytes(), i64::MAX as u64);
+    assert_eq!(
+        facts.modified_at(),
+        Some(Timestamp::from_unix_micros(i64::MIN))
+    );
+    let locators = mirror.locators(resources[0].id()).unwrap();
+    assert_eq!(locators.len(), 1);
+    assert_eq!(locators[0].uri(), "file:///missing/New%2fCase.mov");
+    assert_eq!(locators[0].media_root(), None);
+    assert_eq!(
+        locators[0].last_seen(),
+        Some(Timestamp::from_unix_micros(i64::MAX))
+    );
 }
