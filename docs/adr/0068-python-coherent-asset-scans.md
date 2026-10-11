@@ -6,7 +6,7 @@ Status: accepted for development.
 
 Replace the eager `Production.assets` collection with
 `ReadSession.assets(page_size=100)`. The caller explicitly opens and closes
-the pinned view. Iteration loads at most one asset page, using the existing
+the pinned view. Traversal loads at most one asset page, using the existing
 session-scoped cursor. Page size is checked at iterator creation; every
 advance through buffered values checks the session lifetime. Exhausted
 iterators remain exhausted. Copied asset values survive session closure.
@@ -19,7 +19,7 @@ should close it before long host work. It is not an indefinitely pinned
 connection acquired by a hidden generator.
 
 Membership becomes the typed point query `Production.asset_exists(asset_id)`.
-Remove the old collection's iteration, length and membership implementations;
+Remove the old collection's traversal, length and membership implementations;
 do not provide compatibility aliases. Callers that need a complete list
 explicitly collect the session iterator.
 

@@ -31,7 +31,7 @@ Each linked source remains the baseline until its migration is recorded.
 | Record derived output | Blender render integration; Manager `manager.py` | Property and scalar metadata wrappers around already native values | Exact kinds, ordered/repeated values and atomic provenance |
 | Consume revisions | Python `read_sessions.py`; `changes_since` | Caller maintains sequence and page loops | Pinned view, bounded memory, gaps/errors and deterministic close |
 
-The Python asset collection introduces a private facade, eager iteration,
+The Python asset collection introduces a private facade, eager traversal,
 eager length and special membership. A bounded asset scan already exists as
 `assets_page`; its caller maintains a cursor and checks continuation after
 every page. A pinned `ReadSession` already owns the consistency boundary.
@@ -45,7 +45,7 @@ pages. The caller explicitly owns the session. Creation validates the page
 size and session; every advance checks that the session is open, including
 when a page is buffered. Copied assets survive close. No implicit connection,
 total cap, partial-success result or cancellation token is introduced for a
-knowledge-only scan. Closing the view ends further iteration.
+knowledge-only scan. Closing the view ends further traversal.
 
 Remove `Production.assets` and its eager implementation. Use
 `Production.asset_exists(id)` for membership and `view.assets()` for scans.

@@ -43,7 +43,7 @@ Read the relevant ADR before changing an invariant, a boundary, or a public cont
 
 ## Public surfaces, persistence, and compatibility
 
-- {doc}`ADR 0068 — Python coherent asset iteration </adr/0068-python-coherent-asset-iteration>`
+- {doc}`ADR 0068 — Python coherent asset scans </adr/0068-python-coherent-asset-scans>`
 - {doc}`ADR 0069 — Atomic C++ resolution configuration </adr/0069-atomic-cpp-resolution-configuration>`
 - {doc}`ADR 0008 — Python binding over the C ABI </adr/0008-python-binding-over-c-abi>`
 - {doc}`ADR 0009 — Explicit SQL without an ORM </adr/0009-explicit-sql-no-orm>`
@@ -156,6 +156,6 @@ Read the relevant ADR before changing an invariant, a boundary, or a public cont
 /adr/0065-portable-knowledge-exchange
 /adr/0066-development-history-resynchronization
 /adr/0067-native-portable-exchange-projection
-/adr/0068-python-coherent-asset-iteration
+/adr/0068-python-coherent-asset-scans
 /adr/0069-atomic-cpp-resolution-configuration
 ```
