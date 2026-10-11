@@ -66,7 +66,9 @@ records SDK/adapter revisions, installed artifacts, scope and trace digests.
 Reproduce the matrix and detailed dependency review:
 
 ```sh
+git show a5417522789909489c6fe4085f02e84a49c9f786:docs/compatibility-families.toml > target/release-0.8-families.toml
 python3 tools/compatibility_usage.py \
+  --manifest target/release-0.8-families.toml \
   --trace kdenlive=docs/evidence/release-0.8/kdenlive.txt \
   --trace blender=docs/evidence/release-0.8/blender.txt \
   --trace openassetio-manager=docs/evidence/release-0.8/openassetio-manager.txt \
