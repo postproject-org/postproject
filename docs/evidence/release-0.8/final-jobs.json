@@ -1,0 +1,56 @@
+{
+  "observed_on": "2026-10-11",
+  "scope": "Every listed individual job completed successfully; earlier failed and optional jobs remain in sdk-jobs.json and consumer-jobs.json",
+  "runs": [
+    {
+      "repository": "postproject",
+      "run": 38149795513,
+      "head_sha": "dfad96b5d1ac049e6e6bc8cc2e3dc542b04fcfdc",
+      "jobs": [
+        {"conclusion":"success","name":"Dependency policy"},
+        {"conclusion":"success","name":"Test (windows-latest)"},
+        {"conclusion":"success","name":"Unified documentation and links"},
+        {"conclusion":"success","name":"Test (ubuntu-latest)"},
+        {"conclusion":"success","name":"Native package (macos-latest)"},
+        {"conclusion":"success","name":"Native ASan and UBSan"},
+        {"conclusion":"success","name":"Minimum Rust 1.85"},
+        {"conclusion":"success","name":"C ABI smoke test"},
+        {"conclusion":"success","name":"Formatting, lints, and documentation"},
+        {"conclusion":"success","name":"Python wheel"},
+        {"conclusion":"success","name":"Linux platform wheel (glibc 2.28)"},
+        {"conclusion":"success","name":"C++ header with current compilers"},
+        {"conclusion":"success","name":"Reference executor (real FFmpeg)"},
+        {"conclusion":"success","name":"Test (macos-latest)"},
+        {"conclusion":"success","name":"Native package (ubuntu-latest)"},
+        {"conclusion":"success","name":"Native package (windows-latest)"}
+      ]
+    },
+    {
+      "repository": "postproject",
+      "run": 38149795304,
+      "head_sha": "dfad96b5d1ac049e6e6bc8cc2e3dc542b04fcfdc",
+      "jobs": [
+        {"conclusion":"success","name":"build"},
+        {"conclusion":"success","name":"deploy"}
+      ]
+    },
+    {
+      "repository": "postproject",
+      "run": 38150158593,
+      "head_sha": "dfad96b5d1ac049e6e6bc8cc2e3dc542b04fcfdc",
+      "jobs": [
+        {"conclusion":"success","name":"kdenlive / Kdenlive with PostProject"},
+        {"conclusion":"success","name":"kdenlive / Kdenlive without PostProject"}
+      ]
+    },
+    {
+      "repository": "postproject-kdenlive",
+      "run": 38150060649,
+      "head_sha": "f89b19a2054153de98a9e8182aa7504d1285a921",
+      "jobs": [
+        {"conclusion":"success","name":"Kdenlive without PostProject"},
+        {"conclusion":"success","name":"Kdenlive with PostProject"}
+      ]
+    }
+  ]
+}

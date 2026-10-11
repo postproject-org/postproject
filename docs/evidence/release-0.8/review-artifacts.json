@@ -2,13 +2,6 @@
   "scope": "Local review artifacts; no release tag or publication. Local Linux native archive is not a glibc 2.28 build.",
   "archives": [
     {
-      "file": "postproject-0.8.0-alpha.1-candidate-source.tar.gz",
-      "bytes": 2323311,
-      "sha256": "b3a9438ade947971158ccc6d881e2eda94eb8abaec1b82b357fa0891fcc4c054",
-      "source_commit": "4a6307b586ab62db27fab51a763052dedcfa0043",
-      "scope": "Local review archive, no publication; Linux native has no glibc 2.28 claim"
-    },
-    {
       "file": "postproject-0.8.0-alpha.1-candidate-linux-x86_64.tar.gz",
       "bytes": 25826990,
       "sha256": "09acb8b1a93e0d6870ba414680a2fcfa5e4d59fa13aa04007cff45072ffd2dec",
@@ -51,5 +44,10 @@
   "linux_wheels_and_native_hashes": "linux-candidate.json",
   "clean_linux_archive": "Extracted to a fresh relocated prefix; C/C++ installed quickstart configure/build/ctest and installed-wheel Python quickstart passed without invoking Cargo.",
   "local_log": "target/exchange-candidate-archive-consumers.log",
-  "source_exclusions": "Tracked source only; PLAN*.md absent from archives and repository index."
+  "source_exclusions": "Tracked source only; PLAN*.md absent from archives and repository index.",
+  "source_archive": {
+    "file": "postproject-0.8.0-alpha.1-candidate-source.tar.gz",
+    "build": "git archive of the final committed candidate documentation tree",
+    "provenance": "Exact source commit and SHA256 are generated into target/exchange-candidate-archives.json and the adjacent .sha256 file; the source archive cannot contain its own checksum."
+  }
 }

@@ -20,7 +20,7 @@
   "wheel_source_commit": "8d05e6f85afab32fa37df26f7ece5b91dbb9bc59",
   "headers_commit": "a5417522789909489c6fe4085f02e84a49c9f786",
   "native_implementation_commit": "016297a5ef3072fe532cf8b56acba7bf62374948",
-  "scope": "Installed Linux candidate qualification; hosted ecosystem qualification remains in progress",
+  "scope": "Installed Linux 0.8 candidate; hosted ecosystem results are recorded separately in final-jobs.json",
   "wheel_platform": "Local linux_x86_64; no manylinux qualification implied",
   "checks": [
     {
@@ -74,6 +74,10 @@
     {
       "command": "ctest --test-dir /tmp/postproject-08-examples -R ^cli-exchange --output-on-failure",
       "result": "passed after the CLI help description refresh; installed CLI source 6c7ee03"
+    },
+    {
+      "command": "Strict Doxygen/Sphinx; lychee 0.24.2 --offline; typos 1.51.1 README.md docs",
+      "result": "passed, including the 0.8 qualification and conformance records"
     }
   ],
   "limitations": [

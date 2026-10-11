@@ -54,17 +54,21 @@ Cargo. macOS/Windows review artifacts reuse qualified CI install prefixes and
 libraries; they were not executed on this workstation. These are local candidate
 artifacts, not published assets. The local Linux build makes no glibc 2.28 claim.
 
-All sixteen [SDK CI jobs](https://github.com/postproject-org/postproject/actions/runs/38146446727)
-pass at `a541752`, including exact Rust 1.85, Linux/macOS/Windows tests and
+All sixteen [SDK CI jobs](https://github.com/postproject-org/postproject/actions/runs/38149795513)
+pass at `dfad96b`, including exact Rust 1.85, Linux/macOS/Windows tests and
 installed packages, ASan/UBSan consumers, real FFmpeg, docs/links/spelling and
 the separate glibc 2.28 wheel. Both
-[documentation jobs](https://github.com/postproject-org/postproject/actions/runs/38146446746)
+[documentation jobs](https://github.com/postproject-org/postproject/actions/runs/38149795304)
 and the [KDE 6.10 Flatpak check](https://github.com/postproject-org/postproject/actions/runs/38146446748)
 pass. {download}`Individual SDK conclusions <evidence/release-0.8/sdk-jobs.json>`
 retain optional failures and distinguish unfinished jobs from passes.
 All eleven hosted downstream jobs pass, including full Ardour builds with and
-without PostProject. Hosted Kdenlive handoff requalification is in progress
-after correcting a stale Blender extension filename in its workflow.
+without PostProject. The corrected
+[Kdenlive repository workflow](https://github.com/postproject-org/postproject-kdenlive/actions/runs/38150060649)
+and [SDK full-host workflow](https://github.com/postproject-org/postproject/actions/runs/38150158593)
+pass with/without PostProject and repeat the shared handoff.
+{download}`Final completed jobs <evidence/release-0.8/final-jobs.json>`
+record the exact source revisions and individual conclusions.
 
 ## Migration, consumers and compatibility
 

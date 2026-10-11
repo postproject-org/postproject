@@ -16,7 +16,7 @@
       "repository": "postproject",
       "base_commit": "663a8cf83b3062eb74636a4655c3882f1f607cdd",
       "candidate_commit": "a5417522789909489c6fe4085f02e84a49c9f786",
-      "qualification": "installed local gates and all 16 SDK CI jobs passed; full-host builds pending",
+      "qualification": "installed local gates, all 16 SDK CI jobs, all 11 downstream jobs and required full-host workflows passed",
       "initial_untracked": [
         "?? python/build/"
       ],
@@ -61,7 +61,7 @@
       "repository": "postproject-kdenlive",
       "base_commit": "24153ec76ba7e0420a5950be6163500d320f1719",
       "candidate_commit": "f89b19a2054153de98a9e8182aa7504d1285a921",
-      "qualification": "local full build/tests/shared handoff passed; hosted handoff filename fixed after failed run, requalification pending",
+      "qualification": "local full build/tests/shared handoff passed; corrected repository and SDK full workflows passed with/without PostProject",
       "initial_untracked": [],
       "changed": true,
       "test_command": "tools/test.sh /tmp/postproject-08-kdenlive-build; tools/shared-production.sh with candidate SDK/Blender/Manager",
