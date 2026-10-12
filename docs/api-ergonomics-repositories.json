@@ -140,5 +140,125 @@
     "cli_json": 1,
     "platform": "Linux-7.2.9-gentoo-x86_64-AMD_Ryzen_7_4800H_with_Radeon_Graphics-with-glibc2.43",
     "state": "Qualified unpublished development candidate; all required local and CI gates pass; documentation and website deployed and verified"
+  },
+  "revised_workflows": {
+    "baseline_sdk": "f456958cbb99b2d952fb23de53aa73e22e38c25e",
+    "inspected": "2026-10-12",
+    "state": "Implementation started; revised qualification pending",
+    "publication": "Latest public release verified as v0.8.0-alpha.1; 0.9 remains unpublished",
+    "repositories": [
+      {
+        "repository": "postproject",
+        "starting_commit": "cb11032190ea3ffffb19a6d6b91b67a6db061a8b",
+        "initial_untracked": [
+          "?? python/build/"
+        ],
+        "update": "Implement canonical import/lookup/relink/output/edit APIs, complete native metadata reads, migrate installed examples and refresh qualification/packages.",
+        "qualification": "Pending against revised installed artifacts"
+      },
+      {
+        "repository": "postproject-ardour",
+        "starting_commit": "e807e4f8897db3bd60cb1ae8453ddf33ac938f00",
+        "initial_untracked": [],
+        "update": "Migrate native edit and audio selection calls; regenerate complete patches and qualify with/without SDK builds.",
+        "qualification": "Pending against revised installed artifacts"
+      },
+      {
+        "repository": "postproject-blender",
+        "starting_commit": "ef5274a6104369d30664fb0b20a77043fff9c743",
+        "initial_untracked": [],
+        "update": "Use path lookup, imported representation IDs and atomic output/activity staging; preserve generation guards and both handoffs.",
+        "qualification": "Pending against revised installed artifacts"
+      },
+      {
+        "repository": "postproject-cpp-nle",
+        "starting_commit": "eb79ae601524b0fdbb3237c8ef87b0c3b7f75015",
+        "initial_untracked": [],
+        "update": "Use unified C++ edits and copied metadata/lookup values; qualify the installed Result and exception workflows.",
+        "qualification": "Pending against revised installed artifacts"
+      },
+      {
+        "repository": "postproject-kdenlive",
+        "starting_commit": "09bd9bf2135a6f6d57a039fa2178570321f4f4c0",
+        "initial_untracked": [],
+        "update": "Migrate relink/proxy activity and edit calls; regenerate complete patches and qualify both builds and the shared handoff.",
+        "qualification": "Pending against revised installed artifacts"
+      },
+      {
+        "repository": "postproject-natron",
+        "starting_commit": "13c065520e25f8343db75967329d9809a9fd5f76",
+        "initial_untracked": [
+          "?? build-api-safety-guards/",
+          "?? build-content-values/",
+          "?? build-qualification-abi51/",
+          "?? build-resolution-values/"
+        ],
+        "update": "Migrate native edit/sequence selection calls; retain obsolete-generation rejection and plugin-free renderer checks.",
+        "qualification": "Pending against revised installed artifacts"
+      },
+      {
+        "repository": "postproject-obs",
+        "starting_commit": "e418f8e44329450025eb84c2c839e6e41e12a8fc",
+        "initial_untracked": [
+          "?? build-qualification-abi51/"
+        ],
+        "update": "Migrate C import/edit results and output attribution; qualify finalization, cleanup, ambiguity and Blender handoff.",
+        "qualification": "Pending against revised installed artifacts"
+      },
+      {
+        "repository": "postproject-openassetio",
+        "starting_commit": "c07e664f66361d1b8494548c2dd73612412248c1",
+        "initial_untracked": [
+          "?? build/"
+        ],
+        "update": "Migrate imported identities and canonical metadata/lookup inputs; qualify supported installed API combinations.",
+        "qualification": "Pending against revised installed artifacts"
+      },
+      {
+        "repository": "postproject-openassetio-manager",
+        "starting_commit": "f0972202424390e3d6fa88c6791b5c2872cbafcc",
+        "initial_untracked": [
+          "?? build/"
+        ],
+        "update": "Migrate atomic publishing and typed metadata/lookup reads; refresh installed Manager/Nuke preparation evidence.",
+        "qualification": "Pending against revised installed artifacts"
+      },
+      {
+        "repository": "postproject-otio-demo",
+        "starting_commit": "6d91504cfa86aac96c132ee36155800065d44ac5",
+        "initial_untracked": [
+          "?? build/"
+        ],
+        "update": "Migrate import and Manager publishing examples; refresh packaged walkthrough and dependency bounds.",
+        "qualification": "Pending against revised installed artifacts"
+      },
+      {
+        "repository": "postproject-otio-openassetio",
+        "starting_commit": "0f371612d5ff6c61e506ab36a7450f76505087c9",
+        "initial_untracked": [],
+        "update": "Migrate import and reference selection; qualify installed editorial round trips and dependency bounds.",
+        "qualification": "Pending against revised installed artifacts"
+      },
+      {
+        "repository": "postproject-python-host",
+        "starting_commit": "797bd210084541b6ca8a52e978ea43c474f945b6",
+        "initial_untracked": [],
+        "update": "Migrate import, adoption and output recipes with precise ID hints; qualify the installed host and revision scans.",
+        "qualification": "Pending against revised installed artifacts"
+      },
+      {
+        "repository": "postproject.org",
+        "starting_commit": "902d698690fea51434fc4554ece7bbf25c53f101",
+        "initial_untracked": [],
+        "update": "Preserve current theme work; link asset-reuse and affected-render scenarios and refresh factual installation/support claims.",
+        "qualification": "Pending against revised installed artifacts"
+      }
+    ],
+    "excluded_local_checkouts": [
+      {
+        "repository": "postproject-shotcut",
+        "reason": "Unused assessment checkout without an origin; no maintained integration."
+      }
+    ]
   }
 }
