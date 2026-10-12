@@ -41,7 +41,13 @@ def record_entry(name: str, data: bytes) -> str:
     return f"{name},sha256={digest.decode()},{len(data)}"
 
 
-def build(wheel: Path, library: Path, platform_tag: str, output_dir: Path) -> Path:
+def build(
+    wheel: Path,
+    library: Path,
+    platform_tag: str,
+    output_dir: Path,
+    licenses: Path | None = None,
+) -> Path:
     distribution, version, python_tag, abi_tag, neutral = wheel.stem.split("-")
     if (python_tag, abi_tag, neutral) != ("py3", "none", "any"):
         raise ValueError(f"not a platform-neutral wheel: {wheel.name}")
@@ -68,6 +74,13 @@ def build(wheel: Path, library: Path, platform_tag: str, output_dir: Path) -> Pa
         entry.compress_type = zipfile.ZIP_DEFLATED
         out.writestr(entry, data)
         records.append(record_entry(name, data))
+        if licenses is not None:
+            for path in sorted(licenses.rglob("*")):
+                if path.is_file():
+                    name = f"{dist_info}/licenses/native/{path.relative_to(licenses).as_posix()}"
+                    data = path.read_bytes()
+                    out.writestr(name, data)
+                    records.append(record_entry(name, data))
         records.append(f"{dist_info}/RECORD,,")
         out.writestr(f"{dist_info}/RECORD", "\n".join(records) + "\n")
     return target
@@ -90,8 +103,15 @@ def main() -> None:
     parser.add_argument("library", type=Path)
     parser.add_argument("platform_tag")
     parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument(
+        "--licenses", type=Path, help="collected native dependency notices"
+    )
     args = parser.parse_args()
-    print(build(args.wheel, args.library, args.platform_tag, args.output_dir))
+    print(
+        build(
+            args.wheel, args.library, args.platform_tag, args.output_dir, args.licenses
+        )
+    )
 
 
 if __name__ == "__main__":
