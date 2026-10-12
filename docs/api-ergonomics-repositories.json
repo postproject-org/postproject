@@ -149,12 +149,13 @@
     "repositories": [
       {
         "repository": "postproject",
-        "starting_commit": "cb11032190ea3ffffb19a6d6b91b67a6db061a8b",
+        "starting_commit": "f456958cbb99b2d952fb23de53aa73e22e38c25e",
         "initial_untracked": [
           "?? python/build/"
         ],
         "update": "Implement canonical import/lookup/relink/output/edit APIs, complete native metadata reads, migrate installed examples and refresh qualification/packages.",
-        "qualification": "Pending against revised installed artifacts"
+        "qualification": "Initial slices: nine installed native contracts, 145 installed Python tests, identity typing and 86 installed example checks pass; full revised scope remains pending.",
+        "migration_commit": "0abb5b5e1ff2f42bdbc73ca9f597e1e515cb7757"
       },
       {
         "repository": "postproject-ardour",
@@ -168,7 +169,8 @@
         "starting_commit": "ef5274a6104369d30664fb0b20a77043fff9c743",
         "initial_untracked": [],
         "update": "Use path lookup, imported representation IDs and atomic output/activity staging; preserve generation guards and both handoffs.",
-        "qualification": "Pending against revised installed artifacts"
+        "qualification": "Path lookup migration: rebuilt extension in Blender 5.2.2 passes 24 tests with one future-version skip; revised handoffs pending.",
+        "migration_commit": "4fc121b3c4120f82fb018860ab0ae7c074e30a7b"
       },
       {
         "repository": "postproject-cpp-nle",
@@ -194,7 +196,8 @@
           "?? build-resolution-values/"
         ],
         "update": "Migrate native edit/sequence selection calls; retain obsolete-generation rejection and plugin-free renderer checks.",
-        "qualification": "Pending against revised installed artifacts"
+        "qualification": "Canonical sequence lookup: installed native contract and Natron 2.5.0 normal/negative/plugin-free renderer checks pass.",
+        "migration_commit": "db4c389c275be73903a3e8b69b480a47601f109c"
       },
       {
         "repository": "postproject-obs",
@@ -221,7 +224,8 @@
           "?? build/"
         ],
         "update": "Migrate atomic publishing and typed metadata/lookup reads; refresh installed Manager/Nuke preparation evidence.",
-        "qualification": "Pending against revised installed artifacts"
+        "qualification": "Direct output registration: nine installed tests pass on OpenAssetIO 1.0.2/MediaCreation a13 and bundled 1.0.0/a12, including rollback after staging.",
+        "migration_commit": "457fb041328451d0173a8bda4dab64a04f6d66dd"
       },
       {
         "repository": "postproject-otio-demo",
@@ -259,6 +263,9 @@
         "repository": "postproject-shotcut",
         "reason": "Unused assessment checkout without an origin; no maintained integration."
       }
-    ]
+    ],
+    "native_library_sha256": "d1ed91878795d0b0e21fb16081e2fcb2e66c031bcbbfd13c9db742a0ec2cc8c3",
+    "sdk_wheel_sha256": "7a7d8bc5f754302228ffdee524017a80d4af4599d7c3c3833b33915b4a296612",
+    "gates": "All revised phase gates remain pending; implemented slices have the scoped checks recorded per repository."
   }
 }
