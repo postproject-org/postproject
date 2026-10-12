@@ -46,6 +46,7 @@ Read the relevant ADR before changing an invariant, a boundary, or a public cont
 - {doc}`ADR 0075 — CLI scoped decisions </adr/0075-cli-scoped-decisions>`
 - {doc}`ADR 0076 — C++ target metadata </adr/0076-cpp-target-metadata>`
 - {doc}`ADR 0077 — Known-media lookup inputs </adr/0077-canonical-known-media-lookup>`
+- {doc}`ADR 0078 — Jobless output registration </adr/0078-jobless-output-registration>`
 - {doc}`ADR 0074 — Canonical commit receipts </adr/0074-canonical-commit-receipts>`
 - {doc}`ADR 0073 — Direct file inputs </adr/0073-direct-file-inputs>`
 - {doc}`ADR 0072 — Atomic native resolution options </adr/0072-atomic-native-resolution-options>`
@@ -174,4 +175,5 @@ Read the relevant ADR before changing an invariant, a boundary, or a public cont
 /adr/0075-cli-scoped-decisions
 /adr/0076-cpp-target-metadata
 /adr/0077-canonical-known-media-lookup
+/adr/0078-jobless-output-registration
 ```
