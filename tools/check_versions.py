@@ -64,6 +64,11 @@ def main() -> None:
         raise SystemExit(
             f"Python version {python_version} does not match {rust_version}"
         )
+    distribution = (ROOT / "python/src/postproject.egg-info/PKG-INFO").read_text(
+        encoding="utf-8"
+    )
+    if _capture(distribution, r"(?m)^Version: (.+)$") != python_version:
+        raise SystemExit("Tracked Python distribution metadata has a stale version")
 
     cmake = (ROOT / "CMakeLists.txt").read_text(encoding="utf-8")
     project_version = _capture(cmake, r"project\(PostProject VERSION ([^ )]+)")
