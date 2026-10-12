@@ -77,7 +77,6 @@
     {"operation": "complete_job_lease","classification": "mutation","effect_coverage": "native capture, local submission, checkpoint, passive replay and installed projections"},
     {"operation": "cancel_job","classification": "mutation","effect_coverage": "native capture, local submission, checkpoint, passive replay and installed projections"},
     {"operation": "commit","classification": "lifecycle","effect_coverage": "terminal lifecycle and original context/receipt covered by installed contracts"},
-    {"operation": "commit_with_receipt","classification": "lifecycle","effect_coverage": "terminal lifecycle and original context/receipt covered by installed contracts"},
     {"operation": "rollback","classification": "lifecycle","effect_coverage": "terminal lifecycle and original context/receipt covered by installed contracts"}
   ]
 }
