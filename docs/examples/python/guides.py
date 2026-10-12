@@ -247,9 +247,9 @@ def record_and_query_dependencies(
     resolved_id: RepresentationId,
 ) -> None:
     dependency = Dependency(
-        kind="org.example:character-reference",
+        kind="org.example:clip-reference",
         target=AssetRef(target_asset_id),
-        authored_reference="characters/lead.usd",
+        authored_reference="rushes/A001.mov",
         resolved_representation_id=resolved_id,
     )
     with production.read_session() as view, view.edit() as transaction:
@@ -556,7 +556,7 @@ def main() -> None:
         record_render(production, original_id, sequence_id)
         inspect_artifact(production, sequence_id)
         # The toy scene actually authors this reference; rendered frames do not.
-        assert (work / "scene.ppscene").read_text() == "characters/lead.usd\n"
+        assert (work / "scene.ppscene").read_text() == "rushes/A001.mov\n"
         with production.edit() as edit:
             scene_asset = edit.import_media(work / "scene.ppscene")
             edit.commit()

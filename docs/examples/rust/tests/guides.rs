@@ -285,11 +285,11 @@ fn record_and_query_dependencies(
 ) -> Result<()> {
     let dependency = Dependency::new(
         None,
-        DependencyKind::new("org.example:character-reference")?,
+        DependencyKind::new("org.example:clip-reference")?,
         DependencyTarget::Asset(target_asset_id),
         Some(resolved_id),
         true,
-        "characters/lead.usd",
+        "rushes/A001.mov",
     )?;
     {
         let base = production.read_session()?.decision_base();
@@ -688,7 +688,7 @@ fn guide_examples_run_in_order() -> Result<()> {
     inspect_artifact(&production, sequence_id)?;
     // The toy scene authors the reference; rendered frames do not.
     let scene_path = work.path().join("scene.ppscene");
-    fs::write(&scene_path, "characters/lead.usd\n").expect("scene fixture");
+    fs::write(&scene_path, "rushes/A001.mov\n").expect("scene fixture");
     let scene = prepare_original_media(&scene_path, None, None)?;
     let scene_id = scene.representation().id();
     {

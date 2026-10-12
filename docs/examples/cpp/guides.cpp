@@ -221,8 +221,8 @@ void record_and_query_dependencies(postproject::Production &production,
                                    const postproject::RepresentationId &resolved_id) {
   const postproject::ObjectRef target = postproject::ObjectRef::asset(target_asset_id);
   const postproject::Dependency dependency{
-      std::nullopt, "org.example:character-reference", target, resolved_id,
-      true, "characters/lead.usd"};
+      std::nullopt, "org.example:clip-reference", target, resolved_id,
+      true, "rushes/A001.mov"};
   auto transaction = production.readSession().value().edit().value();
   transaction.recordDependencySet(source_id, {dependency}).value();
   transaction.commit().value();

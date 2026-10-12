@@ -484,13 +484,13 @@ record_and_query_dependencies(pp_production_t *production,
                               const pp_representation_id_t *resolved_id,
                               pp_error_t **error) {
   pp_dependency_t dependency = {0};
-  dependency.kind = "org.example:character-reference";
+  dependency.kind = "org.example:clip-reference";
   pp_error_code_t reference_status = pp_object_ref_from_asset(*target_asset_id, &dependency.target, error);
   if (reference_status != PP_OK) return reference_status;
   dependency.has_resolved_representation = UINT8_C(1);
   dependency.resolved_representation_id = *resolved_id;
   dependency.required = UINT8_C(1);
-  dependency.authored_reference = "characters/lead.usd";
+  dependency.authored_reference = "rushes/A001.mov";
 
   pp_read_session_t *view = NULL;
   pp_transaction_t *transaction = NULL;
