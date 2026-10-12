@@ -16,7 +16,7 @@
       "initial_untracked": [
         "?? python/build/"
       ],
-      "migration_commit": "c44f26b8ab742fa0f562ac481e24b6322da20a82",
+      "migration_commit": "62c11fd32661d763d130201ba46e9a0d70e867e4",
       "qualification": "All six local gates, exact Rust 1.85, installed/sanitized native, Python 3.11/3.14, typing, 84 examples, strict docs and clean relocated packages pass; required platform CI unexecuted"
     },
     {
@@ -125,7 +125,7 @@
       "baseline_commit": "61793494237231ee2e1b3c2b9df691116475fd27",
       "branch": "main",
       "initial_untracked": [],
-      "migration_commit": "de6789b8d942b45724ca59352d31ea017dacc9b8",
+      "migration_commit": "67498dad13f970f0293ee29dce829ef3aede83c5",
       "qualification": "Three source tests and six desktop/mobile light/dark, fragment and focus previews pass; deployment awaiting approval"
     }
   ],
