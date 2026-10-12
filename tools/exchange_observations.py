@@ -84,7 +84,8 @@ def checkpoint_bodies(path: Path) -> str:
 
 def public_observations(source: pp.Production) -> dict:
     before = source.exchange_state.head
-    assets = tuple(source.assets)
+    with source.read_session() as view:
+        assets = tuple(view.assets())
     representations = tuple(
         item for asset in assets for item in source.representations[asset.id]
     )
