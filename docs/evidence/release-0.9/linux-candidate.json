@@ -1,5 +1,5 @@
 {
-  "state": "Prepared and unpublished; required CI running on the cleaned current branch",
+  "state": "Qualified development candidate; prepared and unpublished",
   "package": "0.9.0-alpha.1",
   "python": "0.9.0a1",
   "abi": 53,
@@ -12,13 +12,13 @@
   "native_build_source": "a3dbb1ce6580a3d42777049b4e74c35f34a79ad0",
   "native_library_sha256": "d1ed91878795d0b0e21fb16081e2fcb2e66c031bcbbfd13c9db742a0ec2cc8c3",
   "native_build_command": "cargo build --release --locked -p postproject-ffi -p postproject-cli",
-  "binding_sources_verified_against": "a3dbb1ce6580a3d42777049b4e74c35f34a79ad0",
+  "binding_sources_verified_against": "34998c1071df0447fc58f4455d18fe0cd62395ab",
   "native_notices": 91,
   "repositories": [
     {
       "repository": "postproject",
-      "commit": "98500dd4c69aa399ac6c9f20e9e9d60f88b77083",
-      "archive": "postproject-source-98500dd4c69a.tar.gz"
+      "commit": "34998c1071df0447fc58f4455d18fe0cd62395ab",
+      "archive": "postproject-source-34998c1071df.tar.gz"
     },
     {
       "repository": "postproject-ardour",
@@ -27,8 +27,8 @@
     },
     {
       "repository": "postproject-blender",
-      "commit": "52fa84f5235c0f94ba9e33e06d1997f5ece58fa4",
-      "archive": "postproject-blender-source-52fa84f5235c.tar.gz"
+      "commit": "ef5274a6104369d30664fb0b20a77043fff9c743",
+      "archive": "postproject-blender-source-ef5274a61043.tar.gz"
     },
     {
       "repository": "postproject-cpp-nle",
@@ -77,15 +77,15 @@
     },
     {
       "repository": "postproject.org",
-      "commit": "2a060b870fd772ca0049f21edd627232987ff116",
-      "archive": "postproject.org-source-2a060b870fd7.tar.gz"
+      "commit": "e455ce0e5c9894fbc11c8150aa03ca966920604f",
+      "archive": "postproject.org-source-e455ce0e5c98.tar.gz"
     }
   ],
   "artifacts": [
     {
       "file": "postproject-0.9-local-evidence.tar.gz",
-      "size": 2018746,
-      "sha256": "492540b98442362ec41fac6c35ba4ba08fd7980123e42fc6faab846844867e0e"
+      "size": 2095563,
+      "sha256": "eaaeaca81563d2eea5f0ae19546c143003e59e0556a2c69ed9acd1caac96f4be"
     },
     {
       "file": "postproject-0.9.0-alpha.1-linux-workstation.tar.gz",
@@ -103,9 +103,9 @@
       "sha256": "4b4f3bf7b358f5810890a65f822d9d74bd657f9790da8fb6f6f18eab4d428545"
     },
     {
-      "file": "postproject-blender-source-52fa84f5235c.tar.gz",
-      "size": 41821,
-      "sha256": "3ed316a63c3c0436b47f1e0331aab89de9249c295f1379946068a551e4e4588c"
+      "file": "postproject-blender-source-ef5274a61043.tar.gz",
+      "size": 41822,
+      "sha256": "62ebf273bc747a003ce65c7c548ca650cdfb693394d94a63eb4f48538e2679ae"
     },
     {
       "file": "postproject-cpp-nle-source-eb79ae601524.tar.gz",
@@ -153,14 +153,14 @@
       "sha256": "d4e18f3c41f092a01b930331bc8506b3d72178e984f059a03ff7bfab10ed4dd2"
     },
     {
-      "file": "postproject-source-98500dd4c69a.tar.gz",
-      "size": 2359671,
-      "sha256": "9edcd83dce489146d2c104b04ed1ee85989b13042179115405e2ebd181f8638b"
+      "file": "postproject-source-34998c1071df.tar.gz",
+      "size": 2361878,
+      "sha256": "97ada7b7e840355b7af31203ad634462638b888feb625fafcfffe5bbb668805d"
     },
     {
-      "file": "postproject.org-source-2a060b870fd7.tar.gz",
-      "size": 362988,
-      "sha256": "9d7e51fd106a94e8f3c47ecade13f6a1089e967ea88fbc538be483d353ee2e4c"
+      "file": "postproject.org-source-e455ce0e5c98.tar.gz",
+      "size": 364251,
+      "sha256": "eff1cb707929cc1a01d45b65daef37e2eebb46f1d3340a176dddd96b15348439"
     },
     {
       "file": "postproject_openassetio_manager-0.6.0-py3-none-any.whl",
@@ -181,7 +181,55 @@
   "external_outcomes": {
     "licensed_nuke": "Not executed",
     "releases": "Prepared, unpublished",
-    "deployment": "Cleaned docs 82de8f3 and practical site copy 2a060b8 deployed; updated report deployment will follow",
+    "deployment": "Docs 3d1b5f51 and site 59a5f25 deployed and verified live",
     "upstream_integration": "No upstream acceptance or endorsement claimed"
+  },
+  "qualification": {
+    "candidate": "0.9.0-alpha.1",
+    "checked_on": "2026-10-12",
+    "pipelines": [
+      {
+        "pipeline": "sdk",
+        "repository": "postproject-org/postproject",
+        "source": "3d1b5f51a789e2d5209d969fd277918b2405c71c",
+        "url": "https://github.com/postproject-org/postproject/actions/runs/38229673079",
+        "jobs": 16,
+        "all_jobs": "success"
+      },
+      {
+        "pipeline": "downstream",
+        "repository": "postproject-org/postproject",
+        "source": "3d1b5f51a789e2d5209d969fd277918b2405c71c",
+        "url": "https://github.com/postproject-org/postproject/actions/runs/38229673775",
+        "jobs": 11,
+        "all_jobs": "success"
+      },
+      {
+        "pipeline": "kdenlive",
+        "repository": "postproject-org/postproject-kdenlive",
+        "source": "09bd9bf2135a6f6d57a039fa2178570321f4f4c0",
+        "url": "https://github.com/postproject-org/postproject-kdenlive/actions/runs/38228465707",
+        "jobs": 2,
+        "all_jobs": "success"
+      },
+      {
+        "pipeline": "blender",
+        "repository": "postproject-org/postproject-blender",
+        "source": "ef5274a6104369d30664fb0b20a77043fff9c743",
+        "url": "https://github.com/postproject-org/postproject-blender/actions/runs/38230174201",
+        "jobs": 3,
+        "all_jobs": "success"
+      }
+    ],
+    "site": {
+      "source": "e455ce0e5c9894fbc11c8150aa03ca966920604f",
+      "run": 38231456308,
+      "live_html": "exactly matches source"
+    },
+    "docs": {
+      "source": "3d1b5f51a789e2d5209d969fd277918b2405c71c",
+      "run": 38229673090,
+      "live_report_and_versions": "verified"
+    }
   }
 }
