@@ -61,7 +61,7 @@ fn task_help_routes_exist_and_bare_revision_options_are_removed() {
         ])
         .assert()
         .code(2);
-    assert!(rejected.get_output().stdout.is_empty());
+    assert_eq!(rejected.get_output().stdout, [] as [u8; 0]);
 }
 
 fn add_representation_from_spec(
