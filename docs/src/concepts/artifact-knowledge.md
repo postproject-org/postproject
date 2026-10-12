@@ -74,9 +74,9 @@ For example, a stale proxy may still be online, while a current render may be
 offline on this machine. Read resolution results and job state separately when
 the interface needs all three answers.
 
-## Reproducibility report
+## Recorded recipe completeness
 
-The reproducibility operation reports whether the production records:
+The existing reproducibility operation checks whether the production records:
 
 - one unambiguous producing activity;
 - that activity's kind and tool identity;

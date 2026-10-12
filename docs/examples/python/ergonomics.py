@@ -7,12 +7,13 @@ from pathlib import Path
 
 from postproject import (
     ActivityEdge,
+    ActivityRef,
     ActivitySpec,
     AssetRef,
-    Dependency,
+    EvidenceKind,
     Production,
     RepresentationKind,
-    RepresentationRef,
+    ResourceResolvedExact,
     ToolIdentity,
     VerificationMode,
     file_locator,
@@ -58,10 +59,23 @@ def exercise(work: Path) -> None:
             )
             base = view.decision_base
         # The view is closed before host/UI work. Never choose among ambiguity.
-        resource = resolutions[0].resources[0]
-        if len(resource.candidates) != 1:
-            raise ValueError("Relink needs an explicit, unique choice")
-        candidate = resource.candidates[0]
+        selected = next(
+            r for r in resolutions if r.representation_id == known.representation_id
+        )
+        resource = next(
+            r for r in selected.resources if r.resource_id == known.resource_id
+        )
+        if not isinstance(resource.outcome, ResourceResolvedExact):
+            raise ValueError("Relink needs a verified choice for the selected resource")
+        candidate = resource.outcome.candidate
+        evidence = {e.kind for e in (*resource.evidence, *candidate.evidence)}
+        if (
+            EvidenceKind.SEARCH_TRUNCATED in evidence
+            or EvidenceKind.FULL_HASH_MATCH not in evidence
+        ):
+            raise ValueError(
+                "This file recipe needs complete search and full verification"
+            )
         with production.edit(base, message="Confirm moved take") as edit:
             edit.confirm_locator(
                 resource.resource_id,
@@ -75,29 +89,21 @@ def exercise(work: Path) -> None:
 
         # [ergonomic-derived]
         with production.read_session() as view:
-            inputs = view.representations_page(asset_id, limit=2)
-            if inputs.next_cursor is not None or len(inputs.items) != 1:
-                raise ValueError("Choose the input representation explicitly")
-            input_id = inputs.items[0].id
+            input_id = known.representation_id  # Retained from explicit adoption.
             with view.edit(message="Record host output") as edit:
                 output_id = edit.add_representation(
                     asset_id, RepresentationKind.DERIVED, output
                 )
-                edit.create_activity(
+                activity_id = edit.create_activity(
                     ActivitySpec(
                         "example:preview",
                         inputs=(ActivityEdge(input_id),),
                         outputs=(ActivityEdge(output_id),),
-                        tool=ToolIdentity("Example host", "1.0"),
+                        tool=ToolIdentity("Example file copy", "1.0"),
                     )
                 )
-                edit.record_dependency_set(
-                    output_id,
-                    (
-                        Dependency(
-                            "example:input", RepresentationRef(input_id), "A001.mov"
-                        ),
-                    ),
+                edit.add_metadata(
+                    ActivityRef(activity_id), ("example:preview", "mode"), "copy"
                 )
                 output_receipt = edit.commit()  # Output and knowledge are atomic.
         assert output_receipt.revision is not None
@@ -110,9 +116,11 @@ def exercise(work: Path) -> None:
         assert len(assets) == 1
         assert [revision.sequence for revision in revisions] == [1, 2, 3]
         # [/ergonomic-revisions]
-        assert production.dependency_set(output_id) is not None
+        assert (
+            production.dependency_set(output_id) is None
+        )  # No authored references observed.
         tool = production.activities_producing[output_id][0].tool
-        assert tool is not None and tool.name == "Example host"
+        assert tool is not None and tool.name == "Example file copy"
         locators = (
             production.representation(known.representation_id).resources[0].locators
         )

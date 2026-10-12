@@ -70,7 +70,7 @@ The detached base lets the caller close the view before host/UI work:
 :dedent:
 ```
 
-Record a produced representation, its activity and input dependency together:
+Record a produced representation with its actual activity and parameters:
 
 ```{literalinclude} ../../examples/python/ergonomics.py
 :language: python
@@ -78,6 +78,10 @@ Record a produced representation, its activity and input dependency together:
 :end-before: "# [/ergonomic-derived]"
 :dedent:
 ```
+
+Activity inputs describe provenance. They do not imply authored references
+inside the output; record [dependency observations](dependencies.md) only when
+the host has inspected such references.
 
 Scan a pinned asset set and finite history with bounded pages:
 

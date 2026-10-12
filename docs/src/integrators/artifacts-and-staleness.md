@@ -3,7 +3,7 @@
 A proxy, thumbnail, transcode, or render that PostProject knows was produced by
 a recorded activity is a *managed artifact*. PostProject can tell a host
 whether that artifact still reflects its inputs, explain the answer, and say
-whether the recorded knowledge is enough to reproduce it. The model is
+whether the recorded recipe has missing information. The model is
 described in [artifact knowledge and
 reproducibility](../concepts/artifact-knowledge.md); this guide shows the
 workflow.
@@ -17,10 +17,15 @@ artifact's files are *reachable* is a separate question answered by
 
 An evaluation returns one knowledge state — current, stale, indeterminate, or
 diverged — with structured reasons for anything that is not current, and a
-separate reproducibility report listing each missing condition:
+separate recorded recipe report listing each missing condition:
 
 ```{code-variants} artifact-knowledge
 ```
+
+The API calls this report “reproducibility.” It checks recorded recipe
+completeness, without checking tool availability, codecs, media bytes or an
+execution environment. A positive report does not promise deterministic or
+executable reproduction.
 
 Traversal through upstream artifacts is bounded by depth and by the number of
 representations visited. A bound that is reached is reported as a reason and
