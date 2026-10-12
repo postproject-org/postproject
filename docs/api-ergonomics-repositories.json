@@ -155,21 +155,22 @@
         ],
         "update": "Implement canonical import/lookup/relink/output/edit APIs, complete native metadata reads, migrate installed examples and refresh qualification/packages.",
         "qualification": "Initial slices: nine installed native contracts, 145 installed Python tests, identity typing and 86 installed example checks pass; full revised scope remains pending.",
-        "migration_commit": "0abb5b5e1ff2f42bdbc73ca9f597e1e515cb7757"
+        "migration_commit": "66f3e61a955718553c5a885872a9d50d8d1a64f2"
       },
       {
         "repository": "postproject-ardour",
         "starting_commit": "e807e4f8897db3bd60cb1ae8453ddf33ac938f00",
         "initial_untracked": [],
         "update": "Migrate native edit and audio selection calls; regenerate complete patches and qualify with/without SDK builds.",
-        "qualification": "Pending against revised installed artifacts"
+        "qualification": "Complete five-patch migration applies to Ardour 9.8; explicit installed C++17 resolver passes locally and macOS resolver passes CI 38313006961. Full host builds remain running.",
+        "migration_commit": "a98acde6480defe0beb18eb0824cb7b5d3350e7e"
       },
       {
         "repository": "postproject-blender",
         "starting_commit": "ef5274a6104369d30664fb0b20a77043fff9c743",
         "initial_untracked": [],
         "update": "Use path lookup, imported representation IDs and atomic output/activity staging; preserve generation guards and both handoffs.",
-        "qualification": "Path lookup migration: rebuilt extension in Blender 5.2.2 passes 24 tests with one future-version skip; revised handoffs pending.",
+        "qualification": "Path lookup migration: rebuilt extension in Blender 5.2.2 passes 24 tests with one future-version skip; both OBS/Blender and Kdenlive/Blender/Manager handoffs pass.",
         "migration_commit": "4fc121b3c4120f82fb018860ab0ae7c074e30a7b"
       },
       {
@@ -266,6 +267,27 @@
     ],
     "native_library_sha256": "d1ed91878795d0b0e21fb16081e2fcb2e66c031bcbbfd13c9db742a0ec2cc8c3",
     "sdk_wheel_sha256": "7a7d8bc5f754302228ffdee524017a80d4af4599d7c3c3833b33915b4a296612",
-    "gates": "All revised phase gates remain pending; implemented slices have the scoped checks recorded per repository."
+    "gates": "All revised phase gates remain pending; implemented slices have the scoped checks recorded per repository.",
+    "ci_state": "Corrected SDK compiler, sanitizer, quality and MSRV jobs pass; Blender stable/beta/lint, Natron and both Manager jobs pass. Remaining jobs are running; whole-run qualification is pending.",
+    "initial_ci_runs": {
+      "sdk": 38310531265,
+      "downstream": 38310532153,
+      "docs": 38310531137,
+      "flatpak": 38310531135,
+      "blender": 38310565609,
+      "natron": 38310566797,
+      "manager": 38310567595
+    },
+    "initial_ci_state": "866adb86 failed the C++17 test comparison, Python formatting and the missed spaced Ardour lookup call; corrections are in 66f3e61a and a98acde.",
+    "ci_runs": {
+      "sdk": 38313095627,
+      "downstream": 38313096726,
+      "docs": 38313095641,
+      "flatpak": 38313095808,
+      "ardour": 38313006961,
+      "blender": 38310565609,
+      "natron": 38310566797,
+      "manager": 38310567595
+    }
   }
 }
