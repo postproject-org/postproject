@@ -1,0 +1,41 @@
+{
+  "checked_on": "2026-10-12",
+  "scope": "Stable maintained application targets; publication state does not imply qualification",
+  "targets": [
+    {
+      "application": "Kdenlive",
+      "version": "26.08.2",
+      "commit": "ef54398259f2af1d29095a798cab48ca4c52f141",
+      "source": "https://kde.org/info/releases-26.08.2/",
+      "tag_source": "https://invent.kde.org/multimedia/kdenlive/-/tags/v26.08.2",
+      "state": "Upgraded from 26.08.1; ten patches apply; full with/without SDK builds and tests pass; shared handoff pending"
+    },
+    {
+      "application": "Blender",
+      "version": "5.2.2 LTS",
+      "source": "https://www.blender.org/download/",
+      "release_source": "https://download.blender.org/release/Blender5.2/",
+      "state": "Retained latest stable; 5.3 remains prerelease"
+    },
+    {
+      "application": "OBS Studio",
+      "version": "32.2.2",
+      "source": "https://github.com/obsproject/obs-studio/releases/tag/32.2.2",
+      "state": "Retained latest non-prerelease GitHub release"
+    },
+    {
+      "application": "Natron",
+      "version": "2.5.0",
+      "source": "https://github.com/NatronGitHub/Natron/releases/tag/v2.5.0",
+      "state": "Retained latest non-prerelease GitHub release"
+    },
+    {
+      "application": "Ardour",
+      "version": "9.8",
+      "tag_commit": "22ed8656c2533e325322ff11831448e5123e0d4b",
+      "pilot_commit": "7968ec504ba8b70e6de5c09d0470264581a5e979",
+      "source": "https://github.com/Ardour/ardour/tags",
+      "state": "Retained latest numeric stable tag and existing reviewed 9.8-based pilot commit"
+    }
+  ]
+}
