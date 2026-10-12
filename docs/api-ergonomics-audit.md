@@ -7,6 +7,10 @@ Python `0.9.0a1`, ABI 53, 344 exports and 38 layouts. Schema and protocol
 remain unchanged. This record distinguishes implemented changes from pending
 qualification; it does not announce a release.
 
+The [revised workflow design](api-workflow-0.9-design.md) records the additional
+concept and caller review against the qualified `f456958c` candidate. Its
+implementation and qualification are separate from the completed work below.
+
 ## Reconciled starting point
 
 The 0.8 release has 18 assets. All six release jobs, sixteen tag CI jobs and
@@ -85,9 +89,9 @@ those semantics.
 All 13 consumers use the canonical APIs. ABI 53 installed/native, Python/typing,
 real-host and both-handoff checks pass locally. Clean relocated packages and
 distribution packets are prepared. Kdenlive's stable 26.08.2 upgrade passes
-full builds/tests and the shared handoff; required platform and full Ardour CI
-remain unexecuted. The
+full builds/tests and the shared handoff. Final-head SDK CI passed all 16 jobs
+and downstream CI passed all 11, including full Ardour builds. The
 {doc}`release-0.9-report` records exact completed scope and remaining boundaries.
 The local site has reviewed desktop/mobile light/dark previews. Packages remain
-unpublished, deployment awaits approval, licensed Nuke is not executed and
+unpublished; authorized docs/site deployment passed. Licensed Nuke is not executed and
 integration guides document installation and support.
