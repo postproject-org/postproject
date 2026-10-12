@@ -34,9 +34,7 @@ class CompatibilityUsageTests(unittest.TestCase):
             family for family in manifest.families if family.identifier == "resolution"
         )
 
-        self.assertIn(
-            "pp_resolution_options_add_search_directory", resolution.c_operations
-        )
+        self.assertIn("pp_resolution_options_create", resolution.c_operations)
         self.assertIn("pp_resolution_set_get_candidate", resolution.c_operations)
         self.assertIn(
             "pp_resolution_set_get_candidate_evidence", resolution.c_operations
