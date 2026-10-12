@@ -1021,9 +1021,7 @@ class ReadSessionTests(unittest.TestCase):
                         (),
                     )
                     self.assertEqual(
-                        view.find_known_media(
-                            fingerprint, limit=1
-                        ).items,
+                        view.find_known_media(fingerprint, limit=1).items,
                         matches.items,
                     )
                     self.assertEqual(len(production.media_roots), 1)

@@ -468,9 +468,7 @@ class ProductionTests(unittest.TestCase):
             self.assertIsNone(locator_page.next_cursor)
 
             fingerprint = first_resource.fingerprints[0]
-            first_page = production.find_known_media(
-                fingerprint, limit=1
-            )
+            first_page = production.find_known_media(fingerprint, limit=1)
             self.assertEqual(len(first_page.items), 1)
             self.assertIsNotNone(first_page.next_cursor)
             second_page = production.find_known_media(

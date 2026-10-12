@@ -114,7 +114,7 @@ int main(int argc, char **argv) {
   if (!view) return 28;
   const auto copied = view->metadata(target);
   if (!copied || copied->size() != 2 ||
-      copied->front().target != target) return 29;
+      !(copied->front().target == target)) return 29;
   std::optional<postproject::ReadSession> moved_view(std::move(*view));
   const auto closed = view->metadata(target);
   if (closed || closed.error().code() != postproject::ErrorCode::invalid_argument)

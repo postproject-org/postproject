@@ -139,9 +139,7 @@ def exercise(path: Path, media: Path) -> None:
                 "https://example.com/id", "camera", None
             ) == (AssetRef(asset),)
             assert (
-                view.find_known_media(
-                    LocatorIdentity(file_locator(media)), limit=10
-                )
+                view.find_known_media(LocatorIdentity(file_locator(media)), limit=10)
                 .items[0]
                 .asset_id
                 == asset

@@ -202,9 +202,7 @@ class QueryBoundsTests(unittest.TestCase):
                             invalid = replace(fingerprint, version=version)
                             for reader in (production, view):
                                 with self.assertRaises(InvalidArgumentError):
-                                    reader.find_known_media(
-                                        invalid, limit=1
-                                    )
+                                    reader.find_known_media(invalid, limit=1)
                             with self.assertRaises(InvalidArgumentError):
                                 edit.record_resource_fingerprint(resource.id, invalid)
                             with self.assertRaises(InvalidArgumentError):
