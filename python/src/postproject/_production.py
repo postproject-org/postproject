@@ -1268,7 +1268,32 @@ class Production:
         self._native.check(status, error)
         return _locator_page(self._native, handle)
 
-    def find_known_media_by_locator(
+    def find_known_media(
+        self,
+        source: str | os.PathLike[str] | LocatorIdentity | Fingerprint,
+        *,
+        limit: int,
+        cursor: str | None = None,
+    ) -> QueryPage[KnownMediaMatch]:
+        """Find ownership candidates by file path, exact locator or fingerprint.
+
+        Paths must exist for canonicalization; lookup never hashes their bytes.
+        Sequences require a LocatorIdentity with exact naming. Follow the page
+        continuation before treating candidates as complete; lookup never
+        adopts or merges identity. Strings are paths, not guessed URI inputs.
+        """
+        self._require_open()
+        if isinstance(source, Fingerprint):
+            return self._find_known_media_by_fingerprint(
+                source, limit=limit, cursor=cursor
+            )
+        if isinstance(source, (str, os.PathLike)):
+            source = LocatorIdentity(_file_locator(self._native, source))
+        if not isinstance(source, LocatorIdentity):
+            raise TypeError("source must be a path, LocatorIdentity or Fingerprint")
+        return self._find_known_media_by_locator(source, limit=limit, cursor=cursor)
+
+    def _find_known_media_by_locator(
         self,
         locator: LocatorIdentity,
         *,
@@ -1296,7 +1321,7 @@ class Production:
         self._native.check(status, error)
         return self._known_media_page(handle)
 
-    def find_known_media_by_fingerprint(
+    def _find_known_media_by_fingerprint(
         self,
         fingerprint: Fingerprint,
         *,
@@ -3389,7 +3414,32 @@ class ReadSession:
         finally:
             self._native.lib.pp_media_root_set_release(handle)
 
-    def find_known_media_by_locator(
+    def find_known_media(
+        self,
+        source: str | os.PathLike[str] | LocatorIdentity | Fingerprint,
+        *,
+        limit: int,
+        cursor: str | None = None,
+    ) -> QueryPage[KnownMediaMatch]:
+        """Find ownership candidates by file path, exact locator or fingerprint.
+
+        Paths must exist for canonicalization; lookup never hashes their bytes.
+        Sequences require a LocatorIdentity with exact naming. Follow the page
+        continuation before treating candidates as complete; lookup never
+        adopts or merges identity. Strings are paths, not guessed URI inputs.
+        """
+        self._require_open()
+        if isinstance(source, Fingerprint):
+            return self._find_known_media_by_fingerprint(
+                source, limit=limit, cursor=cursor
+            )
+        if isinstance(source, (str, os.PathLike)):
+            source = LocatorIdentity(_file_locator(self._native, source))
+        if not isinstance(source, LocatorIdentity):
+            raise TypeError("source must be a path, LocatorIdentity or Fingerprint")
+        return self._find_known_media_by_locator(source, limit=limit, cursor=cursor)
+
+    def _find_known_media_by_locator(
         self,
         locator: LocatorIdentity,
         *,
@@ -3417,7 +3467,7 @@ class ReadSession:
         self._native.check(status, error)
         return self._known_media_page(handle)
 
-    def find_known_media_by_fingerprint(
+    def _find_known_media_by_fingerprint(
         self,
         fingerprint: Fingerprint,
         *,
@@ -5031,7 +5081,10 @@ def file_locator(
     Compare locators only through URIs returned here or read from a production.
     """
 
-    native = NativeLibrary(library_path)
+    return _file_locator(NativeLibrary(library_path), path)
+
+
+def _file_locator(native: NativeLibrary, path: str | os.PathLike[str]) -> str:
     uri = ctypes.c_char_p()
     error = ctypes.POINTER(Error)()
     status = native.lib.pp_file_path_to_locator(

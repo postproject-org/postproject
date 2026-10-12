@@ -10,7 +10,6 @@ from postproject import (
     ActivitySpec,
     AssetRef,
     Dependency,
-    LocatorIdentity,
     Production,
     RepresentationKind,
     RepresentationRef,
@@ -41,9 +40,7 @@ def exercise(work: Path) -> None:
 
         # [ergonomic-adopt]
         with production.read_session() as view:
-            matches = view.find_known_media_by_locator(
-                LocatorIdentity(file_locator(original)), limit=2
-            )
+            matches = view.find_known_media(original, limit=2)
             if matches.next_cursor is not None or len(matches.items) != 1:
                 raise ValueError("Adoption needs an explicit, unique choice")
             known = matches.items[0]

@@ -202,7 +202,7 @@ class QueryBoundsTests(unittest.TestCase):
                             invalid = replace(fingerprint, version=version)
                             for reader in (production, view):
                                 with self.assertRaises(InvalidArgumentError):
-                                    reader.find_known_media_by_fingerprint(
+                                    reader.find_known_media(
                                         invalid, limit=1
                                     )
                             with self.assertRaises(InvalidArgumentError):
@@ -221,7 +221,7 @@ class QueryBoundsTests(unittest.TestCase):
                 with production.read_session() as view, view.edit() as edit:
                     edit.record_resource_fingerprint(resource.id, maximum)
                     edit.commit()
-                matches = production.find_known_media_by_fingerprint(maximum, limit=1)
+                matches = production.find_known_media(maximum, limit=1)
                 self.assertEqual(matches.items[0].resource_id, resource.id)
 
     def test_sequence_traversal_and_resolver_bounds_cannot_wrap(self) -> None:

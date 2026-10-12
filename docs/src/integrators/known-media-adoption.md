@@ -26,9 +26,12 @@ absent.
 ```{code-variants} known-media-adoption
 ```
 
-Convert native paths through PostProject before locator lookup. Comparing raw
-path strings can miss URI escaping, symlink resolution, or platform-specific
-canonicalization. Image-sequence callers must carry the sequence naming from
+Python `find_known_media(path, limit=100)` and C++
+`findKnownMedia(std::filesystem::path, 100)` canonicalize existing paths using
+the same rules as import. Pass an explicit `LocatorIdentity` for a URI,
+including paths unavailable on this machine, or a fingerprint for exact content
+evidence. C and Rust retain their typed locator/fingerprint queries; the CLI
+accepts paths directly. Image-sequence callers must carry the sequence naming from
 recognition or host state rather than guessing from the directory.
 
 ## Decide explicitly
@@ -58,8 +61,9 @@ not every past observation. After a new fingerprint observation replaces the
 effective value, the former value no longer matches this query. Historical
 audit information remains in revisions but does not silently affect adoption.
 
-Neither lookup opens the media file or verifies that the current bytes still
-match. Use [content verification](fingerprints-and-verification.md) when the
+Locator/fingerprint lookup does not verify current bytes. Path conversion
+checks the filesystem to canonicalize the path; it does not hash its content.
+Use [content verification](fingerprints-and-verification.md) when the
 host needs current filesystem evidence.
 
 ## Concurrent first encounters

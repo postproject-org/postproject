@@ -1003,7 +1003,7 @@ class ReadSessionTests(unittest.TestCase):
                 with production.read_session() as view:
                     locator = LocatorIdentity(file_locator(media))
                     fingerprint = fingerprint_file(media)
-                    matches = view.find_known_media_by_locator(locator, limit=1)
+                    matches = view.find_known_media(locator, limit=1)
                     self.assertEqual(matches.items[0].asset_id, asset)
                     with view.edit() as edit:
                         edit.add_media_root("rushes")
@@ -1021,7 +1021,7 @@ class ReadSessionTests(unittest.TestCase):
                         (),
                     )
                     self.assertEqual(
-                        view.find_known_media_by_fingerprint(
+                        view.find_known_media(
                             fingerprint, limit=1
                         ).items,
                         matches.items,
@@ -1040,8 +1040,8 @@ class ReadSessionTests(unittest.TestCase):
                     lambda: view.find_by_external_identifier(
                         "https://example.com/id", "camera", None
                     ),
-                    lambda: view.find_known_media_by_locator(locator, limit=1),
-                    lambda: view.find_known_media_by_fingerprint(fingerprint, limit=1),
+                    lambda: view.find_known_media(locator, limit=1),
+                    lambda: view.find_known_media(fingerprint, limit=1),
                 ):
                     with self.assertRaises(RuntimeError):
                         operation()

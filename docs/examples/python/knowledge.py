@@ -19,7 +19,6 @@ from postproject import (
     AssetRef,
     ExternalIdentifier,
     Fingerprint,
-    LocatorIdentity,
     MetadataAssertion,
     MetadataBool,
     MetadataBytes,
@@ -41,7 +40,6 @@ from postproject import (
     Production,
     RepresentationId,
     RepresentationRef,
-    file_locator,
     fingerprint_file,
 )
 
@@ -54,12 +52,12 @@ def find_known_media(
 ) -> AssetId:
     # A second host or process opens the same production explicitly.
     with Production.open(production_path) as production:
-        locator = LocatorIdentity(file_locator(media_path))
-        by_locator = production.find_known_media_by_locator(locator, limit=100)
-        by_content = production.find_known_media_by_fingerprint(fingerprint, limit=100)
+        by_locator = production.find_known_media(media_path, limit=100)
+        by_content = production.find_known_media(fingerprint, limit=100)
 
         # Several results are candidates for the host to present, never a winner.
         assert by_locator.items == by_content.items
+        assert by_locator.next_cursor is None and by_content.next_cursor is None
         assert len(by_locator.items) == 1
         return by_locator.items[0].asset_id
 

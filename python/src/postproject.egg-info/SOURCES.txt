@@ -32,6 +32,7 @@ tests/test_exchange_values.py
 tests/test_id_values.py
 tests/test_job_leases.py
 tests/test_job_status.py
+tests/test_known_media_inputs.py
 tests/test_metadata_edits.py
 tests/test_metadata_inputs.py
 tests/test_native.py

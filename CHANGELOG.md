@@ -5,6 +5,7 @@ All notable changes to PostProject will be documented here. The project uses
 
 ## Unreleased
 
+- Consolidate Python/C++ known-media lookup around native paths or explicit evidence (ADR 0077).
 - Read copied target-wide metadata directly in C++ retained views and productions (ADR 0076).
 - Use one production-scoped CLI decision option and task-oriented help (ADR 0075).
 - Return the caller's atomic receipt from the single Rust/C/C++ commit operation (ADR 0074).

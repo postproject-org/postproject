@@ -461,19 +461,19 @@ class ProductionTests(unittest.TestCase):
                 KnownMediaMatch(second_asset_id, second.id, second_resource.id),
             }
 
-            locator_page = production.find_known_media_by_locator(
+            locator_page = production.find_known_media(
                 LocatorIdentity(first_resource.locators[0].uri), limit=10
             )
             self.assertEqual(set(locator_page.items), expected)
             self.assertIsNone(locator_page.next_cursor)
 
             fingerprint = first_resource.fingerprints[0]
-            first_page = production.find_known_media_by_fingerprint(
+            first_page = production.find_known_media(
                 fingerprint, limit=1
             )
             self.assertEqual(len(first_page.items), 1)
             self.assertIsNotNone(first_page.next_cursor)
-            second_page = production.find_known_media_by_fingerprint(
+            second_page = production.find_known_media(
                 fingerprint, limit=1, cursor=first_page.next_cursor
             )
             self.assertEqual(set(first_page.items + second_page.items), expected)
