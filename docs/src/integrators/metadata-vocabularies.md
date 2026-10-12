@@ -13,10 +13,8 @@ representation, resource, activity, or job under an exact vocabulary and
 property. Every surface can:
 
 - append a value, so a property can hold several ordered values;
-- remove every value of a property from a target (except the C++ wrapper; see
-  below);
-- read every assertion on a target (except the C++ wrapper; see
-  [availability](#availability)); and
+- remove every value of a property from a target;
+- read every assertion on a target; and
 - find every assertion that uses an exact vocabulary and property, as one
   [bounded page](bounded-queries.md) at a time and optionally restricted to an
   exact scalar value.
@@ -115,9 +113,10 @@ keeps unknown and application-specific metadata fully round-trippable.
 
 The typed domain model, optional vocabulary registry, and SQLite persistence
 back every surface. C, Python, Rust, and the CLI read and write every value
-kind. The C++ wrapper writes every value kind and reads property queries with
-`queryMetadata`, and removes properties with `removeMetadataProperty`.
-Target-wide assertion reads remain available through the C API. Activity metadata
+kind. C++ `production.metadata(target)` and `view.metadata(target)` return
+copied assertions, preserving repeated properties and exact value kinds.
+Use `queryMetadata` for bounded cross-target property searches and
+`removeMetadataProperty` to remove a target's property. Activity metadata
 is writable after the activity is created in the same or an earlier
 transaction.
 

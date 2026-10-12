@@ -98,9 +98,27 @@ int main(int argc, char **argv) {
   if (rejected.has_value()) {
     return 9;
   }
+  const auto target = postproject::ObjectRef::asset(*asset_id);
+  if (!transaction->addMetadataValue(target, "custom:unknown", "count",
+          postproject::MetadataValue::unsignedInteger(7)) ||
+      !transaction->addMetadataValue(target, "custom:unknown", "count",
+          postproject::MetadataValue::signedInteger(-7))) return 26;
   if (!transaction->commit().has_value()) {
     return 10;
   }
+  const auto assertions = production.metadata(target);
+  if (!assertions || assertions->size() != 2 ||
+      !assertions->front().value.getIf<postproject::MetadataUnsignedInteger>() ||
+      !assertions->back().value.getIf<postproject::MetadataSignedInteger>()) return 27;
+  auto view = production.readSession();
+  if (!view) return 28;
+  const auto copied = view->metadata(target);
+  if (!copied || copied->size() != 2 ||
+      copied->front().target != target) return 29;
+  auto moved_view = std::move(*view);
+  const auto closed = view->metadata(target);
+  if (closed || closed.error().code() != postproject::ErrorCode::invalid_argument)
+    return 30;
 
   const auto representations = production.representations(*asset_id);
   if (!representations.has_value() || representations->size() != 1) {

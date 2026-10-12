@@ -6683,6 +6683,20 @@ public:
     return resolveAssets(asset_ids, options.options_);
   }
 
+  // Copies every assertion on a target, preserving repeated and typed values.
+  [[nodiscard]] Result<std::vector<MetadataAssertion>>
+  metadata(const ObjectRef &target) const {
+    const auto native_target = detail::native_object_ref(target);
+    pp_metadata_set_t *raw_metadata = nullptr;
+    pp_error_t *error = nullptr;
+    const auto status = pp_read_session_metadata(
+        session_, &native_target, &raw_metadata, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    POSTPROJECT_TRY_ASSIGN(auto page,
+        detail::metadata_page(detail::MetadataSetHandle(raw_metadata)));
+    return std::move(page.items);
+  }
+
   // Assertions of one property, optionally restricted to an exact scalar value.
   [[nodiscard]] Result<QueryPage<MetadataAssertion>>
   queryMetadata(std::string_view vocabulary, std::string_view property,
@@ -8091,6 +8105,20 @@ public:
       result.push_back(std::move(item_12));
     }
     return result;
+  }
+
+  // Copies every assertion on a target; reads do not retain native owners.
+  [[nodiscard]] Result<std::vector<MetadataAssertion>>
+  metadata(const ObjectRef &target) const {
+    const auto native_target = detail::native_object_ref(target);
+    pp_metadata_set_t *raw_metadata = nullptr;
+    pp_error_t *error = nullptr;
+    const auto status = pp_production_metadata(
+        production_, &native_target, &raw_metadata, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    POSTPROJECT_TRY_ASSIGN(auto page,
+        detail::metadata_page(detail::MetadataSetHandle(raw_metadata)));
+    return std::move(page.items);
   }
 
   [[nodiscard]] Result<Transaction> beginTransaction() {

@@ -5,6 +5,7 @@ All notable changes to PostProject will be documented here. The project uses
 
 ## Unreleased
 
+- Read copied target-wide metadata directly in C++ retained views and productions (ADR 0076).
 - Use one production-scoped CLI decision option and task-oriented help (ADR 0075).
 - Return the caller's atomic receipt from the single Rust/C/C++ commit operation (ADR 0074).
 - Stage single files directly from paths and remove redundant C/C++/Python source construction (ADR 0073).

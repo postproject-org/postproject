@@ -44,6 +44,7 @@ Read the relevant ADR before changing an invariant, a boundary, or a public cont
 ## Public surfaces, persistence, and compatibility
 
 - {doc}`ADR 0075 — CLI scoped decisions </adr/0075-cli-scoped-decisions>`
+- {doc}`ADR 0076 — C++ target metadata </adr/0076-cpp-target-metadata>`
 - {doc}`ADR 0074 — Canonical commit receipts </adr/0074-canonical-commit-receipts>`
 - {doc}`ADR 0073 — Direct file inputs </adr/0073-direct-file-inputs>`
 - {doc}`ADR 0072 — Atomic native resolution options </adr/0072-atomic-native-resolution-options>`
@@ -170,4 +171,5 @@ Read the relevant ADR before changing an invariant, a boundary, or a public cont
 /adr/0073-direct-file-inputs
 /adr/0074-canonical-commit-receipts
 /adr/0075-cli-scoped-decisions
+/adr/0076-cpp-target-metadata
 ```

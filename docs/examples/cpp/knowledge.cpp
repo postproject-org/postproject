@@ -162,6 +162,28 @@ count_editorial_values(const postproject::Production &production,
 }
 // [/typed-metadata]
 
+// [target-metadata]
+void inspect_asset_metadata(postproject::Production &production,
+                            postproject::AssetId asset_id) {
+  const auto target = postproject::ObjectRef::asset(asset_id);
+  auto view = production.readSession().value();
+  const auto assertions = view.metadata(target).value();
+  require(assertions.size() == 13, "all properties on this asset");
+  auto edit = view.edit().value();
+  edit.addMetadataValue(target, editorial, "title",
+                        postproject::MetadataValue::plainString("Second title")).value();
+  edit.commit().value();
+  require(view.metadata(target).value().size() == 13,
+          "retained view still sees its original assertions");
+  require(production.metadata(target).value().size() == 14,
+          "current read preserves repeated titles");
+  for (const auto &assertion : assertions) {
+    require(assertion.target == target, "only this target");
+  }
+  // Copied assertion values do not borrow the native read result or view.
+}
+// [/target-metadata]
+
 // [remove-metadata]
 void clear_keywords(postproject::Production &production,
                     postproject::AssetId asset_id) {
@@ -291,6 +313,7 @@ int main(int argc, char **argv) {
       require(!unbased.commit().value().revision.has_value(),
               "rejected removal leaves a usable no-change transaction");
     }
+    inspect_asset_metadata(production, asset_id);
     clear_keywords(production, asset_id);
   } catch (const std::exception &error) {
     std::cerr << error.what() << '\n';
