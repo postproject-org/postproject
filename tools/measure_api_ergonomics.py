@@ -40,7 +40,8 @@ def measure(root: Path, phase: str) -> int:
     with pp.Production.open(root / "production.pproj") as production:
         if phase == "assets-eager":
             # Historical 0.8 API only; never used by candidate integrations.
-            return len(list(production.assets))
+            # This branch exercises the removed, published 0.8 collection.
+            return len(list(getattr(production, "assets")))
         with production.read_session() as view:
             if phase == "assets-pages":
                 count, cursor = 0, None
@@ -66,7 +67,9 @@ def measure(root: Path, phase: str) -> int:
             asset = view.assets_page(limit=1).items[0].id
         if phase.startswith("metadata-"):
             factory = (
-                production.edit if hasattr(view, "assets") else production.transaction
+                production.edit
+                if hasattr(view, "assets")
+                else getattr(production, "transaction")
             )
             with factory() as edit:
                 for index in range(1000):
