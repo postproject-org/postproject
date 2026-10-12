@@ -1,0 +1,48 @@
+{
+  "candidate": "0.9.0-alpha.1",
+  "checked_on": "2026-10-12",
+  "pipelines": [
+    {
+      "pipeline": "sdk",
+      "repository": "postproject-org/postproject",
+      "source": "3d1b5f51a789e2d5209d969fd277918b2405c71c",
+      "url": "https://github.com/postproject-org/postproject/actions/runs/38229673079",
+      "jobs": 16,
+      "all_jobs": "success"
+    },
+    {
+      "pipeline": "downstream",
+      "repository": "postproject-org/postproject",
+      "source": "3d1b5f51a789e2d5209d969fd277918b2405c71c",
+      "url": "https://github.com/postproject-org/postproject/actions/runs/38229673775",
+      "jobs": 11,
+      "all_jobs": "success"
+    },
+    {
+      "pipeline": "kdenlive",
+      "repository": "postproject-org/postproject-kdenlive",
+      "source": "09bd9bf2135a6f6d57a039fa2178570321f4f4c0",
+      "url": "https://github.com/postproject-org/postproject-kdenlive/actions/runs/38228465707",
+      "jobs": 2,
+      "all_jobs": "success"
+    },
+    {
+      "pipeline": "blender",
+      "repository": "postproject-org/postproject-blender",
+      "source": "ef5274a6104369d30664fb0b20a77043fff9c743",
+      "url": "https://github.com/postproject-org/postproject-blender/actions/runs/38230174201",
+      "jobs": 3,
+      "all_jobs": "success"
+    }
+  ],
+  "site": {
+    "source": "e455ce0e5c9894fbc11c8150aa03ca966920604f",
+    "run": 38231456308,
+    "live_html": "exactly matches source"
+  },
+  "docs": {
+    "source": "3d1b5f51a789e2d5209d969fd277918b2405c71c",
+    "run": 38229673090,
+    "live_report_and_versions": "verified"
+  }
+}

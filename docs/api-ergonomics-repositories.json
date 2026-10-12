@@ -17,7 +17,7 @@
         "?? python/build/"
       ],
       "migration_commit": "62c11fd32661d763d130201ba46e9a0d70e867e4",
-      "qualification": "All six local gates, exact Rust 1.85, installed/sanitized native, Python 3.11/3.14, typing, 84 examples, strict docs and clean relocated packages pass; final SDK branch CI running"
+      "qualification": "All required local gates and all 16 SDK CI jobs pass at 3d1b5f51 (38229673079); downstream 11/11 jobs pass (38229673775)"
     },
     {
       "repository": "postproject-ardour",
@@ -25,7 +25,7 @@
       "branch": "main",
       "initial_untracked": [],
       "migration_commit": "e807e4f8897db3bd60cb1ae8453ddf33ac938f00",
-      "qualification": "Installed resolver, full Linux builds with/without SDK and macOS resolver pass in downstream CI 38225523445; full local configure lacks liblo"
+      "qualification": "Installed resolver, full Linux builds with/without SDK and macOS resolver pass in downstream CI 38229673775; full local configure lacks liblo"
     },
     {
       "repository": "postproject-blender",
@@ -33,7 +33,7 @@
       "branch": "main",
       "initial_untracked": [],
       "migration_commit": "6a4ad71b68206137327a45a941abc5a0b11679db",
-      "qualification": "Blender 5.2.2: 24 tests pass, one future-version skip; readonly package, actual writes, disabled reopen and both maintained handoffs pass"
+      "qualification": "Actual local stable host and both handoffs pass; latest CI 38230174201 passes stable 5.2.2, optional 5.3 beta and lint"
     },
     {
       "repository": "postproject-cpp-nle",
@@ -49,7 +49,7 @@
       "branch": "main",
       "initial_untracked": [],
       "migration_commit": "09bd9bf2135a6f6d57a039fa2178570321f4f4c0",
-      "qualification": "26.08.2 ten patches, full with/without SDK builds, two enabled/one disabled test suites and complete Blender/Manager handoff pass"
+      "qualification": "26.08.2 ten patches, full with/without SDK builds and tests pass in CI 38228465707; complete Blender/Manager handoff passes locally"
     },
     {
       "repository": "postproject-natron",
@@ -125,8 +125,8 @@
       "baseline_commit": "61793494237231ee2e1b3c2b9df691116475fd27",
       "branch": "main",
       "initial_untracked": [],
-      "migration_commit": "2a060b870fd772ca0049f21edd627232987ff116",
-      "qualification": "Practical pilot copy, three source tests and six previews pass; deployment 38228778951 passes and live HTML exactly matches 2a060b8"
+      "migration_commit": "e455ce0e5c9894fbc11c8150aa03ca966920604f",
+      "qualification": "Practical pilot copy and sample-host links; three source tests and six previews pass; deployment 38231456308 passes and live HTML exactly matches 59a5f25"
     }
   ],
   "candidate": {
@@ -139,6 +139,6 @@
     "protocol_major": 1,
     "cli_json": 1,
     "platform": "Linux-7.2.9-gentoo-x86_64-AMD_Ryzen_7_4800H_with_Radeon_Graphics-with-glibc2.43",
-    "state": "Prepared, unpublished candidate; local gates and full Ardour/Kdenlive/Blender CI pass; site deployed; final SDK branch CI and docs deployment running"
+    "state": "Qualified unpublished development candidate; all required local and CI gates pass; documentation and website deployed and verified"
   }
 }

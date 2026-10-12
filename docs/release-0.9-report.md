@@ -2,10 +2,9 @@
 
 Prepared `0.9.0-alpha.1` (Python `0.9.0a1`), C ABI **53**, **344 exports**,
 **38 public layouts**, SQLite schema **27**, exchange protocol **1** and CLI
-JSON **1**. This is an unpublished development candidate, checked locally on
-2026-10-12 against published `v0.8.0-alpha.1` (`7e097bd`). Full Ardour,
-Kdenlive and Blender CI pass. Final SDK branch CI is running; this report
-does not declare acceptance.
+JSON **1**. This unpublished development candidate qualifies against published
+`v0.8.0-alpha.1` (`7e097bd`) on 2026-10-12. Required local, platform and
+maintained-integration checks pass; external limitations remain below.
 
 ## Delivered behavior
 
@@ -47,10 +46,24 @@ and their measurement limits.
 The pinned OTIO upstream linker emits its known unversioned-trait deprecation
 warning; that warning is retained. The actual host exchange fixture has three
 assets, two activities and no jobs; it is not independent worker evidence.
-Ardour's installed native audio resolver passes. Full Linux builds with and
-without the SDK and the macOS resolver pass in downstream CI
-[38225523445](https://github.com/postproject-org/postproject/actions/runs/38225523445).
-Its full local configure remains blocked by the missing `liblo` dependency.
+Ardour's installed native audio resolver passes. Its full local configure
+remains blocked by the missing `liblo` dependency; full CI results follow.
+
+## Completed CI
+
+| Pipeline | Verified result |
+|---|---|
+| [SDK](https://github.com/postproject-org/postproject/actions/runs/38229673079), `3d1b5f51` | All 16 jobs pass, including Linux/macOS/Windows tests and installed native packages, glibc-2.28 wheel, MSRV and sanitizers |
+| [Downstream](https://github.com/postproject-org/postproject/actions/runs/38229673775), `3d1b5f51` | All 11 jobs pass, including both full Ardour builds and both OpenAssetIO dependency sets |
+| [Kdenlive](https://github.com/postproject-org/postproject-kdenlive/actions/runs/38228465707), `09bd9bf` | Full builds and tests with and without PostProject pass |
+| [Blender](https://github.com/postproject-org/postproject-blender/actions/runs/38230174201), `ef5274a` | Stable 5.2.2, optional 5.3 beta and lint all pass |
+
+The {download}`CI source and job record <evidence/release-0.9/ci-qualification.json>`
+identifies the checked revisions. Downloaded Linux, macOS and Windows native
+packages have matching public headers, allowing Windows line endings. The Linux
+package's 344 exports and installed Python quickstart pass locally. The earlier stale inventory, helper
+assertion and Rust 1.99 lint failures were corrected; these results supersede
+those failed runs.
 
 ## Prepared artifacts and application targets
 
@@ -76,8 +89,9 @@ stable pins. Historical host qualification remains release-scoped.
   against both standalone and Nuke 17 shipped OpenAssetIO dependency pins.
 - **Public releases:** prepared and unpublished; no tags or registry uploads.
 - **Deployment:** the practical pilot descriptions at [postproject.org](https://www.postproject.org/)
-  match site revision `2a060b8`; both deployment jobs pass. Documentation
-  deployment is running. Strict local documentation and six website previews pass.
+  match site revision `59a5f25`; both deployment jobs pass. Documentation
+  source `3d1b5f51` is deployed and checked live; strict local documentation
+  and six website previews pass.
 - **Integration guides:** Blender, Kdenlive and Nuke have setup, validation and
   support notes. No upstream acceptance, endorsement or official listing is claimed.
 
