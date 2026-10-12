@@ -82,8 +82,11 @@ lease fencing, proposal idempotency, passive replay and complete structured
 errors remain part of full qualification. Removing old names is not proof of
 those semantics.
 
-All consumers have initial migration commits. Current ABI 53 installed/native,
-Python/typing, real-host and both-handoff gates are being rerun. Distribution
-packets, clean installs and full candidate qualification remain pending.
-The local site has reviewed desktop/mobile light/dark previews. Publication,
-deployment, licensed Nuke execution and upstream acceptance are separate.
+All 13 consumers use the canonical APIs. ABI 53 installed/native, Python/typing,
+real-host and both-handoff checks pass locally. Clean relocated packages and
+distribution packets are prepared. Kdenlive's stable 26.08.2 upgrade is being
+built; required platform and full Ardour CI remain unexecuted. The
+{doc}`release-0.9-report` records exact completed scope and remaining boundaries.
+The local site has reviewed desktop/mobile light/dark previews. Packages remain
+unpublished, deployment awaits approval, licensed Nuke is not executed and
+integration guides document installation and support.

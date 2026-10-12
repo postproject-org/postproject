@@ -16,8 +16,8 @@
       "initial_untracked": [
         "?? python/build/"
       ],
-      "migration_commit": "a0daea51f8ed15f633b42267c4234a3063f2473f",
-      "qualification": "Initial migration checks passed where recorded; final ABI 53 gates pending"
+      "migration_commit": "f5d88e2661fe9579f092e035973fad686575ac9b",
+      "qualification": "All six local gates, exact Rust 1.85, installed/sanitized native, Python 3.11/3.14, typing, 84 examples, strict docs and clean relocated packages pass; required platform CI unexecuted"
     },
     {
       "repository": "postproject-ardour",
@@ -25,15 +25,15 @@
       "branch": "main",
       "initial_untracked": [],
       "migration_commit": "e807e4f8897db3bd60cb1ae8453ddf33ac938f00",
-      "qualification": "Initial migration checks passed where recorded; final ABI 53 gates pending"
+      "qualification": "Installed native audio resolver and five-patch replay pass; full local configure lacks mandatory liblo; required full builds/macOS CI unexecuted"
     },
     {
       "repository": "postproject-blender",
       "baseline_commit": "e7002e2d682cc6cdf430646eaf4f42098c3faad5",
       "branch": "main",
       "initial_untracked": [],
-      "migration_commit": "0e272ff2f2beec5eeafffd68c90825beb24bde86",
-      "qualification": "Initial migration checks passed where recorded; final ABI 53 gates pending"
+      "migration_commit": "7c54ae2e4b8e421a3e5134e379a7439bf5388db0",
+      "qualification": "Blender 5.2.2: 24 tests pass, one future-version skip; readonly package, actual writes, disabled reopen and both maintained handoffs pass"
     },
     {
       "repository": "postproject-cpp-nle",
@@ -41,15 +41,15 @@
       "branch": "main",
       "initial_untracked": [],
       "migration_commit": "eb79ae601524b0fdbb3237c8ef87b0c3b7f75015",
-      "qualification": "Initial migration checks passed where recorded; final ABI 53 gates pending"
+      "qualification": "Installed C++ NLE contract passes"
     },
     {
       "repository": "postproject-kdenlive",
       "baseline_commit": "c20cbf1f6346b8915c4b461e524539e6e74ee884",
       "branch": "main",
       "initial_untracked": [],
-      "migration_commit": "66e55f8db194bc93542950370760d79940b2cb69",
-      "qualification": "Initial migration checks passed where recorded; final ABI 53 gates pending"
+      "migration_commit": "b3e20a0bfc37f23c5299d902492755b17538a219",
+      "qualification": "26.08.1 full with/without builds, two/one tests and shared handoff pass; new stable 26.08.2 ten-patch application passes, full builds in progress"
     },
     {
       "repository": "postproject-natron",
@@ -62,7 +62,7 @@
         "?? build-resolution-values/"
       ],
       "migration_commit": "13c065520e25f8343db75967329d9809a9fd5f76",
-      "qualification": "Initial migration checks passed where recorded; final ABI 53 gates pending"
+      "qualification": "Installed native contract, three worker request tests and real Natron 2.5.0 normal/negative/fallback pass"
     },
     {
       "repository": "postproject-obs",
@@ -71,8 +71,8 @@
       "initial_untracked": [
         "?? build-qualification-abi51/"
       ],
-      "migration_commit": "d4334f30ff39883aa0197d6251df5ea0027bf7f5",
-      "qualification": "Initial migration checks passed where recorded; final ABI 53 gates pending"
+      "migration_commit": "e418f8e44329450025eb84c2c839e6e41e12a8fc",
+      "qualification": "Two installed contracts and real OBS 32.2.2 normal/error/disabled paths plus Blender handoff pass; plugin build has no SDK RUNPATH"
     },
     {
       "repository": "postproject-openassetio",
@@ -82,7 +82,7 @@
         "?? build/"
       ],
       "migration_commit": "c07e664f66361d1b8494548c2dd73612412248c1",
-      "qualification": "Initial migration checks passed where recorded; final ABI 53 gates pending"
+      "qualification": "Installed OpenAssetIO validation test passes with warnings as errors"
     },
     {
       "repository": "postproject-openassetio-manager",
@@ -91,8 +91,8 @@
       "initial_untracked": [
         "?? build/"
       ],
-      "migration_commit": "27840bd00257a7b1f3bb3a1e96b53415d77e8c62",
-      "qualification": "Initial migration checks passed where recorded; final ABI 53 gates pending"
+      "migration_commit": "f0972202424390e3d6fa88c6791b5c2872cbafcc",
+      "qualification": "Eight installed tests pass against standalone and Nuke-shipped OpenAssetIO pins; clean wheel installs pass; licensed Nuke not executed"
     },
     {
       "repository": "postproject-otio-demo",
@@ -102,7 +102,7 @@
         "?? build/"
       ],
       "migration_commit": "6d91504cfa86aac96c132ee36155800065d44ac5",
-      "qualification": "Initial migration checks passed where recorded; final ABI 53 gates pending"
+      "qualification": "Clean installed wheel composition test passes with the documented pinned linker; its upstream deprecation warning is retained"
     },
     {
       "repository": "postproject-otio-openassetio",
@@ -110,7 +110,7 @@
       "branch": "main",
       "initial_untracked": [],
       "migration_commit": "0f371612d5ff6c61e506ab36a7450f76505087c9",
-      "qualification": "Initial migration checks passed where recorded; final ABI 53 gates pending"
+      "qualification": "Installed composition test passes; known pinned upstream linker deprecation warning retained"
     },
     {
       "repository": "postproject-python-host",
@@ -118,15 +118,15 @@
       "branch": "main",
       "initial_untracked": [],
       "migration_commit": "797bd210084541b6ca8a52e978ea43c474f945b6",
-      "qualification": "Initial migration checks passed where recorded; final ABI 53 gates pending"
+      "qualification": "Installed host contract passes with warnings as errors"
     },
     {
       "repository": "postproject.org",
       "baseline_commit": "61793494237231ee2e1b3c2b9df691116475fd27",
       "branch": "main",
       "initial_untracked": [],
-      "migration_commit": "539a9c9b9518e6b8a06bc9bb7c69de2ac0f22c20",
-      "qualification": "Three source tests and desktop/mobile light/dark, fragment and focus preview checks pass; no deployment"
+      "migration_commit": "de6789b8d942b45724ca59352d31ea017dacc9b8",
+      "qualification": "Three source tests and six desktop/mobile light/dark, fragment and focus previews pass; deployment awaiting approval"
     }
   ],
   "candidate": {
@@ -139,6 +139,6 @@
     "protocol_major": 1,
     "cli_json": 1,
     "platform": "Linux-7.2.9-gentoo-x86_64-AMD_Ryzen_7_4800H_with_Radeon_Graphics-with-glibc2.43",
-    "state": "local development; qualification in progress; no push or publication"
+    "state": "Prepared, unpublished local candidate; Kdenlive stable upgrade in progress; required platform/full-Ardour CI and deployment approval pending"
   }
 }
