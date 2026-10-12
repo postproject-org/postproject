@@ -16,7 +16,7 @@
       "initial_untracked": [
         "?? python/build/"
       ],
-      "migration_commit": "f5d88e2661fe9579f092e035973fad686575ac9b",
+      "migration_commit": "c44f26b8ab742fa0f562ac481e24b6322da20a82",
       "qualification": "All six local gates, exact Rust 1.85, installed/sanitized native, Python 3.11/3.14, typing, 84 examples, strict docs and clean relocated packages pass; required platform CI unexecuted"
     },
     {
@@ -32,7 +32,7 @@
       "baseline_commit": "e7002e2d682cc6cdf430646eaf4f42098c3faad5",
       "branch": "main",
       "initial_untracked": [],
-      "migration_commit": "7c54ae2e4b8e421a3e5134e379a7439bf5388db0",
+      "migration_commit": "6a4ad71b68206137327a45a941abc5a0b11679db",
       "qualification": "Blender 5.2.2: 24 tests pass, one future-version skip; readonly package, actual writes, disabled reopen and both maintained handoffs pass"
     },
     {
@@ -48,8 +48,8 @@
       "baseline_commit": "c20cbf1f6346b8915c4b461e524539e6e74ee884",
       "branch": "main",
       "initial_untracked": [],
-      "migration_commit": "b3e20a0bfc37f23c5299d902492755b17538a219",
-      "qualification": "26.08.1 full with/without builds, two/one tests and shared handoff pass; new stable 26.08.2 ten-patch application passes, full builds in progress"
+      "migration_commit": "09bd9bf2135a6f6d57a039fa2178570321f4f4c0",
+      "qualification": "26.08.2 ten patches, full with/without SDK builds, two enabled/one disabled test suites and complete Blender/Manager handoff pass"
     },
     {
       "repository": "postproject-natron",
@@ -139,6 +139,6 @@
     "protocol_major": 1,
     "cli_json": 1,
     "platform": "Linux-7.2.9-gentoo-x86_64-AMD_Ryzen_7_4800H_with_Radeon_Graphics-with-glibc2.43",
-    "state": "Prepared, unpublished local candidate; Kdenlive stable upgrade in progress; required platform/full-Ardour CI and deployment approval pending"
+    "state": "Prepared, unpublished local candidate; all stable pilot upgrades qualified locally; required platform/full-Ardour CI and deployment approval pending"
   }
 }

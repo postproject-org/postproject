@@ -8,7 +8,7 @@
       "commit": "ef54398259f2af1d29095a798cab48ca4c52f141",
       "source": "https://kde.org/info/releases-26.08.2/",
       "tag_source": "https://invent.kde.org/multimedia/kdenlive/-/tags/v26.08.2",
-      "state": "Upgraded from 26.08.1; ten patches apply; full with/without SDK builds and tests pass; shared handoff pending"
+      "state": "Upgraded from 26.08.1; ten patches, full with/without SDK builds, tests and shared Blender/Manager handoff pass"
     },
     {
       "application": "Blender",

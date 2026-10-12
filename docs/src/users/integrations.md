@@ -9,7 +9,7 @@ acceptance and upstream endorsement are not claimed.
 | Application or demo | Useful first task | Evaluation route and current scope |
 |---|---|---|
 | [Blender](https://github.com/postproject-org/postproject-blender/blob/main/ADOPTION.md) | Recover renamed Sequencer media by content | Prepared 0.3.0 extension, matching SDK wheel included; Blender 5.2.2/Linux installed-host checks pass |
-| [Kdenlive](https://github.com/postproject-org/postproject-kdenlive/blob/main/ADOPTION.md) | Record clips and recover missing media | Optional source patches for 26.08.1; full Linux builds/tests pass with and without the SDK |
+| [Kdenlive](https://github.com/postproject-org/postproject-kdenlive/blob/main/ADOPTION.md) | Record clips and recover missing media | Optional source patches for 26.08.2; full Linux builds/tests pass with and without the SDK |
 | [OBS recording pilot](https://github.com/postproject-org/postproject-obs) | Register a finalized recording's identity and capture facts | Installed C SDK and optional frontend plugin; eight real OBS 32.2.2/Linux scenarios pass |
 | [Natron](https://github.com/postproject-org/postproject-natron) | Resolve a compact image sequence into an ordinary Reader | Native source module for 2.5.0; normal/negative renders and plugin-free fallback pass on Linux |
 | [Ardour](https://github.com/postproject-org/postproject-ardour) | Recover renamed audio by content | Optional source patches for pinned 9.8; installed resolver passes; full current builds await CI dependencies |

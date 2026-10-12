@@ -39,7 +39,7 @@ and their measurement limits.
 | Examples/docs | 84 installed extracted examples; Doxygen coverage; strict Sphinx, spelling and offline links |
 | Consumers | Manager: eight tests; each OpenAssetIO/OTIO demonstration and sample host; native C++ NLE, OBS and Natron contracts |
 | Real hosts | Blender 5.2.2: 24 passed, one future-version skip; OBS 32.2.2 normal/error/disabled paths; Natron 2.5.0 normal/negative/fallback |
-| Handoffs | OBS → Blender; Kdenlive 26.08.1 → Blender → Manager, including identity, moves, conflicts and stale outputs |
+| Handoffs | OBS → Blender; Kdenlive 26.08.2 → Blender → Manager, including identity, moves, conflicts and stale outputs |
 | Exchange | Actual Blender-authored history reconstructed in two independent passive processes, including duplicate apply and reopen |
 | Clean packages | Relocated native archive: nine contracts with Cargo prohibited; fresh installed Manager/demo wheels and bundled SDK loading |
 
@@ -61,8 +61,9 @@ from their archives; source and repository provenance are recorded in the
 [repository inventory](api-ergonomics-repositories.json).
 
 Kdenlive 26.08.2 (`ef543982`) is the new pinned stable target. Its ten patches
-apply after adapting the proxy wait hooks to its member-owned process; full
-with/without-SDK builds and its shared-production handoff are in progress.
+apply after adapting the proxy wait hooks to its member-owned process. Full
+with/without-SDK builds, two enabled/one disabled test suites and the complete
+shared-production handoff pass.
 Blender 5.2.2 LTS, OBS 32.2.2, Natron 2.5.0 and Ardour 9.8 retain their verified
 stable pins. Historical host qualification remains release-scoped.
 

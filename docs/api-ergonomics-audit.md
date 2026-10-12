@@ -84,8 +84,9 @@ those semantics.
 
 All 13 consumers use the canonical APIs. ABI 53 installed/native, Python/typing,
 real-host and both-handoff checks pass locally. Clean relocated packages and
-distribution packets are prepared. Kdenlive's stable 26.08.2 upgrade is being
-built; required platform and full Ardour CI remain unexecuted. The
+distribution packets are prepared. Kdenlive's stable 26.08.2 upgrade passes
+full builds/tests and the shared handoff; required platform and full Ardour CI
+remain unexecuted. The
 {doc}`release-0.9-report` records exact completed scope and remaining boundaries.
 The local site has reviewed desktop/mobile light/dark previews. Packages remain
 unpublished, deployment awaits approval, licensed Nuke is not executed and
