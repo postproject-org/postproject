@@ -26,6 +26,12 @@ Recording an identical set is a no-op. An explicitly recorded empty set means
 "inspected, no references", which is different from never having recorded a
 set.
 
+The {download}`runnable scene/texture fixture <../../examples/python/authored_dependencies.py>`
+extracts the references actually present in a small JSON scene. The texture
+declares an empty reference array, so its empty observation is justified. A
+render records the scene as a provenance input; changing the referenced
+texture makes that render stale without inventing a dependency on the render.
+
 ## Query dependencies and dependents
 
 Forward queries follow a representation's dependencies; reverse queries answer
