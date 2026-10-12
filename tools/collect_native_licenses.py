@@ -1,6 +1,6 @@
 """Collect dependency notices for a locked native build, outside the consumer.
 
-Run after Cargo has fetched the build dependencies. The inventory includes
+The inventory includes
 normal and build dependencies of the FFI library and CLI for the given target;
 it is deliberately conservative about code eliminated by the linker.
 """
@@ -23,7 +23,9 @@ def cargo(*arguments: str) -> str:
 
 def collect(output: Path, target: str) -> None:
     metadata = json.loads(
-        cargo("metadata", "--locked", "--offline", "--format-version", "1")
+        cargo(
+            "metadata", "--locked", "--filter-platform", target, "--format-version", "1"
+        )
     )
     tree = cargo(
         "tree",
