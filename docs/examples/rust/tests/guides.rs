@@ -268,7 +268,7 @@ fn inspect_artifact(production: &SqliteProduction, artifact_id: RepresentationId
 
     let reproducibility = production.artifact_reproducibility(artifact_id)?;
     println!(
-        "reproducible: {}, missing conditions: {}",
+        "recorded recipe complete: {}, missing conditions: {}",
         reproducibility.is_reproducible(),
         reproducibility.issues().len()
     );
@@ -686,7 +686,18 @@ fn guide_examples_run_in_order() -> Result<()> {
     let sequence_id = add_render_sequence(&mut production, asset_id, &renders)?;
     record_render(&mut production, original_id, sequence_id)?;
     inspect_artifact(&production, sequence_id)?;
-    record_and_query_dependencies(&mut production, sequence_id, asset_id, original_id)?;
+    // The toy scene authors the reference; rendered frames do not.
+    let scene_path = work.path().join("scene.ppscene");
+    fs::write(&scene_path, "characters/lead.usd\n").expect("scene fixture");
+    let scene = prepare_original_media(&scene_path, None, None)?;
+    let scene_id = scene.representation().id();
+    {
+        let mut edit = production.begin_transaction()?;
+        edit.import_original(&scene)?;
+        edit.commit()?;
+    }
+    record_and_query_dependencies(&mut production, scene_id, asset_id, original_id)?;
+    assert!(production.dependency_set(sequence_id)?.is_none());
     request_and_page_jobs(&mut production, original_id, asset_id)?;
 
     print_recorded_locators(&production)?;

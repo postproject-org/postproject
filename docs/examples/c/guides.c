@@ -465,7 +465,7 @@ static pp_error_code_t inspect_artifact(const pp_production_t *production,
         report, &evaluated_id, &reproducible, &has_activity, &activity_id,
         &activity_kind, &issue_count, error);
     if (status == PP_OK) {
-      printf("reproducible: %u, missing conditions: %llu\n", reproducible,
+      printf("recorded recipe complete: %u, missing conditions: %llu\n", reproducible,
              (unsigned long long)issue_count);
     }
   }
@@ -1183,8 +1183,24 @@ int main(int argc, char **argv) {
     status = inspect_artifact(production, &sequence_id, &error);
   }
   if (status == PP_OK) {
-    status = record_and_query_dependencies(
-        production, &sequence_id, &asset_id, &original_id, &error);
+    /* scene.ppscene authors this reference; rendered frames do not. */
+    char scene_path[4096];
+    join(scene_path, sizeof scene_path, work, "scene.ppscene");
+    pp_transaction_t *scene_edit = NULL;
+    pp_asset_id_t scene_asset;
+    pp_representation_id_t scene_id;
+    status = pp_production_begin_transaction(production, &scene_edit, &error);
+    if (status == PP_OK)
+      status = pp_transaction_import_file(scene_edit, scene_path, NULL, &scene_asset, &error);
+    if (status == PP_OK) {
+      pp_commit_receipt_t receipt;
+      status = pp_transaction_commit(scene_edit, &receipt, &error);
+    }
+    pp_transaction_release(scene_edit);
+    if (status == PP_OK) status = original_representation(production, &scene_asset, &scene_id, &error);
+    if (status == PP_OK)
+      status = record_and_query_dependencies(
+          production, &scene_id, &asset_id, &original_id, &error);
   }
   if (status == PP_OK) {
     status = request_and_page_jobs(production, &original_id, &asset_id, &error);

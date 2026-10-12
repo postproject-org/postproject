@@ -145,10 +145,10 @@ def explain_proxy(
                 f"{reason.snapshot_value.hex()[:16]} -> {reason.current_value.hex()[:16]}"
             )
 
-    # What is still missing to regenerate the proxy exactly.
+    # Missing recorded recipe information; execution is a separate check.
     reproducibility = production.artifact_reproducibility(proxy_id)
     for issue in reproducibility.issues:
-        print(f"  not reproducible: {issue.kind.name}")
+        print(f"  recorded recipe missing: {issue.kind.name}")
         if isinstance(issue, ReproducibilityToolMissing):
             print(f"  record the tool used by activity {issue.activity_id}")
     return evaluation, reproducibility

@@ -13,6 +13,7 @@ from postproject import (
     EvidenceKind,
     Production,
     RepresentationKind,
+    ResourceResolutionState,
     ResourceResolvedExact,
     ToolIdentity,
     VerificationMode,
@@ -65,8 +66,9 @@ def exercise(work: Path) -> None:
         resource = next(
             r for r in selected.resources if r.resource_id == known.resource_id
         )
-        if not isinstance(resource.outcome, ResourceResolvedExact):
+        if resource.state is not ResourceResolutionState.RESOLVED_EXACT:
             raise ValueError("Relink needs a verified choice for the selected resource")
+        assert isinstance(resource.outcome, ResourceResolvedExact)
         candidate = resource.outcome.candidate
         evidence = {e.kind for e in (*resource.evidence, *candidate.evidence)}
         if (

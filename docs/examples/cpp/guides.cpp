@@ -208,7 +208,7 @@ void inspect_artifact(const postproject::Production &production,
   }
 
   const auto reproducibility = production.artifactReproducibility(artifact_id).value();
-  std::cout << "reproducible: " << reproducibility.reproducible
+  std::cout << "recorded recipe complete: " << reproducibility.reproducible
             << ", missing conditions: " << reproducibility.issues.size()
             << '\n';
 }
@@ -516,8 +516,15 @@ int main(int argc, char **argv) {
         production, asset_id, work + "/renders/shot010");
     record_render(production, original_id, sequence_id);
     inspect_artifact(production, sequence_id);
-    record_and_query_dependencies(production, sequence_id, asset_id,
+    // scene.ppscene authors the fixture's reference; rendered frames do not.
+    auto scene_edit = production.beginTransaction().value();
+    const auto scene_asset = scene_edit.importMedia(work + "/scene.ppscene").value();
+    scene_edit.commit().value();
+    const auto scene = production.representations(scene_asset).value();
+    require(scene.size() == 1, "single-file scene fixture");
+    record_and_query_dependencies(production, scene.front().id, asset_id,
                                   original_id);
+    require(!production.dependencySet(sequence_id).value(), "no invented render dependencies");
     request_and_page_jobs(production, original_id, asset_id);
 
     print_recorded_locators(production);

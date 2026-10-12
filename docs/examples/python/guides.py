@@ -231,7 +231,7 @@ def inspect_artifact(production: Production, artifact_id: RepresentationId) -> N
 
     reproducibility = production.artifact_reproducibility(artifact_id)
     print(
-        f"reproducible: {reproducibility.reproducible}, "
+        f"recorded recipe complete: {reproducibility.reproducible}, "
         f"missing conditions: {len(reproducibility.issues)}"
     )
 
@@ -555,7 +555,14 @@ def main() -> None:
         )
         record_render(production, original_id, sequence_id)
         inspect_artifact(production, sequence_id)
-        record_and_query_dependencies(production, sequence_id, asset_id, original_id)
+        # The toy scene actually authors this reference; rendered frames do not.
+        assert (work / "scene.ppscene").read_text() == "characters/lead.usd\n"
+        with production.edit() as edit:
+            scene_asset = edit.import_media(work / "scene.ppscene")
+            edit.commit()
+        (scene,) = production.representations[scene_asset]  # One-file fixture.
+        record_and_query_dependencies(production, scene.id, asset_id, original_id)
+        assert production.dependency_set(sequence_id) is None
         request_and_page_jobs(production, original_id, asset_id)
 
         print_recorded_locators(production)
