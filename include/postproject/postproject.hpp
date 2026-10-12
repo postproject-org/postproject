@@ -6242,6 +6242,8 @@ private:
   pp_resolution_options_t *options_;
 };
 
+[[nodiscard]] inline Result<std::string> fileLocator(std::string_view path);
+
 class ReadSession final {
 public:
   [[nodiscard]] Result<std::vector<RegenerationJobPlan>>
@@ -6861,7 +6863,17 @@ public:
     return result;
   }
 
-  [[nodiscard]] Result<QueryPage<KnownMediaMatch>> findKnownMediaByLocator(
+  // Canonicalizes an existing path without hashing its bytes. URI and sequence
+  // callers pass LocatorIdentity; no guessed URI interpretation is performed.
+  [[nodiscard]] Result<QueryPage<KnownMediaMatch>> findKnownMedia(
+      const std::filesystem::path &path, std::uint32_t limit,
+      std::optional<std::string_view> cursor = std::nullopt) const {
+    POSTPROJECT_TRY_ASSIGN(auto native_path, detail::checked_path(path, "path"));
+    POSTPROJECT_TRY_ASSIGN(auto uri, fileLocator(native_path));
+    return findKnownMedia(LocatorIdentity{std::move(uri), std::nullopt}, limit, cursor);
+  }
+
+  [[nodiscard]] Result<QueryPage<KnownMediaMatch>> findKnownMedia(
       const LocatorIdentity &locator, std::uint32_t limit,
       std::optional<std::string_view> cursor = std::nullopt) const {
     POSTPROJECT_TRY_ASSIGN(const std::string uri,
@@ -6881,7 +6893,7 @@ public:
         detail::KnownMediaSetHandle(raw_matches));
   }
 
-  [[nodiscard]] Result<QueryPage<KnownMediaMatch>> findKnownMediaByFingerprint(
+  [[nodiscard]] Result<QueryPage<KnownMediaMatch>> findKnownMedia(
       const Fingerprint &fingerprint, std::uint32_t limit,
       std::optional<std::string_view> cursor = std::nullopt) const {
     POSTPROJECT_TRY_ASSIGN(
@@ -7496,7 +7508,17 @@ public:
 
   // Finds every current resource ownership candidate at this exact canonical
   // locator identity. The query is read-only and does not adopt media.
-  [[nodiscard]] Result<QueryPage<KnownMediaMatch>> findKnownMediaByLocator(
+  // Canonicalizes an existing path without hashing its bytes. URI and sequence
+  // callers pass LocatorIdentity; no guessed URI interpretation is performed.
+  [[nodiscard]] Result<QueryPage<KnownMediaMatch>> findKnownMedia(
+      const std::filesystem::path &path, std::uint32_t limit,
+      std::optional<std::string_view> cursor = std::nullopt) const {
+    POSTPROJECT_TRY_ASSIGN(auto native_path, detail::checked_path(path, "path"));
+    POSTPROJECT_TRY_ASSIGN(auto uri, fileLocator(native_path));
+    return findKnownMedia(LocatorIdentity{std::move(uri), std::nullopt}, limit, cursor);
+  }
+
+  [[nodiscard]] Result<QueryPage<KnownMediaMatch>> findKnownMedia(
       const LocatorIdentity &locator, std::uint32_t limit,
       std::optional<std::string_view> cursor = std::nullopt) const {
     POSTPROJECT_TRY_ASSIGN(const std::string uri,
@@ -7518,7 +7540,7 @@ public:
 
   // Finds every resource whose current effective fingerprint exactly matches.
   // Content equality produces candidates; it does not prove logical identity.
-  [[nodiscard]] Result<QueryPage<KnownMediaMatch>> findKnownMediaByFingerprint(
+  [[nodiscard]] Result<QueryPage<KnownMediaMatch>> findKnownMedia(
       const Fingerprint &fingerprint, std::uint32_t limit,
       std::optional<std::string_view> cursor = std::nullopt) const {
     POSTPROJECT_TRY_ASSIGN(

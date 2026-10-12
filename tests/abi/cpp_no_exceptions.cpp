@@ -115,15 +115,30 @@ int main(int argc, char **argv) {
   const auto copied = view->metadata(target);
   if (!copied || copied->size() != 2 ||
       copied->front().target != target) return 29;
-  auto moved_view = std::move(*view);
+  std::optional<postproject::ReadSession> moved_view(std::move(*view));
   const auto closed = view->metadata(target);
   if (closed || closed.error().code() != postproject::ErrorCode::invalid_argument)
     return 30;
+  moved_view.reset();
+  if (copied->back().value.getIf<postproject::MetadataSignedInteger>()->value != -7)
+    return 31;
 
   const auto representations = production.representations(*asset_id);
   if (!representations.has_value() || representations->size() != 1) {
     return 11;
   }
+  const auto by_path = production.findKnownMedia(std::filesystem::path(media_path), 1);
+  const auto by_evidence = production.findKnownMedia(
+      representations->front().resources.front().fingerprints.front(), 1);
+  if (!by_path || !by_evidence || by_path->items.size() != 1 ||
+      by_path->next_cursor || by_evidence->next_cursor ||
+      by_path->items.front().asset_id != *asset_id ||
+      by_evidence->items.front().representation_id != representations->front().id)
+    return 32;
+  const auto missing_path = production.findKnownMedia(
+      std::filesystem::path(media_path + ".absent"), 1);
+  if (missing_path || missing_path.error().code() != postproject::ErrorCode::io)
+    return 33;
   auto options_result = postproject::ResolutionOptions::create();
   if (!options_result) return 12;
   auto options = *std::move(options_result);

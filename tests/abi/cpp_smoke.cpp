@@ -285,7 +285,7 @@ int main(int argc, char **argv) {
       return 141;
     }
     const auto by_locator = production
-                                .findKnownMediaByLocator(
+                                .findKnownMedia(
                                     {representations[0]
                                          .resources[0]
                                          .locators[0]
@@ -295,7 +295,7 @@ int main(int argc, char **argv) {
                                 .value();
     const auto by_fingerprint =
         production
-            .findKnownMediaByFingerprint(
+            .findKnownMedia(
                 representations[0].resources[0].fingerprints[0], 1)
             .value();
     for (const auto *matches : {&by_locator, &by_fingerprint}) {

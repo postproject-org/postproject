@@ -218,8 +218,8 @@ c_operations = [
   "pp_known_media_set_next_cursor",
   "pp_known_media_set_release",
 ]
-cpp_operations = ["Production::findKnownMediaByLocator", "Production::findKnownMediaByFingerprint"]
-python_operations = ["Production.find_known_media_by_locator", "Production.find_known_media_by_fingerprint"]
+cpp_operations = ["Production::findKnownMedia"]
+python_operations = ["Production.find_known_media"]
 
 [[families]]
 id = "base-revision-conflicts"

@@ -29,16 +29,15 @@ postproject::AssetId find_known_media(const std::string &production_path,
                                    const std::string &media_path) {
   // A second host or process opens the same production explicitly.
   const auto production = postproject::Production::open(production_path).value();
-  const postproject::LocatorIdentity locator{
-      postproject::fileLocator(media_path).value(), std::nullopt};
   const auto fingerprint = postproject::fingerprintFile(media_path).value();
   const auto by_locator =
-      production.findKnownMediaByLocator(locator, 100).value();
+      production.findKnownMedia(std::filesystem::path(media_path), 100).value();
   const auto by_content =
-      production.findKnownMediaByFingerprint(fingerprint, 100).value();
+      production.findKnownMedia(fingerprint, 100).value();
 
   // Several results are candidates for the host to present, never a winner.
-  require(by_locator.items.size() == 1 && by_content.items.size() == 1,
+  require(!by_locator.next_cursor && !by_content.next_cursor &&
+              by_locator.items.size() == 1 && by_content.items.size() == 1,
           "one known-media candidate");
   require(by_locator.items.front().asset_id ==
               by_content.items.front().asset_id,

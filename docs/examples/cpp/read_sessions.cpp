@@ -104,8 +104,8 @@ static void exercise(const std::string &path, const std::string &media) {
   if (!view.mediaRoots().value().empty() ||
       view.externalIdentifiers(target).value()[0].value != "camera" ||
       view.findByExternalIdentifier("https://example.com/id", "camera").value().size() != 1 ||
-      view.findKnownMediaByLocator({postproject::fileLocator(media).value(), std::nullopt}, 10).value().items[0].asset_id != asset ||
-      view.findKnownMediaByFingerprint(postproject::fingerprintFile(media).value(), 10).value().items[0].asset_id != asset)
+      view.findKnownMedia(std::filesystem::path(media), 10).value().items[0].asset_id != asset ||
+      view.findKnownMedia(postproject::fingerprintFile(media).value(), 10).value().items[0].asset_id != asset)
     throw std::runtime_error("coherent lookup projections");
   auto later = production.edit(base).value();
   const auto noop = later.commit().value();
