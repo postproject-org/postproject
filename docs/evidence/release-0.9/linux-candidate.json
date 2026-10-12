@@ -1,0 +1,187 @@
+{
+  "state": "Prepared and unpublished; required CI running on the cleaned current branch",
+  "package": "0.9.0-alpha.1",
+  "python": "0.9.0a1",
+  "abi": 53,
+  "exports": 344,
+  "layouts": 38,
+  "schema": 27,
+  "exchange_protocol": 1,
+  "cli_json": 1,
+  "platform_scope": "Linux workstation; not manylinux qualified",
+  "native_build_source": "a3dbb1ce6580a3d42777049b4e74c35f34a79ad0",
+  "native_library_sha256": "d1ed91878795d0b0e21fb16081e2fcb2e66c031bcbbfd13c9db742a0ec2cc8c3",
+  "native_build_command": "cargo build --release --locked -p postproject-ffi -p postproject-cli",
+  "binding_sources_verified_against": "a3dbb1ce6580a3d42777049b4e74c35f34a79ad0",
+  "native_notices": 91,
+  "repositories": [
+    {
+      "repository": "postproject",
+      "commit": "98500dd4c69aa399ac6c9f20e9e9d60f88b77083",
+      "archive": "postproject-source-98500dd4c69a.tar.gz"
+    },
+    {
+      "repository": "postproject-ardour",
+      "commit": "e807e4f8897db3bd60cb1ae8453ddf33ac938f00",
+      "archive": "postproject-ardour-source-e807e4f8897d.tar.gz"
+    },
+    {
+      "repository": "postproject-blender",
+      "commit": "52fa84f5235c0f94ba9e33e06d1997f5ece58fa4",
+      "archive": "postproject-blender-source-52fa84f5235c.tar.gz"
+    },
+    {
+      "repository": "postproject-cpp-nle",
+      "commit": "eb79ae601524b0fdbb3237c8ef87b0c3b7f75015",
+      "archive": "postproject-cpp-nle-source-eb79ae601524.tar.gz"
+    },
+    {
+      "repository": "postproject-kdenlive",
+      "commit": "09bd9bf2135a6f6d57a039fa2178570321f4f4c0",
+      "archive": "postproject-kdenlive-source-09bd9bf2135a.tar.gz"
+    },
+    {
+      "repository": "postproject-natron",
+      "commit": "13c065520e25f8343db75967329d9809a9fd5f76",
+      "archive": "postproject-natron-source-13c065520e25.tar.gz"
+    },
+    {
+      "repository": "postproject-obs",
+      "commit": "e418f8e44329450025eb84c2c839e6e41e12a8fc",
+      "archive": "postproject-obs-source-e418f8e44329.tar.gz"
+    },
+    {
+      "repository": "postproject-openassetio",
+      "commit": "c07e664f66361d1b8494548c2dd73612412248c1",
+      "archive": "postproject-openassetio-source-c07e664f6636.tar.gz"
+    },
+    {
+      "repository": "postproject-openassetio-manager",
+      "commit": "f0972202424390e3d6fa88c6791b5c2872cbafcc",
+      "archive": "postproject-openassetio-manager-source-f09722024243.tar.gz"
+    },
+    {
+      "repository": "postproject-otio-demo",
+      "commit": "6d91504cfa86aac96c132ee36155800065d44ac5",
+      "archive": "postproject-otio-demo-source-6d91504cfa86.tar.gz"
+    },
+    {
+      "repository": "postproject-otio-openassetio",
+      "commit": "0f371612d5ff6c61e506ab36a7450f76505087c9",
+      "archive": "postproject-otio-openassetio-source-0f371612d5ff.tar.gz"
+    },
+    {
+      "repository": "postproject-python-host",
+      "commit": "797bd210084541b6ca8a52e978ea43c474f945b6",
+      "archive": "postproject-python-host-source-797bd2100845.tar.gz"
+    },
+    {
+      "repository": "postproject.org",
+      "commit": "2a060b870fd772ca0049f21edd627232987ff116",
+      "archive": "postproject.org-source-2a060b870fd7.tar.gz"
+    }
+  ],
+  "artifacts": [
+    {
+      "file": "postproject-0.9-local-evidence.tar.gz",
+      "size": 2018746,
+      "sha256": "492540b98442362ec41fac6c35ba4ba08fd7980123e42fc6faab846844867e0e"
+    },
+    {
+      "file": "postproject-0.9.0-alpha.1-linux-workstation.tar.gz",
+      "size": 25715237,
+      "sha256": "2c342644f801f3f318a3ab025ec403c5a5d8ab1b3d41a53d2b879d1dd49c5c01"
+    },
+    {
+      "file": "postproject-0.9.0a1-py3-none-linux_x86_64.whl",
+      "size": 3551726,
+      "sha256": "016fe012c08429f9bb4f50c0049c8a15cf2d708ce2457a1cff45cda3fda7839d"
+    },
+    {
+      "file": "postproject-ardour-source-e807e4f8897d.tar.gz",
+      "size": 17218,
+      "sha256": "4b4f3bf7b358f5810890a65f822d9d74bd657f9790da8fb6f6f18eab4d428545"
+    },
+    {
+      "file": "postproject-blender-source-52fa84f5235c.tar.gz",
+      "size": 41821,
+      "sha256": "3ed316a63c3c0436b47f1e0331aab89de9249c295f1379946068a551e4e4588c"
+    },
+    {
+      "file": "postproject-cpp-nle-source-eb79ae601524.tar.gz",
+      "size": 3033,
+      "sha256": "195a1960f41ef0b46be80c5cd7041b7f1fffd846870e0196083f32c0dcbd6757"
+    },
+    {
+      "file": "postproject-kdenlive-source-09bd9bf2135a.tar.gz",
+      "size": 57634,
+      "sha256": "d60feb22c797cd96db0461f510fbbc81fbfaf9f33487a548a703a69fc3457c05"
+    },
+    {
+      "file": "postproject-natron-source-13c065520e25.tar.gz",
+      "size": 28614,
+      "sha256": "d60ecc46effb32faf60bcf76821a5ed787be1fe15a5e00d31c3cb1896af7d7b5"
+    },
+    {
+      "file": "postproject-obs-source-e418f8e44329.tar.gz",
+      "size": 25903,
+      "sha256": "2cdf8899c7a3e7cd84d49497d0cc4ec9aa61f133b07436702cdc5ee545c46935"
+    },
+    {
+      "file": "postproject-openassetio-manager-source-f09722024243.tar.gz",
+      "size": 20258,
+      "sha256": "0ff5da83cd44f802952ea329c343619bc51fb8feb7f47c8fc0b2361ee303f892"
+    },
+    {
+      "file": "postproject-openassetio-source-c07e664f6636.tar.gz",
+      "size": 4651,
+      "sha256": "077385125413a0a5cc0d273ec6abdb39b62980e33d7cbfa00403f534ee792e4b"
+    },
+    {
+      "file": "postproject-otio-demo-source-6d91504cfa86.tar.gz",
+      "size": 3870,
+      "sha256": "30f1aec2b048f376fa67e415ac8d9e6c7fa3648dab153b8f6f15a563ea71468e"
+    },
+    {
+      "file": "postproject-otio-openassetio-source-0f371612d5ff.tar.gz",
+      "size": 3454,
+      "sha256": "4919eeb991ab927ced2718ed1d2a3b85b0d4273b0c41a45e8f732134c032ded1"
+    },
+    {
+      "file": "postproject-python-host-source-797bd2100845.tar.gz",
+      "size": 2785,
+      "sha256": "d4e18f3c41f092a01b930331bc8506b3d72178e984f059a03ff7bfab10ed4dd2"
+    },
+    {
+      "file": "postproject-source-98500dd4c69a.tar.gz",
+      "size": 2359671,
+      "sha256": "9edcd83dce489146d2c104b04ed1ee85989b13042179115405e2ebd181f8638b"
+    },
+    {
+      "file": "postproject.org-source-2a060b870fd7.tar.gz",
+      "size": 362988,
+      "sha256": "9d7e51fd106a94e8f3c47ecade13f6a1089e967ea88fbc538be483d353ee2e4c"
+    },
+    {
+      "file": "postproject_openassetio_manager-0.6.0-py3-none-any.whl",
+      "size": 13084,
+      "sha256": "ac04330ed980fd709d162b022e3ead9ab908ae4cc087b3ae8b4faebccc2a9238"
+    },
+    {
+      "file": "postproject_otio_demo-0.4.0-py3-none-any.whl",
+      "size": 4316,
+      "sha256": "45e7364bb5233932274c056a912e0ef3e722f550325cc162d84a89e512070234"
+    },
+    {
+      "file": "postproject_relink-0.3.0-linux_x64.zip",
+      "size": 3574531,
+      "sha256": "0f2d40653fd2c11128735abbde28ae449492c8453115dad72a2c1a5a00b60d41"
+    }
+  ],
+  "external_outcomes": {
+    "licensed_nuke": "Not executed",
+    "releases": "Prepared, unpublished",
+    "deployment": "Cleaned docs 82de8f3 and practical site copy 2a060b8 deployed; updated report deployment will follow",
+    "upstream_integration": "No upstream acceptance or endorsement claimed"
+  }
+}
