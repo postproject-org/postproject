@@ -23,7 +23,7 @@ def prepare(root: Path) -> None:
         ) as builder:
             prepared = builder.stage(
                 [
-                    pp.ImportMediaCommand(pp.FileSource(recorded)),
+                    pp.ImportMediaCommand(recorded),
                     pp.AddMediaRootCommand(ROOT),
                 ]
             )[0]

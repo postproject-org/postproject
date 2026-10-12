@@ -50,7 +50,7 @@ def measure(root: Path, phase: str) -> int:
                     return sum(1 for _ in view.revisions(page_size=100))
                 after = count = 0
                 while True:
-                    page = view.revisions_after(after, limit=100)
+                    page = view.changes_since(after, 100)
                     count += len(page)
                     if not page:
                         return count
@@ -66,7 +66,7 @@ def measure(root: Path, phase: str) -> int:
                         key, value = ("benchmark", "input"), index
                     else:
                         key = pp.MetadataProperty("benchmark", "input")
-                        value = pp.MetadataSignedInteger(index)
+                        value = pp.MetadataI64(index)
                     edit.add_metadata(pp.AssetRef(asset), key, value)
                 # Measure staging only: context exit explicitly rolls back.
             return 1000

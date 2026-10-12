@@ -22,7 +22,7 @@ def sources(root: Path) -> tuple[pp.MediaSource, ...]:
     for frame in range(-1, 2):
         (frames / f"frame{frame:04}.dat").write_bytes(f"frame {frame}".encode())
     return (
-        pp.FileSource(directory / "first.dat"),
+        directory / "first.dat",
         pp.ImageSequenceSource(
             frames,
             pp.SequenceNaming("frame", ".dat", 4),
