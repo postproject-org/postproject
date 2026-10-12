@@ -37,6 +37,9 @@ The CLI removes one of its two decision-base options: `inspect` supplies the
 single production-scoped token, including an empty journal. Help exposes
 common tasks. JSON format 1 and exit categories retain their meanings.
 
+The [0.9 measurements](release-0.9-ergonomics-measurements.md) compare complete
+installed scans, metadata staging and resolution with the published wheel.
+
 ## Canonical inputs and ownership
 
 Python keeps ordinary UUID runtime values with distinct static ID hints.

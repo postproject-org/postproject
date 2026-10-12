@@ -37,6 +37,8 @@ Use these pages when the implementation itself is relevant:
   integration routes and their runtime limits.
 - {doc}`../../api-ergonomics-audit` records the current API redesign and
   consumer migration status.
+- {doc}`../../release-0.9-ergonomics-measurements` records installed Python
+  scan and input costs against the published 0.8 wheel.
 
 These are engineering references. Application integrators should prefer the integrator and concept guides unless they are diagnosing implementation behavior.
 
@@ -79,6 +81,7 @@ When a change touches an area that maps to an external standard, consult the sta
 /exchange-coverage
 /commercial-host-feasibility
 /api-ergonomics-audit
+/release-0.9-ergonomics-measurements
 releases
 decisions
 ```
