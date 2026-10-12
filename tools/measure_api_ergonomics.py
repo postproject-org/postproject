@@ -40,8 +40,16 @@ def measure(root: Path, phase: str) -> int:
     with pp.Production.open(root / "production.pproj") as production:
         if phase == "assets-eager":
             # Historical 0.8 API only; never used by candidate integrations.
-            return len(production.assets)
+            return len(list(production.assets))
         with production.read_session() as view:
+            if phase == "assets-pages":
+                count, cursor = 0, None
+                while True:
+                    page = view.assets_page(limit=100, cursor=cursor)
+                    count += len(page.items)
+                    if page.next_cursor is None:
+                        return count
+                    cursor = page.next_cursor
             if phase.startswith("assets-"):
                 size = int(phase.removeprefix("assets-"))
                 return sum(1 for _ in view.assets(page_size=size))
@@ -85,6 +93,7 @@ def main() -> None:
         choices=(
             "prepare",
             "assets-eager",
+            "assets-pages",
             "assets-10",
             "assets-100",
             "assets-1000",
@@ -102,13 +111,19 @@ def main() -> None:
     gc.collect()
     tracemalloc.start()
     started = time.perf_counter()
-    count = measure(args.root, args.phase)
+    error = None
+    try:
+        count = measure(args.root, args.phase)
+    except pp.UnsupportedError as failure:
+        count = None
+        error = str(failure)
     elapsed = time.perf_counter() - started
     _, peak = tracemalloc.get_traced_memory()
     print(
         json.dumps(
             {
                 "phase": args.phase,
+                "error": error,
                 "items": count,
                 "seconds": elapsed,
                 "python_peak_bytes": peak,
