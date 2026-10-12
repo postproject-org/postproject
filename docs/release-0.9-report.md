@@ -1,5 +1,9 @@
 # PostProject 0.9 development qualification
 
+This report records the qualified `f456958c` candidate. Additional workflow
+changes are being implemented under the {doc}`api-workflow-0.9-design`; their
+qualification is separate. The earlier package/checksum set remains intact.
+
 Prepared `0.9.0-alpha.1` (Python `0.9.0a1`), C ABI **53**, **344 exports**,
 **38 public layouts**, SQLite schema **27**, exchange protocol **1** and CLI
 JSON **1**. This unpublished development candidate qualifies against published

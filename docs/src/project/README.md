@@ -37,6 +37,8 @@ Use these pages when the implementation itself is relevant:
   integration routes and their runtime limits.
 - {doc}`../../api-ergonomics-audit` records the current API redesign and
   consumer migration status.
+- {doc}`../../api-workflow-0.9-design` describes the remaining workflow
+  simplification and its preserved contracts.
 - {doc}`../../release-0.9-ergonomics-measurements` records installed Python
   scan and input costs against the published 0.8 wheel.
 
@@ -81,6 +83,7 @@ When a change touches an area that maps to an external standard, consult the sta
 /exchange-coverage
 /commercial-host-feasibility
 /api-ergonomics-audit
+/api-workflow-0.9-design
 /release-0.9-ergonomics-measurements
 releases
 decisions
