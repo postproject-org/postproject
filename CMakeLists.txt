@@ -12,6 +12,7 @@ set(POSTPROJECT_LIBRARY "" CACHE FILEPATH "Path to the prebuilt PostProject nati
 set(POSTPROJECT_STATIC_LIBRARY "" CACHE FILEPATH "Optional path to the prebuilt static library")
 set(POSTPROJECT_RUNTIME_LIBRARY "" CACHE FILEPATH "Windows DLL paired with POSTPROJECT_LIBRARY")
 set(POSTPROJECT_CLI_EXECUTABLE "" CACHE FILEPATH "Optional prebuilt PostProject CLI")
+set(POSTPROJECT_LICENSE_DIRECTORY "" CACHE PATH "Collected native dependency notices")
 if(NOT POSTPROJECT_LIBRARY)
     message(FATAL_ERROR "POSTPROJECT_LIBRARY must name a library built by cargo build --release -p postproject-ffi")
 endif()
@@ -58,6 +59,10 @@ install(
     FILES LICENSE-APACHE LICENSE-MIT README.md CHANGELOG.md STEWARDSHIP.md
     DESTINATION "${CMAKE_INSTALL_DATADIR}/doc/postproject"
 )
+if(POSTPROJECT_LICENSE_DIRECTORY)
+    install(DIRECTORY "${POSTPROJECT_LICENSE_DIRECTORY}/"
+        DESTINATION "${CMAKE_INSTALL_DATADIR}/doc/postproject/native-licenses")
+endif()
 install(
     FILES examples/c/CMakeLists.txt examples/c/main.c
     DESTINATION "${CMAKE_INSTALL_DATADIR}/doc/postproject/examples/c"

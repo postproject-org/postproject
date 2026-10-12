@@ -42,7 +42,7 @@ def collect(output: Path, target: str) -> None:
         "--format",
         "{p}",
     )
-    names = set(re.findall(r"(?m)^([^ ]+) v([^ ]+)", tree))
+    names = set(re.findall(r"(?m)^(\S+) v(\S+)", tree))
     output.mkdir(parents=True, exist_ok=False)
     inventory = []
     for package in sorted(

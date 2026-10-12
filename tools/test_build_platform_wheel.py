@@ -84,6 +84,26 @@ class BuildPlatformWheelTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             build_platform_wheel.build(wheel, self.library, "win_amd64", self.root)
 
+    def test_preserves_native_dependency_notices_and_records_them(self) -> None:
+        notices = self.root / "notices" / "dependency-1.0"
+        notices.mkdir(parents=True)
+        payload = b"Copyright holder\nPermission notice\n"
+        (notices / "LICENSE").write_bytes(payload)
+        result = build_platform_wheel.build(
+            neutral_wheel(self.root),
+            self.library,
+            "linux_x86_64",
+            self.root / "out",
+            notices.parent,
+        )
+        with zipfile.ZipFile(result) as wheel:
+            name = f"{DIST_INFO}/licenses/native/dependency-1.0/LICENSE"
+            self.assertEqual(wheel.read(name), payload)
+            self.assertIn(
+                build_platform_wheel.record_entry(name, payload),
+                wheel.read(f"{DIST_INFO}/RECORD").decode().splitlines(),
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
