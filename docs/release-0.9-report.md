@@ -3,8 +3,9 @@
 Prepared `0.9.0-alpha.1` (Python `0.9.0a1`), C ABI **53**, **344 exports**,
 **38 public layouts**, SQLite schema **27**, exchange protocol **1** and CLI
 JSON **1**. This is an unpublished development candidate, checked locally on
-2026-10-12 against published `v0.8.0-alpha.1` (`7e097bd`). Required platform
-and full Ardour CI remain unexecuted; this report does not declare acceptance.
+2026-10-12 against published `v0.8.0-alpha.1` (`7e097bd`). Full Ardour,
+Kdenlive and Blender CI pass. Final SDK branch CI is running; this report
+does not declare acceptance.
 
 ## Delivered behavior
 
@@ -46,8 +47,10 @@ and their measurement limits.
 The pinned OTIO upstream linker emits its known unversioned-trait deprecation
 warning; that warning is retained. The actual host exchange fixture has three
 assets, two activities and no jobs; it is not independent worker evidence.
-Ardour's installed native audio resolver passes, but its full local configure
-is blocked by the missing mandatory `liblo` dependency.
+Ardour's installed native audio resolver passes. Full Linux builds with and
+without the SDK and the macOS resolver pass in downstream CI
+[38225523445](https://github.com/postproject-org/postproject/actions/runs/38225523445).
+Its full local configure remains blocked by the missing `liblo` dependency.
 
 ## Prepared artifacts and application targets
 
@@ -72,8 +75,9 @@ stable pins. Historical host qualification remains release-scoped.
 - **Licensed Nuke:** not executed. Manager/configuration/sequence tests pass
   against both standalone and Nuke 17 shipped OpenAssetIO dependency pins.
 - **Public releases:** prepared and unpublished; no tags or registry uploads.
-- **Deployment:** documentation and desktop/mobile light/dark website previews
-  pass. Main-branch pushes and their automatic Pages deployments await approval.
+- **Deployment:** the practical pilot descriptions at [postproject.org](https://www.postproject.org/)
+  match site revision `2a060b8`; both deployment jobs pass. Documentation
+  deployment is running. Strict local documentation and six website previews pass.
 - **Integration guides:** Blender, Kdenlive and Nuke have setup, validation and
   support notes. No upstream acceptance, endorsement or official listing is claimed.
 
