@@ -35,7 +35,7 @@ and their measurement limits.
 | Rust | All six required gates; exact Rust 1.85 workspace checks and tests |
 | Native SDK | Nine installed contracts; 344 symbols; 38 Rust/C/ctypes layouts; both C++ error styles |
 | Memory checks | Nine ASan/UBSan native contracts and sanitized C smoke |
-| Python | Installed 3.11 and 3.14: 143 passed, one skipped each; positive typing and twelve wrong-ID negatives |
+| Python | Installed 3.11 and 3.14: all 143 tests pass with the installed CLI enabled; positive typing and twelve wrong-ID negatives |
 | Examples/docs | 84 installed extracted examples; Doxygen coverage; strict Sphinx, spelling and offline links |
 | Consumers | Manager: eight tests; each OpenAssetIO/OTIO demonstration and sample host; native C++ NLE, OBS and Natron contracts |
 | Real hosts | Blender 5.2.2: 24 passed, one future-version skip; OBS 32.2.2 normal/error/disabled paths; Natron 2.5.0 normal/negative/fallback |
