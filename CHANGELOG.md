@@ -5,6 +5,7 @@ All notable changes to PostProject will be documented here. The project uses
 
 ## Unreleased
 
+- Return imported asset and original representation identities together; C ABI 54 (ADR 0079).
 - Register completed Manager outputs without synthetic jobs; retain guarded preflight completion (ADR 0078).
 - Consolidate Python/C++ known-media lookup around native paths or explicit evidence (ADR 0077).
 - Read copied target-wide metadata directly in C++ retained views and productions (ADR 0076).
