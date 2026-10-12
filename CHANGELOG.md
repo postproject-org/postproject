@@ -6,18 +6,13 @@ All notable changes to PostProject will be documented here. The project uses
 ## Unreleased
 
 - Use one production-scoped CLI decision option and task-oriented help (ADR 0075).
-
 - Return the caller's atomic receipt from the single Rust/C/C++ commit operation (ADR 0074).
-
 - Stage single files directly from paths and remove redundant C/C++/Python source construction (ADR 0073).
-- Replace incremental C resolution options with atomic configuration and bump the C ABI to 53 (ADR 0072).
+- Replace C/C++ resolution-option setters with checked atomic configuration; C ABI 53 (ADRs 0069, 0072).
 - Accept native Python metadata keys and scalar values through the shared checked write/query conversion (ADR 0071).
 - Consolidate Python staged writes into `Edit`, with consistent context keywords and production-scoped decision bases (ADR 0070).
-
 - Start the `0.9.0-alpha.1` series (Python `0.9.0a1`); schema 27 and exchange protocol 1 are unchanged.
-
-- Provide bounded, explicitly owned Python/Rust asset/revision scans and remove Python's eager asset collection and typed membership queries (ADR 0068).
-- Replace C++ resolution-option setters with one checked configuration using standard paths and containers (ADR 0069).
+- Provide bounded Python/Rust asset/revision scans and typed point membership; remove Python's eager asset collection (ADR 0068).
 
 ## 0.8.0-alpha.1 - 2026-10-11
 
