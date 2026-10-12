@@ -2,6 +2,9 @@
 
 This section is for people using the PostProject CLI or an application that embeds PostProject. You do not need to understand the C ABI, SQLite schema, or Rust crate layout to use the model correctly.
 
+Start with {doc}`integrations` to choose an application pilot or run a
+multi-application demonstration, then use the task guides below.
+
 ## What a PostProject-enabled application should feel like
 
 The main benefit should be simple: **media keeps its identity even when its storage situation changes**.
@@ -59,6 +62,7 @@ If you are writing an application rather than using one, continue with {doc}`../
 :hidden:
 
 portable-production-workflow
+integrations
 image-sequences-and-spanned-media
 metadata-and-provenance
 why-output-is-stale
