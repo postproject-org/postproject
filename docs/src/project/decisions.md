@@ -49,6 +49,7 @@ Read the relevant ADR before changing an invariant, a boundary, or a public cont
 - {doc}`ADR 0078 — Jobless output registration </adr/0078-jobless-output-registration>`
 - {doc}`ADR 0079 — Imported representation identity </adr/0079-imported-representation-identity>`
 - {doc}`ADR 0080 — Edit construction and attribution </adr/0080-edit-construction-context>`
+- {doc}`ADR 0081 — Produced output registration </adr/0081-produced-output-registration>`
 - {doc}`ADR 0074 — Canonical commit receipts </adr/0074-canonical-commit-receipts>`
 - {doc}`ADR 0073 — Direct file inputs </adr/0073-direct-file-inputs>`
 - {doc}`ADR 0072 — Atomic native resolution options </adr/0072-atomic-native-resolution-options>`
@@ -180,4 +181,5 @@ Read the relevant ADR before changing an invariant, a boundary, or a public cont
 /adr/0078-jobless-output-registration
 /adr/0079-imported-representation-identity
 /adr/0080-edit-construction-context
+/adr/0081-produced-output-registration
 ```
