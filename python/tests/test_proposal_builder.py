@@ -127,7 +127,7 @@ class ProposalBuilderTests(unittest.TestCase):
         self,
     ) -> None:
         with self.production.edit() as edit:
-            asset = edit.import_media(self.media)
+            asset = edit.import_media(self.media).asset_id
             edit.commit()
         original = self.production.representations[asset][0]
         resource = original.resources[0]

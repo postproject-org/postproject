@@ -152,7 +152,9 @@ class ProductionTests(unittest.TestCase):
                 ),
                 message="Import original",
             ) as transaction:
-                asset_id = transaction.import_media(self.media_path, "Camera A")
+                asset_id = transaction.import_media(
+                    self.media_path, "Camera A"
+                ).asset_id
                 transaction.commit()
             self.assertTrue(production.asset_exists(asset_id))
             with production.read_session() as view:
@@ -174,7 +176,9 @@ class ProductionTests(unittest.TestCase):
             self.production_path, library_path=LIBRARY_PATH
         ) as production:
             with production.edit() as transaction:
-                asset_id = transaction.import_media(self.media_path, "Camera A")
+                asset_id = transaction.import_media(
+                    self.media_path, "Camera A"
+                ).asset_id
                 transaction.commit()
             representation = production.representations[asset_id][0]
             resource_id = representation.resources[0].id
@@ -202,7 +206,7 @@ class ProductionTests(unittest.TestCase):
             self.production_path, library_path=LIBRARY_PATH
         ) as production:
             with production.edit() as transaction:
-                asset_id = transaction.import_media(self.media_path)
+                asset_id = transaction.import_media(self.media_path).asset_id
                 transaction.commit()
             source_id = production.representations[asset_id][0].id
             with production.edit() as transaction:
@@ -399,7 +403,7 @@ class ProductionTests(unittest.TestCase):
             self.production_path, library_path=LIBRARY_PATH
         ) as production:
             with production.edit() as transaction:
-                asset_id = transaction.import_media(self.media_path)
+                asset_id = transaction.import_media(self.media_path).asset_id
                 transaction.commit()
             representations = production.representations[asset_id]
             self.assertIsNone(production.dependency_set(representations[0].id))
@@ -448,8 +452,8 @@ class ProductionTests(unittest.TestCase):
             self.production_path, library_path=LIBRARY_PATH
         ) as production:
             with production.edit() as transaction:
-                first_asset_id = transaction.import_media(self.media_path)
-                second_asset_id = transaction.import_media(self.media_path)
+                first_asset_id = transaction.import_media(self.media_path).asset_id
+                second_asset_id = transaction.import_media(self.media_path).asset_id
                 transaction.commit()
 
             first = production.representations[first_asset_id][0]
@@ -482,7 +486,7 @@ class ProductionTests(unittest.TestCase):
             self.production_path, library_path=LIBRARY_PATH
         ) as production:
             with production.edit() as transaction:
-                asset_id = transaction.import_media(self.media_path)
+                asset_id = transaction.import_media(self.media_path).asset_id
                 transaction.commit()
             representation = production.representations[asset_id][0]
             resource_id = representation.resources[0].id
@@ -525,7 +529,7 @@ class ProductionTests(unittest.TestCase):
             self.production_path, library_path=LIBRARY_PATH
         ) as production:
             with production.edit() as transaction:
-                asset_id = transaction.import_media(self.media_path)
+                asset_id = transaction.import_media(self.media_path).asset_id
                 transaction.commit()
             representation = production.representations[asset_id][0]
             resource = representation.resources[0]
@@ -583,7 +587,7 @@ class ProductionTests(unittest.TestCase):
             self.production_path, library_path=LIBRARY_PATH
         ) as production:
             with production.edit() as transaction:
-                asset_id = transaction.import_media(self.media_path)
+                asset_id = transaction.import_media(self.media_path).asset_id
                 root_id = transaction.add_media_root("media", "Media", 4)
                 transaction.commit()
 
@@ -636,7 +640,7 @@ class ProductionTests(unittest.TestCase):
             self.production_path, library_path=LIBRARY_PATH
         ) as production:
             with production.edit() as transaction:
-                asset_id = transaction.import_media(self.media_path)
+                asset_id = transaction.import_media(self.media_path).asset_id
                 transaction.commit()
 
             with production.edit() as transaction:
@@ -744,7 +748,7 @@ class ProductionTests(unittest.TestCase):
                         Fraction(24),
                     ),
                     "Image strip",
-                )
+                ).asset_id
                 transaction.commit()
 
             representations = production.representations[asset_id]
@@ -782,7 +786,7 @@ class ProductionTests(unittest.TestCase):
             with production.edit() as transaction:
                 asset_id = transaction.import_media(
                     ImageSequenceSource(plates, original, 1, 3, 1, Fraction(24)), "Shot"
-                )
+                ).asset_id
                 transaction.commit()
             graded.mkdir()
             for frame in range(1, 4):
@@ -857,7 +861,7 @@ class ProductionTests(unittest.TestCase):
             self.production_path, library_path=LIBRARY_PATH
         ) as production:
             with production.edit() as transaction:
-                asset_id = transaction.import_media(self.media_path)
+                asset_id = transaction.import_media(self.media_path).asset_id
                 transaction.commit()
             original = production.representations[asset_id][0]
             with production.edit() as transaction:
@@ -933,7 +937,7 @@ class ProductionTests(unittest.TestCase):
             self.production_path, library_path=LIBRARY_PATH
         ) as production:
             with production.edit() as transaction:
-                asset_id = transaction.import_media(self.media_path)
+                asset_id = transaction.import_media(self.media_path).asset_id
                 transaction.commit()
 
             encoded = production.host_bindings[AssetRef(asset_id)]
@@ -951,12 +955,12 @@ class ProductionTests(unittest.TestCase):
         ) as production:
             with self.assertRaisesRegex(RuntimeError, "abort"):
                 with production.edit() as transaction:
-                    exception_asset = transaction.import_media(self.media_path)
+                    exception_asset = transaction.import_media(self.media_path).asset_id
                     raise RuntimeError("abort")
             self.assertFalse(production.asset_exists(exception_asset))
 
             with production.edit() as transaction:
-                explicit_asset = transaction.import_media(self.media_path)
+                explicit_asset = transaction.import_media(self.media_path).asset_id
                 transaction.rollback()
             self.assertFalse(production.asset_exists(explicit_asset))
 
@@ -1035,7 +1039,7 @@ class ProductionTests(unittest.TestCase):
             self.production_path, library_path=LIBRARY_PATH
         ) as production:
             with production.edit() as transaction:
-                asset_id = transaction.import_media(self.media_path)
+                asset_id = transaction.import_media(self.media_path).asset_id
                 transaction.commit()
 
             with production.read_session() as view:
@@ -1073,7 +1077,7 @@ class ProductionTests(unittest.TestCase):
             self.production_path, library_path=LIBRARY_PATH
         ) as production:
             with production.edit() as transaction:
-                asset_id = transaction.import_media(self.media_path)
+                asset_id = transaction.import_media(self.media_path).asset_id
                 transaction.commit()
 
             revision = production.latest_revision
@@ -1109,7 +1113,7 @@ class ProductionTests(unittest.TestCase):
             self.production_path, library_path=LIBRARY_PATH
         ) as production:
             with production.edit() as transaction:
-                asset_id = transaction.import_media(self.media_path)
+                asset_id = transaction.import_media(self.media_path).asset_id
                 transaction.commit()
 
             with production.edit() as transaction:
@@ -1176,7 +1180,7 @@ class ProductionTests(unittest.TestCase):
             self.production_path, library_path=LIBRARY_PATH
         ) as production:
             with production.edit() as transaction:
-                asset_id = transaction.import_media(self.media_path)
+                asset_id = transaction.import_media(self.media_path).asset_id
                 transaction.commit()
 
             resolutions = production.resolutions[asset_id]
@@ -1209,7 +1213,7 @@ class ProductionTests(unittest.TestCase):
             self.production_path, library_path=LIBRARY_PATH
         ) as production:
             with production.edit() as transaction:
-                asset_id = transaction.import_media(self.media_path)
+                asset_id = transaction.import_media(self.media_path).asset_id
                 transaction.commit()
             moved = nearby / self.media_path.name
             self.media_path.rename(moved)
@@ -1242,7 +1246,7 @@ class ProductionTests(unittest.TestCase):
             self.production_path, library_path=LIBRARY_PATH
         ) as production:
             with production.edit() as transaction:
-                asset_id = transaction.import_media(self.media_path)
+                asset_id = transaction.import_media(self.media_path).asset_id
                 transaction.add_media_root("relocated", "Relocated")
                 transaction.commit()
             self.media_path.unlink()
@@ -1303,7 +1307,7 @@ class ProductionTests(unittest.TestCase):
             self.production_path, library_path=LIBRARY_PATH
         ) as production:
             with production.edit() as transaction:
-                asset_id = transaction.import_media(self.media_path)
+                asset_id = transaction.import_media(self.media_path).asset_id
                 transaction.commit()
 
             with production.edit() as transaction:
@@ -1348,7 +1352,7 @@ class ProductionTests(unittest.TestCase):
             self.production_path, library_path=LIBRARY_PATH
         ) as production:
             with production.edit() as transaction:
-                asset_id = transaction.import_media(self.media_path)
+                asset_id = transaction.import_media(self.media_path).asset_id
                 transaction.commit()
 
             value = MetadataStruct(
@@ -1489,8 +1493,8 @@ class ProductionTests(unittest.TestCase):
             self.production_path, library_path=LIBRARY_PATH
         ) as production:
             with production.edit() as transaction:
-                source_asset = transaction.import_media(self.media_path)
-                output_asset = transaction.import_media(self.second_media_path)
+                source_asset = transaction.import_media(self.media_path).asset_id
+                output_asset = transaction.import_media(self.second_media_path).asset_id
                 transaction.commit()
             source = production.representations[source_asset][0]
             output = production.representations[output_asset][0]
@@ -1552,8 +1556,8 @@ class ProductionTests(unittest.TestCase):
             self.production_path, library_path=LIBRARY_PATH
         ) as production:
             with production.edit() as transaction:
-                first_asset = transaction.import_media(self.media_path)
-                second_asset = transaction.import_media(self.second_media_path)
+                first_asset = transaction.import_media(self.media_path).asset_id
+                second_asset = transaction.import_media(self.second_media_path).asset_id
                 transaction.add_media_root("media", "Media", 1)
                 transaction.commit()
             imported = production.latest_revision
@@ -1661,8 +1665,8 @@ class ProductionTests(unittest.TestCase):
             self.production_path, library_path=LIBRARY_PATH
         ) as production:
             with production.edit() as transaction:
-                first_asset = transaction.import_media(self.media_path)
-                second_asset = transaction.import_media(self.second_media_path)
+                first_asset = transaction.import_media(self.media_path).asset_id
+                second_asset = transaction.import_media(self.second_media_path).asset_id
                 transaction.commit()
             with production.edit() as transaction:
                 transaction.add_metadata(
@@ -1724,8 +1728,8 @@ class ProductionTests(unittest.TestCase):
             self.production_path, library_path=LIBRARY_PATH
         ) as production:
             with production.edit() as transaction:
-                source_asset = transaction.import_media(self.media_path)
-                output_asset = transaction.import_media(self.second_media_path)
+                source_asset = transaction.import_media(self.media_path).asset_id
+                output_asset = transaction.import_media(self.second_media_path).asset_id
                 transaction.commit()
             source = production.representations[source_asset][0]
             output = production.representations[output_asset][0]
@@ -1835,8 +1839,8 @@ class ProductionTests(unittest.TestCase):
             self.production_path, library_path=LIBRARY_PATH
         ) as production:
             with production.edit() as transaction:
-                source_asset = transaction.import_media(self.media_path)
-                output_asset = transaction.import_media(self.second_media_path)
+                source_asset = transaction.import_media(self.media_path).asset_id
+                output_asset = transaction.import_media(self.second_media_path).asset_id
                 transaction.commit()
             source = production.representations[source_asset][0]
             output = production.representations[output_asset][0]

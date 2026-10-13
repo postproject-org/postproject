@@ -16,7 +16,7 @@ class AssetIterationTests(unittest.TestCase):
             media.write_bytes(b"fixture")
             with Production.create(path) as production:
                 with production.edit() as edit:
-                    expected = [edit.import_media(media) for _ in range(5)]
+                    expected = [edit.import_media(media).asset_id for _ in range(5)]
                     edit.commit()
                 with production.read_session() as view:
                     with patch.object(
@@ -29,7 +29,7 @@ class AssetIterationTests(unittest.TestCase):
                         self.assertEqual(page.call_count, 1)
                         with Production.open(path) as writer:
                             with writer.edit() as edit:
-                                late = edit.import_media(media)
+                                late = edit.import_media(media).asset_id
                                 edit.commit()
                         rest = list(assets)
                         self.assertEqual(

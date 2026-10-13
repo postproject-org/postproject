@@ -60,7 +60,7 @@ class IdentityTests(unittest.TestCase):
                 Production.create(root / "second.pproj") as second,
             ):
                 with first.edit() as edit:
-                    asset = edit.import_media(media)
+                    asset = edit.import_media(media).asset_id
                     edit.commit()
                 resource = first.representations[asset][0].resources[0].id
                 self.assertIsInstance(resource, UUID)
@@ -107,7 +107,7 @@ class IdentityTests(unittest.TestCase):
                 Production.create(root / "second.pproj") as second,
             ):
                 with first.edit() as edit:
-                    asset = edit.import_media(media)
+                    asset = edit.import_media(media).asset_id
                     edit.commit()
                 representation = first.representations[asset][0].id
                 self.assertIsInstance(representation, UUID)
@@ -151,7 +151,7 @@ class IdentityTests(unittest.TestCase):
                 media = root / "media.dat"
                 media.write_bytes(b"scoped activity")
                 with first.edit() as edit:
-                    asset = edit.import_media(media)
+                    asset = edit.import_media(media).asset_id
                     edit.commit()
                 representation = first.representations[asset][0].id
                 with first.edit() as edit:
@@ -210,7 +210,7 @@ class IdentityTests(unittest.TestCase):
                 Production.create(root / "second.pproj") as second,
             ):
                 with first.edit() as edit:
-                    asset = edit.import_media(media)
+                    asset = edit.import_media(media).asset_id
                     edit.commit()
                 representation = first.representations[asset][0]
                 with first.edit() as edit:
@@ -265,7 +265,7 @@ class IdentityTests(unittest.TestCase):
                 Production.create(root / "second.pproj") as second,
             ):
                 with first.edit() as edit:
-                    asset = edit.import_media(media)
+                    asset = edit.import_media(media).asset_id
                     edit.commit()
                 resource = first.representations[asset][0].resources[0]
                 locator = resource.locators[0].id
@@ -405,7 +405,7 @@ class IdentityTests(unittest.TestCase):
                 Production.create(root / "second.pproj") as second,
             ):
                 with first.edit() as edit:
-                    asset = edit.import_media(media)
+                    asset = edit.import_media(media).asset_id
                     edit.commit()
                 with second.read_session() as view:
                     for reader in (second, view):
@@ -424,7 +424,7 @@ class IdentityTests(unittest.TestCase):
             media.write_bytes(b"public UUID boundary")
             with Production.create(path) as production:
                 with production.edit() as edit:
-                    asset = edit.import_media(media)
+                    asset = edit.import_media(media).asset_id
                     edit.commit()
                 self.assertIsInstance(asset, UUID)
                 self.assertEqual(production.asset(asset).id, asset)

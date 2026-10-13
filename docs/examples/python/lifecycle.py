@@ -120,7 +120,7 @@ def open_missing(path: Path) -> NotFoundError | None:
 def create_production(path: Path, media: Path) -> tuple[ProductionId, AssetId]:
     with Production.create(path, "Lifecycle") as production:
         with production.edit(message="Import camera original") as transaction:
-            asset_id = transaction.import_media(media, display_name="Camera A")
+            asset_id = transaction.import_media(media, display_name="Camera A").asset_id
             transaction.commit()
         return production.id, asset_id
 

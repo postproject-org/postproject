@@ -23,7 +23,7 @@ class KnownMediaInputTests(unittest.TestCase):
             media.write_bytes(b"matching content, distinct identities")
             with Production.create(root / "production.pproj") as production:
                 with production.edit() as edit:
-                    first = edit.import_media(media)
+                    first = edit.import_media(media).asset_id
                     edit.commit()
                 locator = LocatorIdentity(file_locator(media))
                 fingerprint = (
@@ -32,7 +32,7 @@ class KnownMediaInputTests(unittest.TestCase):
                 with production.read_session() as view:
                     before = view.decision_base
                     with production.edit() as edit:
-                        second = edit.import_media(media)
+                        second = edit.import_media(media).asset_id
                         edit.commit()
                     # Path conversion uses this handle's loaded native library.
                     with patch(

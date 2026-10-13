@@ -219,6 +219,7 @@ ProposalCommand: TypeAlias = (
 @dataclass(frozen=True, slots=True)
 class PreparedAsset:
     asset_id: AssetId
+    representation_id: RepresentationId
 
 
 @dataclass(frozen=True, slots=True)
@@ -255,9 +256,8 @@ StagedValue: TypeAlias = (
 def _stage(transaction: Edit, command: ProposalCommand) -> StagedValue:
     """Reuse typed native validators; earlier staging remains on later failure."""
     if isinstance(command, ImportMediaCommand):
-        return PreparedAsset(
-            transaction.import_media(command.source, command.display_name)
-        )
+        imported = transaction.import_media(command.source, command.display_name)
+        return PreparedAsset(imported.asset_id, imported.representation_id)
     if isinstance(command, AddRepresentationCommand):
         return PreparedRepresentation(
             transaction.add_representation(

@@ -54,7 +54,7 @@ class ExchangeJobTests(unittest.TestCase):
         self.client = ClientId(uuid4())
         self.tool = ToolIdentity("Worker")
         with self.production.edit() as setup:
-            self.asset = setup.import_media(self.media)
+            self.asset = setup.import_media(self.media).asset_id
             setup.commit()
         self.input = self.production.representations[self.asset][0].id
         with self.production.proposal_builder(

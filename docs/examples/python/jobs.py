@@ -218,7 +218,7 @@ def main() -> None:
 
     with Production.create(work / "jobs.pproj", "Jobs") as production:
         with production.edit() as transaction:
-            asset_id = transaction.import_media(work / "rushes" / "A001.mov")
+            asset_id = transaction.import_media(work / "rushes" / "A001.mov").asset_id
             transaction.add_media_root("proxies", "Proxy volume")
             transaction.commit()
         source_id = production.representations[asset_id][0].id

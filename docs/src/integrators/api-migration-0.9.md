@@ -10,6 +10,8 @@ their meaning; opening older files follows the existing migration rules.
 | Python `production.transaction()` / `Transaction` | `production.edit()` / `Edit` |
 | Python revision-ID-only transaction base | `production.edit(view.decision_base)` |
 | Python `FileSource(path)` | The path itself |
+| Asset-only Python/C++ import result | `ImportedMedia.asset_id` and `.representation_id` |
+| C import's asset-only outputs | Add nullable `out_representation_id` before the error output |
 | Python `find_known_media_by_locator` / `find_known_media_by_fingerprint` | `find_known_media(path_or_evidence, limit=...)` |
 | C++ `findKnownMediaByLocator` / `findKnownMediaByFingerprint` | `findKnownMedia(path_or_evidence, limit)` |
 | Python `production.assets` | `view.assets(page_size=100)` inside a read session |

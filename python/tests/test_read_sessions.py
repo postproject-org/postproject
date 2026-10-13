@@ -97,7 +97,7 @@ class ReadSessionTests(unittest.TestCase):
             media.write_bytes(b"dependency decision fixture")
             with Production.create(root / "production.pproj") as production:
                 with production.edit() as edit:
-                    asset = edit.import_media(media)
+                    asset = edit.import_media(media).asset_id
                     edit.commit()
                 source = production.representations[asset][0].id
                 with production.edit() as unbased:
@@ -147,7 +147,7 @@ class ReadSessionTests(unittest.TestCase):
             with Production.create(root / "production.pproj") as production:
                 identifier = ExternalIdentifier("com.example.clip", "observed", "reel")
                 with production.edit() as edit:
-                    target = AssetRef(edit.import_media(media))
+                    target = AssetRef(edit.import_media(media).asset_id)
                     edit.add_external_identifier(target, identifier)
                     edit.commit()
                 with production.edit() as unbased:
@@ -186,7 +186,7 @@ class ReadSessionTests(unittest.TestCase):
             media.write_bytes(b"locator decision fixture")
             with Production.create(root / "production.pproj") as production:
                 with production.edit() as edit:
-                    asset = edit.import_media(media)
+                    asset = edit.import_media(media).asset_id
                     edit.commit()
                 resource = production.representations[asset][0].resources[0]
                 locator = resource.locators[0].id
@@ -340,7 +340,7 @@ class ReadSessionTests(unittest.TestCase):
             media.write_bytes(b"provenance view fixture")
             with Production.create(Path(directory) / "provenance.pproj") as production:
                 with production.read_session() as empty, empty.edit() as edit:
-                    asset = edit.import_media(media)
+                    asset = edit.import_media(media).asset_id
                     edit.commit()
                 with production.read_session() as before:
                     original = before.representations_page(asset, limit=1).items[0]
@@ -538,7 +538,7 @@ class ReadSessionTests(unittest.TestCase):
             moved.write_bytes(media.read_bytes())
             with Production.create(Path(directory) / "filters.pproj") as production:
                 with production.read_session() as empty, empty.edit() as edit:
-                    asset = edit.import_media(media)
+                    asset = edit.import_media(media).asset_id
                     edit.add_media_root("rushes")
                     edit.commit()
                 with production.read_session() as retained:
@@ -622,7 +622,7 @@ class ReadSessionTests(unittest.TestCase):
                 Path(directory) / "dependencies.pproj"
             ) as production:
                 with production.read_session() as empty, empty.edit() as edit:
-                    asset = edit.import_media(media)
+                    asset = edit.import_media(media).asset_id
                     proxy = edit.add_representation(
                         asset, RepresentationKind.PROXY, media
                     )
@@ -714,7 +714,7 @@ class ReadSessionTests(unittest.TestCase):
             media.write_bytes(b"artifact view fixture")
             with Production.create(Path(directory) / "artifacts.pproj") as production:
                 with production.read_session() as empty, empty.edit() as edit:
-                    asset = edit.import_media(media)
+                    asset = edit.import_media(media).asset_id
                     edit.commit()
                 with production.read_session() as view:
                     representation = view.representations_page(asset, limit=1).items[0]
@@ -764,7 +764,7 @@ class ReadSessionTests(unittest.TestCase):
             media.write_bytes(b"job view fixture")
             with Production.create(Path(directory) / "jobs.pproj") as production:
                 with production.read_session() as empty, empty.edit() as edit:
-                    asset = edit.import_media(media)
+                    asset = edit.import_media(media).asset_id
                     edit.commit()
                 with production.read_session() as before:
                     source = before.representations_page(asset, limit=1).items[0]
@@ -842,7 +842,7 @@ class ReadSessionTests(unittest.TestCase):
             media.write_bytes(b"original content")
             with Production.create(Path(directory) / "resolve.pproj") as production:
                 with production.read_session() as empty, empty.edit() as edit:
-                    asset = edit.import_media(media)
+                    asset = edit.import_media(media).asset_id
                     edit.commit()
                 with production.read_session() as view:
                     representation = view.representations_page(asset, limit=1).items[0]
@@ -895,7 +895,7 @@ class ReadSessionTests(unittest.TestCase):
             title = MetadataProperty("https://example.com/editorial", "title")
             with Production.create(Path(directory) / "metadata.pproj") as production:
                 with production.read_session() as empty, empty.edit() as edit:
-                    target = AssetRef(edit.import_media(media))
+                    target = AssetRef(edit.import_media(media).asset_id)
                     for value in ("Camera", "Alternate"):
                         edit.add_metadata(target, title, MetadataString(value))
                     edit.commit()
@@ -948,7 +948,7 @@ class ReadSessionTests(unittest.TestCase):
             moved.write_bytes(media.read_bytes())
             with Production.create(Path(directory) / "storage.pproj") as production:
                 with production.read_session() as empty, empty.edit() as edit:
-                    asset = edit.import_media(media)
+                    asset = edit.import_media(media).asset_id
                     edit.commit()
                 with production.read_session() as view:
                     representation = view.representations_page(asset, limit=1).items[0]
@@ -997,7 +997,7 @@ class ReadSessionTests(unittest.TestCase):
             media.write_bytes(b"coherent lookup fixture")
             with Production.create(Path(directory) / "lookup.pproj") as production:
                 with production.edit() as transaction:
-                    asset = transaction.import_media(media)
+                    asset = transaction.import_media(media).asset_id
                     transaction.commit()
                 target = AssetRef(asset)
                 with production.read_session() as view:

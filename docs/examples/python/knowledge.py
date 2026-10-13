@@ -203,7 +203,7 @@ def main() -> None:
 
     with Production.create(production_path, "Knowledge") as production:
         with production.edit() as transaction:
-            asset_id = transaction.import_media(media_path)
+            asset_id = transaction.import_media(media_path).asset_id
             transaction.commit()
         original_id = production.representations[asset_id][0].id
         assert (

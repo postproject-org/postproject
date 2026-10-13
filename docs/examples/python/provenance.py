@@ -222,8 +222,8 @@ def main() -> None:
 
     with Production.create(work / "provenance.pproj", "Provenance") as production:
         with production.edit() as transaction:
-            asset_id = transaction.import_media(media)
-            edit_asset_id = transaction.import_media(edit)
+            asset_id = transaction.import_media(media).asset_id
+            edit_asset_id = transaction.import_media(edit).asset_id
             transaction.commit()
         original = production.representations[asset_id][0]
         edit_representation = production.representations[edit_asset_id][0]

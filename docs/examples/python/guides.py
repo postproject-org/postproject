@@ -53,7 +53,7 @@ def create_production(path: Path, media: Path) -> tuple[Production, AssetId]:
         origin=OriginIdentity("com.example.editor", "0.4.0"),
         message="Import camera original",
     ) as transaction:
-        asset_id = transaction.import_media(media, display_name="Camera A")
+        asset_id = transaction.import_media(media, display_name="Camera A").asset_id
         transaction.commit()
 
     print(f"representations: {len(production.representations[asset_id])}")
@@ -558,7 +558,7 @@ def main() -> None:
         # The toy scene actually authors this reference; rendered frames do not.
         assert (work / "scene.ppscene").read_text() == "rushes/A001.mov\n"
         with production.edit() as edit:
-            scene_asset = edit.import_media(work / "scene.ppscene")
+            scene_asset = edit.import_media(work / "scene.ppscene").asset_id
             edit.commit()
         (scene,) = production.representations[scene_asset]  # One-file fixture.
         record_and_query_dependencies(production, scene.id, asset_id, original_id)

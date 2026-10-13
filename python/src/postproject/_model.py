@@ -1075,6 +1075,14 @@ MediaSource: TypeAlias = (
 
 
 @dataclass(frozen=True, slots=True)
+class ImportedMedia:
+    """Identities staged by import; only explicit commit makes them durable."""
+
+    asset_id: AssetId
+    representation_id: RepresentationId
+
+
+@dataclass(frozen=True, slots=True)
 class Locator:
     id: LocatorId
     uri: str

@@ -32,7 +32,8 @@ def exercise(work: Path) -> None:
     # [ergonomic-import]
     with Production.create(work / "tasks.pproj", "Documentary") as production:
         with production.edit(origin="example:editor", message="Import take") as edit:
-            asset_id = edit.import_media(original, display_name="Camera A")
+            imported = edit.import_media(original, display_name="Camera A")
+            asset_id = imported.asset_id
             edit.add_metadata(
                 AssetRef(asset_id), ("example:editorial", "title"), "Interview"
             )
@@ -48,6 +49,7 @@ def exercise(work: Path) -> None:
             known = matches.items[0]
             adopted_asset = known.asset_id  # Store this ID in the host project.
         assert adopted_asset == asset_id  # No new identity or revision.
+        assert known.representation_id == imported.representation_id
         # [/ergonomic-adopt]
 
         original.rename(moved)

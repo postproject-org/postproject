@@ -28,18 +28,12 @@ def exercise(work: Path) -> None:
     output.write_bytes(b"fixture output produced from the red scene")
     with Production.create(work / "dependencies.pproj") as production:
         with production.edit() as edit:
-            texture_asset = edit.import_media(texture)
-            scene_asset = edit.import_media(scene)
+            texture_import = edit.import_media(texture)
+            scene_import = edit.import_media(scene)
             edit.commit()
         with production.read_session() as view:
-            texture_matches = view.find_known_media(texture, limit=2)
-            scene_matches = view.find_known_media(scene, limit=2)
-            assert (
-                texture_matches.next_cursor is None and len(texture_matches.items) == 1
-            )
-            assert scene_matches.next_cursor is None and len(scene_matches.items) == 1
-            texture_id = texture_matches.items[0].representation_id
-            scene_id = scene_matches.items[0].representation_id
+            texture_id = texture_import.representation_id
+            scene_id = scene_import.representation_id
             assert view.dependency_set(scene_id) is None  # Never extracted.
             # [authored-dependency-extraction]
             authored = json.loads(scene.read_text())["references"]
@@ -52,7 +46,7 @@ def exercise(work: Path) -> None:
                     tuple(
                         Dependency(
                             "example:texture",
-                            AssetRef(texture_asset),
+                            AssetRef(texture_import.asset_id),
                             text,
                             resolved_representation_id=texture_id,
                         )
@@ -63,7 +57,7 @@ def exercise(work: Path) -> None:
             # [/authored-dependency-extraction]
         with production.read_session() as view, view.edit() as edit:
             render_id = edit.add_representation(
-                scene_asset, RepresentationKind.DERIVED, output
+                scene_import.asset_id, RepresentationKind.DERIVED, output
             )
             edit.create_activity(
                 ActivitySpec(
@@ -83,7 +77,8 @@ def exercise(work: Path) -> None:
         )
         texture.write_text('{"references": [], "colour": "blue"}\n')
         with production.read_session() as view, view.edit() as edit:
-            edit.observe_resource_content(texture_matches.items[0].resource_id, texture)
+            (resource,) = view.representation(texture_id).resources
+            edit.observe_resource_content(resource.id, texture)
             edit.commit()
         changed = production.dependency_set(texture_id)
         assert (

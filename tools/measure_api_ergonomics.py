@@ -28,7 +28,7 @@ def prepare(root: Path) -> None:
                 for item in range(100):
                     asset = edit.import_media(
                         media, display_name=f"{batch:02}-{item:02}"
-                    )
+                    ).asset_id
                 edit.commit()
         for index in range(1000):
             with production.edit() as edit:

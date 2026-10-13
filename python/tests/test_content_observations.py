@@ -27,7 +27,7 @@ class ContentObservationTests(unittest.TestCase):
         self.production = Production.create(self.path)
         self.addCleanup(self.production.close)
         with self.production.edit() as edit:
-            self.asset = edit.import_media(self.media)
+            self.asset = edit.import_media(self.media).asset_id
             edit.commit()
         self.representation = self.production.representations[self.asset][0]
         self.resource = self.representation.resources[0].id

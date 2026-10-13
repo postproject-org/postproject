@@ -36,7 +36,7 @@ def main() -> None:
         ) as transaction:
             asset_id = transaction.import_media(
                 args.media, display_name="Quickstart media"
-            )
+            ).asset_id
             transaction.commit()
 
         # An exception escaping the context rolls the transaction back.

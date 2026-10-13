@@ -145,6 +145,7 @@ from ._model import (
     ImageSequenceContent,
     ImageSequenceDescriptor,
     ImageSequenceSource,
+    ImportedMedia,
     Job,
     JobCancelled,
     JobCancelledEvent,
@@ -3943,12 +3944,13 @@ class Edit:
         self,
         source: MediaSource,
         display_name: str | None = None,
-    ) -> AssetId:
+    ) -> ImportedMedia:
         """Stage a new asset whose original representation has the source's
         structure. A path imports a single file."""
 
         self._require_open()
         asset_id = _abi.AssetId()
+        representation_id = _abi.RepresentationId()
         error = ctypes.POINTER(Error)()
         if isinstance(source, (str, os.PathLike)):
             status = self._native.lib.pp_transaction_import_file(
@@ -3956,7 +3958,7 @@ class Edit:
                 _path_bytes(source),
                 _optional_text(display_name),
                 ctypes.byref(asset_id),
-                None,
+                ctypes.byref(representation_id),
                 ctypes.byref(error),
             )
         else:
@@ -3966,11 +3968,13 @@ class Edit:
                     native_source.handle,
                     _optional_text(display_name),
                     ctypes.byref(asset_id),
-                    None,
+                    ctypes.byref(representation_id),
                     ctypes.byref(error),
                 )
         self._native.check(status, error)
-        return AssetId(_uuid(asset_id))
+        return ImportedMedia(
+            AssetId(_uuid(asset_id)), RepresentationId(_uuid(representation_id))
+        )
 
     def add_representation(
         self,

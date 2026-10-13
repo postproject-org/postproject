@@ -69,7 +69,9 @@ def import_image_strip(production: Production, directory: Path) -> AssetId:
         missing_frames=(1003,),
     )
     with production.edit() as transaction:
-        asset_id = transaction.import_media(strip, display_name="shot010 strip")
+        asset_id = transaction.import_media(
+            strip, display_name="shot010 strip"
+        ).asset_id
         transaction.commit()
 
     representations = production.representations[asset_id]
@@ -468,7 +470,7 @@ def main() -> None:
 
     with Production.create(work / "media.pproj", "Media") as production:
         with production.edit() as transaction:
-            asset_id = transaction.import_media(media, display_name="Camera A")
+            asset_id = transaction.import_media(media, display_name="Camera A").asset_id
             transaction.commit()
         original = production.representations[asset_id][0]
 

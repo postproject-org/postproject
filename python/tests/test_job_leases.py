@@ -38,7 +38,7 @@ class JobLeaseTests(unittest.TestCase):
         self.production = Production.create(self.root / "production.pproj")
         self.addCleanup(self.production.close)
         with self.production.edit() as edit:
-            self.asset = edit.import_media(self.media)
+            self.asset = edit.import_media(self.media).asset_id
             self.job = edit.request_job(
                 JobRequest(
                     "example:publish", (), self.asset, RepresentationKind.DERIVED

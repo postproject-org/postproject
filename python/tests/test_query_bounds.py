@@ -36,7 +36,7 @@ class QueryBoundsTests(unittest.TestCase):
             media.write_bytes(b"truncated search fixture")
             with Production.create(root / "production.pproj") as production:
                 with production.edit() as edit:
-                    asset = edit.import_media(media)
+                    asset = edit.import_media(media).asset_id
                     edit.commit()
                 search = root / "search"
                 search.mkdir()
@@ -67,7 +67,7 @@ class QueryBoundsTests(unittest.TestCase):
             media.write_bytes(b"activity timestamp fixture")
             with Production.create(root / "production.pproj") as production:
                 with production.edit() as edit:
-                    asset = edit.import_media(media)
+                    asset = edit.import_media(media).asset_id
                     edit.commit()
                 representation = production.representations[asset][0].id
                 head = production.latest_revision
@@ -177,7 +177,7 @@ class QueryBoundsTests(unittest.TestCase):
                 self.assertEqual(production.assets_page(limit=1).items, ())
                 self.assertIsNone(production.latest_revision)
                 with production.edit() as edit:
-                    asset = edit.import_media(source)
+                    asset = edit.import_media(source).asset_id
                     edit.commit()
                 sequence = production.representations[asset][0].image_sequence
                 assert sequence is not None
@@ -190,7 +190,7 @@ class QueryBoundsTests(unittest.TestCase):
             media.write_bytes(b"fingerprint integer fixture")
             with Production.create(root / "production.pproj") as production:
                 with production.edit() as edit:
-                    asset = edit.import_media(media)
+                    asset = edit.import_media(media).asset_id
                     edit.commit()
                 representation = production.representations[asset][0]
                 resource = representation.resources[0]
@@ -229,7 +229,7 @@ class QueryBoundsTests(unittest.TestCase):
             media.write_bytes(b"query bounds fixture")
             with Production.create(root / "production.pproj") as production:
                 with production.edit() as edit:
-                    asset = edit.import_media(media)
+                    asset = edit.import_media(media).asset_id
                     edit.commit()
                 representation = production.representations[asset][0].id
                 with (
@@ -289,7 +289,7 @@ class QueryBoundsTests(unittest.TestCase):
             media.write_bytes(b"bounded query fixture")
             with Production.create(root / "production.pproj") as production:
                 with production.edit() as edit:
-                    asset = edit.import_media(media)
+                    asset = edit.import_media(media).asset_id
                     edit.add_media_root("media")
                     receipt = edit.commit()
                 assert receipt.revision is not None
