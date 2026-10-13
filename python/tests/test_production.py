@@ -102,7 +102,6 @@ from postproject import (
     ResourceId,
     ResourceRef,
     ResourceResolutionState,
-    RevisionContext,
     RevisionId,
     SequenceNaming,
     ToolIdentity,
@@ -972,7 +971,7 @@ class ProductionTests(unittest.TestCase):
         with self.assertRaisesRegex(
             InvalidArgumentError, "transaction is closed"
         ) as caught:
-            transaction.set_revision_context(RevisionContext(message="closed"))
+            transaction.import_media(self.media_path)
         self.assertEqual(caught.exception.code, 1)
 
         production.close()

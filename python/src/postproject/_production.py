@@ -385,6 +385,20 @@ class _HostBindings:
         )
 
 
+def _native_edit_context(
+    origin: OriginIdentity | str | None, message: str | None
+) -> _abi.EditContext:
+    if origin is not None and not isinstance(origin, (str, OriginIdentity)):
+        raise TypeError("origin must be a string or OriginIdentity")
+    identity = OriginIdentity(origin) if isinstance(origin, str) else origin
+    return _abi.EditContext(
+        _optional_text(identity.name if identity else None),
+        _optional_text(identity.version if identity else None),
+        _optional_text(identity.uri if identity else None),
+        _optional_text(message),
+    )
+
+
 class Production:
     """An owned native production handle supporting concurrent operations.
 
@@ -413,13 +427,19 @@ class Production:
         """Stage typed command collections; closing never writes a revision."""
         if isinstance(base, ProtocolBase):
             full_base = base
-            transaction = self.edit(base.decision)
+            transaction = self.edit(
+                base.decision,
+                origin=context.origin if context else None,
+                message=context.message if context else None,
+            )
         else:
             full_base = None
-            transaction = self.edit(base)
+            transaction = self.edit(
+                base,
+                origin=context.origin if context else None,
+                message=context.message if context else None,
+            )
         try:
-            if context is not None:
-                transaction.set_revision_context(context)
             return ProposalBuilder(transaction, client_id, request_id, full_base)
         except BaseException:
             transaction.close()
@@ -1943,24 +1963,21 @@ class Production:
         self._require_open()
         handle = ctypes.POINTER(NativeTransaction)()
         error = ctypes.POINTER(Error)()
-        if base is None:
-            status = self._native.lib.pp_production_begin_transaction(
-                self._handle, ctypes.byref(handle), ctypes.byref(error)
-            )
-        else:
-            value = _native_decision_base(base)
-            status = self._native.lib.pp_production_begin_edit(
-                self._handle,
-                ctypes.byref(value),
-                ctypes.byref(handle),
-                ctypes.byref(error),
-            )
+        value = _native_decision_base(base) if base is not None else None
+        context = _native_edit_context(origin, message)
+        status = self._native.lib.pp_production_begin_edit(
+            self._handle,
+            ctypes.byref(value) if value is not None else None,
+            ctypes.byref(context),
+            ctypes.byref(handle),
+            ctypes.byref(error),
+        )
         self._native.check(status, error)
         if not handle:
             raise InternalError(
                 _abi.PP_ERROR_INTERNAL, "native edit creation returned no handle"
             )
-        return Edit(self._native, handle)._with_context(origin, message)
+        return Edit(self._native, handle)
 
     def close(self) -> None:
         """Release the native handle. Repeated calls are harmless."""
@@ -3197,11 +3214,15 @@ class ReadSession:
         self._require_open()
         handle = ctypes.POINTER(NativeTransaction)()
         error = ctypes.POINTER(Error)()
+        context = _native_edit_context(origin, message)
         status = self._native.lib.pp_read_session_begin_edit(
-            self._handle, ctypes.byref(handle), ctypes.byref(error)
+            self._handle,
+            ctypes.byref(context),
+            ctypes.byref(handle),
+            ctypes.byref(error),
         )
         self._native.check(status, error)
-        return Edit(self._native, handle)._with_context(origin, message)
+        return Edit(self._native, handle)
 
     def asset(self, asset_id: AssetId) -> Asset:
         """Return one asset, raising ``NotFoundError`` when it is absent."""
@@ -3909,36 +3930,6 @@ class Edit:
         self._finalizer = weakref.finalize(
             self, native.lib.pp_transaction_release, handle
         )
-
-    def _with_context(
-        self, origin: OriginIdentity | str | None, message: str | None
-    ) -> Self:
-        try:
-            if origin is not None and not isinstance(origin, (str, OriginIdentity)):
-                raise TypeError("origin must be a string or OriginIdentity")
-            if origin is not None or message is not None:
-                identity = OriginIdentity(origin) if isinstance(origin, str) else origin
-                self.set_revision_context(RevisionContext(identity, message))
-            return self
-        except BaseException:
-            self.close()
-            raise
-
-    def set_revision_context(self, context: RevisionContext) -> None:
-        """Set optional origin and message fields for the future revision."""
-
-        self._require_open()
-        origin = context.origin
-        error = ctypes.POINTER(Error)()
-        status = self._native.lib.pp_transaction_set_revision_context(
-            self._handle,
-            _optional_text(origin.name if origin else None),
-            _optional_text(origin.version if origin else None),
-            _optional_text(origin.uri if origin else None),
-            _optional_text(context.message),
-            ctypes.byref(error),
-        )
-        self._native.check(status, error)
 
     def import_media(
         self,
