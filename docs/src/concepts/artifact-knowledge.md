@@ -60,6 +60,14 @@ Activities created before edge snapshots were introduced retain absent
 snapshots after migration. Their outputs are indeterminate until regenerated;
 PostProject never fabricates historical evidence from current values.
 
+## Explain an affected render
+
+The {download}`runnable scene-and-texture example <../../examples/python/authored_dependencies.py>`
+uses a small JSON fixture format. It extracts the scene's exact texture reference,
+then records a render's producing activity separately. Observing changed texture
+content makes the render stale, with reasons tracing the change through the scene.
+The example demonstrates recorded knowledge; it does not execute a scene renderer.
+
 ## Three independent dimensions
 
 Artifact knowledge does not include file availability or job state:
