@@ -30,6 +30,7 @@ tests/test_exchange.py
 tests/test_exchange_jobs.py
 tests/test_exchange_values.py
 tests/test_id_values.py
+tests/test_imported_media.py
 tests/test_job_leases.py
 tests/test_job_status.py
 tests/test_known_media_inputs.py

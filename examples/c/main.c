@@ -23,6 +23,7 @@ int main(int argc, char **argv) {
   pp_representation_set_t *representations = NULL;
   pp_error_t *error = NULL;
   pp_asset_id_t asset_id = {{0}};
+  pp_representation_id_t representation_id = {{0}};
 
   /* Each fallible call returns a status code. On failure it transfers a
    * caller-owned error handle, so the chain stops at the first failure and
@@ -35,7 +36,7 @@ int main(int argc, char **argv) {
   /* A media source describes the file to import; the transaction borrows it
    * only for the call. */
   if (status == PP_OK) {
-    status = pp_transaction_import_file(transaction, argv[2], NULL, &asset_id, NULL, &error);
+    status = pp_transaction_import_file(transaction, argv[2], NULL, &asset_id, &representation_id, &error);
   }
   /* Staged work becomes durable only on commit. Releasing a transaction that
    * was not committed discards everything staged in it. */
@@ -45,7 +46,7 @@ int main(int argc, char **argv) {
   }
   /* The result set is caller-owned; strings read from it borrow the set. */
   if (status == PP_OK) {
-    status = pp_production_representations(production, asset_id,
+    status = pp_production_representation(production, representation_id,
                                            &representations, &error);
   }
   pp_locator_id_t locator_id = {{0}};
