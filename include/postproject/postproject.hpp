@@ -5235,6 +5235,12 @@ private:
   pp_revision_waiter_t *waiter_ = nullptr;
 };
 
+// Copied identities of staged media; commit makes them durable.
+struct ImportedMedia final {
+  AssetId asset_id;
+  RepresentationId representation_id;
+};
+
 // The content structure of a representation at its present location: a
 // single file, an image sequence, ordered parts, or a package. The same source
 // serves Transaction::importMedia, which creates an asset whose original has
@@ -5560,11 +5566,11 @@ public:
 
   // Creates an asset whose original representation has the source's
   // structure. A path imports a single file.
-  Result<AssetId> importMedia(const MediaSource &source) {
+  Result<ImportedMedia> importMedia(const MediaSource &source) {
     return import_media_impl(source, nullptr);
   }
 
-  Result<AssetId> importMedia(const MediaSource &source,
+  Result<ImportedMedia> importMedia(const MediaSource &source,
                            std::string_view display_name) {
     POSTPROJECT_TRY_ASSIGN(
         const std::string name,
@@ -6066,23 +6072,25 @@ private:
     return detail::checked_string(origin.name, "origin name");
   }
 
-  Result<AssetId> import_media_impl(const MediaSource &source,
+  Result<ImportedMedia> import_media_impl(const MediaSource &source,
                                     const char *display_name) {
     pp_asset_id_t value{};
+    pp_representation_id_t representation{};
     pp_error_t *error = nullptr;
     pp_error_code_t status;
     if (const auto *file = std::get_if<MediaSource::File>(&source.content_)) {
       POSTPROJECT_TRY_ASSIGN(const auto path, MediaSource::file_path(*file));
       status = pp_transaction_import_file(transaction_, path.c_str(),
-                                          display_name, &value, nullptr, &error);
+                                          display_name, &value, &representation, &error);
     } else {
       POSTPROJECT_TRY_ASSIGN(const detail::MediaSourceHandle native_source,
                              source.native());
       status = pp_transaction_import_media(transaction_, native_source.get(),
-                                           display_name, &value, nullptr, &error);
+                                           display_name, &value, &representation, &error);
     }
     POSTPROJECT_TRY(detail::check(status, error));
-    return detail::asset_id_value(value);
+    return ImportedMedia{detail::asset_id_value(value),
+                         detail::representation_id(representation)};
   }
 
   Result<MediaRootId> add_media_root_impl(std::string_view name,

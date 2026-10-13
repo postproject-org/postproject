@@ -199,11 +199,11 @@ int main(int argc, char **argv) {
     auto production = postproject::Production::create(
         (work / "provenance.pproj").string(), "Provenance").value();
     auto setup = production.beginTransaction().value();
-    const auto asset_id = setup.importMedia(media, "Camera A").value();
+    const auto asset_id = setup.importMedia(media, "Camera A").value().asset_id;
     const auto lead_asset_id =
-        setup.importMedia((work / "characters" / "lead.usd").string()).value();
+        setup.importMedia((work / "characters" / "lead.usd").string()).value().asset_id;
     const auto scene_asset_id =
-        setup.importMedia((work / "scenes" / "harbour.usd").string()).value();
+        setup.importMedia((work / "scenes" / "harbour.usd").string()).value().asset_id;
     setup.commit().value();
     const auto original_id = production.representations(asset_id).value().front().id;
     const auto lead_id = production.representations(lead_asset_id).value().front().id;

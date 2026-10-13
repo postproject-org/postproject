@@ -27,10 +27,10 @@ postproject::Result<postproject::AssetId> import_media(const std::string &output
   POSTPROJECT_TRY_ASSIGN(auto transaction, production.beginTransaction());
   // A failure returns here and destroys the open transaction, which discards
   // its work.
-  POSTPROJECT_TRY_ASSIGN(const auto asset_id,
+  POSTPROJECT_TRY_ASSIGN(const auto imported,
                          transaction.importMedia(media, "Quickstart media"));
   POSTPROJECT_TRY(transaction.commit());
-  return asset_id;
+  return imported.asset_id;
 } // The production handle closes here.
 
 // Invalid input does not fail when it is built; the consuming call reports it.

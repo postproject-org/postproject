@@ -14,9 +14,9 @@ postproject::Result<postproject::AssetId> import_media(const std::string &path,
   POSTPROJECT_TRY_ASSIGN(auto production,
                          postproject::Production::create(path, "Propagation"));
   POSTPROJECT_TRY_ASSIGN(auto transaction, production.beginTransaction());
-  POSTPROJECT_TRY_ASSIGN(const auto asset_id, transaction.importMedia(media));
+  POSTPROJECT_TRY_ASSIGN(const auto imported, transaction.importMedia(media));
   POSTPROJECT_TRY(transaction.commit());
-  return asset_id;
+  return imported.asset_id;
 }
 
 postproject::Result<std::size_t> count_assets(const std::string &path) {
@@ -77,10 +77,11 @@ int main(int argc, char **argv) {
   if (!transaction.has_value()) {
     return 6;
   }
-  const auto asset_id = transaction->importMedia(media_path);
-  if (!asset_id.has_value()) {
+  const auto imported_media = transaction->importMedia(media_path);
+  if (!imported_media.has_value()) {
     return 7;
   }
+  const auto asset_id = imported_media->asset_id;
   // A malformed source is reported by the call that uses it.
   const auto unsequenced = transaction->importMedia(
       postproject::MediaSource::imageSequence(
@@ -93,12 +94,12 @@ int main(int argc, char **argv) {
   // Invalid input is reported by the operation that consumes it.
   const auto invalid = postproject::MetadataValue::decimal("not a number", 2);
   const auto rejected = transaction->addMetadataValue(
-      postproject::ObjectRef::asset(*asset_id), "com.example", "amount",
+      postproject::ObjectRef::asset(asset_id), "com.example", "amount",
       invalid);
   if (rejected.has_value()) {
     return 9;
   }
-  const auto target = postproject::ObjectRef::asset(*asset_id);
+  const auto target = postproject::ObjectRef::asset(asset_id);
   if (!transaction->addMetadataValue(target, "custom:unknown", "count",
           postproject::MetadataValue::unsignedInteger(7)) ||
       !transaction->addMetadataValue(target, "custom:unknown", "count",
@@ -123,8 +124,9 @@ int main(int argc, char **argv) {
   if (copied->back().value.getIf<postproject::MetadataSignedInteger>()->value != -7)
     return 31;
 
-  const auto representations = production.representations(*asset_id);
-  if (!representations.has_value() || representations->size() != 1) {
+  const auto representations = production.representations(asset_id);
+  if (!representations.has_value() || representations->size() != 1 ||
+      representations->front().id != imported_media->representation_id) {
     return 11;
   }
   const auto by_path = production.findKnownMedia(std::filesystem::path(media_path), 1);
@@ -132,7 +134,7 @@ int main(int argc, char **argv) {
       representations->front().resources.front().fingerprints.front(), 1);
   if (!by_path || !by_evidence || by_path->items.size() != 1 ||
       by_path->next_cursor || by_evidence->next_cursor ||
-      by_path->items.front().asset_id != *asset_id ||
+      by_path->items.front().asset_id != asset_id ||
       by_evidence->items.front().representation_id != representations->front().id)
     return 32;
   const auto missing_path = production.findKnownMedia(
@@ -158,15 +160,15 @@ int main(int argc, char **argv) {
   const auto invalid_directory = postproject::ResolutionOptions::create(config);
   if (invalid_limits || invalid_mode || invalid_directory) return 13;
   // Failed configurations never change the previously validated value.
-  if (!production.resolveAsset(*asset_id, options)) return 13;
+  if (!production.resolveAsset(asset_id, options)) return 13;
   config.search_directories.clear();
   config.max_entries_per_directory = 1000;
   options_result = postproject::ResolutionOptions::create(config);
   if (!options_result) return 13;
   options = *std::move(options_result);
   auto moved_options = std::move(options);
-  if (production.resolveAsset(*asset_id, options)) return 13;
-  const auto resolved = production.resolveAsset(*asset_id, moved_options);
+  if (production.resolveAsset(asset_id, options)) return 13;
+  const auto resolved = production.resolveAsset(asset_id, moved_options);
   if (!resolved.has_value() || resolved->size() != 1 ||
       resolved->front().availability !=
           postproject::RepresentationAvailability::online) {
@@ -184,7 +186,7 @@ int main(int argc, char **argv) {
   moved_options = *std::move(cancelled_options);
   token.cancel(); // moved-from token does not affect the retained flag
   moved_token.cancel();
-  const auto cancelled = production.resolveAsset(*asset_id, moved_options);
+  const auto cancelled = production.resolveAsset(asset_id, moved_options);
   if (cancelled || cancelled.error().code() != postproject::ErrorCode::cancelled) return 14;
 
   const std::string propagated = path + ".propagated";

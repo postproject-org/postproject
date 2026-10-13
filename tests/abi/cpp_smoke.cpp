@@ -69,7 +69,7 @@ int renamed_sequence_scenario(const std::string &production_path) {
   const auto source = postproject::MediaSource::imageSequence(
       {plates.string(), original, 1, 3, 1, 24, 1, {}});
   auto import = production.beginTransaction().value();
-  const auto asset_id = import.importMedia(source, "Shot").value();
+  const auto asset_id = import.importMedia(source, "Shot").value().asset_id;
   import.commit().value();
   for (int frame = 1; frame <= 3; ++frame) {
     char number[16];
@@ -160,7 +160,7 @@ int main(int argc, char **argv) {
         {postproject::OriginIdentity{"C++ smoke", std::string("1.0"),
                                      std::nullopt},
          std::string("Import fixture")}).value();
-    const auto asset_id = transaction.importMedia(media_path, "C++ asset").value();
+    const auto asset_id = transaction.importMedia(media_path, "C++ asset").value().asset_id;
     const postproject::ObjectRef asset_ref = postproject::ObjectRef::asset(asset_id);
     const postproject::HostObjectBinding host_binding{created_id, asset_ref};
     const auto host_binding_text = host_binding.toString().value();
@@ -374,7 +374,7 @@ int main(int argc, char **argv) {
     }
 
     auto rolled_back = production.beginTransaction().value();
-    const auto discarded_id = rolled_back.importMedia(media_path).value();
+    const auto discarded_id = rolled_back.importMedia(media_path).value().asset_id;
     rolled_back.rollback().value();
     if (production.containsAsset(discarded_id).value()) {
       return 9;
@@ -713,7 +713,7 @@ int main(int argc, char **argv) {
     const auto sequence_id = additions.addRepresentation(
         asset_id, postproject::RepresentationKind::derived, sequence).value();
     // The same sequence imported as a new asset is that asset's only original.
-    const auto strip_id = additions.importMedia(sequence, "C++ image strip").value();
+    const auto strip_id = additions.importMedia(sequence, "C++ image strip").value().asset_id;
     const auto ordered = postproject::MediaSource::orderedParts({
         {moved_media_path, "org.postproject:essence.first", true},
         {sequence_frame_path.string(), "org.postproject:essence.second", true},

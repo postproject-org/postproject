@@ -208,7 +208,7 @@ int main(int argc, char **argv) {
         postproject::Production::create((work / "jobs.pproj").string(), "Jobs").value();
     auto setup = production.beginTransaction().value();
     const auto asset_id =
-        setup.importMedia((work / "rushes" / "A001.mov").string(), "Camera A").value();
+        setup.importMedia((work / "rushes" / "A001.mov").string(), "Camera A").value().asset_id;
     setup.addMediaRoot("proxies", "Generated proxies").value();
     setup.commit().value();
     const auto original_id = production.representations(asset_id).value().front().id;

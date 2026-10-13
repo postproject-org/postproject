@@ -147,11 +147,11 @@ static Result<void> rejected_intent(const std::string &path) {
 static Result<void> worker_delivery(const std::string &path, const std::string &media) {
   POSTPROJECT_TRY_ASSIGN(auto production, Production::create(path));
   POSTPROJECT_TRY_ASSIGN(auto setup, production.beginTransaction());
-  POSTPROJECT_TRY_ASSIGN(auto asset, setup.importMedia(media));
+  POSTPROJECT_TRY_ASSIGN(auto imported, setup.importMedia(media));
+  const auto asset = imported.asset_id;
   POSTPROJECT_TRY(setup.commit());
-  POSTPROJECT_TRY_ASSIGN(auto representations, production.representations(asset));
   POSTPROJECT_TRY_ASSIGN(auto request, production.beginTransaction());
-  POSTPROJECT_TRY_ASSIGN(auto job, request.requestJob({"example:proxy", {representations[0].id},
+  POSTPROJECT_TRY_ASSIGN(auto job, request.requestJob({"example:proxy", {imported.representation_id},
       asset, RepresentationKind::proxy, std::nullopt}));
   POSTPROJECT_TRY(request.commit());
   const ClientId client(Uuid::Bytes{1});

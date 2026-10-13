@@ -53,7 +53,7 @@ postproject::AssetId create_with_asset(const std::string &path,
                                     const std::string &media) {
   auto production = postproject::Production::create(path, "Documentary").value();
   auto transaction = production.beginTransaction().value();
-  const auto asset_id = transaction.importMedia(media, "Camera A").value();
+  const auto asset_id = transaction.importMedia(media, "Camera A").value().asset_id;
   transaction.commit().value();
   return asset_id;
 }

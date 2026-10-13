@@ -32,7 +32,7 @@ int main(int argc, char **argv) {
   if (!setup) return 7;
   auto asset = setup->importMedia(MediaSource(media));
   if (!asset) return 8;
-  auto job = setup->requestJob(JobRequest{"example:publish", {}, *asset, RepresentationKind::derived, std::nullopt});
+  auto job = setup->requestJob(JobRequest{"example:publish", {}, asset->asset_id, RepresentationKind::derived, std::nullopt});
   if (!job) return 9;
   const auto setup_receipt = setup->commit();
   if (!setup_receipt || !setup_receipt->revision ||
@@ -60,7 +60,7 @@ int main(int argc, char **argv) {
   auto publish = production->beginTransaction();
   if (!publish) return 20;
   auto publisher = publish->claimJobLease(*job, tool, minutes{1});
-  auto output = publish->addRepresentation(*asset, RepresentationKind::derived, MediaSource(media));
+  auto output = publish->addRepresentation(asset->asset_id, RepresentationKind::derived, MediaSource(media));
   if (!publisher || !output) return 21;
   ActivitySpec spec;
   spec.kind = "example:publish";

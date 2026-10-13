@@ -58,7 +58,7 @@ static_assert(std::is_same_v<decltype(postproject::Asset::id), postproject::Asse
 static_assert(std::is_same_v<decltype(postproject::Representation::asset_id), postproject::AssetId>);
 static_assert(std::is_same_v<decltype(postproject::JobRequest::output_asset_id), postproject::AssetId>);
 static_assert(std::is_same_v<decltype(std::declval<postproject::Transaction &>().importMedia(
-    std::declval<const postproject::MediaSource &>())), postproject::Result<postproject::AssetId>>);
+    std::declval<const postproject::MediaSource &>())), postproject::Result<postproject::ImportedMedia>>);
 static_assert(!std::is_invocable_v<decltype(&postproject::Production::asset),
     const postproject::Production &, postproject::Uuid>);
 static_assert(!std::is_invocable_v<decltype(&postproject::ReadSession::asset),

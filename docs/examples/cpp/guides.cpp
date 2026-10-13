@@ -38,7 +38,7 @@ create_production(const std::string &path, const std::string &media) {
   transaction.setRevisionContext(
       {postproject::OriginIdentity{"com.example.editor", "0.4.0", std::nullopt},
        "Import camera original"}).value();
-  const auto asset_id = transaction.importMedia(media, "Camera A").value();
+  const auto asset_id = transaction.importMedia(media, "Camera A").value().asset_id;
   transaction.commit().value();
 
   std::cout << "representations: "
@@ -518,7 +518,7 @@ int main(int argc, char **argv) {
     inspect_artifact(production, sequence_id);
     // scene.ppscene authors the fixture's reference; rendered frames do not.
     auto scene_edit = production.beginTransaction().value();
-    const auto scene_asset = scene_edit.importMedia(work + "/scene.ppscene").value();
+    const auto scene_asset = scene_edit.importMedia(work + "/scene.ppscene").value().asset_id;
     scene_edit.commit().value();
     const auto scene = production.representations(scene_asset).value();
     require(scene.size() == 1, "single-file scene fixture");

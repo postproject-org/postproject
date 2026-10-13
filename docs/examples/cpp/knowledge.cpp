@@ -214,7 +214,7 @@ int main(int argc, char **argv) {
     const std::string media_path = work + "/rushes/A001.mov";
     auto production = postproject::Production::create(production_path, "Knowledge").value();
     auto setup = production.beginTransaction().value();
-    const auto asset_id = setup.importMedia(media_path).value();
+    const auto asset_id = setup.importMedia(media_path).value().asset_id;
     setup.commit().value();
     require(find_known_media(production_path, media_path) == asset_id,
             "second handle found imported asset");

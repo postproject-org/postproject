@@ -42,7 +42,7 @@ postproject::AssetId import_image_strip(postproject::Production &production,
   const auto strip = postproject::MediaSource::imageSequence(
       {directory, {"shot010.", ".exr", 4}, 1001, 1004, 1, 24, 1, {1003}});
   auto transaction = production.beginTransaction().value();
-  const auto asset_id = transaction.importMedia(strip, "shot010 strip").value();
+  const auto asset_id = transaction.importMedia(strip, "shot010 strip").value().asset_id;
   transaction.commit().value();
 
   const auto representations = production.representations(asset_id).value();
@@ -471,7 +471,7 @@ int main(int argc, char **argv) {
     auto production = postproject::Production::create(
         (work / "media.pproj").string(), "Media").value();
     auto setup = production.beginTransaction().value();
-    const auto asset_id = setup.importMedia(media, "Camera A").value();
+    const auto asset_id = setup.importMedia(media, "Camera A").value().asset_id;
     setup.addMediaRoot("rushes", "Camera originals", 10).value();
     setup.addMediaRoot("archive", 0).value();
     setup.commit().value();

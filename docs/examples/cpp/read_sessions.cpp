@@ -16,7 +16,7 @@ static void exercise(const std::string &path, const std::string &media) {
   if (!empty.planRegeneration({}).value().empty())
     throw std::runtime_error("empty planning request");
   auto edit = empty.edit().value();
-  const auto asset = edit.importMedia(media).value();
+  const auto asset = edit.importMedia(media).value().asset_id;
   edit.addExternalIdentifier(postproject::ObjectRef::asset(asset),
       {"https://example.com/id", "camera", std::nullopt}).value();
   edit.addMetadataValue(postproject::ObjectRef::asset(asset),
