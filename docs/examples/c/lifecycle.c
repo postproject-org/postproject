@@ -127,12 +127,9 @@ static pp_error_code_t commit_then_roll_back(pp_production_t *production,
 
   /* Commit: every staged change becomes one durable revision. */
   pp_error_code_t status =
-      pp_production_begin_transaction(production, &transaction, error);
-  if (status == PP_OK) {
-    status = pp_transaction_set_revision_context(
-        transaction, "com.example.editor", "0.4.0", NULL, "Add archive root",
-        error);
-  }
+      pp_production_begin_edit(production, NULL,
+          &(pp_edit_context_t){"com.example.editor", "0.4.0", NULL,
+                              "Add archive root"}, &transaction, error);
   if (status == PP_OK) {
     status = pp_transaction_add_media_root(
         transaction, "archive", "Archive volume", 10, &root_id, error);
@@ -146,7 +143,7 @@ static pp_error_code_t commit_then_roll_back(pp_production_t *production,
 
   /* Roll back: staged changes are discarded and no revision is written. */
   if (status == PP_OK) {
-    status = pp_production_begin_transaction(production, &transaction, error);
+    status = pp_production_begin_edit(production, NULL, NULL, &transaction, error);
   }
   if (status == PP_OK) {
     status = pp_transaction_add_media_root(transaction, "scratch",
@@ -194,12 +191,9 @@ static pp_error_code_t create_production(const char *path, const char *media,
   pp_error_code_t status =
       pp_production_create(path, "Documentary", &production, error);
   if (status == PP_OK) {
-    status = pp_production_begin_transaction(production, &transaction, error);
-  }
-  if (status == PP_OK) {
-    status = pp_transaction_set_revision_context(
-        transaction, "com.example.editor", "0.4.0", NULL,
-        "Import camera original", error);
+    status = pp_production_begin_edit(production, NULL,
+        &(pp_edit_context_t){"com.example.editor", "0.4.0", NULL,
+        "Import camera original"}, &transaction, error);
   }
   if (status == PP_OK) {
     status = pp_transaction_import_file(transaction, media, "Camera A", out_asset_id, NULL, error);

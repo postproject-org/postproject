@@ -105,7 +105,7 @@ static pp_error_code_t request_proxy(pp_production_t *production,
   pp_job_set_t *jobs = NULL;
   /* Request the job and its parameters in one transaction. */
   pp_error_code_t status =
-      pp_production_begin_transaction(production, &transaction, error);
+      pp_production_begin_edit(production, NULL, NULL, &transaction, error);
   if (status == PP_OK) {
     status = pp_transaction_request_job(transaction, PROXY_JOB, input_id, 1,
                                         *asset_id, PP_REPRESENTATION_PROXY,
@@ -165,7 +165,7 @@ static pp_error_code_t claim_renew_release(pp_production_t *production,
   pp_job_lease_t *lease = NULL, *imported = NULL;
   char *token = NULL;
   pp_error_code_t status =
-      pp_production_begin_transaction(production, &transaction, error);
+      pp_production_begin_edit(production, NULL, NULL, &transaction, error);
   if (status == PP_OK) {
     status = pp_transaction_claim_job_lease(
         transaction, job_id, "Example Transcoder", "3.2",
@@ -203,7 +203,7 @@ static pp_error_code_t claim_renew_release(pp_production_t *production,
                                           strlen(token), &imported, error);
   }
   pp_string_release(token);
-  if (status == PP_OK) status = pp_production_begin_transaction(production, &transaction, error);
+  if (status == PP_OK) status = pp_production_begin_edit(production, NULL, NULL, &transaction, error);
   if (status == PP_OK) status = pp_transaction_renew_job_lease(transaction, imported, 10 * MINUTE, error);
   if (status == PP_OK) {
     pp_commit_receipt_t commit_receipt;
@@ -213,7 +213,7 @@ static pp_error_code_t claim_renew_release(pp_production_t *production,
   transaction = NULL;
 
   /* Releasing abandons the work without recording a failure. */
-  if (status == PP_OK) status = pp_production_begin_transaction(production, &transaction, error);
+  if (status == PP_OK) status = pp_production_begin_edit(production, NULL, NULL, &transaction, error);
   if (status == PP_OK) status = pp_transaction_release_job_lease(transaction, imported, error);
   if (status == PP_OK) {
     pp_commit_receipt_t commit_receipt;
@@ -238,7 +238,7 @@ complete_proxy(pp_production_t *production, pp_job_id_t job_id,
   pp_job_lease_t *lease = NULL;
   pp_activity_id_t activity_id = {{0}};
   pp_error_code_t status =
-      pp_production_begin_transaction(production, &transaction, error);
+      pp_production_begin_edit(production, NULL, NULL, &transaction, error);
   if (status == PP_OK) {
     status = pp_transaction_claim_job_lease(transaction, job_id, "Example Transcoder",
                                       "3.2", "https://example.com/transcoder",
@@ -257,7 +257,7 @@ complete_proxy(pp_production_t *production, pp_job_id_t job_id,
   /* Stage the output and the activity, then complete in the same
    * transaction; never commit them earlier. */
   if (status == PP_OK) {
-    status = pp_production_begin_transaction(production, &transaction, error);
+    status = pp_production_begin_edit(production, NULL, NULL, &transaction, error);
   }
   if (status == PP_OK) {
     status = pp_transaction_add_file_representation(transaction, *asset_id, PP_REPRESENTATION_PROXY, output_path, out_proxy_id, error);
@@ -297,7 +297,7 @@ static pp_error_code_t fail_proxy(pp_production_t *production,
   pp_transaction_t *transaction = NULL;
   pp_job_lease_t *lease = NULL;
   pp_error_code_t status =
-      pp_production_begin_transaction(production, &transaction, error);
+      pp_production_begin_edit(production, NULL, NULL, &transaction, error);
   if (status == PP_OK) {
     status = pp_transaction_claim_job_lease(transaction, job_id, "Example Transcoder",
                                       "3.2", NULL, NULL, NULL, NULL, NULL,
@@ -312,7 +312,7 @@ static pp_error_code_t fail_proxy(pp_production_t *production,
 
   /* The tool failed: record a bounded diagnostic and no output. */
   if (status == PP_OK) {
-    status = pp_production_begin_transaction(production, &transaction, error);
+    status = pp_production_begin_edit(production, NULL, NULL, &transaction, error);
   }
   if (status == PP_OK) {
     status =
@@ -334,7 +334,7 @@ static pp_error_code_t cancel(pp_production_t *production,
                               pp_job_id_t job_id, pp_error_t **error) {
   pp_transaction_t *transaction = NULL;
   pp_error_code_t status =
-      pp_production_begin_transaction(production, &transaction, error);
+      pp_production_begin_edit(production, NULL, NULL, &transaction, error);
   if (status == PP_OK) {
     /* Cancellation is administrative and needs no claim token. */
     status = pp_transaction_cancel_job(transaction, job_id, error);
@@ -384,7 +384,7 @@ static pp_error_code_t enqueue_regeneration(pp_production_t *production,
 
   /* Enqueue the proposal explicitly, copying its parameters to the job. */
   if (status == PP_OK) {
-    status = pp_production_begin_transaction(production, &transaction, error);
+    status = pp_production_begin_edit(production, NULL, NULL, &transaction, error);
   }
   if (status == PP_OK) {
     status = pp_transaction_request_job(
@@ -440,7 +440,7 @@ static pp_error_code_t create_production(const char *path, const char *media,
   pp_error_code_t status =
       pp_production_create(path, "Documentary", &production, error);
   if (status == PP_OK) {
-    status = pp_production_begin_transaction(production, &transaction, error);
+    status = pp_production_begin_edit(production, NULL, NULL, &transaction, error);
   }
   if (status == PP_OK) {
     status = pp_transaction_import_file(transaction, media, "Camera A", out_asset_id, NULL, error);

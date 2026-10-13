@@ -60,7 +60,7 @@ postproject::ActivityId record_transcode(postproject::Production &production,
       "render-node-04", postproject::ExternalIdentifier{"com.example.farm.node",
                                                         "04", std::nullopt}};
 
-  auto transaction = production.beginTransaction().value();
+  auto transaction = production.edit().value();
   const auto activity_id = transaction.createActivity(spec).value();
   require(postproject::ActivityId::fromString(activity_id.toString().value()).value()
               == activity_id, "saved activity identity");
@@ -198,7 +198,7 @@ int main(int argc, char **argv) {
 
     auto production = postproject::Production::create(
         (work / "provenance.pproj").string(), "Provenance").value();
-    auto setup = production.beginTransaction().value();
+    auto setup = production.edit().value();
     const auto asset_id = setup.importMedia(media, "Camera A").value().asset_id;
     const auto lead_asset_id =
         setup.importMedia((work / "characters" / "lead.usd").string()).value().asset_id;
@@ -208,7 +208,7 @@ int main(int argc, char **argv) {
     const auto original_id = production.representations(asset_id).value().front().id;
     const auto lead_id = production.representations(lead_asset_id).value().front().id;
     const auto scene_id = production.representations(scene_asset_id).value().front().id;
-    auto proxy_setup = production.beginTransaction().value();
+    auto proxy_setup = production.edit().value();
     const auto proxy_id = proxy_setup.addRepresentation(
         asset_id, postproject::RepresentationKind::proxy,
         (work / "proxies" / "A001_proxy.mov").string()).value();

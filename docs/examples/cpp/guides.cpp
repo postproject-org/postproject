@@ -34,10 +34,9 @@ std::pair<postproject::Production, postproject::AssetId>
 create_production(const std::string &path, const std::string &media) {
   auto production = postproject::Production::create(path, "Documentary").value();
 
-  auto transaction = production.beginTransaction().value();
-  transaction.setRevisionContext(
-      {postproject::OriginIdentity{"com.example.editor", "0.4.0", std::nullopt},
+  auto transaction = production.edit({postproject::OriginIdentity{"com.example.editor", "0.4.0", std::nullopt},
        "Import camera original"}).value();
+
   const auto asset_id = transaction.importMedia(media, "Camera A").value().asset_id;
   transaction.commit().value();
 
@@ -54,7 +53,7 @@ void tag_camera_serial(postproject::Production &production,
   const postproject::ExternalIdentifier identifier{
       "com.example.camera.serial", "A-0007", std::nullopt};
 
-  auto transaction = production.beginTransaction().value();
+  auto transaction = production.edit().value();
   transaction.addExternalIdentifier(target, identifier).value();
   transaction.commit().value();
 
@@ -71,7 +70,7 @@ void add_title(postproject::Production &production,
                const postproject::AssetId &asset_id) {
   const postproject::ObjectRef target = postproject::ObjectRef::asset(asset_id);
 
-  auto transaction = production.beginTransaction().value();
+  auto transaction = production.edit().value();
   transaction.addMetadataValue(
       target,
       "https://iptc.org/std/videometadatahub/recommendation/"
@@ -84,7 +83,7 @@ void add_title(postproject::Production &production,
 
 // [media-root]
 void add_rushes_root(postproject::Production &production) {
-  auto transaction = production.beginTransaction().value();
+  auto transaction = production.edit().value();
   transaction.addMediaRoot("rushes", "Camera originals").value();
   transaction.commit().value();
 }
@@ -119,7 +118,7 @@ resolve_asset(const postproject::Production &production,
 void confirm_unique_candidates(
     postproject::Production &production,
     const std::vector<postproject::RepresentationResolution> &resolutions) {
-  auto transaction = production.beginTransaction().value();
+  auto transaction = production.edit().value();
   for (const auto &representation : resolutions) {
     for (const auto &resource : representation.resources) {
       // Several candidates need a person to choose; never pick one here.
@@ -153,7 +152,7 @@ postproject::RepresentationId add_render_sequence(postproject::Production &produ
   sequence.rate_denominator = 1001;
   sequence.missing_frames = {1003};
 
-  auto transaction = production.beginTransaction().value();
+  auto transaction = production.edit().value();
   const auto sequence_id = transaction.addRepresentation(
       asset_id, postproject::RepresentationKind::derived,
       postproject::MediaSource::imageSequence(sequence)).value();
@@ -183,7 +182,7 @@ void record_render(postproject::Production &production,
   activity.tool = postproject::ToolIdentity{
       "Example Renderer", "2.1", "https://example.com/renderer"};
 
-  auto transaction = production.beginTransaction().value();
+  auto transaction = production.edit().value();
   const auto activity_id = transaction.createActivity(activity).value();
   transaction.commit().value();
 
@@ -247,7 +246,7 @@ void request_and_page_jobs(postproject::Production &production,
   const postproject::JobRequest request{
       "org.example:generate-proxy", {input_id}, output_asset_id,
       postproject::RepresentationKind::proxy, std::nullopt};
-  auto transaction = production.beginTransaction().value();
+  auto transaction = production.edit().value();
   const auto job_id = transaction.requestJob(request).value();
   transaction.requestJob(request).value();
   transaction.commit().value();
@@ -517,7 +516,7 @@ int main(int argc, char **argv) {
     record_render(production, original_id, sequence_id);
     inspect_artifact(production, sequence_id);
     // scene.ppscene authors the fixture's reference; rendered frames do not.
-    auto scene_edit = production.beginTransaction().value();
+    auto scene_edit = production.edit().value();
     const auto scene_asset = scene_edit.importMedia(work + "/scene.ppscene").value().asset_id;
     scene_edit.commit().value();
     const auto scene = production.representations(scene_asset).value();

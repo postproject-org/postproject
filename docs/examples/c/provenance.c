@@ -59,7 +59,7 @@ static pp_error_code_t observe_file(pp_production_t *production,
   pp_error_code_t status =
       pp_production_read_session(production, &view, error);
   if (status == PP_OK) {
-    status = pp_read_session_begin_edit(view, &transaction, error);
+    status = pp_read_session_begin_edit(view, NULL, &transaction, error);
   }
   pp_read_session_release(view);
   view = NULL;
@@ -191,7 +191,7 @@ static pp_error_code_t record_transcode(pp_production_t *production,
   pp_activity_id_t activity_id = {0};
 
   pp_error_code_t status =
-      pp_production_begin_transaction(production, &transaction, error);
+      pp_production_begin_edit(production, NULL, NULL, &transaction, error);
   if (status == PP_OK) {
     /* Tool and agent identity are independent, optional attributions. */
     status = pp_transaction_create_activity(
@@ -330,7 +330,7 @@ static pp_error_code_t explain_stale_proxy(
   pp_error_code_t status =
       pp_production_read_session(production, &view, error);
   if (status == PP_OK) {
-    status = pp_read_session_begin_edit(view, &transaction, error);
+    status = pp_read_session_begin_edit(view, NULL, &transaction, error);
   }
   pp_read_session_release(view);
   view = NULL;
@@ -480,7 +480,7 @@ static pp_error_code_t record_dependencies(pp_production_t *production,
   pp_error_code_t status =
       pp_production_read_session(production, &view, error);
   if (status == PP_OK) {
-    status = pp_read_session_begin_edit(view, &transaction, error);
+    status = pp_read_session_begin_edit(view, NULL, &transaction, error);
   }
   pp_read_session_release(view);
   if (status == PP_OK) {
@@ -505,7 +505,7 @@ static pp_error_code_t observe_source(pp_production_t *production,
   pp_error_code_t status =
       pp_production_read_session(production, &view, error);
   if (status == PP_OK) {
-    status = pp_read_session_begin_edit(view, &transaction, error);
+    status = pp_read_session_begin_edit(view, NULL, &transaction, error);
   }
   pp_read_session_release(view);
   view = NULL;
@@ -583,7 +583,7 @@ create_production(const char *path, const char *media, const char *proxy,
   pp_error_code_t status =
       pp_production_create(path, "Documentary", &production, error);
   if (status == PP_OK) {
-    status = pp_production_begin_transaction(production, &transaction, error);
+    status = pp_production_begin_edit(production, NULL, NULL, &transaction, error);
   }
   if (status == PP_OK) {
     status = pp_transaction_import_file(transaction, media, "Camera A", out_asset_id, NULL, error);
@@ -614,7 +614,7 @@ create_production(const char *path, const char *media, const char *proxy,
     }
   }
   if (status == PP_OK) {
-    status = pp_production_begin_transaction(production, &transaction, error);
+    status = pp_production_begin_edit(production, NULL, NULL, &transaction, error);
   }
   if (status == PP_OK) {
     status = pp_transaction_add_file_representation(transaction, *out_asset_id, PP_REPRESENTATION_PROXY, proxy, out_proxy_id, error);

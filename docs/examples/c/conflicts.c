@@ -6,37 +6,22 @@
 #include <string.h>
 
 /* [semantic-conflicts] */
-static pp_error_code_t latest_revision(pp_production_t *production,
-                                       pp_revision_id_t *out_id,
-                                       uint64_t *out_sequence,
-                                       pp_error_t **error) {
-  pp_revision_set_t *revisions = NULL;
-  pp_transaction_id_t transaction_id;
-  int64_t committed_at = 0;
-  const char *origin_name = NULL;
-  const char *origin_version = NULL;
-  const char *origin_uri = NULL;
-  const char *message = NULL;
-  pp_error_code_t status =
-      pp_production_latest_revision(production, &revisions, error);
-  if (status == PP_OK && pp_revision_set_count(revisions) != UINT64_C(1)) {
-    status = PP_ERROR_INTERNAL;
-  }
-  if (status == PP_OK) {
-    status = pp_revision_set_get(
-        revisions, 0, out_id, out_sequence, &transaction_id, &committed_at,
-        &origin_name, &origin_version, &origin_uri, &message, error);
-  }
-  pp_revision_set_release(revisions);
+static pp_error_code_t decision_base(pp_production_t *production,
+                                      pp_decision_base_t *out_base,
+                                      pp_error_t **error) {
+  pp_read_session_t *view = NULL;
+  pp_error_code_t status = pp_production_read_session(production, &view, error);
+  if (status == PP_OK)
+    status = pp_read_session_decision_base(view, out_base, error);
+  pp_read_session_release(view);
   return status;
 }
 
 static pp_error_code_t
 update_from_a_base_revision(pp_production_t *production, pp_error_t **error) {
   pp_media_root_id_t root_id = {0};
-  pp_revision_id_t base_id = {0};
+  pp_decision_base_t base = {0};
   pp_revision_id_t superseding_id;
-  uint64_t base_sequence = 0;
   uint64_t superseding_sequence = 0;
   pp_transaction_t *transaction = NULL;
 
@@ -53,7 +38,7 @@ update_from_a_base_revision(pp_production_t *production, pp_error_t **error) {
   if (parsed != PP_OK) return parsed;
 
   pp_error_code_t status =
-      pp_production_begin_transaction(production, &transaction, error);
+      pp_production_begin_edit(production, NULL, NULL, &transaction, error);
   if (status == PP_OK) {
     status = pp_transaction_add_media_root(transaction, "rushes", NULL, 0,
                                            &root_id, error);
@@ -65,11 +50,11 @@ update_from_a_base_revision(pp_production_t *production, pp_error_t **error) {
   pp_transaction_release(transaction);
   transaction = NULL;
   if (status == PP_OK) {
-    status = latest_revision(production, &base_id, &base_sequence, error);
+    status = decision_base(production, &base, error);
   }
 
   if (status == PP_OK) {
-    status = pp_production_begin_transaction_at(production, base_id,
+    status = pp_production_begin_edit(production, &base, NULL,
                                                 &transaction, error);
   }
   if (status == PP_OK) {
@@ -90,7 +75,7 @@ update_from_a_base_revision(pp_production_t *production, pp_error_t **error) {
   transaction = NULL;
 
   if (status == PP_OK) {
-    status = pp_production_begin_transaction_at(production, base_id,
+    status = pp_production_begin_edit(production, &base, NULL,
                                                 &transaction, error);
   }
   if (status == PP_OK) {
@@ -108,9 +93,9 @@ update_from_a_base_revision(pp_production_t *production, pp_error_t **error) {
         conflict.target.kind == 0 &&
         memcmp(conflict.media_root_id.bytes, root_id.bytes, sizeof(root_id.bytes)) ==
             0 &&
-        memcmp(conflict.base_revision_id.bytes, base_id.bytes,
-               sizeof(base_id.bytes)) == 0 &&
-        conflict.base_revision_sequence == base_sequence &&
+        memcmp(conflict.base_revision_id.bytes, base.revision_id.bytes,
+               sizeof(base.revision_id.bytes)) == 0 &&
+        conflict.base_revision_sequence == base.revision_sequence &&
         memcmp(conflict.superseding_revision_id.bytes, superseding_id.bytes,
                sizeof(superseding_id.bytes)) == 0 &&
         conflict.superseding_revision_sequence == superseding_sequence) {
@@ -122,14 +107,12 @@ update_from_a_base_revision(pp_production_t *production, pp_error_t **error) {
   transaction = NULL;
 
   /* Retry only after re-reading and deciding that enabling is still right. */
-  pp_revision_id_t refreshed_id = {0};
-  uint64_t refreshed_sequence = 0;
+  pp_decision_base_t refreshed = {0};
   if (status == PP_OK) {
-    status = latest_revision(production, &refreshed_id, &refreshed_sequence,
-                             error);
+    status = decision_base(production, &refreshed, error);
   }
   if (status == PP_OK) {
-    status = pp_production_begin_transaction_at(production, refreshed_id,
+    status = pp_production_begin_edit(production, &refreshed, NULL,
                                                 &transaction, error);
   }
   if (status == PP_OK) {

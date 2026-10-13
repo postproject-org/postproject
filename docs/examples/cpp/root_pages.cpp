@@ -5,7 +5,7 @@
 // [root-pages]
 static void root_pages(const std::string &path) {
   auto production = postproject::Production::create(path).value();
-  auto transaction = production.beginTransaction().value();
+  auto transaction = production.edit().value();
   transaction.addMediaRoot("first", -1).value();
   transaction.addMediaRoot("second").value();
   transaction.commit().value();

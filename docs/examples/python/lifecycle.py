@@ -24,7 +24,6 @@ from postproject import (
     Production,
     ProductionId,
     Revision,
-    RevisionContext,
     parse_id,
 )
 
@@ -68,13 +67,11 @@ def open_production(
 
 # [transaction-lifecycle]
 def tag_then_discard(production: Production, asset_id: AssetId) -> None:
-    transaction = production.edit()
+    transaction = production.edit(
+        origin=OriginIdentity("com.example.editor", "0.4.0"),
+        message="Tag camera serial",
+    )
     try:
-        transaction.set_revision_context(
-            RevisionContext(
-                OriginIdentity("com.example.editor", "0.4.0"), "Tag camera serial"
-            )
-        )
         transaction.add_external_identifier(
             AssetRef(asset_id),
             ExternalIdentifier("com.example.camera.serial", "A-0007"),

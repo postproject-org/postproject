@@ -41,7 +41,7 @@ postproject::AssetId import_image_strip(postproject::Production &production,
   // descriptor.
   const auto strip = postproject::MediaSource::imageSequence(
       {directory, {"shot010.", ".exr", 4}, 1001, 1004, 1, 24, 1, {1003}});
-  auto transaction = production.beginTransaction().value();
+  auto transaction = production.edit().value();
   const auto asset_id = transaction.importMedia(strip, "shot010 strip").value().asset_id;
   transaction.commit().value();
 
@@ -56,7 +56,7 @@ postproject::AssetId import_image_strip(postproject::Production &production,
 postproject::RepresentationId add_proxy(postproject::Production &production,
                             const postproject::AssetId &asset_id,
                             const std::string &proxy_path) {
-  auto transaction = production.beginTransaction().value();
+  auto transaction = production.edit().value();
   // A native path describes a file without an intermediate source owner.
   const auto proxy_id = transaction.addRepresentation(
       asset_id, postproject::RepresentationKind::proxy,
@@ -79,7 +79,7 @@ postproject::RepresentationId add_spanned_clip(postproject::Production &producti
       {directory + "/CLIP0001.MTS", "org.postproject:essence", true},
       {directory + "/CLIP0002.MTS", "org.postproject:span-part", true},
   });
-  auto transaction = production.beginTransaction().value();
+  auto transaction = production.edit().value();
   const auto clip_id = transaction.addRepresentation(
       asset_id, postproject::RepresentationKind::original, parts).value();
   transaction.commit().value();
@@ -96,7 +96,7 @@ postproject::RepresentationId add_package(postproject::Production &production,
       {directory + "/clip.mxf", "org.postproject:essence", true},
       {directory + "/clip.xml", "org.postproject:sidecar", false},
   });
-  auto transaction = production.beginTransaction().value();
+  auto transaction = production.edit().value();
   const auto package_id = transaction.addRepresentation(
       asset_id, postproject::RepresentationKind::original, members).value();
   transaction.commit().value();
@@ -274,7 +274,7 @@ relink_renamed_sequence(postproject::Production &production,
         std::cout << candidate.uri << " evidence "
                   << static_cast<unsigned>(evidence.kind) << '\n';
       }
-      auto transaction = production.beginTransaction().value();
+      auto transaction = production.edit().value();
       transaction
           .confirmLocator(resource.resource_id, candidate.uri,
                           candidate.media_root, candidate.sequence_naming)
@@ -432,7 +432,7 @@ postproject::RepresentationId add_sequence(postproject::Production &production,
   sequence.rate_numerator = 24;
   sequence.rate_denominator = 1;
   sequence.missing_frames = {1003};
-  auto transaction = production.beginTransaction().value();
+  auto transaction = production.edit().value();
   const auto id = transaction.addRepresentation(
       asset_id, postproject::RepresentationKind::derived,
       postproject::MediaSource::imageSequence(sequence)).value();
@@ -470,7 +470,7 @@ int main(int argc, char **argv) {
 
     auto production = postproject::Production::create(
         (work / "media.pproj").string(), "Media").value();
-    auto setup = production.beginTransaction().value();
+    auto setup = production.edit().value();
     const auto asset_id = setup.importMedia(media, "Camera A").value().asset_id;
     setup.addMediaRoot("rushes", "Camera originals", 10).value();
     setup.addMediaRoot("archive", 0).value();

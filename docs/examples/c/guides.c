@@ -23,12 +23,9 @@ static pp_error_code_t create_production(const char *path, const char *media,
   pp_error_code_t status =
       pp_production_create(path, "Documentary", &production, error);
   if (status == PP_OK) {
-    status = pp_production_begin_transaction(production, &transaction, error);
-  }
-  if (status == PP_OK) {
-    status = pp_transaction_set_revision_context(
-        transaction, "com.example.editor", "0.4.0", NULL,
-        "Import camera original", error);
+    status = pp_production_begin_edit(production, NULL,
+        &(pp_edit_context_t){"com.example.editor", "0.4.0", NULL,
+        "Import camera original"}, &transaction, error);
   }
   if (status == PP_OK) {
     status = pp_transaction_import_file(transaction, media, "Camera A", out_asset_id, NULL, error);
@@ -67,7 +64,7 @@ static pp_error_code_t tag_camera_serial(pp_production_t *production,
   pp_object_ref_set_t *matches = NULL;
 
   pp_error_code_t status =
-      pp_production_begin_transaction(production, &transaction, error);
+      pp_production_begin_edit(production, NULL, NULL, &transaction, error);
   if (status == PP_OK) {
     status = pp_transaction_add_external_identifier(
         transaction, &target, "com.example.camera.serial", "A-0007", NULL,
@@ -118,7 +115,7 @@ static pp_error_code_t add_title(pp_production_t *production,
   pp_error_code_t status =
       pp_metadata_input_create_string("Interview", "en-US", &title, error);
   if (status == PP_OK) {
-    status = pp_production_begin_transaction(production, &transaction, error);
+    status = pp_production_begin_edit(production, NULL, NULL, &transaction, error);
   }
   if (status == PP_OK) {
     status = pp_transaction_add_metadata_value(
@@ -169,7 +166,7 @@ static pp_error_code_t add_rushes_root(pp_production_t *production,
   pp_media_root_id_t root_id;
 
   pp_error_code_t status =
-      pp_production_begin_transaction(production, &transaction, error);
+      pp_production_begin_edit(production, NULL, NULL, &transaction, error);
   if (status == PP_OK) {
     status = pp_transaction_add_media_root(transaction, "rushes",
                                            "Camera originals", 0, &root_id,
@@ -262,7 +259,7 @@ confirm_unique_candidates(pp_production_t *production,
                           pp_error_t **error) {
   pp_transaction_t *transaction = NULL;
   pp_error_code_t status =
-      pp_production_begin_transaction(production, &transaction, error);
+      pp_production_begin_edit(production, NULL, NULL, &transaction, error);
 
   const uint64_t count = pp_resolution_set_representation_count(resolutions);
   for (uint64_t r = 0; status == PP_OK && r < count; ++r) {
@@ -332,7 +329,7 @@ static pp_error_code_t add_render_sequence(pp_production_t *production,
       directory, &naming, 1001, 1004, 1, 24000, 1001, missing_frames, 1,
       &sequence, error);
   if (status == PP_OK) {
-    status = pp_production_begin_transaction(production, &transaction, error);
+    status = pp_production_begin_edit(production, NULL, NULL, &transaction, error);
   }
   if (status == PP_OK) {
     status = pp_transaction_add_representation(
@@ -398,7 +395,7 @@ static pp_error_code_t record_render(pp_production_t *production,
   pp_activity_id_t activity_id;
 
   pp_error_code_t status =
-      pp_production_begin_transaction(production, &transaction, error);
+      pp_production_begin_edit(production, NULL, NULL, &transaction, error);
   if (status == PP_OK) {
     status = pp_transaction_create_activity(
         transaction, "org.postproject:render", inputs, 1, outputs, 1, NULL,
@@ -499,7 +496,7 @@ record_and_query_dependencies(pp_production_t *production,
   pp_error_code_t status =
       pp_production_read_session(production, &view, error);
   if (status == PP_OK) {
-    status = pp_read_session_begin_edit(view, &transaction, error);
+    status = pp_read_session_begin_edit(view, NULL, &transaction, error);
   }
   pp_read_session_release(view);
   if (status == PP_OK) {
@@ -554,7 +551,7 @@ static pp_error_code_t request_and_page_jobs(pp_production_t *production,
   pp_transaction_t *transaction = NULL;
   pp_job_id_t job_ids[2];
   pp_error_code_t status =
-      pp_production_begin_transaction(production, &transaction, error);
+      pp_production_begin_edit(production, NULL, NULL, &transaction, error);
   for (uint32_t i = 0; status == PP_OK && i < UINT32_C(2); ++i) {
     status = pp_transaction_request_job(
         transaction, kind, input_id, UINT64_C(1), *output_asset_id,
@@ -1189,7 +1186,7 @@ int main(int argc, char **argv) {
     pp_transaction_t *scene_edit = NULL;
     pp_asset_id_t scene_asset;
     pp_representation_id_t scene_id;
-    status = pp_production_begin_transaction(production, &scene_edit, &error);
+    status = pp_production_begin_edit(production, NULL, NULL, &scene_edit, &error);
     if (status == PP_OK)
       status = pp_transaction_import_file(scene_edit, scene_path, NULL, &scene_asset, NULL, &error);
     if (status == PP_OK) {

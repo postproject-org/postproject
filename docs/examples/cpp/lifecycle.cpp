@@ -52,7 +52,7 @@ void asset_identity(std::string_view saved_id) {
 postproject::AssetId create_with_asset(const std::string &path,
                                     const std::string &media) {
   auto production = postproject::Production::create(path, "Documentary").value();
-  auto transaction = production.beginTransaction().value();
+  auto transaction = production.edit().value();
   const auto asset_id = transaction.importMedia(media, "Camera A").value().asset_id;
   transaction.commit().value();
   return asset_id;
@@ -88,14 +88,13 @@ postproject::Production open_production(const std::string &path,
 
 // [transaction-lifecycle]
 void commit_then_roll_back(postproject::Production &production) {
-  auto transaction = production.beginTransaction().value();
-  transaction.setRevisionContext(
-      {postproject::OriginIdentity{"com.example.editor", "0.4.0", std::nullopt},
+  auto transaction = production.edit({postproject::OriginIdentity{"com.example.editor", "0.4.0", std::nullopt},
        "Add the rushes root"}).value();
+
   transaction.addMediaRoot("rushes", "Camera originals").value();
   transaction.commit().value(); // one durable revision
 
-  auto abandoned = production.beginTransaction().value();
+  auto abandoned = production.edit().value();
   abandoned.addMediaRoot("renders", "Discarded root").value();
   // Rolling back discards every staged change; no revision is written.
   abandoned.rollback().value();

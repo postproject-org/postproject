@@ -56,7 +56,7 @@ postproject::JobId request_proxy(postproject::Production &production,
                                         postproject::RepresentationKind::proxy,
                                         std::string("proxies")};
 
-  auto transaction = production.beginTransaction().value();
+  auto transaction = production.edit().value();
   const auto job_id = transaction.requestJob(request).value();
   // Typed job parameters are metadata on the job itself.
   const auto job = postproject::ObjectRef::job(job_id);
@@ -89,7 +89,7 @@ postproject::JobId request_proxy(postproject::Production &production,
 // [claim-job]
 void claim_renew_release(postproject::Production &production,
                          const postproject::JobId &job_id) {
-  auto claim = production.beginTransaction().value();
+  auto claim = production.edit().value();
   auto lease = claim.claimJobLease(job_id, encoder, std::chrono::minutes(1), worker).value();
   require(std::holds_alternative<postproject::PendingJobLease>(lease.state().value()), "pending lease");
   claim.commit().value();
@@ -99,11 +99,11 @@ void claim_renew_release(postproject::Production &production,
   require(std::holds_alternative<postproject::ActiveJobLease>(lease.state().value()), "active lease");
   // Export only for private worker transport, never ordinary output.
   auto imported = production.importJobLease(lease.exportToken().value()).value();
-  auto renew = production.beginTransaction().value();
+  auto renew = production.edit().value();
   renew.renewJobLease(imported, std::chrono::minutes(2)).value();
   renew.commit().value();
 
-  auto release = production.beginTransaction().value();
+  auto release = production.edit().value();
   release.releaseJobLease(imported).value(); // back to requested
   release.commit().value();
   require(std::holds_alternative<postproject::ClosedJobLease>(imported.state().value()), "closed lease");
@@ -115,14 +115,14 @@ void claim_renew_release(postproject::Production &production,
 postproject::RepresentationId complete_proxy(postproject::Production &production,
                                  const postproject::Job &job,
                                  const std::string &output_path) {
-  auto claim = production.beginTransaction().value();
+  auto claim = production.edit().value();
   auto lease = claim.claimJobLease(job.id, encoder, std::chrono::minutes(10), worker).value();
   claim.commit().value();
 
   std::ofstream(output_path, std::ios::binary) << "encoded proxy";
 
   // Output, provenance, and the job transition commit together or not at all.
-  auto transaction = production.beginTransaction().value();
+  auto transaction = production.edit().value();
   const auto proxy_id = transaction.addRepresentation(
       job.output_asset_id, job.output_representation_kind, output_path).value();
   postproject::ActivitySpec activity{};
@@ -147,11 +147,11 @@ postproject::RepresentationId complete_proxy(postproject::Production &production
 // [fail-job]
 void fail_proxy(postproject::Production &production,
                 const postproject::JobId &job_id) {
-  auto claim = production.beginTransaction().value();
+  auto claim = production.edit().value();
   auto lease = claim.claimJobLease(job_id, encoder, std::chrono::minutes(1), worker).value();
   claim.commit().value();
 
-  auto transaction = production.beginTransaction().value();
+  auto transaction = production.edit().value();
   transaction.failJobLease(lease,
                       "encoder exited with status 1").value();
   transaction.commit().value();
@@ -161,7 +161,7 @@ void fail_proxy(postproject::Production &production,
 // [cancel-job]
 void cancel(postproject::Production &production,
             const postproject::JobId &job_id) {
-  auto transaction = production.beginTransaction().value();
+  auto transaction = production.edit().value();
   transaction.cancelJob(job_id).value(); // no claim is needed to cancel
   transaction.commit().value();
 }
@@ -175,7 +175,7 @@ regenerate(postproject::Production &production,
   const auto plans = production.planRegeneration({artifact_id}).value();
 
   std::vector<postproject::JobId> job_ids;
-  auto transaction = production.beginTransaction().value();
+  auto transaction = production.edit().value();
   for (const auto &plan : plans) {
     const postproject::JobRequest request{
         plan.job.kind, plan.job.inputs, plan.job.output_asset_id,
@@ -206,7 +206,7 @@ int main(int argc, char **argv) {
     std::filesystem::create_directories(work / "proxies");
     auto production =
         postproject::Production::create((work / "jobs.pproj").string(), "Jobs").value();
-    auto setup = production.beginTransaction().value();
+    auto setup = production.edit().value();
     const auto asset_id =
         setup.importMedia((work / "rushes" / "A001.mov").string(), "Camera A").value().asset_id;
     setup.addMediaRoot("proxies", "Generated proxies").value();
@@ -248,7 +248,7 @@ int main(int argc, char **argv) {
                 producers.front().id == completion->activity_id,
             "job references its activity");
 
-    auto more = production.beginTransaction().value();
+    auto more = production.edit().value();
     const postproject::JobRequest thumbnail{
         "org.postproject:generate-thumbnail",
         {original_id},

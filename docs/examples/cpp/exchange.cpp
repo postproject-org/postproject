@@ -146,16 +146,16 @@ static Result<void> rejected_intent(const std::string &path) {
 
 static Result<void> worker_delivery(const std::string &path, const std::string &media) {
   POSTPROJECT_TRY_ASSIGN(auto production, Production::create(path));
-  POSTPROJECT_TRY_ASSIGN(auto setup, production.beginTransaction());
+  POSTPROJECT_TRY_ASSIGN(auto setup, production.edit());
   POSTPROJECT_TRY_ASSIGN(auto imported, setup.importMedia(media));
   const auto asset = imported.asset_id;
   POSTPROJECT_TRY(setup.commit());
-  POSTPROJECT_TRY_ASSIGN(auto request, production.beginTransaction());
+  POSTPROJECT_TRY_ASSIGN(auto request, production.edit());
   POSTPROJECT_TRY_ASSIGN(auto job, request.requestJob({"example:proxy", {imported.representation_id},
       asset, RepresentationKind::proxy, std::nullopt}));
   POSTPROJECT_TRY(request.commit());
   const ClientId client(Uuid::Bytes{1});
-  POSTPROJECT_TRY_ASSIGN(auto claim, production.beginTransaction());
+  POSTPROJECT_TRY_ASSIGN(auto claim, production.edit());
   POSTPROJECT_TRY_ASSIGN(auto pending, claim.claimJobLease(job,
       {"Worker", std::nullopt, std::nullopt}, std::chrono::minutes(1)));
   POSTPROJECT_TRY_ASSIGN(auto proposal, claim.prepareProposal(client, RequestId(Uuid::Bytes{1})));
@@ -168,11 +168,11 @@ static Result<void> worker_delivery(const std::string &path, const std::string &
       !std::holds_alternative<ClaimedJobResult>(delivery.outcome.jobs[0].status))
     return Error(ErrorCode::internal, "fresh lease and public observation");
   auto lease = std::move(delivery.leases[0]);
-  POSTPROJECT_TRY_ASSIGN(auto renew, production.beginTransaction());
+  POSTPROJECT_TRY_ASSIGN(auto renew, production.edit());
   POSTPROJECT_TRY(renew.renewJobLease(lease, std::chrono::minutes(2)));
   POSTPROJECT_TRY_ASSIGN(auto renewal, renew.prepareProposal(client, RequestId(Uuid::Bytes{2})));
   POSTPROJECT_TRY_ASSIGN(auto renewed, production.submitProposal(renewal, {std::cref(lease)}));
-  POSTPROJECT_TRY_ASSIGN(auto release, production.beginTransaction());
+  POSTPROJECT_TRY_ASSIGN(auto release, production.edit());
   POSTPROJECT_TRY(release.releaseJobLease(lease));
   POSTPROJECT_TRY(release.commit());
   POSTPROJECT_TRY_ASSIGN(production, Production::open(path));

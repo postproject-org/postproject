@@ -91,7 +91,7 @@ static pp_error_code_t replace_identifiers(pp_production_t *production,
   pp_read_session_t *view = NULL;
 
   pp_error_code_t status =
-      pp_production_begin_transaction(production, &transaction, error);
+      pp_production_begin_edit(production, NULL, NULL, &transaction, error);
   if (status == PP_OK) {
     status = pp_transaction_add_external_identifier(transaction, &target,
                                                     "com.example.camera.serial",
@@ -142,7 +142,7 @@ static pp_error_code_t replace_identifiers(pp_production_t *production,
 
   /* Removal names the exact scheme, value, and qualifier. */
   if (status == PP_OK) {
-    status = pp_read_session_begin_edit(view, &transaction, error);
+    status = pp_read_session_begin_edit(view, NULL, &transaction, error);
   }
   pp_read_session_release(view);
   if (status == PP_OK) {
@@ -259,7 +259,7 @@ static pp_error_code_t add_typed_values(pp_production_t *production,
     status = pp_metadata_input_create_reference(&source, &values[12], error);
   }
   if (status == PP_OK) {
-    status = pp_production_begin_transaction(production, &transaction, error);
+    status = pp_production_begin_edit(production, NULL, NULL, &transaction, error);
   }
   for (int i = 0; status == PP_OK && i < VALUE_COUNT; ++i) {
     status = pp_transaction_add_metadata_value(transaction, &target, EDITORIAL,
@@ -485,7 +485,7 @@ static pp_error_code_t remove_keywords(pp_production_t *production,
   pp_error_code_t status =
       pp_production_read_session(production, &view, error);
   if (status == PP_OK) {
-    status = pp_read_session_begin_edit(view, &transaction, error);
+    status = pp_read_session_begin_edit(view, NULL, &transaction, error);
   }
   pp_read_session_release(view);
   if (status == PP_OK) {
@@ -527,7 +527,7 @@ static pp_error_code_t create_production(const char *path, const char *media,
   pp_error_code_t status =
       pp_production_create(path, "Documentary", &production, error);
   if (status == PP_OK) {
-    status = pp_production_begin_transaction(production, &transaction, error);
+    status = pp_production_begin_edit(production, NULL, NULL, &transaction, error);
   }
   if (status == PP_OK) {
     status = pp_transaction_import_file(transaction, media, "Camera A", out_asset_id, NULL, error);
@@ -574,7 +574,7 @@ static pp_error_code_t add_departments(pp_production_t *production,
   pp_error_code_t status =
       pp_metadata_input_create_string("editorial", NULL, &department, error);
   if (status == PP_OK) {
-    status = pp_production_begin_transaction(production, &transaction, error);
+    status = pp_production_begin_edit(production, NULL, NULL, &transaction, error);
   }
   for (int i = 0; status == PP_OK && i < 2; ++i) {
     status = pp_transaction_add_metadata_value(

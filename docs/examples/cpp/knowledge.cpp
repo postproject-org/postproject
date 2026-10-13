@@ -56,7 +56,7 @@ replace_reel_name(postproject::Production &production,
   const postproject::ExternalIdentifier serial{"com.example.camera.serial",
                                                "A-0007", std::string("body")};
 
-  auto attach = production.beginTransaction().value();
+  auto attach = production.edit().value();
   attach.addExternalIdentifier(target, reel).value();
   attach.addExternalIdentifier(target, serial).value();
   attach.commit().value();
@@ -96,7 +96,7 @@ void add_editorial_metadata(postproject::Production &production,
   slate.push_back({"scene", MetadataValue::plainString("12A")});
   slate.push_back({"take", MetadataValue::unsignedInteger(3)});
 
-  auto transaction = production.beginTransaction().value();
+  auto transaction = production.edit().value();
   const auto add = [&](const char *property, const MetadataValue &value) {
     transaction.addMetadataValue(asset, editorial, property, value).value();
   };
@@ -213,7 +213,7 @@ int main(int argc, char **argv) {
     const std::string production_path = work + "/knowledge.pproj";
     const std::string media_path = work + "/rushes/A001.mov";
     auto production = postproject::Production::create(production_path, "Knowledge").value();
-    auto setup = production.beginTransaction().value();
+    auto setup = production.edit().value();
     const auto asset_id = setup.importMedia(media_path).value().asset_id;
     setup.commit().value();
     require(find_known_media(production_path, media_path) == asset_id,
@@ -305,7 +305,7 @@ int main(int argc, char **argv) {
                      {"take", MetadataValue::unsignedInteger(3)}}),
             "structure reads back");
     {
-      auto unbased = production.beginTransaction().value();
+      auto unbased = production.edit().value();
       const auto rejected = unbased.removeMetadataProperty(asset, editorial, "keywords");
       require(!rejected && rejected.error().code() == postproject::ErrorCode::invalid_argument,
               "unbased removal rejects before staging");

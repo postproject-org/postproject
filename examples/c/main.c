@@ -31,7 +31,7 @@ int main(int argc, char **argv) {
   pp_error_code_t status =
       pp_production_create(argv[1], "C quickstart", &production, &error);
   if (status == PP_OK) {
-    status = pp_production_begin_transaction(production, &transaction, &error);
+    status = pp_production_begin_edit(production, NULL, NULL, &transaction, &error);
   }
   /* A media source describes the file to import; the transaction borrows it
    * only for the call. */

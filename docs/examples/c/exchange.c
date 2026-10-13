@@ -33,8 +33,8 @@ int main(int argc, char **argv) {
   if (mirror_state.role != PP_EXCHANGE_PASSIVE_MIRROR || !mirror_state.has_head || memcmp(mirror_state.head.digest, saved.digest, sizeof saved.digest)) goto cleanup;
   /* [/exchange-checkpoint] */
   pp_transaction_t *forbidden = NULL;
-  if (pp_production_begin_transaction(mirror, &forbidden, NULL) != PP_ERROR_UNSUPPORTED || forbidden != NULL) goto cleanup;
-  if (pp_production_begin_edit(mirror, &mirror_state.observed_base.decision, &forbidden, NULL) != PP_ERROR_UNSUPPORTED || forbidden != NULL) goto cleanup;
+  if (pp_production_begin_edit(mirror, NULL, NULL, &forbidden, NULL) != PP_ERROR_UNSUPPORTED || forbidden != NULL) goto cleanup;
+  if (pp_production_begin_edit(mirror, &mirror_state.observed_base.decision, NULL, &forbidden, NULL) != PP_ERROR_UNSUPPORTED || forbidden != NULL) goto cleanup;
   pp_exchange_limits_t tiny = mirror_state.limits;
   tiny.file_bytes = 1;
   if (pp_checkpoint_validate_file(checkpoint, &tiny, &validated, NULL) != PP_ERROR_LIMIT_EXCEEDED || validated.base.decision.revision_sequence != 0) goto cleanup;
@@ -53,7 +53,7 @@ int main(int argc, char **argv) {
   if (state.protocol_version != 1 || state.role != PP_EXCHANGE_AUTHORITY || !state.has_head || state.floor.base.decision.revision_sequence != 0) goto cleanup;
   CHECK(pp_production_read_session(production, &view, &error));
   CHECK(pp_read_session_decision_base(view, &base, &error));
-  CHECK(pp_production_begin_edit(production, &base, &edit, &error));
+  CHECK(pp_production_begin_edit(production, &base, NULL, &edit, &error));
   target.kind = PP_OBJECT_PRODUCTION;
   memcpy(target.id.bytes, base.production_id.bytes, sizeof target.id.bytes);
   CHECK(pp_metadata_input_create_u64(UINT64_MAX, &value, &error));
@@ -67,11 +67,11 @@ int main(int argc, char **argv) {
   /* Preparation writes no domain state, and closes the original edit. */
   CHECK(pp_production_media_roots(production, &roots, &error));
   if (pp_media_root_set_count(roots) != 0) goto cleanup;
-  CHECK(pp_production_begin_edit(production, &base, &next, &error));
+  CHECK(pp_production_begin_edit(production, &base, NULL, &next, &error));
   pp_transaction_release(edit); edit = NULL;
   /* Releasing the old closed handle must not discard the newer edit guard. */
   pp_transaction_t *blocked = NULL;
-  if (pp_production_begin_edit(production, &base, &blocked, NULL) != PP_ERROR_CONFLICT || blocked != NULL) goto cleanup;
+  if (pp_production_begin_edit(production, &base, NULL, &blocked, NULL) != PP_ERROR_CONFLICT || blocked != NULL) goto cleanup;
   pp_transaction_release(next); next = NULL;
   /* [exchange-submit] */
   pp_request_identity_t identity;

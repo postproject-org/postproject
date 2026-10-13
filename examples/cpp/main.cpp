@@ -24,7 +24,7 @@ postproject::Result<postproject::AssetId> import_media(const std::string &output
   POSTPROJECT_TRY_ASSIGN(
       auto production,
       postproject::Production::create(output, "C++ quickstart"));
-  POSTPROJECT_TRY_ASSIGN(auto transaction, production.beginTransaction());
+  POSTPROJECT_TRY_ASSIGN(auto transaction, production.edit());
   // A failure returns here and destroys the open transaction, which discards
   // its work.
   POSTPROJECT_TRY_ASSIGN(const auto imported,
@@ -37,7 +37,7 @@ postproject::Result<postproject::AssetId> import_media(const std::string &output
 bool rejects_invalid_metadata(postproject::Production &production,
                               const postproject::AssetId &asset_id) {
   const auto duration = postproject::MetadataValue::decimal("twelve", 2);
-  auto transaction = production.beginTransaction();
+  auto transaction = production.edit();
   if (!transaction.has_value()) {
     report(transaction.error());
     return false;

@@ -12,7 +12,7 @@ static int root_pages(const char *path) {
   int result = 1;
 #define CHECK_ROOT(call) do { if ((call) != PP_OK) goto cleanup; } while (0)
   CHECK_ROOT(pp_production_create(path, "Root pages", &production, &error));
-  CHECK_ROOT(pp_production_begin_transaction(production, &transaction, &error));
+  CHECK_ROOT(pp_production_begin_edit(production, NULL, NULL, &transaction, &error));
   CHECK_ROOT(pp_transaction_add_media_root(transaction, "first", NULL, -1, &root, &error));
   CHECK_ROOT(pp_transaction_add_media_root(transaction, "second", NULL, 0, &root, &error));
   pp_commit_receipt_t commit_receipt;

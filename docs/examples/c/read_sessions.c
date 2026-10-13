@@ -103,7 +103,7 @@ static int exercise(const char *path, const char *media) {
       memcmp(parsed.production_id.bytes, base.production_id.bytes, 16)) goto cleanup;
   pp_string_release(token); token = NULL;
   if (base.has_revision || base.revision_sequence != 0) goto cleanup;
-  CHECK(pp_read_session_begin_edit(empty, &edit, &error));
+  CHECK(pp_read_session_begin_edit(empty, NULL, &edit, &error));
   CHECK(pp_read_session_plan_regeneration(empty, NULL, 0, &plans, &error));
   if (pp_regeneration_plan_set_count(plans)) goto cleanup;
   CHECK(pp_transaction_import_file(edit, media, NULL, &asset, NULL, &error));
@@ -248,7 +248,7 @@ static int exercise(const char *path, const char *media) {
   pp_read_session_release(view); view = NULL;
   /* Copied sets and a detached base survive closing the pinned view. */
   CHECK(pp_revision_event_set_get(events, 0, &first_event, &error));
-  CHECK(pp_production_begin_edit(production, &base, &edit, &error));
+  CHECK(pp_production_begin_edit(production, &base, NULL, &edit, &error));
   CHECK(pp_transaction_commit(edit, &receipt, &error));
   if (receipt.outcome != PP_COMMIT_NO_CHANGE || pp_asset_set_count(assets) != 1 ||
       pp_locator_query_set_count(locator_page) != 1 ||
@@ -256,7 +256,7 @@ static int exercise(const char *path, const char *media) {
     goto cleanup;
   pp_transaction_release(edit); edit = NULL;
   CHECK(pp_production_read_session(production, &view, &error));
-  CHECK(pp_read_session_begin_edit(view, &edit, &error));
+  CHECK(pp_read_session_begin_edit(view, NULL, &edit, &error));
   pp_job_id_t job;
   CHECK(pp_transaction_request_job(edit, "example:proxy", &representation, 1,
       asset, PP_REPRESENTATION_PROXY, NULL, &job, &error));

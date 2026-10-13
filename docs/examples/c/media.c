@@ -41,7 +41,7 @@ static pp_error_code_t import_image_strip(pp_production_t *production,
       directory, &naming, 1001, 1004, 1, 24, 1, missing_frames, 1, &strip,
       error);
   if (status == PP_OK) {
-    status = pp_production_begin_transaction(production, &transaction, error);
+    status = pp_production_begin_edit(production, NULL, NULL, &transaction, error);
   }
   if (status == PP_OK) {
     status = pp_transaction_import_media(transaction, strip, "shot010 strip",
@@ -80,7 +80,7 @@ static pp_error_code_t add_proxy(pp_production_t *production,
                                  const char *proxy_path,
                                  pp_representation_id_t *out_proxy_id, pp_error_t **error) {
   pp_transaction_t *transaction = NULL;
-  pp_error_code_t status = pp_production_begin_transaction(production, &transaction, error);
+  pp_error_code_t status = pp_production_begin_edit(production, NULL, NULL, &transaction, error);
   if (status == PP_OK) {
     /* The file is fingerprinted and recorded as one more representation of
      * the same asset; it never becomes an unrelated asset. */
@@ -110,7 +110,7 @@ add_spanned_clip(pp_production_t *production, const pp_asset_id_t *asset_id,
   pp_error_code_t status =
       pp_media_source_create_ordered_parts(parts, 2, &clip, error);
   if (status == PP_OK) {
-    status = pp_production_begin_transaction(production, &transaction, error);
+    status = pp_production_begin_edit(production, NULL, NULL, &transaction, error);
   }
   if (status == PP_OK) {
     status = pp_transaction_add_representation(
@@ -144,7 +144,7 @@ static pp_error_code_t add_package(pp_production_t *production,
   pp_error_code_t status =
       pp_media_source_create_package(members, 2, &package, error);
   if (status == PP_OK) {
-    status = pp_production_begin_transaction(production, &transaction, error);
+    status = pp_production_begin_edit(production, NULL, NULL, &transaction, error);
   }
   if (status == PP_OK) {
     status = pp_transaction_add_representation(
@@ -371,7 +371,7 @@ static pp_error_code_t apply_root_change(pp_read_session_t *view,
                                          pp_error_t **error) {
   pp_transaction_t *transaction = NULL;
   pp_error_code_t status =
-      pp_read_session_begin_edit(view, &transaction, error);
+      pp_read_session_begin_edit(view, NULL, &transaction, error);
   if (status == PP_OK && change == 0) {
     /* A disabled root keeps its locators but is skipped by resolution. */
     status =
@@ -478,7 +478,7 @@ static pp_error_code_t observe_changed_file(pp_production_t *production,
     status = pp_production_read_session(production, &view, error);
   }
   if (status == PP_OK) {
-    status = pp_read_session_begin_edit(view, &transaction, error);
+    status = pp_read_session_begin_edit(view, NULL, &transaction, error);
   }
   pp_read_session_release(view);
   view = NULL;
@@ -502,7 +502,7 @@ static pp_error_code_t observe_changed_file(pp_production_t *production,
     status = pp_production_read_session(production, &view, error);
   }
   if (status == PP_OK) {
-    status = pp_read_session_begin_edit(view, &transaction, error);
+    status = pp_read_session_begin_edit(view, NULL, &transaction, error);
   }
   pp_read_session_release(view);
   view = NULL;
@@ -570,7 +570,7 @@ static pp_error_code_t retire_superseded(pp_production_t *production,
   pp_read_session_t *view = NULL;
   status = pp_production_read_session(production, &view, error);
   if (status == PP_OK)
-    status = pp_read_session_begin_edit(view, &transaction, error);
+    status = pp_read_session_begin_edit(view, NULL, &transaction, error);
   pp_read_session_release(view);
   if (status == PP_OK) {
     /* Retire only a locator already superseded by a confirmed one. */
@@ -730,7 +730,7 @@ static pp_error_code_t create_production(const char *path, const char *media,
         &sequence, error);
   }
   if (status == PP_OK) {
-    status = pp_production_begin_transaction(production, &transaction, error);
+    status = pp_production_begin_edit(production, NULL, NULL, &transaction, error);
   }
   if (status == PP_OK) {
     status = pp_transaction_import_file(transaction, media, "Camera A", out_asset_id, NULL, error);
@@ -966,7 +966,7 @@ static pp_error_code_t confirm_moved(pp_production_t *production,
 
   pp_transaction_t *transaction = NULL;
   if (status == PP_OK) {
-    status = pp_production_begin_transaction(production, &transaction, error);
+    status = pp_production_begin_edit(production, NULL, NULL, &transaction, error);
   }
   if (status == PP_OK) {
     status = pp_transaction_confirm_locator(transaction, *resource_id, new_uri,
@@ -985,7 +985,7 @@ static pp_error_code_t add_unmapped_root(pp_production_t *production,
   pp_transaction_t *transaction = NULL;
   pp_media_root_id_t root_id;
   pp_error_code_t status =
-      pp_production_begin_transaction(production, &transaction, error);
+      pp_production_begin_edit(production, NULL, NULL, &transaction, error);
   if (status == PP_OK) {
     status = pp_transaction_add_media_root(
         transaction, "rushes", "Camera originals", 0, &root_id, error);
@@ -1054,7 +1054,7 @@ static pp_error_code_t relink_renamed_sequence(pp_production_t *production,
                                           &resolutions, error);
   }
   if (status == PP_OK) {
-    status = pp_production_begin_transaction(production, &transaction, error);
+    status = pp_production_begin_edit(production, NULL, NULL, &transaction, error);
   }
   const uint64_t count =
       status == PP_OK ? pp_resolution_set_representation_count(resolutions) : 0;
