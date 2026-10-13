@@ -547,6 +547,52 @@ typedef struct pp_activity_edge {
   const char *role;
 } pp_activity_edge_t;
 
+/** Repeated typed parameter assertions on the actual producing activity. */
+typedef struct pp_activity_parameter {
+  const char *vocabulary;
+  const char *property;
+  const pp_metadata_input_t *value;
+} pp_activity_parameter_t;
+
+/** Borrowed completed-operation recipe; zero inputs describe generation.
+ * NULL timestamp pointers mean absent. Version/URI require a tool name;
+ * an agent identifier requires both scheme and value. */
+typedef struct pp_activity_recipe {
+  const char *kind;
+  const pp_activity_edge_t *inputs;
+  uint64_t input_count;
+  const int64_t *started_at_unix_micros;
+  const int64_t *finished_at_unix_micros;
+  const char *tool_name;
+  const char *tool_version;
+  const char *tool_uri;
+  const char *agent_name;
+  const char *agent_identifier_scheme;
+  const char *agent_identifier_value;
+  const char *agent_identifier_qualifier;
+  const pp_activity_parameter_t *parameters;
+  uint64_t parameter_count;
+} pp_activity_recipe_t;
+
+/** One already-produced source. Exactly one of path/source is required.
+ * NULL asset_id explicitly creates a new original asset; existing assets
+ * accept every representation kind. display_name requires a new asset.
+ * All values and source handles are borrowed only during the call. */
+typedef struct pp_output_source {
+  const pp_asset_id_t *asset_id;
+  pp_representation_kind_t kind;
+  const char *path;
+  const pp_media_source_t *source;
+  const char *role;
+  const char *display_name;
+} pp_output_source_t;
+
+/** Copied staged identities, durable only after a successful explicit commit. */
+typedef struct pp_output_identity {
+  pp_asset_id_t asset_id;
+  pp_representation_id_t representation_id;
+} pp_output_identity_t;
+
 /* Strings borrow the owning pp_job_set_t. State-specific fields are zero or
  * NULL outside their applicable state. */
 typedef struct pp_job {

@@ -21,6 +21,7 @@ mod known_media;
 mod media_source;
 mod metadata;
 mod metadata_input;
+mod outputs;
 mod provenance;
 mod read_queries;
 mod read_session;
@@ -90,6 +91,7 @@ pub use media_source::PpMediaSource;
 use metadata::AbiMetadataValue;
 pub use metadata::{PpMetadataSet, PpMetadataValue};
 pub use metadata_input::PpMetadataInput;
+pub use outputs::{PpActivityParameter, PpActivityRecipe, PpOutputIdentity, PpOutputSource};
 pub use provenance::PpActivitySet;
 use provenance::{AbiActivityEdge, AbiActivityEdgeSnapshot, AbiFingerprintSnapshot};
 pub use read_session::{PpDecisionBase, PpEditContext, PpReadSession};
@@ -201,7 +203,7 @@ const PP_REVISION_JOB_FAILED: u32 = 25;
 const PP_REVISION_JOB_CANCELLED: u32 = 26;
 
 /// Current pre-1.0 ABI version.
-pub const ABI_VERSION: u32 = 55;
+pub const ABI_VERSION: u32 = 56;
 
 /// Fixed-layout UUID-compatible public identifier.
 #[repr(C)]
