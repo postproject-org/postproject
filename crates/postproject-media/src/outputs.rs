@@ -1,5 +1,7 @@
 //! Prepare produced media and its actual recipe before opening a write.
 
+mod staging;
+
 use std::collections::BTreeSet;
 
 use postproject_core::{
