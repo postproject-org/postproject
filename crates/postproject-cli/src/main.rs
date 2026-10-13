@@ -6,6 +6,7 @@ mod errors;
 mod exchange;
 mod job_transport;
 mod json_input;
+mod outputs;
 
 use std::{
     fs,
@@ -897,9 +898,11 @@ struct ArtifactArgs {
 
 #[derive(Debug, Subcommand)]
 enum ArtifactCommand {
+    /// Register produced sources, one actual activity and typed parameters atomically.
+    Register(Box<outputs::RegisterArgs>),
     /// Evaluate whether an activity-produced representation is current.
     Evaluate(ArtifactEvaluateArgs),
-    /// Report whether stored knowledge can reproduce an artifact.
+    /// Report completeness of the recorded recipe; never executes it.
     Reproducibility(ActivityRepresentationArgs),
     /// Query activity-produced representations currently evaluated as stale.
     Stale(ArtifactStaleArgs),
@@ -2110,6 +2113,7 @@ fn execute(cli: Cli) -> Result<()> {
             DependencyCommand::Dependents(args) => dependency_dependents(&args, cli.json),
         },
         Command::Artifact(args) => match args.command {
+            ArtifactCommand::Register(args) => outputs::register(*args, cli.json, base),
             ArtifactCommand::Evaluate(args) => artifact_evaluate(&args, cli.json),
             ArtifactCommand::Reproducibility(args) => artifact_reproducibility(&args, cli.json),
             ArtifactCommand::Stale(args) => artifact_stale(&args, cli.json),
@@ -2346,7 +2350,30 @@ fn representation_add(
         RepresentationKindArg::Derived => RepresentationKind::Derived,
     };
     let spec: RepresentationSourceSpec = json_input::read(&args.spec_file)?;
-    let source = match spec {
+    let source = representation_source(spec)?;
+    let prepared =
+        prepare_representation(asset_id, kind, source).context("prepare representation")?;
+    let view = RepresentationRefView {
+        representation_id: prepared.representation().id().to_string(),
+    };
+    let mut production = SqliteProduction::open(&args.production).context("open production")?;
+    let mut transaction = begin_cli_transaction(&mut production, base_revision, "representation")?;
+    set_cli_revision_context(&mut transaction, "Add representation")?;
+    transaction
+        .add_representation(&prepared)
+        .context("stage representation")?;
+    let receipt = transaction.commit().context("commit representation")?;
+
+    if json {
+        print_json_with_receipt(&view, &receipt)
+    } else {
+        println!("added representation {}", view.representation_id);
+        Ok(())
+    }
+}
+
+fn representation_source(spec: RepresentationSourceSpec) -> Result<MediaSource> {
+    Ok(match spec {
         RepresentationSourceSpec::SingleFile { path } => MediaSource::File(path),
         RepresentationSourceSpec::ImageSequence {
             directory,
@@ -2372,26 +2399,7 @@ fn representation_add(
         RepresentationSourceSpec::Package { members } => {
             MediaSource::Package(file_resource_sources(members)?)
         }
-    };
-    let prepared =
-        prepare_representation(asset_id, kind, source).context("prepare representation")?;
-    let view = RepresentationRefView {
-        representation_id: prepared.representation().id().to_string(),
-    };
-    let mut production = SqliteProduction::open(&args.production).context("open production")?;
-    let mut transaction = begin_cli_transaction(&mut production, base_revision, "representation")?;
-    set_cli_revision_context(&mut transaction, "Add representation")?;
-    transaction
-        .add_representation(&prepared)
-        .context("stage representation")?;
-    let receipt = transaction.commit().context("commit representation")?;
-
-    if json {
-        print_json_with_receipt(&view, &receipt)
-    } else {
-        println!("added representation {}", view.representation_id);
-        Ok(())
-    }
+    })
 }
 
 fn media_fingerprint(
