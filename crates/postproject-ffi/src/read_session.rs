@@ -328,9 +328,9 @@ mod tests {
         unsafe {
             assert_eq!(
                 pp_production_begin_edit(
-                    &production,
+                    &raw const production,
                     ptr::null(),
-                    &context,
+                    &raw const context,
                     &raw mut transaction,
                     &raw mut error
                 ),
@@ -341,9 +341,9 @@ mod tests {
             context.origin_name = name.as_ptr();
             assert_eq!(
                 pp_production_begin_edit(
-                    &production,
+                    &raw const production,
                     ptr::null(),
-                    &context,
+                    &raw const context,
                     &raw mut transaction,
                     &raw mut error
                 ),
@@ -368,7 +368,7 @@ mod tests {
             crate::pp_transaction_release(transaction);
             assert_eq!(
                 pp_production_begin_edit(
-                    &production,
+                    &raw const production,
                     ptr::null(),
                     ptr::null(),
                     &raw mut transaction,
