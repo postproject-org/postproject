@@ -9,8 +9,8 @@ use crate::{
     PpRepresentationId, PpTransaction, StagedMutation, ffi_call, initialize_value,
     invalid_argument, require_output,
 };
-use postproject_core::{Activity, ActivityId, ActivityOutput, ObjectRef};
-use postproject_media::OutputIdentity;
+use postproject_core::{Activity, ActivityId, ActivityOutput, MAX_ACTIVITY_EDGES, ObjectRef};
+use postproject_media::{OutputIdentity, OutputSource, PreparedOutput, prepare_outputs};
 
 /// Borrowed typed assertion on the actual producing activity.
 #[repr(C)]
@@ -146,6 +146,90 @@ pub unsafe extern "C" fn pp_transaction_create_activity(
     }
 }
 
+/// Prepares every output and stages its actual producing recipe without committing.
+///
+/// # Safety
+/// Handles must be live; inputs and outputs readable/writable for `output_count`
+/// bounded to 100000. Recipe strings are UTF-8; error is null or writable.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_transaction_register_outputs(
+    transaction: *mut PpTransaction,
+    outputs: *const PpOutputSource,
+    output_count: u64,
+    recipe: *const PpActivityRecipe,
+    out_outputs: *mut PpOutputIdentity,
+    out_activity_id: *mut PpActivityId,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: Bounds are checked before arrays; outputs clear before input validation.
+    unsafe {
+        initialize_value(out_activity_id, PpActivityId { bytes: [0; 16] });
+        ffi_call(out_error, || {
+            let count = usize::try_from(output_count)
+                .map_err(|_| invalid_argument("output count is too large"))?;
+            if count > MAX_ACTIVITY_EDGES {
+                return Err(invalid_argument("output count exceeds 100000"));
+            }
+            if !out_outputs.is_null() && count != 0 {
+                std::slice::from_raw_parts_mut(out_outputs, count).fill(PpOutputIdentity {
+                    asset_id: PpAssetId { bytes: [0; 16] },
+                    representation_id: PpRepresentationId { bytes: [0; 16] },
+                });
+            }
+            require_output(out_activity_id, "out_activity_id")?;
+            require_output(out_outputs, "out_outputs")?;
+            if count == 0 || outputs.is_null() {
+                return Err(invalid_argument("outputs require a nonempty array"));
+            }
+            let edit = transaction
+                .as_mut()
+                .ok_or_else(|| invalid_argument("transaction must not be null"))?;
+            edit.lifecycle.ensure_open()?;
+            let recipe = recipe::read(recipe)?;
+            let sources = std::slice::from_raw_parts(outputs, count)
+                .iter()
+                .map(|source| recipe::source(source))
+                .collect::<Result<Vec<OutputSource>, _>>()?;
+            let prepared = prepare_outputs(&sources, recipe)?;
+            let identities = prepared.identities();
+            let activity_id = prepared.activity().id();
+            let (outputs, activity, parameters) = prepared.into_parts();
+            // Allocate the complete buffer before appending any staged prefix.
+            let mut additions = Vec::with_capacity(outputs.len() + parameters.len() + 1);
+            for output in outputs {
+                additions.push(match output {
+                    PreparedOutput::Original(value) => StagedMutation::Import(value),
+                    PreparedOutput::Representation(value) => StagedMutation::Representation(value),
+                });
+            }
+            additions.push(StagedMutation::Activity(activity));
+            for (key, value) in parameters {
+                additions.push(StagedMutation::AddMetadataValue(
+                    ObjectRef::Activity(activity_id),
+                    key,
+                    value,
+                ));
+            }
+            edit.mutations
+                .try_reserve(additions.len())
+                .map_err(|error| {
+                    postproject_core::Error::new(
+                        postproject_core::ErrorKind::Internal,
+                        format!("allocate staged outputs: {error}"),
+                    )
+                })?;
+            edit.mutations.extend(additions);
+            for (index, identity) in identities.into_iter().enumerate() {
+                out_outputs.add(index).write(identity.into());
+            }
+            out_activity_id.write(PpActivityId {
+                bytes: activity_id.into_bytes(),
+            });
+            Ok(())
+        })
+    }
+}
+
 fn append_activity(
     edit: &mut PpTransaction,
     activity: Activity,
@@ -173,3 +257,6 @@ fn append_activity(
     edit.mutations.extend(additions);
     Ok(())
 }
+
+#[cfg(test)]
+mod tests;

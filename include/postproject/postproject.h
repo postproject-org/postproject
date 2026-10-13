@@ -2092,6 +2092,17 @@ PP_API pp_error_code_t pp_transaction_create_activity(
     const pp_activity_edge_t *outputs, uint64_t output_count,
     pp_activity_id_t *out_activity_id,
     pp_error_t **out_error);
+/** Stages 1-100000 output sources, their one activity and parameters atomically.
+ * out_outputs requires output_count writable entries in source order. Validly
+ * bounded supplied outputs are cleared on failure; oversized counts read no
+ * array. Failure leaves the edit unchanged. No job or dependency set is created.
+ * Media inspection runs during staging, outside the production write lock.
+ * Real one-output jobs may complete in this edit before its explicit commit. */
+PP_API pp_error_code_t pp_transaction_register_outputs(
+    pp_transaction_t *transaction, const pp_output_source_t *outputs,
+    uint64_t output_count, const pp_activity_recipe_t *recipe,
+    pp_output_identity_t *out_outputs, pp_activity_id_t *out_activity_id,
+    pp_error_t **out_error);
 /* A commit attempt is terminal, including failure. Captures the produced
  * revision in the atomic write path; never queries a later head. out_receipt
  * is required. Release the closed transaction with pp_transaction_release. */

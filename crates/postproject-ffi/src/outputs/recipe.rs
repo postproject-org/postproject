@@ -1,12 +1,13 @@
 //! Convert a completely borrowed recipe before media inspection or staging.
 
-use super::PpActivityRecipe;
+use super::{PpActivityRecipe, PpOutputSource};
 use crate::{invalid_argument, optional_utf8, required_utf8};
 use postproject_core::{
-    ActivityInput, ActivityKind, AgentIdentity, Error, ExternalIdentifier, IdentifierScheme,
-    MAX_METADATA_COLLECTION_ITEMS, Timestamp, ToolIdentity,
+    ActivityInput, ActivityKind, ActivityRole, AgentIdentity, AssetId, Error, ExternalIdentifier,
+    IdentifierScheme, MAX_METADATA_COLLECTION_ITEMS, Timestamp, ToolIdentity,
 };
-use postproject_media::OutputRecipe;
+use postproject_media::{MediaSource, OutputRecipe, OutputSource};
+use std::path::PathBuf;
 
 pub(super) unsafe fn read(recipe: *const PpActivityRecipe) -> Result<OutputRecipe, Error> {
     // SAFETY: Caller supplies a readable recipe with live borrowed handles/strings.
@@ -87,5 +88,35 @@ pub(super) unsafe fn read(recipe: *const PpActivityRecipe) -> Result<OutputRecip
             }
         }
         Ok(result)
+    }
+}
+
+pub(super) unsafe fn source(source: &PpOutputSource) -> Result<OutputSource, Error> {
+    // SAFETY: The caller provides readable fields and live borrowed sources.
+    unsafe {
+        let media = match (source.path.is_null(), source.source.is_null()) {
+            (false, true) => MediaSource::File(PathBuf::from(crate::media_source::required_path(
+                source.path,
+                "path",
+            )?)),
+            (true, false) => crate::media_source::borrowed_source(source.source)?.clone(),
+            _ => {
+                return Err(invalid_argument(
+                    "exactly one output path or source is required",
+                ));
+            }
+        };
+        Ok(OutputSource {
+            asset_id: source
+                .asset_id
+                .as_ref()
+                .map(|id| AssetId::from_bytes(id.bytes)),
+            kind: crate::representation_kind_from_abi(source.kind)?,
+            source: media,
+            role: optional_utf8(source.role, "output role")?
+                .map(ActivityRole::new)
+                .transpose()?,
+            display_name: optional_utf8(source.display_name, "display_name")?.map(str::to_owned),
+        })
     }
 }
