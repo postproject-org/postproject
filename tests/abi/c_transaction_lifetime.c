@@ -11,7 +11,7 @@ static int check_terminal_state(pp_production_t *production, int terminal) {
   pp_error_t *error = NULL;
   pp_commit_receipt_t receipt = {0};
   int result = 1;
-  if (pp_production_begin_transaction(production, &a, &error) != PP_OK)
+  if (pp_production_begin_edit(production, NULL, NULL, &a, &error) != PP_OK)
     goto cleanup;
 
   if (terminal == 0) {
@@ -46,11 +46,11 @@ static int check_terminal_state(pp_production_t *production, int terminal) {
     error = NULL;
   }
 
-  if (pp_production_begin_transaction(production, &b, &error) != PP_OK)
+  if (pp_production_begin_edit(production, NULL, NULL, &b, &error) != PP_OK)
     goto cleanup;
   pp_transaction_release(a);
   a = NULL;
-  if (pp_production_begin_transaction(production, &c, &error) !=
+  if (pp_production_begin_edit(production, NULL, NULL, &c, &error) !=
           PP_ERROR_CONFLICT ||
       c != NULL)
     goto cleanup;
@@ -58,7 +58,7 @@ static int check_terminal_state(pp_production_t *production, int terminal) {
   error = NULL;
   pp_transaction_release(b);
   b = NULL;
-  if (pp_production_begin_transaction(production, &c, &error) != PP_OK)
+  if (pp_production_begin_edit(production, NULL, NULL, &c, &error) != PP_OK)
     goto cleanup;
   result = 0;
 

@@ -7,7 +7,7 @@
 static int rejects_base(pp_production_t *production, pp_decision_base_t base) {
   pp_transaction_t *edit = NULL;
   pp_error_t *error = NULL;
-  pp_error_code_t status = pp_production_begin_edit(production, &base, &edit, &error);
+  pp_error_code_t status = pp_production_begin_edit(production, &base, NULL, &edit, &error);
   int rejected = status == PP_ERROR_INVALID_ARGUMENT && edit == NULL;
   pp_error_release(error);
   pp_transaction_release(edit);
@@ -31,13 +31,13 @@ static int metadata_edits_contract(pp_production_t *production) {
       pp_metadata_input_create_string("keyword", NULL, &value, &error) != PP_OK)
     goto cleanup;
   memcpy(target.id.bytes, base.production_id.bytes, sizeof target.id.bytes);
-  if (pp_production_begin_transaction(production, &edit, &error) != PP_OK ||
+  if (pp_production_begin_edit(production, NULL, NULL, &edit, &error) != PP_OK ||
       pp_transaction_add_metadata_value(edit, &target, vocabulary, "keywords",
                                        value, &error) != PP_OK ||
       pp_transaction_commit(edit, &receipt, &error) != PP_OK)
     goto cleanup;
   pp_transaction_release(edit); edit = NULL;
-  if (pp_production_begin_transaction(production, &edit, &error) != PP_OK ||
+  if (pp_production_begin_edit(production, NULL, NULL, &edit, &error) != PP_OK ||
       pp_transaction_remove_metadata_property(edit, &target, vocabulary,
           "keywords", &error) != PP_ERROR_INVALID_ARGUMENT || error == NULL)
     goto cleanup;
@@ -48,7 +48,7 @@ static int metadata_edits_contract(pp_production_t *production) {
       pp_transaction_commit(edit, &receipt, &error) != PP_OK)
     goto cleanup;
   pp_transaction_release(edit); edit = NULL;
-  if (pp_read_session_begin_edit(view, &edit, &error) != PP_OK ||
+  if (pp_read_session_begin_edit(view, NULL, &edit, &error) != PP_OK ||
       pp_transaction_remove_metadata_property(edit, &target, vocabulary,
           "keywords", &error) != PP_OK ||
       pp_transaction_commit(edit, &receipt, &error) != PP_ERROR_CONFLICT ||
@@ -63,7 +63,7 @@ static int metadata_edits_contract(pp_production_t *production) {
   pp_metadata_set_release(values); values = NULL;
   pp_read_session_release(view); view = NULL;
   if (pp_production_read_session(production, &view, &error) != PP_OK ||
-      pp_read_session_begin_edit(view, &edit, &error) != PP_OK ||
+      pp_read_session_begin_edit(view, NULL, &edit, &error) != PP_OK ||
       pp_transaction_remove_metadata_property(edit, &target, vocabulary,
           "keywords", &error) != PP_OK ||
       pp_transaction_commit(edit, &receipt, &error) != PP_OK ||
@@ -89,7 +89,7 @@ static int root_edits_contract(pp_production_t *production) {
   pp_commit_receipt_t receipt;
   pp_transaction_conflict_t conflict;
   int valid = 0;
-  if (pp_production_begin_transaction(production, &edit, &error) != PP_OK ||
+  if (pp_production_begin_edit(production, NULL, NULL, &edit, &error) != PP_OK ||
       pp_transaction_add_media_root(edit, "protected", NULL, 0, &root, &error) != PP_OK ||
       pp_transaction_set_media_root_enabled(edit, root, 0, &error) != PP_ERROR_INVALID_ARGUMENT ||
       error == NULL) goto cleanup;
@@ -102,7 +102,7 @@ static int root_edits_contract(pp_production_t *production) {
       receipt.outcome != PP_COMMIT_REVISION_CREATED) goto cleanup;
   pp_transaction_release(edit); edit = NULL;
   if (pp_production_read_session(production, &view, &error) != PP_OK ||
-      pp_read_session_begin_edit(view, &edit, &error) != PP_OK)
+      pp_read_session_begin_edit(view, NULL, &edit, &error) != PP_OK)
     goto cleanup;
   if (pp_transaction_set_media_root_enabled(edit, root, 2, &error) != PP_ERROR_INVALID_ARGUMENT ||
       error == NULL) goto cleanup;
@@ -112,7 +112,7 @@ static int root_edits_contract(pp_production_t *production) {
       receipt.outcome != PP_COMMIT_REVISION_CREATED) goto cleanup;
   pp_revision_id_t superseding = receipt.revision_id;
   pp_transaction_release(edit); edit = NULL;
-  if (pp_read_session_begin_edit(view, &edit, &error) != PP_OK ||
+  if (pp_read_session_begin_edit(view, NULL, &edit, &error) != PP_OK ||
       pp_transaction_remove_media_root(edit, root, &error) != PP_OK ||
       pp_transaction_commit(edit, &receipt, &error) != PP_ERROR_CONFLICT ||
       receipt.outcome != PP_COMMIT_NO_CHANGE ||
@@ -125,7 +125,7 @@ static int root_edits_contract(pp_production_t *production) {
   pp_read_session_release(view); view = NULL;
   /* Fresh removal succeeds only if the stale removal rolled back. */
   if (pp_production_read_session(production, &view, &error) != PP_OK ||
-      pp_read_session_begin_edit(view, &edit, &error) != PP_OK ||
+      pp_read_session_begin_edit(view, NULL, &edit, &error) != PP_OK ||
       pp_transaction_remove_media_root(edit, root, &error) != PP_OK ||
       pp_transaction_commit(edit, &receipt, &error) != PP_OK ||
       receipt.outcome != PP_COMMIT_REVISION_CREATED) goto cleanup;
@@ -224,7 +224,7 @@ int main(int argc, char **argv) {
   invalid.production_id.bytes[0] ^= 1;
   if (!rejects_base(production, invalid))
     goto cleanup;
-  if (pp_production_begin_edit(production, &base, &edit, &error) != PP_OK ||
+  if (pp_production_begin_edit(production, &base, NULL, &edit, &error) != PP_OK ||
       pp_transaction_rollback(edit, &error) != PP_OK)
     goto cleanup;
   pp_transaction_release(edit);
@@ -240,7 +240,7 @@ int main(int argc, char **argv) {
   production = NULL;
   if (pp_read_session_assets_page(view, 1, NULL, &assets, &error) != PP_OK ||
       pp_asset_set_count(assets) != 0 ||
-      pp_read_session_begin_edit(view, &edit, &error) != PP_OK ||
+      pp_read_session_begin_edit(view, NULL, &edit, &error) != PP_OK ||
       pp_transaction_commit(edit, &receipt, &error) != PP_OK)
     goto cleanup;
   if (receipt.outcome != PP_COMMIT_NO_CHANGE ||
