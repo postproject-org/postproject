@@ -443,7 +443,7 @@ static pp_error_code_t create_production(const char *path, const char *media,
     status = pp_production_begin_transaction(production, &transaction, error);
   }
   if (status == PP_OK) {
-    status = pp_transaction_import_file(transaction, media, "Camera A", out_asset_id, error);
+    status = pp_transaction_import_file(transaction, media, "Camera A", out_asset_id, NULL, error);
   }
   if (status == PP_OK) {
     /* A job's target root names an existing logical media root. */

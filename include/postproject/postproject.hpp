@@ -6074,12 +6074,12 @@ private:
     if (const auto *file = std::get_if<MediaSource::File>(&source.content_)) {
       POSTPROJECT_TRY_ASSIGN(const auto path, MediaSource::file_path(*file));
       status = pp_transaction_import_file(transaction_, path.c_str(),
-                                          display_name, &value, &error);
+                                          display_name, &value, nullptr, &error);
     } else {
       POSTPROJECT_TRY_ASSIGN(const detail::MediaSourceHandle native_source,
                              source.native());
       status = pp_transaction_import_media(transaction_, native_source.get(),
-                                           display_name, &value, &error);
+                                           display_name, &value, nullptr, &error);
     }
     POSTPROJECT_TRY(detail::check(status, error));
     return detail::asset_id_value(value);
@@ -7145,6 +7145,7 @@ public:
   [[nodiscard]] static Result<Production> importCheckpoint(
       const std::filesystem::path &path, const std::filesystem::path &destination,
       const ExchangeLimits &limits = {}) {
+    POSTPROJECT_TRY(validate_abi());
     POSTPROJECT_TRY_ASSIGN(auto text, detail::checked_path(path, "checkpoint path"));
     POSTPROJECT_TRY_ASSIGN(auto target, detail::checked_path(destination, "mirror path"));
     const auto native_limits = detail::native_exchange_limits(limits);
@@ -7221,6 +7222,7 @@ public:
   }
 
   static Result<Production> open(std::string_view path) {
+    POSTPROJECT_TRY(validate_abi());
     POSTPROJECT_TRY_ASSIGN(const std::string native_path,
                            detail::checked_string(path, "path"));
     pp_production_t *production = nullptr;
@@ -8183,6 +8185,13 @@ private:
 
   explicit Production(pp_production_t *production) noexcept : production_(production) {}
 
+  static Result<void> validate_abi() {
+    if (pp_abi_version() != 54) {
+      return Error(ErrorCode::unsupported, "native library ABI does not match this header");
+    }
+    return {};
+  }
+
   [[nodiscard]] Result<std::vector<Activity>>
   activities_for_representation(const RepresentationId &representation_id,
                                 ActivityQuery query) const {
@@ -8292,6 +8301,7 @@ private:
 
   static Result<Production> create_impl(std::string_view path,
                                         const char *display_name) {
+    POSTPROJECT_TRY(validate_abi());
     POSTPROJECT_TRY_ASSIGN(const std::string native_path,
                            detail::checked_string(path, "path"));
     pp_production_t *production = nullptr;

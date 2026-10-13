@@ -17,8 +17,7 @@ ordinary copied ID values, with no additional result owner or public layout.
 C++ and Python return `ImportedMedia`, a copied record containing `asset_id`
 and `representation_id`. This is a result, not another identity layer. Remove
 the old asset-only return contract and migrate callers directly. Rust's
-prepared import already exposes both identities. CLI import output includes
-the original representation identity alongside its existing asset identity.
+prepared import and CLI import output already expose both identities.
 
 ## Alternatives and impact
 
@@ -30,7 +29,7 @@ bounded point reads for callers who need full representation/resource facts.
 Native signature changes require ABI/soname 54 and matching bindings; symbol
 names and public layouts remain unchanged. Package 0.9 remains unpublished.
 Schema 27, exchange protocol 1 and stored identity/effect capture are unchanged.
-CLI JSON 1 retains existing fields and gains the representation ID.
+CLI JSON 1 is unchanged; its existing import result supplies both IDs.
 
 Standards-policy review: no recognition, vocabulary, identifier scheme,
 normalization or domain meaning changes. Identical bytes remain independent

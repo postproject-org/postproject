@@ -1,6 +1,6 @@
 # ABI policy
 
-ABI version 53 is pre-release and may change during the 0.x series, with every
+ABI version 54 is pre-release and may change during the 0.x series, with every
 change recorded in the changelog and ABI tests. `pp_abi_version()` reports the
 implemented version. Exported symbol names are unversioned until the first stable
 release, but removals or signature changes require an explicit ABI-version bump.
@@ -17,6 +17,9 @@ submission, outcome recovery, checkpoint and catch-up operations (ADR 0067).
 ABI 53 replaces incremental resolution-option setters with a complete
 `pp_resolution_config_t` input to checked creation. It has 344 exports and
 38 public layouts; old ABI 52 bindings must reject this library before use.
+ABI 54 additionally returns the original representation ID from both import
+operations (ADR 0079). It retains 344 exports and 38 public layouts; clients
+must update import signatures and reject an incompatible library.
 Single files stage directly from paths; compound sources retain explicit
 structure inputs; the single commit operation requires its receipt output
 (ADRs 0072–0074). Schema 27 and protocol major 1 are unchanged.

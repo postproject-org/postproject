@@ -106,7 +106,7 @@ static int exercise(const char *path, const char *media) {
   CHECK(pp_read_session_begin_edit(empty, &edit, &error));
   CHECK(pp_read_session_plan_regeneration(empty, NULL, 0, &plans, &error));
   if (pp_regeneration_plan_set_count(plans)) goto cleanup;
-  CHECK(pp_transaction_import_file(edit, media, NULL, &asset, &error));
+  CHECK(pp_transaction_import_file(edit, media, NULL, &asset, NULL, &error));
   pp_object_ref_t target;
   CHECK(pp_object_ref_from_asset(asset, &target, &error));
   CHECK(pp_transaction_add_external_identifier(edit, &target, "https://example.com/id", "camera", NULL, &error));

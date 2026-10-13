@@ -45,7 +45,7 @@ static pp_error_code_t import_image_strip(pp_production_t *production,
   }
   if (status == PP_OK) {
     status = pp_transaction_import_media(transaction, strip, "shot010 strip",
-                                         out_asset_id, error);
+                                         out_asset_id, NULL, error);
   }
   if (status == PP_OK) {
     pp_commit_receipt_t commit_receipt;
@@ -733,7 +733,7 @@ static pp_error_code_t create_production(const char *path, const char *media,
     status = pp_production_begin_transaction(production, &transaction, error);
   }
   if (status == PP_OK) {
-    status = pp_transaction_import_file(transaction, media, "Camera A", out_asset_id, error);
+    status = pp_transaction_import_file(transaction, media, "Camera A", out_asset_id, NULL, error);
   }
   if (status == PP_OK) {
     status = pp_transaction_add_representation(

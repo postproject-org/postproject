@@ -40,7 +40,7 @@ static pp_error_code_t import_file(pp_transaction_t *transaction,
                                    const char *path, const char *display_name,
                                    pp_asset_id_t *out_asset_id,
                                    pp_error_t **out_error) {
-  pp_error_code_t status = pp_transaction_import_file(transaction, path, display_name, out_asset_id, out_error);
+  pp_error_code_t status = pp_transaction_import_file(transaction, path, display_name, out_asset_id, NULL, out_error);
   return status;
 }
 
@@ -179,7 +179,7 @@ static int renamed_sequence_scenario(pp_production_t *production,
   }
   if (status == PP_OK) {
     status = pp_transaction_import_media(transaction, source, "Shot", &asset_id,
-                                         &error);
+                                         NULL, &error);
   }
   if (status == PP_OK) {
     status = pp_transaction_commit(transaction, &(pp_commit_receipt_t){0}, &error);
@@ -396,7 +396,7 @@ int main(int argc, char **argv) {
     return 64;
   }
   (void)remove(argv[1]);
-  if (pp_abi_version() != UINT32_C(53)) {
+  if (pp_abi_version() != UINT32_C(54)) {
     return 1;
   }
   pp_error_code_t status =
@@ -1811,7 +1811,7 @@ int main(int argc, char **argv) {
       representation_id_is_zero(&sequence_representation_id) ||
       pp_transaction_import_media(transaction, sequence_source,
                                   "C image strip", &sequence_asset_id,
-                                  &error) != PP_OK ||
+                                  NULL, &error) != PP_OK ||
       bytes_are_zero(sequence_asset_id.bytes) ||
       pp_transaction_commit(transaction, &(pp_commit_receipt_t){0}, &error) != PP_OK) {
     pp_media_source_release(sequence_source);

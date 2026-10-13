@@ -31,7 +31,7 @@ static pp_error_code_t create_production(const char *path, const char *media,
         "Import camera original", error);
   }
   if (status == PP_OK) {
-    status = pp_transaction_import_file(transaction, media, "Camera A", out_asset_id, error);
+    status = pp_transaction_import_file(transaction, media, "Camera A", out_asset_id, NULL, error);
   }
   if (status == PP_OK) {
     pp_commit_receipt_t commit_receipt;
@@ -1191,7 +1191,7 @@ int main(int argc, char **argv) {
     pp_representation_id_t scene_id;
     status = pp_production_begin_transaction(production, &scene_edit, &error);
     if (status == PP_OK)
-      status = pp_transaction_import_file(scene_edit, scene_path, NULL, &scene_asset, &error);
+      status = pp_transaction_import_file(scene_edit, scene_path, NULL, &scene_asset, NULL, &error);
     if (status == PP_OK) {
       pp_commit_receipt_t receipt;
       status = pp_transaction_commit(scene_edit, &receipt, &error);

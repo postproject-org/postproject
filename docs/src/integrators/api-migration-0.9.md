@@ -1,8 +1,8 @@
 # Move an integration from 0.8 to 0.9
 
-The 0.9 development SDK uses C ABI 53, schema 27 and exchange protocol 1.
+The 0.9 development SDK uses C ABI 54, schema 27 and exchange protocol 1.
 Update the binding and native library together. Python 0.8 bindings reject
-an ABI 53 library. Existing production identities and stored knowledge retain
+an ABI 54 library. Existing production identities and stored knowledge retain
 their meaning; opening older files follows the existing migration rules.
 
 | Old form | Use in 0.9 |

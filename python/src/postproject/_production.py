@@ -3956,6 +3956,7 @@ class Edit:
                 _path_bytes(source),
                 _optional_text(display_name),
                 ctypes.byref(asset_id),
+                None,
                 ctypes.byref(error),
             )
         else:
@@ -3965,6 +3966,7 @@ class Edit:
                     native_source.handle,
                     _optional_text(display_name),
                     ctypes.byref(asset_id),
+                    None,
                     ctypes.byref(error),
                 )
         self._native.check(status, error)

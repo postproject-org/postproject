@@ -202,7 +202,7 @@ static pp_error_code_t create_production(const char *path, const char *media,
         "Import camera original", error);
   }
   if (status == PP_OK) {
-    status = pp_transaction_import_file(transaction, media, "Camera A", out_asset_id, error);
+    status = pp_transaction_import_file(transaction, media, "Camera A", out_asset_id, NULL, error);
   }
   if (status == PP_OK) {
     pp_commit_receipt_t commit_receipt;

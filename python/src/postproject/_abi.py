@@ -1802,11 +1802,11 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_media_source_release.restype = None
     lib.pp_transaction_set_revision_context.argtypes = [ctypes.POINTER(Transaction), ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_transaction_set_revision_context.restype = ErrorCode
-    lib.pp_transaction_import_file.argtypes = [ctypes.POINTER(Transaction), ctypes.c_char_p, ctypes.c_char_p, ctypes.POINTER(AssetId), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_transaction_import_file.argtypes = [ctypes.POINTER(Transaction), ctypes.c_char_p, ctypes.c_char_p, ctypes.POINTER(AssetId), ctypes.POINTER(RepresentationId), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_transaction_import_file.restype = ErrorCode
     lib.pp_transaction_add_file_representation.argtypes = [ctypes.POINTER(Transaction), AssetId, RepresentationKind, ctypes.c_char_p, ctypes.POINTER(RepresentationId), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_transaction_add_file_representation.restype = ErrorCode
-    lib.pp_transaction_import_media.argtypes = [ctypes.POINTER(Transaction), ctypes.POINTER(MediaSource), ctypes.c_char_p, ctypes.POINTER(AssetId), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_transaction_import_media.argtypes = [ctypes.POINTER(Transaction), ctypes.POINTER(MediaSource), ctypes.c_char_p, ctypes.POINTER(AssetId), ctypes.POINTER(RepresentationId), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_transaction_import_media.restype = ErrorCode
     lib.pp_transaction_add_representation.argtypes = [ctypes.POINTER(Transaction), AssetId, RepresentationKind, ctypes.POINTER(MediaSource), ctypes.POINTER(RepresentationId), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_transaction_add_representation.restype = ErrorCode

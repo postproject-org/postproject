@@ -201,7 +201,7 @@ const PP_REVISION_JOB_FAILED: u32 = 25;
 const PP_REVISION_JOB_CANCELLED: u32 = 26;
 
 /// Current pre-1.0 ABI version.
-pub const ABI_VERSION: u32 = 53;
+pub const ABI_VERSION: u32 = 54;
 
 /// Fixed-layout UUID-compatible public identifier.
 #[repr(C)]
@@ -5029,7 +5029,7 @@ pub unsafe extern "C" fn pp_transaction_set_revision_context(
     }
 }
 
-/// Stages an original-media import and returns its stable asset identity.
+/// Stages an import and returns its asset and original representation identities.
 ///
 /// The new asset's original representation has the source's content
 /// structure. The source is borrowed only for this call and may be reused.
@@ -5038,19 +5038,22 @@ pub unsafe extern "C" fn pp_transaction_set_revision_context(
 ///
 /// `transaction` must be a live transaction handle and `source` a live media
 /// source. `display_name` may be null or borrowed NUL-terminated UTF-8.
-/// `out_asset_id` must be writable. `out_error` may be null or writable.
+/// `out_asset_id` must be writable. `out_representation_id` and `out_error`
+/// may be null or writable.
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_transaction_import_media(
     transaction: *mut PpTransaction,
     source: *const PpMediaSource,
     display_name: *const c_char,
     out_asset_id: *mut PpAssetId,
+    out_representation_id: *mut PpRepresentationId,
     out_error: *mut *mut PpError,
 ) -> u32 {
     // SAFETY: Null pointers are rejected before dereference and borrowed
     // inputs are not retained after this call.
     unsafe {
         initialize_value(out_asset_id, PpAssetId { bytes: [0; 16] });
+        initialize_value(out_representation_id, PpRepresentationId { bytes: [0; 16] });
         ffi_call(out_error, || {
             let transaction = transaction
                 .as_mut()
@@ -5061,11 +5064,12 @@ pub unsafe extern "C" fn pp_transaction_import_media(
                 return Err(invalid_argument("out_asset_id must not be null"));
             }
             let display_name = optional_utf8(display_name, "display_name")?.map(str::to_owned);
-            out_asset_id.write(stage_original_media(
-                transaction,
-                source.clone(),
-                display_name,
-            )?);
+            let (asset_id, representation_id) =
+                stage_original_media(transaction, source.clone(), display_name)?;
+            out_asset_id.write(asset_id);
+            if !out_representation_id.is_null() {
+                out_representation_id.write(representation_id);
+            }
             Ok(())
         })
     }
@@ -5119,18 +5123,21 @@ pub unsafe extern "C" fn pp_transaction_add_representation(
 /// # Safety
 ///
 /// Transaction must be live; path must be NUL-terminated UTF-8. Display name
-/// may be null or NUL-terminated UTF-8. Outputs must be writable.
+/// may be null or NUL-terminated UTF-8. Asset output must be writable;
+/// representation output and error may be null or writable.
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_transaction_import_file(
     transaction: *mut PpTransaction,
     path: *const c_char,
     display_name: *const c_char,
     out_asset_id: *mut PpAssetId,
+    out_representation_id: *mut PpRepresentationId,
     out_error: *mut *mut PpError,
 ) -> u32 {
     // SAFETY: Validate pointers before use; borrow path only during this call.
     unsafe {
         initialize_value(out_asset_id, PpAssetId { bytes: [0; 16] });
+        initialize_value(out_representation_id, PpRepresentationId { bytes: [0; 16] });
         ffi_call(out_error, || {
             require_output(out_asset_id, "out_asset_id")?;
             let transaction = transaction
@@ -5139,11 +5146,15 @@ pub unsafe extern "C" fn pp_transaction_import_file(
             transaction.lifecycle.ensure_open()?;
             let path = media_source::required_path(path, "path")?;
             let display_name = optional_utf8(display_name, "display_name")?.map(str::to_owned);
-            out_asset_id.write(stage_original_media(
+            let (asset_id, representation_id) = stage_original_media(
                 transaction,
                 postproject_media::MediaSource::File(PathBuf::from(path)),
                 display_name,
-            )?);
+            )?;
+            out_asset_id.write(asset_id);
+            if !out_representation_id.is_null() {
+                out_representation_id.write(representation_id);
+            }
             Ok(())
         })
     }
@@ -5189,13 +5200,16 @@ fn stage_original_media(
     transaction: &mut PpTransaction,
     source: postproject_media::MediaSource,
     display_name: Option<String>,
-) -> Result<PpAssetId, Error> {
+) -> Result<(PpAssetId, PpRepresentationId), Error> {
     let import = prepare_original_media(source, display_name, None)?;
     let id = PpAssetId {
         bytes: import.asset().id().into_bytes(),
     };
+    let representation_id = PpRepresentationId {
+        bytes: import.representation().id().into_bytes(),
+    };
     transaction.mutations.push(StagedMutation::Import(import));
-    Ok(id)
+    Ok((id, representation_id))
 }
 
 fn stage_representation(
@@ -7550,6 +7564,7 @@ mod tests {
         unsafe { pp_production_release(production) };
 
         let mut asset_id = PpAssetId { bytes: [0; 16] };
+        let mut representation_id = PpRepresentationId { bytes: [0; 16] };
         // SAFETY: `transaction` is live and the path is NUL-terminated and outputs are writable.
         assert_eq!(
             unsafe {
@@ -7558,6 +7573,7 @@ mod tests {
                     media_path.as_ptr(),
                     ptr::null(),
                     &raw mut asset_id,
+                    &raw mut representation_id,
                     &raw mut error,
                 )
             },
@@ -7580,7 +7596,47 @@ mod tests {
         let assets = reopened.assets().expect("load committed assets");
         assert_eq!(assets.len(), 1);
         assert_eq!(assets[0].id().into_bytes(), asset_id.bytes);
+        let imported = reopened
+            .representation(RepresentationId::from_bytes(representation_id.bytes))
+            .expect("read the returned original representation");
+        assert_eq!(imported.asset_id().into_bytes(), asset_id.bytes);
         assert!(error.is_null());
+    }
+
+    #[test]
+    fn import_errors_clear_both_identity_outputs() {
+        let mut asset_id = PpAssetId { bytes: [9; 16] };
+        let mut representation_id = PpRepresentationId { bytes: [9; 16] };
+        // SAFETY: Null inputs are permitted for validation; both outputs are writable.
+        let status = unsafe {
+            pp_transaction_import_file(
+                ptr::null_mut(),
+                ptr::null(),
+                ptr::null(),
+                &raw mut asset_id,
+                &raw mut representation_id,
+                ptr::null_mut(),
+            )
+        };
+        assert_eq!(status, PP_ERROR_INVALID_ARGUMENT);
+        assert_eq!(asset_id.bytes, [0; 16]);
+        assert_eq!(representation_id.bytes, [0; 16]);
+        asset_id.bytes = [9; 16];
+        representation_id.bytes = [9; 16];
+        // SAFETY: Null source/transaction are rejected before dereference.
+        let status = unsafe {
+            pp_transaction_import_media(
+                ptr::null_mut(),
+                ptr::null(),
+                ptr::null(),
+                &raw mut asset_id,
+                &raw mut representation_id,
+                ptr::null_mut(),
+            )
+        };
+        assert_eq!(status, PP_ERROR_INVALID_ARGUMENT);
+        assert_eq!(asset_id.bytes, [0; 16]);
+        assert_eq!(representation_id.bytes, [0; 16]);
     }
 
     #[test]

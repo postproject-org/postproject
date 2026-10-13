@@ -35,7 +35,7 @@ int main(int argc, char **argv) {
   /* A media source describes the file to import; the transaction borrows it
    * only for the call. */
   if (status == PP_OK) {
-    status = pp_transaction_import_file(transaction, argv[2], NULL, &asset_id, &error);
+    status = pp_transaction_import_file(transaction, argv[2], NULL, &asset_id, NULL, &error);
   }
   /* Staged work becomes durable only on commit. Releasing a transaction that
    * was not committed discards everything staged in it. */
