@@ -13,7 +13,7 @@ postproject::Result<postproject::AssetId> import_media(const std::string &path,
                                                    const std::string &media) {
   POSTPROJECT_TRY_ASSIGN(auto production,
                          postproject::Production::create(path, "Propagation"));
-  POSTPROJECT_TRY_ASSIGN(auto transaction, production.beginTransaction());
+  POSTPROJECT_TRY_ASSIGN(auto transaction, production.edit());
   POSTPROJECT_TRY_ASSIGN(const auto imported, transaction.importMedia(media));
   POSTPROJECT_TRY(transaction.commit());
   return imported.asset_id;
@@ -73,7 +73,7 @@ int main(int argc, char **argv) {
     return 5;
   }
   postproject::Production production = *std::move(created);
-  auto transaction = production.beginTransaction();
+  auto transaction = production.edit();
   if (!transaction.has_value()) {
     return 6;
   }

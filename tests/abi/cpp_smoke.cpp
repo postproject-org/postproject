@@ -68,7 +68,7 @@ int renamed_sequence_scenario(const std::string &production_path) {
   const postproject::SequenceNaming original{"shot_", ".png", 4};
   const auto source = postproject::MediaSource::imageSequence(
       {plates.string(), original, 1, 3, 1, 24, 1, {}});
-  auto import = production.beginTransaction().value();
+  auto import = production.edit().value();
   const auto asset_id = import.importMedia(source, "Shot").value().asset_id;
   import.commit().value();
   for (int frame = 1; frame <= 3; ++frame) {
@@ -141,7 +141,7 @@ int main(int argc, char **argv) {
   std::remove(path.c_str());
 
   try {
-    if (postproject::abi_version() != 54) {
+    if (postproject::abi_version() != 55) {
       return 3;
     }
 
@@ -155,11 +155,10 @@ int main(int argc, char **argv) {
         return 10;
       }
     }
-    auto transaction = production.beginTransaction().value();
-    transaction.setRevisionContext(
-        {postproject::OriginIdentity{"C++ smoke", std::string("1.0"),
+    auto transaction = production.edit({postproject::OriginIdentity{"C++ smoke", std::string("1.0"),
                                      std::nullopt},
          std::string("Import fixture")}).value();
+
     const auto asset_id = transaction.importMedia(media_path, "C++ asset").value().asset_id;
     const postproject::ObjectRef asset_ref = postproject::ObjectRef::asset(asset_id);
     const postproject::HostObjectBinding host_binding{created_id, asset_ref};
@@ -255,14 +254,15 @@ int main(int argc, char **argv) {
       return 17;
     }
     const auto conflict_resource_id = representations[0].resources[0].id;
-    auto first_writer = production.beginTransaction(latest_revision->id).value();
+    const auto decision = production.readSession().value().decisionBase().value();
+    auto first_writer = production.edit(decision).value();
     first_writer
         .confirmLocator(conflict_resource_id,
                         "file:///cpp-smoke/conflict-first.mov")
         .value();
     first_writer.commit().value();
     const auto superseding_revision = production.latestRevision().value();
-    auto stale_writer = production.beginTransaction(latest_revision->id).value();
+    auto stale_writer = production.edit(decision).value();
     stale_writer
         .confirmLocator(conflict_resource_id,
                         "file:///cpp-smoke/conflict-stale.mov")
@@ -373,7 +373,7 @@ int main(int argc, char **argv) {
       return 13;
     }
 
-    auto rolled_back = production.beginTransaction().value();
+    auto rolled_back = production.edit().value();
     const auto discarded_id = rolled_back.importMedia(media_path).value().asset_id;
     rolled_back.rollback().value();
     if (production.containsAsset(discarded_id).value()) {
@@ -443,7 +443,7 @@ int main(int argc, char **argv) {
     if (!pre_provenance_revision.has_value()) {
       return 41;
     }
-    auto provenance = production.beginTransaction().value();
+    auto provenance = production.edit().value();
     const auto activity_id = provenance.createActivity(activity_spec).value();
     std::vector<postproject::MetadataValue> metadata_items;
     metadata_items.push_back(postproject::MetadataValue::rational(24000, 1001));
@@ -571,7 +571,7 @@ int main(int argc, char **argv) {
       return 28;
     }
     {
-      auto unbased = production.beginTransaction().value();
+      auto unbased = production.edit().value();
       const auto enabling = unbased.setMediaRootEnabled(root_id, true);
       const auto removal = unbased.removeMediaRoot(root_id);
       const auto retirement = unbased.retireLocator(representations[0].resources[0].locators[0].id);
@@ -698,7 +698,7 @@ int main(int argc, char **argv) {
         return 22;
       }
     }
-    auto additions = reopened.beginTransaction().value();
+    auto additions = reopened.edit().value();
     const auto proxy_id = additions.addRepresentation(
         asset_id, postproject::RepresentationKind::proxy, moved_media_path).value();
     const auto sequence = postproject::MediaSource::imageSequence(
@@ -826,7 +826,7 @@ int main(int argc, char **argv) {
       return 31;
     }
 
-    auto job_request = reopened.beginTransaction().value();
+    auto job_request = reopened.edit().value();
     const auto job_id = job_request.requestJob(
         {"org.postproject:generate-proxy", {resolutions[0].representation_id},
          asset_id, postproject::RepresentationKind::proxy, std::nullopt}).value();
@@ -853,7 +853,7 @@ int main(int argc, char **argv) {
       return 60;
     }
 
-    auto claim = reopened.beginTransaction().value();
+    auto claim = reopened.edit().value();
     auto lease = claim.claimJobLease(
         job_id, {"C++ worker", std::string("1.0"), std::nullopt}, std::chrono::minutes(1),
         postproject::AgentIdentity{std::string("operator"), std::nullopt}).value();
@@ -870,28 +870,28 @@ int main(int argc, char **argv) {
       return 34;
     }
 
-    auto renew = reopened.beginTransaction().value();
+    auto renew = reopened.edit().value();
     renew.renewJobLease(lease, std::chrono::minutes(2)).value();
     renew.commit().value();
-    auto release = reopened.beginTransaction().value();
+    auto release = reopened.edit().value();
     release.releaseJobLease(lease).value();
     release.commit().value();
 
-    auto second_claim = reopened.beginTransaction().value();
+    auto second_claim = reopened.edit().value();
     auto second_lease = second_claim.claimJobLease(
         job_id, {"C++ worker", std::nullopt, std::nullopt}, std::chrono::minutes(1)).value();
     second_claim.commit().value();
-    auto fail = reopened.beginTransaction().value();
+    auto fail = reopened.edit().value();
     fail.failJobLease(second_lease, "encoder exited").value();
     fail.commit().value();
 
-    auto second_request = reopened.beginTransaction().value();
+    auto second_request = reopened.edit().value();
     const auto cancelled_job_id = second_request.requestJob(
         {"org.postproject:generate-thumbnail",
          {resolutions[0].representation_id}, asset_id,
          postproject::RepresentationKind::derived, std::nullopt}).value();
     second_request.commit().value();
-    auto cancel = reopened.beginTransaction().value();
+    auto cancel = reopened.edit().value();
     cancel.cancelJob(cancelled_job_id).value();
     cancel.commit().value();
 
@@ -914,17 +914,17 @@ int main(int argc, char **argv) {
       return 35;
     }
 
-    auto completion_request = reopened.beginTransaction().value();
+    auto completion_request = reopened.edit().value();
     const auto completed_job_id = completion_request.requestJob(
         {"org.postproject:generate-proxy",
          {resolutions[0].representation_id}, asset_id,
          postproject::RepresentationKind::proxy, std::nullopt}).value();
     completion_request.commit().value();
-    auto completion_claim = reopened.beginTransaction().value();
+    auto completion_claim = reopened.edit().value();
     auto completion_lease = completion_claim.claimJobLease(
         completed_job_id, {"C++ worker", std::nullopt, std::nullopt}, std::chrono::minutes(1)).value();
     completion_claim.commit().value();
-    auto completion = reopened.beginTransaction().value();
+    auto completion = reopened.edit().value();
     const auto completed_representation_id =
         completion.addRepresentation(
             asset_id, postproject::RepresentationKind::proxy,
@@ -1131,7 +1131,7 @@ int main(int argc, char **argv) {
             delivered_changed.notify_all();
           },
           {postproject::RevisionEventKind::media_root_added});
-      auto root_transaction = watched.beginTransaction().value();
+      auto root_transaction = watched.edit().value();
       static_cast<void>(root_transaction.addMediaRoot("watched").value());
       root_transaction.commit().value();
       {

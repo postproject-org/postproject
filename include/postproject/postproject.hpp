@@ -2675,6 +2675,29 @@ checked_optional_string(const std::optional<std::string> &value,
   return std::optional<std::string>(std::move(checked));
 }
 
+struct EditContext final {
+  std::optional<std::string> name, version, uri, message;
+  pp_edit_context_t native() const noexcept {
+    return {name ? name->c_str() : nullptr, version ? version->c_str() : nullptr,
+            uri ? uri->c_str() : nullptr, message ? message->c_str() : nullptr};
+  }
+};
+
+inline Result<EditContext> edit_context(const RevisionContext &context) {
+  EditContext result;
+  if (context.origin) {
+    POSTPROJECT_TRY_ASSIGN(result.name,
+                           checked_string(context.origin->name, "origin name"));
+    POSTPROJECT_TRY_ASSIGN(result.version, checked_optional_string(
+        context.origin->version, "origin version"));
+    POSTPROJECT_TRY_ASSIGN(result.uri,
+                           checked_optional_string(context.origin->uri, "origin URI"));
+  }
+  POSTPROJECT_TRY_ASSIGN(result.message,
+                         checked_optional_string(context.message, "revision message"));
+  return result;
+}
+
 inline Result<std::optional<std::string>>
 checked_cursor(const std::optional<std::string_view> &cursor) {
   if (!cursor.has_value()) {
@@ -5534,36 +5557,6 @@ public:
     return Proposal(proposal);
   }
 
-  Result<void> setRevisionContext(const RevisionContext &context) {
-    std::optional<std::string> origin_name;
-    if (context.origin.has_value()) {
-      POSTPROJECT_TRY_ASSIGN(origin_name, checked_origin_name(*context.origin));
-    }
-    std::optional<std::string> origin_version;
-    if (context.origin.has_value()) {
-      POSTPROJECT_TRY_ASSIGN(origin_version,
-                             detail::checked_optional_string(
-                                 context.origin->version, "origin version"));
-    }
-    std::optional<std::string> origin_uri;
-    if (context.origin.has_value()) {
-      POSTPROJECT_TRY_ASSIGN(
-          origin_uri,
-          detail::checked_optional_string(context.origin->uri, "origin URI"));
-    }
-    POSTPROJECT_TRY_ASSIGN(
-        const std::optional<std::string> message,
-        detail::checked_optional_string(context.message, "revision message"));
-    pp_error_t *error = nullptr;
-    const pp_error_code_t status = pp_transaction_set_revision_context(
-        transaction_, origin_name.has_value() ? origin_name->c_str() : nullptr,
-        origin_version.has_value() ? origin_version->c_str() : nullptr,
-        origin_uri.has_value() ? origin_uri->c_str() : nullptr,
-        message.has_value() ? message->c_str() : nullptr, &error);
-    POSTPROJECT_TRY(detail::check(status, error));
-    return {};
-  }
-
   // Creates an asset whose original representation has the source's
   // structure. A path imports a single file.
   Result<ImportedMedia> importMedia(const MediaSource &source) {
@@ -6067,10 +6060,6 @@ private:
 
   explicit Transaction(pp_transaction_t *transaction) noexcept
       : transaction_(transaction) {}
-
-  static Result<std::string> checked_origin_name(const OriginIdentity &origin) {
-    return detail::checked_string(origin.name, "origin name");
-  }
 
   Result<ImportedMedia> import_media_impl(const MediaSource &source,
                                     const char *display_name) {
@@ -6938,10 +6927,12 @@ public:
     POSTPROJECT_TRY(detail::check(status, error));
     return detail::decision_base(base);
   }
-  [[nodiscard]] Result<Transaction> edit() const {
+  [[nodiscard]] Result<Transaction> edit(const RevisionContext &context = {}) const {
+    POSTPROJECT_TRY_ASSIGN(const auto checked, detail::edit_context(context));
+    const auto native_context = checked.native();
     pp_transaction_t *transaction = nullptr;
     pp_error_t *error = nullptr;
-    const auto status = pp_read_session_begin_edit(session_, &transaction, &error);
+    const auto status = pp_read_session_begin_edit(session_, &native_context, &transaction, &error);
     POSTPROJECT_TRY(detail::check(status, error));
     return Transaction(transaction);
   }
@@ -7276,13 +7267,14 @@ public:
     return ReadSession(session);
   }
 
-  [[nodiscard]] Result<Transaction> edit(const DecisionBase &base) const {
+  [[nodiscard]] Result<Transaction> edit(const RevisionContext &context = {}) const {
+    return begin_edit(nullptr, context);
+  }
+
+  [[nodiscard]] Result<Transaction> edit(const DecisionBase &base,
+                                        const RevisionContext &context = {}) const {
     const auto native = detail::native_decision_base(base);
-    pp_transaction_t *transaction = nullptr;
-    pp_error_t *error = nullptr;
-    const auto status = pp_production_begin_edit(production_, &native, &transaction, &error);
-    POSTPROJECT_TRY(detail::check(status, error));
-    return Transaction(transaction);
+    return begin_edit(&native, context);
   }
 
   [[nodiscard]] Result<ProductionId> id() const {
@@ -8153,25 +8145,6 @@ public:
     return std::move(page.items);
   }
 
-  [[nodiscard]] Result<Transaction> beginTransaction() {
-    pp_transaction_t *transaction = nullptr;
-    pp_error_t *error = nullptr;
-    const pp_error_code_t status =
-        pp_production_begin_transaction(production_, &transaction, &error);
-    POSTPROJECT_TRY(detail::check(status, error));
-    return Transaction(transaction);
-  }
-
-  [[nodiscard]] Result<Transaction> beginTransaction(const RevisionId &base_revision) {
-    const pp_revision_id_t native_base = detail::native_revision_id(base_revision);
-    pp_transaction_t *transaction = nullptr;
-    pp_error_t *error = nullptr;
-    const pp_error_code_t status = pp_production_begin_transaction_at(
-        production_, native_base, &transaction, &error);
-    POSTPROJECT_TRY(detail::check(status, error));
-    return Transaction(transaction);
-  }
-
   [[nodiscard]] explicit operator bool() const noexcept {
     return production_ != nullptr;
   }
@@ -8193,8 +8166,20 @@ private:
 
   explicit Production(pp_production_t *production) noexcept : production_(production) {}
 
+  Result<Transaction> begin_edit(const pp_decision_base_t *base,
+                                 const RevisionContext &context) const {
+    POSTPROJECT_TRY_ASSIGN(const auto checked, detail::edit_context(context));
+    const auto native_context = checked.native();
+    pp_transaction_t *transaction = nullptr;
+    pp_error_t *error = nullptr;
+    const auto status = pp_production_begin_edit(production_, base, &native_context,
+                                                &transaction, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    return Transaction(transaction);
+  }
+
   static Result<void> validate_abi() {
-    if (pp_abi_version() != 54) {
+    if (pp_abi_version() != 55) {
       return Error(ErrorCode::unsupported, "native library ABI does not match this header");
     }
     return {};

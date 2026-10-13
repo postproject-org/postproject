@@ -29,8 +29,23 @@ int main(int argc, char **argv) {
   auto production = postproject::Production::create(argv[1], "Lifetime");
   if (!production)
     return 3;
+  const auto invalid = production->edit(
+      {postproject::OriginIdentity{"", std::nullopt, std::nullopt}, "Invalid"});
+  if (invalid || invalid.error().code() != postproject::ErrorCode::invalid_argument)
+    return 11;
+  auto view = production->readSession();
+  if (!view)
+    return 12;
+  auto retained = view->edit(
+      {postproject::OriginIdentity{"Lifetime", "1.0", std::nullopt}, "Add root"});
+  if (!retained || !retained->addMediaRoot("archive") || !retained->commit())
+    return 13;
+  const auto latest = production->latestRevision();
+  if (!latest || !*latest || !(*latest)->origin ||
+      (*latest)->origin->name != "Lifetime" || (*latest)->message != "Add root")
+    return 14;
   for (int terminal = 0; terminal != 3; ++terminal) {
-    auto a = production->beginTransaction();
+    auto a = production->edit();
     if (!a)
       return 4;
     if (terminal == 2) {
@@ -43,14 +58,14 @@ int main(int argc, char **argv) {
     } else if (!(terminal == 0 ? bool(a->commit()) : bool(a->rollback()))) {
       return 7;
     }
-    auto b = production->beginTransaction();
+    auto b = production->edit();
     if (!b)
       return 8;
     {
       auto moved = std::move(*a);
       // Destruction releases closed A while B is still open.
     }
-    const auto rejected = production->beginTransaction();
+    const auto rejected = production->edit();
     if (rejected || rejected.error().code() != postproject::ErrorCode::conflict)
       return 9;
     if (!b->rollback())

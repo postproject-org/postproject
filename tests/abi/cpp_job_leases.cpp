@@ -28,7 +28,7 @@ int main(int argc, char **argv) {
   { std::ofstream file(media); file << "media"; }
   auto production = Production::create(argv[1]);
   if (!production) return 6;
-  auto setup = production->beginTransaction();
+  auto setup = production->edit();
   if (!setup) return 7;
   auto asset = setup->importMedia(MediaSource(media));
   if (!asset) return 8;
@@ -38,7 +38,7 @@ int main(int argc, char **argv) {
   if (!setup_receipt || !setup_receipt->revision ||
       setup_receipt->production_id != production->id().value()) return 9;
   const ToolIdentity tool{"worker", std::nullopt, std::nullopt};
-  auto edit = production->beginTransaction();
+  auto edit = production->edit();
   if (!edit) return 10;
   auto lease = edit->claimJobLease(*job, tool, minutes{1});
   if (!lease || !std::holds_alternative<PendingJobLease>(lease->state().value()) || lease->exportToken()) return 11;
@@ -50,14 +50,14 @@ int main(int argc, char **argv) {
   if (!token) return 14;
   auto imported = production->importJobLease(*token);
   if (!imported || production->importJobLease(std::string(10000, 'x'))) return 15;
-  auto renewal = production->beginTransaction();
+  auto renewal = production->edit();
   if (!renewal || !renewal->renewJobLease(moved, minutes{2}) || !renewal->commit()) return 16;
-  auto release = production->beginTransaction();
+  auto release = production->edit();
   if (!release || !release->releaseJobLease(moved) || !release->commit()) return 17;
   if (!std::holds_alternative<ClosedJobLease>(moved.state().value()) || production->importJobLease(*token)) return 18;
-  auto late = production->beginTransaction();
+  auto late = production->edit();
   if (!late || !late->failJobLease(*imported, "late worker") || late->commit()) return 19;
-  auto publish = production->beginTransaction();
+  auto publish = production->edit();
   if (!publish) return 20;
   auto publisher = publish->claimJobLease(*job, tool, minutes{1});
   auto output = publish->addRepresentation(asset->asset_id, RepresentationKind::derived, MediaSource(media));
