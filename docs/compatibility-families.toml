@@ -39,23 +39,20 @@ id = "transaction-lifecycle"
 dependencies = ["production-lifecycle"]
 introduced_release = "0.1.0-alpha.1"
 last_changed_release = "0.9.0-alpha.1"
-last_changed_abi = 53
+last_changed_abi = 55
 c_operations = [
-  "pp_production_begin_transaction",
-  "pp_transaction_set_revision_context",
+  "pp_production_begin_edit",
   "pp_transaction_commit",
   "pp_transaction_rollback",
   "pp_transaction_release",
 ]
 cpp_operations = [
-  "Production::beginTransaction",
-  "Transaction::setRevisionContext",
+  "Production::edit",
   "Transaction::commit",
   "Transaction::rollback",
 ]
 python_operations = [
   "Production.edit",
-  "Edit.set_revision_context",
   "Edit.commit",
   "Edit.rollback",
 ]
@@ -226,15 +223,15 @@ id = "base-revision-conflicts"
 dependencies = ["production-lifecycle", "transaction-lifecycle"]
 introduced_release = "0.5.0-alpha.1"
 last_changed_release = "0.9.0-alpha.1"
-last_changed_abi = 53
+last_changed_abi = 55
 c_operations = [
-  "pp_production_begin_transaction_at",
+  "pp_production_begin_edit",
   "pp_transaction_commit",
   "pp_transaction_release",
   "pp_error_transaction_conflict",
   "pp_error_release",
 ]
-cpp_operations = ["Production::beginTransaction", "Error::transactionConflict"]
+cpp_operations = ["Production::edit", "Error::transactionConflict"]
 python_operations = ["Production.edit", "ConflictError.conflict"]
 
 [[families]]
@@ -361,8 +358,8 @@ python_operations = ["Production.media_roots_page", "ReadSession.media_roots_pag
 id = "coherent-read-edit"
 dependencies = ["production-lifecycle", "transaction-lifecycle"]
 introduced_release = "0.7.0-alpha.1"
-last_changed_release = "0.8.0-alpha.1"
-last_changed_abi = 52
+last_changed_release = "0.9.0-alpha.1"
+last_changed_abi = 55
 c_operations = [
   "pp_production_read_session", "pp_read_session_decision_base",
   "pp_read_session_begin_edit", "pp_read_session_release",
@@ -374,8 +371,8 @@ python_operations = ["Production.read_session", "ReadSession.decision_base", "Re
 id = "detached-decision-edit"
 dependencies = ["coherent-read-edit"]
 introduced_release = "0.7.0-alpha.1"
-last_changed_release = "0.8.0-alpha.1"
-last_changed_abi = 52
+last_changed_release = "0.9.0-alpha.1"
+last_changed_abi = 55
 c_operations = ["pp_decision_base_format", "pp_decision_base_parse", "pp_production_begin_edit", "pp_string_release"]
 cpp_operations = ["DecisionBase::toToken", "DecisionBase::fromToken", "Production::edit"]
 python_operations = ["DecisionBase.to_token", "DecisionBase.from_token", "Production.edit"]
