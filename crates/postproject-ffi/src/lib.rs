@@ -49,20 +49,20 @@ use std::{
 };
 
 use postproject_core::{
-    Activity, ActivityId, ActivityInput, ActivityKind, ActivityOutput, ActivityOutputQuery,
-    ActivityRole, AgentIdentity, ArtifactEvaluationLimits, Asset, AssetId, AvailabilityIssue,
-    AvailabilityIssueKind, CommitReceipt, DecisionBase, Dependency, DependencyKind,
-    DependencyQueryLimits, DependencyTarget, Error, ErrorKind, EvidenceKind, ExternalIdentifier,
-    HostObjectBinding, IdentifierScheme, Job, JobFailure, JobId, JobKind, JobQuery, JobStateKind,
-    Locator, LocatorAvailability, LocatorId, MAX_ACTIVITY_EDGES, MAX_DEPENDENCIES_PER_SET,
-    MAX_JOB_INPUTS, MediaRoot, MediaRootId, MetadataProperty, MetadataQuery, MetadataValue,
-    ObjectRef, OriginIdentity, OriginalMediaImport, ProductionId, PropertyId,
-    ProvenanceQueryLimits, ProvenanceQueryMatch, QueryCursor, QueryPageRequest,
-    RepresentationAvailability, RepresentationFingerprint, RepresentationId, RepresentationImport,
-    RepresentationKind, RepresentationResolution, RequestedJobOutput, ResolutionEvidence,
-    ResourceFingerprint, ResourceId, ResourceResolutionState, RevisionContext, RevisionId,
-    SemanticConflictKey, StaleArtifactQuery, Timestamp, ToolIdentity, TransactionConflict,
-    TransactionLifecycle, VocabularyId,
+    Activity, ActivityKind, ActivityOutputQuery, ActivityRole, AgentIdentity,
+    ArtifactEvaluationLimits, Asset, AssetId, AvailabilityIssue, AvailabilityIssueKind,
+    CommitReceipt, DecisionBase, Dependency, DependencyKind, DependencyQueryLimits,
+    DependencyTarget, Error, ErrorKind, EvidenceKind, ExternalIdentifier, HostObjectBinding,
+    IdentifierScheme, Job, JobFailure, JobId, JobKind, JobQuery, JobStateKind, Locator,
+    LocatorAvailability, LocatorId, MAX_ACTIVITY_EDGES, MAX_DEPENDENCIES_PER_SET, MAX_JOB_INPUTS,
+    MediaRoot, MediaRootId, MetadataProperty, MetadataQuery, MetadataValue, ObjectRef,
+    OriginIdentity, OriginalMediaImport, ProductionId, PropertyId, ProvenanceQueryLimits,
+    ProvenanceQueryMatch, QueryCursor, QueryPageRequest, RepresentationAvailability,
+    RepresentationFingerprint, RepresentationId, RepresentationImport, RepresentationKind,
+    RepresentationResolution, RequestedJobOutput, ResolutionEvidence, ResourceFingerprint,
+    ResourceId, ResourceResolutionState, RevisionContext, RevisionId, SemanticConflictKey,
+    StaleArtifactQuery, Timestamp, ToolIdentity, TransactionConflict, TransactionLifecycle,
+    VocabularyId,
 };
 use postproject_media::{
     canonical_file_uri, local_file_path, prepare_confirmed_locator, prepare_original_media,
@@ -5689,117 +5689,6 @@ pub unsafe extern "C" fn pp_transaction_cancel_job(
             transaction
                 .mutations
                 .push(StagedMutation::CancelJob(JobId::from_bytes(job_id.bytes)));
-            Ok(())
-        })
-    }
-}
-
-/// Stages one complete production activity.
-///
-/// Input and output arrays are borrowed only for this call. Edge roles, kind,
-/// tool fields, and agent fields are NUL-terminated UTF-8. Optional values may
-/// be null. Agent identifier scheme and value must be supplied together.
-///
-/// # Safety
-///
-/// `transaction` must be live, `kind` and non-empty edge arrays must be
-/// readable, `out_activity_id` must be writable, and every non-null string must
-/// remain valid for the call. `out_error` may be null or writable.
-#[postproject_ffi_macros::ffi_export]
-#[allow(
-    clippy::too_many_arguments,
-    reason = "the C ABI keeps optional provenance fields explicit"
-)]
-pub unsafe extern "C" fn pp_transaction_create_activity(
-    transaction: *mut PpTransaction,
-    kind: *const c_char,
-    inputs: *const PpActivityEdge,
-    input_count: u64,
-    outputs: *const PpActivityEdge,
-    output_count: u64,
-    started_at_unix_micros: *const i64,
-    finished_at_unix_micros: *const i64,
-    tool_name: *const c_char,
-    tool_version: *const c_char,
-    tool_uri: *const c_char,
-    agent_name: *const c_char,
-    agent_identifier_scheme: *const c_char,
-    agent_identifier_value: *const c_char,
-    agent_identifier_qualifier: *const c_char,
-    out_activity_id: *mut PpActivityId,
-    out_error: *mut *mut PpError,
-) -> u32 {
-    // SAFETY: Inputs are checked and converted to owned domain values before return.
-    unsafe {
-        initialize_value(out_activity_id, PpActivityId { bytes: [0; 16] });
-        ffi_call(out_error, || {
-            let transaction = transaction
-                .as_mut()
-                .ok_or_else(|| invalid_argument("transaction must not be null"))?;
-            transaction.lifecycle.ensure_open()?;
-            require_output(out_activity_id, "out_activity_id")?;
-            let kind = ActivityKind::new(required_utf8(kind, "kind")?)?;
-            let inputs = activity_edges_from_abi(inputs, input_count, "input")?
-                .into_iter()
-                .map(|(representation_id, role)| ActivityInput::new(representation_id, role))
-                .collect();
-            let outputs = activity_edges_from_abi(outputs, output_count, "output")?
-                .into_iter()
-                .map(|(representation_id, role)| ActivityOutput::new(representation_id, role))
-                .collect();
-            let mut activity = Activity::new(ActivityId::new(), kind, inputs, outputs)?
-                .with_timing(
-                    started_at_unix_micros
-                        .as_ref()
-                        .copied()
-                        .map(Timestamp::from_unix_micros),
-                    finished_at_unix_micros
-                        .as_ref()
-                        .copied()
-                        .map(Timestamp::from_unix_micros),
-                )?;
-            let tool_name = optional_utf8(tool_name, "tool_name")?;
-            let tool_version = optional_utf8(tool_version, "tool_version")?;
-            let tool_uri = optional_utf8(tool_uri, "tool_uri")?;
-            if let Some(name) = tool_name {
-                activity = activity.with_tool(ToolIdentity::new(
-                    name,
-                    tool_version.map(str::to_owned),
-                    tool_uri.map(str::to_owned),
-                )?);
-            } else if tool_version.is_some() || tool_uri.is_some() {
-                return Err(invalid_argument("tool version and URI require a tool name"));
-            }
-            let agent_name = optional_utf8(agent_name, "agent_name")?;
-            let agent_scheme = optional_utf8(agent_identifier_scheme, "agent_identifier_scheme")?;
-            let agent_value = optional_utf8(agent_identifier_value, "agent_identifier_value")?;
-            let agent_qualifier =
-                optional_utf8(agent_identifier_qualifier, "agent_identifier_qualifier")?;
-            let agent_identifier = match (agent_scheme, agent_value) {
-                (Some(scheme), Some(value)) => Some(ExternalIdentifier::new(
-                    IdentifierScheme::new(scheme)?,
-                    value,
-                    agent_qualifier.map(str::to_owned),
-                )?),
-                (None, None) if agent_qualifier.is_none() => None,
-                _ => {
-                    return Err(invalid_argument(
-                        "agent identifier scheme and value must be supplied together",
-                    ));
-                }
-            };
-            if agent_name.is_some() || agent_identifier.is_some() {
-                activity = activity.with_agent(AgentIdentity::new(
-                    agent_name.map(str::to_owned),
-                    agent_identifier,
-                )?);
-            }
-            out_activity_id.write(PpActivityId {
-                bytes: activity.id().into_bytes(),
-            });
-            transaction
-                .mutations
-                .push(StagedMutation::Activity(activity));
             Ok(())
         })
     }

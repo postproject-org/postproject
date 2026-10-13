@@ -3,6 +3,9 @@
 
 #include <stdint.h>
 
+/** ABI expected by these declarations; check pp_abi_version before use. */
+#define PP_ABI_VERSION UINT32_C(56)
+
 #if defined(_WIN32) && defined(POSTPROJECT_SHARED)
 #if defined(POSTPROJECT_BUILDING_LIBRARY)
 #define PP_API __declspec(dllexport)
@@ -2085,14 +2088,9 @@ PP_API pp_error_code_t pp_transaction_cancel_job(
  * means absent. Tool and agent fields are independently optional subject to
  * the documented domain invariants. */
 PP_API pp_error_code_t pp_transaction_create_activity(
-    pp_transaction_t *transaction, const char *kind,
-    const pp_activity_edge_t *inputs, uint64_t input_count,
+    pp_transaction_t *transaction, const pp_activity_recipe_t *recipe,
     const pp_activity_edge_t *outputs, uint64_t output_count,
-    const int64_t *started_at_unix_micros,
-    const int64_t *finished_at_unix_micros, const char *tool_name,
-    const char *tool_version, const char *tool_uri, const char *agent_name,
-    const char *agent_identifier_scheme, const char *agent_identifier_value,
-    const char *agent_identifier_qualifier, pp_activity_id_t *out_activity_id,
+    pp_activity_id_t *out_activity_id,
     pp_error_t **out_error);
 /* A commit attempt is terminal, including failure. Captures the produced
  * revision in the atomic write path; never queries a later head. out_receipt

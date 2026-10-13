@@ -12,7 +12,10 @@ use crate::{PpJobCompletion, PpJobId};
 
 fn fixture() -> (PpOutcome, Vec<JobResult>, JobCompletion) {
     let scope = Scope::new(crate::ProductionId::new(), HistoryId::new());
-    let completion = JobCompletion::new(crate::ActivityId::new(), crate::RepresentationId::new());
+    let completion = JobCompletion::new(
+        postproject_core::ActivityId::new(),
+        crate::RepresentationId::new(),
+    );
     let states = [
         JobResultState::Requested,
         JobResultState::Claimed(Timestamp::from_unix_micros(-7)),

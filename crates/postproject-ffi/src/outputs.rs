@@ -1,8 +1,16 @@
-//! Borrowed output task inputs and copied identities.
+//! Atomic staging of produced media, its activity and actual parameters.
 
-use crate::{PpActivityEdge, PpAssetId, PpMediaSource, PpMetadataInput, PpRepresentationId};
-use postproject_media::OutputIdentity;
+mod recipe;
+
 use std::ffi::c_char;
+
+use crate::{
+    PpActivityEdge, PpActivityId, PpAssetId, PpError, PpMediaSource, PpMetadataInput,
+    PpRepresentationId, PpTransaction, StagedMutation, ffi_call, initialize_value,
+    invalid_argument, require_output,
+};
+use postproject_core::{Activity, ActivityId, ActivityOutput, ObjectRef};
+use postproject_media::OutputIdentity;
 
 /// Borrowed typed assertion on the actual producing activity.
 #[repr(C)]
@@ -89,4 +97,79 @@ impl From<OutputIdentity> for PpOutputIdentity {
             },
         }
     }
+}
+
+/// Stages an activity describing existing output representations and its parameters.
+///
+/// # Safety
+/// Handles must be live; recipe/arrays readable for their bounded counts,
+/// output writable and error null or writable. All strings are borrowed UTF-8.
+#[postproject_ffi_macros::ffi_export]
+pub unsafe extern "C" fn pp_transaction_create_activity(
+    transaction: *mut PpTransaction,
+    recipe: *const PpActivityRecipe,
+    outputs: *const PpActivityEdge,
+    output_count: u64,
+    out_activity_id: *mut PpActivityId,
+    out_error: *mut *mut PpError,
+) -> u32 {
+    // SAFETY: Borrowed values are checked and copied before modifying the edit.
+    unsafe {
+        initialize_value(out_activity_id, PpActivityId { bytes: [0; 16] });
+        ffi_call(out_error, || {
+            require_output(out_activity_id, "out_activity_id")?;
+            let edit = transaction
+                .as_mut()
+                .ok_or_else(|| invalid_argument("transaction must not be null"))?;
+            edit.lifecycle.ensure_open()?;
+            let recipe = recipe::read(recipe)?;
+            let outputs = crate::activity_edges_from_abi(outputs, output_count, "output")?
+                .into_iter()
+                .map(|(id, role)| ActivityOutput::new(id, role))
+                .collect();
+            let mut activity =
+                Activity::new(ActivityId::new(), recipe.kind, recipe.inputs, outputs)?
+                    .with_timing(recipe.started_at, recipe.finished_at)?;
+            if let Some(tool) = recipe.tool {
+                activity = activity.with_tool(tool);
+            }
+            if let Some(agent) = recipe.agent {
+                activity = activity.with_agent(agent);
+            }
+            let id = activity.id();
+            append_activity(edit, activity, recipe.parameters)?;
+            out_activity_id.write(PpActivityId {
+                bytes: id.into_bytes(),
+            });
+            Ok(())
+        })
+    }
+}
+
+fn append_activity(
+    edit: &mut PpTransaction,
+    activity: Activity,
+    parameters: Vec<(
+        postproject_core::MetadataProperty,
+        postproject_core::MetadataValue,
+    )>,
+) -> Result<(), postproject_core::Error> {
+    let target = ObjectRef::Activity(activity.id());
+    let mut additions = Vec::with_capacity(parameters.len() + 1);
+    additions.push(StagedMutation::Activity(activity));
+    additions.extend(
+        parameters
+            .into_iter()
+            .map(|(key, value)| StagedMutation::AddMetadataValue(target, key, value)),
+    );
+    edit.mutations
+        .try_reserve(additions.len())
+        .map_err(|error| {
+            postproject_core::Error::new(
+                postproject_core::ErrorKind::Internal,
+                format!("allocate staged activity: {error}"),
+            )
+        })?;
+    edit.mutations.extend(additions);
+    Ok(())
 }
