@@ -8,7 +8,6 @@ from pathlib import Path
 from uuid import uuid4
 
 from postproject import (
-    ActivityEdge,
     ActivitySpec,
     AddRepresentationCommand,
     CancelJobCommand,
@@ -191,8 +190,8 @@ class ExchangeJobTests(unittest.TestCase):
                     CreateActivityCommand(
                         ActivitySpec(
                             "example:publish",
-                            (ActivityEdge(output),),
-                            (ActivityEdge(self.input),),
+                            (output,),
+                            (self.input,),
                             tool=self.tool,
                         )
                     )

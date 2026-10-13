@@ -78,8 +78,8 @@ def run(root: Path) -> None:
                 pp.CreateActivityCommand(
                     pp.ActivitySpec(
                         "vendor:Build",
-                        outputs=(pp.ActivityEdge(sequence.representation_id),),
-                        inputs=(pp.ActivityEdge(original.id, "vendor:source"),),
+                        outputs=(sequence.representation_id,),
+                        inputs=((original.id, "vendor:source"),),
                         started_at_unix_micros=-(2**53 + 1),
                         finished_at_unix_micros=2**53 + 1,
                         tool=pp.ToolIdentity("Exact 同", "Case", "urn:vendor:tool"),

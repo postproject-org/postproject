@@ -327,16 +327,12 @@ class ProductionTests(unittest.TestCase):
                     ActivitySpec(
                         kind="org.postproject:transcode",
                         outputs=(
-                            ActivityEdge(
+                            (
                                 completed_representation_id,
                                 "org.postproject:output.proxy",
                             ),
                         ),
-                        inputs=(
-                            ActivityEdge(
-                                source_id, "org.postproject:input.primary-video"
-                            ),
-                        ),
+                        inputs=((source_id, "org.postproject:input.primary-video"),),
                         tool=worker,
                     )
                 )
@@ -1423,8 +1419,8 @@ class ProductionTests(unittest.TestCase):
             )
             spec = ActivitySpec(
                 "org.postproject:transcode",
-                outputs=(output_edge,),
-                inputs=(input_edge,),
+                outputs=((output_edge.representation_id, output_edge.role),),
+                inputs=((input_edge.representation_id, input_edge.role),),
                 started_at_unix_micros=100,
                 finished_at_unix_micros=200,
                 tool=ToolIdentity("FFmpeg", "8.0", "https://ffmpeg.org/"),
@@ -1502,8 +1498,8 @@ class ProductionTests(unittest.TestCase):
                 activity_id = transaction.create_activity(
                     ActivitySpec(
                         "org.postproject:transcode",
-                        inputs=(ActivityEdge(source.id),),
-                        outputs=(ActivityEdge(output.id),),
+                        inputs=(source.id,),
+                        outputs=(output.id,),
                         tool=ToolIdentity("FFmpeg", "8.0", "https://ffmpeg.org/"),
                     )
                 )
@@ -1736,8 +1732,8 @@ class ProductionTests(unittest.TestCase):
                 transaction.create_activity(
                     ActivitySpec(
                         "org.postproject:transcode",
-                        inputs=(ActivityEdge(source.id),),
-                        outputs=(ActivityEdge(output.id),),
+                        inputs=(source.id,),
+                        outputs=(output.id,),
                         tool=tool,
                     )
                 )
@@ -1847,8 +1843,8 @@ class ProductionTests(unittest.TestCase):
                 activity_id = transaction.create_activity(
                     ActivitySpec(
                         "org.postproject:transcode",
-                        inputs=(ActivityEdge(source.id),),
-                        outputs=(ActivityEdge(output.id),),
+                        inputs=(source.id,),
+                        outputs=(output.id,),
                     )
                 )
                 transaction.add_metadata(

@@ -6,7 +6,6 @@ from itertools import repeat
 from pathlib import Path
 
 from postproject import (
-    ActivityEdge,
     ActivityRef,
     ActivitySpec,
     ArtifactKnowledgeState,
@@ -353,8 +352,8 @@ class ReadSessionTests(unittest.TestCase):
                             ActivitySpec(
                                 "example:render",
                                 tool=tool,
-                                inputs=(ActivityEdge(original.id),),
-                                outputs=(ActivityEdge(proxy),),
+                                inputs=(original.id,),
+                                outputs=(proxy,),
                             )
                         )
                         parameter = MetadataProperty(
@@ -369,8 +368,8 @@ class ReadSessionTests(unittest.TestCase):
                         edit.create_activity(
                             ActivitySpec(
                                 "example:inspection",
-                                inputs=(ActivityEdge(original.id),),
-                                outputs=(ActivityEdge(inspected),),
+                                inputs=(original.id,),
+                                outputs=(inspected,),
                             )
                         )
                         edit.commit()
@@ -728,7 +727,7 @@ class ReadSessionTests(unittest.TestCase):
                         activity = edit.create_activity(
                             ActivitySpec(
                                 "example:observed",
-                                outputs=(ActivityEdge(representation.id),),
+                                outputs=(representation.id,),
                             )
                         )
                         edit.commit()

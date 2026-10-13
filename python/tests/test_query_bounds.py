@@ -8,7 +8,6 @@ from fractions import Fraction
 from pathlib import Path
 
 from postproject import (
-    ActivityEdge,
     ActivitySpec,
     AssetRef,
     EvidenceKind,
@@ -71,9 +70,7 @@ class QueryBoundsTests(unittest.TestCase):
                     edit.commit()
                 representation = production.representations[asset][0].id
                 head = production.latest_revision
-                spec = ActivitySpec(
-                    "org.example:render", (ActivityEdge(representation),)
-                )
+                spec = ActivitySpec("org.example:render", (representation,))
                 with production.edit() as edit:
                     for timestamp in (-(2**63) - 1, 2**64 + 1):
                         with self.assertRaises(InvalidArgumentError):

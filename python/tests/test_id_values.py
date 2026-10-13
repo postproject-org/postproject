@@ -10,7 +10,6 @@ from typing import Any
 from uuid import UUID
 
 from postproject import (
-    ActivityEdge,
     ActivityId,
     ActivityRef,
     ActivitySpec,
@@ -156,9 +155,7 @@ class IdentityTests(unittest.TestCase):
                 representation = first.representations[asset][0].id
                 with first.edit() as edit:
                     activity = edit.create_activity(
-                        ActivitySpec(
-                            "com.example:record", (ActivityEdge(representation),)
-                        )
+                        ActivitySpec("com.example:record", (representation,))
                     )
                     edit.commit()
                 self.assertIsInstance(activity, UUID)

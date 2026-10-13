@@ -8,7 +8,6 @@ from typing import cast
 
 from postproject import (
     ActiveJobLease,
-    ActivityEdge,
     ActivitySpec,
     ClosedJobLease,
     ConflictError,
@@ -103,7 +102,7 @@ class JobLeaseTests(unittest.TestCase):
             property = MetadataProperty("com.example", "title")
             edit.add_metadata(target, property, MetadataString("Published"))
             activity = edit.create_activity(
-                ActivitySpec("example:publish", (ActivityEdge(output),), tool=self.tool)
+                ActivitySpec("example:publish", (output,), tool=self.tool)
             )
             edit.complete_job_lease(lease, output, activity)
             self.assertIsNotNone(edit.commit().revision)
@@ -137,9 +136,7 @@ class JobLeaseTests(unittest.TestCase):
             )
             lease = edit.claim_job_lease(self.job, self.tool, timedelta(minutes=1))
             self.addCleanup(lease.close)
-            activity = edit.create_activity(
-                ActivitySpec("example:publish", (ActivityEdge(output),))
-            )
+            activity = edit.create_activity(ActivitySpec("example:publish", (output,)))
             with self.assertRaises(InvalidArgumentError):
                 edit.complete_job_lease(lease, output, activity)
         self.assertIsInstance(lease.state, ClosedJobLease)
@@ -191,8 +188,8 @@ class JobLeaseTests(unittest.TestCase):
             activity = edit.create_activity(
                 ActivitySpec(
                     "example:publish",
-                    (ActivityEdge(output),),
-                    inputs=(ActivityEdge(source.id),),
+                    (output,),
+                    inputs=(source.id,),
                 )
             )
             edit.complete_job_lease(imported, output, activity)
