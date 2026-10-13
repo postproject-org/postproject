@@ -92,7 +92,7 @@ pub use metadata::{PpMetadataSet, PpMetadataValue};
 pub use metadata_input::PpMetadataInput;
 pub use provenance::PpActivitySet;
 use provenance::{AbiActivityEdge, AbiActivityEdgeSnapshot, AbiFingerprintSnapshot};
-pub use read_session::{PpDecisionBase, PpReadSession};
+pub use read_session::{PpDecisionBase, PpEditContext, PpReadSession};
 pub use representations::PpRepresentationSet;
 pub use resolution::{PpCancelToken, PpResolutionConfig, PpResolutionOptions, PpRootMapping};
 pub use revision_events::PpRevisionEventSet;
@@ -201,7 +201,7 @@ const PP_REVISION_JOB_FAILED: u32 = 25;
 const PP_REVISION_JOB_CANCELLED: u32 = 26;
 
 /// Current pre-1.0 ABI version.
-pub const ABI_VERSION: u32 = 54;
+pub const ABI_VERSION: u32 = 55;
 
 /// Fixed-layout UUID-compatible public identifier.
 #[repr(C)]
@@ -4917,118 +4917,6 @@ pub unsafe extern "C" fn pp_resolution_set_release(resolutions: *mut PpResolutio
 
 /// Begins an explicit transaction that stages mutations until commit.
 ///
-/// At most one transaction may be open for a production state. The returned handle
-/// keeps that state alive even if the original production handle is released.
-///
-/// # Safety
-///
-/// `production` must be a live handle returned by this library. `out_transaction`
-/// must be writable. `out_error` may be null or writable.
-#[postproject_ffi_macros::ffi_export]
-pub unsafe extern "C" fn pp_production_begin_transaction(
-    production: *mut PpProduction,
-    out_transaction: *mut *mut PpTransaction,
-    out_error: *mut *mut PpError,
-) -> u32 {
-    // SAFETY: The caller contract for each pointer is documented above. Outputs
-    // are initialized before validation and the production is borrowed only here.
-    unsafe {
-        initialize_output(out_transaction);
-        ffi_call(out_error, || {
-            let production = production
-                .as_ref()
-                .ok_or_else(|| invalid_argument("production must not be null"))?;
-            if out_transaction.is_null() {
-                return Err(invalid_argument("out_transaction must not be null"));
-            }
-            out_transaction.write(begin_transaction_handle(&production.state, None, None)?);
-            Ok(())
-        })
-    }
-}
-
-/// Begins a transaction whose decisions were made from `base_revision`.
-///
-/// # Safety
-///
-/// `production` must be live, `out_transaction` writable, and `out_error` null
-/// or writable. Base revision identity is a copied stack value.
-#[postproject_ffi_macros::ffi_export]
-pub unsafe extern "C" fn pp_production_begin_transaction_at(
-    production: *mut PpProduction,
-    base_revision: PpRevisionId,
-    out_transaction: *mut *mut PpTransaction,
-    out_error: *mut *mut PpError,
-) -> u32 {
-    // SAFETY: Outputs are initialized and all pointers checked before use.
-    unsafe {
-        initialize_output(out_transaction);
-        ffi_call(out_error, || {
-            let production = production
-                .as_ref()
-                .ok_or_else(|| invalid_argument("production must not be null"))?;
-            require_output(out_transaction, "out_transaction")?;
-            let base_revision = RevisionId::from_bytes(base_revision.bytes);
-            out_transaction.write(begin_transaction_handle(
-                &production.state,
-                Some(base_revision),
-                None,
-            )?);
-            Ok(())
-        })
-    }
-}
-
-/// Sets the origin and message attached to this transaction's future revision.
-///
-/// `origin_name` and `message` may be null. Origin version and URI may be null,
-/// but require a non-null origin name when supplied.
-///
-/// # Safety
-///
-/// `transaction` must be live. Every non-null string must be NUL-terminated
-/// UTF-8 for the duration of the call. `out_error` may be null or writable.
-#[postproject_ffi_macros::ffi_export]
-pub unsafe extern "C" fn pp_transaction_set_revision_context(
-    transaction: *mut PpTransaction,
-    origin_name: *const c_char,
-    origin_version: *const c_char,
-    origin_uri: *const c_char,
-    message: *const c_char,
-    out_error: *mut *mut PpError,
-) -> u32 {
-    // SAFETY: Inputs are validated and copied before this call returns.
-    unsafe {
-        ffi_call(out_error, || {
-            let transaction = transaction
-                .as_mut()
-                .ok_or_else(|| invalid_argument("transaction must not be null"))?;
-            transaction.lifecycle.ensure_open()?;
-            let origin_name = optional_utf8(origin_name, "origin_name")?;
-            let origin_version = optional_utf8(origin_version, "origin_version")?;
-            let origin_uri = optional_utf8(origin_uri, "origin_uri")?;
-            let origin = match origin_name {
-                Some(name) => Some(OriginIdentity::new(
-                    name,
-                    origin_version.map(str::to_owned),
-                    origin_uri.map(str::to_owned),
-                )?),
-                None if origin_version.is_none() && origin_uri.is_none() => None,
-                None => {
-                    return Err(invalid_argument(
-                        "origin_version and origin_uri require origin_name",
-                    ));
-                }
-            };
-            transaction.revision_context = RevisionContext::new(
-                origin,
-                optional_utf8(message, "message")?.map(str::to_owned),
-            )?;
-            Ok(())
-        })
-    }
-}
-
 /// Stages an import and returns its asset and original representation identities.
 ///
 /// The new asset's original representation has the source's content
@@ -7556,7 +7444,13 @@ mod tests {
         // SAFETY: `production` is live and the transaction output is writable.
         assert_eq!(
             unsafe {
-                pp_production_begin_transaction(production, &raw mut transaction, &raw mut error)
+                read_session::pp_production_begin_edit(
+                    production,
+                    std::ptr::null(),
+                    std::ptr::null(),
+                    &raw mut transaction,
+                    &raw mut error,
+                )
             },
             PP_OK
         );

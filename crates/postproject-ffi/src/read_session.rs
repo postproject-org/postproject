@@ -28,6 +28,49 @@ pub struct PpDecisionBase {
     pub revision_sequence: u64,
 }
 
+/// Optional borrowed attribution for edit creation.
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct PpEditContext {
+    /// Origin name, or null for absent attribution.
+    pub origin_name: *const std::ffi::c_char,
+    /// Optional origin version; requires a name.
+    pub origin_version: *const std::ffi::c_char,
+    /// Optional origin URI; requires a name.
+    pub origin_uri: *const std::ffi::c_char,
+    /// Optional revision message.
+    pub message: *const std::ffi::c_char,
+}
+
+unsafe fn edit_context(context: *const PpEditContext) -> Result<crate::RevisionContext, Error> {
+    // SAFETY: The caller supplies a readable context with borrowed UTF-8 strings.
+    unsafe {
+        let Some(context) = context.as_ref() else {
+            return Ok(crate::RevisionContext::default());
+        };
+        let name = crate::optional_utf8(context.origin_name, "origin_name")?;
+        let version = crate::optional_utf8(context.origin_version, "origin_version")?;
+        let uri = crate::optional_utf8(context.origin_uri, "origin_uri")?;
+        let origin = match name {
+            Some(name) => Some(crate::OriginIdentity::new(
+                name,
+                version.map(str::to_owned),
+                uri.map(str::to_owned),
+            )?),
+            None if version.is_none() && uri.is_none() => None,
+            None => {
+                return Err(invalid_argument(
+                    "origin_version and origin_uri require origin_name",
+                ));
+            }
+        };
+        crate::RevisionContext::new(
+            origin,
+            crate::optional_utf8(context.message, "message")?.map(str::to_owned),
+        )
+    }
+}
+
 impl From<DecisionBase> for PpDecisionBase {
     fn from(base: DecisionBase) -> Self {
         Self {
@@ -184,10 +227,12 @@ pub unsafe extern "C" fn pp_read_session_decision_base(
 ///
 /// # Safety
 ///
-/// Session must be live, `out_transaction` writable, and `out_error` null or writable.
+/// Session must be live, context null or readable with borrowed UTF-8 strings,
+/// `out_transaction` writable, and `out_error` null or writable.
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_read_session_begin_edit(
     session: *const PpReadSession,
+    context: *const PpEditContext,
     out_transaction: *mut *mut PpTransaction,
     out_error: *mut *mut PpError,
 ) -> u32 {
@@ -199,7 +244,9 @@ pub unsafe extern "C" fn pp_read_session_begin_edit(
             let session = session
                 .as_ref()
                 .ok_or_else(|| invalid_argument("session must not be null"))?;
+            let context = edit_context(context)?;
             let transaction = begin_transaction_handle(&session.state, None, Some(session.base))?;
+            (*transaction).revision_context = context;
             // Retain the exact knowledge used by automatic content observations.
             (*transaction).decision_reader = Some(Arc::clone(&session.reader.state));
             out_transaction.write(transaction);
@@ -212,11 +259,13 @@ pub unsafe extern "C" fn pp_read_session_begin_edit(
 ///
 /// # Safety
 ///
-/// Production/base must be live/readable, outputs writable or `out_error` null.
+/// Production must be live; base and context null or readable (strings UTF-8).
+/// Outputs must be writable or `out_error` null.
 #[postproject_ffi_macros::ffi_export]
 pub unsafe extern "C" fn pp_production_begin_edit(
     production: *const PpProduction,
     base: *const PpDecisionBase,
+    context: *const PpEditContext,
     out_transaction: *mut *mut PpTransaction,
     out_error: *mut *mut PpError,
 ) -> u32 {
@@ -228,14 +277,11 @@ pub unsafe extern "C" fn pp_production_begin_edit(
             let production = production
                 .as_ref()
                 .ok_or_else(|| invalid_argument("production must not be null"))?;
-            let base = base
-                .as_ref()
-                .ok_or_else(|| invalid_argument("base must not be null"))?;
-            out_transaction.write(begin_transaction_handle(
-                &production.state,
-                None,
-                Some((*base).try_into()?),
-            )?);
+            let base = base.as_ref().map(|base| (*base).try_into()).transpose()?;
+            let context = edit_context(context)?;
+            let transaction = begin_transaction_handle(&production.state, None, base)?;
+            (*transaction).revision_context = context;
+            out_transaction.write(transaction);
             Ok(())
         })
     }
@@ -254,4 +300,83 @@ pub unsafe extern "C" fn pp_read_session_release(session: *mut PpReadSession) {
             drop(unsafe { Box::from_raw(session) });
         }
     }));
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::{ffi::CString, ptr};
+
+    #[test]
+    fn invalid_context_does_not_reserve_an_edit_and_valid_context_is_copied() {
+        let directory = tempfile::tempdir().unwrap();
+        let store =
+            crate::SqliteProduction::create(directory.path().join("context.pproj"), None).unwrap();
+        let production = production_handle(store);
+        let name = CString::new("test host").unwrap();
+        let version = CString::new("1.2").unwrap();
+        let message = CString::new("Import clip").unwrap();
+        let mut context = PpEditContext {
+            origin_name: ptr::null(),
+            origin_version: version.as_ptr(),
+            origin_uri: ptr::null(),
+            message: message.as_ptr(),
+        };
+        let mut transaction = ptr::null_mut();
+        let mut error = ptr::null_mut();
+        // SAFETY: All handles and borrowed strings are live; outputs are local.
+        unsafe {
+            assert_eq!(
+                pp_production_begin_edit(
+                    &production,
+                    ptr::null(),
+                    &context,
+                    &raw mut transaction,
+                    &raw mut error
+                ),
+                crate::PP_ERROR_INVALID_ARGUMENT
+            );
+            assert!(transaction.is_null());
+            crate::pp_error_release(error);
+            context.origin_name = name.as_ptr();
+            assert_eq!(
+                pp_production_begin_edit(
+                    &production,
+                    ptr::null(),
+                    &context,
+                    &raw mut transaction,
+                    &raw mut error
+                ),
+                crate::PP_OK
+            );
+            assert!(!transaction.is_null());
+            assert_eq!(
+                (*transaction).revision_context.origin().unwrap().name(),
+                "test host"
+            );
+            assert_eq!(
+                (*transaction).revision_context.message(),
+                Some("Import clip")
+            );
+            drop(name);
+            drop(version);
+            drop(message);
+            assert_eq!(
+                (*transaction).revision_context.origin().unwrap().version(),
+                Some("1.2")
+            );
+            crate::pp_transaction_release(transaction);
+            assert_eq!(
+                pp_production_begin_edit(
+                    &production,
+                    ptr::null(),
+                    ptr::null(),
+                    &raw mut transaction,
+                    &raw mut error
+                ),
+                crate::PP_OK
+            );
+            crate::pp_transaction_release(transaction);
+        }
+    }
 }

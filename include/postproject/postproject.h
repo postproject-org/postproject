@@ -778,11 +778,24 @@ PP_API pp_error_code_t pp_production_read_session(
 PP_API pp_error_code_t pp_read_session_decision_base(
     const pp_read_session_t *session, pp_decision_base_t *out_base,
     pp_error_t **out_error);
+/** Optional attribution copied when creating an edit. Strings are borrowed
+ * UTF-8 for the call. Version/URI require a non-null origin name. */
+typedef struct pp_edit_context {
+  const char *origin_name;
+  const char *origin_version;
+  const char *origin_uri;
+  const char *message;
+} pp_edit_context_t;
 PP_API pp_error_code_t pp_read_session_begin_edit(
-    const pp_read_session_t *session, pp_transaction_t **out_transaction,
+    const pp_read_session_t *session, const pp_edit_context_t *context,
+    pp_transaction_t **out_transaction,
     pp_error_t **out_error);
+/** NULL base starts an additive edit. A supplied base preserves the original
+ * coherent decision, including an empty journal. NULL context omits attribution.
+ * Invalid inputs return no handle and do not reserve the production. */
 PP_API pp_error_code_t pp_production_begin_edit(
     const pp_production_t *production, const pp_decision_base_t *base,
+    const pp_edit_context_t *context,
     pp_transaction_t **out_transaction, pp_error_t **out_error);
 /* These snapshot operations inspect stored knowledge, without media I/O.
  * Returned reports own their values and survive session release. */
@@ -1825,14 +1838,6 @@ PP_API void pp_resolution_set_release(pp_resolution_set_t *resolutions);
  * that state alive independently of the production handle. Staging does not
  * block production reads; commit serializes with calls on the same production
  * state. Open the production again to avoid that per-handle serialization. */
-PP_API pp_error_code_t pp_production_begin_transaction(
-    pp_production_t *production, pp_transaction_t **out_transaction,
-    pp_error_t **out_error);
-/* The base revision must exist. It identifies the durable state from which the
- * caller made its decisions; it is not a lock or reservation. */
-PP_API pp_error_code_t pp_production_begin_transaction_at(
-    pp_production_t *production, pp_revision_id_t base_revision,
-    pp_transaction_t **out_transaction, pp_error_t **out_error);
 PP_API void pp_production_release(pp_production_t *production);
 
 /* A media source describes the content structure of a representation at its
@@ -1869,10 +1874,6 @@ PP_API void pp_media_source_release(pp_media_source_t *source);
 /* Mutations remain in memory until commit. Transaction calls require caller-side
  * serialization. Input strings are borrowed UTF-8 without embedded NUL.
  * Nullable names/labels represent absent values. */
-PP_API pp_error_code_t pp_transaction_set_revision_context(
-    pp_transaction_t *transaction, const char *origin_name,
-    const char *origin_version, const char *origin_uri, const char *message,
-    pp_error_t **out_error);
 /* Imports also return their original representation ID. Its output may be
  * NULL to discard it. Both supplied IDs are cleared on failure and describe
  * staged objects until commit succeeds.

@@ -5,6 +5,8 @@ All notable changes to PostProject will be documented here. The project uses
 
 ## Unreleased
 
+- Create additive, retained-view and detached edits with origin and message.
+
 - Return imported asset and original representation identities together; C ABI 54 (ADR 0079).
 - Register completed Manager outputs without synthetic jobs; retain guarded preflight completion (ADR 0078).
 - Consolidate Python/C++ known-media lookup around native paths or explicit evidence (ADR 0077).
