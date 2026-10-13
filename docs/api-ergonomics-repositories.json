@@ -139,7 +139,8 @@
     "protocol_major": 1,
     "cli_json": 1,
     "platform": "Linux-7.2.9-gentoo-x86_64-AMD_Ryzen_7_4800H_with_Radeon_Graphics-with-glibc2.43",
-    "state": "Qualified unpublished development candidate; all required local and CI gates pass; documentation and website deployed and verified"
+    "state": "Initial qualified unpublished candidate at the recorded source; it does not qualify revised workflows",
+    "source_commit": "f456958cbb99b2d952fb23de53aa73e22e38c25e"
   },
   "revised_workflows": {
     "baseline_sdk": "f456958cbb99b2d952fb23de53aa73e22e38c25e",
@@ -268,7 +269,7 @@
     "native_library_sha256": "d1ed91878795d0b0e21fb16081e2fcb2e66c031bcbbfd13c9db742a0ec2cc8c3",
     "sdk_wheel_sha256": "7a7d8bc5f754302228ffdee524017a80d4af4599d7c3c3833b33915b4a296612",
     "gates": "All revised phase gates remain pending; implemented slices have the scoped checks recorded per repository.",
-    "ci_state": "Corrected SDK compiler, sanitizer, quality and MSRV jobs pass; Blender stable/beta/lint, Natron and both Manager jobs pass. Remaining jobs are running; whole-run qualification is pending.",
+    "ci_state": "ABI-53 source 42408583 passes every SDK job (16/16, 38314071435), downstream job (11/11, 38314073791) and docs deployment (38314071444). ABI-55 CI is not yet run.",
     "initial_ci_runs": {
       "sdk": 38310531265,
       "downstream": 38310532153,
@@ -288,6 +289,93 @@
       "blender": 38310565609,
       "natron": 38310566797,
       "manager": 38310567595
+    },
+    "completed_abi53_ci_runs": {
+      "sdk": 38314071435,
+      "downstream": 38314073791,
+      "docs": 38314071444
+    },
+    "paired_import_edits": {
+      "abi": 55,
+      "exports": 341,
+      "layouts": 39,
+      "schema": 27,
+      "protocol_major": 1,
+      "cli_json": 1,
+      "scope": "Paired import identities and creation-time additive/retained/detached edit context; further output/relink work and final revised gates remain pending.",
+      "sdk_source_commit": "f0efcbb66f8b81fd69d6d0c080025089989a611f",
+      "native_library_sha256": "c72d459bb8c330c5a6991f8f6e5cb4039216747dd7b09f4d4b80b39e253aef6f",
+      "sdk_wheel_sha256": "df012c299974ba98e2ba688e09724990ff74b1882e98a8aa8a5c9c1bd65c9800",
+      "blender_extension_sha256": "a18dffb72a5eb3981d361c95225b3264ce3524e596f71d2fa4791d9c979a87a2",
+      "repositories": [
+        {
+          "repository": "postproject",
+          "source_commit": "f0efcbb66f8b81fd69d6d0c080025089989a611f",
+          "qualification": "All six local gates, exact Rust 1.85 tests/doctests, nine installed native contracts, 147 installed Python tests, positive/twelve-negative typing, 86 installed example checks and strict docs pass. 341 symbols and 39 layouts match. C++ rejects the actual ABI-53 library."
+        },
+        {
+          "repository": "postproject-ardour",
+          "source_commit": "911400ae15c606b72d15c6b3ed86fb37d8094897",
+          "qualification": "Complete five-patch replacement; installed C++17 audio resolver passes. Full platform host CI pending."
+        },
+        {
+          "repository": "postproject-blender",
+          "source_commit": "488357ca7a21309521c5e68dd491b3ac84964630",
+          "qualification": "Rebuilt ABI-55 extension passes 24 actual Blender 5.2.2 tests/one future-host skip; both host handoffs pass."
+        },
+        {
+          "repository": "postproject-cpp-nle",
+          "source_commit": "4db7c8ee9b044d4cf34f04e1b9fcc523fb8bca3c",
+          "qualification": "Clean installed C++ sample editor contract passes; uses both returned import identities and additive edits."
+        },
+        {
+          "repository": "postproject-kdenlive",
+          "source_commit": "e152f2c075cc3a8965b6ce4c3643f73242d5cd46",
+          "qualification": "Complete ten-patch replacement; full Kdenlive 26.08.2 with-SDK build, two suites and Blender/Manager handoff pass. Latest without-SDK qualification remains ABI-53; new CI pending."
+        },
+        {
+          "repository": "postproject-natron",
+          "source_commit": "bc70223f1fc5ebae1125f00ca1d9c341893bfda5",
+          "qualification": "Clean native contract and actual Natron 2.5.0 normal/negative/plugin-free renderer pass; imported sequences retain the returned representation."
+        },
+        {
+          "repository": "postproject-obs",
+          "source_commit": "dfd1231eb2686a5c528c89369851bb2321744610",
+          "qualification": "Two installed C contracts and all eight actual OBS 32.2.2 scenarios pass; Blender handoff passes. Direct C rejects the actual ABI-53 library."
+        },
+        {
+          "repository": "postproject-openassetio",
+          "source_commit": "f2a3c71fcaedf46fa340ef96f58d80233038f8aa",
+          "qualification": "Installed OpenAssetIO 1.0.2/MediaCreation a13 adapter test passes."
+        },
+        {
+          "repository": "postproject-openassetio-manager",
+          "source_commit": "3431ad4b0648185b9d27f4363eb86ed77240adf7",
+          "qualification": "Nine installed tests pass with both OpenAssetIO 1.0.2/a13 and bundled 1.0.0/a12 dependencies; licensed Nuke remains unexecuted."
+        },
+        {
+          "repository": "postproject-otio-demo",
+          "source_commit": "940e048648079df47a88c9411f30c177a6d5ff20",
+          "qualification": "Clean installed SDK/Manager/demo composition passes with pinned linker; its upstream deprecation warning is retained."
+        },
+        {
+          "repository": "postproject-otio-openassetio",
+          "source_commit": "c084c66285512f9403399747ad51510b9ccb37e8",
+          "qualification": "Installed composition passes with pinned linker; its upstream deprecation warning is retained."
+        },
+        {
+          "repository": "postproject-python-host",
+          "source_commit": "8e5a4edc6945e4f3d86a3673c917b427aacd2c9f",
+          "qualification": "Installed Python sample host contract passes, retaining both imported identities."
+        },
+        {
+          "repository": "postproject.org",
+          "source_commit": "f823e7f1eb5b304c1c644fa463a629a2db7f7032",
+          "qualification": "Two explicit SDK scenarios added over preserved 902d698 theme; four source tests and six responsive light/dark/keyboard previews pass. Deployment pending."
+        }
+      ],
+      "artifacts": "target/workflow-abi55-{install,wheel,blender}; original nineteen-artifact set preserved",
+      "publication": "Unpublished; CI and deployment pending. No tag, registry publication or outreach."
     }
   }
 }
