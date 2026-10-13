@@ -2,9 +2,9 @@
 use postproject::{
     PpActivityEdge, PpActivityId, PpArtifactDependencyPathSegment, PpArtifactReason,
     PpArtifactReproducibilityIssue, PpAssetId, PpClientId, PpCommitReceipt, PpDecisionBase,
-    PpDependency, PpDependencyMatch, PpExchangeLimits, PpExchangePosition, PpExchangeState,
-    PpFileResourceInput, PpHistoryId, PpJob, PpJobClaim, PpJobCompletion, PpJobId, PpLocatorId,
-    PpMediaRootId, PpObjectRef, PpPrivateLeaseToken, PpProductionId, PpProtocolBase,
+    PpDependency, PpDependencyMatch, PpEditContext, PpExchangeLimits, PpExchangePosition,
+    PpExchangeState, PpFileResourceInput, PpHistoryId, PpJob, PpJobClaim, PpJobCompletion, PpJobId,
+    PpLocatorId, PpMediaRootId, PpObjectRef, PpPrivateLeaseToken, PpProductionId, PpProtocolBase,
     PpRepresentationId, PpRequestId, PpRequestIdentity, PpResolutionConfig, PpResourceId,
     PpRevisionEvent, PpRevisionId, PpRootMapping, PpSequenceNaming, PpTransactionConflict,
     PpTransactionId, PpUuid,
@@ -249,6 +249,14 @@ fn main() {
         prefix,
         suffix,
         padding
+    );
+    layout!(
+        PpEditContext,
+        "pp_edit_context_t",
+        origin_name,
+        origin_version,
+        origin_uri,
+        message
     );
     layout!(PpRootMapping, "pp_root_mapping_t", name, directory);
     layout!(

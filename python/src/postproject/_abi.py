@@ -285,6 +285,10 @@ class SequenceNaming(ctypes.Structure):
     pass
 
 
+class EditContext(ctypes.Structure):
+    pass
+
+
 class RootMapping(ctypes.Structure):
     pass
 
@@ -776,6 +780,13 @@ SequenceNaming._fields_ = [
     ("padding", ctypes.c_uint8),
 ]
 
+EditContext._fields_ = [
+    ("origin_name", ctypes.c_char_p),
+    ("origin_version", ctypes.c_char_p),
+    ("origin_uri", ctypes.c_char_p),
+    ("message", ctypes.c_char_p),
+]
+
 RootMapping._fields_ = [
     ("name", ctypes.c_char_p),
     ("directory", ctypes.c_char_p),
@@ -830,6 +841,7 @@ PUBLIC_STRUCTS = {
     "pp_artifact_reproducibility_issue_t": (ArtifactReproducibilityIssue, ("kind", "activity_id", "representation_id", "activity_count")),
     "pp_file_resource_input_t": (FileResourceInput, ("path", "role", "required")),
     "pp_sequence_naming_t": (SequenceNaming, ("prefix", "suffix", "padding")),
+    "pp_edit_context_t": (EditContext, ("origin_name", "origin_version", "origin_uri", "message")),
     "pp_root_mapping_t": (RootMapping, ("name", "directory")),
     "pp_resolution_config_t": (ResolutionConfig, ("root_mappings", "root_mapping_count", "search_directories", "search_directory_count", "verification", "max_depth", "max_entries_per_directory", "cancel_token")),
 }
@@ -998,8 +1010,6 @@ EXPORTED_SYMBOLS = (
     "pp_production_assets",
     "pp_production_assets_page",
     "pp_production_begin_edit",
-    "pp_production_begin_transaction",
-    "pp_production_begin_transaction_at",
     "pp_production_changes_since",
     "pp_production_changes_since_filtered",
     "pp_production_create",
@@ -1179,7 +1189,6 @@ EXPORTED_SYMBOLS = (
     "pp_transaction_retire_locator",
     "pp_transaction_rollback",
     "pp_transaction_set_media_root_enabled",
-    "pp_transaction_set_revision_context",
 )
 
 
@@ -1248,9 +1257,9 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_production_read_session.restype = ErrorCode
     lib.pp_read_session_decision_base.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(DecisionBase), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_read_session_decision_base.restype = ErrorCode
-    lib.pp_read_session_begin_edit.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(ctypes.POINTER(Transaction)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_read_session_begin_edit.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(EditContext), ctypes.POINTER(ctypes.POINTER(Transaction)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_read_session_begin_edit.restype = ErrorCode
-    lib.pp_production_begin_edit.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(DecisionBase), ctypes.POINTER(ctypes.POINTER(Transaction)), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_production_begin_edit.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(DecisionBase), ctypes.POINTER(EditContext), ctypes.POINTER(ctypes.POINTER(Transaction)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_production_begin_edit.restype = ErrorCode
     lib.pp_read_session_plan_regeneration.argtypes = [ctypes.POINTER(ReadSession), ctypes.POINTER(RepresentationId), ctypes.c_uint64, ctypes.POINTER(ctypes.POINTER(RegenerationPlanSet)), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_read_session_plan_regeneration.restype = ErrorCode
@@ -1786,10 +1795,6 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_resolution_set_get_candidate_evidence.restype = ErrorCode
     lib.pp_resolution_set_release.argtypes = [ctypes.POINTER(ResolutionSet)]
     lib.pp_resolution_set_release.restype = None
-    lib.pp_production_begin_transaction.argtypes = [ctypes.POINTER(Production), ctypes.POINTER(ctypes.POINTER(Transaction)), ctypes.POINTER(ctypes.POINTER(Error))]
-    lib.pp_production_begin_transaction.restype = ErrorCode
-    lib.pp_production_begin_transaction_at.argtypes = [ctypes.POINTER(Production), RevisionId, ctypes.POINTER(ctypes.POINTER(Transaction)), ctypes.POINTER(ctypes.POINTER(Error))]
-    lib.pp_production_begin_transaction_at.restype = ErrorCode
     lib.pp_production_release.argtypes = [ctypes.POINTER(Production)]
     lib.pp_production_release.restype = None
     lib.pp_media_source_create_image_sequence.argtypes = [ctypes.c_char_p, ctypes.POINTER(SequenceNaming), ctypes.c_int64, ctypes.c_int64, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_uint32, ctypes.POINTER(ctypes.c_int64), ctypes.c_uint64, ctypes.POINTER(ctypes.POINTER(MediaSource)), ctypes.POINTER(ctypes.POINTER(Error))]
@@ -1800,8 +1805,6 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_media_source_create_package.restype = ErrorCode
     lib.pp_media_source_release.argtypes = [ctypes.POINTER(MediaSource)]
     lib.pp_media_source_release.restype = None
-    lib.pp_transaction_set_revision_context.argtypes = [ctypes.POINTER(Transaction), ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(Error))]
-    lib.pp_transaction_set_revision_context.restype = ErrorCode
     lib.pp_transaction_import_file.argtypes = [ctypes.POINTER(Transaction), ctypes.c_char_p, ctypes.c_char_p, ctypes.POINTER(AssetId), ctypes.POINTER(RepresentationId), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_transaction_import_file.restype = ErrorCode
     lib.pp_transaction_add_file_representation.argtypes = [ctypes.POINTER(Transaction), AssetId, RepresentationKind, ctypes.c_char_p, ctypes.POINTER(RepresentationId), ctypes.POINTER(ctypes.POINTER(Error))]

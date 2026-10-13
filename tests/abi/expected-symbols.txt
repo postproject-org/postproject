@@ -160,8 +160,6 @@ pp_production_asset_exists
 pp_production_assets
 pp_production_assets_page
 pp_production_begin_edit
-pp_production_begin_transaction
-pp_production_begin_transaction_at
 pp_production_changes_since
 pp_production_changes_since_filtered
 pp_production_create
@@ -341,4 +339,3 @@ pp_transaction_request_job
 pp_transaction_retire_locator
 pp_transaction_rollback
 pp_transaction_set_media_root_enabled
-pp_transaction_set_revision_context
