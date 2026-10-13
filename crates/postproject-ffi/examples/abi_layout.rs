@@ -1,10 +1,11 @@
 //! Generated implementation layout probe; do not edit manually.
 use postproject::{
-    PpActivityEdge, PpActivityId, PpArtifactDependencyPathSegment, PpArtifactReason,
-    PpArtifactReproducibilityIssue, PpAssetId, PpClientId, PpCommitReceipt, PpDecisionBase,
-    PpDependency, PpDependencyMatch, PpEditContext, PpExchangeLimits, PpExchangePosition,
-    PpExchangeState, PpFileResourceInput, PpHistoryId, PpJob, PpJobClaim, PpJobCompletion, PpJobId,
-    PpLocatorId, PpMediaRootId, PpObjectRef, PpPrivateLeaseToken, PpProductionId, PpProtocolBase,
+    PpActivityEdge, PpActivityId, PpActivityParameter, PpActivityRecipe,
+    PpArtifactDependencyPathSegment, PpArtifactReason, PpArtifactReproducibilityIssue, PpAssetId,
+    PpClientId, PpCommitReceipt, PpDecisionBase, PpDependency, PpDependencyMatch, PpEditContext,
+    PpExchangeLimits, PpExchangePosition, PpExchangeState, PpFileResourceInput, PpHistoryId, PpJob,
+    PpJobClaim, PpJobCompletion, PpJobId, PpLocatorId, PpMediaRootId, PpObjectRef,
+    PpOutputIdentity, PpOutputSource, PpPrivateLeaseToken, PpProductionId, PpProtocolBase,
     PpRepresentationId, PpRequestId, PpRequestIdentity, PpResolutionConfig, PpResourceId,
     PpRevisionEvent, PpRevisionId, PpRootMapping, PpSequenceNaming, PpTransactionConflict,
     PpTransactionId, PpUuid,
@@ -139,6 +140,47 @@ fn main() {
         "pp_activity_edge_t",
         representation_id,
         role
+    );
+    layout!(
+        PpActivityParameter,
+        "pp_activity_parameter_t",
+        vocabulary,
+        property,
+        value
+    );
+    layout!(
+        PpActivityRecipe,
+        "pp_activity_recipe_t",
+        kind,
+        inputs,
+        input_count,
+        started_at_unix_micros,
+        finished_at_unix_micros,
+        tool_name,
+        tool_version,
+        tool_uri,
+        agent_name,
+        agent_identifier_scheme,
+        agent_identifier_value,
+        agent_identifier_qualifier,
+        parameters,
+        parameter_count
+    );
+    layout!(
+        PpOutputSource,
+        "pp_output_source_t",
+        asset_id,
+        kind,
+        path,
+        source,
+        role,
+        display_name
+    );
+    layout!(
+        PpOutputIdentity,
+        "pp_output_identity_t",
+        asset_id,
+        representation_id
     );
     layout!(
         PpJob,

@@ -249,6 +249,22 @@ class ActivityEdge(ctypes.Structure):
     pass
 
 
+class ActivityParameter(ctypes.Structure):
+    pass
+
+
+class ActivityRecipe(ctypes.Structure):
+    pass
+
+
+class OutputSource(ctypes.Structure):
+    pass
+
+
+class OutputIdentity(ctypes.Structure):
+    pass
+
+
 class Job(ctypes.Structure):
     pass
 
@@ -324,6 +340,7 @@ ContentVerification = ctypes.c_uint32
 ContentObservation = ctypes.c_uint32
 
 
+PP_ABI_VERSION = 56
 PP_COMMIT_NO_CHANGE = 0
 PP_COMMIT_REVISION_CREATED = 1
 PP_EXCHANGE_AUTHORITY = 1
@@ -679,6 +696,43 @@ ActivityEdge._fields_ = [
     ("role", ctypes.c_char_p),
 ]
 
+ActivityParameter._fields_ = [
+    ("vocabulary", ctypes.c_char_p),
+    ("property", ctypes.c_char_p),
+    ("value", ctypes.POINTER(MetadataInput)),
+]
+
+ActivityRecipe._fields_ = [
+    ("kind", ctypes.c_char_p),
+    ("inputs", ctypes.POINTER(ActivityEdge)),
+    ("input_count", ctypes.c_uint64),
+    ("started_at_unix_micros", ctypes.POINTER(ctypes.c_int64)),
+    ("finished_at_unix_micros", ctypes.POINTER(ctypes.c_int64)),
+    ("tool_name", ctypes.c_char_p),
+    ("tool_version", ctypes.c_char_p),
+    ("tool_uri", ctypes.c_char_p),
+    ("agent_name", ctypes.c_char_p),
+    ("agent_identifier_scheme", ctypes.c_char_p),
+    ("agent_identifier_value", ctypes.c_char_p),
+    ("agent_identifier_qualifier", ctypes.c_char_p),
+    ("parameters", ctypes.POINTER(ActivityParameter)),
+    ("parameter_count", ctypes.c_uint64),
+]
+
+OutputSource._fields_ = [
+    ("asset_id", ctypes.POINTER(AssetId)),
+    ("kind", RepresentationKind),
+    ("path", ctypes.c_char_p),
+    ("source", ctypes.POINTER(MediaSource)),
+    ("role", ctypes.c_char_p),
+    ("display_name", ctypes.c_char_p),
+]
+
+OutputIdentity._fields_ = [
+    ("asset_id", AssetId),
+    ("representation_id", RepresentationId),
+]
+
 Job._fields_ = [
     ("id", JobId),
     ("kind", ctypes.c_char_p),
@@ -832,6 +886,10 @@ PUBLIC_STRUCTS = {
     "pp_dependency_match_t": (DependencyMatch, ("target", "depth")),
     "pp_revision_event_t": (RevisionEvent, ("kind", "position", "asset_id", "representation_id", "resource_id", "locator_id", "media_root_id", "activity_id", "job_id", "target", "structural_position", "enabled", "identifier_scheme", "identifier_value", "identifier_qualifier", "vocabulary", "property", "activity_kind", "role", "fingerprint_algorithm", "fingerprint_version")),
     "pp_activity_edge_t": (ActivityEdge, ("representation_id", "role")),
+    "pp_activity_parameter_t": (ActivityParameter, ("vocabulary", "property", "value")),
+    "pp_activity_recipe_t": (ActivityRecipe, ("kind", "inputs", "input_count", "started_at_unix_micros", "finished_at_unix_micros", "tool_name", "tool_version", "tool_uri", "agent_name", "agent_identifier_scheme", "agent_identifier_value", "agent_identifier_qualifier", "parameters", "parameter_count")),
+    "pp_output_source_t": (OutputSource, ("asset_id", "kind", "path", "source", "role", "display_name")),
+    "pp_output_identity_t": (OutputIdentity, ("asset_id", "representation_id")),
     "pp_job_t": (Job, ("id", "kind", "output_asset_id", "output_representation_kind", "target_root", "state", "input_count", "claim_expires_at_unix_micros", "claim_tool_name", "claim_tool_version", "claim_tool_uri", "claim_agent_name", "claim_agent_identifier_scheme", "claim_agent_identifier_value", "claim_agent_identifier_qualifier", "completion_activity_id", "completion_representation_id", "failure_diagnostic")),
     "pp_job_claim_t": (JobClaim, ("expires_at_unix_micros", "tool_name", "tool_version", "tool_uri", "agent_name", "agent_identifier_scheme", "agent_identifier_value", "agent_identifier_qualifier")),
     "pp_job_completion_t": (JobCompletion, ("activity_id", "representation_id")),
@@ -1179,6 +1237,7 @@ EXPORTED_SYMBOLS = (
     "pp_transaction_record_dependency_set",
     "pp_transaction_record_representation_fingerprint",
     "pp_transaction_record_resource_fingerprint",
+    "pp_transaction_register_outputs",
     "pp_transaction_release",
     "pp_transaction_release_job_lease",
     "pp_transaction_remove_external_identifier",
@@ -1861,8 +1920,10 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_job_lease_free.restype = None
     lib.pp_transaction_cancel_job.argtypes = [ctypes.POINTER(Transaction), JobId, ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_transaction_cancel_job.restype = ErrorCode
-    lib.pp_transaction_create_activity.argtypes = [ctypes.POINTER(Transaction), ctypes.c_char_p, ctypes.POINTER(ActivityEdge), ctypes.c_uint64, ctypes.POINTER(ActivityEdge), ctypes.c_uint64, ctypes.POINTER(ctypes.c_int64), ctypes.POINTER(ctypes.c_int64), ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.POINTER(ActivityId), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_transaction_create_activity.argtypes = [ctypes.POINTER(Transaction), ctypes.POINTER(ActivityRecipe), ctypes.POINTER(ActivityEdge), ctypes.c_uint64, ctypes.POINTER(ActivityId), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_transaction_create_activity.restype = ErrorCode
+    lib.pp_transaction_register_outputs.argtypes = [ctypes.POINTER(Transaction), ctypes.POINTER(OutputSource), ctypes.c_uint64, ctypes.POINTER(ActivityRecipe), ctypes.POINTER(OutputIdentity), ctypes.POINTER(ActivityId), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_transaction_register_outputs.restype = ErrorCode
     lib.pp_transaction_commit.argtypes = [ctypes.POINTER(Transaction), ctypes.POINTER(CommitReceipt), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_transaction_commit.restype = ErrorCode
     lib.pp_transaction_rollback.argtypes = [ctypes.POINTER(Transaction), ctypes.POINTER(ctypes.POINTER(Error))]
