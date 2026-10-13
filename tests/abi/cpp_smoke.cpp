@@ -141,7 +141,7 @@ int main(int argc, char **argv) {
   std::remove(path.c_str());
 
   try {
-    if (postproject::abi_version() != 55) {
+    if (postproject::abi_version() != PP_ABI_VERSION) {
       return 3;
     }
 
@@ -437,8 +437,8 @@ int main(int argc, char **argv) {
             postproject::ExternalIdentifier{"com.example.agent", "operator-1",
                                             std::string("primary")}},
         {},
-        {{resolutions[0].representation_id,
-          std::string("org.postproject:output.master")}}};
+        {std::make_pair(resolutions[0].representation_id,
+          std::string("org.postproject:output.master"))}};
     const auto pre_provenance_revision = production.latestRevision().value();
     if (!pre_provenance_revision.has_value()) {
       return 41;
@@ -935,10 +935,10 @@ int main(int argc, char **argv) {
          std::nullopt,
          postproject::ToolIdentity{"C++ worker", std::nullopt, std::nullopt},
          std::nullopt,
-         {{resolutions[0].representation_id,
-           std::string("org.postproject:input.primary-video")}},
-         {{completed_representation_id,
-           std::string("org.postproject:output.proxy")}}}).value();
+         {std::make_pair(resolutions[0].representation_id,
+           std::string("org.postproject:input.primary-video"))},
+         {std::make_pair(completed_representation_id,
+           std::string("org.postproject:output.proxy"))}}).value();
     completion.completeJobLease(completion_lease,
                            completed_representation_id,
                            completion_activity_id).value();

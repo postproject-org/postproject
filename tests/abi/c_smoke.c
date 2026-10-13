@@ -396,7 +396,7 @@ int main(int argc, char **argv) {
     return 64;
   }
   (void)remove(argv[1]);
-  if (pp_abi_version() != UINT32_C(55)) {
+  if (pp_abi_version() != PP_ABI_VERSION) {
     return 1;
   }
   pp_error_code_t status =
@@ -1474,11 +1474,9 @@ int main(int argc, char **argv) {
   const int64_t started_at = INT64_C(100);
   const int64_t finished_at = INT64_C(200);
   pp_activity_id_t activity_id = {{0}};
-  status = pp_transaction_create_activity(
-      transaction, "org.postproject:ingest", NULL, 0, &activity_output, 1,
-      &started_at, &finished_at, "C ingest", "1.0",
-      "https://example.com/tools/ingest", "C operator", "com.example.agent",
-      "operator-1", "primary", &activity_id, &error);
+  status = pp_transaction_create_activity(transaction,
+        &(pp_activity_recipe_t){"org.postproject:ingest", NULL, 0, &started_at, &finished_at, "C ingest", "1.0", "https://example.com/tools/ingest", "C operator", "com.example.agent", "operator-1", "primary", NULL, 0},
+        &activity_output, 1, &activity_id, &error);
   pp_object_ref_t activity_ref = {0};
   if (status == PP_OK) status = pp_object_ref_from_activity(activity_id, &activity_ref, &error);
   if (status != PP_OK || activity_id_is_zero(activity_id)) {
@@ -2313,10 +2311,9 @@ int main(int argc, char **argv) {
   const pp_activity_edge_t completion_output = {
       completed_representation_id, "org.postproject:output.proxy"};
   if (status == PP_OK) {
-    status = pp_transaction_create_activity(
-        transaction, "org.postproject:transcode", &completion_input,
-        UINT64_C(1), &completion_output, UINT64_C(1), NULL, NULL, "C worker",
-        NULL, NULL, NULL, NULL, NULL, NULL, &completion_activity_id, &error);
+    status = pp_transaction_create_activity(transaction,
+        &(pp_activity_recipe_t){"org.postproject:transcode", &completion_input, UINT64_C(1), NULL, NULL, "C worker", NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0},
+        &completion_output, UINT64_C(1), &completion_activity_id, &error);
   }
   if (status == PP_OK) {
     status = pp_transaction_complete_job_lease(

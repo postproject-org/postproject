@@ -22,6 +22,7 @@
 #include <string>
 #include <string_view>
 #include <thread>
+#include <tuple>
 #include <type_traits>
 #include <utility>
 #include <variant>
@@ -1012,14 +1013,16 @@ struct Activity final {
   std::vector<ActivityEdge> outputs;
 };
 
+using ActivityEdgeInput = std::variant<RepresentationId, std::pair<RepresentationId, std::string>>;
+
 struct ActivitySpec final {
   std::string kind;
   std::optional<std::int64_t> started_at_unix_micros;
   std::optional<std::int64_t> finished_at_unix_micros;
   std::optional<ToolIdentity> tool;
   std::optional<AgentIdentity> agent;
-  std::vector<ActivityEdge> inputs;
-  std::vector<ActivityEdge> outputs;
+  std::vector<ActivityEdgeInput> inputs;
+  std::vector<ActivityEdgeInput> outputs;
 };
 
 enum class ArtifactKnowledgeState : std::uint32_t {
@@ -4975,6 +4978,88 @@ native_metadata_input(const MetadataValue &value) {
 
 } // namespace detail
 
+using ActivityParameter = std::tuple<std::string, std::string, MetadataValue>;
+
+namespace detail {
+
+inline Result<std::vector<pp_activity_edge_t>>
+activity_edges(const std::vector<ActivityEdgeInput> &edges) {
+  if (edges.size() > 100000)
+    return Error(ErrorCode::invalid_argument, "too many activity edges");
+  std::vector<pp_activity_edge_t> result;
+  result.reserve(edges.size());
+  for (const auto &edge : edges) {
+    if (const auto *id = std::get_if<RepresentationId>(&edge)) {
+      result.push_back({native_representation_id(*id), nullptr});
+    } else {
+      const auto &named = std::get<std::pair<RepresentationId, std::string>>(edge);
+      POSTPROJECT_TRY(checked_string(named.second, "activity role"));
+      result.push_back({native_representation_id(named.first), named.second.c_str()});
+    }
+  }
+  return result;
+}
+
+struct ActivityRecipe final {
+  std::vector<pp_activity_edge_t> inputs;
+  std::vector<MetadataInputHandle> values;
+  std::vector<pp_activity_parameter_t> parameters;
+
+  pp_activity_recipe_t native(const ActivitySpec &spec) const noexcept {
+    const auto *tool = spec.tool ? &*spec.tool : nullptr;
+    const auto *agent = spec.agent ? &*spec.agent : nullptr;
+    const auto *identifier = agent && agent->identifier ? &*agent->identifier : nullptr;
+    return {spec.kind.c_str(), inputs.data(), inputs.size(),
+        spec.started_at_unix_micros ? &*spec.started_at_unix_micros : nullptr,
+        spec.finished_at_unix_micros ? &*spec.finished_at_unix_micros : nullptr,
+        tool ? tool->name.c_str() : nullptr,
+        tool && tool->version ? tool->version->c_str() : nullptr,
+        tool && tool->uri ? tool->uri->c_str() : nullptr,
+        agent && agent->name ? agent->name->c_str() : nullptr,
+        identifier ? identifier->scheme.c_str() : nullptr,
+        identifier ? identifier->value.c_str() : nullptr,
+        identifier && identifier->qualifier ? identifier->qualifier->c_str() : nullptr,
+        parameters.data(), parameters.size()};
+  }
+};
+
+inline Result<ActivityRecipe> activity_recipe(const ActivitySpec &spec,
+    const std::vector<ActivityParameter> &parameters) {
+  if (parameters.size() > 100000)
+    return Error(ErrorCode::invalid_argument, "too many activity parameters");
+  POSTPROJECT_TRY(checked_string(spec.kind, "activity kind"));
+  if (spec.tool) {
+    POSTPROJECT_TRY(checked_string(spec.tool->name, "tool name"));
+    POSTPROJECT_TRY(checked_optional_string(spec.tool->version, "tool version"));
+    POSTPROJECT_TRY(checked_optional_string(spec.tool->uri, "tool URI"));
+  }
+  if (spec.agent) {
+    if (!spec.agent->name && !spec.agent->identifier)
+      return Error(ErrorCode::invalid_argument, "an agent needs a name or identifier");
+    POSTPROJECT_TRY(checked_optional_string(spec.agent->name, "agent name"));
+    if (spec.agent->identifier) {
+      POSTPROJECT_TRY(checked_string(spec.agent->identifier->scheme, "agent scheme"));
+      POSTPROJECT_TRY(checked_string(spec.agent->identifier->value, "agent value"));
+      POSTPROJECT_TRY(checked_optional_string(spec.agent->identifier->qualifier, "agent qualifier"));
+    }
+  }
+  ActivityRecipe result;
+  POSTPROJECT_TRY_ASSIGN(result.inputs, activity_edges(spec.inputs));
+  result.values.reserve(parameters.size());
+  result.parameters.reserve(parameters.size());
+  for (const auto &parameter : parameters) {
+    POSTPROJECT_TRY(checked_string(std::get<0>(parameter), "parameter vocabulary"));
+    POSTPROJECT_TRY(checked_string(std::get<1>(parameter), "parameter property"));
+    POSTPROJECT_TRY_ASSIGN(auto value, native_metadata_input(std::get<2>(parameter)));
+    result.parameters.push_back({std::get<0>(parameter).c_str(),
+        std::get<1>(parameter).c_str(), value.get()});
+    result.values.push_back(std::move(value));
+  }
+  return result;
+}
+
+} // namespace detail
+
 struct RegenerationParameter final {
   std::string vocabulary;
   std::string property;
@@ -5537,6 +5622,19 @@ private:
   pp_proposal_t *proposal_ = nullptr;
 };
 
+struct OutputSource final {
+  MediaSource source;
+  std::optional<AssetId> asset_id = std::nullopt;
+  RepresentationKind kind = RepresentationKind::original;
+  std::optional<std::string> role = std::nullopt;
+  std::optional<std::string> display_name = std::nullopt;
+};
+
+struct RegisteredOutputs final {
+  ActivityId activity_id;
+  std::vector<ImportedMedia> outputs;
+};
+
 class Transaction final {
 public:
   // Success closes staging without a domain revision; failure leaves it open.
@@ -5917,95 +6015,66 @@ public:
     return {};
   }
 
-  Result<ActivityId> createActivity(const ActivitySpec &spec) {
-    POSTPROJECT_TRY_ASSIGN(const std::string kind,
-                           detail::checked_string(spec.kind, "kind"));
-    std::vector<pp_activity_edge_t> inputs;
-    inputs.reserve(spec.inputs.size());
-    for (const ActivityEdge &edge : spec.inputs) {
-      if (edge.role.has_value()) {
-        static_cast<void>(detail::checked_string(*edge.role, "input role"));
-      }
-      inputs.push_back(
-          {detail::native_representation_id(edge.representation_id),
-           edge.role.has_value() ? edge.role->c_str() : nullptr});
-    }
-    std::vector<pp_activity_edge_t> outputs;
-    outputs.reserve(spec.outputs.size());
-    for (const ActivityEdge &edge : spec.outputs) {
-      if (edge.role.has_value()) {
-        static_cast<void>(detail::checked_string(*edge.role, "output role"));
-      }
-      outputs.push_back(
-          {detail::native_representation_id(edge.representation_id),
-           edge.role.has_value() ? edge.role->c_str() : nullptr});
-    }
-
-    std::optional<std::string> tool_name;
-    if (spec.tool.has_value()) {
-      POSTPROJECT_TRY_ASSIGN(
-          tool_name, detail::checked_string(spec.tool->name, "tool name"));
-    }
-    std::optional<std::string> tool_version;
-    if (spec.tool.has_value()) {
-      POSTPROJECT_TRY_ASSIGN(
-          tool_version,
-          detail::checked_optional_string(spec.tool->version, "tool version"));
-    }
-    std::optional<std::string> tool_uri;
-    if (spec.tool.has_value()) {
-      POSTPROJECT_TRY_ASSIGN(tool_uri, detail::checked_optional_string(
-                                           spec.tool->uri, "tool URI"));
-    }
-    std::optional<std::string> agent_name;
-    if (spec.agent.has_value()) {
-      POSTPROJECT_TRY_ASSIGN(agent_name, detail::checked_optional_string(
-                                             spec.agent->name, "agent name"));
-    }
-    const std::optional<ExternalIdentifier> identifier =
-        spec.agent.has_value() ? spec.agent->identifier : std::nullopt;
-    std::optional<std::string> agent_scheme;
-    if (identifier.has_value()) {
-      POSTPROJECT_TRY_ASSIGN(agent_scheme,
-                             detail::checked_string(identifier->scheme,
-                                                    "agent identifier scheme"));
-    }
-    std::optional<std::string> agent_value;
-    if (identifier.has_value()) {
-      POSTPROJECT_TRY_ASSIGN(
-          agent_value,
-          detail::checked_string(identifier->value, "agent identifier value"));
-    }
-    std::optional<std::string> agent_qualifier;
-    if (identifier.has_value()) {
-      POSTPROJECT_TRY_ASSIGN(
-          agent_qualifier,
-          detail::checked_optional_string(identifier->qualifier,
-                                          "agent identifier qualifier"));
-    }
-
+  Result<ActivityId> createActivity(const ActivitySpec &spec,
+      const std::vector<ActivityParameter> &parameters = {}) {
+    POSTPROJECT_TRY_ASSIGN(const auto recipe, detail::activity_recipe(spec, parameters));
+    POSTPROJECT_TRY_ASSIGN(const auto outputs, detail::activity_edges(spec.outputs));
+    const auto native = recipe.native(spec);
     pp_activity_id_t activity_id{};
     pp_error_t *error = nullptr;
-    const pp_error_code_t status = pp_transaction_create_activity(
-        transaction_, kind.c_str(), inputs.data(),
-        static_cast<std::uint64_t>(inputs.size()), outputs.data(),
-        static_cast<std::uint64_t>(outputs.size()),
-        spec.started_at_unix_micros.has_value()
-            ? &*spec.started_at_unix_micros
-            : nullptr,
-        spec.finished_at_unix_micros.has_value()
-            ? &*spec.finished_at_unix_micros
-            : nullptr,
-        tool_name.has_value() ? tool_name->c_str() : nullptr,
-        tool_version.has_value() ? tool_version->c_str() : nullptr,
-        tool_uri.has_value() ? tool_uri->c_str() : nullptr,
-        agent_name.has_value() ? agent_name->c_str() : nullptr,
-        agent_scheme.has_value() ? agent_scheme->c_str() : nullptr,
-        agent_value.has_value() ? agent_value->c_str() : nullptr,
-        agent_qualifier.has_value() ? agent_qualifier->c_str() : nullptr,
-        &activity_id, &error);
+    const auto status = pp_transaction_create_activity(transaction_, &native,
+        outputs.data(), outputs.size(), &activity_id, &error);
     POSTPROJECT_TRY(detail::check(status, error));
     return detail::activity_id(activity_id);
+  }
+
+  // Stages produced sources and actual activity/parameters; commit stays explicit.
+  Result<RegisteredOutputs> registerOutputs(const std::vector<OutputSource> &outputs,
+      const ActivitySpec &spec, const std::vector<ActivityParameter> &parameters = {}) {
+    if (!spec.outputs.empty()) return Error(ErrorCode::invalid_argument,
+        "registerOutputs obtains its activity outputs from the supplied sources");
+    if (outputs.empty() || outputs.size() > 100000)
+      return Error(ErrorCode::invalid_argument, "output count must be 1-100000");
+    POSTPROJECT_TRY_ASSIGN(const auto recipe, detail::activity_recipe(spec, parameters));
+    const auto native_recipe = recipe.native(spec);
+    std::vector<pp_asset_id_t> assets(outputs.size());
+    std::vector<std::string> paths(outputs.size());
+    std::vector<detail::MediaSourceHandle> sources;
+    std::vector<pp_output_source_t> native_outputs;
+    sources.reserve(outputs.size());
+    native_outputs.reserve(outputs.size());
+    for (std::size_t index = 0; index < outputs.size(); ++index) {
+      const auto &output = outputs[index];
+      POSTPROJECT_TRY(detail::checked_optional_string(output.role, "output role"));
+      POSTPROJECT_TRY(detail::checked_optional_string(output.display_name, "display name"));
+      const pp_media_source_t *source = nullptr;
+      const char *path = nullptr;
+      if (const auto *file = std::get_if<MediaSource::File>(&output.source.content_)) {
+        POSTPROJECT_TRY_ASSIGN(paths[index], MediaSource::file_path(*file));
+        path = paths[index].c_str();
+      } else {
+        POSTPROJECT_TRY_ASSIGN(auto handle, output.source.native());
+        source = handle.get();
+        sources.push_back(std::move(handle));
+      }
+      if (output.asset_id) assets[index] = detail::native_asset_id(*output.asset_id);
+      native_outputs.push_back({output.asset_id ? &assets[index] : nullptr,
+          static_cast<pp_representation_kind_t>(output.kind), path, source,
+          output.role ? output.role->c_str() : nullptr,
+          output.display_name ? output.display_name->c_str() : nullptr});
+    }
+    std::vector<pp_output_identity_t> identities(outputs.size());
+    pp_activity_id_t activity{};
+    pp_error_t *error = nullptr;
+    const auto status = pp_transaction_register_outputs(transaction_, native_outputs.data(),
+        native_outputs.size(), &native_recipe, identities.data(), &activity, &error);
+    POSTPROJECT_TRY(detail::check(status, error));
+    RegisteredOutputs result{detail::activity_id(activity), {}};
+    result.outputs.reserve(identities.size());
+    for (const auto &identity : identities)
+      result.outputs.push_back({detail::asset_id_value(identity.asset_id),
+                                detail::representation_id(identity.representation_id)});
+    return result;
   }
 
   /** Commits atomically and returns this edit's own revision, if any. */
@@ -8179,7 +8248,7 @@ private:
   }
 
   static Result<void> validate_abi() {
-    if (pp_abi_version() != 55) {
+    if (pp_abi_version() != PP_ABI_VERSION) {
       return Error(ErrorCode::unsupported, "native library ABI does not match this header");
     }
     return {};

@@ -64,7 +64,7 @@ int main(int argc, char **argv) {
   if (!publisher || !output) return 21;
   ActivitySpec spec;
   spec.kind = "example:publish";
-  spec.outputs.push_back(ActivityEdge{*output, std::nullopt});
+  spec.outputs.push_back(*output);
   spec.tool = tool;
   auto activity = publish->createActivity(spec);
   if (!activity || !publish->completeJobLease(*publisher, *output, *activity) || !publish->commit()) return 22;
