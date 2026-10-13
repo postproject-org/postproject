@@ -11,6 +11,7 @@ mod fingerprint;
 mod import;
 mod inspection;
 mod inventory;
+mod outputs;
 mod path;
 mod recognition;
 mod representation_fingerprint;
@@ -44,6 +45,9 @@ pub use inspection::{
 };
 pub use inventory::{
     InventoryCategory, InventoryItem, InventoryReport, InventoryScanner, InventoryStats,
+};
+pub use outputs::{
+    OutputIdentity, OutputRecipe, OutputSource, PreparedOutput, PreparedOutputs, prepare_outputs,
 };
 pub use path::{canonical_file_uri, local_file_path};
 pub use recognition::{

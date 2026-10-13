@@ -5,6 +5,8 @@ All notable changes to PostProject will be documented here. The project uses
 
 ## Unreleased
 
+- Stage produced media, its actual activity and typed parameters together.
+
 - Create additive, retained-view and detached edits with origin and message.
 
 - Return imported asset and original representation identities together; C ABI 54 (ADR 0079).

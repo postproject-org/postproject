@@ -138,6 +138,12 @@ pub struct ActivityInput {
     snapshot: Option<ActivityEdgeSnapshot>,
 }
 
+impl From<RepresentationId> for ActivityInput {
+    fn from(representation_id: RepresentationId) -> Self {
+        Self::new(representation_id, None)
+    }
+}
+
 impl ActivityInput {
     /// Creates an activity input with an optional extensible role.
     #[must_use]
