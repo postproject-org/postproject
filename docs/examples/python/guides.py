@@ -17,7 +17,6 @@ from fractions import Fraction
 from pathlib import Path
 
 from postproject import (
-    ActivityEdge,
     ActivitySpec,
     AssetId,
     AssetRef,
@@ -201,8 +200,8 @@ def record_render(
         activity_id = transaction.create_activity(
             ActivitySpec(
                 "org.postproject:render",
-                inputs=(ActivityEdge(source_id, "org.postproject:primary"),),
-                outputs=(ActivityEdge(render_id),),
+                inputs=((source_id, "org.postproject:primary"),),
+                outputs=(render_id,),
                 tool=ToolIdentity(
                     "Example Renderer", "2.1", "https://example.com/renderer"
                 ),

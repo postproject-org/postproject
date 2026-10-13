@@ -16,7 +16,6 @@ from pathlib import Path
 
 from postproject import (
     ActiveJobLease,
-    ActivityEdge,
     ActivityRef,
     ActivitySpec,
     AgentIdentity,
@@ -132,8 +131,8 @@ def run_proxy_job(production: Production, job_id: JobId, output: Path) -> None:
             activity_id = transaction.create_activity(
                 ActivitySpec(
                     job.kind,
-                    inputs=tuple(ActivityEdge(item) for item in job.inputs),
-                    outputs=(ActivityEdge(proxy_id),),
+                    inputs=tuple(item for item in job.inputs),
+                    outputs=(proxy_id,),
                     tool=WORKER,
                     agent=AGENT,
                 )

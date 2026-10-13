@@ -5,7 +5,6 @@ import sys
 from pathlib import Path
 
 from postproject import (
-    ActivityEdge,
     ActivitySpec,
     ArtifactKnowledgeState,
     AssetRef,
@@ -62,8 +61,8 @@ def exercise(work: Path) -> None:
             edit.create_activity(
                 ActivitySpec(
                     "example:fixture-render",
-                    inputs=(ActivityEdge(scene_id),),
-                    outputs=(ActivityEdge(render_id),),
+                    inputs=(scene_id,),
+                    outputs=(render_id,),
                     tool=ToolIdentity("Fixture renderer", "1.0"),
                 )
             )

@@ -6,8 +6,6 @@ import sys
 from pathlib import Path
 
 from postproject import (
-    ActivityEdge,
-    ActivityRef,
     ActivitySpec,
     AssetRef,
     EvidenceKind,
@@ -95,20 +93,16 @@ def exercise(work: Path) -> None:
         with production.read_session() as view:
             input_id = known.representation_id  # Retained from explicit adoption.
             with view.edit(message="Record host output") as edit:
-                output_id = edit.add_representation(
-                    asset_id, RepresentationKind.DERIVED, output
-                )
-                activity_id = edit.create_activity(
+                registered = edit.register_outputs(
+                    ((asset_id, RepresentationKind.DERIVED, output),),
                     ActivitySpec(
                         "example:preview",
-                        inputs=(ActivityEdge(input_id),),
-                        outputs=(ActivityEdge(output_id),),
+                        inputs=(input_id,),
                         tool=ToolIdentity("Example file copy", "1.0"),
-                    )
+                        parameters={("example:preview", "mode"): "copy"},
+                    ),
                 )
-                edit.add_metadata(
-                    ActivityRef(activity_id), ("example:preview", "mode"), "copy"
-                )
+                output_id = registered.outputs[0].representation_id
                 output_receipt = edit.commit()  # Output and knowledge are atomic.
         assert output_receipt.revision is not None
         # [/ergonomic-derived]

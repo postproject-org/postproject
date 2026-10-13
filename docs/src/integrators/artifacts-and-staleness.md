@@ -13,6 +13,23 @@ cheap enough for a UI and gives the same answer on every machine. Whether the
 artifact's files are *reachable* is a separate question answered by
 [resolution](media-resolution.md).
 
+## Record completed outputs
+
+After the host produces media, register its sources and actual producing recipe
+in one edit. Choose an existing logical asset for each representation, or
+explicitly create a new original asset. The task returns both identities and
+the activity ID; commit makes them durable together.
+
+```{code-variants} register-outputs
+```
+
+Pass consumed representation IDs as inputs, with optional roles. Empty inputs
+describe generation. Parameters belong to this actual activity and may repeat.
+A failed preparation stages no partial output. Registration creates neither a
+job nor an authored dependency observation. If an existing one-output job is
+being completed, retain its lease and complete it in the same edit; see
+[job completion](jobs-and-workers.md).
+
 ## Evaluate an artifact
 
 An evaluation returns one knowledge state — current, stale, indeterminate, or

@@ -54,8 +54,8 @@ def record_proxy_generation(
         activity_id = transaction.create_activity(
             ActivitySpec(
                 "org.postproject:transcode",
-                inputs=(ActivityEdge(original_id, "org.postproject:primary"),),
-                outputs=(ActivityEdge(proxy_id, "org.postproject:proxy"),),
+                inputs=((original_id, "org.postproject:primary"),),
+                outputs=((proxy_id, "org.postproject:proxy"),),
                 tool=ToolIdentity("Example Transcoder", "3.2"),
                 agent=AgentIdentity(
                     "Render node 4", ExternalIdentifier("com.example.host", "node-4")

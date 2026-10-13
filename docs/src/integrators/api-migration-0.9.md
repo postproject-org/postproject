@@ -1,8 +1,8 @@
 # Move an integration from 0.8 to 0.9
 
-The 0.9 development SDK uses C ABI 55, schema 27 and exchange protocol 1.
+The 0.9 development SDK uses C ABI 56, schema 27 and exchange protocol 1.
 Update the binding and native library together. Python 0.8 bindings reject
-an ABI 55 library. Existing production identities and stored knowledge retain
+an ABI 56 library. Existing production identities and stored knowledge retain
 their meaning; opening older files follows the existing migration rules.
 
 | Old form | Use in 0.9 |
@@ -101,3 +101,17 @@ For the equivalent C, C++17, Rust and CLI paths, use {doc}`first-production`,
 {doc}`known-media-adoption`, {doc}`media-resolution`, {doc}`provenance` and
 {doc}`revision-feed`. The CLI JSON format remains 1; command-line decisions
 now use the scoped token. See {doc}`../reference/cli-output`.
+
+### Produced outputs (development ABI 56)
+
+Use `Edit.register_outputs`, C++ `Transaction::registerOutputs`, native
+`pp_transaction_register_outputs` or CLI `artifact register` for an
+already-produced file or compound source and its actual activity/parameters.
+Rust uses `prepare_outputs` followed by owned `stage`; failed staging rolls
+back the owned edit. Commit remains explicit.
+
+`ActivitySpec` writes accept representation IDs or `(ID, role)` pairs. Copied
+read edges retain snapshots and no longer serve as write builders. Python
+parameters accept a mapping or repeated key/value pairs; C++ accepts typed
+parameter tuples. Native activity creation now takes `pp_activity_recipe_t`
+and a separate output-edge array. Update headers, library and bindings together.
