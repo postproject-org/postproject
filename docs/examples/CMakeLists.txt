@@ -74,6 +74,8 @@ endforeach()
 if(NOT MSVC)
     add_native_example(cpp-noexceptions "${CMAKE_CURRENT_SOURCE_DIR}/cpp/exchange.cpp" cxx_std_17)
     target_compile_options(postproject-cpp-noexceptions-exchange PRIVATE -fno-exceptions)
+    add_native_example(cpp-noexceptions "${CMAKE_CURRENT_SOURCE_DIR}/cpp/outputs.cpp" cxx_std_17)
+    target_compile_options(postproject-cpp-noexceptions-outputs PRIVATE -fno-exceptions)
 endif()
 
 if(Python3_FOUND)

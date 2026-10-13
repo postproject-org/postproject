@@ -53,8 +53,8 @@ postproject::ActivityId record_transcode(postproject::Production &production,
   spec.kind = "org.postproject:transcode";
   spec.started_at_unix_micros = 1'700'000'000'000'000;
   spec.finished_at_unix_micros = 1'700'000'060'000'000;
-  spec.inputs = {{original_id, "org.postproject:essence"}};
-  spec.outputs = {{proxy_id, std::nullopt}};
+  spec.inputs = {std::make_pair(original_id, std::string("org.postproject:essence"))};
+  spec.outputs = {proxy_id};
   spec.tool = postproject::ToolIdentity{"Example Encoder", "5.1", std::nullopt};
   spec.agent = postproject::AgentIdentity{
       "render-node-04", postproject::ExternalIdentifier{"com.example.farm.node",

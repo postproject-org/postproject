@@ -177,8 +177,8 @@ void record_render(postproject::Production &production,
                    const postproject::RepresentationId &render_id) {
   postproject::ActivitySpec activity{};
   activity.kind = "org.postproject:render";
-  activity.inputs = {{source_id, "org.postproject:primary"}};
-  activity.outputs = {{render_id, std::nullopt}};
+  activity.inputs = {std::make_pair(source_id, std::string("org.postproject:primary"))};
+  activity.outputs = {render_id};
   activity.tool = postproject::ToolIdentity{
       "Example Renderer", "2.1", "https://example.com/renderer"};
 

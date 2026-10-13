@@ -128,9 +128,9 @@ postproject::RepresentationId complete_proxy(postproject::Production &production
   postproject::ActivitySpec activity{};
   activity.kind = job.kind;
   for (const auto &input : job.inputs) {
-    activity.inputs.push_back({input, std::nullopt});
+    activity.inputs.push_back(input);
   }
-  activity.outputs = {{proxy_id, std::nullopt}};
+  activity.outputs = {proxy_id};
   activity.tool = encoder;
   activity.agent = worker;
   const auto activity_id = transaction.createActivity(activity).value();

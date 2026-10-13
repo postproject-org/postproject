@@ -265,10 +265,9 @@ complete_proxy(pp_production_t *production, pp_job_id_t job_id,
   if (status == PP_OK) {
     const pp_activity_edge_t inputs[] = {{*input_id, NULL}};
     const pp_activity_edge_t outputs[] = {{*out_proxy_id, NULL}};
-    status = pp_transaction_create_activity(
-        transaction, PROXY_JOB, inputs, 1, outputs, 1, &started, &finished,
-        "Example Transcoder", "3.2", "https://example.com/transcoder", NULL,
-        NULL, NULL, NULL, &activity_id, error);
+    status = pp_transaction_create_activity(transaction,
+        &(pp_activity_recipe_t){PROXY_JOB, inputs, 1, &started, &finished, "Example Transcoder", "3.2", "https://example.com/transcoder", NULL, NULL, NULL, NULL, NULL, 0},
+        outputs, 1, &activity_id, error);
   }
   if (status == PP_OK) {
     status =

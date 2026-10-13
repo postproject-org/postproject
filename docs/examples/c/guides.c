@@ -397,10 +397,9 @@ static pp_error_code_t record_render(pp_production_t *production,
   pp_error_code_t status =
       pp_production_begin_edit(production, NULL, NULL, &transaction, error);
   if (status == PP_OK) {
-    status = pp_transaction_create_activity(
-        transaction, "org.postproject:render", inputs, 1, outputs, 1, NULL,
-        NULL, "Example Renderer", "2.1", "https://example.com/renderer", NULL,
-        NULL, NULL, NULL, &activity_id, error);
+    status = pp_transaction_create_activity(transaction,
+        &(pp_activity_recipe_t){"org.postproject:render", inputs, 1, NULL, NULL, "Example Renderer", "2.1", "https://example.com/renderer", NULL, NULL, NULL, NULL, NULL, 0},
+        outputs, 1, &activity_id, error);
   }
   if (status == PP_OK) {
     pp_commit_receipt_t commit_receipt;

@@ -194,11 +194,9 @@ static pp_error_code_t record_transcode(pp_production_t *production,
       pp_production_begin_edit(production, NULL, NULL, &transaction, error);
   if (status == PP_OK) {
     /* Tool and agent identity are independent, optional attributions. */
-    status = pp_transaction_create_activity(
-        transaction, "org.postproject:transcode", inputs, 1, outputs, 1,
-        &started, &finished, "Example Transcoder", "3.2",
-        "https://example.com/transcoder", "Assistant editor",
-        "com.example.staff", "ae-17", NULL, &activity_id, error);
+    status = pp_transaction_create_activity(transaction,
+        &(pp_activity_recipe_t){"org.postproject:transcode", inputs, 1, &started, &finished, "Example Transcoder", "3.2", "https://example.com/transcoder", "Assistant editor", "com.example.staff", "ae-17", NULL, NULL, 0},
+        outputs, 1, &activity_id, error);
   }
   if (status == PP_OK) {
     char *saved = NULL;
