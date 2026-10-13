@@ -7281,12 +7281,24 @@ public:
     return create_impl(path, nullptr);
   }
 
+  template<class Path, std::enable_if_t<std::is_same_v<Path, std::filesystem::path>, int> = 0>
+  static Result<Production> create(const Path &path) {
+    POSTPROJECT_TRY_ASSIGN(const auto encoded, detail::checked_path(path, "path"));
+    return create(encoded);
+  }
+
   static Result<Production> create(std::string_view path,
                                    std::string_view display_name) {
     POSTPROJECT_TRY_ASSIGN(
         const std::string name,
         detail::checked_string(display_name, "display_name"));
     return create_impl(path, name.c_str());
+  }
+
+  template<class Path, std::enable_if_t<std::is_same_v<Path, std::filesystem::path>, int> = 0>
+  static Result<Production> create(const Path &path, std::string_view display_name) {
+    POSTPROJECT_TRY_ASSIGN(const auto encoded, detail::checked_path(path, "path"));
+    return create(encoded, display_name);
   }
 
   static Result<Production> open(std::string_view path) {
@@ -7299,6 +7311,12 @@ public:
         pp_production_open(native_path.c_str(), &production, &error);
     POSTPROJECT_TRY(detail::check(status, error));
     return Production(production);
+  }
+
+  template<class Path, std::enable_if_t<std::is_same_v<Path, std::filesystem::path>, int> = 0>
+  static Result<Production> open(const Path &path) {
+    POSTPROJECT_TRY_ASSIGN(const auto encoded, detail::checked_path(path, "path"));
+    return open(encoded);
   }
 
   Production(const Production &) = delete;

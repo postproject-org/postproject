@@ -19,7 +19,7 @@ postproject::Result<void> exercise(const std::filesystem::path &work) {
   POSTPROJECT_TRY_ASSIGN(const auto registered, edit.registerOutputs(
       {{render}, {thumbnail, std::nullopt, postproject::RepresentationKind::original,
                               "example:thumbnail", std::nullopt}},
-      recipe, {{"example:recipe", "width", postproject::MetadataValue::i64(1920)}}));
+      recipe, {{"example:recipe", "width", postproject::MetadataValue::signedInteger(1920)}}));
   POSTPROJECT_TRY_ASSIGN(const auto receipt, edit.commit());
   // No inputs: this operation generated new media. A render supplies input IDs.
   // [/register-outputs]
@@ -36,7 +36,8 @@ postproject::Result<void> exercise(const std::filesystem::path &work) {
       production.metadata(postproject::ObjectRef::activity(registered.activity_id)));
   if (parameters.size() != 1)
     return postproject::Error(postproject::ErrorCode::internal, "missing actual parameter");
-  POSTPROJECT_TRY_ASSIGN(auto failed, production.edit());
+  POSTPROJECT_TRY_ASSIGN(auto reopened, postproject::Production::open(work / "outputs.pproj"));
+  POSTPROJECT_TRY_ASSIGN(auto failed, reopened.edit());
   const auto result = failed.registerOutputs({{render}, {work / "missing.dat"}}, recipe);
   if (result) return postproject::Error(postproject::ErrorCode::internal, "missing file accepted");
   POSTPROJECT_TRY_ASSIGN(const auto unchanged, failed.commit());

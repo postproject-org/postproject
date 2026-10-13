@@ -20,6 +20,7 @@ from postproject import (
     Proposal,
     ProtocolBase,
     RepresentationId,
+    RepresentationKind,
     RequestId,
     RequestIdentity,
     parse_id,
@@ -52,6 +53,14 @@ def correct_kinds(
     assert_type(
         transaction.create_activity(ActivitySpec("com.example:record", ())), ActivityId
     )
+
+    outputs = transaction.register_outputs(
+        ((asset, RepresentationKind.DERIVED, "render.mov"),),
+        ActivitySpec("example:render", inputs=(representation,)),
+    )
+    assert_type(outputs.activity_id, ActivityId)
+    assert_type(outputs.outputs[0].asset_id, AssetId)
+    assert_type(outputs.outputs[0].representation_id, RepresentationId)
 
 
 def correct_exchange(

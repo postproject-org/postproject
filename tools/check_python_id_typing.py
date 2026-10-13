@@ -50,15 +50,15 @@ def main() -> None:
     ]
     if (
         bad.returncode != 1
-        or len(diagnostics) != 12
+        or len(diagnostics) != 15
         or any("error[invalid-argument-type]" not in line for line in diagnostics)
     ):
         raise SystemExit(
-            "wrong-kind fixture did not produce exactly twelve type errors:\n"
+            "wrong-kind fixture did not produce exactly fifteen type errors:\n"
             + bad.stdout
             + bad.stderr
         )
-    print("positive identity hints pass; all twelve wrong-kind calls are rejected")
+    print("positive identity hints pass; all fifteen wrong-kind calls are rejected")
 
 
 if __name__ == "__main__":

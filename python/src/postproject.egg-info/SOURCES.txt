@@ -37,6 +37,7 @@ tests/test_known_media_inputs.py
 tests/test_metadata_edits.py
 tests/test_metadata_inputs.py
 tests/test_native.py
+tests/test_output_registration.py
 tests/test_production.py
 tests/test_proposal_builder.py
 tests/test_query_bounds.py
