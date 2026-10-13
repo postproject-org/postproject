@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, fields
 from enum import Enum
 from fractions import Fraction
@@ -280,15 +280,20 @@ class Activity:
     outputs: tuple[ActivityEdge, ...]
 
 
+ActivityEdgeInput: TypeAlias = RepresentationId | tuple[RepresentationId, str | None]
+
+
 @dataclass(frozen=True, slots=True)
 class ActivitySpec:
     kind: str
-    outputs: tuple[ActivityEdge, ...]
-    inputs: tuple[ActivityEdge, ...] = ()
+    outputs: tuple[ActivityEdgeInput, ...] = ()
+    inputs: tuple[ActivityEdgeInput, ...] = ()
     started_at_unix_micros: int | None = None
     finished_at_unix_micros: int | None = None
     tool: ToolIdentity | None = None
     agent: AgentIdentity | None = None
+
+    parameters: ActivityParameters = ()
 
 
 class ArtifactKnowledgeState(Enum):
@@ -1074,12 +1079,27 @@ MediaSource: TypeAlias = (
 """Content structure of a representation at its present location."""
 
 
+OutputSpec: TypeAlias = (
+    tuple[AssetId | None, RepresentationKind, MediaSource]
+    | tuple[AssetId | None, RepresentationKind, MediaSource, str | None]
+    | tuple[AssetId | None, RepresentationKind, MediaSource, str | None, str | None]
+)
+
+
 @dataclass(frozen=True, slots=True)
 class ImportedMedia:
     """Identities staged by import; only explicit commit makes them durable."""
 
     asset_id: AssetId
     representation_id: RepresentationId
+
+
+@dataclass(frozen=True, slots=True)
+class RegisteredOutputs:
+    """Staged identities and the actual producer; explicit commit makes them durable."""
+
+    activity_id: ActivityId
+    outputs: tuple[ImportedMedia, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -1679,6 +1699,10 @@ MetadataKey: TypeAlias = MetadataProperty | tuple[str, str]
 """An exact vocabulary/property pair, including keys copied from reads."""
 
 MetadataInput: TypeAlias = MetadataValue | str | bool | int | bytes | Fraction
+ActivityParameters: TypeAlias = (
+    Mapping[MetadataKey, MetadataInput] | Iterable[tuple[MetadataKey, MetadataInput]]
+)
+
 """Unambiguous native values or explicitly tagged metadata distinctions."""
 
 

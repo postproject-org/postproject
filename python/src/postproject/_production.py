@@ -8,12 +8,13 @@ import threading
 import weakref
 from _ctypes import _Pointer
 from collections.abc import Callable, Iterable, Iterator, Mapping
+from contextlib import ExitStack
 from datetime import timedelta
 from fractions import Fraction
 from itertools import islice
 from pathlib import Path
 from types import TracebackType
-from typing import Self, TypeVar
+from typing import Self, TypeVar, cast
 from uuid import UUID
 
 from . import _abi
@@ -105,6 +106,7 @@ from ._model import (
     Activity,
     ActivityCreatedEvent,
     ActivityEdge,
+    ActivityEdgeInput,
     ActivityEdgeSnapshot,
     ActivityId,
     ActivityInputAddedEvent,
@@ -206,6 +208,7 @@ from ._model import (
     OrderedPartsContent,
     OrderedPartsSource,
     OriginIdentity,
+    OutputSpec,
     PackageContent,
     PackageSource,
     PendingJobLease,
@@ -214,6 +217,7 @@ from ._model import (
     ProvenanceMatch,
     QueryPage,
     RegenerationJobPlan,
+    RegisteredOutputs,
     Representation,
     RepresentationAddedEvent,
     RepresentationAvailability,
@@ -4394,39 +4398,95 @@ class Edit:
         self._native.check(status, error)
 
     def create_activity(self, spec: ActivitySpec) -> ActivityId:
-        """Stage one complete provenance activity."""
-
+        """Stage an activity describing existing outputs and its actual parameters."""
         self._require_open()
-        inputs = _native_activity_edges(spec.inputs)
         outputs = _native_activity_edges(spec.outputs)
-        started_at = _optional_i64(spec.started_at_unix_micros)
-        finished_at = _optional_i64(spec.finished_at_unix_micros)
-        tool = spec.tool
-        agent = spec.agent
-        identifier = agent.identifier if agent is not None else None
         activity_id = _abi.ActivityId()
         error = ctypes.POINTER(Error)()
-        status = self._native.lib.pp_transaction_create_activity(
-            self._handle,
-            _utf8(spec.kind, "activity kind"),
-            inputs,
-            len(inputs),
-            outputs,
-            len(outputs),
-            None if started_at is None else ctypes.byref(started_at),
-            None if finished_at is None else ctypes.byref(finished_at),
-            _optional_text(tool.name if tool else None),
-            _optional_text(tool.version if tool else None),
-            _optional_text(tool.uri if tool else None),
-            _optional_text(agent.name if agent else None),
-            _optional_text(identifier.scheme if identifier else None),
-            _optional_text(identifier.value if identifier else None),
-            _optional_text(identifier.qualifier if identifier else None),
-            ctypes.byref(activity_id),
-            ctypes.byref(error),
-        )
-        self._native.check(status, error)
+        with _NativeActivityRecipe(self._native, spec) as recipe:
+            status = self._native.lib.pp_transaction_create_activity(
+                self._handle,
+                ctypes.byref(recipe.value),
+                outputs,
+                len(outputs),
+                ctypes.byref(activity_id),
+                ctypes.byref(error),
+            )
+            self._native.check(status, error)
         return ActivityId(_uuid(activity_id))
+
+    def register_outputs(
+        self, outputs: Iterable[OutputSpec], spec: ActivitySpec
+    ) -> RegisteredOutputs:
+        """Stage produced sources, one actual activity and its parameters together.
+
+        Each output is ``(asset_or_None, kind, source[, role[, display_name]])``.
+        None explicitly creates a new original asset. The recipe's outputs must
+        be empty; its inputs take representation IDs or ``(id, role)`` pairs.
+        No job or dependency observation is created. Commit stays explicit.
+        """
+        self._require_open()
+        if spec.outputs:
+            raise ValueError(
+                "register_outputs derives activity outputs from its sources"
+            )
+        values = _bounded_tuple(outputs, 100_000, "output sources")
+        if not values:
+            raise ValueError("register_outputs requires at least one output")
+        activity_id = _abi.ActivityId()
+        error = ctypes.POINTER(Error)()
+        result = (_abi.OutputIdentity * len(values))()
+        with ExitStack() as stack:
+            recipe = stack.enter_context(_NativeActivityRecipe(self._native, spec))
+            native_outputs = []
+            for value in values:
+                if not isinstance(value, tuple) or not 3 <= len(value) <= 5:
+                    raise TypeError(
+                        "output requires (asset_or_None, kind, source[, role[, name]])"
+                    )
+                asset, kind, source = value[:3]
+                native_asset = _native_asset_id(asset) if asset is not None else None
+                path = None
+                native_source = None
+                if isinstance(source, (str, os.PathLike)):
+                    path = _path_bytes(source)
+                else:
+                    native_source = stack.enter_context(
+                        _NativeMediaSource(self._native, source)
+                    ).handle
+                native_outputs.append(
+                    _abi.OutputSource(
+                        ctypes.pointer(native_asset)
+                        if native_asset is not None
+                        else None,
+                        _native_representation_kind(kind),
+                        path,
+                        native_source,
+                        _optional_text(value[3] if len(value) >= 4 else None),
+                        _optional_text(value[4] if len(value) >= 5 else None),
+                    )
+                )
+            array = (_abi.OutputSource * len(native_outputs))(*native_outputs)
+            status = self._native.lib.pp_transaction_register_outputs(
+                self._handle,
+                array,
+                len(array),
+                ctypes.byref(recipe.value),
+                result,
+                ctypes.byref(activity_id),
+                ctypes.byref(error),
+            )
+            self._native.check(status, error)
+        return RegisteredOutputs(
+            ActivityId(_uuid(activity_id)),
+            tuple(
+                ImportedMedia(
+                    AssetId(_uuid(value.asset_id)),
+                    RepresentationId(_uuid(value.representation_id)),
+                )
+                for value in result
+            ),
+        )
 
     def remove_metadata_property(
         self, target: ObjectReference, property: MetadataKey
@@ -5263,19 +5323,102 @@ def _native_uuid(value: UUID) -> Uuid:
     return native
 
 
-def _native_activity_edges(
-    edges: tuple[ActivityEdge, ...],
-) -> ctypes.Array[NativeActivityEdge]:
-    array_type = NativeActivityEdge * len(edges)
-    return array_type(
-        *(
-            NativeActivityEdge(
-                _native_representation_id(edge.representation_id),
-                _optional_text(edge.role),
+def _bounded_tuple(
+    values: Iterable[OutputSpec], limit: int, label: str
+) -> tuple[OutputSpec, ...]:
+    copied = tuple(islice(values, limit + 1))
+    if len(copied) > limit:
+        raise ValueError(f"{label} exceeds {limit} items")
+    return copied
+
+
+class _NativeActivityRecipe:
+    """Borrowed recipe retaining owned parameter inputs only for the native call."""
+
+    def __init__(self, native: NativeLibrary, spec: ActivitySpec) -> None:
+        self._native = native
+        self._values: list[_Pointer[NativeMetadataInput]] = []
+        try:
+            inputs = _native_activity_edges(spec.inputs)
+            started = _optional_i64(spec.started_at_unix_micros)
+            finished = _optional_i64(spec.finished_at_unix_micros)
+            tool, agent = spec.tool, spec.agent
+            if agent is not None and agent.name is None and agent.identifier is None:
+                raise ValueError("an agent needs a name or identifier")
+            identifier = agent.identifier if agent is not None else None
+            parameters = []
+            supplied = (
+                cast(Mapping[MetadataKey, MetadataInput], spec.parameters).items()
+                if isinstance(spec.parameters, Mapping)
+                else spec.parameters
             )
-            for edge in edges
+            for index, (key, value) in enumerate(supplied):
+                if index == 100_000:
+                    raise ValueError("too many activity parameters")
+                property = _metadata_key(key)
+                handle = _metadata_input(native, value)
+                self._values.append(handle)
+                parameters.append(
+                    _abi.ActivityParameter(
+                        _utf8(property.vocabulary, "parameter vocabulary"),
+                        _utf8(property.property, "parameter property"),
+                        handle,
+                    )
+                )
+            array = (_abi.ActivityParameter * len(parameters))(*parameters)
+            self.value = _abi.ActivityRecipe(
+                _utf8(spec.kind, "activity kind"),
+                inputs,
+                len(inputs),
+                ctypes.pointer(started) if started is not None else None,
+                ctypes.pointer(finished) if finished is not None else None,
+                _utf8(tool.name, "tool name") if tool else None,
+                _optional_text(tool.version if tool else None),
+                _optional_text(tool.uri if tool else None),
+                _optional_text(agent.name if agent else None),
+                _optional_text(identifier.scheme if identifier else None),
+                _optional_text(identifier.value if identifier else None),
+                _optional_text(identifier.qualifier if identifier else None),
+                array,
+                len(array),
+            )
+        except BaseException:
+            self.close()
+            raise
+
+    def close(self) -> None:
+        for value in self._values:
+            self._native.lib.pp_metadata_input_release(value)
+        self._values = []
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        self.close()
+
+
+def _native_activity_edges(
+    edges: tuple[ActivityEdgeInput, ...],
+) -> ctypes.Array[NativeActivityEdge]:
+    if len(edges) > 100_000:
+        raise ValueError("too many activity edges")
+    values = []
+    for edge in edges:
+        if isinstance(edge, UUID):
+            identity, role = edge, None
+        elif isinstance(edge, tuple) and len(edge) == 2:
+            identity, role = edge
+        else:
+            raise TypeError(
+                "activity edges require representation IDs or (id, role) pairs"
+            )
+        values.append(
+            NativeActivityEdge(
+                _native_representation_id(identity), _optional_text(role)
+            )
         )
-    )
+    return (NativeActivityEdge * len(values))(*values)
 
 
 def _optional_i64(value: int | None) -> ctypes.c_int64 | None:
