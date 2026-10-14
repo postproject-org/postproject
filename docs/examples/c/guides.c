@@ -15,6 +15,7 @@
 static pp_error_code_t create_production(const char *path, const char *media,
                                          pp_production_t **out_production,
                                          pp_asset_id_t *out_asset_id,
+                                         pp_representation_id_t *out_original_id,
                                          pp_error_t **error) {
   pp_production_t *production = NULL;
   pp_transaction_t *transaction = NULL;
@@ -28,7 +29,7 @@ static pp_error_code_t create_production(const char *path, const char *media,
         "Import camera original"}, &transaction, error);
   }
   if (status == PP_OK) {
-    status = pp_transaction_import_file(transaction, media, "Camera A", out_asset_id, NULL, error);
+    status = pp_transaction_import_file(transaction, media, "Camera A", out_asset_id, out_original_id, error);
   }
   if (status == PP_OK) {
     pp_commit_receipt_t commit_receipt;
@@ -254,60 +255,39 @@ static pp_error_code_t resolve_asset(const pp_production_t *production,
 
 /* [confirm-locator] */
 static pp_error_code_t
-confirm_unique_candidates(pp_production_t *production,
-                          const pp_resolution_set_t *resolutions,
-                          pp_error_t **error) {
-  pp_transaction_t *transaction = NULL;
-  pp_error_code_t status =
-      pp_production_begin_edit(production, NULL, NULL, &transaction, error);
-
+confirm_selected_representation(pp_production_t *production,
+                                const pp_resolution_set_t *resolutions,
+                                pp_representation_id_t wanted,
+                                pp_error_t **error) {
   const uint64_t count = pp_resolution_set_representation_count(resolutions);
-  for (uint64_t r = 0; status == PP_OK && r < count; ++r) {
-    pp_asset_id_t asset_id;
-    pp_representation_id_t representation_id;
+  for (uint64_t index = 0; index < count; ++index) {
+    pp_asset_id_t asset;
+    pp_representation_id_t representation;
     pp_representation_availability_t availability;
-    uint64_t resource_count = 0;
-    uint64_t issue_count = 0;
-    status = pp_resolution_set_get_representation(
-        resolutions, r, &asset_id, &representation_id, &availability,
-        &resource_count, &issue_count, error);
-    for (uint64_t s = 0; status == PP_OK && s < resource_count; ++s) {
-      pp_resource_id_t resource_id = {0};
-      pp_resource_resolution_state_t state;
-      uint64_t candidate_count = 0;
-      uint64_t evidence_count = 0;
-      const char *uri = NULL;
-      uint16_t confidence = 0;
-      /* The logical root the candidate was found under, if any, and for an
-       * image sequence the naming of its files there. */
-      const char *root = NULL;
-      uint8_t has_naming = 0;
-      pp_sequence_naming_t naming;
-      status = pp_resolution_set_get_resource_state(resolutions, r, s, &state, error);
-      if (status != PP_OK) break;
-      status = pp_resolution_set_get_resource(resolutions, r, s, state, &resource_id,
-                                              &state, &candidate_count,
-                                              &evidence_count, error);
-      /* Several candidates need a person to choose; never pick one here. */
-      if (status == PP_OK && candidate_count == 1) {
-        status = pp_resolution_set_get_candidate(
-            resolutions, r, s, 0, &uri, &confidence, &root, &has_naming,
-            &naming, &evidence_count, error);
-      }
-      if (status == PP_OK && uri != NULL) {
-        status = pp_transaction_confirm_locator(
-            transaction, resource_id, uri, root, has_naming ? &naming : NULL,
-            error);
-      }
+    uint64_t resources, issues;
+    pp_error_code_t status = pp_resolution_set_get_representation(resolutions,
+        index, &asset, &representation, &availability, &resources, &issues, error);
+    if (status != PP_OK) return status;
+    if (memcmp(representation.bytes, wanted.bytes, sizeof wanted.bytes) != 0) continue;
+    if (resources == 0 || resources > 100000) return PP_ERROR_INTERNAL;
+    pp_relink_location_t *locations = calloc((size_t)resources, sizeof *locations);
+    if (locations == NULL) return PP_ERROR_INTERNAL;
+    pp_relink_selection_t selection;
+    pp_transaction_t *edit = NULL;
+    status = pp_resolution_set_select_verified(resolutions, index, locations,
+        resources, &selection, error);
+    if (status == PP_OK) status = pp_production_begin_edit(production,
+        &selection.base, NULL, &edit, error);
+    if (status == PP_OK) status = pp_transaction_confirm_selection(edit, &selection, error);
+    if (status == PP_OK) {
+      pp_commit_receipt_t receipt;
+      status = pp_transaction_commit(edit, &receipt, error);
     }
+    pp_transaction_release(edit);
+    free(locations);
+    return status;
   }
-  if (status == PP_OK) {
-    pp_commit_receipt_t commit_receipt;
-    status = pp_transaction_commit(transaction, &commit_receipt, error);
-  }
-
-  pp_transaction_release(transaction);
-  return status;
+  return PP_ERROR_NOT_FOUND;
 }
 /* [/confirm-locator] */
 
@@ -1090,26 +1070,6 @@ static void join(char *buffer, size_t size, const char *directory,
   snprintf(buffer, size, "%s/%s", directory, name);
 }
 
-static pp_error_code_t
-original_representation(const pp_production_t *production,
-                        const pp_asset_id_t *asset_id, pp_representation_id_t *out_id,
-                        pp_error_t **error) {
-  pp_representation_set_t *representations = NULL;
-  pp_error_code_t status =
-      pp_production_representations(production, *asset_id, &representations,
-                                    error);
-  if (status == PP_OK) {
-    pp_asset_id_t owner;
-    pp_representation_kind_t kind;
-    pp_content_structure_kind_t structure;
-    uint64_t members, resources, fingerprints;
-    status = pp_representation_set_get(representations, 0, out_id, &owner,
-                                       &kind, &structure, &members, &resources,
-                                       &fingerprints, error);
-  }
-  pp_representation_set_release(representations);
-  return status;
-}
 
 int main(int argc, char **argv) {
   if (argc != 2) {
@@ -1141,11 +1101,7 @@ int main(int argc, char **argv) {
   uint8_t changed = 0;
 
   pp_error_code_t status = create_production(production_path, media,
-                                             &production, &asset_id, &error);
-  if (status == PP_OK) {
-    status = original_representation(production, &asset_id, &original_id,
-                                     &error);
-  }
+                                             &production, &asset_id, &original_id, &error);
   if (status == PP_OK) {
     status = tag_camera_serial(production, &asset_id, &error);
   }
@@ -1163,7 +1119,7 @@ int main(int argc, char **argv) {
     status = resolve_asset(production, &asset_id, moved, &resolutions, &error);
   }
   if (status == PP_OK) {
-    status = confirm_unique_candidates(production, resolutions, &error);
+    status = confirm_selected_representation(production, resolutions, original_id, &error);
   }
   if (status == PP_OK) {
     status = process_changes(production, &before_render, &error);
@@ -1187,13 +1143,12 @@ int main(int argc, char **argv) {
     pp_representation_id_t scene_id;
     status = pp_production_begin_edit(production, NULL, NULL, &scene_edit, &error);
     if (status == PP_OK)
-      status = pp_transaction_import_file(scene_edit, scene_path, NULL, &scene_asset, NULL, &error);
+      status = pp_transaction_import_file(scene_edit, scene_path, NULL, &scene_asset, &scene_id, &error);
     if (status == PP_OK) {
       pp_commit_receipt_t receipt;
       status = pp_transaction_commit(scene_edit, &receipt, &error);
     }
     pp_transaction_release(scene_edit);
-    if (status == PP_OK) status = original_representation(production, &scene_asset, &scene_id, &error);
     if (status == PP_OK)
       status = record_and_query_dependencies(
           production, &scene_id, &asset_id, &original_id, &error);

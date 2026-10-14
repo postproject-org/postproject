@@ -15,13 +15,12 @@ cd "$1"
 
 # [create-production]
 postproject init production.pproj --name "Documentary"
-ASSET_ID=$(postproject --json media add production.pproj rushes/A001.mov \
-  --name "Camera A" | jq -r .asset_id)
+postproject --json media add production.pproj rushes/A001.mov \
+  --name "Camera A" > imported.json
+ASSET_ID=$(jq -r .asset_id imported.json)
+ORIGINAL_ID=$(jq -r .representation_id imported.json)
 postproject media show production.pproj "$ASSET_ID"
 # [/create-production]
-
-ORIGINAL_ID=$(postproject --json media show production.pproj "$ASSET_ID" |
-  jq -r '.representations[0].id')
 
 # [external-identifiers]
 postproject identifier add production.pproj asset "$ASSET_ID" \
@@ -52,11 +51,10 @@ jq -r '.resolutions[].resources[].candidates[].uri' resolution.json
 # [/resolve-asset]
 
 # [confirm-locator]
-# Confirm only a candidate that a person or policy selected; never pick one of
-# several plausible candidates automatically.
-CANDIDATE=$(jq -r '.resolutions[0].resources[0].candidates[0].uri' resolution.json)
-postproject media resolve production.pproj "$ASSET_ID" \
-  --root-map rushes="$PWD/moved" --confirm "$CANDIDATE"
+# Name the host's retained representation and explicitly confirm verified content.
+# Ambiguous, unverified and incomplete searches fail without changing locators.
+postproject media relink production.pproj "$ORIGINAL_ID" \
+  --root-map rushes="$PWD/moved" --confirm
 # [/confirm-locator]
 
 BEFORE_RENDER=$(postproject --json revisions latest production.pproj | jq -r .sequence)
@@ -104,20 +102,23 @@ postproject --json artifact reproducibility production.pproj "$SEQUENCE_ID" |
 # [/artifact-knowledge]
 
 # [dependency-queries]
+# This small scene actually authors the live reference; rendered frames do not.
+printf 'rushes/A001.mov\n' > scene.ppscene
+SCENE_ID=$(postproject --json media add production.pproj scene.ppscene | jq -r .representation_id)
 cat > dependency.json <<EOF
 [
   {
-    "kind": "org.example:character-reference",
+    "kind": "org.example:media-reference",
     "target": {"kind": "asset", "id": "$ASSET_ID"},
     "resolved_representation_id": "$ORIGINAL_ID",
     "required": true,
-    "authored_reference": "characters/lead.usd"
+    "authored_reference": "rushes/A001.mov"
   }
 ]
 EOF
 BASE=$(postproject --json inspect production.pproj | jq -r .decision_base)
-postproject --decision-base "$BASE" dependency record production.pproj "$SEQUENCE_ID" dependency.json
-postproject --json dependency dependencies production.pproj "$SEQUENCE_ID" \
+postproject --decision-base "$BASE" dependency record production.pproj "$SCENE_ID" dependency.json
+postproject --json dependency dependencies production.pproj "$SCENE_ID" \
   --max-depth 4 --max-representations 1000 --limit 100 |
   jq '.items[] | {target, depth}'
 postproject dependency dependents production.pproj asset "$ASSET_ID" \

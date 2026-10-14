@@ -22,13 +22,17 @@ use postproject_core::{
 };
 use postproject_media::{
     ExecutionOutcome, ExecutionRequest, Executor, FfmpegExecutor, GENERATE_PROXY_JOB_KIND,
-    ImageSequenceSource, MediaResolver, MediaRootMapping, PROXY_720P_PROFILE,
-    prepare_confirmed_locator, prepare_original_media, prepare_representation,
+    ImageSequenceSource, MediaResolver, MediaRootMapping, PROXY_720P_PROFILE, ResolutionItem,
+    ResolverOptions, SearchScope, VerificationMode, prepare_original_media, prepare_representation,
+    stage_relink,
 };
 use postproject_storage_sqlite::SqliteProduction;
 
 // [create-production]
-fn create_production(path: &Path, media: &Path) -> Result<(SqliteProduction, AssetId)> {
+fn create_production(
+    path: &Path,
+    media: &Path,
+) -> Result<(SqliteProduction, AssetId, RepresentationId)> {
     let mut production = SqliteProduction::create(path, Some("Documentary".to_owned()))?;
 
     let import = prepare_original_media(media, Some("Camera A".to_owned()), None)?;
@@ -49,7 +53,7 @@ fn create_production(path: &Path, media: &Path) -> Result<(SqliteProduction, Ass
 
     let representations = production.representations(asset_id)?;
     println!("representations: {}", representations.len());
-    Ok((production, asset_id))
+    Ok((production, asset_id, import.representation().id()))
 }
 // [/create-production]
 
@@ -127,65 +131,76 @@ fn resolve_asset(
     production: &SqliteProduction,
     asset_id: AssetId,
     rushes_directory: &Path,
-) -> Result<Vec<RepresentationResolution>> {
-    let mappings = [MediaRootMapping::new("rushes", rushes_directory)?];
-    let roots = production.media_roots()?;
-    let resolver = MediaResolver::default();
-
-    let mut resolutions = Vec::new();
-    for representation in production.representations(asset_id)? {
-        let mut resources = Vec::new();
-        for resource in production.resources(representation.id())? {
-            let locators = production.locators(resource.id())?;
-            resources.push(resolver.resolve_resource(
-                &resource,
-                representation.content_structure(),
-                &locators,
-                &roots,
-                &mappings,
-            )?);
-        }
-        let resolution = RepresentationResolution::aggregate(
-            representation.id(),
-            representation.content_structure(),
-            resources,
-        )?;
-        println!("availability: {:?}", resolution.availability());
-        for resource in resolution.resources() {
-            for candidate in resource.candidates() {
-                println!("candidate: {}", candidate.uri());
-            }
-        }
-        resolutions.push(resolution);
+) -> Result<(
+    postproject_core::DecisionBase,
+    Vec<RepresentationResolution>,
+)> {
+    let view = production.read_session()?;
+    let base = view.decision_base();
+    let roots = view.read().media_roots()?;
+    let mut work = Vec::new();
+    for representation in view.read().representations(asset_id)? {
+        let resources = view
+            .read()
+            .resources(representation.id())?
+            .into_iter()
+            .map(|resource| {
+                let locators = view.read().locators(resource.id())?;
+                Ok((resource, locators))
+            })
+            .collect::<Result<Vec<_>>>()?;
+        work.push((representation, resources));
     }
-    Ok(resolutions)
+    drop(view); // Release the database view before filesystem work.
+    let scope = SearchScope::new(
+        roots,
+        vec![MediaRootMapping::new("rushes", rushes_directory)?],
+    );
+    let items = work
+        .iter()
+        .flat_map(|(representation, resources)| {
+            resources.iter().map(|(resource, locators)| {
+                ResolutionItem::new(resource, representation.content_structure(), locators)
+            })
+        })
+        .collect::<Vec<_>>();
+    let resolver = MediaResolver::new(ResolverOptions {
+        verification: VerificationMode::Content,
+        ..ResolverOptions::default()
+    })?;
+    let mut resources = resolver.resolve(&items, &scope)?.into_iter();
+    let resolutions = work
+        .iter()
+        .map(|(representation, members)| {
+            RepresentationResolution::aggregate(
+                representation.id(),
+                representation.content_structure(),
+                resources.by_ref().take(members.len()).collect(),
+            )
+        })
+        .collect::<Result<Vec<_>>>()?;
+    Ok((base, resolutions))
 }
 // [/resolve-asset]
 
 // [confirm-locator]
-fn confirm_unique_candidates(
+fn confirm_selected_representation(
     production: &mut SqliteProduction,
+    base: postproject_core::DecisionBase,
     resolutions: &[RepresentationResolution],
+    representation_id: RepresentationId,
 ) -> Result<postproject_core::CommitReceipt> {
-    let mut transaction = production.begin_transaction()?;
-    for resolution in resolutions {
-        for resource in resolution.resources() {
-            // Several candidates need a person to choose; never pick one here.
-            let [candidate] = resource.candidates() else {
-                continue;
-            };
-            // Record the logical root the candidate was found under and, for
-            // an image sequence, the naming of its files there.
-            let locator = prepare_confirmed_locator(
-                resource.resource_id(),
-                candidate.uri(),
-                candidate.media_root(),
-                candidate.sequence_naming().cloned(),
-            )?;
-            transaction.add_locator(&locator)?;
-        }
-    }
-    transaction.commit()
+    let resolution = resolutions
+        .iter()
+        .find(|item| item.representation_id() == representation_id)
+        .ok_or_else(|| {
+            Error::new(
+                ErrorKind::NotFound,
+                "selected representation was not resolved",
+            )
+        })?;
+    let selection = resolution.select_verified(base)?;
+    stage_relink(production, &selection)?.commit()
 }
 // [/confirm-locator]
 
@@ -668,19 +683,17 @@ fn guide_examples_run_in_order() -> Result<()> {
         .expect("sequence frame");
     }
 
-    let (mut production, asset_id) = create_production(
+    let (mut production, asset_id, original_id) = create_production(
         &work.path().join("production.pproj"),
         &rushes.join("A001.mov"),
     )?;
-    let original_id = production.representations(asset_id)?[0].id();
     tag_camera_serial(&mut production, asset_id)?;
     add_title(&mut production, asset_id)?;
 
     add_rushes_root(&mut production)?;
     fs::rename(rushes.join("A001.mov"), moved.join("A001.mov")).expect("move media");
-    let resolutions = resolve_asset(&production, asset_id, &moved)?;
-    assert_eq!(resolutions[0].resources()[0].candidates().len(), 1);
-    confirm_unique_candidates(&mut production, &resolutions)?;
+    let (base, resolutions) = resolve_asset(&production, asset_id, &moved)?;
+    confirm_selected_representation(&mut production, base, &resolutions, original_id)?;
 
     let before_render = production.latest_revision()?.expect("revision").sequence();
     let sequence_id = add_render_sequence(&mut production, asset_id, &renders)?;

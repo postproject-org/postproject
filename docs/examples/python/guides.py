@@ -23,6 +23,7 @@ from postproject import (
     Dependency,
     ExternalIdentifier,
     ImageSequenceSource,
+    ImportedMedia,
     JobRequest,
     JobState,
     JobSucceededEvent,
@@ -42,21 +43,22 @@ from postproject import (
     RevisionObserver,
     SequenceNaming,
     ToolIdentity,
+    VerificationMode,
 )
 
 
 # [create-production]
-def create_production(path: Path, media: Path) -> tuple[Production, AssetId]:
+def create_production(path: Path, media: Path) -> tuple[Production, ImportedMedia]:
     production = Production.create(path, "Documentary")
     with production.edit(
         origin=OriginIdentity("com.example.editor", "0.4.0"),
         message="Import camera original",
     ) as transaction:
-        asset_id = transaction.import_media(media, display_name="Camera A").asset_id
+        imported = transaction.import_media(media, display_name="Camera A")
         transaction.commit()
 
-    print(f"representations: {len(production.representations[asset_id])}")
-    return production, asset_id
+    print(f"representations: {len(production.representations[imported.asset_id])}")
+    return production, imported
 
 
 # [/create-production]
@@ -114,7 +116,9 @@ def add_rushes_root(production: Production) -> None:
 def resolve_asset(
     production: Production, asset_id: AssetId, rushes_directory: Path
 ) -> tuple[RepresentationResolution, ...]:
-    resolutions = production.resolve(asset_id, {"rushes": rushes_directory})
+    resolutions = production.resolve(
+        asset_id, {"rushes": rushes_directory}, verification=VerificationMode.CONTENT
+    )
     for representation in resolutions:
         print(f"availability: {representation.availability.name}")
         for resource in representation.resources:
@@ -130,25 +134,19 @@ def resolve_asset(
 
 
 # [confirm-locator]
-def confirm_unique_candidates(
-    production: Production, resolutions: tuple[RepresentationResolution, ...]
+def confirm_selected_representation(
+    production: Production,
+    resolutions: tuple[RepresentationResolution, ...],
+    representation_id: RepresentationId,
 ) -> None:
-    with production.edit() as transaction:
-        for representation in resolutions:
-            for resource in representation.resources:
-                # Several candidates need a person to choose; never pick one here.
-                if len(resource.candidates) != 1:
-                    continue
-                candidate = resource.candidates[0]
-                # Record the logical root the candidate was found under and,
-                # for an image sequence, the naming of its files there.
-                transaction.confirm_locator(
-                    resource.resource_id,
-                    candidate.uri,
-                    media_root=candidate.media_root,
-                    sequence_naming=candidate.sequence_naming,
-                )
-        transaction.commit()
+    # Use the identity retained by the host; never take an arbitrary first result.
+    resolution = next(
+        item for item in resolutions if item.representation_id == representation_id
+    )
+    selection = resolution.select_verified()
+    with production.edit(base=selection.base) as edit:
+        edit.confirm_selection(selection)
+        edit.commit()
 
 
 # [/confirm-locator]
@@ -535,17 +533,17 @@ def main() -> None:
     media = work / "rushes" / "A001.mov"
     moved = work / "moved"
 
-    production, asset_id = create_production(work / "production.pproj", media)
+    production, imported = create_production(work / "production.pproj", media)
+    asset_id = imported.asset_id
     with production:
-        original_id = production.representations[asset_id][0].id
+        original_id = imported.representation_id
         tag_camera_serial(production, asset_id)
         add_title(production, asset_id)
 
         add_rushes_root(production)
         media.rename(moved / "A001.mov")
         resolutions = resolve_asset(production, asset_id, moved)
-        assert len(resolutions[0].resources[0].candidates) == 1
-        confirm_unique_candidates(production, resolutions)
+        confirm_selected_representation(production, resolutions, original_id)
 
         before_render = production.latest_revision
         assert before_render is not None

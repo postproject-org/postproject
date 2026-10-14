@@ -30,19 +30,19 @@ void require(bool condition, const char *message) {
 }
 
 // [create-production]
-std::pair<postproject::Production, postproject::AssetId>
+std::pair<postproject::Production, postproject::ImportedMedia>
 create_production(const std::string &path, const std::string &media) {
   auto production = postproject::Production::create(path, "Documentary").value();
 
   auto transaction = production.edit({postproject::OriginIdentity{"com.example.editor", "0.4.0", std::nullopt},
        "Import camera original"}).value();
 
-  const auto asset_id = transaction.importMedia(media, "Camera A").value().asset_id;
+  const auto imported = transaction.importMedia(media, "Camera A").value();
   transaction.commit().value();
 
   std::cout << "representations: "
-            << production.representations(asset_id).value().size() << '\n';
-  return {std::move(production), asset_id};
+            << production.representations(imported.asset_id).value().size() << '\n';
+  return {std::move(production), imported};
 }
 // [/create-production]
 
@@ -97,6 +97,7 @@ resolve_asset(const postproject::Production &production,
   // The mapping locates the logical root on this machine for this call only.
   postproject::ResolutionConfig config;
   config.root_mappings = {{"rushes", rushes_directory}};
+  config.verification = postproject::VerificationMode::content;
   auto options = postproject::ResolutionOptions::create(config).value();
   const auto resolutions = production.resolveAsset(asset_id, options).value();
   for (const auto &representation : resolutions) {
@@ -115,26 +116,17 @@ resolve_asset(const postproject::Production &production,
 // [/resolve-asset]
 
 // [confirm-locator]
-void confirm_unique_candidates(
+void confirm_selected_representation(
     postproject::Production &production,
-    const std::vector<postproject::RepresentationResolution> &resolutions) {
-  auto transaction = production.edit().value();
-  for (const auto &representation : resolutions) {
-    for (const auto &resource : representation.resources) {
-      // Several candidates need a person to choose; never pick one here.
-      if (resource.candidates().size() != 1) {
-        continue;
-      }
-      const auto &candidate = resource.candidates().front();
-      // Record the logical root the candidate was found under and, for an
-      // image sequence, the naming of its files there.
-      transaction
-          .confirmLocator(resource.resource_id, candidate.uri,
-                          candidate.media_root, candidate.sequence_naming)
-          .value();
-    }
-  }
-  transaction.commit().value();
+    const std::vector<postproject::RepresentationResolution> &resolutions,
+    const postproject::RepresentationId &representation_id) {
+  const auto found = std::find_if(resolutions.begin(), resolutions.end(),
+      [&](const auto &value) { return value.representation_id == representation_id; });
+  require(found != resolutions.end(), "selected representation was not resolved");
+  const auto selection = found->selectVerified().value();
+  auto edit = production.edit(selection.base).value();
+  edit.confirmSelection(selection).value();
+  edit.commit().value();
 }
 // [/confirm-locator]
 
@@ -496,9 +488,10 @@ int main(int argc, char **argv) {
   const std::string moved = work + "/moved";
 
   try {
-    auto [production, asset_id] =
+    auto [production, imported] =
         create_production(work + "/production.pproj", media);
-    const auto original_id = production.representations(asset_id).value().front().id;
+    const auto asset_id = imported.asset_id;
+    const auto original_id = imported.representation_id;
     tag_camera_serial(production, asset_id);
     add_title(production, asset_id);
 
@@ -506,9 +499,7 @@ int main(int argc, char **argv) {
     require(std::rename(media.c_str(), (moved + "/A001.mov").c_str()) == 0,
             "move media");
     const auto resolutions = resolve_asset(production, asset_id, moved);
-    require(resolutions.front().resources.front().candidates().size() == 1,
-            "unique candidate");
-    confirm_unique_candidates(production, resolutions);
+    confirm_selected_representation(production, resolutions, original_id);
 
     const auto before_render = production.latestRevision().value()->sequence;
     const auto sequence_id = add_render_sequence(
