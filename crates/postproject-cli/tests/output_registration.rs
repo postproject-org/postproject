@@ -48,7 +48,7 @@ fn multiple_outputs_keep_actual_parameters_and_late_failure_writes_nothing() {
     let activities = store.activities().unwrap();
     assert_eq!(activities.len(), 1);
     let activity = &activities[0];
-    assert!(activity.inputs().is_empty());
+    assert_eq!(activity.inputs(), []);
     assert_eq!(activity.outputs().len(), 2);
     let property = MetadataProperty::new(
         VocabularyId::new("example:recipe").unwrap(),
