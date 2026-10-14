@@ -1,9 +1,8 @@
 # Revised 0.9 workflow design
 
 Inspected 2026-10-12 at SDK `f456958c`. The qualified ABI-53 candidate is
-unpublished; its checks remain evidence for that source. This design selects
-the remaining changes. Each slice needs its own installed verification before
-the revised candidate can be qualified.
+unpublished; its checks remain evidence for that source. The selected contracts below are implemented in ABI 57. Integrated
+qualification is recorded separately from the preserved ABI-53 evidence.
 
 ## Concepts and public surfaces
 
@@ -44,8 +43,8 @@ distinctions below; simplify construction rather than reducing their meaning.
 
 ## Selected task contracts
 
-These signatures are implementation targets until their slices land. They
-replace assembly in the existing API, rather than adding a parallel package.
+These contracts are implemented across the five offered surfaces. The
+migration guide names the removed forms and their replacements.
 
 | Task | Canonical direction | Removed caller work |
 |---|---|---|
@@ -57,8 +56,8 @@ replace assembly in the existing API, rather than adding a parallel package.
 
 Native edit construction accepts optional origin/message at creation. C++ uses
 `production.edit(context)`, `view.edit(context)` or
-`production.edit(base, context)`. Remove `beginTransaction`, revision-only
-construction and separate public context setters after migrating consumers.
+`production.edit(base, context)`. `beginTransaction`, revision-only construction and separate public context
+setters are removed; maintained callers use the canonical edit family.
 Decision bases come from coherent reads, including an empty journal.
 
 Lookup stays read-only. Zero, multiple or incomplete candidates remain explicit;
@@ -81,10 +80,11 @@ bump schema 27, exchange protocol 1 or CLI JSON 1 for projection-only changes.
 Version an actual encoding change independently. Preserve the original review
 artifacts and publish new source/checksum evidence separately.
 
-The repository inventory records a concrete migration task for every maintained
-checkout. Test each slice with actual installed consumers, then rerun the
-integrated SDK/platform gates and both host handoffs. Historical qualification
-does not establish that the revised design is implemented or qualified.
+The repository inventory records each maintained caller migration and its
+source-scoped checks. ABI 57 has 344 exports and 45 layouts. Python moves worker
+and exchange values into explicit modules and projects unambiguous metadata as
+scalars and tuples. Relink proposals use the new `locator.confirm.v1` command;
+older decoders reject it. Historical qualification remains limited to its source.
 
 Standards-policy review: these changes alter construction and teaching, not
 identifier schemes, vocabulary mappings, cardinality or normalization. Preserve

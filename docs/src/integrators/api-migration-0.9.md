@@ -29,10 +29,10 @@ their meaning; opening older files follows the existing migration rules.
 | CLI `--base-revision ID` | `--decision-base TOKEN` from `inspect` |
 
 Python metadata accepts `(vocabulary, property)` keys and native `str`,
-`bool`, signed `int`, `bytes` and exact `Fraction` values. Reads still return
-lossless typed values. Keep explicit unsigned, URI, localized text and other
-ambiguous variants. Floats, `None`, plain lists and dictionaries do not acquire
-an inferred metadata meaning. See {doc}`metadata-vocabularies`.
+`bool`, signed `int`, `bytes`, exact `Fraction` and list/tuple values. Reads
+return scalars and immutable tuples. Keep explicit unsigned, URI, localized
+text and other ambiguous variants. Floats, `None` and dictionaries do not
+acquire an inferred metadata meaning. See {doc}`metadata-vocabularies`.
 
 Python `edit()`, `edit(base)` and `view.edit()` accept `origin=` and
 `message=`. Uncommitted context exit rolls back. Commit returns this edit's
@@ -46,6 +46,8 @@ fixture supplies `rushes/A001.mov`, an empty `moved/` directory and an output
 directory. The host produces the output bytes before recording them.
 The {download}`historical comparison <../../evidence/release-0.9/python-before.py>`
 runs the same workflow against the published 0.8 platform wheel.
+The {download}`qualified ABI-53 comparison <../../evidence/release-0.9/python-abi53-before.py>`
+preserves the initial 0.9 program; the current excerpts use ABI 57.
 
 Import a file and ordinary metadata with one edit:
 
@@ -102,7 +104,7 @@ For the equivalent C, C++17, Rust and CLI paths, use {doc}`first-production`,
 {doc}`revision-feed`. The CLI JSON format remains 1; command-line decisions
 now use the scoped token. See {doc}`../reference/cli-output`.
 
-### Produced outputs (development ABI 56)
+### Produced outputs
 
 Use `Edit.register_outputs`, C++ `Transaction::registerOutputs`, native
 `pp_transaction_register_outputs` or CLI `artifact register` for an
