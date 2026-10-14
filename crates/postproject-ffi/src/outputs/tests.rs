@@ -86,11 +86,9 @@ fn late_media_error_clears_all_ids_and_stages_no_prefix() {
         assert_eq!(receipt.outcome, 0);
         crate::pp_transaction_release(edit);
     }
-    assert!(
-        lock_production(&production.state)
-            .assets()
-            .unwrap()
-            .is_empty()
+    assert_eq!(
+        lock_production(&production.state).assets().unwrap(),
+        [] as [postproject_core::Asset; 0]
     );
 }
 
@@ -140,11 +138,9 @@ fn parameters_are_copied_and_attached_to_the_actual_activity() {
             crate::PP_OK
         );
         crate::metadata_input::pp_metadata_input_release(input);
-        assert!(
-            lock_production(&production.state)
-                .activities()
-                .unwrap()
-                .is_empty()
+        assert_eq!(
+            lock_production(&production.state).activities().unwrap(),
+            [] as [postproject_core::Activity; 0]
         );
         let mut receipt: PpCommitReceipt = std::mem::zeroed();
         assert_eq!(

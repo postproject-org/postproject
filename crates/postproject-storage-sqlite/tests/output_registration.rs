@@ -47,7 +47,7 @@ fn zero_input_multiple_outputs_keep_actual_parameters_and_replay_complete_effect
     drop(edit);
     let produced = store.activities().unwrap();
     assert_eq!(produced.len(), 1);
-    assert!(produced[0].inputs().is_empty());
+    assert_eq!(produced[0].inputs(), []);
     assert_eq!(
         produced[0].tool().unwrap().name(),
         "Actual fixture generator"
@@ -124,8 +124,11 @@ fn late_staging_failure_discards_the_first_output_and_releases_the_edit() {
     let mut store =
         SqliteProduction::create(directory.path().join("rollback.pproj"), None).unwrap();
     assert!(prepared.stage(store.begin_transaction().unwrap()).is_err());
-    assert!(store.assets().unwrap().is_empty());
-    assert!(store.activities().unwrap().is_empty());
+    assert_eq!(store.assets().unwrap(), [] as [postproject_core::Asset; 0]);
+    assert_eq!(
+        store.activities().unwrap(),
+        [] as [postproject_core::Activity; 0]
+    );
     assert!(store.latest_revision().unwrap().is_none());
     assert!(
         store
