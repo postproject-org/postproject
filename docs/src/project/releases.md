@@ -10,7 +10,8 @@ These pages describe what each release delivered, how it was verified, and which
 
 ## Release records
 
-- {doc}`/release-0.9-report` — unpublished development checks, packages and remaining qualification boundaries.
+- {doc}`/release-0.9-abi57-report` — revised unpublished candidate, packages and qualification.
+- {doc}`/release-0.9-report` — the initial ABI-53 development qualification.
 - {doc}`/release-0.8-report` — delivered behavior, qualification and artifact scope.
 - {doc}`/release-0.8-conformance` — local protocol, crash recovery and independent fixture evidence.
 - {doc}`/release-0.8-compatibility-evidence` — installed family use and review limits.
@@ -40,6 +41,7 @@ These pages describe what each release delivered, how it was verified, and which
 /abi-policy
 /releasing
 /roadmap
+/release-0.9-abi57-report
 /release-0.9-report
 /release-0.8-report
 /release-0.8-conformance

@@ -37,8 +37,8 @@ Use these pages when the implementation itself is relevant:
   integration routes and their runtime limits.
 - {doc}`../../api-ergonomics-audit` records the current API redesign and
   consumer migration status.
-- {doc}`../../api-workflow-0.9-design` describes the remaining workflow
-  simplification and its preserved contracts.
+- {doc}`../../api-workflow-0.9-design` describes the canonical workflows and
+  their preserved contracts.
 - {doc}`../../release-0.9-abi57-report` records the revised candidate and its
   source-scoped verification.
 - {doc}`../../release-0.9-workflow-comparison` compares the five complete
