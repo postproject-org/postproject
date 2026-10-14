@@ -12,6 +12,8 @@ src/postproject/_model.py
 src/postproject/_native.py
 src/postproject/_production.py
 src/postproject/_proposal_commands.py
+src/postproject/exchange.py
+src/postproject/jobs.py
 src/postproject/py.typed
 src/postproject.egg-info/PKG-INFO
 src/postproject.egg-info/SOURCES.txt
