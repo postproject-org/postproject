@@ -8,21 +8,19 @@ tests against an install prefix; no consumer invokes Cargo.
 ## C: register a finalized recording
 
 The [OBS registration adapter](https://github.com/postproject-org/postproject-obs/blob/main/src/registration.c)
-owns a production, media source, transaction, result sets, metadata inputs and
+owns a production, transaction, result sets, metadata inputs and
 errors. Each has one matching public release function. Its single cleanup path
 releases partially acquired handles on failure. It copies the error message
 before releasing the error. Strings returned by a result set remain borrowed
 until that set is released; only copied IDs and a diagnostic leave the adapter.
 
-The ordinary path imports the successfully finalized file and commits its
-qualified attempt identifier and technical metadata together. File hashing
-occurs during staging on an adapter worker. The representation is available
-after that commit; a second transaction attaches the capture activity. If the
-asset has acquired a proxy, readback still selects its unique original rather
-than assuming result order identifies it. Ambiguity requires review. If the
-second stage fails, explicit retry uses the same attempt identifier to complete
-the fact without importing another asset. This is a bounded retry policy,
-not a promise about arbitrary crashes or concurrent first registration.
+The ordinary path uses output registration to stage the finalized file, actual
+capture activity, attempt identifiers and technical metadata in one edit. File
+hashing runs on an adapter worker. Explicit retry reuses the attempt identifier;
+it does not import another asset. A separate repair path completes older facts
+whose media committed without capture, selecting the unique original rather
+than assuming result order. Ambiguity requires review. This bounded retry
+policy does not establish globally unique concurrent first registration.
 
 The [C contract test](https://github.com/postproject-org/postproject-obs/blob/main/tests/registration.c)
 executes failed staging followed by rollback, successful registration, repeated
@@ -44,17 +42,19 @@ uses owning wrapper values and `Result<T>` with both propagation helpers.
 Resolution follows this recipe:
 
 1. Copy the host object's identity, association and filename on the host thread.
-2. Read a decision base before the native sequence and locator reads.
+2. Copy a coherent decision base with the sequence and locator reads.
 3. Resolve presence; verify content only when the selected sequence is complete.
-4. Read the revision again. Discard the decision if the production changed.
+4. Retain the verified selection and its original base. The pilot explicitly
+   permits sampled sequence evidence only after complete required-frame coverage
+   and complete search; it does not claim a full hash.
 5. On the host thread, discard the result after cancellation, node deletion or
    a changed association/filename.
-6. Confirm a new, unambiguous locator in a transaction using the retained base.
-   An already recorded location needs no mutation.
+6. Confirm the copied selection in an edit using the retained base.
+   An already recorded location is a guarded no-op.
 7. Copy the candidate pattern into the Reader only after successful confirmation.
 
 The [installed C++ recipe](https://github.com/postproject-org/postproject-natron/blob/main/tests/contract.cpp)
-tests sequence adoption, owning values, an empty production without a base,
+tests sequence adoption, owning values, an empty-journal decision base,
 rollback, a directory move, explicit verification, partial refusal and a
 separate writer invalidating a retained decision. A conflict closes the
 transaction; destruction releases it. Re-read and decide with fresh values.
