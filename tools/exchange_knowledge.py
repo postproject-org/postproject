@@ -72,9 +72,15 @@ def exact_metadata(target: pp.ObjectReference) -> pp.MetadataValue:
 
 
 def prepare(
-    source: pp.Production, root: Path, client: pp.exchange.ClientId, request: pp.exchange.RequestId
+    source: pp.Production,
+    root: Path,
+    client: pp.exchange.ClientId,
+    request: pp.exchange.RequestId,
 ) -> tuple[
-    pp.exchange.Proposal, pp.exchange.PreparedAsset, pp.exchange.PreparedMediaRoot, pp.exchange.PreparedRepresentation
+    pp.exchange.Proposal,
+    pp.exchange.PreparedAsset,
+    pp.exchange.PreparedMediaRoot,
+    pp.exchange.PreparedRepresentation,
 ]:
     content = sources(root)
     with source.proposal_builder(
@@ -105,7 +111,9 @@ def prepare(
                 ),
             ]
         )
-        assert all(isinstance(item, pp.exchange.PreparedRepresentation) for item in made)
+        assert all(
+            isinstance(item, pp.exchange.PreparedRepresentation) for item in made
+        )
         sequence = made[0]
         assert isinstance(sequence, pp.exchange.PreparedRepresentation)
         builder.stage(

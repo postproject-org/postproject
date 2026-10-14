@@ -48,7 +48,9 @@ def race(root: Path) -> None:
             [pp.exchange.AppendMetadataCommand(target, PROPERTY, ("seed"))],
         ) as seed:
             submit(source, seed)
-        stale = proposal(source, client, [pp.exchange.RemoveMetadataCommand(target, PROPERTY)])
+        stale = proposal(
+            source, client, [pp.exchange.RemoveMetadataCommand(target, PROPERTY)]
+        )
         original = source.exchange_state.head
         assert original is not None
     workers: list[subprocess.Popen[str]] = []
