@@ -269,7 +269,7 @@
     "native_library_sha256": "d1ed91878795d0b0e21fb16081e2fcb2e66c031bcbbfd13c9db742a0ec2cc8c3",
     "sdk_wheel_sha256": "7a7d8bc5f754302228ffdee524017a80d4af4599d7c3c3833b33915b4a296612",
     "gates": "All revised phase gates remain pending; implemented slices have the scoped checks recorded per repository.",
-    "ci_state": "ABI-53 source 42408583 passes every SDK job (16/16, 38314071435), downstream job (11/11, 38314073791) and docs deployment (38314071444). ABI-55 CI is not yet run.",
+    "ci_state": "Historical ABI-53 and ABI-55 qualifications are source-scoped below. Current ABI-57 workflow qualification is recorded separately.",
     "initial_ci_runs": {
       "sdk": 38310531265,
       "downstream": 38310532153,
@@ -375,7 +375,7 @@
         }
       ],
       "artifacts": "target/workflow-abi55-{install,wheel,blender}; original nineteen-artifact set preserved",
-      "publication": "Unpublished; CI and deployment pending. No tag, registry publication or outreach."
+      "publication": "Unpublished. ABI-55 SDK CI 38435192543 (16/16), downstream 38438496529 (11/11), docs 38435192564 and site 38437389375 passed. Optional beta regression was recorded separately; later ABI-55 Blender recheck 38532644648 and Kdenlive recheck 38532006632 exist."
     }
   }
 }
