@@ -40,6 +40,12 @@ postproject::Result<void> exercise(const std::filesystem::path &work) {
   POSTPROJECT_TRY_ASSIGN(auto failed, reopened.edit());
   const auto result = failed.registerOutputs({{render}, {work / "missing.dat"}}, recipe);
   if (result) return postproject::Error(postproject::ErrorCode::internal, "missing file accepted");
+#if defined(__cpp_exceptions) || defined(_CPPUNWIND)
+  bool threw = false;
+  try { failed.registerOutputs({{work / "missing.dat"}}, recipe).value(); }
+  catch (const postproject::Exception &) { threw = true; }
+  if (!threw) return postproject::Error(postproject::ErrorCode::internal, "missing exception");
+#endif
   POSTPROJECT_TRY_ASSIGN(const auto unchanged, failed.commit());
   if (unchanged.revision)
     return postproject::Error(postproject::ErrorCode::internal, "partial output prefix");

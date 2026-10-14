@@ -68,7 +68,8 @@ def main() -> int:
         for standard in STANDARDS
         for source, extra in programs()
     ]
-    with ThreadPoolExecutor(max_workers=os.cpu_count()) as pool:
+    # Large translation units consume substantial memory; bound compiler concurrency.
+    with ThreadPoolExecutor(max_workers=min(4, os.cpu_count() or 1)) as pool:
         failures = [
             failure
             for failure in pool.map(lambda job: compile_program(*job), jobs)
