@@ -9,14 +9,8 @@ from uuid import UUID, uuid4
 
 from postproject import (
     AlreadyExistsError,
-    ClientId,
     CommitReceipt,
     ConflictError,
-    ExchangeError,
-    ExchangeFailure,
-    ExchangeLimits,
-    ExchangeRole,
-    HistoryId,
     InvalidArgumentError,
     MetadataProperty,
     MetadataU64,
@@ -24,10 +18,18 @@ from postproject import (
     PostProjectError,
     Production,
     ProductionRef,
+    UnsupportedError,
+)
+from postproject.exchange import (
+    ClientId,
+    ExchangeError,
+    ExchangeFailure,
+    ExchangeLimits,
+    ExchangeRole,
+    HistoryId,
     Proposal,
     ProtocolBase,
     RequestId,
-    UnsupportedError,
 )
 
 

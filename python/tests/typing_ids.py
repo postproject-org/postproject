@@ -9,22 +9,23 @@ from postproject import (
     ActivitySpec,
     AssetId,
     AssetRef,
-    ClientId,
     Edit,
-    HistoryId,
-    JobId,
-    JobRef,
     LocatorId,
     MediaRootId,
     Production,
-    Proposal,
-    ProtocolBase,
     RepresentationId,
     RepresentationKind,
-    RequestId,
-    RequestIdentity,
     parse_id,
 )
+from postproject.exchange import (
+    ClientId,
+    HistoryId,
+    Proposal,
+    ProtocolBase,
+    RequestId,
+    RequestIdentity,
+)
+from postproject.jobs import JobId, JobRef
 
 
 def correct_kinds(

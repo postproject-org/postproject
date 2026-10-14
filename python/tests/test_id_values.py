@@ -15,8 +15,6 @@ from postproject import (
     ActivitySpec,
     AssetId,
     AssetRef,
-    JobId,
-    JobRequest,
     LocatorId,
     MediaRootId,
     MetadataProperty,
@@ -30,6 +28,7 @@ from postproject import (
     _native,
     parse_id,
 )
+from postproject.jobs import JobId, JobRequest
 
 
 class IdentityTests(unittest.TestCase):

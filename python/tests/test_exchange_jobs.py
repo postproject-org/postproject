@@ -9,34 +9,38 @@ from uuid import uuid4
 
 from postproject import (
     ActivitySpec,
+    InvalidArgumentError,
+    Production,
+    RepresentationKind,
+    ToolIdentity,
+)
+from postproject.exchange import (
     AddRepresentationCommand,
     CancelJobCommand,
     ClaimedJobResult,
     ClaimJobCommand,
     ClientId,
-    ClosedJobLease,
     CompleteJobCommand,
     CreateActivityCommand,
     ExchangeError,
     ExchangeFailure,
     FailedJobResult,
     FailJobCommand,
-    InvalidArgumentError,
+    PreparedActivity,
+    PreparedJob,
+    PreparedRepresentation,
+    ReleaseJobCommand,
+    RenewJobCommand,
+    RequestId,
+    RequestJobCommand,
+)
+from postproject.jobs import (
+    ClosedJobLease,
     JobCancelled,
     JobCompletion,
     JobLease,
     JobRequest,
     JobRequested,
-    PreparedActivity,
-    PreparedJob,
-    PreparedRepresentation,
-    Production,
-    ReleaseJobCommand,
-    RenewJobCommand,
-    RepresentationKind,
-    RequestId,
-    RequestJobCommand,
-    ToolIdentity,
 )
 
 

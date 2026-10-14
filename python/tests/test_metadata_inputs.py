@@ -7,8 +7,6 @@ from pathlib import Path
 from uuid import uuid4
 
 from postproject import (
-    AppendMetadataCommand,
-    ClientId,
     MetadataLanguageString,
     MetadataProperty,
     MetadataStruct,
@@ -16,8 +14,8 @@ from postproject import (
     MetadataU64,
     Production,
     ProductionRef,
-    RequestId,
 )
+from postproject.exchange import AppendMetadataCommand, ClientId, RequestId
 
 
 class MetadataInputTests(unittest.TestCase):

@@ -45,17 +45,6 @@ from postproject import (
     HostObjectBinding,
     ImageSequenceSource,
     InvalidArgumentError,
-    JobCancelledEvent,
-    JobClaimedEvent,
-    JobClaimReleasedEvent,
-    JobClaimRenewedEvent,
-    JobFailedEvent,
-    JobId,
-    JobRef,
-    JobRequest,
-    JobRequestedEvent,
-    JobState,
-    JobSucceededEvent,
     KnownMediaMatch,
     LocatorAddedEvent,
     LocatorAvailability,
@@ -103,6 +92,19 @@ from postproject import (
     file_locator,
     fingerprint_file,
     locator_file_path,
+)
+from postproject.jobs import (
+    JobCancelledEvent,
+    JobClaimedEvent,
+    JobClaimReleasedEvent,
+    JobClaimRenewedEvent,
+    JobFailedEvent,
+    JobId,
+    JobRef,
+    JobRequest,
+    JobRequestedEvent,
+    JobState,
+    JobSucceededEvent,
 )
 
 LIBRARY_PATH = os.environ.get("POSTPROJECT_LIBRARY")

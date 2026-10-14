@@ -19,8 +19,6 @@ from postproject import (
     Dependency,
     ExternalIdentifier,
     InvalidArgumentError,
-    JobRequest,
-    JobState,
     LocatorIdentity,
     MediaRootAddedEvent,
     MetadataProperty,
@@ -33,6 +31,7 @@ from postproject import (
     file_locator,
     fingerprint_file,
 )
+from postproject.jobs import JobRequest, JobState
 
 
 class ReadSessionTests(unittest.TestCase):

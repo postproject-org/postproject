@@ -13,7 +13,6 @@ from pathlib import Path
 
 from postproject import (
     AssetImportedEvent,
-    JobSucceededEvent,
     MediaRootAddedEvent,
     Production,
     Revision,
@@ -21,6 +20,7 @@ from postproject import (
     RevisionObserver,
     RevisionWaitResult,
 )
+from postproject.jobs import JobSucceededEvent
 
 LIBRARY_PATH = os.environ.get("POSTPROJECT_LIBRARY")
 CLI_PATH = os.environ.get("POSTPROJECT_CLI")

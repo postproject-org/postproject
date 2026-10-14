@@ -7,6 +7,11 @@ from uuid import UUID
 from postproject import (
     ActivityId,
     AssetId,
+    RepresentationId,
+    RepresentationKind,
+    ToolIdentity,
+)
+from postproject.jobs import (
     Job,
     JobCancelled,
     JobClaim,
@@ -16,9 +21,6 @@ from postproject import (
     JobRequested,
     JobState,
     JobStatus,
-    RepresentationId,
-    RepresentationKind,
-    ToolIdentity,
 )
 
 

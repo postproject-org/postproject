@@ -4,13 +4,12 @@ import unittest
 from dataclasses import replace
 from uuid import UUID, uuid4
 
-from postproject import (
+from postproject import DecisionBase, ProductionId
+from postproject.exchange import (
     ClientId,
-    DecisionBase,
     ExchangeLimits,
     ExchangePosition,
     HistoryId,
-    ProductionId,
     ProtocolBase,
     RequestId,
 )

@@ -7,22 +7,24 @@ from pathlib import Path
 from typing import cast
 
 from postproject import (
-    ActiveJobLease,
     ActivitySpec,
-    ClosedJobLease,
     ConflictError,
     ConflictKeyKind,
     Fingerprint,
     InvalidArgumentError,
-    JobLease,
-    JobRequest,
-    JobState,
     MetadataProperty,
-    PendingJobLease,
     Production,
     RepresentationKind,
     RepresentationRef,
     ToolIdentity,
+)
+from postproject.jobs import (
+    ActiveJobLease,
+    ClosedJobLease,
+    JobLease,
+    JobRequest,
+    JobState,
+    PendingJobLease,
 )
 
 

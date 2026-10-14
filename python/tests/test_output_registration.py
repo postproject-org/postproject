@@ -9,7 +9,6 @@ from uuid import uuid4
 from postproject import (
     ActivityRef,
     ActivitySpec,
-    ClientId,
     CommitReceipt,
     FileResourceInput,
     IoError,
@@ -17,9 +16,9 @@ from postproject import (
     PackageSource,
     Production,
     RepresentationKind,
-    RequestId,
     ToolIdentity,
 )
+from postproject.exchange import ClientId, RequestId
 
 LIBRARY = os.environ.get("POSTPROJECT_LIBRARY")
 

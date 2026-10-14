@@ -7,17 +7,16 @@ from pathlib import Path
 from uuid import uuid4
 
 from postproject import (
-    ClientId,
     ConflictError,
     ConflictKeyKind,
     InvalidArgumentError,
     Production,
-    RequestId,
     ResourceId,
     UnsupportedError,
     VerificationMode,
     file_locator,
 )
+from postproject.exchange import ClientId, RequestId
 
 
 class RelinkSelectionTests(unittest.TestCase):
