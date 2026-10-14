@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, fields
 from dataclasses import field as dataclass_field
 from enum import Enum
@@ -1665,19 +1665,9 @@ class MetadataProperty:
 
 
 @dataclass(frozen=True, slots=True)
-class MetadataString:
-    value: str
-
-
-@dataclass(frozen=True, slots=True)
 class MetadataLanguageString:
     value: str
     language: str
-
-
-@dataclass(frozen=True, slots=True)
-class MetadataI64:
-    value: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -1692,11 +1682,6 @@ class MetadataDecimal:
 
 
 @dataclass(frozen=True, slots=True)
-class MetadataBool:
-    value: bool
-
-
-@dataclass(frozen=True, slots=True)
 class MetadataTimestamp:
     unix_micros: int
 
@@ -1706,26 +1691,20 @@ class MetadataUri:
     value: str
 
 
-@dataclass(frozen=True, slots=True)
-class MetadataBytes:
-    value: bytes
-
-
-@dataclass(frozen=True, slots=True)
-class MetadataRational:
-    numerator: int
-    denominator: int
-
-
-@dataclass(frozen=True, slots=True)
-class MetadataList:
-    values: tuple[MetadataInput, ...]
-
-
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, eq=False)
 class MetadataStructField:
     name: str
     value: MetadataInput
+
+    def __eq__(self, other: object) -> bool:
+        return (
+            isinstance(other, MetadataStructField)
+            and self.name == other.name
+            and _metadata_equal(self.value, other.value)
+        )
+
+    def __hash__(self) -> int:
+        return hash((self.name, _metadata_hash(self.value)))
 
 
 @dataclass(frozen=True, slots=True)
@@ -1739,25 +1718,28 @@ class MetadataReference:
 
 
 MetadataValue: TypeAlias = (
-    MetadataString
+    str
+    | bool
+    | int
+    | bytes
+    | Fraction
     | MetadataLanguageString
-    | MetadataI64
     | MetadataU64
     | MetadataDecimal
-    | MetadataBool
     | MetadataTimestamp
     | MetadataUri
-    | MetadataBytes
-    | MetadataRational
-    | MetadataList
     | MetadataStruct
     | MetadataReference
+    | tuple["MetadataValue", ...]
 )
+"""Copied exact values; plain integers are signed and unsigned values stay tagged."""
 
 MetadataKey: TypeAlias = MetadataProperty | tuple[str, str]
 """An exact vocabulary/property pair, including keys copied from reads."""
 
-MetadataInput: TypeAlias = MetadataValue | str | bool | int | bytes | Fraction
+MetadataInput: TypeAlias = (
+    MetadataValue | Sequence["MetadataInput"] | bytearray | memoryview
+)
 ActivityParameters: TypeAlias = (
     Mapping[MetadataKey, MetadataInput] | Iterable[tuple[MetadataKey, MetadataInput]]
 )
@@ -1765,11 +1747,38 @@ ActivityParameters: TypeAlias = (
 """Unambiguous native values or explicitly tagged metadata distinctions."""
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, eq=False)
 class MetadataAssertion:
     target: ObjectReference
     property: MetadataProperty
     value: MetadataValue
+
+    def __eq__(self, other: object) -> bool:
+        return (
+            isinstance(other, MetadataAssertion)
+            and self.target == other.target
+            and self.property == other.property
+            and _metadata_equal(self.value, other.value)
+        )
+
+    def __hash__(self) -> int:
+        return hash((self.target, self.property, _metadata_hash(self.value)))
+
+
+def _metadata_equal(left: MetadataInput, right: MetadataInput) -> bool:
+    if type(left) is not type(right):
+        return False
+    if isinstance(left, (tuple, list)) and isinstance(right, (tuple, list)):
+        return len(left) == len(right) and all(
+            _metadata_equal(a, b) for a, b in zip(left, right, strict=True)
+        )
+    return left == right
+
+
+def _metadata_hash(value: MetadataInput) -> int:
+    if isinstance(value, tuple):
+        return hash((tuple, tuple(_metadata_hash(item) for item in value)))
+    return hash((type(value), value))
 
 
 @dataclass(frozen=True, slots=True)

@@ -5,7 +5,8 @@ Status: accepted for development Python 0.9.
 Metadata writes already accept ordinary scalar values, but reads wrap the same
 values in trivial classes. Replace string, signed-integer, boolean, binary,
 rational and list wrappers with `str`, `int`, `bool`, `bytes`, `Fraction` and
-tuples on reads. Writes accept tuples or lists for one list-valued assertion.
+tuples on reads. Writes accept bounded sequences for one list-valued assertion;
+binary buffers are copied as bytes.
 Remove the superseded classes and migrate current callers; no aliases remain.
 
 Plain integers always mean signed 64-bit values. Keep `MetadataU64` for unsigned

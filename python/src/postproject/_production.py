@@ -7,7 +7,7 @@ import os
 import threading
 import weakref
 from _ctypes import _Pointer
-from collections.abc import Callable, Iterable, Iterator, Mapping
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from contextlib import ExitStack
 from datetime import timedelta
 from fractions import Fraction
@@ -184,19 +184,13 @@ from ._model import (
     MediaSource,
     MetadataAddedOrReplacedEvent,
     MetadataAssertion,
-    MetadataBool,
-    MetadataBytes,
     MetadataDecimal,
-    MetadataI64,
     MetadataInput,
     MetadataKey,
     MetadataLanguageString,
-    MetadataList,
     MetadataProperty,
-    MetadataRational,
     MetadataReference,
     MetadataRemovedEvent,
-    MetadataString,
     MetadataStruct,
     MetadataStructField,
     MetadataTimestamp,
@@ -4078,6 +4072,7 @@ class Edit:
         if not isinstance(selection, RelinkSelection):
             raise TypeError("selection must be a RelinkSelection")
         locations = (_abi.RelinkLocation * len(selection.locations))()
+        names: list[_Pointer[_abi.SequenceNaming]] = []
         for index, item in enumerate(selection.locations):
             locations[index].resource_id = _native_resource_id(item.resource_id)
             locations[index].uri = _utf8(item.candidate.uri, "locator URI")
@@ -4091,6 +4086,7 @@ class Edit:
             )
             naming = _native_naming(item.candidate.sequence_naming)
             if naming is not None:
+                names.append(naming)
                 locations[index].sequence_naming = naming.contents
         native_selection = _abi.RelinkSelection(
             _native_decision_base(selection.base),
@@ -5627,23 +5623,25 @@ def _metadata_key(key: MetadataKey) -> MetadataProperty:
 
 
 def _metadata_input(
-    native: NativeLibrary, value: MetadataInput
+    native: NativeLibrary,
+    value: MetadataInput,
 ) -> _Pointer[NativeMetadataInput]:
+    return _metadata_input_at(native, value, 1, set())
+
+
+def _metadata_input_at(
+    native: NativeLibrary,
+    value: MetadataInput,
+    depth: int,
+    active: set[int],
+) -> _Pointer[NativeMetadataInput]:
+    if depth > 32:
+        raise ValueError("metadata nesting exceeds 32 levels")
     if isinstance(value, str):
-        value = MetadataString(value)
-    elif isinstance(value, bool):
-        value = MetadataBool(value)
-    elif isinstance(value, int):
-        value = MetadataI64(value)
-    elif isinstance(value, bytes):
-        value = MetadataBytes(value)
-    elif isinstance(value, Fraction):
-        value = MetadataRational(value.numerator, value.denominator)
-    if isinstance(value, MetadataString):
         return _create_metadata_input(
             native,
             native.lib.pp_metadata_input_create_string,
-            _utf8(value.value, "metadata text"),
+            _utf8(value, "metadata text"),
             None,
         )
     if isinstance(value, MetadataLanguageString):
@@ -5653,11 +5651,11 @@ def _metadata_input(
             _utf8(value.value, "metadata text"),
             _utf8(value.language, "metadata language"),
         )
-    if isinstance(value, MetadataI64):
+    if isinstance(value, int) and not isinstance(value, bool):
         return _create_metadata_input(
             native,
             native.lib.pp_metadata_input_create_i64,
-            _signed(value.value, 64, "metadata integer"),
+            _signed(value, 64, "metadata integer"),
         )
     if isinstance(value, MetadataU64):
         return _create_metadata_input(
@@ -5672,9 +5670,9 @@ def _metadata_input(
             _utf8(str(value.coefficient), "metadata decimal coefficient"),
             _unsigned(value.scale, 32, "metadata decimal scale"),
         )
-    if isinstance(value, MetadataBool):
+    if isinstance(value, bool):
         return _create_metadata_input(
-            native, native.lib.pp_metadata_input_create_bool, int(value.value)
+            native, native.lib.pp_metadata_input_create_bool, int(value)
         )
     if isinstance(value, MetadataTimestamp):
         return _create_metadata_input(
@@ -5688,15 +5686,16 @@ def _metadata_input(
             native.lib.pp_metadata_input_create_uri,
             _utf8(value.value, "metadata URI"),
         )
-    if isinstance(value, MetadataBytes):
-        buffer = (ctypes.c_uint8 * len(value.value)).from_buffer_copy(value.value)
+    if isinstance(value, (bytes, bytearray, memoryview)):
+        value = bytes(value)
+        buffer = (ctypes.c_uint8 * len(value)).from_buffer_copy(value)
         return _create_metadata_input(
             native,
             native.lib.pp_metadata_input_create_bytes,
             buffer,
-            len(value.value),
+            len(value),
         )
-    if isinstance(value, MetadataRational):
+    if isinstance(value, Fraction):
         return _create_metadata_input(
             native,
             native.lib.pp_metadata_input_create_rational,
@@ -5710,47 +5709,62 @@ def _metadata_input(
             native.lib.pp_metadata_input_create_reference,
             ctypes.byref(target),
         )
-    if isinstance(value, MetadataList):
-        children: list[_Pointer[NativeMetadataInput]] = []
+    if isinstance(value, (Sequence, MetadataStruct)):
+        if id(value) in active:
+            raise ValueError("metadata containers must not contain cycles")
+        items = tuple(
+            islice(value.fields if isinstance(value, MetadataStruct) else value, 4097)
+        )
+        if len(items) > 4096:
+            raise ValueError("metadata collection exceeds 4096 items")
+        active.add(id(value))
         try:
-            children.extend(_metadata_input(native, item) for item in value.values)
-            array_type = ctypes.POINTER(NativeMetadataInput) * len(children)
-            items = array_type(*children)
-            return _create_metadata_input(
-                native,
-                native.lib.pp_metadata_input_create_list,
-                items,
-                len(items),
-            )
+            return _metadata_collection_input(native, value, items, depth, active)
         finally:
-            for child in children:
-                native.lib.pp_metadata_input_release(child)
-    if isinstance(value, MetadataStruct):
-        children = []
-        try:
+            active.remove(id(value))
+    raise TypeError("unsupported metadata value")
+
+
+def _metadata_collection_input(
+    native: NativeLibrary,
+    value: Sequence[MetadataInput] | MetadataStruct,
+    captured: tuple[MetadataInput | MetadataStructField, ...],
+    depth: int,
+    active: set[int],
+) -> _Pointer[NativeMetadataInput]:
+    children: list[_Pointer[NativeMetadataInput]] = []
+    try:
+        if isinstance(value, MetadataStruct):
+            fields = cast(tuple[MetadataStructField, ...], captured)
             children.extend(
-                _metadata_input(native, field.value) for field in value.fields
+                _metadata_input_at(native, field.value, depth + 1, active)
+                for field in fields
             )
-            names_type = ctypes.c_char_p * len(value.fields)
-            names = names_type(
+            names = (ctypes.c_char_p * len(fields))(
                 *(
                     _utf8(field.name, "metadata structure field name")
-                    for field in value.fields
+                    for field in fields
                 )
             )
-            values_type = ctypes.POINTER(NativeMetadataInput) * len(children)
-            values = values_type(*children)
+            items = (ctypes.POINTER(NativeMetadataInput) * len(children))(*children)
             return _create_metadata_input(
                 native,
                 native.lib.pp_metadata_input_create_struct,
                 names,
-                values,
-                len(values),
+                items,
+                len(items),
             )
-        finally:
-            for child in children:
-                native.lib.pp_metadata_input_release(child)
-    raise TypeError("unsupported metadata value")
+        children.extend(
+            _metadata_input_at(native, item, depth + 1, active)
+            for item in cast(tuple[MetadataInput, ...], captured)
+        )
+        items = (ctypes.POINTER(NativeMetadataInput) * len(children))(*children)
+        return _create_metadata_input(
+            native, native.lib.pp_metadata_input_create_list, items, len(items)
+        )
+    finally:
+        for child in children:
+            native.lib.pp_metadata_input_release(child)
 
 
 def _external_identifier_at(
@@ -7009,7 +7023,7 @@ def _metadata_value(
         native.check(status, error)
         decoded = _decode_required(text.value, "metadata text")
         if kind == _abi.PP_METADATA_STRING:
-            return MetadataString(decoded)
+            return decoded
         return MetadataLanguageString(
             decoded, _decode_required(language.value, "metadata language")
         )
@@ -7020,7 +7034,7 @@ def _metadata_value(
             value, ctypes.byref(result), ctypes.byref(error)
         )
         native.check(status, error)
-        return MetadataI64(int(result.value))
+        return int(result.value)
 
     if kind == _abi.PP_METADATA_U64:
         result = ctypes.c_uint64()
@@ -7057,7 +7071,7 @@ def _metadata_value(
             value, ctypes.byref(result), ctypes.byref(error)
         )
         native.check(status, error)
-        return MetadataBool(bool(result.value))
+        return bool(result.value)
 
     if kind == _abi.PP_METADATA_TIMESTAMP:
         result = ctypes.c_int64()
@@ -7085,7 +7099,7 @@ def _metadata_value(
             ctypes.byref(error),
         )
         native.check(status, error)
-        return MetadataBytes(bytes(result[: length.value]) if length.value else b"")
+        return bytes(result[: length.value]) if length.value else b""
 
     if kind == _abi.PP_METADATA_RATIONAL:
         numerator = ctypes.c_int64()
@@ -7097,7 +7111,7 @@ def _metadata_value(
             ctypes.byref(error),
         )
         native.check(status, error)
-        return MetadataRational(int(numerator.value), int(denominator.value))
+        return Fraction(int(numerator.value), int(denominator.value))
 
     if kind == _abi.PP_METADATA_LIST:
         count = native.lib.pp_metadata_value_list_count(value)
@@ -7113,7 +7127,7 @@ def _metadata_value(
                     _abi.PP_ERROR_INTERNAL, "native metadata list item is missing"
                 )
             items.append(_metadata_value(native, item))
-        return MetadataList(tuple(items))
+        return tuple(items)
 
     if kind == _abi.PP_METADATA_STRUCT:
         count = native.lib.pp_metadata_value_struct_count(value)
