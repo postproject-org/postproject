@@ -15,6 +15,7 @@ pub(super) fn command(mutation: &StagedMutation) -> Result<Command> {
         },
         StagedMutation::RemoveMediaRoot(id) => Command::RemoveMediaRoot(*id),
         StagedMutation::Locator(value) => Command::AddLocator(value.clone()),
+        StagedMutation::ConfirmedLocator(value) => Command::ConfirmLocator(value.clone()),
         StagedMutation::RetireLocator(id) => Command::RetireLocator(*id),
         StagedMutation::RecordResourceFingerprint(resource_id, fingerprint) => {
             Command::RecordResourceFingerprint {

@@ -47,7 +47,7 @@ impl AbiSequenceNaming {
         naming.map(Self::new).transpose()
     }
 
-    fn borrowed(&self) -> PpSequenceNaming {
+    pub(crate) fn borrowed(&self) -> PpSequenceNaming {
         PpSequenceNaming {
             prefix: self.prefix.as_ptr(),
             suffix: self.suffix.as_ptr(),

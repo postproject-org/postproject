@@ -16,7 +16,9 @@ fn resolution_selection_checks_all_states_and_clears_wrong_payload_outputs() {
     ] {
         let resource = ResourceId::new();
         let resolutions = PpResolutionSet {
+            base: None,
             representations: vec![AbiRepresentationResolution {
+                verified_resources: Err(invalid_argument("synthetic test result")),
                 asset_id: AssetId::new(),
                 representation_id: RepresentationId::new(),
                 availability: RepresentationAvailability::Online,

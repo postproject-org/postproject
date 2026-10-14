@@ -10,7 +10,7 @@ use crate::{
 /// Opaque caller-serialized coherent view retaining its production for edits.
 pub struct PpReadSession {
     pub(crate) reader: PpProduction,
-    base: DecisionBase,
+    pub(crate) base: DecisionBase,
     state: Arc<ProductionState>,
 }
 

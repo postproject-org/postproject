@@ -25,8 +25,15 @@ mod outputs;
 mod provenance;
 mod read_queries;
 mod read_session;
+mod relink;
+#[cfg(test)]
+mod relink_tests;
 mod representations;
 mod resolution;
+pub use relink::{
+    PpRelinkLocation, PpRelinkSelection, pp_resolution_set_select_verified,
+    pp_transaction_confirm_selection,
+};
 #[cfg(test)]
 mod resolution_payload_tests;
 mod result_budget;
@@ -203,7 +210,7 @@ const PP_REVISION_JOB_FAILED: u32 = 25;
 const PP_REVISION_JOB_CANCELLED: u32 = 26;
 
 /// Current pre-1.0 ABI version.
-pub const ABI_VERSION: u32 = 56;
+pub const ABI_VERSION: u32 = 57;
 
 /// Fixed-layout UUID-compatible public identifier.
 #[repr(C)]
@@ -469,6 +476,7 @@ enum StagedMutation {
     SetMediaRootEnabled(MediaRootId, bool),
     RemoveMediaRoot(MediaRootId),
     Locator(Locator),
+    ConfirmedLocator(Locator),
     RetireLocator(postproject_core::LocatorId),
     RecordResourceFingerprint(ResourceId, ResourceFingerprint),
     RecordResourceFileFacts(ResourceId, postproject_core::FileFacts),
@@ -525,10 +533,12 @@ struct AbiQueryLocator {
 
 /// Opaque set of immutable media-resolution results owned by the C caller.
 pub struct PpResolutionSet {
+    base: Option<DecisionBase>,
     representations: Vec<AbiRepresentationResolution>,
 }
 
 struct AbiRepresentationResolution {
+    verified_resources: Result<Vec<usize>, Error>,
     asset_id: AssetId,
     representation_id: RepresentationId,
     availability: RepresentationAvailability,
@@ -6821,10 +6831,25 @@ unsafe fn write_copy<T: Copy>(output: *mut T, value: T, label: &str) -> Result<(
 }
 
 impl PpResolutionSet {
+    #[cfg(test)]
     fn new(resolutions: Vec<(AssetId, RepresentationResolution)>) -> Result<Self, Error> {
+        Self::new_with_base(resolutions, None)
+    }
+
+    fn new_with_base(
+        resolutions: Vec<(AssetId, RepresentationResolution)>,
+        base: Option<DecisionBase>,
+    ) -> Result<Self, Error> {
         let mut budget = result_budget::ResultBudget::default();
         for (_, resolution) in &resolutions {
             budget.record(1, size_of::<AbiRepresentationResolution>())?;
+            budget.record(
+                0,
+                resolution
+                    .resources()
+                    .len()
+                    .saturating_mul(size_of::<usize>()),
+            )?;
             for resource in resolution.resources() {
                 budget.record(1, size_of::<AbiResolution>())?;
                 for candidate in resource.candidates() {
@@ -6857,39 +6882,48 @@ impl PpResolutionSet {
             }
         }
         Ok(Self {
+            base,
             representations: resolutions
                 .into_iter()
-                .map(|(asset_id, resolution)| AbiRepresentationResolution {
-                    asset_id,
-                    representation_id: resolution.representation_id(),
-                    availability: resolution.availability(),
-                    resources: resolution
-                        .resources()
-                        .iter()
-                        .map(|resource| AbiResolution {
-                            resource_id: resource.resource_id(),
-                            state: resolution_state(resource.state()),
-                            candidates: resource
-                                .candidates()
-                                .iter()
-                                .map(|candidate| AbiCandidate {
-                                    uri: sanitized_cstring(candidate.uri()),
-                                    confidence: candidate.confidence().basis_points(),
-                                    media_root: candidate.media_root().map(sanitized_cstring),
-                                    sequence_naming: candidate
-                                        .sequence_naming()
-                                        .map(AbiSequenceNaming::sanitized),
-                                    evidence: candidate
-                                        .evidence()
-                                        .iter()
-                                        .map(AbiEvidence::from)
-                                        .collect(),
-                                })
-                                .collect(),
-                            evidence: resource.evidence().iter().map(AbiEvidence::from).collect(),
-                        })
-                        .collect(),
-                    issues: resolution.issues().to_vec(),
+                .map(|(asset_id, resolution)| {
+                    let verified_resources = relink::verified_indices(&resolution, base);
+                    AbiRepresentationResolution {
+                        verified_resources,
+                        asset_id,
+                        representation_id: resolution.representation_id(),
+                        availability: resolution.availability(),
+                        resources: resolution
+                            .resources()
+                            .iter()
+                            .map(|resource| AbiResolution {
+                                resource_id: resource.resource_id(),
+                                state: resolution_state(resource.state()),
+                                candidates: resource
+                                    .candidates()
+                                    .iter()
+                                    .map(|candidate| AbiCandidate {
+                                        uri: sanitized_cstring(candidate.uri()),
+                                        confidence: candidate.confidence().basis_points(),
+                                        media_root: candidate.media_root().map(sanitized_cstring),
+                                        sequence_naming: candidate
+                                            .sequence_naming()
+                                            .map(AbiSequenceNaming::sanitized),
+                                        evidence: candidate
+                                            .evidence()
+                                            .iter()
+                                            .map(AbiEvidence::from)
+                                            .collect(),
+                                    })
+                                    .collect(),
+                                evidence: resource
+                                    .evidence()
+                                    .iter()
+                                    .map(AbiEvidence::from)
+                                    .collect(),
+                            })
+                            .collect(),
+                        issues: resolution.issues().to_vec(),
+                    }
                 })
                 .collect(),
         })
@@ -7023,6 +7057,9 @@ fn apply_staged_mutation(
             transaction.remove_media_root(*root_id)?;
         }
         StagedMutation::Locator(locator) => transaction.add_locator(locator)?,
+        StagedMutation::ConfirmedLocator(locator) => {
+            transaction.confirm_locator(locator)?;
+        }
         StagedMutation::RetireLocator(locator_id) => {
             transaction.retire_locator(*locator_id)?;
         }

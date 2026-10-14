@@ -766,13 +766,14 @@ pub unsafe extern "C" fn pp_read_session_resolve_assets(
     // SAFETY: The delegate validates pointers and contains panics.
     unsafe {
         forward_read(session, out_error, |reader| {
-            crate::resolution::pp_production_resolve_assets(
+            crate::resolution::resolve_ffi(
                 reader,
                 asset_ids,
                 asset_count,
                 options,
                 out_resolutions,
                 out_error,
+                session.as_ref().map(|session| session.base),
             )
         })
     }

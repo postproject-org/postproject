@@ -5,7 +5,9 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use postproject_core::{AssetId, CancellationToken, Error, ErrorKind, RepresentationResolution};
+use postproject_core::{
+    AssetId, CancellationToken, DecisionBase, Error, ErrorKind, RepresentationResolution,
+};
 use postproject_media::{
     MediaResolver, MediaRootMapping, ResolutionItem, ResolverOptions, SearchScope, VerificationMode,
 };
@@ -280,6 +282,29 @@ pub unsafe extern "C" fn pp_production_resolve_assets(
     out_resolutions: *mut *mut PpResolutionSet,
     out_error: *mut *mut PpError,
 ) -> u32 {
+    // SAFETY: The delegate validates pointers and contains panics.
+    unsafe {
+        resolve_ffi(
+            production,
+            asset_ids,
+            asset_count,
+            options,
+            out_resolutions,
+            out_error,
+            None,
+        )
+    }
+}
+
+pub(crate) unsafe fn resolve_ffi(
+    production: *const PpProduction,
+    asset_ids: *const PpAssetId,
+    asset_count: u64,
+    options: *const PpResolutionOptions,
+    out_resolutions: *mut *mut PpResolutionSet,
+    out_error: *mut *mut PpError,
+    base: Option<DecisionBase>,
+) -> u32 {
     // SAFETY: Null pointers are rejected before dereference; the ID array is
     // read only within the caller-provided bounds.
     unsafe {
@@ -309,8 +334,23 @@ pub unsafe extern "C" fn pp_production_resolve_assets(
             };
             let default_options = PpResolutionOptions::default();
             let options = options.as_ref().unwrap_or(&default_options);
-            let resolutions = resolve_assets(production, asset_ids, options)?;
-            out_resolutions.write(Box::into_raw(Box::new(PpResolutionSet::new(resolutions)?)));
+            let (base, roots, work) = if let Some(base) = base {
+                let (roots, work) =
+                    load_resolution_work(&lock_production(&production.state), asset_ids)?;
+                (base, roots, work)
+            } else {
+                let view = lock_production(&production.state).read_session()?;
+                let base = view.decision_base();
+                let reader = view.into_read_only();
+                // Snapshot and release before potentially expensive filesystem work.
+                let (roots, work) = load_resolution_work(&reader, asset_ids)?;
+                (base, roots, work)
+            };
+            let resolutions = resolve_work(roots, &work, options)?;
+            out_resolutions.write(Box::into_raw(Box::new(PpResolutionSet::new_with_base(
+                resolutions,
+                Some(base),
+            )?)));
             Ok(())
         })
     }
@@ -322,14 +362,12 @@ type AssetWork = (
     Vec<(postproject_core::Resource, Vec<postproject_core::Locator>)>,
 );
 
-fn resolve_assets(
-    production: &PpProduction,
+fn load_resolution_work(
+    inner: &postproject_storage_sqlite::SqliteProduction,
     asset_ids: &[PpAssetId],
-    options: &PpResolutionOptions,
-) -> Result<Vec<(AssetId, RepresentationResolution)>, Error> {
+) -> Result<(Vec<postproject_core::MediaRoot>, Vec<AssetWork>), Error> {
     // Snapshot the stored knowledge, then scan and hash without the lock.
     let (media_roots, work) = {
-        let inner = lock_production(&production.state);
         let mut work: Vec<AssetWork> = Vec::new();
         let mut budget = ResultBudget::default();
         for asset_id in asset_ids {
@@ -359,6 +397,14 @@ fn resolve_assets(
         (roots, work)
     };
 
+    Ok((media_roots, work))
+}
+
+fn resolve_work(
+    media_roots: Vec<postproject_core::MediaRoot>,
+    work: &[AssetWork],
+    options: &PpResolutionOptions,
+) -> Result<Vec<(AssetId, RepresentationResolution)>, Error> {
     let scope = options.search_directories.iter().fold(
         SearchScope::new(media_roots, options.root_mappings.clone()),
         SearchScope::with_search_directory,
