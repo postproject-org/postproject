@@ -24,7 +24,6 @@ from postproject import (
     LocatorIdentity,
     MediaRootAddedEvent,
     MetadataProperty,
-    MetadataString,
     NotFoundError,
     Production,
     RepresentationKind,
@@ -359,9 +358,7 @@ class ReadSessionTests(unittest.TestCase):
                         parameter = MetadataProperty(
                             "https://example.com/render", "quality"
                         )
-                        edit.add_metadata(
-                            ActivityRef(activity), parameter, MetadataString("draft")
-                        )
+                        edit.add_metadata(ActivityRef(activity), parameter, ("draft"))
                         inspected = edit.add_representation(
                             asset, RepresentationKind.OPTIMIZED, media
                         )
@@ -396,20 +393,16 @@ class ReadSessionTests(unittest.TestCase):
                     self.assertEqual(plan.artifact_representation_id, proxy)
                     self.assertEqual(plan.job.kind, "example:render")
                     self.assertEqual(plan.job.inputs, (original.id,))
-                    self.assertEqual(plan.parameters[0].value, MetadataString("draft"))
+                    self.assertEqual(plan.parameters[0].value, ("draft"))
                     with retained.edit() as edit:
                         edit.remove_metadata_property(ActivityRef(activity), parameter)
-                        edit.add_metadata(
-                            ActivityRef(activity), parameter, MetadataString("final")
-                        )
+                        edit.add_metadata(ActivityRef(activity), parameter, ("final"))
                         edit.commit()
                     (still,) = retained.plan_regeneration((proxy,))
-                    self.assertEqual(still.parameters[0].value, MetadataString("draft"))
+                    self.assertEqual(still.parameters[0].value, ("draft"))
                     with production.read_session() as fresh:
                         (updated,) = fresh.plan_regeneration((proxy,))
-                        self.assertEqual(
-                            updated.parameters[0].value, MetadataString("final")
-                        )
+                        self.assertEqual(updated.parameters[0].value, ("final"))
                         self.assertEqual(fresh.jobs(limit=10).items, ())
                     with self.assertRaises(ValueError):
                         retained.plan_regeneration(repeat(proxy))
@@ -896,7 +889,7 @@ class ReadSessionTests(unittest.TestCase):
                 with production.read_session() as empty, empty.edit() as edit:
                     target = AssetRef(edit.import_media(media).asset_id)
                     for value in ("Camera", "Alternate"):
-                        edit.add_metadata(target, title, MetadataString(value))
+                        edit.add_metadata(target, title, (value))
                     edit.commit()
                 with production.read_session() as view:
                     original = view.metadata(target)
@@ -904,27 +897,23 @@ class ReadSessionTests(unittest.TestCase):
                     assert page.next_cursor is not None
                     with view.edit() as edit:
                         edit.remove_metadata_property(target, title)
-                        edit.add_metadata(target, title, MetadataString("Changed"))
+                        edit.add_metadata(target, title, ("Changed"))
                         edit.commit()
                     remainder = view.query_metadata(
                         title, limit=1, cursor=page.next_cursor
                     )
                     self.assertEqual(page.items + remainder.items, original)
                     self.assertEqual(view.metadata_by_property(title), original)
-                    exact = view.query_metadata(
-                        title, limit=1, value=MetadataString("Camera")
-                    )
-                    self.assertEqual(exact.items[0].value, MetadataString("Camera"))
+                    exact = view.query_metadata(title, limit=1, value=("Camera"))
+                    self.assertEqual(exact.items[0].value, ("Camera"))
                     self.assertEqual(
-                        view.query_metadata(
-                            title, limit=1, value=MetadataString("Changed")
-                        ).items,
+                        view.query_metadata(title, limit=1, value=("Changed")).items,
                         (),
                     )
                     with production.read_session() as refreshed:
                         self.assertEqual(
                             refreshed.metadata(target)[0].value,
-                            MetadataString("Changed"),
+                            ("Changed"),
                         )
                         with self.assertRaises(InvalidArgumentError):
                             refreshed.query_metadata(

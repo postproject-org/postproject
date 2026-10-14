@@ -9,7 +9,6 @@ from postproject import (
     ConflictKeyKind,
     InvalidArgumentError,
     MetadataProperty,
-    MetadataString,
     Production,
     ProductionRef,
 )
@@ -22,17 +21,17 @@ class MetadataEditTests(unittest.TestCase):
                 target = ProductionRef(production.id)
                 property = MetadataProperty("com.example.editor", "keywords")
                 with production.edit() as transaction:
-                    transaction.add_metadata(target, property, MetadataString("first"))
+                    transaction.add_metadata(target, property, ("first"))
                     transaction.commit()
                 with production.edit() as transaction:
                     with self.assertRaises(InvalidArgumentError):
                         transaction.remove_metadata_property(target, property)
-                    transaction.add_metadata(target, property, MetadataString("second"))
+                    transaction.add_metadata(target, property, ("second"))
                     receipt = transaction.commit()
                 self.assertIsNotNone(receipt.revision)
                 self.assertEqual(
                     [assertion.value for assertion in production.metadata[target]],
-                    [MetadataString("first"), MetadataString("second")],
+                    [("first"), ("second")],
                 )
 
     def test_stale_removal_conflicts_after_mergeable_appends(self) -> None:
@@ -43,7 +42,7 @@ class MetadataEditTests(unittest.TestCase):
                 with production.read_session() as empty:
                     for value in ("first", "second"):
                         with empty.edit() as append:
-                            append.add_metadata(target, property, MetadataString(value))
+                            append.add_metadata(target, property, (value))
                             append.commit()
                     with empty.edit() as removal:
                         removal.remove_metadata_property(target, property)

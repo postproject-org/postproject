@@ -66,17 +66,11 @@ from postproject import (
     MediaRootRemovedEvent,
     MetadataAddedOrReplacedEvent,
     MetadataAssertion,
-    MetadataBool,
-    MetadataBytes,
     MetadataDecimal,
-    MetadataI64,
     MetadataLanguageString,
-    MetadataList,
     MetadataProperty,
-    MetadataRational,
     MetadataReference,
     MetadataRemovedEvent,
-    MetadataString,
     MetadataStruct,
     MetadataStructField,
     MetadataTimestamp,
@@ -1296,7 +1290,7 @@ class ProductionTests(unittest.TestCase):
 
     def test_text_metadata_is_typed_repeatable_searchable_and_removable(self) -> None:
         title = MetadataProperty("https://example.com/metadata", "title")
-        plain = MetadataString("Interview")
+        plain = "Interview"
         localized = MetadataLanguageString("Gespräch", "de")
         with Production.create(
             self.production_path, library_path=LIBRARY_PATH
@@ -1352,24 +1346,24 @@ class ProductionTests(unittest.TestCase):
 
             value = MetadataStruct(
                 (
-                    MetadataStructField("signed", MetadataI64(-42)),
+                    MetadataStructField("signed", (-42)),
                     MetadataStructField("unsigned", MetadataU64(42)),
                     MetadataStructField("decimal", MetadataDecimal(-12345, 2)),
-                    MetadataStructField("enabled", MetadataBool(True)),
+                    MetadataStructField("enabled", (True)),
                     MetadataStructField(
                         "captured", MetadataTimestamp(1_700_000_000_123_456)
                     ),
                     MetadataStructField(
                         "source", MetadataUri("https://example.com/source")
                     ),
-                    MetadataStructField("payload", MetadataBytes(b"\x00\xff")),
-                    MetadataStructField("rate", MetadataRational(24_000, 1_001)),
+                    MetadataStructField("payload", (b"\x00\xff")),
+                    MetadataStructField("rate", Fraction(24_000, 1_001)),
                     MetadataStructField("asset", MetadataReference(AssetRef(asset_id))),
                     MetadataStructField(
                         "labels",
-                        MetadataList(
+                        (
                             (
-                                MetadataString("interview"),
+                                ("interview"),
                                 MetadataLanguageString("Gespräch", "de"),
                             )
                         ),
@@ -1506,7 +1500,7 @@ class ProductionTests(unittest.TestCase):
                 transaction.add_metadata(
                     ActivityRef(activity_id),
                     parameter,
-                    MetadataString("editorial-proxy"),
+                    ("editorial-proxy"),
                 )
                 transaction.commit()
 
@@ -1664,12 +1658,8 @@ class ProductionTests(unittest.TestCase):
                 second_asset = transaction.import_media(self.second_media_path).asset_id
                 transaction.commit()
             with production.edit() as transaction:
-                transaction.add_metadata(
-                    AssetRef(first_asset), scene, MetadataString("12A")
-                )
-                transaction.add_metadata(
-                    AssetRef(second_asset), scene, MetadataString("14")
-                )
+                transaction.add_metadata(AssetRef(first_asset), scene, ("12A"))
+                transaction.add_metadata(AssetRef(second_asset), scene, ("14"))
                 transaction.add_metadata(AssetRef(second_asset), scene, MetadataU64(12))
                 transaction.commit()
 
@@ -1688,16 +1678,10 @@ class ProductionTests(unittest.TestCase):
             self.assertIsNone(second_page.next_cursor)
             self.assertEqual(first_page.items + second_page.items, everything.items)
 
-            exact = production.query_metadata(
-                scene, limit=1000, value=MetadataString("12A")
-            )
+            exact = production.query_metadata(scene, limit=1000, value=("12A"))
             self.assertEqual(
                 exact.items,
-                (
-                    MetadataAssertion(
-                        AssetRef(first_asset), scene, MetadataString("12A")
-                    ),
-                ),
+                (MetadataAssertion(AssetRef(first_asset), scene, ("12A")),),
             )
             typed = production.query_metadata(scene, limit=1000, value=MetadataU64(12))
             self.assertEqual(
@@ -1705,15 +1689,11 @@ class ProductionTests(unittest.TestCase):
                 (MetadataAssertion(AssetRef(second_asset), scene, MetadataU64(12)),),
             )
             self.assertEqual(
-                production.query_metadata(
-                    scene, limit=1000, value=MetadataString("99")
-                ).items,
+                production.query_metadata(scene, limit=1000, value=("99")).items,
                 (),
             )
             with self.assertRaises(InvalidArgumentError):
-                production.query_metadata(
-                    scene, limit=1000, value=MetadataList((MetadataString("12A"),))
-                )
+                production.query_metadata(scene, limit=1000, value=((("12A"),)))
             with self.assertRaises(InvalidArgumentError):
                 production.query_metadata(scene, limit=0)
 
@@ -1850,7 +1830,7 @@ class ProductionTests(unittest.TestCase):
                 transaction.add_metadata(
                     ActivityRef(activity_id),
                     parameter,
-                    MetadataString("editorial-proxy"),
+                    ("editorial-proxy"),
                 )
                 transaction.commit()
             revision = production.latest_revision
@@ -1873,7 +1853,7 @@ class ProductionTests(unittest.TestCase):
                     MetadataAssertion(
                         JobRef(plan.job.id),
                         parameter,
-                        MetadataString("editorial-proxy"),
+                        ("editorial-proxy"),
                     ),
                 ),
             )

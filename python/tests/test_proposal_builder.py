@@ -22,7 +22,6 @@ from postproject import (
     ImportMediaCommand,
     InvalidArgumentError,
     MetadataProperty,
-    MetadataString,
     MetadataU64,
     ObserveResourceContentCommand,
     PreparedAsset,
@@ -69,7 +68,7 @@ class ProposalBuilderTests(unittest.TestCase):
             builder.stage(
                 [
                     AppendMetadataCommand(target, property, MetadataU64(2**64 - 1)),
-                    AppendMetadataCommand(target, property, MetadataString("first")),
+                    AppendMetadataCommand(target, property, ("first")),
                     AddIdentifierCommand(target, identifier),
                 ]
             )
@@ -82,7 +81,7 @@ class ProposalBuilderTests(unittest.TestCase):
         self.assertEqual(self.production.asset(self.asset).id, self.asset)
         self.assertEqual(
             [item.value for item in self.production.metadata[target]],
-            [MetadataU64(2**64 - 1), MetadataString("first")],
+            [MetadataU64(2**64 - 1), ("first")],
         )
         state = self.production.exchange_state
         with self.production.proposal_builder(
@@ -91,7 +90,7 @@ class ProposalBuilderTests(unittest.TestCase):
             builder.stage(
                 [
                     ReplaceMetadataCommand(
-                        target, property, [MetadataString("second"), MetadataU64(9)]
+                        target, property, [("second"), MetadataU64(9)]
                     ),
                     RemoveIdentifierCommand(target, identifier),
                     SetMediaRootEnabledCommand(root.root_id, False),
@@ -102,7 +101,7 @@ class ProposalBuilderTests(unittest.TestCase):
             self.production.submit_proposal(replacement)
         self.assertEqual(
             [item.value for item in self.production.metadata[target]],
-            [MetadataString("second"), MetadataU64(9)],
+            [("second"), MetadataU64(9)],
         )
         self.assertEqual(self.production.external_identifiers[target], ())
         self.assertFalse(self.production.media_roots[0].enabled)

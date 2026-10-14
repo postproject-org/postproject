@@ -20,7 +20,6 @@ from postproject import (
     LocatorId,
     MediaRootId,
     MetadataProperty,
-    MetadataString,
     NotFoundError,
     Production,
     RepresentationId,
@@ -173,7 +172,7 @@ class IdentityTests(unittest.TestCase):
                         edit.add_metadata(
                             ActivityRef(identifier),
                             MetadataProperty("com.example", "label"),
-                            MetadataString("value"),
+                            ("value"),
                         )
                         with self.assertRaises(NotFoundError):
                             edit.commit()

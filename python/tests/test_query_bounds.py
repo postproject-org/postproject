@@ -15,9 +15,7 @@ from postproject import (
     ImageSequenceSource,
     InvalidArgumentError,
     MetadataDecimal,
-    MetadataI64,
     MetadataProperty,
-    MetadataRational,
     MetadataTimestamp,
     MetadataU64,
     Production,
@@ -104,33 +102,33 @@ class QueryBoundsTests(unittest.TestCase):
                 target = ProductionRef(production.id)
                 property = MetadataProperty("urn:test", "numbers")
                 invalid_values = (
-                    MetadataI64(2**63),
-                    MetadataI64(-(2**63) - 1),
+                    (2**63),
+                    (-(2**63) - 1),
                     MetadataU64(-1),
                     MetadataU64(2**64 + 1),
                     MetadataTimestamp(2**64 + 1),
                     MetadataDecimal(1, 2**32),
-                    MetadataRational(2**64 + 1, 1),
-                    MetadataRational(1, 2**64 + 1),
+                    Fraction(2**64 + 1, 1),
+                    Fraction(1, 2**64 + 1),
                 )
                 with production.edit() as edit:
                     for value in invalid_values:
                         with self.subTest(value=value):
                             with self.assertRaises(InvalidArgumentError):
                                 edit.add_metadata(target, property, value)
-                    for value in (MetadataI64(True), MetadataU64(True)):
+                    for value in (MetadataU64(True),):
                         with self.assertRaises(TypeError):
                             edit.add_metadata(target, property, value)
                     self.assertIsNone(edit.commit().revision)
                 self.assertEqual(production.metadata[target], ())
                 self.assertIsNone(production.latest_revision)
                 valid_values = (
-                    MetadataI64(-(2**63)),
-                    MetadataI64(2**63 - 1),
+                    (-(2**63)),
+                    (2**63 - 1),
                     MetadataU64(2**64 - 1),
                     MetadataTimestamp(-(2**63)),
                     MetadataTimestamp(2**63 - 1),
-                    MetadataRational(-(2**63), 2**64 - 1),
+                    Fraction(-(2**63), 2**64 - 1),
                 )
                 with production.edit() as edit:
                     for value in valid_values:

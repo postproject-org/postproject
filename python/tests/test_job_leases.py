@@ -18,7 +18,6 @@ from postproject import (
     JobRequest,
     JobState,
     MetadataProperty,
-    MetadataString,
     PendingJobLease,
     Production,
     RepresentationKind,
@@ -100,7 +99,7 @@ class JobLeaseTests(unittest.TestCase):
             )
             target = RepresentationRef(output)
             property = MetadataProperty("com.example", "title")
-            edit.add_metadata(target, property, MetadataString("Published"))
+            edit.add_metadata(target, property, ("Published"))
             activity = edit.create_activity(
                 ActivitySpec("example:publish", (output,), tool=self.tool)
             )
@@ -108,9 +107,7 @@ class JobLeaseTests(unittest.TestCase):
             self.assertIsNotNone(edit.commit().revision)
         self.assertIsInstance(lease.state, ClosedJobLease)
         self.assertEqual(self.production.job(self.job).state, JobState.SUCCEEDED)
-        self.assertEqual(
-            self.production.metadata[target][0].value, MetadataString("Published")
-        )
+        self.assertEqual(self.production.metadata[target][0].value, ("Published"))
 
     def test_duration_validation_and_discard_leave_requested_job(self) -> None:
         with self.production.edit() as edit:

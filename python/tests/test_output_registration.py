@@ -13,7 +13,6 @@ from postproject import (
     CommitReceipt,
     FileResourceInput,
     IoError,
-    MetadataI64,
     MetadataU64,
     PackageSource,
     Production,
@@ -58,7 +57,7 @@ class OutputRegistrationTests(unittest.TestCase):
                 self.assertEqual(activity.id, registered.activity_id)
                 self.assertEqual(activity.inputs, ())
                 values = production.metadata[ActivityRef(activity.id)]
-                self.assertEqual(values[0].value, MetadataI64(24))
+                self.assertEqual(values[0].value, (24))
                 self.assertIsNone(production.dependency_set(produced.representation_id))
 
     def test_existing_identity_compound_outputs_roles_and_repeated_parameters(
