@@ -76,7 +76,7 @@ def main() -> None:
             assert source.exchange_state.head is not None
             revision = source.exchange_state.head.base.decision.revision
             assert revision is not None and revision.sequence == 1001
-            assert mirror.exchange_state.role == pp.ExchangeRole.PASSIVE_MIRROR
+            assert mirror.exchange_state.role == pp.exchange.ExchangeRole.PASSIVE_MIRROR
             expected = counts(source)
             assert expected == (11_000, 11_000, 11_000) == counts(mirror)
             hashes = []

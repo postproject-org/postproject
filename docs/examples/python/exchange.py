@@ -5,20 +5,22 @@ from pathlib import Path
 from uuid import uuid4
 
 from postproject import (
-    AddMediaRootCommand,
-    ClientId,
     CommitReceipt,
-    ExchangeLimits,
-    ExchangeRole,
     InvalidArgumentError,
     MetadataProperty,
     MetadataU64,
-    PreparedMediaRoot,
     Production,
     ProductionRef,
+    UnsupportedError,
+)
+from postproject.exchange import (
+    AddMediaRootCommand,
+    ClientId,
+    ExchangeLimits,
+    ExchangeRole,
+    PreparedMediaRoot,
     Proposal,
     RequestId,
-    UnsupportedError,
 )
 
 

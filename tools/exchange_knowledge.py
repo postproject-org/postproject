@@ -72,64 +72,64 @@ def exact_metadata(target: pp.ObjectReference) -> pp.MetadataValue:
 
 
 def prepare(
-    source: pp.Production, root: Path, client: pp.ClientId, request: pp.RequestId
+    source: pp.Production, root: Path, client: pp.exchange.ClientId, request: pp.exchange.RequestId
 ) -> tuple[
-    pp.Proposal, pp.PreparedAsset, pp.PreparedMediaRoot, pp.PreparedRepresentation
+    pp.exchange.Proposal, pp.exchange.PreparedAsset, pp.exchange.PreparedMediaRoot, pp.exchange.PreparedRepresentation
 ]:
     content = sources(root)
     with source.proposal_builder(
         client, request, base=source.exchange_state.observed_base
     ) as builder:
         original = builder.stage(
-            [pp.ImportMediaCommand(content[0], "Exact compound knowledge")]
+            [pp.exchange.ImportMediaCommand(content[0], "Exact compound knowledge")]
         )[0]
-        assert isinstance(original, pp.PreparedAsset)
+        assert isinstance(original, pp.exchange.PreparedAsset)
         configured = builder.stage(
-            [pp.AddMediaRootCommand("qualification", "Exact 同", -5)]
+            [pp.exchange.AddMediaRootCommand("qualification", "Exact 同", -5)]
         )[0]
-        assert isinstance(configured, pp.PreparedMediaRoot)
+        assert isinstance(configured, pp.exchange.PreparedMediaRoot)
         temporary = builder.stage(
-            [pp.AddMediaRootCommand("temporary", "Remove this root", 7)]
+            [pp.exchange.AddMediaRootCommand("temporary", "Remove this root", 7)]
         )[0]
-        assert isinstance(temporary, pp.PreparedMediaRoot)
+        assert isinstance(temporary, pp.exchange.PreparedMediaRoot)
         made = builder.stage(
             [
-                pp.AddRepresentationCommand(
+                pp.exchange.AddRepresentationCommand(
                     original.asset_id, pp.RepresentationKind.DERIVED, content[1]
                 ),
-                pp.AddRepresentationCommand(
+                pp.exchange.AddRepresentationCommand(
                     original.asset_id, pp.RepresentationKind.OPTIMIZED, content[2]
                 ),
-                pp.AddRepresentationCommand(
+                pp.exchange.AddRepresentationCommand(
                     original.asset_id, pp.RepresentationKind.DERIVED, content[3]
                 ),
             ]
         )
-        assert all(isinstance(item, pp.PreparedRepresentation) for item in made)
+        assert all(isinstance(item, pp.exchange.PreparedRepresentation) for item in made)
         sequence = made[0]
-        assert isinstance(sequence, pp.PreparedRepresentation)
+        assert isinstance(sequence, pp.exchange.PreparedRepresentation)
         builder.stage(
             [
-                pp.AppendMetadataCommand(
+                pp.exchange.AppendMetadataCommand(
                     pp.AssetRef(original.asset_id),
                     pp.MetadataProperty("urn:vendor:Unknown", "ordered"),
                     exact_metadata(pp.AssetRef(original.asset_id)),
                 ),
-                pp.AppendMetadataCommand(
+                pp.exchange.AppendMetadataCommand(
                     pp.AssetRef(original.asset_id),
                     pp.MetadataProperty("urn:vendor:Unknown", "ordered"),
                     exact_metadata(pp.AssetRef(original.asset_id)),
                 ),
-                pp.AddIdentifierCommand(
+                pp.exchange.AddIdentifierCommand(
                     pp.AssetRef(original.asset_id),
                     pp.ExternalIdentifier("urn:vendor:EXACT", "  同 😀  ", "Keep"),
                 ),
-                pp.AddIdentifierCommand(
+                pp.exchange.AddIdentifierCommand(
                     pp.AssetRef(original.asset_id),
                     pp.ExternalIdentifier("urn:vendor:EXACT", "remove", "Temporary"),
                 ),
-                pp.SetMediaRootEnabledCommand(temporary.root_id, False),
-                pp.RemoveMediaRootCommand(temporary.root_id),
+                pp.exchange.SetMediaRootEnabledCommand(temporary.root_id, False),
+                pp.exchange.RemoveMediaRootCommand(temporary.root_id),
             ]
         )
         return builder.prepare(), original, configured, sequence

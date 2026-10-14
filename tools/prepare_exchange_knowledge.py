@@ -16,16 +16,16 @@ from exchange_knowledge import prepare
 
 
 def proposal(
-    source: pp.Production, client: pp.ClientId, commands: list[pp.ProposalCommand]
-) -> pp.Proposal:
+    source: pp.Production, client: pp.exchange.ClientId, commands: list[pp.exchange.ProposalCommand]
+) -> pp.exchange.Proposal:
     with source.proposal_builder(
-        client, pp.RequestId(uuid4()), base=source.exchange_state.observed_base
+        client, pp.exchange.RequestId(uuid4()), base=source.exchange_state.observed_base
     ) as builder:
         builder.stage(commands)
         return builder.prepare()
 
 
-def submit(source: pp.Production, value: pp.Proposal) -> pp.SubmissionOutcome:
+def submit(source: pp.Production, value: pp.exchange.Proposal) -> pp.exchange.SubmissionOutcome:
     delivered = source.submit_proposal(value)
     assert isinstance(delivered.outcome.status, pp.CommitReceipt)
     assert delivered.leases == []
@@ -34,11 +34,11 @@ def submit(source: pp.Production, value: pp.Proposal) -> pp.SubmissionOutcome:
 
 def run(root: Path) -> None:
     path = root / "authority.pproj"
-    client = pp.ClientId(uuid4())
+    client = pp.exchange.ClientId(uuid4())
     with pp.Production.open(path) as source:
-        assert source.exchange_state.role is pp.ExchangeRole.AUTHORITY
+        assert source.exchange_state.role is pp.exchange.ExchangeRole.AUTHORITY
         prepared, imported, configured, sequence = prepare(
-            source, root, client, pp.RequestId(uuid4())
+            source, root, client, pp.exchange.RequestId(uuid4())
         )
         # This deliberate transport extension test preserves typed preparation;
         # ordinary domain commands above never construct wire JSON.
@@ -46,7 +46,7 @@ def run(root: Path) -> None:
         document["extensions"]["vendor:qualification"] = {
             "ordered": ["同", "same", "同"]
         }
-        with prepared, pp.Proposal.parse(json.dumps(document).encode()) as extended:
+        with prepared, pp.exchange.Proposal.parse(json.dumps(document).encode()) as extended:
             original_outcome = submit(source, extended)
             retained_identity = extended.identity
             assert submit(source, extended).document == original_outcome.document
@@ -66,16 +66,16 @@ def run(root: Path) -> None:
             source,
             client,
             [
-                pp.RecordResourceFingerprintCommand(
+                pp.exchange.RecordResourceFingerprintCommand(
                     resource.id, pp.Fingerprint("EXACT_resource", 7, b"\0\xff")
                 ),
-                pp.RecordRepresentationFingerprintCommand(
+                pp.exchange.RecordRepresentationFingerprintCommand(
                     original.id, pp.Fingerprint("EXACT_representation", 3, b"\xff\0")
                 ),
-                pp.RecordDependencySetCommand(
+                pp.exchange.RecordDependencySetCommand(
                     sequence.representation_id, [dependency, dependency]
                 ),
-                pp.CreateActivityCommand(
+                pp.exchange.CreateActivityCommand(
                     pp.ActivitySpec(
                         "vendor:Build",
                         outputs=(sequence.representation_id,),
@@ -96,7 +96,7 @@ def run(root: Path) -> None:
             source,
             client,
             [
-                pp.RecordRepresentationFingerprintCommand(
+                pp.exchange.RecordRepresentationFingerprintCommand(
                     original.id, pp.Fingerprint("EXACT_representation", 3, b"changed")
                 )
             ],
@@ -109,7 +109,7 @@ def run(root: Path) -> None:
 
         property = pp.MetadataProperty("urn:vendor:Unknown", "ordered")
         target = pp.AssetRef(imported.asset_id)
-        stale = proposal(source, client, [pp.RemoveMetadataCommand(target, property)])
+        stale = proposal(source, client, [pp.exchange.RemoveMetadataCommand(target, property)])
         with stale:
             with source.edit() as native:
                 native.add_metadata(target, property, ("native suffix"))
@@ -125,13 +125,13 @@ def run(root: Path) -> None:
             source,
             client,
             [
-                pp.ObserveResourceContentCommand(
+                pp.exchange.ObserveResourceContentCommand(
                     resource.id, root / "knowledge" / "first.dat"
                 ),
-                pp.ConfirmLocatorCommand(resource.id, "file:///recorded/relocated.dat"),
-                pp.RetireLocatorCommand(resource.locators[0].id),
-                pp.SetMediaRootEnabledCommand(configured.root_id, False),
-                pp.RemoveIdentifierCommand(
+                pp.exchange.ConfirmLocatorCommand(resource.id, "file:///recorded/relocated.dat"),
+                pp.exchange.RetireLocatorCommand(resource.locators[0].id),
+                pp.exchange.SetMediaRootEnabledCommand(configured.root_id, False),
+                pp.exchange.RemoveIdentifierCommand(
                     target,
                     pp.ExternalIdentifier("urn:vendor:EXACT", "remove", "Temporary"),
                 ),
@@ -143,13 +143,13 @@ def run(root: Path) -> None:
             source,
             client,
             [
-                pp.AppendMetadataCommand(target, transient, ("old")),
-                pp.ReplaceMetadataCommand(
+                pp.exchange.AppendMetadataCommand(target, transient, ("old")),
+                pp.exchange.ReplaceMetadataCommand(
                     target,
                     transient,
                     [pp.MetadataU64(2**64 - 1), ("new 同")],
                 ),
-                pp.RemoveMetadataCommand(target, transient),
+                pp.exchange.RemoveMetadataCommand(target, transient),
             ],
         ) as replaced:
             submit(source, replaced)

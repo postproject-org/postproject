@@ -15,26 +15,28 @@ from datetime import timedelta
 from pathlib import Path
 
 from postproject import (
-    ActiveJobLease,
     ActivityRef,
     ActivitySpec,
     AgentIdentity,
     AssetId,
-    ClosedJobLease,
     ExternalIdentifier,
+    MetadataAssertion,
+    MetadataProperty,
+    Production,
+    RepresentationId,
+    RepresentationKind,
+    ToolIdentity,
+)
+from postproject.jobs import (
+    ActiveJobLease,
+    ClosedJobLease,
     Job,
     JobId,
     JobRef,
     JobRequest,
     JobState,
-    MetadataAssertion,
-    MetadataProperty,
     PendingJobLease,
-    Production,
     RegenerationJobPlan,
-    RepresentationId,
-    RepresentationKind,
-    ToolIdentity,
 )
 
 WORKER = ToolIdentity("Example Proxy Worker", "1.4", "https://example.com/worker")

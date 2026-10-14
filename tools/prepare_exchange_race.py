@@ -20,8 +20,8 @@ def worker(root: Path, name: str) -> None:
         target = pp.ProductionRef(source.id)
         with proposal(
             source,
-            pp.ClientId(uuid4()),
-            [pp.AppendMetadataCommand(target, PROPERTY, (name))],
+            pp.exchange.ClientId(uuid4()),
+            [pp.exchange.AppendMetadataCommand(target, PROPERTY, (name))],
         ) as prepared:
             print("ready", flush=True)
             assert sys.stdin.readline() == "submit\n"
@@ -37,7 +37,7 @@ def worker(root: Path, name: str) -> None:
 
 
 def race(root: Path) -> None:
-    client = pp.ClientId(uuid4())
+    client = pp.exchange.ClientId(uuid4())
     path = root / "authority.pproj"
     with pp.Production.open(path) as source:
         target = pp.ProductionRef(source.id)
@@ -45,10 +45,10 @@ def race(root: Path) -> None:
         with proposal(
             source,
             client,
-            [pp.AppendMetadataCommand(target, PROPERTY, ("seed"))],
+            [pp.exchange.AppendMetadataCommand(target, PROPERTY, ("seed"))],
         ) as seed:
             submit(source, seed)
-        stale = proposal(source, client, [pp.RemoveMetadataCommand(target, PROPERTY)])
+        stale = proposal(source, client, [pp.exchange.RemoveMetadataCommand(target, PROPERTY)])
         original = source.exchange_state.head
         assert original is not None
     workers: list[subprocess.Popen[str]] = []
@@ -107,7 +107,7 @@ def race(root: Path) -> None:
         assert set(values) == {(name) for name in ("seed", "left", "right")}
         for name in ("left", "right"):
             saved = json.loads((root / f"race-{name}.json").read_text())
-            with pp.Proposal.parse(saved["proposal"].encode()) as prepared:
+            with pp.exchange.Proposal.parse(saved["proposal"].encode()) as prepared:
                 outcome = source.submission_outcome(prepared.identity)
                 assert outcome.document.decode() == saved["outcome"]
                 assert (

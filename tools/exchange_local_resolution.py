@@ -19,15 +19,15 @@ def prepare(root: Path) -> None:
     recorded.write_bytes(CONTENT)
     with pp.Production.open(root / "authority.pproj") as source:
         with source.proposal_builder(
-            pp.ClientId(uuid4()), pp.RequestId(uuid4())
+            pp.exchange.ClientId(uuid4()), pp.exchange.RequestId(uuid4())
         ) as builder:
             prepared = builder.stage(
                 [
-                    pp.ImportMediaCommand(recorded),
-                    pp.AddMediaRootCommand(ROOT),
+                    pp.exchange.ImportMediaCommand(recorded),
+                    pp.exchange.AddMediaRootCommand(ROOT),
                 ]
             )[0]
-            assert isinstance(prepared, pp.PreparedAsset)
+            assert isinstance(prepared, pp.exchange.PreparedAsset)
             with builder.prepare() as proposal:
                 outcome = source.submit_proposal(proposal).outcome
                 assert isinstance(outcome.status, pp.CommitReceipt)

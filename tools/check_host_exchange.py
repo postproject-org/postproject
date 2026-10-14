@@ -26,7 +26,7 @@ def worker(root: Path, directory: Path, name: str) -> None:
         assert head != original
         assert mirror.apply_changes(directory / f"{name}.ppxd") == head
     with pp.Production.open(path) as reopened:
-        assert reopened.exchange_state.role is pp.ExchangeRole.PASSIVE_MIRROR
+        assert reopened.exchange_state.role is pp.exchange.ExchangeRole.PASSIVE_MIRROR
         assert reopened.exchange_state.head == head
         for operation in (
             reopened.edit,

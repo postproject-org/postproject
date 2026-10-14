@@ -10,8 +10,6 @@ from postproject import (
     ContentVerification,
     DecisionBase,
     ExternalIdentifier,
-    JobRequest,
-    JobState,
     LocatorIdentity,
     MetadataProperty,
     NotFoundError,
@@ -21,6 +19,7 @@ from postproject import (
     file_locator,
     fingerprint_file,
 )
+from postproject.jobs import JobRequest, JobState
 
 
 # [coherent-reads]

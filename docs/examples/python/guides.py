@@ -24,9 +24,6 @@ from postproject import (
     ExternalIdentifier,
     ImageSequenceSource,
     ImportedMedia,
-    JobRequest,
-    JobState,
-    JobSucceededEvent,
     MetadataLanguageString,
     MetadataProperty,
     ObjectReference,
@@ -45,6 +42,7 @@ from postproject import (
     ToolIdentity,
     VerificationMode,
 )
+from postproject.jobs import JobRequest, JobState, JobSucceededEvent
 
 
 # [create-production]

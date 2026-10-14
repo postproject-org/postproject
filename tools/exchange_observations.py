@@ -100,7 +100,7 @@ def public_observations(source: pp.Production) -> dict:
     targets.extend(pp.RepresentationRef(item.id) for item in representations)
     targets.extend(pp.ResourceRef(item.id) for item in resources.values())
     targets.extend(pp.ActivityRef(item.id) for item in activities)
-    targets.extend(pp.JobRef(item.id) for item in jobs.items)
+    targets.extend(pp.jobs.JobRef(item.id) for item in jobs.items)
     revisions = source.changes_since(0, 1000)
     assert before is not None and before.base.decision.revision is not None
     assert len(revisions) == before.base.decision.revision.sequence
