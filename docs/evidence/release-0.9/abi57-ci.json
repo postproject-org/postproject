@@ -1,0 +1,249 @@
+{
+  "sdk_source": "4c6c0563d79017226ae89cf0dbd4379ed05d5478",
+  "scope": "Required runtime/platform qualification. Later SDK evidence edits change documentation and records only; their strict documentation/deployment checks are recorded separately.",
+  "runs": [
+    {
+      "conclusion": "success",
+      "databaseId": 38628074732,
+      "headSha": "4c6c0563d79017226ae89cf0dbd4379ed05d5478",
+      "jobs": [
+        {
+          "conclusion": "success",
+          "databaseId": 116072270058,
+          "name": "Minimum Rust 1.85",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "databaseId": 116072270446,
+          "name": "Dependency policy",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "databaseId": 116072270469,
+          "name": "C++ header with current compilers",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "databaseId": 116072270491,
+          "name": "Test (windows-latest)",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "databaseId": 116072270526,
+          "name": "Unified documentation and links",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "databaseId": 116072270557,
+          "name": "C ABI smoke test",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "databaseId": 116072270627,
+          "name": "Python wheel",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "databaseId": 116072270662,
+          "name": "Formatting, lints, and documentation",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "databaseId": 116072270733,
+          "name": "Test (ubuntu-latest)",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "databaseId": 116072270814,
+          "name": "Reference executor (real FFmpeg)",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "databaseId": 116072270818,
+          "name": "Native package (ubuntu-latest)",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "databaseId": 116072270922,
+          "name": "Native ASan and UBSan",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "databaseId": 116072270949,
+          "name": "Linux platform wheel (glibc 2.28)",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "databaseId": 116072270976,
+          "name": "Test (macos-latest)",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "databaseId": 116072271019,
+          "name": "Native package (windows-latest)",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "databaseId": 116072271174,
+          "name": "Native package (macos-latest)",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/postproject-org/postproject/actions/runs/38628074732",
+      "workflowName": "CI"
+    },
+    {
+      "conclusion": "success",
+      "databaseId": 38628076081,
+      "headSha": "4c6c0563d79017226ae89cf0dbd4379ed05d5478",
+      "jobs": [
+        {
+          "conclusion": "success",
+          "databaseId": 116072275429,
+          "name": "cpp-nle / test",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "databaseId": 116072275561,
+          "name": "openassetio-publishing / test (current)",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "databaseId": 116072275573,
+          "name": "ardour / Ardour with PostProject",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "databaseId": 116072275635,
+          "name": "python-host / test",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "databaseId": 116072275646,
+          "name": "openassetio-manager / test",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "databaseId": 116072275749,
+          "name": "ardour / Ardour without PostProject",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "databaseId": 116072275750,
+          "name": "openassetio-publishing / test (bundled-nuke-17)",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "databaseId": 116072275803,
+          "name": "ardour / Installed pkg-config resolver on macOS",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "databaseId": 116072275811,
+          "name": "obs / contract",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "databaseId": 116072275922,
+          "name": "natron / contract",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "databaseId": 116072276571,
+          "name": "otio-openassetio / test",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/postproject-org/postproject/actions/runs/38628076081",
+      "workflowName": "Downstream integration experiments"
+    },
+    {
+      "conclusion": "success",
+      "databaseId": 38628074380,
+      "headSha": "4c6c0563d79017226ae89cf0dbd4379ed05d5478",
+      "jobs": [
+        {
+          "conclusion": "success",
+          "databaseId": 116072278386,
+          "name": "kdenlive / Kdenlive with PostProject",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "databaseId": 116072278832,
+          "name": "kdenlive / Kdenlive without PostProject",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/postproject-org/postproject/actions/runs/38628074380",
+      "workflowName": "Kdenlive pilot"
+    },
+    {
+      "conclusion": "success",
+      "databaseId": 38628064357,
+      "headSha": "4c6c0563d79017226ae89cf0dbd4379ed05d5478",
+      "jobs": [
+        {
+          "conclusion": "success",
+          "databaseId": 116072304758,
+          "name": "blender / lint",
+          "status": "completed"
+        },
+        {
+          "conclusion": "failure",
+          "databaseId": 116072331150,
+          "name": "blender / Blender 5.3-beta",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "databaseId": 116072331725,
+          "name": "blender / Blender 5.2.2",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/postproject-org/postproject/actions/runs/38628064357",
+      "workflowName": "Blender pilot"
+    }
+  ],
+  "superseded": [
+    {
+      "run": 38621305315,
+      "reason": "Exchange-tool formatting and MSVC output-example receipt diagnostic."
+    },
+    {
+      "run": 38621890973,
+      "reason": "New Rust 1.99 empty-state assertion lint and the same MSVC example."
+    },
+    {
+      "run": 38626151591,
+      "reason": "Remaining CLI output empty-state assertion lint."
+    }
+  ],
+  "optional_preview": "Blender beta is explicitly unqualified; the successful workflow summary does not conceal its failed job."
+}
