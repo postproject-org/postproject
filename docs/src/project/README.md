@@ -39,6 +39,8 @@ Use these pages when the implementation itself is relevant:
   consumer migration status.
 - {doc}`../../api-workflow-0.9-design` describes the remaining workflow
   simplification and its preserved contracts.
+- {doc}`../../release-0.9-abi57-report` records the revised candidate and its
+  source-scoped verification.
 - {doc}`../../release-0.9-workflow-comparison` compares the five complete
   tasks with the qualified initial 0.9 candidate.
 - {doc}`../../release-0.9-ergonomics-measurements` records installed Python
