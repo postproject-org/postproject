@@ -5,6 +5,8 @@ All notable changes to PostProject will be documented here. The project uses
 
 ## Unreleased
 
+- Carry verified relink locations with their coherent decision and stage them together.
+
 - Stage produced media, its actual activity and typed parameters together.
 
 - Create additive, retained-view and detached edits with origin and message.
