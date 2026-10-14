@@ -844,6 +844,7 @@ SequenceNaming._fields_ = [
 
 RelinkLocation._fields_ = [
     ("resource_id", ResourceId),
+    ("resource_index", ctypes.c_uint64),
     ("uri", ctypes.c_char_p),
     ("media_root", ctypes.c_char_p),
     ("has_sequence_naming", ctypes.c_uint8),
@@ -922,7 +923,7 @@ PUBLIC_STRUCTS = {
     "pp_artifact_reproducibility_issue_t": (ArtifactReproducibilityIssue, ("kind", "activity_id", "representation_id", "activity_count")),
     "pp_file_resource_input_t": (FileResourceInput, ("path", "role", "required")),
     "pp_sequence_naming_t": (SequenceNaming, ("prefix", "suffix", "padding")),
-    "pp_relink_location_t": (RelinkLocation, ("resource_id", "uri", "media_root", "has_sequence_naming", "sequence_naming")),
+    "pp_relink_location_t": (RelinkLocation, ("resource_id", "resource_index", "uri", "media_root", "has_sequence_naming", "sequence_naming")),
     "pp_relink_selection_t": (RelinkSelection, ("base", "representation_id", "locations", "location_count")),
     "pp_edit_context_t": (EditContext, ("origin_name", "origin_version", "origin_uri", "message")),
     "pp_root_mapping_t": (RootMapping, ("name", "directory")),

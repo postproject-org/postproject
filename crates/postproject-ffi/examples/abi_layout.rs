@@ -296,6 +296,7 @@ fn main() {
         PpRelinkLocation,
         "pp_relink_location_t",
         resource_id,
+        resource_index,
         uri,
         media_root,
         has_sequence_naming,

@@ -39,6 +39,7 @@ fn verified_selection_checks_capacity_and_clears_failed_outputs() {
     let mut selected: PpRelinkSelection = unsafe { std::mem::zeroed() };
     let mut location = PpRelinkLocation {
         resource_id: PpResourceId { bytes: [9; 16] },
+        resource_index: 0,
         uri: c"sentinel".as_ptr(),
         media_root: ptr::null(),
         has_sequence_naming: 0,

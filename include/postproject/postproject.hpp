@@ -2193,9 +2193,7 @@ struct AvailabilityIssue final {
 
 struct RelinkLocation final {
   ResourceId resource_id;
-  std::string uri;
-  std::optional<std::string> media_root;
-  std::optional<SequenceNaming> sequence_naming;
+  ResolutionCandidate candidate;
 };
 
 struct RelinkSelection final {
@@ -3778,8 +3776,9 @@ resolution_resource(const pp_resolution_set_t *resolutions,
 inline DecisionBase decision_base(const pp_decision_base_t &base);
 
 inline Result<RelinkSelection> relink_selection(const pp_resolution_set_t *resolutions,
-                                               std::uint64_t index, std::uint64_t capacity) {
-  std::vector<pp_relink_location_t> locations(static_cast<std::size_t>(capacity));
+                                               std::uint64_t index, const std::vector<ResourceResolution> &resources) {
+  const auto capacity = static_cast<std::uint64_t>(resources.size());
+  std::vector<pp_relink_location_t> locations(resources.size());
   pp_relink_selection_t selection{};
   pp_error_t *error = nullptr;
   const auto status = pp_resolution_set_select_verified(resolutions, index,
@@ -3787,22 +3786,15 @@ inline Result<RelinkSelection> relink_selection(const pp_resolution_set_t *resol
   POSTPROJECT_TRY(check(status, error));
   if (selection.location_count > capacity)
     return Error(ErrorCode::internal, "selection exceeds location storage");
-  RelinkSelection result{decision_base(selection.base),
-                         representation_id(selection.representation_id), {}};
+  RelinkSelection result{decision_base(selection.base), representation_id(selection.representation_id), {}};
   for (std::uint64_t position = 0; position < selection.location_count; ++position) {
     const auto &location = locations[static_cast<std::size_t>(position)];
-    if (location.uri == nullptr || location.has_sequence_naming > 1)
-      return Error(ErrorCode::internal, "invalid native selected location");
-    std::optional<SequenceNaming> naming;
-    if (location.has_sequence_naming != 0) {
-      if (location.sequence_naming.prefix == nullptr || location.sequence_naming.suffix == nullptr)
-        return Error(ErrorCode::internal, "selected sequence naming is null");
-      naming = SequenceNaming{location.sequence_naming.prefix, location.sequence_naming.suffix,
-                              location.sequence_naming.padding};
-    }
-    result.locations.push_back({resource_id(location.resource_id), location.uri,
-        location.media_root != nullptr ? std::optional<std::string>(location.media_root) : std::nullopt,
-        std::move(naming)});
+    if (location.resource_index >= capacity)
+      return Error(ErrorCode::internal, "selection has invalid resource index");
+    const auto &resource = resources[static_cast<std::size_t>(location.resource_index)];
+    if (resource.resource_id != resource_id(location.resource_id) || resource.candidates().size() != 1)
+      return Error(ErrorCode::internal, "selection does not match resource evidence");
+    result.locations.push_back({resource.resource_id, resource.candidates().front()});
   }
   return result;
 }
@@ -3882,10 +3874,11 @@ resolution_values(ResolutionSetHandle resolutions) {
       issues.push_back({detail::resource_id(resource_id), required != 0, std::move(*detail)});
     }
     POSTPROJECT_TRY(native_tag(availability, PP_AVAILABILITY_ONLINE, PP_AVAILABILITY_ERROR, "representation availability"));
+    auto selection = relink_selection(resolutions.get(), representation_index, resources);
     result.push_back({asset_id_value(asset_id), detail::representation_id(representation_id),
                       static_cast<RepresentationAvailability>(availability),
                       std::move(resources), std::move(issues),
-                      relink_selection(resolutions.get(), representation_index, resource_count)});
+                      std::move(selection)});
   }
   return result;
 }
@@ -5815,9 +5808,9 @@ public:
     std::vector<detail::NativeNaming> names;
     names.reserve(selection.locations.size());
     for (const auto &location : selection.locations) {
-      POSTPROJECT_TRY(detail::checked_string(location.uri, "locator URI"));
-      POSTPROJECT_TRY(detail::checked_optional_string(location.media_root, "root name"));
-      POSTPROJECT_TRY_ASSIGN(auto naming, detail::NativeNaming::make(location.sequence_naming));
+      POSTPROJECT_TRY(detail::checked_string(location.candidate.uri, "locator URI"));
+      POSTPROJECT_TRY(detail::checked_optional_string(location.candidate.media_root, "root name"));
+      POSTPROJECT_TRY_ASSIGN(auto naming, detail::NativeNaming::make(location.candidate.sequence_naming));
       names.push_back(std::move(naming));
     }
     std::vector<pp_relink_location_t> locations;
@@ -5825,8 +5818,8 @@ public:
     for (std::size_t index = 0; index < selection.locations.size(); ++index) {
       const auto &location = selection.locations[index];
       const auto *naming = names[index].get();
-      locations.push_back({detail::native_resource_id(location.resource_id), location.uri.c_str(),
-          detail::optional_c_str(location.media_root), static_cast<std::uint8_t>(naming != nullptr),
+      locations.push_back({detail::native_resource_id(location.resource_id), 0, location.candidate.uri.c_str(),
+          detail::optional_c_str(location.candidate.media_root), static_cast<std::uint8_t>(naming != nullptr),
           naming != nullptr ? *naming : pp_sequence_naming_t{}});
     }
     const pp_relink_selection_t native{detail::native_decision_base(selection.base),

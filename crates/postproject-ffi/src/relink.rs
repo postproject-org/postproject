@@ -16,6 +16,8 @@ use crate::{
 pub struct PpRelinkLocation {
     /// Resource being located.
     pub resource_id: PpResourceId,
+    /// Index in the original representation resolution for evidence access; ignored by confirmation.
+    pub resource_index: u64,
     /// Required absolute locator URI.
     pub uri: *const c_char,
     /// Optional logical root.
@@ -89,6 +91,7 @@ pub unsafe extern "C" fn pp_resolution_set_select_verified(
                     resource_id: PpResourceId {
                         bytes: resource.resource_id.into_bytes(),
                     },
+                    resource_index: *resource_index as u64,
                     uri: candidate.uri.as_ptr(),
                     media_root: candidate
                         .media_root

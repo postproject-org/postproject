@@ -729,6 +729,8 @@ typedef struct pp_sequence_naming {
 /** One location; strings returned by selection borrow the resolution set. */
 typedef struct pp_relink_location {
   pp_resource_id_t resource_id;
+  /** Index for evidence access on the original result; ignored by confirmation. */
+  uint64_t resource_index;
   const char *uri;
   const char *media_root;
   uint8_t has_sequence_naming;
