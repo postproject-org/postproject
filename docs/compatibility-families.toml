@@ -121,7 +121,7 @@ id = "resolution"
 dependencies = ["resource-identity", "production-lifecycle", "asset-identity", "representation-identity"]
 introduced_release = "0.1.0-alpha.1"
 last_changed_release = "0.9.0-alpha.1"
-last_changed_abi = 53
+last_changed_abi = 57
 c_operations = [
   "pp_resolution_options_create",
   "pp_resolution_options_release",
@@ -133,12 +133,16 @@ c_operations = [
   "pp_resolution_set_get_candidate",
   "pp_resolution_set_get_candidate_evidence",
   "pp_resolution_set_release",
+  "pp_resolution_set_select_verified",
+  "pp_transaction_confirm_selection",
 ]
 cpp_operations = [
   "ResolutionOptions::create",
   "Production::resolveAssets",
+  "RepresentationResolution::selectVerified",
+  "Transaction::confirmSelection",
 ]
-python_operations = ["Production.resolve"]
+python_operations = ["Production.resolve", "RepresentationResolution.select_verified", "Edit.confirm_selection"]
 
 [[families]]
 id = "revision-feed"

@@ -42,6 +42,7 @@ tests/test_production.py
 tests/test_proposal_builder.py
 tests/test_query_bounds.py
 tests/test_read_sessions.py
+tests/test_relink_selection.py
 tests/test_resolution_values.py
 tests/test_revision_scans.py
 tests/test_root_edits.py

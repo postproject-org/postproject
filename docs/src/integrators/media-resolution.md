@@ -79,31 +79,33 @@ candidate matches exactly. An unmapped root is reported as unmapped evidence
 rather than an error, and an unreadable mapping as unavailable; other roots are
 still searched.
 
-## Confirm a candidate
+## Confirm a selected representation
 
-Only an explicit confirmation makes a candidate durable. The integration
-decides which candidate to confirm: a person picks one of several plausible
-candidates, or a policy accepts a single exact match. Confirmation adds a
-locator for the resource in a transaction; the stored identity is unchanged.
+Keep the representation ID returned by import or the host binding. Select that
+representation explicitly from the resolution results. A verified selection
+requires complete required content, unique full fingerprint matches and no
+failed or truncated search. Presence, sampled matches and a count of one are
+insufficient. Unverified optional members remain in diagnostics and are omitted.
 
-A candidate found under a mapped root names that logical root. The example
-confirms such a candidate under that root, so the locator records the portable
-root name but never the local directory. The CLI `media resolve --confirm` does the same automatically. A candidate for
-an image sequence also carries the naming of its files, and confirmation must
-record it.
-[Locator and media-root queries](bounded-queries.md) report that recorded root.
+The selection carries the original coherent database decision and copies each
+resource's URI, logical root and sequence naming. Confirm it in an edit using
+that base, then commit explicitly. Copied selections survive closure of the
+read view and native result owner. Confirmation stages all locations together;
+an already recorded resource/URI/naming identity is a guarded no-op.
 
 ```{code-variants} confirm-locator
 ```
 
-Never confirm one of several candidates automatically. Present them, with
-their confidence and evidence, and let the user choose.
+Selection performs no additional scan. Confirmation does not recheck media
+files or guarantee filesystem atomicity. Hosts still check that their object,
+association and generation match the result before applying it.
 
-A candidate with `fingerprint_not_verified` evidence was matched by name and
-size only. The resource's recorded fingerprints were ones PostProject cannot
-compute, such as a hash the host application recorded. Check the candidate with
-the host's own algorithm before confirming it. See
-[host content hashes](fingerprints-and-verification.md#keep-a-hosts-own-content-hashes).
+For a human-selected ambiguous candidate, or content verified by a host's own
+hash algorithm, use explicit locator confirmation after reviewing the evidence.
+Pass the candidate's root and sequence naming; retain the original decision
+base. [Host content hashes](fingerprints-and-verification.md#keep-a-hosts-own-content-hashes)
+explains `fingerprint_not_verified`. Logical roots describe production knowledge;
+local mount mappings are not persisted.
 
 ## Relink a renamed image sequence
 

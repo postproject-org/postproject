@@ -1,8 +1,8 @@
 # Move an integration from 0.8 to 0.9
 
-The 0.9 development SDK uses C ABI 56, schema 27 and exchange protocol 1.
+The 0.9 development SDK uses C ABI 57, schema 27 and exchange protocol 1.
 Update the binding and native library together. Python 0.8 bindings reject
-an ABI 56 library. Existing production identities and stored knowledge retain
+an ABI 57 library. Existing production identities and stored knowledge retain
 their meaning; opening older files follows the existing migration rules.
 
 | Old form | Use in 0.9 |
@@ -115,3 +115,18 @@ read edges retain snapshots and no longer serve as write builders. Python
 parameters accept a mapping or repeated key/value pairs; C++ accepts typed
 parameter tuples. Native activity creation now takes `pp_activity_recipe_t`
 and a separate output-edge array. Update headers, library and bindings together.
+
+### Verified relinking (development ABI 57)
+
+Retain the import's representation ID and select it explicitly from resolution
+results. Python `select_verified`, C++ `selectVerified` and native
+`pp_resolution_set_select_verified` copy/lend complete verified locations with
+the original decision base. Confirm them together using a read-bound edit;
+Rust uses `stage_relink`. CLI `media relink REPRESENTATION --confirm` captures
+its own coherent decision and requires explicit confirmation.
+
+A single candidate is insufficient when verification is partial or search is
+incomplete. Unverified optional members remain in diagnostics. Existing
+locations are guarded no-ops. Explicit locator confirmation remains available
+for independent human/host decisions. Deferred intent uses
+`locator.confirm.v1`; older protocol decoders reject that command as unsupported.
