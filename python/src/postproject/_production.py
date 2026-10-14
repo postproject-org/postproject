@@ -80,6 +80,7 @@ from ._abi import (
 )
 from ._artifact import read_evaluation, read_reproducibility
 from ._errors import (
+    ConflictError,
     ExchangeError,
     InternalError,
     InvalidArgumentError,
@@ -218,6 +219,8 @@ from ._model import (
     QueryPage,
     RegenerationJobPlan,
     RegisteredOutputs,
+    RelinkLocation,
+    RelinkSelection,
     Representation,
     RepresentationAddedEvent,
     RepresentationAvailability,
@@ -4063,6 +4066,44 @@ class Edit:
         )
         self._native.check(status, error)
 
+    def confirm_selection(self, selection: RelinkSelection) -> None:
+        """Stage every location from the original read-bound selection atomically.
+
+        Open this edit with ``base=selection.base``. A mismatch or malformed
+        location leaves staged work unchanged. Files are not rechecked here;
+        the host still checks association/generation before applying results.
+        Commit remains explicit.
+        """
+        self._require_open()
+        if not isinstance(selection, RelinkSelection):
+            raise TypeError("selection must be a RelinkSelection")
+        locations = (_abi.RelinkLocation * len(selection.locations))()
+        for index, item in enumerate(selection.locations):
+            locations[index].resource_id = _native_resource_id(item.resource_id)
+            locations[index].uri = _utf8(item.candidate.uri, "locator URI")
+            locations[index].media_root = (
+                None
+                if item.candidate.media_root is None
+                else _utf8(item.candidate.media_root, "root name")
+            )
+            locations[index].has_sequence_naming = int(
+                item.candidate.sequence_naming is not None
+            )
+            naming = _native_naming(item.candidate.sequence_naming)
+            if naming is not None:
+                locations[index].sequence_naming = naming.contents
+        native_selection = _abi.RelinkSelection(
+            _native_decision_base(selection.base),
+            _native_representation_id(selection.representation_id),
+            locations,
+            len(locations),
+        )
+        error = ctypes.POINTER(Error)()
+        status = self._native.lib.pp_transaction_confirm_selection(
+            self._handle, ctypes.byref(native_selection), ctypes.byref(error)
+        )
+        self._native.check(status, error)
+
     def confirm_locator(
         self,
         resource_id: ResourceId,
@@ -6558,6 +6599,54 @@ def _locator_at(
     )
 
 
+def _relink_selection_at(
+    native: NativeLibrary,
+    resolutions: _Pointer[ResolutionSet],
+    representation_index: int,
+    resources: tuple[ResourceResolution, ...],
+) -> tuple[RelinkSelection | None, str | None]:
+    capacity = len(resources)
+    locations = (_abi.RelinkLocation * capacity)()
+    value = _abi.RelinkSelection()
+    error = ctypes.POINTER(Error)()
+    status = native.lib.pp_resolution_set_select_verified(
+        resolutions,
+        representation_index,
+        locations,
+        capacity,
+        ctypes.byref(value),
+        ctypes.byref(error),
+    )
+    try:
+        native.check(status, error)
+    except ConflictError as failure:
+        return None, str(failure)
+    if value.location_count > capacity:
+        raise InternalError(
+            _abi.PP_ERROR_INTERNAL, "selection exceeds location storage"
+        )
+    copied: list[RelinkLocation] = []
+    for item in locations[: value.location_count]:
+        if item.resource_index >= capacity:
+            raise InternalError(
+                _abi.PP_ERROR_INTERNAL, "selection has invalid resource index"
+            )
+        resource = resources[item.resource_index]
+        if (
+            resource.resource_id != _uuid(item.resource_id)
+            or len(resource.candidates) != 1
+        ):
+            raise InternalError(
+                _abi.PP_ERROR_INTERNAL, "selection does not match resource evidence"
+            )
+        copied.append(RelinkLocation(resource.resource_id, resource.candidates[0]))
+    return RelinkSelection(
+        _decision_base(value.base),
+        RepresentationId(_uuid(value.representation_id)),
+        tuple(copied),
+    ), None
+
+
 def _representation_resolution_at(
     native: NativeLibrary,
     resolutions: _Pointer[ResolutionSet],
@@ -6580,22 +6669,28 @@ def _representation_resolution_at(
         ctypes.byref(error),
     )
     native.check(status, error)
+    resources = tuple(
+        _resource_resolution_at(
+            native, resolutions, representation_index, resource_index
+        )
+        for resource_index in range(int(resource_count.value))
+    )
+    selection, selection_error = _relink_selection_at(
+        native, resolutions, representation_index, resources
+    )
     return RepresentationResolution(
         AssetId(_uuid(asset_id)),
         RepresentationId(_uuid(representation_id)),
         _representation_availability(int(availability.value)),
-        tuple(
-            _resource_resolution_at(
-                native, resolutions, representation_index, resource_index
-            )
-            for resource_index in range(int(resource_count.value))
-        ),
+        resources,
         tuple(
             _availability_issue_at(
                 native, resolutions, representation_index, issue_index
             )
             for issue_index in range(int(issue_count.value))
         ),
+        selection,
+        selection_error,
     )
 
 

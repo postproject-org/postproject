@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, fields
+from dataclasses import field as dataclass_field
 from enum import Enum
 from fractions import Fraction
 from itertools import islice
@@ -1589,12 +1590,70 @@ class AvailabilityIssue:
 
 
 @dataclass(frozen=True, slots=True)
+class RelinkLocation:
+    """Copied resource and candidate, including its verification evidence."""
+
+    resource_id: ResourceId
+    candidate: ResolutionCandidate
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.resource_id, UUID):
+            raise TypeError("selected resource must be a UUID")
+        if not isinstance(self.candidate, ResolutionCandidate):
+            raise TypeError("selected location requires a ResolutionCandidate")
+
+
+@dataclass(frozen=True, slots=True)
+class RelinkSelection:
+    """Copied locations with the original database decision; no filesystem lock."""
+
+    base: DecisionBase
+    representation_id: RepresentationId
+    locations: tuple[RelinkLocation, ...]
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.base, DecisionBase):
+            raise TypeError("selection base must be a DecisionBase")
+        if not isinstance(self.representation_id, UUID):
+            raise TypeError("selection representation must be a UUID")
+        locations = tuple(islice(self.locations, 100_001))
+        if not 1 <= len(locations) <= 100_000:
+            raise ValueError("selection requires 1..100000 locations")
+        if any(not isinstance(item, RelinkLocation) for item in locations):
+            raise TypeError("selection locations must be RelinkLocation values")
+        if len({item.resource_id for item in locations}) != len(locations):
+            raise ValueError("selection repeats a resource")
+        object.__setattr__(self, "locations", locations)
+
+
+@dataclass(frozen=True, slots=True)
 class RepresentationResolution:
     asset_id: AssetId
     representation_id: RepresentationId
     availability: RepresentationAvailability
     resources: tuple[ResourceResolution, ...]
     issues: tuple[AvailabilityIssue, ...]
+    _selection: RelinkSelection | None = dataclass_field(
+        default=None, repr=False, compare=False
+    )
+    _selection_error: str | None = dataclass_field(
+        default=None, repr=False, compare=False
+    )
+
+    def select_verified(self) -> RelinkSelection:
+        """Select this representation's verified locations without more media I/O.
+
+        Requires complete required content and unique full verification, with
+        no failed or truncated search. Optional unverified members are omitted.
+        The selection keeps the original coherent decision after the view closes.
+        """
+        from ._errors import ConflictError
+
+        if self._selection is None:
+            raise ConflictError(
+                7, self._selection_error or "resolution has no verified selection"
+            )
+        return self._selection
 
 
 @dataclass(frozen=True, slots=True)
