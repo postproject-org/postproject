@@ -144,3 +144,14 @@ and ordered structure values remain explicit. Inspect Python types when reading:
 ordinary Python equality equates `True` and `1`, while metadata assertion/field
 equality preserves their distinct stored kinds. Repeated assertions and ordered
 fields retain their meaning. Cycles and unsupported dictionaries are rejected.
+
+### Advanced Python imports
+
+Import job requests, states, leases and job events from `postproject.jobs`.
+Import proposal commands/builders, request IDs, durable outcomes and replication
+positions from `postproject.exchange`. Their package-root exports are removed;
+ordinary production/media/metadata recipes keep the root imports.
+
+`Edit.prepare_proposal` captures an already prepared native edit. The command
+builder expresses deferred intent. Both remain available. Notification progress
+and replication positions retain their distinct scopes.

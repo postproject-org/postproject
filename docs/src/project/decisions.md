@@ -49,6 +49,7 @@ Read the relevant ADR before changing an invariant, a boundary, or a public cont
 - {doc}`ADR 0078 — Jobless output registration </adr/0078-jobless-output-registration>`
 - {doc}`ADR 0079 — Imported representation identity </adr/0079-imported-representation-identity>`
 - {doc}`ADR 0080 — Edit construction and attribution </adr/0080-edit-construction-context>`
+- {doc}`ADR 0084 — Advanced Python modules </adr/0084-python-advanced-modules>`
 - {doc}`ADR 0083 — Python metadata read values </adr/0083-python-metadata-read-values>`
 - {doc}`ADR 0082 — Verified relink selection </adr/0082-verified-relink-selection>`
 - {doc}`ADR 0081 — Produced output registration </adr/0081-produced-output-registration>`
@@ -186,4 +187,5 @@ Read the relevant ADR before changing an invariant, a boundary, or a public cont
 /adr/0081-produced-output-registration
 /adr/0082-verified-relink-selection
 /adr/0083-python-metadata-read-values
+/adr/0084-python-advanced-modules
 ```

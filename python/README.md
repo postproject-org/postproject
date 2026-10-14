@@ -116,3 +116,9 @@ processes; `cancel()` may be called from any thread. `RevisionObserver`
 delivers new revisions and their events to a callback on a thread it owns;
 stop it before closing the production. Closing the production wakes every
 waiter with `RevisionWaitResult.CLOSED`.
+
+Common media and metadata values are available from `postproject`. Optional
+worker values live in `postproject.jobs`; portable proposals, outcomes and
+replication values live in `postproject.exchange`. Metadata reads use ordinary
+Python scalars, `Fraction` and tuples where exact; tagged alternatives retain
+unsigned, URI, language, timestamp, decimal and reference distinctions.
