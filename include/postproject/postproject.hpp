@@ -2191,12 +2191,32 @@ struct AvailabilityIssue final {
   [[nodiscard]] const std::vector<std::int64_t> &frames() const noexcept { return detail.frames(); }
 };
 
+struct RelinkLocation final {
+  ResourceId resource_id;
+  std::string uri;
+  std::optional<std::string> media_root;
+  std::optional<SequenceNaming> sequence_naming;
+};
+
+struct RelinkSelection final {
+  DecisionBase base;
+  RepresentationId representation_id;
+  std::vector<RelinkLocation> locations;
+};
+
 struct RepresentationResolution final {
   AssetId asset_id;
   RepresentationId representation_id;
   RepresentationAvailability availability;
   std::vector<ResourceResolution> resources;
   std::vector<AvailabilityIssue> issues;
+  // Copied native selection or its diagnostic; no result handle is retained.
+  Result<RelinkSelection> verified_selection =
+      Error(ErrorCode::conflict, "resolution has no verified selection");
+
+  [[nodiscard]] Result<RelinkSelection> selectVerified() const {
+    return verified_selection;
+  }
 };
 
 namespace detail {
@@ -3755,6 +3775,38 @@ resolution_resource(const pp_resolution_set_t *resolutions,
                             std::move(outcome).value(), std::move(evidence)};
 }
 
+inline DecisionBase decision_base(const pp_decision_base_t &base);
+
+inline Result<RelinkSelection> relink_selection(const pp_resolution_set_t *resolutions,
+                                               std::uint64_t index, std::uint64_t capacity) {
+  std::vector<pp_relink_location_t> locations(static_cast<std::size_t>(capacity));
+  pp_relink_selection_t selection{};
+  pp_error_t *error = nullptr;
+  const auto status = pp_resolution_set_select_verified(resolutions, index,
+      locations.data(), capacity, &selection, &error);
+  POSTPROJECT_TRY(check(status, error));
+  if (selection.location_count > capacity)
+    return Error(ErrorCode::internal, "selection exceeds location storage");
+  RelinkSelection result{decision_base(selection.base),
+                         representation_id(selection.representation_id), {}};
+  for (std::uint64_t position = 0; position < selection.location_count; ++position) {
+    const auto &location = locations[static_cast<std::size_t>(position)];
+    if (location.uri == nullptr || location.has_sequence_naming > 1)
+      return Error(ErrorCode::internal, "invalid native selected location");
+    std::optional<SequenceNaming> naming;
+    if (location.has_sequence_naming != 0) {
+      if (location.sequence_naming.prefix == nullptr || location.sequence_naming.suffix == nullptr)
+        return Error(ErrorCode::internal, "selected sequence naming is null");
+      naming = SequenceNaming{location.sequence_naming.prefix, location.sequence_naming.suffix,
+                              location.sequence_naming.padding};
+    }
+    result.locations.push_back({resource_id(location.resource_id), location.uri,
+        location.media_root != nullptr ? std::optional<std::string>(location.media_root) : std::nullopt,
+        std::move(naming)});
+  }
+  return result;
+}
+
 inline Result<std::vector<RepresentationResolution>>
 resolution_values(ResolutionSetHandle resolutions) {
   std::vector<RepresentationResolution> result;
@@ -3832,7 +3884,8 @@ resolution_values(ResolutionSetHandle resolutions) {
     POSTPROJECT_TRY(native_tag(availability, PP_AVAILABILITY_ONLINE, PP_AVAILABILITY_ERROR, "representation availability"));
     result.push_back({asset_id_value(asset_id), detail::representation_id(representation_id),
                       static_cast<RepresentationAvailability>(availability),
-                      std::move(resources), std::move(issues)});
+                      std::move(resources), std::move(issues),
+                      relink_selection(resolutions.get(), representation_index, resource_count)});
   }
   return result;
 }
@@ -5752,6 +5805,36 @@ public:
         detail::optional_c_str(native_root), naming.get(), &error);
     POSTPROJECT_TRY(detail::check(status, error));
     return {};
+  }
+
+  // Stages all locations with the selection's original read-bound decision.
+  // Inputs are copied, failures preserve staged work, and commit stays explicit.
+  Result<void> confirmSelection(const RelinkSelection &selection) {
+    if (selection.locations.empty() || selection.locations.size() > 100000)
+      return Error(ErrorCode::invalid_argument, "selection requires 1..100000 locations");
+    std::vector<detail::NativeNaming> names;
+    names.reserve(selection.locations.size());
+    for (const auto &location : selection.locations) {
+      POSTPROJECT_TRY(detail::checked_string(location.uri, "locator URI"));
+      POSTPROJECT_TRY(detail::checked_optional_string(location.media_root, "root name"));
+      POSTPROJECT_TRY_ASSIGN(auto naming, detail::NativeNaming::make(location.sequence_naming));
+      names.push_back(std::move(naming));
+    }
+    std::vector<pp_relink_location_t> locations;
+    locations.reserve(selection.locations.size());
+    for (std::size_t index = 0; index < selection.locations.size(); ++index) {
+      const auto &location = selection.locations[index];
+      const auto *naming = names[index].get();
+      locations.push_back({detail::native_resource_id(location.resource_id), location.uri.c_str(),
+          detail::optional_c_str(location.media_root), static_cast<std::uint8_t>(naming != nullptr),
+          naming != nullptr ? *naming : pp_sequence_naming_t{}});
+    }
+    const pp_relink_selection_t native{detail::native_decision_base(selection.base),
+        detail::native_representation_id(selection.representation_id), locations.data(),
+        static_cast<std::uint64_t>(locations.size())};
+    pp_error_t *error = nullptr;
+    const auto status = pp_transaction_confirm_selection(transaction_, &native, &error);
+    return detail::check(status, error);
   }
 
   Result<void> retireLocator(const LocatorId &locator_id) {
