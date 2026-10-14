@@ -32,3 +32,26 @@ includes interpreter and loader costs and is not interchangeable with those
 peaks. The fixture establishes bounded behavior and comparable local costs;
 it does not establish a general speedup, production-media search latency or
 cross-platform performance.
+
+## Qualified 0.9 and revised ABI 57
+
+The same schema-27 fixture was read with the preserved ABI-53 wheel and the
+ABI-57 wheel. Three fresh Python 3.11.15 processes per path use the same
+workstation while a host build runs. {download}`Inputs and hashes
+<evidence/release-0.9/abi57-measurements/inputs.json>` and individual samples
+under `docs/evidence/release-0.9/abi57-measurements/` identify this scope.
+
+| Complete path | ABI 53 median | ABI 57 median | ABI 57 Python allocation peak |
+|---|---:|---:|---:|
+| Scan 5,000 assets, pages of 100 | 0.994 s | 0.972 s | 775 KB |
+| Scan 1,050 revisions, pages of 100 | 0.822 s | 0.815 s | 794 KB |
+| Stage 1,000 native metadata values | 0.753 s | 0.785 s | 715 KB |
+| Resolve one asset 100 times | 0.789 s | 1.036 s | 771 KB |
+
+All paths remain within twice the corresponding qualified 0.9 median, the
+same gross-regression allowance used above. Resolution now includes copied
+verified-selection bookkeeping; this measurement establishes an acceptable
+local cost, not a speedup. Metadata staging rolls back. The new conversion
+captures at most 4,096 members and rejects depth beyond 32 before staging;
+selection indexes required resources and adds no filesystem scan. Existing
+page bounds and the Python-allocation/RSS distinction remain unchanged.

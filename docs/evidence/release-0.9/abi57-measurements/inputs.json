@@ -1,0 +1,14 @@
+{
+  "date": "2026-10-14",
+  "sdk_source": "9bb8999309071fb7c3963d273dc9809327aa4197",
+  "python": "3.11.15",
+  "baseline_sdk": "f456958cbb99b2d952fb23de53aa73e22e38c25e",
+  "baseline_abi": 53,
+  "candidate_abi": 57,
+  "fixture": "same schema-27 5000-asset / 1050-revision fixture as original measurements",
+  "samples_per_path": 3,
+  "scope": "Fresh processes with tracemalloc. Workstation Linux under the same ongoing host-build workload; no universal timing or allocation claim.",
+  "baseline_wheel_sha256": "016fe012c08429f9bb4f50c0049c8a15cf2d708ce2457a1cff45cda3fda7839d",
+  "candidate_wheel_sha256": "5f2cf1b03fcd5b951e3a78eae5a876c56da938b54b63424c8194d3e8ec2f2e77",
+  "candidate_library_sha256": "e00718d6dba929bcd34c88ff4beb466cacd087c3dc0cadc2304d12c59e982b45"
+}
