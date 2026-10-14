@@ -10,14 +10,16 @@
   "cli_json": 1,
   "platform_scope": "Workstation Linux x86_64/glibc 2.43; not a manylinux release",
   "native_build_source": "9bb8999309071fb7c3963d273dc9809327aa4197",
-  "sdk_source_archive_commit": "e62069df3e90c44c8128c8de49141292c8cfd891",
+  "sdk_source_archive_commit": "929335cf2e9bbe5a50ab958e69208127a007746f",
   "qualified_sdk_source": "4c6c0563d79017226ae89cf0dbd4379ed05d5478",
   "native_library_sha256": "e00718d6dba929bcd34c88ff4beb466cacd087c3dc0cadc2304d12c59e982b45",
   "source_comparison": {
     "qualified_source": "4c6c0563d79017226ae89cf0dbd4379ed05d5478",
-    "review_source": "e62069df3e90c44c8128c8de49141292c8cfd891",
+    "review_source": "929335cf2e9bbe5a50ab958e69208127a007746f",
     "only_changed_paths": [
+      "docs/adr/0082-verified-relink-selection.md",
       "docs/api-ergonomics-repositories.json",
+      "docs/evidence/release-0.9/abi57-artifacts.json",
       "docs/evidence/release-0.9/abi57-ci.json",
       "docs/evidence/release-0.9/abi57-consumers.json",
       "docs/evidence/release-0.9/abi57-source-comparison.json",
@@ -42,8 +44,8 @@
   "artifacts": [
     {
       "file": "postproject-0.9-abi57-local-evidence.tar.gz",
-      "sha256": "9c1ccfd8a45ac508a32345bfa5233f7c37ee4ce9b6b157d065b1bf1f7ca6185b",
-      "bytes": 51843
+      "sha256": "e00e47e1e31e5d0ed70a040a17c21b2486d8de8be1aa7a79ebae2504f3bb5e94",
+      "bytes": 52365
     },
     {
       "file": "postproject-0.9.0-alpha.1-abi57-linux-workstation.tar.gz",
@@ -56,9 +58,9 @@
       "bytes": 3589518
     },
     {
-      "file": "postproject-ardour-source-5178df2f012d.tar.gz",
-      "sha256": "9ea27a64200428698bd20156ef633709d3a642a5601fbf5a38ab75e166439dc7",
-      "bytes": 17255
+      "file": "postproject-ardour-source-c80b549cd204.tar.gz",
+      "sha256": "a0dfd63043816293f0bff59292cc864f2c27af3c1aed04dc42d63b6d7c169ec1",
+      "bytes": 18131
     },
     {
       "file": "postproject-blender-source-35f77c087e02.tar.gz",
@@ -111,9 +113,9 @@
       "bytes": 2789
     },
     {
-      "file": "postproject-source-e62069df3e90.tar.gz",
-      "sha256": "0a14d9af4587ffa41ea64ac97ae07dc4f6755d2db5d886a44c36469365bd7749",
-      "bytes": 2424729
+      "file": "postproject-source-929335cf2e9b.tar.gz",
+      "sha256": "0f6fa03514dd805e58b09422c20dab4c7fc951b57900fdcc4d04cc931daca866",
+      "bytes": 2427264
     },
     {
       "file": "postproject.org-source-f823e7f1eb5b.tar.gz",
