@@ -1,10 +1,10 @@
 //! Explainable and deterministic media-resolution results.
 
-use std::cmp::Reverse;
+use std::{cmp::Reverse, collections::BTreeSet};
 
 use crate::{
-    ContentStructure, Error, ErrorKind, MAX_SEQUENCE_EXCEPTIONS, MediaRoot, RepresentationId,
-    ResourceId, Result, SequenceNaming, uri::normalize_uri,
+    ContentStructure, DecisionBase, Error, ErrorKind, MAX_SEQUENCE_EXCEPTIONS, MediaRoot,
+    RepresentationId, ResourceId, Result, SequenceNaming, uri::normalize_uri,
 };
 
 /// A deterministic confidence value in basis points from 0 through 10,000.
@@ -393,6 +393,35 @@ pub struct RepresentationResolution {
     availability: RepresentationAvailability,
     resources: Vec<ResourceResolution>,
     issues: Vec<AvailabilityIssue>,
+    required_resources: BTreeSet<ResourceId>,
+}
+
+/// Copied verified locations and the coherent database decision they belong to.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RelinkSelection {
+    base: DecisionBase,
+    representation_id: RepresentationId,
+    locations: Vec<(ResourceId, ResolutionCandidate)>,
+}
+
+impl RelinkSelection {
+    /// Original coherent decision; not a filesystem snapshot.
+    #[must_use]
+    pub const fn base(&self) -> DecisionBase {
+        self.base
+    }
+
+    /// Representation explicitly selected by the caller.
+    #[must_use]
+    pub const fn representation_id(&self) -> RepresentationId {
+        self.representation_id
+    }
+
+    /// Complete required coverage, plus independently verified optional members.
+    #[must_use]
+    pub fn locations(&self) -> &[(ResourceId, ResolutionCandidate)] {
+        &self.locations
+    }
 }
 
 impl RepresentationResolution {
@@ -418,6 +447,84 @@ impl RepresentationResolution {
             availability,
             resources: ordered,
             issues,
+            required_resources: structure
+                .resource_ids()
+                .into_iter()
+                .filter(|id| resource_is_required(structure, *id))
+                .collect(),
+        })
+    }
+
+    /// Selects complete, uniquely verified content without additional media I/O.
+    ///
+    /// The caller supplies the base from the same coherent read that supplied
+    /// this resolution's storage inputs. Copied locations outlive that view.
+    /// Optional unverified members are omitted; their diagnostics remain here.
+    ///
+    /// # Errors
+    /// Rejects unavailable required content, ambiguity, partial/unverified
+    /// fingerprints and incomplete or failed search. Confidence alone is not
+    /// proof of complete content verification.
+    pub fn select_verified(&self, base: DecisionBase) -> Result<RelinkSelection> {
+        if self.availability != RepresentationAvailability::Online {
+            return Err(Error::new(
+                ErrorKind::Conflict,
+                "required representation content is not completely available",
+            ));
+        }
+        let mut locations = Vec::new();
+        for resource in &self.resources {
+            let blocked = |evidence: &ResolutionEvidence| {
+                matches!(
+                    evidence.kind(),
+                    EvidenceKind::SearchTruncated | EvidenceKind::DiscoveryError
+                )
+            };
+            if resource.evidence().iter().any(blocked)
+                || resource
+                    .candidates()
+                    .iter()
+                    .any(|candidate| candidate.evidence().iter().any(blocked))
+            {
+                return Err(Error::new(
+                    ErrorKind::Conflict,
+                    "resolution search is incomplete",
+                ));
+            }
+            let candidate = match resource.candidates() {
+                [candidate]
+                    if candidate.evidence().iter().any(|item| {
+                        matches!(
+                            item.kind(),
+                            EvidenceKind::FullHashMatch | EvidenceKind::ExactFingerprintMatch
+                        )
+                    }) && !candidate.evidence().iter().any(|item| {
+                        matches!(
+                            item.kind(),
+                            EvidenceKind::PartialFingerprintMatch
+                                | EvidenceKind::FingerprintNotVerified
+                                | EvidenceKind::FingerprintMismatch
+                                | EvidenceKind::ConflictingCandidate
+                        )
+                    }) =>
+                {
+                    Some(candidate)
+                }
+                _ => None,
+            };
+            if let Some(candidate) = candidate {
+                locations.push((resource.resource_id(), candidate.clone()));
+            } else if self.required_resources.contains(&resource.resource_id()) {
+                return Err(Error::new(
+                    ErrorKind::Conflict,
+                    "required resource has no unique fully verified candidate",
+                ));
+            }
+        }
+        Ok(RelinkSelection {
+            base,
+            representation_id: self.representation_id,
+            locations,
         })
     }
 
@@ -579,6 +686,10 @@ fn resource_is_required(structure: &ContentStructure, resource_id: ResourceId) -
             .is_some_and(crate::ResourceMember::is_required)
     })
 }
+
+#[cfg(test)]
+#[path = "resolution_selection_tests.rs"]
+mod selection_tests;
 
 #[cfg(test)]
 mod tests {

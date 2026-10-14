@@ -102,9 +102,9 @@ pub use query::{
 };
 pub use read::{DecisionBase, ProductionReadSession};
 pub use resolution::{
-    AvailabilityIssue, AvailabilityIssueKind, Confidence, EvidenceKind, RepresentationAvailability,
-    RepresentationResolution, ResolutionCandidate, ResolutionEvidence, ResourceResolution,
-    ResourceResolutionState,
+    AvailabilityIssue, AvailabilityIssueKind, Confidence, EvidenceKind, RelinkSelection,
+    RepresentationAvailability, RepresentationResolution, ResolutionCandidate, ResolutionEvidence,
+    ResourceResolution, ResourceResolutionState,
 };
 pub use resource::{
     FileFacts, FingerprintSnapshot, KnownMediaMatch, Locator, LocatorAvailability, LocatorIdentity,
