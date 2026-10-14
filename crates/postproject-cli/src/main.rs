@@ -57,7 +57,7 @@ use serde::{Deserialize, Serialize};
     name = "postproject",
     version,
     about = "Keep media identity and production knowledge across applications",
-    after_help = "Common tasks:\n  Create:   postproject init production.pproj\n  Import:   postproject media add production.pproj clip.mov\n  Adopt:    postproject media find-by-locator production.pproj --help\n  Resolve:  postproject media resolve production.pproj ASSET_ID\n  Inspect:  postproject inspect production.pproj\n  Changes:  postproject revisions since production.pproj\n  Handoff:  postproject exchange checkpoint --help\n\nWrites based on a decision use --decision-base TOKEN from inspect."
+    after_help = "Common tasks:\n  Create:   postproject init production.pproj\n  Import:   postproject media add production.pproj clip.mov\n  Adopt:    postproject media find-by-locator production.pproj --help\n  Relink:   postproject media relink production.pproj REPRESENTATION_ID --confirm\n  Inspect:  postproject inspect production.pproj\n  Changes:  postproject revisions since production.pproj\n  Handoff:  postproject exchange checkpoint --help\n\nWrites based on a decision use --decision-base TOKEN from inspect."
 )]
 struct Cli {
     /// Emit results and structured operation errors as JSON on stdout.
@@ -133,6 +133,8 @@ enum MediaCommand {
     Show(MediaAssetArgs),
     /// Resolve an asset under configured media roots.
     Resolve(MediaResolveArgs),
+    /// Select fully verified locations for one representation; --confirm records them.
+    Relink(MediaRelinkArgs),
     /// Inventory known and unassociated media without changing the production.
     Inventory(MediaInventoryArgs),
     /// Record a resource's present content as a new fingerprint observation.
@@ -243,6 +245,24 @@ struct ProductionArgs {
 struct MediaAssetArgs {
     production: PathBuf,
     asset_id: String,
+}
+
+#[derive(Debug, Args)]
+struct MediaRelinkArgs {
+    production: PathBuf,
+    /// Representation retained by the host, not an arbitrary first representation.
+    representation_id: String,
+    /// Explicitly stage and commit the verified selection.
+    #[arg(long)]
+    confirm: bool,
+    #[arg(long = "root-map", value_name = "NAME=PATH")]
+    root_mappings: Vec<RootMappingArg>,
+    #[arg(long = "search-dir", value_name = "PATH")]
+    search_directories: Vec<PathBuf>,
+    #[arg(long, default_value_t = 64)]
+    max_depth: usize,
+    #[arg(long, default_value_t = 100_000)]
+    max_entries_per_directory: usize,
 }
 
 #[derive(Debug, Args)]
@@ -2054,6 +2074,7 @@ fn execute(cli: Cli) -> Result<()> {
             MediaCommand::List(args) => media_list(&args, cli.json),
             MediaCommand::Show(args) => media_show(&args, cli.json),
             MediaCommand::Resolve(args) => media_resolve(args, cli.json, base),
+            MediaCommand::Relink(args) => media_relink(&args, cli.json, base),
             MediaCommand::Inventory(args) => media_inventory(&args, cli.json),
             MediaCommand::Fingerprint(args) => media_fingerprint(&args, cli.json, base),
             MediaCommand::VerifyContent(args) => media_verify_content(&args, cli.json),
@@ -5552,6 +5573,83 @@ fn prepare_root_mappings(mappings: &[RootMappingArg]) -> Result<Vec<MediaRootMap
         .context("prepare root mappings")
 }
 
+fn media_relink(
+    args: &MediaRelinkArgs,
+    json: bool,
+    expected_base: Option<DecisionBase>,
+) -> Result<()> {
+    let mut production = SqliteProduction::open(&args.production).context("open production")?;
+    let representation_id = parse_representation_id(&args.representation_id)?;
+    let (base, input, roots) = {
+        let view = production.read_session()?;
+        let base = view.decision_base();
+        if expected_base.is_some_and(|expected| expected != base) {
+            return Err(postproject_core::Error::new(
+                postproject_core::ErrorKind::Conflict,
+                "production changed; refresh the relink decision",
+            )
+            .into());
+        }
+        let representation = view.read().representation(representation_id)?;
+        (
+            base,
+            load_resolution_input(view.read(), representation, false)?,
+            view.read().media_roots()?,
+        )
+    };
+    let resolver = MediaResolver::new(ResolverOptions {
+        verification: VerificationMode::Content,
+        max_depth: args.max_depth,
+        max_entries_per_directory: args.max_entries_per_directory,
+        ..ResolverOptions::default()
+    })?;
+    let scope = args.search_directories.iter().fold(
+        SearchScope::new(roots, prepare_root_mappings(&args.root_mappings)?),
+        SearchScope::with_search_directory,
+    );
+    let items = input
+        .resources
+        .iter()
+        .map(|(resource, locators)| {
+            ResolutionItem::new(resource, input.representation.content_structure(), locators)
+        })
+        .collect::<Vec<_>>();
+    let resolution = RepresentationResolution::aggregate(
+        representation_id,
+        input.representation.content_structure(),
+        resolver.resolve(&items, &scope)?,
+    )?;
+    let selection = resolution.select_verified(base)?;
+    let result = serde_json::json!({
+        "representation_id": representation_id.to_string(),
+        "decision_base": base.to_string(),
+        "locations": selection.locations().iter().map(|(resource, candidate)| serde_json::json!({
+            "resource_id": resource.to_string(), "uri": candidate.uri(),
+            "media_root": candidate.media_root(),
+            "sequence_naming": candidate.sequence_naming().map(SequenceNamingView::from),
+        })).collect::<Vec<_>>(),
+    });
+    let receipt = if args.confirm {
+        let mut edit = postproject_media::stage_relink(&mut production, &selection)?;
+        set_cli_revision_context(&mut edit, "Confirm verified media locations")?;
+        Some(edit.commit()?)
+    } else {
+        None
+    };
+    if json {
+        if let Some(receipt) = receipt {
+            print_json_with_receipt(&result, &receipt)
+        } else {
+            print_json(&result)
+        }
+    } else {
+        for (_, candidate) in selection.locations() {
+            println!("{}", candidate.uri());
+        }
+        Ok(())
+    }
+}
+
 fn media_resolve(
     args: MediaResolveArgs,
     json: bool,
@@ -5696,7 +5794,7 @@ struct ResolutionInput {
 }
 
 fn load_resolution_input(
-    production: &SqliteProduction,
+    production: &dyn postproject_core::ProductionRead,
     representation: Representation,
     verify: bool,
 ) -> Result<ResolutionInput> {
