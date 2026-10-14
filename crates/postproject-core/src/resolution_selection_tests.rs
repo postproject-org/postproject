@@ -63,6 +63,20 @@ fn confidence_and_cardinality_do_not_replace_complete_verification() {
 }
 
 #[test]
+fn probable_outcomes_do_not_certify_a_relink() {
+    let id = ResourceId::new();
+    let mut resource = resolved(id, EvidenceKind::FullHashMatch);
+    resource.state = ResourceResolutionState::ResolvedProbable;
+    let result = RepresentationResolution::aggregate(
+        RepresentationId::new(),
+        &ContentStructure::single_resource(id),
+        vec![resource],
+    )
+    .unwrap();
+    assert!(result.select_verified(base()).is_err());
+}
+
+#[test]
 fn incomplete_search_and_contradictory_candidate_evidence_are_rejected() {
     let id = ResourceId::new();
     for kind in [

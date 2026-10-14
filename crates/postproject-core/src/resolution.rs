@@ -498,7 +498,11 @@ impl RepresentationResolution {
             }
             let candidate = match resource.candidates() {
                 [candidate]
-                    if candidate.evidence().iter().any(|item| {
+                    if matches!(
+                        resource.state(),
+                        ResourceResolutionState::ResolvedExact
+                            | ResourceResolutionState::OnlineAtKnownLocator
+                    ) && candidate.evidence().iter().any(|item| {
                         matches!(
                             item.kind(),
                             EvidenceKind::FullHashMatch | EvidenceKind::ExactFingerprintMatch
