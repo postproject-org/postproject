@@ -103,8 +103,16 @@ fn optional_members_remain_diagnostics_and_required_gaps_block_selection() {
     let required = ResourceId::new();
     let optional = ResourceId::new();
     let structure = ContentStructure::package(vec![
-        ResourceMember::new(required, ResourceRole::new("org.example:essence").unwrap(), true),
-        ResourceMember::new(optional, ResourceRole::new("org.example:sidecar").unwrap(), false),
+        ResourceMember::new(
+            required,
+            ResourceRole::new("org.example:essence").unwrap(),
+            true,
+        ),
+        ResourceMember::new(
+            optional,
+            ResourceRole::new("org.example:sidecar").unwrap(),
+            false,
+        ),
     ])
     .unwrap();
     let absent = ResourceResolution::new(

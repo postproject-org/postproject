@@ -447,11 +447,16 @@ impl RepresentationResolution {
             availability,
             resources: ordered,
             issues,
-            required_resources: structure
-                .resource_ids()
-                .into_iter()
-                .filter(|id| resource_is_required(structure, *id))
-                .collect(),
+            required_resources: structure.members().map_or_else(
+                || structure.resource_ids().into_iter().collect(),
+                |members| {
+                    members
+                        .iter()
+                        .filter(|member| member.is_required())
+                        .map(crate::ResourceMember::resource_id)
+                        .collect()
+                },
+            ),
         })
     }
 
