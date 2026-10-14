@@ -245,5 +245,39 @@
       "reason": "Remaining CLI output empty-state assertion lint."
     }
   ],
-  "optional_preview": "Blender beta is explicitly unqualified; the successful workflow summary does not conceal its failed job."
+  "optional_preview": "Blender beta is explicitly unqualified; the successful workflow summary does not conceal its failed job.",
+  "current_ardour": {
+    "conclusion": "success",
+    "databaseId": 38637387778,
+    "headSha": "c80b549cd2046b849f19364588996f0ded942b5d",
+    "jobs": [
+      {
+        "conclusion": "success",
+        "databaseId": 116103910649,
+        "name": "Ardour with PostProject",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "databaseId": 116103910920,
+        "name": "Ardour without PostProject",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "databaseId": 116103910970,
+        "name": "Installed pkg-config resolver on macOS",
+        "status": "completed"
+      }
+    ],
+    "url": "https://github.com/postproject-org/postproject-ardour/actions/runs/38637387778",
+    "workflowName": "Ardour pilot against PostProject main",
+    "sdk_input": "8ea98ba438e9cb48ba48e08bd16469ad2b34b561",
+    "scope": "Current host policy plus eight-second sampled-audio regression; SDK runtime trees unchanged from qualified 4c6c0563."
+  },
+  "superseded_standalone_ardour": {
+    "run": 38619775838,
+    "attempt": 2,
+    "state": "Canceled after source c80b549 superseded the strict-only adapter. Earlier failure used an older SDK; matching reusable jobs had passed."
+  }
 }

@@ -50,7 +50,9 @@ Strict selection rejects sampled-only evidence. The hosts retain explicit
 policies: Kdenlive also checks its clip hash, Blender and Ardour can reuse an already
 recorded sampled file address, and sequence pilots require complete frames
 before accepting sampled collection evidence. These policies do not establish
-full-content verification. No helper guarantees filesystem atomicity.
+full-content verification. The eight-second audio regression also rejects
+new sampled discovery and mismatched recorded content. No helper guarantees
+filesystem atomicity.
 
 ## Source and CI scope
 
@@ -66,6 +68,7 @@ assertion diagnostics. They do not change native or Python runtime bytes.
 | [Downstream 38628076081](https://github.com/postproject-org/postproject/actions/runs/38628076081), `4c6c0563` | All 11 jobs pass, including full Ardour with/without SDK and both Manager dependency sets |
 | [Kdenlive 38628074380](https://github.com/postproject-org/postproject/actions/runs/38628074380), `d5f6a81` | Full with/without-SDK builds, tests and handoff pass |
 | [Blender 38628064357](https://github.com/postproject-org/postproject/actions/runs/38628064357), `35f77c0` | Stable 5.2.2 and lint pass; optional 5.3 beta fails |
+| [Ardour 38637387778](https://github.com/postproject-org/postproject-ardour/actions/runs/38637387778), `c80b549` | Current full with/without-SDK builds and macOS sampled-audio regression pass |
 
 The {download}`individual job record <evidence/release-0.9/abi57-ci.json>`
 retains exact inputs and conclusions. Earlier formatting, current-Clippy and

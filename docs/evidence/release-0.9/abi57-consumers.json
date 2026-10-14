@@ -7,7 +7,7 @@
   "schema": 27,
   "exchange_framing": 1,
   "cli_json": 1,
-  "state": "Required local and integrated qualification complete; deployment/artifact provenance is recorded separately",
+  "state": "Required SDK, current host and installed-package qualification complete",
   "repositories": [
     {
       "repository": "postproject",
@@ -18,9 +18,9 @@
     },
     {
       "repository": "postproject-ardour",
-      "source_commit": "5178df2f012de624aa8f5fc2d511d20a375bfcf3",
+      "source_commit": "c80b549cd2046b849f19364588996f0ded942b5d",
       "update": "Migrate native edit and audio selection calls; regenerate complete patches and qualify with/without SDK builds.",
-      "qualification": "Complete five-patch replacement at pinned 9.8; installed resolver passes with verified selection. Full with/without-SDK Linux and installed macOS checks pass (38628076081)."
+      "qualification": "Complete five-patch replacement at pinned 9.8; resulting tree matches locally tested source. Verified discovery and recorded sampled-address/mismatch regressions pass. Full Linux with/without-SDK and installed macOS resolver pass at c80b549 (38637387778)."
     },
     {
       "repository": "postproject-blender",
