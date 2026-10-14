@@ -109,6 +109,8 @@ pub enum Command {
     RemoveMediaRoot(MediaRootId),
     /// Adds complete prepared locator/naming observations.
     AddLocator(Locator),
+    /// Confirms a read-bound location; an identical identity is a guarded no-op.
+    ConfirmLocator(Locator),
     /// Retires an existing access route under its native decision guard.
     RetireLocator(LocatorId),
     /// Adds one exact identifier attachment.
@@ -189,6 +191,7 @@ impl Command {
             | Self::SetMediaRootEnabled { .. }
             | Self::RemoveMediaRoot(_)
             | Self::AddLocator(_)
+            | Self::ConfirmLocator(_)
             | Self::RetireLocator(_)
             | Self::AddIdentifier(_)
             | Self::RemoveIdentifier(_)

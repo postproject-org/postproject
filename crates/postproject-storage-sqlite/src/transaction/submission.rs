@@ -152,6 +152,9 @@ impl SqliteTransaction<'_> {
                 }
                 Command::RemoveMediaRoot(id) => self.remove_media_root(*id)?,
                 Command::AddLocator(locator) => self.add_locator(locator)?,
+                Command::ConfirmLocator(locator) => {
+                    self.confirm_locator(locator)?;
+                }
                 Command::RetireLocator(id) => self.retire_locator(*id)?,
                 Command::AddIdentifier(attachment) => {
                     self.add_external_identifier(attachment.target(), attachment.identifier())?;

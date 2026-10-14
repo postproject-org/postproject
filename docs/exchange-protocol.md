@@ -50,7 +50,7 @@ cannot choose authority time, revisions, conflict versions or privileged state.
 Missing bases are allowed only by the existing additive/state-guarded contracts.
 
 The submission codec currently supports `metadata.append`, `metadata.replace`,
-`metadata.remove`, `root.add`, `root.set-enabled`, `root.remove`, `locator.add`,
+`metadata.remove`, `root.add`, `root.set-enabled`, `root.remove`, `locator.add`, `locator.confirm.v1`,
 `locator.retire`, `identifier.add`, `identifier.remove` and
 `resource.observe-file-facts`, `media.import-original`, `representation.add`,
 `resource.observe-fingerprint`, `representation.observe-fingerprint`,
@@ -410,3 +410,8 @@ handles; C++ uses RAII and Result/exception conventions. Python uses UUID hints,
 typed command unions and ordinary exact values. Rust uses standard I/O/path
 types. CLI `exchange` operations use proposal files and private token files/stdin.
 The existing CLI format-1 envelope is independent of nested protocol version.
+
+`locator.confirm.v1` confirms a location against the proposal's original base.
+An existing resource/URI/naming identity is a guarded no-op; only newly added
+locations produce replay effects. Unrecognized confirmation versions return
+`unsupported` rather than being interpreted as ordinary locator additions.

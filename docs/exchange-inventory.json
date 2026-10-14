@@ -55,6 +55,7 @@
     {"operation": "import_original","classification": "mutation","effect_coverage": "native capture, local submission, checkpoint, passive replay and installed projections"},
     {"operation": "add_representation","classification": "mutation","effect_coverage": "native capture, local submission, checkpoint, passive replay and installed projections"},
     {"operation": "add_locator","classification": "mutation","effect_coverage": "native capture, local submission, checkpoint, passive replay and installed projections"},
+    {"operation": "confirm_locator","classification": "mutation","effect_coverage": "guarded no-op or locator capture, versioned confirmation submission and passive replay"},
     {"operation": "retire_locator","classification": "mutation","effect_coverage": "native capture, local submission, checkpoint, passive replay and installed projections"},
     {"operation": "add_media_root","classification": "mutation","effect_coverage": "native capture, local submission, checkpoint, passive replay and installed projections"},
     {"operation": "set_media_root_enabled","classification": "mutation","effect_coverage": "native capture, local submission, checkpoint, passive replay and installed projections"},

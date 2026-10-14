@@ -19,6 +19,9 @@ pub(super) fn encode(command: &Command) -> Result<Value> {
         Command::AddLocator(locator) => {
             json!({"kind":"locator.add", "locator":encode_locator(locator)?.value})
         }
+        Command::ConfirmLocator(locator) => {
+            json!({"kind":"locator.confirm.v1", "locator":encode_locator(locator)?.value})
+        }
         Command::RetireLocator(id) => json!({"kind":"locator.retire", "id":id.to_string()}),
         Command::AddIdentifier(attachment) => {
             json!({"kind":"identifier.add", "attachment":attachment.document()?.value})
@@ -53,11 +56,16 @@ pub(super) fn decode(kind: &str, value: &Value) -> Result<Command> {
             let fields = object(value, &["kind", "id"])?;
             Command::RemoveMediaRoot(exact(&fields["id"])?)
         }
-        "locator.add" => {
+        "locator.add" | "locator.confirm.v1" => {
             let fields = object(value, &["kind", "locator"])?;
-            Command::AddLocator(decode_locator(&Document {
+            let locator = decode_locator(&Document {
                 value: fields["locator"].clone(),
-            })?)
+            })?;
+            if kind == "locator.add" {
+                Command::AddLocator(locator)
+            } else {
+                Command::ConfirmLocator(locator)
+            }
         }
         "locator.retire" => {
             let fields = object(value, &["kind", "id"])?;

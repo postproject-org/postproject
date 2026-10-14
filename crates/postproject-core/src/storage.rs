@@ -602,6 +602,15 @@ pub trait ProductionStoreTransaction {
     /// rejects the locator.
     fn add_locator(&mut self, locator: &Locator) -> Result<()>;
 
+    /// Confirms a locator from a read-bound decision, preserving identical facts.
+    ///
+    /// Returns false for an existing resource/URI/naming identity and true for
+    /// a new location. An unchanged confirmation still guards the locator set;
+    /// it does not rewrite root annotations, availability or last-seen facts.
+    /// # Errors
+    /// Rejects absent decision bases, invalid/missing resources and storage errors.
+    fn confirm_locator(&mut self, locator: &Locator) -> Result<bool>;
+
     /// Stages retirement of one superseded resource locator.
     ///
     /// Requires a decision base. Early rejection leaves the transaction open.

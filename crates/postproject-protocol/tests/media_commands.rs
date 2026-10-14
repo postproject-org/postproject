@@ -46,6 +46,7 @@ fn commands() -> Vec<Command> {
         },
         Command::RemoveMediaRoot(root.id()),
         Command::AddLocator(locator.clone()),
+        Command::ConfirmLocator(locator.clone()),
         Command::RetireLocator(locator.id()),
         Command::AddIdentifier(attachment.clone()),
         Command::RemoveIdentifier(attachment),
@@ -155,5 +156,18 @@ fn proposal_feature_normalization_never_drops_or_invents_a_requirement() {
             .digest()
             .unwrap(),
         original.digest().unwrap()
+    );
+}
+
+#[test]
+fn unknown_confirmation_versions_are_explicitly_unsupported() {
+    let document = Document::parse(
+        br#"{"kind":"locator.confirm.v2","locator":null}"#,
+        Limits::default(),
+    )
+    .unwrap();
+    assert_eq!(
+        Command::from_document(&document).unwrap_err().kind(),
+        FailureKind::Unsupported
     );
 }

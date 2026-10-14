@@ -873,6 +873,22 @@ impl<'production> SqliteTransaction<'production> {
         Ok(())
     }
 
+    /// Confirms a read-bound location without duplicating an existing identity.
+    ///
+    /// Existing resource/URI/naming identity is a guarded no-op and retains its
+    /// recorded annotations. Returns true only for a newly added location.
+    /// # Errors
+    /// Rejects absent decision bases, invalid resources and storage errors.
+    pub fn confirm_locator(&mut self, locator: &Locator) -> Result<bool> {
+        self.require_decision_base()?;
+        if locator_exists(self.open_transaction()?, locator)? {
+            self.record_observation_guard(SemanticConflictKey::LocatorSet(locator.resource_id()))?;
+            return Ok(false);
+        }
+        self.add_locator(locator)?;
+        Ok(true)
+    }
+
     /// Stages retirement of a superseded locator.
     ///
     /// Requires a decision base; early rejection leaves the transaction open.
@@ -2649,6 +2665,10 @@ impl ProductionStoreTransaction for SqliteTransaction<'_> {
         SqliteTransaction::add_locator(self, locator)
     }
 
+    fn confirm_locator(&mut self, locator: &Locator) -> Result<bool> {
+        SqliteTransaction::confirm_locator(self, locator)
+    }
+
     fn retire_locator(&mut self, locator_id: LocatorId) -> Result<()> {
         SqliteTransaction::retire_locator(self, locator_id)
     }
@@ -3151,6 +3171,28 @@ pub(crate) fn persist_content_structure(
 /// A locator of an image-sequence resource must carry a naming and no other
 /// locator may. A resource's locators are unique by URI and naming, so one
 /// directory may be recorded under two namings.
+fn locator_exists(transaction: &Transaction<'_>, locator: &Locator) -> Result<bool> {
+    let naming = locator.sequence_naming();
+    transaction
+        .query_row(
+            "SELECT EXISTS(
+                SELECT 1 FROM locators l
+                LEFT JOIN locator_sequence_namings n ON n.locator_id = l.id
+                WHERE l.resource_id = ?1 AND l.uri = ?2
+                  AND n.prefix IS ?3 AND n.suffix IS ?4 AND n.padding IS ?5
+             )",
+            params![
+                locator.resource_id().as_bytes().as_slice(),
+                locator.uri(),
+                naming.map(SequenceNaming::prefix),
+                naming.map(SequenceNaming::suffix),
+                naming.map(SequenceNaming::padding),
+            ],
+            |row| row.get(0),
+        )
+        .map_err(sqlite_error("check duplicate resource locator"))
+}
+
 pub(crate) fn persist_locator(transaction: &Transaction<'_>, locator: &Locator) -> Result<()> {
     let resource_id = *locator.resource_id().as_bytes();
     let sequence_resource: bool = transaction
@@ -3171,24 +3213,7 @@ pub(crate) fn persist_locator(transaction: &Transaction<'_>, locator: &Locator) 
             },
         ));
     }
-    let duplicate: bool = transaction
-        .query_row(
-            "SELECT EXISTS(
-                SELECT 1 FROM locators l
-                LEFT JOIN locator_sequence_namings n ON n.locator_id = l.id
-                WHERE l.resource_id = ?1 AND l.uri = ?2
-                  AND n.prefix IS ?3 AND n.suffix IS ?4 AND n.padding IS ?5
-             )",
-            params![
-                resource_id.as_slice(),
-                locator.uri(),
-                naming.map(SequenceNaming::prefix),
-                naming.map(SequenceNaming::suffix),
-                naming.map(SequenceNaming::padding),
-            ],
-            |row| row.get(0),
-        )
-        .map_err(sqlite_error("check duplicate resource locator"))?;
+    let duplicate = locator_exists(transaction, locator)?;
     if duplicate {
         return Err(Error::new(
             ErrorKind::AlreadyExists,
