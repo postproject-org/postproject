@@ -22,6 +22,10 @@ changes atomic or replace host association/generation checks.
 
 Keep explicit locator confirmation for independently reviewed or manually
 supplied locations; it has a distinct policy and does not assert verification.
+Host-specific sampled policies remain explicit: Kdenlive additionally checks
+its own clip hash; Blender may reuse an already recorded sampled file address;
+sequence pilots require complete frames before accepting sampled collection
+evidence. None of these cases is a fully verified SDK selection.
 Batch resolution and all diagnostics remain available. Native resolution
 captures its decision and storage inputs from one coherent view, then releases
 the view before scanning or hashing.
