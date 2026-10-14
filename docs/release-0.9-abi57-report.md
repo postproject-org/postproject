@@ -47,7 +47,7 @@ runnable qualified-0.9 before/current after programs. The
 baselines, new samples, hashes and explicit allocation/timing limits.
 
 Strict selection rejects sampled-only evidence. The hosts retain explicit
-policies: Kdenlive also checks its clip hash, Blender can reuse an already
+policies: Kdenlive also checks its clip hash, Blender and Ardour can reuse an already
 recorded sampled file address, and sequence pilots require complete frames
 before accepting sampled collection evidence. These policies do not establish
 full-content verification. No helper guarantees filesystem atomicity.
