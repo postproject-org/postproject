@@ -34,7 +34,7 @@ int main(int argc, char **argv) {
     pp_activity_id_t activity;
     status = pp_transaction_register_outputs(edit, outputs, 2, &recipe,
                                              identities, &activity, &error);
-    pp_commit_receipt_t receipt;
+    pp_commit_receipt_t receipt = {0};
     if (status == PP_OK) status = pp_transaction_commit(edit, &receipt, &error);
     /* All returned identities become durable together after explicit commit. */
     /* [/register-outputs] */
