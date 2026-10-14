@@ -4,16 +4,21 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
+from uuid import uuid4
 
 from postproject import (
     ActivityRef,
     ActivitySpec,
+    ClientId,
+    CommitReceipt,
     FileResourceInput,
     IoError,
     MetadataI64,
+    MetadataU64,
     PackageSource,
     Production,
     RepresentationKind,
+    RequestId,
     ToolIdentity,
 )
 
@@ -125,6 +130,55 @@ class OutputRegistrationTests(unittest.TestCase):
                     {edge.role for edge in activity.outputs}, {None, "example:master"}
                 )
                 self.assertEqual(len(production.metadata[ActivityRef(activity.id)]), 2)
+
+    def test_output_task_captures_complete_proposal_and_replays_without_media_io(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            file = root / "render.dat"
+            file.write_bytes(b"produced output")
+            with Production.create(
+                root / "authority.pproj", library_path=LIBRARY
+            ) as authority:
+                saved = authority.export_checkpoint(root / "checkpoint")
+                with authority.edit() as edit:
+                    registered = edit.register_outputs(
+                        ((None, RepresentationKind.ORIGINAL, file),),
+                        ActivitySpec(
+                            "unknown:Exact-generation",
+                            parameters=(
+                                (("unknown:Recipe", "exact"), MetadataU64(2**64 - 1)),
+                                (("unknown:Recipe", "exact"), b"opaque\x00bytes"),
+                            ),
+                        ),
+                    )
+                    proposal = edit.prepare_proposal(
+                        ClientId(uuid4()), RequestId(uuid4())
+                    )
+                self.assertEqual(authority.activities, ())
+                with proposal:
+                    accepted = authority.submit_proposal(proposal)
+                    self.assertIsInstance(accepted.outcome.status, CommitReceipt)
+                    again = authority.submit_proposal(proposal)
+                    self.assertEqual(again.outcome.document, accepted.outcome.document)
+                through = authority.export_changes(saved, root / "changes")
+                file.unlink()  # Catch-up replays recorded facts, never fingerprints files.
+                with Production.import_checkpoint(
+                    root / "checkpoint", root / "mirror.pproj", library_path=LIBRARY
+                ) as mirror:
+                    self.assertEqual(mirror.apply_changes(root / "changes"), through)
+                    self.assertEqual(mirror.activities, authority.activities)
+                    target = ActivityRef(registered.activity_id)
+                    self.assertEqual(
+                        mirror.metadata[target], authority.metadata[target]
+                    )
+                    self.assertEqual(len(mirror.metadata[target]), 2)
+                    output = registered.outputs[0]
+                    self.assertEqual(
+                        mirror.representation(output.representation_id).asset_id,
+                        output.asset_id,
+                    )
 
     def test_late_media_failure_preserves_an_open_unchanged_edit(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
