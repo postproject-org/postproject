@@ -2208,13 +2208,21 @@ struct RepresentationResolution final {
   RepresentationAvailability availability;
   std::vector<ResourceResolution> resources;
   std::vector<AvailabilityIssue> issues;
-  // Copied native selection or its diagnostic; no result handle is retained.
-  Result<RelinkSelection> verified_selection =
-      Error(ErrorCode::conflict, "resolution has no verified selection");
+
+  RepresentationResolution(AssetId asset, RepresentationId representation,
+      RepresentationAvailability available, std::vector<ResourceResolution> resolved,
+      std::vector<AvailabilityIssue> diagnostics,
+      Result<RelinkSelection> selected = Error(ErrorCode::conflict, "resolution has no verified selection"))
+      : asset_id(asset), representation_id(representation), availability(available),
+        resources(std::move(resolved)), issues(std::move(diagnostics)),
+        verified_selection_(std::move(selected)) {}
 
   [[nodiscard]] Result<RelinkSelection> selectVerified() const {
-    return verified_selection;
+    return verified_selection_;
   }
+
+private:
+  Result<RelinkSelection> verified_selection_;
 };
 
 namespace detail {
