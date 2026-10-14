@@ -96,6 +96,9 @@ def main() -> None:
         raise SystemExit("Sphinx series does not match the workspace version")
     ffi = (ROOT / "crates/postproject-ffi/src/lib.rs").read_text(encoding="utf-8")
     abi = _capture(ffi, r"pub const ABI_VERSION: u32 = (\d+);")
+    policy = (ROOT / "docs/abi-policy.md").read_text(encoding="utf-8")
+    if _capture(policy, r"ABI version (\d+) is pre-release") != abi:
+        raise SystemExit("ABI policy does not match the native ABI version")
     if _capture(sphinx, r'html_title = f"PostProject \{release\} · ABI (\d+)"') != abi:
         raise SystemExit("Sphinx title does not match the C ABI version")
     errors = documented_package_errors(ROOT, rust_version, python_version)
