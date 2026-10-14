@@ -1,0 +1,94 @@
+{
+  "sdk_package": "0.9.0-alpha.1",
+  "python": "0.9.0a1",
+  "abi": 57,
+  "exports": 344,
+  "layouts": 45,
+  "schema": 27,
+  "exchange_framing": 1,
+  "cli_json": 1,
+  "state": "Local implementation complete; final integrated qualification pending",
+  "repositories": [
+    {
+      "repository": "postproject",
+      "source_commit": "6b3f075676ad2ce83e76c0df6b68242043943ee8",
+      "update": "Implement canonical import/lookup/relink/output/edit APIs, complete native metadata reads, migrate installed examples and refresh qualification/packages.",
+      "qualification": "Six local gates, exact Rust 1.85 tests/doctests, nine installed native contracts and sanitizer contracts, 344 symbols/45 layouts, installed Python 3.11/3.14 (157 tests), fifteen wrong-ID checks, 96 examples and strict docs pass. Final platform CI pending."
+    },
+    {
+      "repository": "postproject-ardour",
+      "source_commit": "5178df2f012de624aa8f5fc2d511d20a375bfcf3",
+      "update": "Migrate native edit and audio selection calls; regenerate complete patches and qualify with/without SDK builds.",
+      "qualification": "Complete five-patch replacement at pinned 9.8; installed resolver passes with verified selection. Current full with/without-SDK and macOS CI qualification is being reconciled."
+    },
+    {
+      "repository": "postproject-blender",
+      "source_commit": "35f77c087e020582b1d3ccf41d610ef80660183e",
+      "update": "Use path lookup, imported representation IDs and atomic output/activity staging; preserve generation guards and both handoffs.",
+      "qualification": "Stable 5.2.2 local host tests pass (24 plus one future-host skip). Copied choices and original-base confirmation preserve host association checks. Sampled evidence for already recorded addresses is explicit; final handoff and CI pending. Optional beta 346d005c9994 fails two fixtures."
+    },
+    {
+      "repository": "postproject-cpp-nle",
+      "source_commit": "4db7c8ee9b044d4cf34f04e1b9fcc523fb8bca3c",
+      "update": "Use unified C++ edits and copied metadata/lookup values; qualify the installed Result and exception workflows.",
+      "qualification": "Installed C++ editor contract passes against ABI 57; paired imported identities and creation-time edits used directly."
+    },
+    {
+      "repository": "postproject-kdenlive",
+      "source_commit": "d5f6a8196e757cdca006023f057bfd0981b7318e",
+      "update": "Migrate relink/proxy activity and edit calls; regenerate complete patches and qualify both builds and the shared handoff.",
+      "qualification": "Complete ten-patch replacement applies to 26.08.2. Verified selection plus explicit sampled/host-hash policy; full local build/test and current host CI pending."
+    },
+    {
+      "repository": "postproject-natron",
+      "source_commit": "785e9bddf2af1513dd676d28deeaeabbd5499d33",
+      "update": "Migrate native edit/sequence selection calls; retain obsolete-generation rejection and plugin-free renderer checks.",
+      "qualification": "Installed native contract and actual 2.5.0 renderer normal/negative/plugin-free checks pass. Copied selection retains base and generation checks; sampled sequence evidence requires complete coverage."
+    },
+    {
+      "repository": "postproject-obs",
+      "source_commit": "89ded61fa0f179a1930f9e82eef0a4509ed1c433",
+      "update": "Migrate C import/edit results and output attribution; qualify finalization, cleanup, ambiguity and Blender handoff.",
+      "qualification": "Two installed native contracts, all eight real 32.2.2 scenarios and Blender handoff pass. Capture output/activity/metadata commit atomically; repair of older partial capture facts remains explicit."
+    },
+    {
+      "repository": "postproject-openassetio",
+      "source_commit": "f2a3c71fcaedf46fa340ef96f58d80233038f8aa",
+      "update": "Migrate imported identities and canonical metadata/lookup inputs; qualify supported installed API combinations.",
+      "qualification": "Installed OpenAssetIO 1.0.2/MediaCreation a13 validation passes against current ABI-57 wheel."
+    },
+    {
+      "repository": "postproject-openassetio-manager",
+      "source_commit": "0eda003d5d4fcebc39819fed09bb3e5d0cb9f2fb",
+      "update": "Migrate atomic publishing and typed metadata/lookup reads; refresh installed Manager/Nuke preparation evidence.",
+      "qualification": "Delivered 0.6.0 wheel: nine tests pass with both 1.0.2/a13 and bundled 1.0.0/a12 dependencies. Native metadata scalars and jobs/exchange modules used directly; licensed Nuke not executed."
+    },
+    {
+      "repository": "postproject-otio-demo",
+      "source_commit": "940e048648079df47a88c9411f30c177a6d5ff20",
+      "update": "Migrate import and Manager publishing examples; refresh packaged walkthrough and dependency bounds.",
+      "qualification": "Delivered 0.4.0 wheel passes installed Manager composition with pinned ee762d7 linker; its upstream unversioned-trait warning remains."
+    },
+    {
+      "repository": "postproject-otio-openassetio",
+      "source_commit": "c084c66285512f9403399747ad51510b9ccb37e8",
+      "update": "Migrate import and reference selection; qualify installed editorial round trips and dependency bounds.",
+      "qualification": "Installed composition passes with pinned linker; existing upstream deprecation warning remains."
+    },
+    {
+      "repository": "postproject-python-host",
+      "source_commit": "8e5a4edc6945e4f3d86a3673c917b427aacd2c9f",
+      "update": "Migrate import, adoption and output recipes with precise ID hints; qualify the installed host and revision scans.",
+      "qualification": "Installed sample host contract passes, retaining imported asset/representation IDs."
+    },
+    {
+      "repository": "postproject.org",
+      "source_commit": "f823e7f1eb5b304c1c644fa463a629a2db7f7032",
+      "update": "Preserve current theme work; link asset-reuse and affected-render scenarios and refresh factual installation/support claims.",
+      "qualification": "f823e7f scenarios and theme are unchanged; original six light/dark/mobile/keyboard previews remain source-scoped. Current four tests pass; deployment and live byte comparison pending."
+    }
+  ],
+  "native_library_sha256": "e00718d6dba929bcd34c88ff4beb466cacd087c3dc0cadc2304d12c59e982b45",
+  "wheel_sha256": "bcc2c431b6c4fa5e9bacf6b8d867569c5aefa58337d6bb8c19eac05a4d84078f",
+  "blender_extension_sha256": "b26fc7ae197ee82c0ecae71bd0c33cf3790bdb8da6ee73416c288a3b0adce51f"
+}
