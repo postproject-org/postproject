@@ -25,7 +25,9 @@ attribution (ADR 0080), removing revision-only constructors and context setters.
 It has 341 exports and 39 public layouts.
 ABI 56 stages output sources, producing activities and parameters as one task
 and shares a borrowed activity recipe with lower-level activity creation
-(ADR 0081). It has 342 exports and 43 public layouts. `PP_ABI_VERSION` is the
+(ADR 0081). It has 342 exports and 43 public layouts. ABI 57 adds coherent verified relink selections and atomic
+location staging (ADR 0082): 344 exports and 45 public layouts.
+`PP_ABI_VERSION` is the
 header expectation; native and Python loaders reject other ABI versions.
 Single files stage directly from paths; compound sources retain explicit
 structure inputs; the single commit operation requires its receipt output

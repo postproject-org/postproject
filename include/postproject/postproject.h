@@ -4,7 +4,7 @@
 #include <stdint.h>
 
 /** ABI expected by these declarations; check pp_abi_version before use. */
-#define PP_ABI_VERSION UINT32_C(56)
+#define PP_ABI_VERSION UINT32_C(57)
 
 #if defined(_WIN32) && defined(POSTPROJECT_SHARED)
 #if defined(POSTPROJECT_BUILDING_LIBRARY)
@@ -725,6 +725,24 @@ typedef struct pp_sequence_naming {
   const char *suffix;
   uint8_t padding;
 } pp_sequence_naming_t;
+
+/** One location; strings returned by selection borrow the resolution set. */
+typedef struct pp_relink_location {
+  pp_resource_id_t resource_id;
+  const char *uri;
+  const char *media_root;
+  uint8_t has_sequence_naming;
+  pp_sequence_naming_t sequence_naming;
+} pp_relink_location_t;
+
+/** Copied decision with a borrowed caller-owned location array. */
+typedef struct pp_relink_selection {
+  pp_decision_base_t base;
+  pp_representation_id_t representation_id;
+  const pp_relink_location_t *locations;
+  uint64_t location_count;
+} pp_relink_selection_t;
+
 
 typedef uint32_t pp_error_code_t;
 
@@ -1962,6 +1980,24 @@ PP_API pp_error_code_t pp_transaction_remove_media_root(
  * required for a resource that is an image sequence and must be NULL for any
  * other; commit rejects a mismatch. A resource may hold one directory under
  * several namings. */
+/** Select verified complete required content with no additional media I/O.
+ * Capacity must cover the selected locations; resource count is an upper bound.
+ * Failure clears out_selection and leaves location slots untouched. Returned
+ * strings borrow resolutions until release. Optional unverified members remain
+ * in diagnostics and are omitted. Incomplete searches cannot be selected.
+ */
+PP_API pp_error_code_t pp_resolution_set_select_verified(
+    const pp_resolution_set_t *resolutions, uint64_t representation_index,
+    pp_relink_location_t *locations, uint64_t capacity,
+    pp_relink_selection_t *out_selection, pp_error_t **out_error);
+/** Copy every location into an edit carrying the selection's original base.
+ * Failure leaves staged work unchanged; commit remains explicit. Selection and
+ * all buffers are borrowed only during this call. Files are not rechecked.
+ */
+PP_API pp_error_code_t pp_transaction_confirm_selection(
+    pp_transaction_t *transaction, const pp_relink_selection_t *selection,
+    pp_error_t **out_error);
+
 PP_API pp_error_code_t pp_transaction_confirm_locator(
     pp_transaction_t *transaction, pp_resource_id_t resource_id,
     const char *uri, const char *root_name,

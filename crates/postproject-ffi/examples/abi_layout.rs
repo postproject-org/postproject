@@ -6,9 +6,9 @@ use postproject::{
     PpExchangeLimits, PpExchangePosition, PpExchangeState, PpFileResourceInput, PpHistoryId, PpJob,
     PpJobClaim, PpJobCompletion, PpJobId, PpLocatorId, PpMediaRootId, PpObjectRef,
     PpOutputIdentity, PpOutputSource, PpPrivateLeaseToken, PpProductionId, PpProtocolBase,
-    PpRepresentationId, PpRequestId, PpRequestIdentity, PpResolutionConfig, PpResourceId,
-    PpRevisionEvent, PpRevisionId, PpRootMapping, PpSequenceNaming, PpTransactionConflict,
-    PpTransactionId, PpUuid,
+    PpRelinkLocation, PpRelinkSelection, PpRepresentationId, PpRequestId, PpRequestIdentity,
+    PpResolutionConfig, PpResourceId, PpRevisionEvent, PpRevisionId, PpRootMapping,
+    PpSequenceNaming, PpTransactionConflict, PpTransactionId, PpUuid,
 };
 use std::mem::{align_of, offset_of, size_of};
 
@@ -291,6 +291,23 @@ fn main() {
         prefix,
         suffix,
         padding
+    );
+    layout!(
+        PpRelinkLocation,
+        "pp_relink_location_t",
+        resource_id,
+        uri,
+        media_root,
+        has_sequence_naming,
+        sequence_naming
+    );
+    layout!(
+        PpRelinkSelection,
+        "pp_relink_selection_t",
+        base,
+        representation_id,
+        locations,
+        location_count
     );
     layout!(
         PpEditContext,

@@ -288,6 +288,7 @@ pp_resolution_set_get_resource_evidence
 pp_resolution_set_get_resource_state
 pp_resolution_set_release
 pp_resolution_set_representation_count
+pp_resolution_set_select_verified
 pp_resource_id_format
 pp_resource_id_parse
 pp_revision_event_set_count
@@ -318,6 +319,7 @@ pp_transaction_claim_job_lease
 pp_transaction_commit
 pp_transaction_complete_job_lease
 pp_transaction_confirm_locator
+pp_transaction_confirm_selection
 pp_transaction_create_activity
 pp_transaction_fail_job_lease
 pp_transaction_id_format

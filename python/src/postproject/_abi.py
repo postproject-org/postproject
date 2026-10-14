@@ -301,6 +301,14 @@ class SequenceNaming(ctypes.Structure):
     pass
 
 
+class RelinkLocation(ctypes.Structure):
+    pass
+
+
+class RelinkSelection(ctypes.Structure):
+    pass
+
+
 class EditContext(ctypes.Structure):
     pass
 
@@ -340,7 +348,7 @@ ContentVerification = ctypes.c_uint32
 ContentObservation = ctypes.c_uint32
 
 
-PP_ABI_VERSION = 56
+PP_ABI_VERSION = 57
 PP_COMMIT_NO_CHANGE = 0
 PP_COMMIT_REVISION_CREATED = 1
 PP_EXCHANGE_AUTHORITY = 1
@@ -834,6 +842,21 @@ SequenceNaming._fields_ = [
     ("padding", ctypes.c_uint8),
 ]
 
+RelinkLocation._fields_ = [
+    ("resource_id", ResourceId),
+    ("uri", ctypes.c_char_p),
+    ("media_root", ctypes.c_char_p),
+    ("has_sequence_naming", ctypes.c_uint8),
+    ("sequence_naming", SequenceNaming),
+]
+
+RelinkSelection._fields_ = [
+    ("base", DecisionBase),
+    ("representation_id", RepresentationId),
+    ("locations", ctypes.POINTER(RelinkLocation)),
+    ("location_count", ctypes.c_uint64),
+]
+
 EditContext._fields_ = [
     ("origin_name", ctypes.c_char_p),
     ("origin_version", ctypes.c_char_p),
@@ -899,6 +922,8 @@ PUBLIC_STRUCTS = {
     "pp_artifact_reproducibility_issue_t": (ArtifactReproducibilityIssue, ("kind", "activity_id", "representation_id", "activity_count")),
     "pp_file_resource_input_t": (FileResourceInput, ("path", "role", "required")),
     "pp_sequence_naming_t": (SequenceNaming, ("prefix", "suffix", "padding")),
+    "pp_relink_location_t": (RelinkLocation, ("resource_id", "uri", "media_root", "has_sequence_naming", "sequence_naming")),
+    "pp_relink_selection_t": (RelinkSelection, ("base", "representation_id", "locations", "location_count")),
     "pp_edit_context_t": (EditContext, ("origin_name", "origin_version", "origin_uri", "message")),
     "pp_root_mapping_t": (RootMapping, ("name", "directory")),
     "pp_resolution_config_t": (ResolutionConfig, ("root_mappings", "root_mapping_count", "search_directories", "search_directory_count", "verification", "max_depth", "max_entries_per_directory", "cancel_token")),
@@ -1196,6 +1221,7 @@ EXPORTED_SYMBOLS = (
     "pp_resolution_set_get_resource_state",
     "pp_resolution_set_release",
     "pp_resolution_set_representation_count",
+    "pp_resolution_set_select_verified",
     "pp_resource_id_format",
     "pp_resource_id_parse",
     "pp_revision_event_set_count",
@@ -1226,6 +1252,7 @@ EXPORTED_SYMBOLS = (
     "pp_transaction_commit",
     "pp_transaction_complete_job_lease",
     "pp_transaction_confirm_locator",
+    "pp_transaction_confirm_selection",
     "pp_transaction_create_activity",
     "pp_transaction_fail_job_lease",
     "pp_transaction_id_format",
@@ -1878,6 +1905,10 @@ def configure_api(lib: ctypes.CDLL) -> None:
     lib.pp_transaction_set_media_root_enabled.restype = ErrorCode
     lib.pp_transaction_remove_media_root.argtypes = [ctypes.POINTER(Transaction), MediaRootId, ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_transaction_remove_media_root.restype = ErrorCode
+    lib.pp_resolution_set_select_verified.argtypes = [ctypes.POINTER(ResolutionSet), ctypes.c_uint64, ctypes.POINTER(RelinkLocation), ctypes.c_uint64, ctypes.POINTER(RelinkSelection), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_resolution_set_select_verified.restype = ErrorCode
+    lib.pp_transaction_confirm_selection.argtypes = [ctypes.POINTER(Transaction), ctypes.POINTER(RelinkSelection), ctypes.POINTER(ctypes.POINTER(Error))]
+    lib.pp_transaction_confirm_selection.restype = ErrorCode
     lib.pp_transaction_confirm_locator.argtypes = [ctypes.POINTER(Transaction), ResourceId, ctypes.c_char_p, ctypes.c_char_p, ctypes.POINTER(SequenceNaming), ctypes.POINTER(ctypes.POINTER(Error))]
     lib.pp_transaction_confirm_locator.restype = ErrorCode
     lib.pp_transaction_retire_locator.argtypes = [ctypes.POINTER(Transaction), LocatorId, ctypes.POINTER(ctypes.POINTER(Error))]
