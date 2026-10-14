@@ -12,13 +12,14 @@ acceptance and upstream endorsement are not claimed.
 | [Kdenlive](https://github.com/postproject-org/postproject-kdenlive/blob/main/ADOPTION.md) | Record clips and recover missing media | Optional source patches for 26.08.2; full Linux builds/tests pass with and without the SDK |
 | [OBS recording pilot](https://github.com/postproject-org/postproject-obs) | Register a finalized recording's identity and capture facts | Installed C SDK and optional frontend plugin; eight real OBS 32.2.2/Linux scenarios pass |
 | [Natron](https://github.com/postproject-org/postproject-natron) | Resolve a compact image sequence into an ordinary Reader | Native source module for 2.5.0; normal/negative renders and plugin-free fallback pass on Linux |
-| [Ardour](https://github.com/postproject-org/postproject-ardour) | Recover renamed audio by content | Optional source patches for pinned 9.8; installed resolver passes; full current builds await CI dependencies |
+| [Ardour](https://github.com/postproject-org/postproject-ardour) | Recover renamed audio by content | Optional source patches for pinned 9.8; full Linux builds with/without SDK and installed macOS resolver pass |
 | [OpenAssetIO Manager](https://github.com/postproject-org/postproject-openassetio-manager) | Resolve a recorded entity reference through a standard host interface | Manager 0.6.0 with SDK 0.9.0a1; isolated installed-package tests pass |
 | [OTIO demo](https://github.com/postproject-org/postproject-otio-demo) | Resolve a timeline's references through the Manager | Demo 0.4.0 with the matching Manager/SDK; installed demo passes |
 | [Nuke trial](https://github.com/postproject-org/postproject-openassetio-manager/blob/main/docs/nuke-trial.md) | Save and relocate one managed Read sequence | Nuke 17.0v1 preparation passes; licensed host execution is not executed |
 
-Other desktop platforms are source/build routes until their current installed
-SDK and pilot jobs pass. A wheel tag alone does not establish host support.
+SDK installed-package checks pass on Linux, macOS and Windows. Each pilot
+retains its own host/platform scope; a wheel tag alone does not establish host
+support. Optional Blender 5.3 beta fails two fixtures and is not qualified.
 Use each pilot repository's issues for experimental support and its stated
 removal or disabled-plugin fallback.
 

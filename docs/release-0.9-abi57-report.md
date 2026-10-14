@@ -4,7 +4,7 @@ Prepared `0.9.0-alpha.1`, Python `0.9.0a1`, C ABI **57 / 344 exports /
 45 layouts**, schema **27**, exchange framing **1** and CLI JSON **1**.
 This revised candidate is unpublished. The original
 {doc}`ABI-53 report <release-0.9-report>` and nineteen-artifact set retain
-their historical scope. Current integrated CI is still being reconciled below.
+their historical scope. All required integrated checks pass for the source and scope below.
 
 ## Delivered workflows
 
@@ -39,7 +39,7 @@ executable or deterministic reproduction.
 | Packages | Installed Manager 0.6.0 and demo 0.4.0; Manager nine tests on both supported OpenAssetIO dependency sets |
 | Real hosts | Blender 5.2.2: 24 passed/one future-host skip; all eight OBS 32.2.2 scenarios; Natron 2.5.0 normal/negative/plugin-free renderer |
 | Native pilots | Ardour 9.8 installed resolver; complete Kdenlive 26.08.2 build and two test suites |
-| Shared production | Kdenlive → Blender → Manager passes identity, output, relocation, conflict and staleness checks; final OBS → Blender fixture is being refreshed |
+| Shared production | Both OBS → Blender and Kdenlive → Blender → Manager pass identity, relocation, output, conflict and staleness checks |
 
 The {doc}`five-task comparison <release-0.9-workflow-comparison>` preserves
 runnable qualified-0.9 before/current after programs. The
@@ -60,11 +60,18 @@ come from SDK `9bb89993`; subsequent SDK changes record evidence, format tools,
 initialize a C example receipt, strengthen version checking and improve test
 assertion diagnostics. They do not change native or Python runtime bytes.
 
-SDK `4c6c0563` CI 38628074732 currently has fifteen successful jobs; Windows
-workspace testing remains running. Downstream 38628076081 and full Kdenlive
-38628074380 are still running. Stable Blender and lint pass in 38628064357;
-the optional 5.3 beta job fails. These are individual job conclusions, not
-inferences from workflow summaries. Final complete records remain pending.
+| Pipeline and source | Individual conclusions |
+|---|---|
+| [SDK 38628074732](https://github.com/postproject-org/postproject/actions/runs/38628074732), `4c6c0563` | All 16 jobs pass, including Linux/macOS/Windows, installed packages, glibc-2.28 wheel, MSRV, sanitizers and strict docs/links |
+| [Downstream 38628076081](https://github.com/postproject-org/postproject/actions/runs/38628076081), `4c6c0563` | All 11 jobs pass, including full Ardour with/without SDK and both Manager dependency sets |
+| [Kdenlive 38628074380](https://github.com/postproject-org/postproject/actions/runs/38628074380), `d5f6a81` | Full with/without-SDK builds, tests and handoff pass |
+| [Blender 38628064357](https://github.com/postproject-org/postproject/actions/runs/38628064357), `35f77c0` | Stable 5.2.2 and lint pass; optional 5.3 beta fails |
+
+The {download}`individual job record <evidence/release-0.9/abi57-ci.json>`
+retains exact inputs and conclusions. Earlier formatting, current-Clippy and
+MSVC example failures were corrected; failed runs remain in the record.
+Final report/checksum edits reuse these checks with an explicit source comparison;
+strict documentation and deployment are checked for the final records.
 
 ## Distribution and limits
 

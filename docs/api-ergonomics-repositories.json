@@ -387,7 +387,7 @@
       "cli_json": 1,
       "consumer_record": "evidence/release-0.9/abi57-consumers.json",
       "comparison": "release-0.9-workflow-comparison.md",
-      "state": "Canonical APIs implemented across all surfaces. Final qualification and review artifacts in progress; historical records above retain their original scope."
+      "state": "Required integrated qualification complete at 4c6c0563: SDK 16/16, downstream 11/11, Kdenlive both full builds and handoff; stable Blender/lint pass, optional beta failed and recorded. Final metadata/docs deployment and prepared artifact hashes are separate."
     }
   }
 }

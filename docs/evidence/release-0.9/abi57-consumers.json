@@ -7,25 +7,25 @@
   "schema": 27,
   "exchange_framing": 1,
   "cli_json": 1,
-  "state": "Local implementation complete; final integrated qualification pending",
+  "state": "Required local and integrated qualification complete; final documentation deployment and artifact records remain separate",
   "repositories": [
     {
       "repository": "postproject",
-      "source_commit": "6b3f075676ad2ce83e76c0df6b68242043943ee8",
+      "source_commit": "3dd5f6925a19a4d35710204845bf801ef529c746",
       "update": "Implement canonical import/lookup/relink/output/edit APIs, complete native metadata reads, migrate installed examples and refresh qualification/packages.",
-      "qualification": "Six local gates, exact Rust 1.85 tests/doctests, nine installed native contracts and sanitizer contracts, 344 symbols/45 layouts, installed Python 3.11/3.14 (157 tests), fifteen wrong-ID checks, 96 examples and strict docs pass. Final platform CI pending."
+      "qualification": "Six local gates, exact Rust 1.85 tests/doctests, nine installed native contracts and sanitizer contracts, 344 symbols/45 layouts, installed Python 3.11/3.14 (157 tests), fifteen wrong-ID checks, 96 examples and strict docs pass. All sixteen SDK CI jobs pass at 4c6c0563 (38628074732)."
     },
     {
       "repository": "postproject-ardour",
       "source_commit": "5178df2f012de624aa8f5fc2d511d20a375bfcf3",
       "update": "Migrate native edit and audio selection calls; regenerate complete patches and qualify with/without SDK builds.",
-      "qualification": "Complete five-patch replacement at pinned 9.8; installed resolver passes with verified selection. Current full with/without-SDK and macOS CI qualification is being reconciled."
+      "qualification": "Complete five-patch replacement at pinned 9.8; installed resolver passes with verified selection. Full with/without-SDK Linux and installed macOS checks pass (38628076081)."
     },
     {
       "repository": "postproject-blender",
       "source_commit": "35f77c087e020582b1d3ccf41d610ef80660183e",
       "update": "Use path lookup, imported representation IDs and atomic output/activity staging; preserve generation guards and both handoffs.",
-      "qualification": "Stable 5.2.2 local host tests pass (24 plus one future-host skip). Copied choices and original-base confirmation preserve host association checks. Sampled evidence for already recorded addresses is explicit; final handoff and CI pending. Optional beta 346d005c9994 fails two fixtures."
+      "qualification": "Stable 5.2.2 local tests pass (24 plus one future-host skip) with final licensed extension. Kdenlive/Blender/Manager handoff passes. Current stable/lint CI passes (38628064357); optional beta remains failed as documented."
     },
     {
       "repository": "postproject-cpp-nle",
@@ -37,7 +37,7 @@
       "repository": "postproject-kdenlive",
       "source_commit": "d5f6a8196e757cdca006023f057bfd0981b7318e",
       "update": "Migrate relink/proxy activity and edit calls; regenerate complete patches and qualify both builds and the shared handoff.",
-      "qualification": "Complete ten-patch replacement applies to 26.08.2. Verified selection plus explicit sampled/host-hash policy; full local build/test and current host CI pending."
+      "qualification": "Complete ten-patch replacement applies to 26.08.2; full local with-SDK build and both document/pilot suites pass. Explicit sampled/host-hash policy preserves large-file recovery. Shared Blender/Manager identity/output/relink/conflict/staleness handoff passes. Both full current CI builds and handoff pass (38628074380)."
     },
     {
       "repository": "postproject-natron",
@@ -47,9 +47,9 @@
     },
     {
       "repository": "postproject-obs",
-      "source_commit": "89ded61fa0f179a1930f9e82eef0a4509ed1c433",
+      "source_commit": "8ed9dd04302b75a828a8bdb08c62ed71c4be4141",
       "update": "Migrate C import/edit results and output attribution; qualify finalization, cleanup, ambiguity and Blender handoff.",
-      "qualification": "Two installed native contracts, all eight real 32.2.2 scenarios and Blender handoff pass. Capture output/activity/metadata commit atomically; repair of older partial capture facts remains explicit."
+      "qualification": "Two installed native contracts, all eight real 32.2.2 scenarios and Blender handoff pass. Capture output/activity/metadata commit atomically; repair of older partial capture facts remains explicit. Fresh final eight-case OBS run and final licensed-extension handoff pass; the fixture now explicitly retains the original representation."
     },
     {
       "repository": "postproject-openassetio",
@@ -85,7 +85,7 @@
       "repository": "postproject.org",
       "source_commit": "f823e7f1eb5b304c1c644fa463a629a2db7f7032",
       "update": "Preserve current theme work; link asset-reuse and affected-render scenarios and refresh factual installation/support claims.",
-      "qualification": "f823e7f scenarios and theme are unchanged; original six light/dark/mobile/keyboard previews remain source-scoped. Current four tests pass; deployment and live byte comparison pending."
+      "qualification": "Unchanged f823e7f theme/scenarios: four source tests and six current rendered desktop/mobile light/dark/auto/keyboard previews pass. Source-scoped deployed bytes are checked separately."
     }
   ],
   "native_library_sha256": "e00718d6dba929bcd34c88ff4beb466cacd087c3dc0cadc2304d12c59e982b45",
