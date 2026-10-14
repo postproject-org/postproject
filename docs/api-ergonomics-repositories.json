@@ -376,6 +376,18 @@
       ],
       "artifacts": "target/workflow-abi55-{install,wheel,blender}; original nineteen-artifact set preserved",
       "publication": "Unpublished. ABI-55 SDK CI 38435192543 (16/16), downstream 38438496529 (11/11), docs 38435192564 and site 38437389375 passed. Optional beta regression was recorded separately; later ABI-55 Blender recheck 38532644648 and Kdenlive recheck 38532006632 exist."
+    },
+    "latest_candidate": {
+      "abi": 57,
+      "exports": 344,
+      "layouts": 45,
+      "package": "0.9.0-alpha.1",
+      "schema": 27,
+      "exchange_framing": 1,
+      "cli_json": 1,
+      "consumer_record": "evidence/release-0.9/abi57-consumers.json",
+      "comparison": "release-0.9-workflow-comparison.md",
+      "state": "Canonical APIs implemented across all surfaces. Final qualification and review artifacts in progress; historical records above retain their original scope."
     }
   }
 }
