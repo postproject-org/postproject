@@ -1,0 +1,25 @@
+{
+  "qualified_source": "4c6c0563d79017226ae89cf0dbd4379ed05d5478",
+  "review_source": "72cf594ac75e3371274970d4aa0d018b413adcaa",
+  "only_changed_paths": [
+    "docs/api-ergonomics-repositories.json",
+    "docs/evidence/release-0.9/abi57-ci.json",
+    "docs/evidence/release-0.9/abi57-consumers.json",
+    "docs/release-0.9-abi57-report.md",
+    "docs/src/project/README.md",
+    "docs/src/project/releases.md",
+    "docs/src/users/integrations.md"
+  ],
+  "runtime_trees": {
+    "Cargo.toml": "827d2101cab3cb8e6cc00c95888da036c8dfa4cb",
+    "Cargo.lock": "8c58f054c8331db12e6379e915742d330c92e7e8",
+    "CMakeLists.txt": "8599f1bf765c5d87e214e7fbd5f13a7461974636",
+    "crates": "7993fce66a9ad4863dcc557d5d3725242c547669",
+    "include": "0555fcf197cbf933a95204f05ff195aa83e34a0d",
+    "python": "32c09f80f15df0c23dd2088f297691de748c1f51",
+    "tools": "043548c8e26ee5bdd3bdd12fe078cc26cddca7fd",
+    "examples": "ec379bdd3c5e7890af607bb47ba8341e1012bfea",
+    "docs/examples": "35895b38fa2431ed72109e74470f4f193cb83ed9"
+  },
+  "scope": "Identical tracked runtime, headers, tools, packaging inputs and executable examples. Only listed documentation and evidence records differ. Final strict docs and deployment are verified separately."
+}

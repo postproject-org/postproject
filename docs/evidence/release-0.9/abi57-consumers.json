@@ -7,13 +7,14 @@
   "schema": 27,
   "exchange_framing": 1,
   "cli_json": 1,
-  "state": "Required local and integrated qualification complete; final documentation deployment and artifact records remain separate",
+  "state": "Required local and integrated qualification complete; deployment/artifact provenance is recorded separately",
   "repositories": [
     {
       "repository": "postproject",
-      "source_commit": "3dd5f6925a19a4d35710204845bf801ef529c746",
+      "source_commit": "4c6c0563d79017226ae89cf0dbd4379ed05d5478",
       "update": "Implement canonical import/lookup/relink/output/edit APIs, complete native metadata reads, migrate installed examples and refresh qualification/packages.",
-      "qualification": "Six local gates, exact Rust 1.85 tests/doctests, nine installed native contracts and sanitizer contracts, 344 symbols/45 layouts, installed Python 3.11/3.14 (157 tests), fifteen wrong-ID checks, 96 examples and strict docs pass. All sixteen SDK CI jobs pass at 4c6c0563 (38628074732)."
+      "qualification": "Six local gates, exact Rust 1.85 tests/doctests, nine installed native contracts and sanitizer contracts, 344 symbols/45 layouts, installed Python 3.11/3.14 (157 tests), fifteen wrong-ID checks, 96 examples and strict docs pass. All sixteen SDK CI jobs pass at 4c6c0563 (38628074732).",
+      "source_scope": "Qualified runtime and input trees; later evidence-only source archives are identified by their artifact manifest."
     },
     {
       "repository": "postproject-ardour",
