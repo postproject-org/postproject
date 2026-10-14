@@ -56,7 +56,10 @@ are recursive and ordered.
 
 Python common inputs use `(vocabulary, property)` keys and native `str`,
 `bool`, signed `int`, `bytes` and `Fraction` values. Mixed children in
-`MetadataList` and `MetadataStruct` follow the same checked conversion.
+Lists and tuples represent one list value; `MetadataStruct` preserves ordered,
+repeated fields. Reads return `str`, `bool`, signed `int`, `bytes`, `Fraction`
+and immutable tuples. Keep explicit tags for unsigned integers, URI/text,
+language strings, timestamps, decimals and typed references.
 Unsigned integers, decimals, timestamps, URIs, language-tagged strings and
 references keep explicit tags. Floats, `None` and plain dictionaries are
 rejected. Reads retain typed values and exact property keys.

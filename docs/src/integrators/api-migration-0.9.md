@@ -130,3 +130,17 @@ incomplete. Unverified optional members remain in diagnostics. Existing
 locations are guarded no-ops. Explicit locator confirmation remains available
 for independent human/host decisions. Deferred intent uses
 `locator.confirm.v1`; older protocol decoders reject that command as unsupported.
+
+### Native Python metadata values
+
+Read and write strings, signed integers, booleans, binary values and exact
+rationals as `str`, `int`, `bool`, `bytes` and `Fraction`. Lists and tuples write
+one list value; reads return immutable tuples. The corresponding
+`MetadataString`, `MetadataI64`, `MetadataBool`, `MetadataBytes`,
+`MetadataRational` and `MetadataList` classes are removed.
+
+Unsigned values keep `MetadataU64`; URI, language, timestamp, decimal, reference
+and ordered structure values remain explicit. Inspect Python types when reading:
+ordinary Python equality equates `True` and `1`, while metadata assertion/field
+equality preserves their distinct stored kinds. Repeated assertions and ordered
+fields retain their meaning. Cycles and unsupported dictionaries are rejected.
