@@ -1,0 +1,146 @@
+{
+  "state": "Prepared and unpublished; no release tags or registry uploads",
+  "package": "0.9.0-alpha.1",
+  "python": "0.9.0a1",
+  "abi": 57,
+  "exports": 344,
+  "layouts": 45,
+  "schema": 27,
+  "exchange_framing": 1,
+  "cli_json": 1,
+  "platform_scope": "Workstation Linux x86_64/glibc 2.43; not a manylinux release",
+  "native_build_source": "9bb8999309071fb7c3963d273dc9809327aa4197",
+  "sdk_source_archive_commit": "e62069df3e90c44c8128c8de49141292c8cfd891",
+  "qualified_sdk_source": "4c6c0563d79017226ae89cf0dbd4379ed05d5478",
+  "native_library_sha256": "e00718d6dba929bcd34c88ff4beb466cacd087c3dc0cadc2304d12c59e982b45",
+  "source_comparison": {
+    "qualified_source": "4c6c0563d79017226ae89cf0dbd4379ed05d5478",
+    "review_source": "e62069df3e90c44c8128c8de49141292c8cfd891",
+    "only_changed_paths": [
+      "docs/api-ergonomics-repositories.json",
+      "docs/evidence/release-0.9/abi57-ci.json",
+      "docs/evidence/release-0.9/abi57-consumers.json",
+      "docs/evidence/release-0.9/abi57-source-comparison.json",
+      "docs/release-0.9-abi57-report.md",
+      "docs/src/project/README.md",
+      "docs/src/project/releases.md",
+      "docs/src/users/integrations.md"
+    ],
+    "runtime_trees": {
+      "Cargo.toml": "827d2101cab3cb8e6cc00c95888da036c8dfa4cb",
+      "Cargo.lock": "8c58f054c8331db12e6379e915742d330c92e7e8",
+      "CMakeLists.txt": "8599f1bf765c5d87e214e7fbd5f13a7461974636",
+      "crates": "7993fce66a9ad4863dcc557d5d3725242c547669",
+      "include": "0555fcf197cbf933a95204f05ff195aa83e34a0d",
+      "python": "32c09f80f15df0c23dd2088f297691de748c1f51",
+      "tools": "043548c8e26ee5bdd3bdd12fe078cc26cddca7fd",
+      "examples": "ec379bdd3c5e7890af607bb47ba8341e1012bfea",
+      "docs/examples": "35895b38fa2431ed72109e74470f4f193cb83ed9"
+    },
+    "scope": "Identical tracked runtime, headers, tools, packaging inputs and executable examples. Only listed documentation and evidence records differ. Final strict docs and deployment are verified separately."
+  },
+  "artifacts": [
+    {
+      "file": "postproject-0.9-abi57-local-evidence.tar.gz",
+      "sha256": "9c1ccfd8a45ac508a32345bfa5233f7c37ee4ce9b6b157d065b1bf1f7ca6185b",
+      "bytes": 51843
+    },
+    {
+      "file": "postproject-0.9.0-alpha.1-abi57-linux-workstation.tar.gz",
+      "sha256": "dbbaeab3a36b250bfd3d6158f1b4687571af0f198ed741fc1ccd483fcbf0d90d",
+      "bytes": 25966036
+    },
+    {
+      "file": "postproject-0.9.0a1-py3-none-linux_x86_64.whl",
+      "sha256": "bcc2c431b6c4fa5e9bacf6b8d867569c5aefa58337d6bb8c19eac05a4d84078f",
+      "bytes": 3589518
+    },
+    {
+      "file": "postproject-ardour-source-5178df2f012d.tar.gz",
+      "sha256": "9ea27a64200428698bd20156ef633709d3a642a5601fbf5a38ab75e166439dc7",
+      "bytes": 17255
+    },
+    {
+      "file": "postproject-blender-source-35f77c087e02.tar.gz",
+      "sha256": "5ad94bb7ef746ab4d050f514841c62d9e9b0b87d900c00dd0e523af2f637d47f",
+      "bytes": 43094
+    },
+    {
+      "file": "postproject-cpp-nle-source-4db7c8ee9b04.tar.gz",
+      "sha256": "c9fa6f2a2e2b902cb1de7875bfe1d94bc4554f6f54624a734d07242a30339473",
+      "bytes": 3007
+    },
+    {
+      "file": "postproject-kdenlive-source-d5f6a8196e75.tar.gz",
+      "sha256": "c4cc91f371b349770f1a70d47d423c398f8d69d6689b17381495c29963bc8a3b",
+      "bytes": 58386
+    },
+    {
+      "file": "postproject-natron-source-785e9bddf2af.tar.gz",
+      "sha256": "44a519c838dfc69140ab2fa8b59416455cd24bc34b6ecc47d4e532fdd146d1c0",
+      "bytes": 28727
+    },
+    {
+      "file": "postproject-obs-source-8ed9dd04302b.tar.gz",
+      "sha256": "61fbe15f861ad8f509cafe66ca1a6833e04f08a0d983fa07be9ae9dc2c903153",
+      "bytes": 26172
+    },
+    {
+      "file": "postproject-openassetio-manager-source-0eda003d5d4f.tar.gz",
+      "sha256": "d2e2a2dbcdba80fec2279071df232d30b30074e13177b954c6b85f5d131acff5",
+      "bytes": 20786
+    },
+    {
+      "file": "postproject-openassetio-source-f2a3c71fcaed.tar.gz",
+      "sha256": "cc5dead5d1f544d24cc222292a93e2f473b5ac057735f291bd6155a3e80f1b52",
+      "bytes": 4653
+    },
+    {
+      "file": "postproject-otio-demo-source-940e04864807.tar.gz",
+      "sha256": "d7bd635694587173f0cc0f87b70e40c0f4a79ab821812ba29a29c137cf57d46d",
+      "bytes": 3875
+    },
+    {
+      "file": "postproject-otio-openassetio-source-c084c6628551.tar.gz",
+      "sha256": "8dec3e5220d26324d5c3b1f941816fcabe15dda4ed39983f6433846d052dae54",
+      "bytes": 3454
+    },
+    {
+      "file": "postproject-python-host-source-8e5a4edc6945.tar.gz",
+      "sha256": "29933b1be3aacfc98ea9c952095a3225aaeb67ce55c79831de9e8047d88ceb7a",
+      "bytes": 2789
+    },
+    {
+      "file": "postproject-source-e62069df3e90.tar.gz",
+      "sha256": "0a14d9af4587ffa41ea64ac97ae07dc4f6755d2db5d886a44c36469365bd7749",
+      "bytes": 2424729
+    },
+    {
+      "file": "postproject.org-source-f823e7f1eb5b.tar.gz",
+      "sha256": "1d34ecc2601276a90a757bbc749707832d077d7b55cdfa69af77f12380cec1fa",
+      "bytes": 366590
+    },
+    {
+      "file": "postproject_openassetio_manager-0.6.0-py3-none-any.whl",
+      "sha256": "78de0db275126b101baa528bcf951dd1852a4b0bd0095742ddbcdf0dc6dcbbe3",
+      "bytes": 13227
+    },
+    {
+      "file": "postproject_otio_demo-0.4.0-py3-none-any.whl",
+      "sha256": "c22ebd592fa1fcafff8e2243a78f37f344427e899a076927766e87845fc1b49c",
+      "bytes": 4319
+    },
+    {
+      "file": "postproject_relink-0.3.0-linux_x64.zip",
+      "sha256": "b26fc7ae197ee82c0ecae71bd0c33cf3790bdb8da6ee73416c288a3b0adce51f",
+      "bytes": 3613110
+    }
+  ],
+  "historical_review": "Original target/review-0.9-final nineteen checksums verified unchanged",
+  "limits": [
+    "Licensed Nuke not executed",
+    "Second independent real worker not executed",
+    "Blender 5.3 beta optional fixtures fail; stable target is 5.2.2",
+    "Pinned upstream OTIO linker emits its existing deprecation warning"
+  ]
+}

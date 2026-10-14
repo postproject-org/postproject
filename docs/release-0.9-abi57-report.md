@@ -80,6 +80,9 @@ relocatable CMake/pkg-config metadata, typed platform wheel, Blender extension,
 Manager/demo wheels and thirteen source archives. Native packages include
 dependency notices. These local Linux artifacts are **workstation builds**;
 the separate glibc-2.28 CI wheel has its own platform qualification.
+The {download}`artifact record <evidence/release-0.9/abi57-artifacts.json>`
+identifies source snapshots, payload hashes and all nineteen prepared files.
+Its manifest and checksums remain outside the archives to avoid self-reference.
 
 Deferred location confirmation uses `locator.confirm.v1`; older experimental
 decoders reject that command explicitly. Schema, existing record encodings and
