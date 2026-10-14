@@ -2,10 +2,10 @@
 
 Baseline: published `v0.8.0-alpha.1`, `7e097bd`, inspected 2026-10-11.
 Python is `0.8.0a1`, C ABI 52 has 349 exports and 36 layouts, schema is 27,
-and exchange protocol is major 1. The local 0.9 development SDK now uses
-Python `0.9.0a1`, ABI 53, 344 exports and 38 layouts. Schema and protocol
-remain unchanged. This record distinguishes implemented changes from pending
-qualification; it does not announce a release.
+and exchange protocol is major 1. The initial qualified 0.9 SDK used ABI 53,
+344 exports and 38 layouts. Current development uses ABI 57 and 45 layouts;
+Python remains `0.9.0a1`, schema 27 and protocol framing 1. The sections below
+identify historical scope and current changes; they do not announce a release.
 
 The [revised workflow design](api-workflow-0.9-design.md) records the additional
 concept and caller review against the qualified `f456958c` candidate. Its
@@ -87,7 +87,8 @@ lease fencing, proposal idempotency, passive replay and complete structured
 errors remain part of full qualification. Removing old names is not proof of
 those semantics.
 
-All 13 consumers use the canonical APIs. ABI 53 installed/native, Python/typing,
+At the initial checkpoint, all 13 repositories used that canonical API.
+ABI 53 installed/native, Python/typing,
 real-host and both-handoff checks pass locally. Clean relocated packages and
 distribution packets are prepared. Kdenlive's stable 26.08.2 upgrade passes
 full builds/tests and the shared handoff. Final-head SDK CI passed all 16 jobs
@@ -108,5 +109,6 @@ are discoverable in explicit modules.
 The ABI-53 before-program and current after-program are kept separately under
 `docs/evidence/release-0.9/python-abi53-before.py` and
 `docs/examples/python/ergonomics.py`. Historical qualification above applies
-to its recorded source. The current candidate needs its own integrated evidence;
-no publication or licensed Nuke execution is claimed by these source changes.
+to its recorded source. The [five-task comparison](release-0.9-workflow-comparison.md) records caller
+costs and preserved checks. Revised integrated qualification is recorded
+separately; no publication or licensed Nuke execution is claimed.

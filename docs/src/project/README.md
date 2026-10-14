@@ -39,6 +39,8 @@ Use these pages when the implementation itself is relevant:
   consumer migration status.
 - {doc}`../../api-workflow-0.9-design` describes the remaining workflow
   simplification and its preserved contracts.
+- {doc}`../../release-0.9-workflow-comparison` compares the five complete
+  tasks with the qualified initial 0.9 candidate.
 - {doc}`../../release-0.9-ergonomics-measurements` records installed Python
   scan and input costs against the published 0.8 wheel.
 
@@ -85,6 +87,7 @@ When a change touches an area that maps to an external standard, consult the sta
 /api-ergonomics-audit
 /api-workflow-0.9-design
 /release-0.9-ergonomics-measurements
+/release-0.9-workflow-comparison
 releases
 decisions
 ```
