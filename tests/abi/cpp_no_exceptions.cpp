@@ -1,6 +1,7 @@
 // Builds with exceptions disabled and handles every failure through Result.
 
 #include <postproject/postproject.hpp>
+#include "relink_contract.hpp"
 
 #include <cstddef>
 #include <cstdio>
@@ -174,6 +175,7 @@ int main(int argc, char **argv) {
           postproject::RepresentationAvailability::online) {
     return 14;
   }
+  if (!relink_noop_contract(production, asset_id, imported_media->representation_id)) return 34;
   auto token_result = postproject::CancelToken::create();
   if (!token_result) return 14;
   auto token = *std::move(token_result);

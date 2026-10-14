@@ -1,4 +1,5 @@
 #include <postproject/postproject.hpp>
+#include "relink_contract.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -159,7 +160,8 @@ int main(int argc, char **argv) {
                                      std::nullopt},
          std::string("Import fixture")}).value();
 
-    const auto asset_id = transaction.importMedia(media_path, "C++ asset").value().asset_id;
+    const auto imported_media = transaction.importMedia(media_path, "C++ asset").value();
+    const auto asset_id = imported_media.asset_id;
     const postproject::ObjectRef asset_ref = postproject::ObjectRef::asset(asset_id);
     const postproject::HostObjectBinding host_binding{created_id, asset_ref};
     const auto host_binding_text = host_binding.toString().value();
@@ -173,6 +175,7 @@ int main(int argc, char **argv) {
     transaction.addExternalIdentifier(asset_ref, external_id).value();
     const auto root_id = transaction.addMediaRoot("fixtures", "Fixture media").value();
     transaction.commit().value();
+    relink_noop_contract(production, asset_id, imported_media.representation_id).value();
     const auto latest_revision = production.latestRevision().value();
     const auto revision_page = production.changesSince(0, 1).value();
     if (!latest_revision.has_value() || latest_revision->sequence != 1 ||
