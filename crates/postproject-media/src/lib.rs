@@ -14,6 +14,7 @@ mod inventory;
 mod outputs;
 mod path;
 mod recognition;
+mod relink;
 mod representation_fingerprint;
 mod resolution_budget;
 mod resolver;
@@ -55,6 +56,7 @@ pub use recognition::{
     MediaRecognizer, PRIMARY_ESSENCE_ROLE, RecognizedMedia, RecognizedMember, SIDECAR_ROLE,
     SPAN_PART_ROLE, prepare_recognized_original_media,
 };
+pub use relink::stage_relink;
 pub use representation_fingerprint::{
     REPRESENTATION_FINGERPRINT_ALGORITHM, REPRESENTATION_FINGERPRINT_VERSION,
     fingerprint_representation,
