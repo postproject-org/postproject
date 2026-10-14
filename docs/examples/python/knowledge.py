@@ -122,7 +122,9 @@ def add_editorial_metadata(
 
 def describe(value: MetadataInput) -> str:
     match value:
-        case str() | bool() | int() | bytes() | Fraction():
+        case str(text):
+            return text
+        case bool() | int() | bytes() | Fraction():
             return repr(value)
         case MetadataUri(text):
             return text

@@ -49,8 +49,9 @@ installed scans, metadata staging and resolution with the published wheel.
 Python keeps ordinary UUID runtime values with distinct static ID hints.
 Generic targets retain explicit `AssetRef`/`RepresentationRef` kinds: a UUID
 cannot recover a `NewType` tag at runtime. Native metadata inputs pass through
-one checked conversion. Typed property/value classes remain necessary for
-lossless reads and ambiguous domain meanings, rather than compatibility.
+one checked conversion. Ordinary reads use Python scalars, `Fraction` and tuples. Explicit tags
+remain for unsigned, URI, language, timestamp, decimal and reference meanings;
+ordered structures retain repeated fields.
 Unknown vocabularies, nested/repeated fields and all explicit kinds remain.
 
 Python scans check the caller-owned view on every advance, even with buffered
@@ -95,3 +96,17 @@ and downstream CI passed all 11, including full Ardour builds. The
 The local site has reviewed desktop/mobile light/dark previews. Packages remain
 unpublished; authorized docs/site deployment passed. Licensed Nuke is not executed and
 integration guides document installation and support.
+
+## Revised development workflows
+
+ABI 57 returns both imported identities, carries verified relink choices with
+their coherent base, and stages produced media with its actual activity and
+parameters. Native edit attribution is supplied at creation. Standard Python
+metadata reads remove six redundant wrappers; optional worker/exchange values
+are discoverable in explicit modules.
+
+The ABI-53 before-program and current after-program are kept separately under
+`docs/evidence/release-0.9/python-abi53-before.py` and
+`docs/examples/python/ergonomics.py`. Historical qualification above applies
+to its recorded source. The current candidate needs its own integrated evidence;
+no publication or licensed Nuke execution is claimed by these source changes.

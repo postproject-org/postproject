@@ -8,11 +8,8 @@ from pathlib import Path
 from postproject import (
     ActivitySpec,
     AssetRef,
-    EvidenceKind,
     Production,
     RepresentationKind,
-    ResourceResolutionState,
-    ResourceResolvedExact,
     ToolIdentity,
     VerificationMode,
     file_locator,
@@ -58,33 +55,15 @@ def exercise(work: Path) -> None:
                 search_directories=[moved.parent],
                 verification=VerificationMode.CONTENT,
             )
-            base = view.decision_base
-        # The view is closed before host/UI work. Never choose among ambiguity.
-        selected = next(
-            r for r in resolutions if r.representation_id == known.representation_id
-        )
-        resource = next(
-            r for r in selected.resources if r.resource_id == known.resource_id
-        )
-        if resource.state is not ResourceResolutionState.RESOLVED_EXACT:
-            raise ValueError("Relink needs a verified choice for the selected resource")
-        assert isinstance(resource.outcome, ResourceResolvedExact)
-        candidate = resource.outcome.candidate
-        evidence = {e.kind for e in (*resource.evidence, *candidate.evidence)}
-        if (
-            EvidenceKind.SEARCH_TRUNCATED in evidence
-            or EvidenceKind.FULL_HASH_MATCH not in evidence
-        ):
-            raise ValueError(
-                "This file recipe needs complete search and full verification"
+            selected = next(
+                item
+                for item in resolutions
+                if item.representation_id == known.representation_id
             )
-        with production.edit(base, message="Confirm moved take") as edit:
-            edit.confirm_locator(
-                resource.resource_id,
-                candidate.uri,
-                media_root=candidate.media_root,
-                sequence_naming=candidate.sequence_naming,
-            )
+            selection = selected.select_verified()
+        # The copied decision survives the view; host/UI work can happen here.
+        with production.edit(base=selection.base, message="Confirm moved take") as edit:
+            edit.confirm_selection(selection)
             relink_receipt = edit.commit()
         assert relink_receipt.revision is not None
         # [/ergonomic-resolve]
