@@ -14,7 +14,6 @@ from postproject import (
     JobState,
     LocatorIdentity,
     MetadataProperty,
-    MetadataString,
     NotFoundError,
     Production,
     RepresentationKind,
@@ -38,7 +37,7 @@ def exercise(path: Path, media: Path) -> None:
                 edit.add_metadata(
                     AssetRef(asset),
                     MetadataProperty("https://example.com/editorial", "title"),
-                    MetadataString("Camera"),
+                    ("Camera"),
                 )
                 receipt = edit.commit()
             assert receipt.revision is not None and receipt.revision.sequence == 1
@@ -77,7 +76,7 @@ def exercise(path: Path, media: Path) -> None:
             representation = view.representation(page.items[0].id)
             title = MetadataProperty("https://example.com/editorial", "title")
             metadata = view.metadata(AssetRef(asset))
-            assert metadata[0].value == MetadataString("Camera")
+            assert metadata[0].value == ("Camera")
             assert view.metadata_by_property(title) == metadata
             assert view.query_metadata(title, limit=10).items == metadata
             assert (

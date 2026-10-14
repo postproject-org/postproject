@@ -21,7 +21,7 @@ def worker(root: Path, name: str) -> None:
         with proposal(
             source,
             pp.ClientId(uuid4()),
-            [pp.AppendMetadataCommand(target, PROPERTY, pp.MetadataString(name))],
+            [pp.AppendMetadataCommand(target, PROPERTY, (name))],
         ) as prepared:
             print("ready", flush=True)
             assert sys.stdin.readline() == "submit\n"
@@ -45,7 +45,7 @@ def race(root: Path) -> None:
         with proposal(
             source,
             client,
-            [pp.AppendMetadataCommand(target, PROPERTY, pp.MetadataString("seed"))],
+            [pp.AppendMetadataCommand(target, PROPERTY, ("seed"))],
         ) as seed:
             submit(source, seed)
         stale = proposal(source, client, [pp.RemoveMetadataCommand(target, PROPERTY)])
@@ -104,9 +104,7 @@ def race(root: Path) -> None:
             item.value for item in source.metadata[target] if item.property == PROPERTY
         ]
         assert len(values) == 3
-        assert set(values) == {
-            pp.MetadataString(name) for name in ("seed", "left", "right")
-        }
+        assert set(values) == {(name) for name in ("seed", "left", "right")}
         for name in ("left", "right"):
             saved = json.loads((root / f"race-{name}.json").read_text())
             with pp.Proposal.parse(saved["proposal"].encode()) as prepared:

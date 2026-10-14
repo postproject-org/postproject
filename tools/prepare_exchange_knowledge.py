@@ -112,9 +112,7 @@ def run(root: Path) -> None:
         stale = proposal(source, client, [pp.RemoveMetadataCommand(target, property)])
         with stale:
             with source.edit() as native:
-                native.add_metadata(
-                    target, property, pp.MetadataString("native suffix")
-                )
+                native.add_metadata(target, property, ("native suffix"))
                 native.commit()
             rejected = source.submit_proposal(stale).outcome
             assert isinstance(rejected.status, pp.ConflictError)
@@ -145,11 +143,11 @@ def run(root: Path) -> None:
             source,
             client,
             [
-                pp.AppendMetadataCommand(target, transient, pp.MetadataString("old")),
+                pp.AppendMetadataCommand(target, transient, ("old")),
                 pp.ReplaceMetadataCommand(
                     target,
                     transient,
-                    [pp.MetadataU64(2**64 - 1), pp.MetadataString("new 同")],
+                    [pp.MetadataU64(2**64 - 1), ("new 同")],
                 ),
                 pp.RemoveMetadataCommand(target, transient),
             ],

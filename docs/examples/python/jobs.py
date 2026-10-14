@@ -29,7 +29,6 @@ from postproject import (
     JobState,
     MetadataAssertion,
     MetadataProperty,
-    MetadataString,
     PendingJobLease,
     Production,
     RegenerationJobPlan,
@@ -65,7 +64,7 @@ def request_proxy(
     # The job and its typed parameters commit together.
     with production.edit() as transaction:
         job_id = transaction.request_job(request)
-        transaction.add_metadata(JobRef(job_id), PROFILE, MetadataString("proxy-720p"))
+        transaction.add_metadata(JobRef(job_id), PROFILE, ("proxy-720p"))
         transaction.commit()
 
     page = production.jobs(
@@ -221,7 +220,7 @@ def main() -> None:
             transaction.add_media_root("proxies", "Proxy volume")
             transaction.commit()
         source_id = production.representations[asset_id][0].id
-        parameter = MetadataString("proxy-720p")
+        parameter = "proxy-720p"
 
         job_id = request_proxy(production, source_id, asset_id)
         job = job_by_id(production, job_id)

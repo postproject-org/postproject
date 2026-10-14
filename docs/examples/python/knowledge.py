@@ -20,17 +20,11 @@ from postproject import (
     ExternalIdentifier,
     Fingerprint,
     MetadataAssertion,
-    MetadataBool,
-    MetadataBytes,
     MetadataDecimal,
-    MetadataI64,
     MetadataInput,
     MetadataLanguageString,
-    MetadataList,
     MetadataProperty,
-    MetadataRational,
     MetadataReference,
-    MetadataString,
     MetadataStruct,
     MetadataStructField,
     MetadataTimestamp,
@@ -111,7 +105,7 @@ def add_editorial_metadata(
         "script": MetadataUri("https://example.com/scripts/ep1"),
         "thumbnail": b"\x89PNG",
         "frame-rate": Fraction(24_000, 1_001),
-        "keywords": MetadataList(("interview", "exterior")),
+        "keywords": (("interview", "exterior")),
         "lens": MetadataStruct(
             (
                 MetadataStructField("model", "Example 35mm"),
@@ -130,23 +124,17 @@ def describe(value: MetadataInput) -> str:
     match value:
         case str() | bool() | int() | bytes() | Fraction():
             return repr(value)
-        case MetadataString(text) | MetadataUri(text):
+        case MetadataUri(text):
             return text
         case MetadataLanguageString(text, language):
             return f"{text} @{language}"
-        case MetadataI64(number) | MetadataU64(number):
+        case MetadataU64(number):
             return str(number)
         case MetadataDecimal(coefficient, scale):
             return f"{coefficient}e-{scale}"
-        case MetadataBool(flag):
-            return "yes" if flag else "no"
         case MetadataTimestamp(unix_micros):
             return f"{unix_micros} µs since the Unix epoch"
-        case MetadataBytes(data):
-            return data.hex()
-        case MetadataRational(numerator, denominator):
-            return f"{numerator}/{denominator}"
-        case MetadataList(items):
+        case tuple(items) | list(items):
             return "[" + ", ".join(describe(item) for item in items) + "]"
         case MetadataStruct(fields):
             return (
@@ -168,9 +156,7 @@ def find_approved(production: Production) -> list[ObjectReference]:
     cursor = None
     while True:
         # Pass the same property, value, and limit with each cursor.
-        page = production.query_metadata(
-            approved, limit=1, cursor=cursor, value=MetadataBool(True)
-        )
+        page = production.query_metadata(approved, limit=1, cursor=cursor, value=(True))
         targets.extend(assertion.target for assertion in page.items)
         cursor = page.next_cursor
         if cursor is None:
@@ -229,13 +215,13 @@ def main() -> None:
         }
         assert len(stored) == 13
         assert stored["gain-db"] == MetadataDecimal(-125, 1)
-        assert stored["frame-rate"] == MetadataRational(24_000, 1_001)
+        assert stored["frame-rate"] == Fraction(24_000, 1_001)
         assert stored["selected-take"] == MetadataReference(
             RepresentationRef(original_id)
         )
         assert stored["lens"] == MetadataStruct(
             (
-                MetadataStructField("model", MetadataString("Example 35mm")),
+                MetadataStructField("model", ("Example 35mm")),
                 MetadataStructField("focal-length-mm", MetadataU64(35)),
             )
         )
@@ -243,13 +229,9 @@ def main() -> None:
 
         approved = MetadataProperty(EDITORIAL, "approved")
         with production.edit() as transaction:
-            transaction.add_metadata(
-                RepresentationRef(original_id), approved, MetadataBool(True)
-            )
+            transaction.add_metadata(RepresentationRef(original_id), approved, (True))
             transaction.commit()
-        first_page = production.query_metadata(
-            approved, limit=1, value=MetadataBool(True)
-        )
+        first_page = production.query_metadata(approved, limit=1, value=(True))
         assert first_page.next_cursor is not None
         assert set(find_approved(production)) == {
             AssetRef(asset_id),
@@ -264,7 +246,7 @@ def main() -> None:
             for assertion in production.metadata[AssetRef(asset_id)]
         )
         assert (
-            MetadataAssertion(AssetRef(asset_id), approved, MetadataBool(True))
+            MetadataAssertion(AssetRef(asset_id), approved, (True))
             in (production.metadata[AssetRef(asset_id)])
         )
 

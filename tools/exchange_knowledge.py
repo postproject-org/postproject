@@ -53,19 +53,17 @@ def exact_metadata(target: pp.ObjectReference) -> pp.MetadataValue:
         (
             pp.MetadataStructField(
                 "ordered",
-                pp.MetadataList(
-                    (pp.MetadataString("同 😀"), pp.MetadataString("同 😀"))
-                ),
+                ((("同 😀"), ("同 😀"))),
             ),
             pp.MetadataStructField("integer", pp.MetadataU64(2**64 - 1)),
             pp.MetadataStructField("decimal", pp.MetadataDecimal(-(2**127), 3)),
-            pp.MetadataStructField("ratio", pp.MetadataRational(-(2**63), 2**64 - 1)),
-            pp.MetadataStructField("opaque", pp.MetadataBytes(b"\0\xff")),
-            pp.MetadataStructField("signed", pp.MetadataI64(-(2**63))),
+            pp.MetadataStructField("ratio", Fraction(-(2**63), 2**64 - 1)),
+            pp.MetadataStructField("opaque", (b"\0\xff")),
+            pp.MetadataStructField("signed", (-(2**63))),
             pp.MetadataStructField(
                 "language", pp.MetadataLanguageString("同", "x-Exact")
             ),
-            pp.MetadataStructField("boolean", pp.MetadataBool(True)),
+            pp.MetadataStructField("boolean", (True)),
             pp.MetadataStructField("time", pp.MetadataTimestamp(-(2**63))),
             pp.MetadataStructField("uri", pp.MetadataUri("unknown:Exact%2fCase")),
             pp.MetadataStructField("reference", pp.MetadataReference(target)),
