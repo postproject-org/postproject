@@ -64,7 +64,7 @@ Rust is the implementation language, but downstream applications do not need to 
 The supported integration surfaces are:
 
 - **C ABI** for the stable native boundary;
-- **C++17** wrapper API;
+- **C++** wrapper API;
 - **Python** bindings built over the C ABI;
 - **CLI** for inspection, scripting, testing, and operational workflows.
 
@@ -121,7 +121,7 @@ The integrator documentation covers installation, C/C++/Python quickstarts, owne
 
 ## Build and test the repository
 
-Rust 1.85 or newer is required for the current source tree. For contributors, the normal workspace build and test commands are:
+Use a Rust toolchain supported by [Cargo.toml](Cargo.toml). For contributors, the normal workspace build and test commands are:
 
 ```sh
 cargo build --workspace
@@ -132,7 +132,7 @@ The repository is split into domain, media/filesystem, SQLite persistence, FFI, 
 
 ## Build the documentation site
 
-The documentation site combines hand-written guides with generated native API reference. Python 3.12 or newer, the packages in `docs/requirements.txt`, and Doxygen are required for the current documentation build:
+The documentation site combines hand-written guides with generated native API reference. Build it with Python, Doxygen, and the packages in `docs/requirements.txt`:
 
 ```sh
 mkdir -p target/doxygen
@@ -146,10 +146,8 @@ Use <https://docs.postproject.org> for the published documentation.
 
 ## Project status and compatibility
 
-This source targets **0.9.0-alpha.1** (Python **0.9.0a1**, C ABI **57**,
-SQLite schema **27**). Read the [qualification report](docs/release-0.9-abi57-report.md)
-and [migration guide](docs/src/integrators/api-migration-0.9.md). Until the tag is
-published, build from source or use matching prepared packages.
+See the [release records](docs/src/project/releases.md) for qualification
+reports and migration notes.
 
 PostProject is alpha software. Most APIs are experimental. Consumers should
 pin an exact release or commit and check the [ABI policy](docs/abi-policy.md)
