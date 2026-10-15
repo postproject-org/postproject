@@ -210,6 +210,45 @@ jobs:
                                   "url": "https://docs.postproject.org/0.8.0-alpha.1/"})
           path.write_text(json.dumps(versions, indent=2) + "\n")
           PY
+      - name: Find the 0.9 release tag
+        id: release_0_9
+        shell: bash
+        run: |
+          if git ls-remote --exit-code --tags origin refs/tags/v0.9.0-alpha.1 >/dev/null; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v7
+        if: steps.release_0_9.outputs.available == 'true'
+        with:
+          ref: v0.9.0-alpha.1
+          path: target/released-docs-source-0.9-alpha1
+      - name: Build 0.9.0-alpha.1 release documentation from its tag
+        if: steps.release_0_9.outputs.available == 'true'
+        working-directory: target/released-docs-source-0.9-alpha1
+        run: |
+          mkdir -p target/doxygen
+          doxygen Doxyfile
+          python "$GITHUB_WORKSPACE/tools/normalize_doxygen_xml.py" target/doxygen/xml
+          python tools/check_docs_coverage.py include/postproject/postproject.h target/doxygen/xml
+          sphinx-build --fail-on-warning --keep-going -b html docs "$GITHUB_WORKSPACE/target/site/0.9.0-alpha.1"
+          cmake -E copy_directory "$GITHUB_WORKSPACE/target/site/0.9.0-alpha.1" "$GITHUB_WORKSPACE/target/site/latest"
+      - name: Add the published 0.9 version to the selector
+        if: steps.release_0_9.outputs.available == 'true'
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          path = Path("target/site/versions.json")
+          versions = json.loads(path.read_text())
+          versions[0]["title"] = "Latest · 0.9.0-alpha.1 (ABI 57)"
+          if not any(v["version"] == "0.9.0-alpha.1" for v in versions):
+              versions.insert(1, {"version": "0.9.0-alpha.1",
+                                  "title": "0.9.0-alpha.1 (ABI 57)",
+                                  "url": "https://docs.postproject.org/0.9.0-alpha.1/"})
+          path.write_text(json.dumps(versions, indent=2) + "\n")
+          PY
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v4
         with:
