@@ -146,6 +146,11 @@ Use <https://docs.postproject.org> for the published documentation.
 
 ## Project status and compatibility
 
+This source targets **0.9.0-alpha.1** (Python **0.9.0a1**, C ABI **57**,
+SQLite schema **27**). Read the [qualification report](docs/release-0.9-abi57-report.md)
+and [migration guide](docs/src/integrators/api-migration-0.9.md). Until the tag is
+published, build from source or use matching prepared packages.
+
 PostProject is alpha software. Most APIs are experimental. Consumers should
 pin an exact release or commit and check the [ABI policy](docs/abi-policy.md)
 before depending on a particular interface.

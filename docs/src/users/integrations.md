@@ -1,10 +1,11 @@
 # Try an integration or demonstration
 
 These are maintained experimental pilots. Use matching SDK and integration
-versions, and read the linked installation guide before starting. The 0.9 SDK
-and corresponding packages are prepared development sources, not published
-downloads. Current Linux host evidence is automated; interactive human
-acceptance and upstream endorsement are not claimed.
+versions, and read the linked installation guide before starting. The
+0.9.0-alpha.1 SDK uses Python 0.9.0a1, ABI 57 and schema 27. Before its tag is
+published, build matching SDK packages from source. Integration packages have
+their own distribution status below. Current Linux host evidence is automated;
+interactive human acceptance and upstream endorsement are not claimed.
 
 | Application or demo | Useful first task | Evaluation route and current scope |
 |---|---|---|

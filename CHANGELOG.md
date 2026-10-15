@@ -3,16 +3,15 @@
 All notable changes to PostProject will be documented here. The project uses
 [Semantic Versioning](https://semver.org/) once a stable API is released.
 
-## Unreleased
+## 0.9.0-alpha.1 - 2026-10-15
+
+C ABI 57, schema 27; Python `0.9.0a1`. See the
+[0.9 migration guide](https://docs.postproject.org/src/integrators/api-migration-0.9.html) before upgrading.
 
 - Move advanced Python worker and exchange values into explicit modules.
-
 - Carry verified relink locations with their coherent decision and stage them together.
-
 - Stage produced media, its actual activity and typed parameters together.
-
 - Create additive, retained-view and detached edits with origin and message.
-
 - Return imported asset and original representation identities together; C ABI 54 (ADR 0079).
 - Register completed Manager outputs without synthetic jobs; retain guarded preflight completion (ADR 0078).
 - Consolidate Python/C++ known-media lookup around native paths or explicit evidence (ADR 0077).

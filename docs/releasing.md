@@ -6,6 +6,37 @@ version from `Cargo.toml`, the corresponding PEP 440 version from
 `postproject-storage-sqlite::CURRENT_SCHEMA_VERSION`, and ABI version from
 `postproject-ffi::ABI_VERSION`.
 
+## 0.9.0-alpha.1 preparation
+
+The candidate is **0.9.0-alpha.1**, Python **0.9.0a1**, C ABI **57**
+(344 exports, 45 layouts), SQLite schema **27**, exchange framing **1** and
+CLI JSON **1**. The [qualification report](release-0.9-abi57-report.md) records
+the passing SDK, downstream and real-host checks and their exact source scope.
+Release preparation changes documentation and its deployment workflow; it does
+not change the qualified runtime implementation.
+
+All thirteen maintained repositories have matching release documentation.
+Python consumers accept `postproject>=0.9.0a1,<0.10`; C++ consumers require
+PostProject 0.9. Manager **0.6.0**, OTIO demo **0.4.0** and Blender extension
+**0.3.0** retain their own versions. The SDK tag does not publish those packages.
+Prepared workstation archives retain their recorded snapshots and checksums;
+the tag workflow creates the release's platform packages from the tagged source.
+
+Push each prepared consumer/site `main` branch, then SDK `main`. Check every
+individual required CI job before tagging that SDK commit. From the SDK checkout:
+
+```sh
+git tag -s v0.9.0-alpha.1 <qualified-commit> -m "PostProject 0.9.0-alpha.1"
+git tag -v v0.9.0-alpha.1
+git push origin refs/tags/v0.9.0-alpha.1
+```
+
+Inspect every **Release** and **Publish documentation** job afterwards. Verify
+the prerelease's assets and `.sha256` files, and the `0.9.0-alpha.1/`, `latest/`
+and version-selector documentation. Until the tag exists, `latest` remains 0.8.
+
+## Checklist
+
 Before tagging a release:
 
 1. Date the release heading in `CHANGELOG.md` and confirm every public ABI

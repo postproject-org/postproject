@@ -2,7 +2,7 @@
 
 Prepared `0.9.0-alpha.1`, Python `0.9.0a1`, C ABI **57 / 344 exports /
 45 layouts**, schema **27**, exchange framing **1** and CLI JSON **1**.
-This revised candidate is unpublished. The original
+This report records the candidate’s pre-publication qualification. The original
 {doc}`ABI-53 report <release-0.9-report>` and nineteen-artifact set retain
 their historical scope. All required integrated checks pass for the source and scope below.
 
@@ -97,6 +97,8 @@ render fixtures. Licensed Nuke execution and a second independent real worker
 remain unexecuted. Stable host support does not imply other-host compatibility,
 timeline conversion, media transfer, editable replicas or upstream endorsement.
 
-Docs/site deployment is authorized and recorded separately from previews.
-The unchanged `f823e7f` landing scenarios preserve the existing theme. Tags,
-registry publication and outreach have not been authorized or performed.
+At this qualification checkpoint, the deployed landing source was `f823e7f`;
+preview and deployment evidence retain their recorded revisions. Prepared review
+archives are separate from tag-built release assets. The {doc}`release checklist
+<releasing>` describes tagging, GitHub publication and versioned documentation;
+registry publication is not part of that workflow.

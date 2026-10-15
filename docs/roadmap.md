@@ -118,14 +118,15 @@ the implementation. Installed package checks and both maintained handoffs pass;
 the [qualification report](release-0.8-report.md) records platform/build status
 and limits. No new stable API family is named.
 
-## Release 0.9 — API ergonomics, in development
+## Release 0.9 — API ergonomics, prepared for tagging
 
-The cross-language redesign and all 13 consumer migrations are implemented.
-Lazy retained-view scans, direct file inputs, native Python metadata inputs,
-atomic resolution configuration and one receipt-returning commit reduce caller
-setup while preserving domain and ownership contracts. The
-[development qualification](release-0.9-report.md) records completed local
-checks, unpublished packages and remaining platform/full-Ardour CI boundaries.
+The cross-language redesign and all maintained consumer migrations are
+implemented for `0.9.0-alpha.1` (Python `0.9.0a1`, C ABI 57, schema 27). Retained-view scans,
+direct file inputs, native Python metadata, atomic output registration and
+verified relink confirmation reduce setup while preserving ownership contracts.
+The [qualification report](release-0.9-abi57-report.md) records passing platform,
+full native-host and cross-application checks, prepared packages and scoped limits.
+Tagging and GitHub publication are separate from that qualification.
 The [migration guide](src/integrators/api-migration-0.9.md) shows tested
 before/after Python code and recipes for every public surface.
 
