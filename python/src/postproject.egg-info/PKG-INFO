@@ -37,7 +37,9 @@ the loader path.
 
 The package is pre-1.0 and tracks the current PostProject ABI without backward
 compatibility guarantees: it refuses a native library that reports a C ABI
-version other than the one it was built for (development ABI 57).
+version other than the one it was built for: **ABI 57** for **0.9.0a1**
+(native package **0.9.0-alpha.1**, schema **27**). Before the GitHub tag is
+published, build matching packages from source.
 
 IDs are ordinary `uuid.UUID` values annotated with nominal hints such as
 `AssetId` and `RepresentationId`. `parse_id(text, AssetId)` checks UUID syntax;
@@ -61,7 +63,8 @@ with Production.create("production.pproj", "Documentary") as production:
         origin=OriginIdentity("com.example.importer"),
         message="Import camera original",
     ) as transaction:
-        asset_id = transaction.import_media(media, display_name="Camera A")
+        imported = transaction.import_media(media, display_name="Camera A")
+        asset_id = imported.asset_id
         transaction.commit()
 
     assert production.asset_exists(asset_id)
